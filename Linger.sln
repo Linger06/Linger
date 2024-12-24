@@ -1,0 +1,42 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35605.110
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{089100B1-113F-4E66-888A-E83F3999EAFD}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		build.cake = build.cake
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{827E0CD3-B72D-47B6-A68D-7590B98EB39B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linger", "src\Linger\Linger.csproj", "{A07C744A-1F5C-107F-D0AA-FD53AEC7C798}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05-4346-4AA6-1389-037BE0695223}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linger.UnitTests", "tests\Linger.UnitTests\Linger.UnitTests.csproj", "{74358696-51CD-3C35-C352-0F889F747093}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A07C744A-1F5C-107F-D0AA-FD53AEC7C798}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A07C744A-1F5C-107F-D0AA-FD53AEC7C798}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A07C744A-1F5C-107F-D0AA-FD53AEC7C798}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A07C744A-1F5C-107F-D0AA-FD53AEC7C798}.Release|Any CPU.Build.0 = Release|Any CPU
+		{74358696-51CD-3C35-C352-0F889F747093}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{74358696-51CD-3C35-C352-0F889F747093}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{74358696-51CD-3C35-C352-0F889F747093}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{74358696-51CD-3C35-C352-0F889F747093}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A07C744A-1F5C-107F-D0AA-FD53AEC7C798} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{74358696-51CD-3C35-C352-0F889F747093} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+	EndGlobalSection
+EndGlobal

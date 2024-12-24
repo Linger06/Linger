@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src\Linger\Linger.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests\Linger.UnitTests\Linger.UnitTests.csproj" />
+  </Folder>
+</Solution>
