@@ -33,6 +33,7 @@ public class PathExtensionsTest()
 
     public static IEnumerable<object[]> PathData2 = new List<object[]>
     {
+        new object[] { "Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test"),null },
         new object[] { "Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test"),"" },
         new object[] { @".\Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") ,""},
         new object[] { "./Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") ,""},
@@ -41,21 +42,24 @@ public class PathExtensionsTest()
         new object[] { @"C:\Path\Test", @"C:\Path\Test" ,""},
         new object[] { "../Test", @"C:\Path\Test",@"C:\Path\Test" },
         new object[] { "../Test", @"C:\Path\Test\Test",@"C:\Path\Test\XXX" },
+        new object[] { "../", @"C:\Path\Test",@"C:\Path\Test\XXX" },
+        new object[] { "/", @"C:\Path\Test\Test",@"C:\Path\Test\XXX" },
+        new object[] { "", @"C:\Path",@"C:\Path" },
     };
 
     [Theory]
     [MemberData(nameof(PathData2))]
-    public void GetAbsolutePathTest(string path1, string path2, string path3)
+    public void GetAbsolutePathTest(string value, string expectedPath, string? basePath)
     {
-        if (path3.IsNotNullAndEmpty())
+        if (basePath.IsNotNullAndEmpty())
         {
-            var result = path1.GetAbsolutePath(path3);
-            Assert.Equal(result.ToLower(), path2.ToLower());
+            var result = value.GetAbsolutePath(basePath);
+            Assert.Equal(result.ToLower(), expectedPath.ToLower());
         }
         else
         {
-            var result = path1.GetAbsolutePath();
-            Assert.Equal(result.ToLower(), path2.ToLower());
+            var result = value.GetAbsolutePath();
+            Assert.Equal(result.ToLower(), expectedPath.ToLower());
         }
     }
 

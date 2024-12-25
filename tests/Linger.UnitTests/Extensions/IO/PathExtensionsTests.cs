@@ -54,6 +54,22 @@ public class PathExtensionsTests
     }
 
     [Fact]
+    public void GetAbsolutePath_ShouldReturnExpected_WhenBasePahtIsNotAbsolute()
+    {
+        var path = @"..\Test";
+        var basePath = @"..\Projects";
+        Assert.Throws<ArgumentException>(() => path.GetAbsolutePath(basePath));
+    }
+
+    [Fact]
+    public void GetAbsolutePath_ShouldReturnExpected_WhenPahtIsNull()
+    {
+        string? path = null;
+        var basePath = @"..\Projects";
+        Assert.Throws<ArgumentNullException>(() => path.GetAbsolutePath(basePath));
+    }
+
+    [Fact]
     public void IsAbsolutePath_ShouldReturnTrue_WhenPathIsAbsolute()
     {
         var path = @"C:\Test";
@@ -78,6 +94,18 @@ public class PathExtensionsTests
     {
         var sourcePath = @"C:\Projects\Test\File.txt";
         var folder = @"C:\Projects";
+        var expected = @"Test\File.txt";
+
+        var result = sourcePath.RelativeTo(folder);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void RelativeTo_ShouldReturnRelativePath_WhenFolderIsNotAbsolute()
+    {
+        var sourcePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test", "File.txt");
+        var folder = "/";
         var expected = @"Test\File.txt";
 
         var result = sourcePath.RelativeTo(folder);

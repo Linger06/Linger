@@ -38,6 +38,14 @@ public class JsonExtensionsTests
     }
 
     [Fact]
+    public void SerializeJson_ReturnStringEmpty_WhenValueIsNull()
+    {
+        Person? nullPerson = null;
+        var json = nullPerson.SerializeJson(Encoding.UTF8);
+        Assert.Empty(json);
+    }
+
+    [Fact]
     public void Serialize_WithOptions_ShouldSerialize()
     {
         var options = new JsonSerializerOptions { WriteIndented = true };

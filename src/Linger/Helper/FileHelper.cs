@@ -307,7 +307,7 @@ public static partial class FileHelper
             if (!containPath && containExtension)
                 return file.GetFileNameString();
             if (!containPath && !containExtension)
-                return file.GetFileNameNoExtensionString();
+                return file.GetFileNameWithoutExtensionString();
             return file;
         }).ToList();
     }

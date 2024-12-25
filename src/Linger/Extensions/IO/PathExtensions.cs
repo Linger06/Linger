@@ -70,14 +70,14 @@ public static class PathExtensions
     {
         path.EnsureIsNotNull();
 
-        if (path.IsAbsolutePath())
+        if (Path.IsPathRooted(path))
         {
             return Path.GetFullPath(path);
         }
 
         basePath ??= Environment.CurrentDirectory;
 
-        if (!basePath.IsAbsolutePath())
+        if (!Path.IsPathRooted(basePath))
         {
             throw new ArgumentException("Base path must be an absolute path.", nameof(basePath));
         }
@@ -102,7 +102,6 @@ public static class PathExtensions
     /// </example>
     public static bool IsAbsolutePath(this string path)
     {
-        path.EnsureStringIsNotNullAndEmpty();
         return Path.IsPathRooted(path);
     }
 
@@ -128,7 +127,7 @@ public static class PathExtensions
 
         var pathUri = new Uri(sourcePath);
 
-        if (!folder.IsAbsolutePath())
+        if (!Path.IsPathRooted(folder))
         {
             folder = folder.GetAbsolutePath();
         }

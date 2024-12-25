@@ -189,35 +189,32 @@ public static partial class FileInfoExtensions
     /// </example>
     public static void Delete(this FileInfo[] files, bool consolidateExceptions = true)
     {
-        if (consolidateExceptions)
+        var exceptions = new List<System.Exception>();
+        foreach (FileInfo file in files)
         {
-            var exceptions = new List<System.Exception>();
-
-            foreach (FileInfo file in files)
-            {
-                try
-                {
-                    file.Delete();
-                }
-                catch (System.Exception e)
-                {
-                    exceptions.Add(e);
-                }
-            }
-
-            if (exceptions.Count != 0)
-            {
-                throw new AggregateException(
-                    "Error while deleting one or several files, see InnerExceptions array for details.",
-                    exceptions);
-            }
-        }
-        else
-        {
-            foreach (FileInfo file in files)
+            try
             {
                 file.Delete();
             }
+            catch (System.Exception e)
+            {
+                if (consolidateExceptions)
+                {
+                    exceptions ??= [];
+                    exceptions.Add(e);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        if (exceptions is { Count: > 0 })
+        {
+            throw new AggregateException(
+                "Error while deleting one or several files, see InnerExceptions array for details.",
+                exceptions);
         }
     }
 
@@ -269,7 +266,7 @@ public static partial class FileInfoExtensions
             {
                 if (consolidateExceptions)
                 {
-                    exceptions ??= new List<System.Exception>();
+                    exceptions ??= [];
                     exceptions.Add(e);
                 }
                 else
@@ -336,7 +333,7 @@ public static partial class FileInfoExtensions
             {
                 if (consolidateExceptions)
                 {
-                    exceptions ??= new List<System.Exception>();
+                    exceptions ??= [];
                     exceptions.Add(e);
                 }
                 else

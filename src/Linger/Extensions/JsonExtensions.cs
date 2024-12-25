@@ -58,7 +58,7 @@ public static class JsonExtensions
     /// Serializes an object to a JSON string.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The object to serialize.</param>
+    /// <param name="value">The object to serialize.</param>
     /// <returns>A JSON string representation of the object.</returns>
     /// <example>
     /// <code>
@@ -67,16 +67,16 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
-    public static string SerializeJson<T>(this T @this)
+    public static string SerializeJson<T>(this T value)
     {
-        return @this.SerializeJson(Encoding.Default);
+        return value.SerializeJson(Encoding.Default);
     }
 
     /// <summary>
     /// Serializes an object to a JSON string using the specified encoding.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The object to serialize.</param>
+    /// <param name="value">The object to serialize.</param>
     /// <param name="encoding">The encoding to use.</param>
     /// <returns>A JSON string representation of the object.</returns>
     /// <example>
@@ -86,16 +86,16 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
-    public static string SerializeJson<T>(this T @this, Encoding encoding)
+    public static string SerializeJson<T>(this T value, Encoding encoding)
     {
-        if (@this == null)
+        if (value == null)
         {
             return string.Empty;
         }
 
         var serializer = new DataContractJsonSerializer(typeof(T));
         using var memoryStream = new MemoryStream();
-        serializer.WriteObject(memoryStream, @this);
+        serializer.WriteObject(memoryStream, value);
         return encoding.GetString(memoryStream.ToArray());
     }
 
@@ -103,7 +103,7 @@ public static class JsonExtensions
     /// Serializes an object to a JSON string using the specified JsonSerializerOptions.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The object to serialize.</param>
+    /// <param name="value">The object to serialize.</param>
     /// <param name="jsonSerializerOptions">The options to use for serialization.</param>
     /// <returns>A JSON string representation of the object.</returns>
     /// <example>
@@ -113,16 +113,16 @@ public static class JsonExtensions
     /// // json: "{\n  \"Name\": \"John\",\n  \"Age\": 30\n}"
     /// </code>
     /// </example>
-    public static string? Serialize<T>(this T @this, JsonSerializerOptions? jsonSerializerOptions = null)
+    public static string? Serialize<T>(this T value, JsonSerializerOptions? jsonSerializerOptions = null)
     {
-        return @this?.ToJsonString(jsonSerializerOptions);
+        return value?.ToJsonString(jsonSerializerOptions);
     }
 
     /// <summary>
     /// Deserializes a JSON string to an object of type T.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The JSON string to deserialize.</param>
+    /// <param name="value">The JSON string to deserialize.</param>
     /// <returns>The deserialized object.</returns>
     /// <example>
     /// <code>
@@ -131,11 +131,11 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    public static T? DeserializeJson<T>(this string @this)
+    public static T? DeserializeJson<T>(this string value)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
 
-        using var stream = new MemoryStream(Encoding.Default.GetBytes(@this));
+        using var stream = new MemoryStream(Encoding.Default.GetBytes(value));
         return (T?)serializer.ReadObject(stream);
     }
 
@@ -143,7 +143,7 @@ public static class JsonExtensions
     /// Deserializes a JSON string to an object of type T using the specified encoding.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The JSON string to deserialize.</param>
+    /// <param name="value">The JSON string to deserialize.</param>
     /// <param name="encoding">The encoding to use.</param>
     /// <returns>The deserialized object.</returns>
     /// <example>
@@ -153,11 +153,11 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    public static T? DeserializeJson<T>(this string @this, Encoding encoding)
+    public static T? DeserializeJson<T>(this string value, Encoding encoding)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
 
-        using var stream = new MemoryStream(encoding.GetBytes(@this));
+        using var stream = new MemoryStream(encoding.GetBytes(value));
         return (T?)serializer.ReadObject(stream);
     }
 
@@ -165,7 +165,7 @@ public static class JsonExtensions
     /// Deserializes a JSON string to an object of type T using the specified JsonSerializerOptions.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The JSON string to deserialize.</param>
+    /// <param name="value">The JSON string to deserialize.</param>
     /// <param name="jsonSerializerOptions">The options to use for deserialization.</param>
     /// <returns>The deserialized object.</returns>
     /// <example>
@@ -175,9 +175,9 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    public static T? Deserialize<T>(this string @this, JsonSerializerOptions? jsonSerializerOptions = null)
+    public static T? Deserialize<T>(this string value, JsonSerializerOptions? jsonSerializerOptions = null)
     {
-        return JsonSerializer.Deserialize<T>(@this, jsonSerializerOptions);
+        return JsonSerializer.Deserialize<T>(value, jsonSerializerOptions);
     }
 
     /// <summary>

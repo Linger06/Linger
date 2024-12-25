@@ -104,7 +104,7 @@ public class FileInfoExtensions2Tests
         var filePath = @"C:\Temp\test.txt";
         var expectedFileName = "test";
 
-        Assert.Equal(expectedFileName, filePath.GetFileNameNoExtension());
+        Assert.Equal(expectedFileName, filePath.GetFileNameWithoutExtension());
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public class FileInfoExtensions2Tests
         var filePath = @"C:\Temp\test.txt";
         var expectedFileName = "test";
 
-        Assert.Equal(expectedFileName, filePath.GetFileNameNoExtensionString());
+        Assert.Equal(expectedFileName, filePath.GetFileNameWithoutExtensionString());
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class FileInfoExtensions2Tests
         var filePath = @"C:\Temp\test.txt";
         var expectedExtension = "txt";
 
-        Assert.Equal(expectedExtension, filePath.GetExtensionNotDotString());
+        Assert.Equal(expectedExtension, filePath.GetExtensionWithoutDotString());
     }
 
     [Fact]
@@ -211,7 +211,7 @@ public class FileInfoExtensions2Tests
         var fileInfo = new FileInfo(@"C:\Temp\test.txt");
         var expectedFileName = "test";
 
-        Assert.Equal(expectedFileName, fileInfo.GetFileNameNoExtension());
+        Assert.Equal(expectedFileName, fileInfo.GetFileNameWithoutExtension());
     }
 
     [Fact]

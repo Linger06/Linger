@@ -240,8 +240,9 @@ public class FileInfoExtensionsTests : IDisposable
         FileInfo[]? files = new[] { new FileInfo(file1Path), new FileInfo(file2Path), new FileInfo(file3Path) };
         using var steam = new FileInfo(file3Path).Open(FileMode.Open, FileAccess.Read, FileShare.None);
         var exception = Assert.Throws<AggregateException>(() => files.Delete(true));
-        steam.Close();
         Assert.Single(exception.InnerExceptions);
+        var exception2 = Assert.Throws<IOException>(() => files.Delete(false));
+        steam.Close();
     }
 
     [Fact]
@@ -274,6 +275,8 @@ public class FileInfoExtensionsTests : IDisposable
 
         var exception = Assert.Throws<AggregateException>(() => files.CopyTo(targetPath, true));
         Assert.Single(exception.InnerExceptions);
+
+        var exception2 = Assert.Throws<IOException>(() => files.CopyTo(targetPath, false));
     }
 
     [Fact]
@@ -309,5 +312,7 @@ public class FileInfoExtensionsTests : IDisposable
 
         var exception = Assert.Throws<AggregateException>(() => files.MoveTo(targetPath, true));
         Assert.Single(exception.InnerExceptions);
+
+        var exception2 = Assert.Throws<FileNotFoundException>(() => files.MoveTo(targetPath, false));
     }
 }

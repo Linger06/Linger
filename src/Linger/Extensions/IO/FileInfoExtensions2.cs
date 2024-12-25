@@ -235,10 +235,10 @@ public static partial class FileInfoExtensions
     /// string fileName = filePath.GetFileNameNoExtension();
     /// </code>
     /// </example>
-    public static string GetFileNameNoExtension(this string filePath)
+    public static string GetFileNameWithoutExtension(this string filePath)
     {
         var fi = new FileInfo(filePath);
-        return fi.GetFileNameNoExtension();
+        return fi.GetFileNameWithoutExtension();
     }
 
     /// <summary>
@@ -252,12 +252,9 @@ public static partial class FileInfoExtensions
     /// string fileName = filePath.GetFileNameNoExtensionString();
     /// </code>
     /// </example>
-    public static string GetFileNameNoExtensionString(this string filePath)
+    public static string GetFileNameWithoutExtensionString(this string filePath)
     {
-        var fileNameNoExtension = filePath.Substring(filePath.LastIndexOf('\\') + 1,
-            filePath.LastIndexOf('.') - filePath.LastIndexOf('\\') - 1);
-
-        return fileNameNoExtension;
+        return Path.GetFileNameWithoutExtension(filePath);
     }
 
     /// <summary>
@@ -271,7 +268,7 @@ public static partial class FileInfoExtensions
     /// string fileName = fileInfo.GetFileNameNoExtension();
     /// </code>
     /// </example>
-    public static string GetFileNameNoExtension(this FileInfo fileInfo)
+    public static string GetFileNameWithoutExtension(this FileInfo fileInfo)
     {
         return fileInfo.Name.Replace(fileInfo.Extension, string.Empty);
     }
@@ -289,8 +286,7 @@ public static partial class FileInfoExtensions
     /// </example>
     public static string GetFileNameString(this string filePath)
     {
-        var fileName = filePath.Substring(filePath.LastIndexOf('\\') + 1, filePath.Length - 1 - filePath.LastIndexOf('\\'));
-        return fileName;
+        return Path.GetFileName(filePath);
     }
 
     /// <summary>
@@ -304,10 +300,9 @@ public static partial class FileInfoExtensions
     /// string filePath = fileFullPath.GetFilePathString();
     /// </code>
     /// </example>
-    public static string GetFilePathString(this string fileFullPath)
+    public static string? GetFilePathString(this string fileFullPath)
     {
-        var filePath = fileFullPath.Substring(0, fileFullPath.LastIndexOf('\\'));
-        return filePath;
+        return Path.GetDirectoryName(fileFullPath);
     }
 
     /// <summary>
@@ -372,10 +367,7 @@ public static partial class FileInfoExtensions
     /// </example>
     public static string GetExtensionString(this string filePath)
     {
-        var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf(".", StringComparison.Ordinal),
-                filePath.Length - filePath.LastIndexOf(".", StringComparison.Ordinal));
-        return strExtensionName;
+        return Path.GetExtension(filePath);
     }
 
     /// <summary>
@@ -389,12 +381,9 @@ public static partial class FileInfoExtensions
     /// string extension = filePath.GetExtensionNotDotString();
     /// </code>
     /// </example>
-    public static string GetExtensionNotDotString(this string filePath)
+    public static string GetExtensionWithoutDotString(this string filePath)
     {
-        var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf(".", StringComparison.Ordinal) + 1,
-                filePath.Length - filePath.LastIndexOf(".", StringComparison.Ordinal) - 1);
-        return strExtensionName;
+        return Path.GetExtension(filePath).Replace(".", string.Empty);
     }
 
     /// <summary>
