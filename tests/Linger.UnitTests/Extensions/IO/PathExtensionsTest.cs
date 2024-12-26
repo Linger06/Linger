@@ -33,35 +33,37 @@ public class PathExtensionsTest()
 
     public static IEnumerable<object[]> PathData2 = new List<object[]>
     {
-        new object[] { "Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test"),null },
-        new object[] { "Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test"),"" },
-        new object[] { @".\Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") ,""},
-        new object[] { "./Test", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") ,""},
-        new object[] { "../Test", Path.Combine(Path.GetFullPath(".."), "Test") ,""},
-        new object[] { @"..\Test", Path.Combine(Path.GetFullPath(".."), "Test") ,""},
-        new object[] { @"C:\Path\Test", @"C:\Path\Test" ,""},
-        new object[] { "../Test", @"C:\Path\Test",@"C:\Path\Test" },
-        new object[] { "../Test", @"C:\Path\Test\Test",@"C:\Path\Test\XXX" },
-        new object[] { "../", @"C:\Path\Test",@"C:\Path\Test\XXX" },
-        new object[] { "/", @"C:\Path\Test\Test",@"C:\Path\Test\XXX" },
-        new object[] { "", @"C:\Path",@"C:\Path" },
+        new object[] { "Test", null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
+        new object[] { "Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
+        new object[] { @".\Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
+        new object[] { "./Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
+        new object[] { "../Test", "", Path.Combine(Path.GetFullPath(".."), "Test") },
+        new object[] { @"..\Test", "", Path.Combine(Path.GetFullPath(".."), "Test") },
+        new object[] { @"C:\Path\Test", "", @"C:\Path\Test" },
+        new object[] { "../Test", @"C:\Path\Test", @"C:\Path\Test" },
+        new object[] { "../Test", @"C:\Path\Test\XXX", @"C:\Path\Test\Test" },
+        new object[] { "../", @"C:\Path\Test\XXX", @"C:\Path\Test" },
+        new object[] { "/", @"XXXX", @"C:\" },
+        new object[] { "/", "", @"C:\" },
+        new object[] { "", @"C:\Path", @"C:\Path" },
     };
 
     [Theory]
     [MemberData(nameof(PathData2))]
-    public void GetAbsolutePathTest(string value, string expectedPath, string? basePath)
+    public void GetAbsolutePathTest(string value, string? basePath, string expectedPath)
     {
         if (basePath.IsNotNullAndEmpty())
         {
             var result = value.GetAbsolutePath(basePath);
-            Assert.Equal(result.ToLower(), expectedPath.ToLower());
+            Assert.True(PathHelper.PathEquals(result, expectedPath));
         }
         else
         {
             var result = value.GetAbsolutePath();
-            Assert.Equal(result.ToLower(), expectedPath.ToLower());
+            Assert.True(PathHelper.PathEquals(result, expectedPath));
         }
     }
+
 
 #if NETSTANDARD2_1_OR_GREATER
         [Theory]

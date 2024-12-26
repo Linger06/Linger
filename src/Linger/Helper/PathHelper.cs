@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Security;
 using Linger.Extensions.Core;
 
@@ -10,6 +11,14 @@ public static class PathHelper
     {
         if (string.IsNullOrEmpty(path))
             return path;
+
+        // 处理长路径前缀
+        if (IsWindowsOperatingSystem() &&
+            !path.StartsWith(@"\\?\", StringComparison.Ordinal))
+        {
+            if (path.Length >= 260)
+                path = @"\\?\" + path;
+        }
 
         // 处理网络路径和特殊前缀
         if (path.StartsWith("""\\""", StringComparison.Ordinal)
@@ -147,5 +156,61 @@ public static class PathHelper
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// Determines whether two paths are equivalent.
+    /// </summary>
+    public static bool PathEquals(string path1, string path2)
+    {
+        if (path1 == null || path2 == null)
+            return path1 == path2;
+
+        try
+        {
+            // 标准化两个路径
+            string normalizedPath1 = PathHelper.NormalizePath(path1);
+            string normalizedPath2 = PathHelper.NormalizePath(path2);
+
+            // 获取完整路径
+            string fullPath1 = Path.GetFullPath(normalizedPath1);
+            string fullPath2 = Path.GetFullPath(normalizedPath2);
+
+            // 检查操作系统类型
+            bool isWindows = IsWindowsOperatingSystem();
+
+            // 在 Windows 上忽略大小写，在其他平台上区分大小写
+            return isWindows
+                ? string.Equals(fullPath1, fullPath2, StringComparison.OrdinalIgnoreCase)
+                : string.Equals(fullPath1, fullPath2, StringComparison.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            if (ex is ArgumentException || ex is SecurityException ||
+                ex is NotSupportedException || ex is PathTooLongException)
+            {
+                // 如果无法解析路径，则进行简单的字符串比较
+                bool isWindows = IsWindowsOperatingSystem();
+                return isWindows
+                    ? string.Equals(path1, path2, StringComparison.OrdinalIgnoreCase)
+                    : string.Equals(path1, path2, StringComparison.Ordinal);
+            }
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Determines whether the current operating system is Windows.
+    /// </summary>
+    private static bool IsWindowsOperatingSystem()
+    {
+#if NETFRAMEWORK
+        // .NET Framework 4.0 方式
+        OperatingSystem os = Environment.OSVersion;
+        return os.Platform == PlatformID.Win32NT;
+#else
+        // 更新的 .NET 版本使用 RuntimeInformation
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+#endif
     }
 }
