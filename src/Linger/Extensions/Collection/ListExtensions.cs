@@ -1,6 +1,4 @@
-﻿using Linger.Extensions.Core;
-
-namespace Linger.Extensions.Collection;
+﻿namespace Linger.Extensions.Collection;
 
 /// <summary>
 /// Provides extension methods for <see cref="List{T}"/>.

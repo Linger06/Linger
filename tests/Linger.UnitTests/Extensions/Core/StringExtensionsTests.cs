@@ -433,4 +433,35 @@ public class StringExtensionsTests
         var result = value.IsGuid(format);
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData(null, false)]        // null string should return false
+    [InlineData("", true)]           // empty string should return true
+    [InlineData("   ", true)]        // whitespace string should return true
+    [InlineData(" \t\n\r", true)]   // various whitespace characters should return true
+    [InlineData("abc", false)]       // non-whitespace string should return false
+    [InlineData(" abc ", false)]     // string with whitespace and non-whitespace should return false
+    [InlineData("\u0020", true)]     // space character should return true
+    [InlineData("\u0009", true)]     // tab character should return true
+    public void IsWhiteSpace_ShouldReturnExpectedResult(string? input, bool expected)
+    {
+        // Act
+        var result = input.IsWhiteSpace();
+
+        // Assert
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void IsWhiteSpace_WithAllWhitespaceCharacters_ReturnsTrue()
+    {
+        // Arrange
+        var allWhitespace = new string(new[] { ' ', '\t', '\n', '\r', '\f', '\v' });
+
+        // Act
+        var result = allWhitespace.IsWhiteSpace();
+
+        // Assert
+        Assert.True(result);
+    }
 }

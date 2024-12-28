@@ -1,6 +1,5 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
-
 #if NET5_0_OR_GREATER
 
 using Linger.Extensions.Core;
@@ -142,7 +141,7 @@ public static class IQueryableExtensions
 
         Expression<Func<T, object>> KeySelectorFunc(string propertyName)
         {
-            propertyName.EnsureStringIsNotNullAndEmpty(message: "The parameter cannot be null or empty");
+            propertyName.EnsureIsNotNullAndEmpty(message: "The parameter cannot be null or empty");
             MemberExpression property = Expression.Property(param, propertyName);
             UnaryExpression converted = Expression.Convert(property, typeof(object));
             return Expression.Lambda<Func<T, object>>(converted, param);

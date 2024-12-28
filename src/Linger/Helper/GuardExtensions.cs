@@ -40,12 +40,20 @@ public static class GuardExtensions
     /// // Output: Throws ArgumentException
     /// </code>
     /// </example>
-    public static void EnsureStringIsNotNullAndEmpty(this string? value, string? message = null, string? paramName = null)
+    public static void EnsureIsNotNullAndEmpty([NotNull] this string? value, string? message = null, string? paramName = null)
     {
         EnsureIsNotNull(value, paramName);
         if (value.IsEmpty())
             throw new ArgumentException(message ?? "Value cannot be an empty string", paramName);
     }
+
+    public static void EnsureIsNotNullAndWhiteSpace([NotNull] this string? value, string? message = null, string? paramName = null)
+    {
+        EnsureIsNotNull(value, paramName);
+        if (value.IsWhiteSpace())
+            throw new ArgumentException(message ?? "Value cannot be an white space", paramName);
+    }
+
 
     /// <summary>
     /// Ensures that the specified value is null.

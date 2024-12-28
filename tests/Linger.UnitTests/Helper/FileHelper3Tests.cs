@@ -17,19 +17,6 @@ public class FileHelper3Tests
     }
 
     [Fact]
-    public void DeleteFolderFiles_DeletesCommonFiles()
-    {
-        var destDirPath = "destDir1";
-        Directory.CreateDirectory(destDirPath);
-        File.WriteAllText(Path.Combine(destDirPath, "testFile.txt"), _testContent, _encoding);
-
-        FileHelper.DeleteFolderFiles(_testDirPath, destDirPath);
-        Assert.False(File.Exists(Path.Combine(destDirPath, "testFile.txt")));
-
-        Directory.Delete(destDirPath, true);
-    }
-
-    [Fact]
     public void GetFileName_ReturnsCorrectFileName()
     {
         var fileName = FileHelper.GetFileName(_testFilePath);
@@ -97,25 +84,7 @@ public class FileHelper3Tests
         File.Delete(newFilePath);
     }
 
-    [Fact]
-    public void DeleteFolderFiles_DeletesCommonFilesInSecondDirectory()
-    {
-        var dir1 = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        var dir2 = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
-        Directory.CreateDirectory(dir1);
-        Directory.CreateDirectory(dir2);
-        var file1 = Path.Combine(dir1, "commonFile.txt");
-        var file2 = Path.Combine(dir2, "commonFile.txt");
-        File.WriteAllText(file1, "content");
-        File.WriteAllText(file2, "content");
 
-        FileHelper.DeleteFolderFiles(dir1, dir2);
-
-        Assert.False(File.Exists(file2));
-
-        Directory.Delete(dir1, true);
-        Directory.Delete(dir2, true);
-    }
 
     [Fact]
     public void GetFileName_ReturnsFileNameWithExtension()

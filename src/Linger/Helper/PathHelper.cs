@@ -7,18 +7,11 @@ namespace Linger.Helper;
 
 public static class PathHelper
 {
-    public static string NormalizePath(string path)
+    [return: NotNullIfNotNull(nameof(path))]
+    public static string? NormalizePath(string? path)
     {
-        if (string.IsNullOrEmpty(path))
+        if (path.IsNullOrWhiteSpace())
             return path;
-
-        // 处理长路径前缀
-        if (IsWindowsOperatingSystem() &&
-            !path.StartsWith(@"\\?\", StringComparison.Ordinal))
-        {
-            if (path.Length >= 260)
-                path = @"\\?\" + path;
-        }
 
         // 处理网络路径和特殊前缀
         if (path.StartsWith("""\\""", StringComparison.Ordinal)
@@ -43,7 +36,7 @@ public static class PathHelper
             }
 
             // 对于特殊格式路径，使用 Uri
-            if (path.Contains("file://") || path.Contains("://"))
+            if (path.Contains("file://"))
             {
                 var pathUri = new Uri(path).LocalPath;
                 if (string.IsNullOrEmpty(pathUri))
@@ -69,23 +62,11 @@ public static class PathHelper
 
     public static string NormalizePathEndingDirectorySeparator(string directory)
     {
-        if (string.IsNullOrEmpty(directory))
+        if (directory.IsNullOrWhiteSpace())
             return directory;
-        try
-        {
-            string normalizedPath = NormalizePath(directory);
 
-            if (!normalizedPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal))
-            {
-                return normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            }
-
-            return normalizedPath;
-        }
-        catch (Exception ex) when (ex is ArgumentException || ex is SecurityException)
-        {
-            return directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        }
+        var normalizedPath = NormalizePath(directory);
+        return normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
     }
 
     public static bool IsFile([NotNull] string path)
@@ -98,23 +79,23 @@ public static class PathHelper
 
         try
         {
-            // 获取完整路径，处理相对路径情况
+            // 获取完整路径并规范化
             string fullPath = Path.GetFullPath(path);
 
-            // 优先检查文件是否存在
-            if (!File.Exists(fullPath))
+            // 检查特殊字符（包括Windows保留名称）
+            if (ContainsInvalidPathChars(fullPath))
                 return false;
 
-            // 获取文件属性并检查是否为目录
-            FileAttributes attrs = File.GetAttributes(fullPath);
-            return !attrs.HasFlag(FileAttributes.Directory);
+            // 使用 FileInfo 可以一次性获取所有需要的信息
+            var fileInfo = new FileInfo(fullPath);
+            return fileInfo.Exists && !fileInfo.Attributes.HasFlag(FileAttributes.Directory);
         }
         catch (Exception ex) when (
-            ex is SecurityException ||     // 没有访问权限
-            ex is IOException ||           // IO 错误
-            ex is NotSupportedException || // 路径格式无效
-            ex is PathTooLongException ||  // 路径太长
-            ex is ArgumentException)       // 路径包含无效字符
+            ex is SecurityException ||
+            ex is IOException ||
+            ex is NotSupportedException ||
+            ex is PathTooLongException ||
+            ex is ArgumentException)
         {
             return false;
         }
@@ -125,37 +106,98 @@ public static class PathHelper
         if (path == null)
             throw new ArgumentNullException(nameof(path));
 
-        if (path.IsNullOrWhiteSpace())
+        if (path.IsWhiteSpace())
             return false;
 
         try
         {
-            // 获取完整路径，处理相对路径情况
+            // 获取完整路径并规范化
             string fullPath = Path.GetFullPath(path);
 
-            // 检查路径是否存在
-            if (Directory.Exists(fullPath))
-                return true;
-
-            // 如果是文件则直接返回 false
-            if (File.Exists(fullPath))
+            // 检查特殊字符（包括Windows保留名称）
+            if (ContainsInvalidPathChars(fullPath))
                 return false;
 
-            // 对于不存在的路径，通过以下方式判断：
-            // 1. 检查是否有扩展名
-            // 2. 检查路径末尾是否有目录分隔符
-            return string.IsNullOrEmpty(Path.GetExtension(fullPath)) ||
-                   fullPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) ||
-                   fullPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal);
+            // 使用 DirectoryInfo 可以一次性获取所有需要的信息
+            var dirInfo = new DirectoryInfo(fullPath);
+            if (dirInfo.Exists)
+                return true;
+
+            // 如果不存在，进行额外的启发式检查
+            bool hasDirectorySeparatorAtEnd = fullPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) ||
+                                            fullPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal);
+
+            // 如果存在同名文件，则不是目录
+            if (!hasDirectorySeparatorAtEnd && File.Exists(fullPath))
+                return false;
+
+            // 目录通常没有扩展名
+            return hasDirectorySeparatorAtEnd || string.IsNullOrEmpty(Path.GetExtension(fullPath));
         }
         catch (Exception ex) when (
-            ex is SecurityException ||    // 没有访问权限
-            ex is NotSupportedException || // 路径格式无效
-            ex is PathTooLongException || // 路径太长
-            ex is ArgumentException)      // 路径包含无效字符
+            ex is SecurityException ||
+            ex is NotSupportedException ||
+            ex is PathTooLongException ||
+            ex is ArgumentException)
         {
             return false;
         }
+    }
+
+    /// <summary>
+    /// 检查路径中是否包含非法字符
+    /// </summary>
+    private static bool ContainsInvalidPathChars(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+
+        // 系统定义的非法字符
+        if (path.IndexOfAny(Path.GetInvalidPathChars()) != -1)
+            return true;
+
+        bool isWindows = IsWindowsOperatingSystem();
+        if (isWindows)
+        {
+            // Windows 特定的检查
+            // 检查Windows保留字符
+            if (path.IndexOfAny(new[] { '*', '?', '"', '<', '>', '|' }) != -1)
+                return true;
+
+            // 检查Windows保留名称
+            string[] windowsReservedNames = {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
+
+            // 检查每个路径段
+            var segments = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+                StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var segment in segments)
+            {
+                string upperSegment = segment.ToUpperInvariant();
+                if (windowsReservedNames.Any(name =>
+                    upperSegment.Equals(name, StringComparison.Ordinal) ||
+                    upperSegment.StartsWith(name + ".", StringComparison.Ordinal)))
+                {
+                    return true;
+                }
+            }
+        }
+        else
+        {
+            // Unix/Linux 特定的检查
+            if (path.Contains('\0')) // 空字符在Unix系统中不允许
+                return true;
+
+            // Unix系统中文件名不能为 "." 或 ".."
+            var fileName = Path.GetFileName(path);
+            if (fileName == "." || fileName == "..")
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>
@@ -169,8 +211,8 @@ public static class PathHelper
         try
         {
             // 标准化两个路径
-            string normalizedPath1 = PathHelper.NormalizePath(path1);
-            string normalizedPath2 = PathHelper.NormalizePath(path2);
+            var normalizedPath1 = NormalizePath(path1);
+            var normalizedPath2 = NormalizePath(path2);
 
             // 获取完整路径
             string fullPath1 = Path.GetFullPath(normalizedPath1);
@@ -212,5 +254,21 @@ public static class PathHelper
         // 更新的 .NET 版本使用 RuntimeInformation
         return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 #endif
+    }
+
+    public static string? GetParentDirectory(string? path, int levels)
+    {
+        path.EnsureIsNotNullAndWhiteSpace();
+
+        levels = Math.Abs(levels);
+        if (levels == 0) return path;
+
+        var info = Directory.GetParent(path);
+        if (info == null) return path;
+        path = info.FullName;
+
+        --levels;
+
+        return levels >= 1 ? GetParentDirectory(path, levels) : path;
     }
 }

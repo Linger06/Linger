@@ -4,7 +4,7 @@
 // their usage to support developers using this library with nullable-reference-type-warnings enabled.
 namespace System.Diagnostics.CodeAnalysis
 {
-    [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Parameter)]
     internal sealed class MaybeNullWhenAttribute(bool returnValue) : Attribute
     {
         public bool ReturnValue { get; } = returnValue;
@@ -19,7 +19,7 @@ namespace System.Diagnostics.CodeAnalysis
     /// <summary>
     /// Required for reference nullability annotations.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Parameter, Inherited = false)]
+    [AttributeUsage(AttributeTargets.Parameter)]
     internal sealed class NotNullWhenAttribute : Attribute
     {
         /// <summary>
@@ -41,5 +41,19 @@ namespace System.Diagnostics.CodeAnalysis
     AttributeTargets.Delegate | AttributeTargets.Field | AttributeTargets.Event |
     AttributeTargets.Class | AttributeTargets.Interface | AttributeTargets.GenericParameter)]
     internal sealed class NotNullAttribute : Attribute { }
+
+    /// <summary>Specifies that the output will be non-null if the named parameter is non-null.</summary>
+    [AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Property | AttributeTargets.ReturnValue, AllowMultiple = true)]
+    internal sealed class NotNullIfNotNullAttribute : Attribute
+    {
+        /// <summary>Initializes the attribute with the associated parameter name.</summary>
+        /// <param name="parameterName">
+        /// The associated parameter name.  The output will be non-null if the argument to the parameter specified is non-null.
+        /// </param>
+        public NotNullIfNotNullAttribute(string parameterName) => ParameterName = parameterName;
+
+        /// <summary>Gets the associated parameter name.</summary>
+        public string ParameterName { get; }
+    }
 }
 #endif

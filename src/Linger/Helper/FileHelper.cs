@@ -4,7 +4,7 @@ using Linger.Extensions.IO;
 
 namespace Linger.Helper;
 
-public static partial class FileHelper
+public static class FileHelper
 {
     #region File Existence & Information
 
@@ -15,13 +15,13 @@ public static partial class FileHelper
 
     public static long GetFileSize(string filePath)
     {
-        GuardExtensions.EnsureFileExist(filePath);
+        filePath.EnsureFileExist();
         return new FileInfo(filePath).Length;
     }
 
     public static int GetLineCount(string filePath)
     {
-        GuardExtensions.EnsureFileExist(filePath);
+        filePath.EnsureFileExist();
 
         var count = 0;
         using (var reader = new StreamReader(filePath))
@@ -40,7 +40,7 @@ public static partial class FileHelper
 
     public static string ReadText(string filename, Encoding? encoding = null)
     {
-        GuardExtensions.EnsureFileExist(filename);
+        filename.EnsureFileExist();
 
         encoding ??= ExtensionMethodSetting.DefaultEncoding;
 
@@ -107,7 +107,7 @@ public static partial class FileHelper
 
     public static void MoveFile(string sourceFilePath, string destDirectoryPath)
     {
-        GuardExtensions.EnsureFileExist(sourceFilePath);
+        sourceFilePath.EnsureFileExist();
 
         var sourceFileName = Path.GetFileName(sourceFilePath);
         CreateDirectoryIfNotExists(destDirectoryPath);
@@ -117,7 +117,7 @@ public static partial class FileHelper
 
     public static void CopyFile(string originFile, string newFile)
     {
-        GuardExtensions.EnsureFileExist(originFile);
+        originFile.EnsureFileExist();
 
         var directory = Path.GetDirectoryName(newFile);
         if (!string.IsNullOrEmpty(directory))
@@ -293,7 +293,7 @@ public static partial class FileHelper
 
     public static List<string> GetFileNames(string directoryPath, bool containPath = true, bool containExtension = true)
     {
-        GuardExtensions.EnsureDirectoryExist(directoryPath);
+        directoryPath.EnsureDirectoryExist();
         var fileArray = Directory.GetFiles(directoryPath);
         var fileList = new List<string>(fileArray);
 
@@ -355,7 +355,7 @@ public static partial class FileHelper
 
     public static bool IsEmptyDirectory(string directory)
     {
-        GuardExtensions.EnsureDirectoryExist(directory);
+        directory.EnsureDirectoryExist();
         return !Directory.EnumerateFileSystemEntries(directory).Any();
     }
 
@@ -370,7 +370,7 @@ public static partial class FileHelper
         if (string.IsNullOrEmpty(destDirectory))
             throw new ArgumentNullException(nameof(destDirectory));
 
-        GuardExtensions.EnsureDirectoryExist(srcDirectory);
+        srcDirectory.EnsureDirectoryExist();
 
         // Ensure the destination path ends with a directory separator
         destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar)
@@ -401,36 +401,7 @@ public static partial class FileHelper
 
     #region Directory Operations
 
-    public static void DeleteFolderFiles(string srcDirectory, string destDirectory)
-    {
-        if (string.IsNullOrEmpty(srcDirectory))
-            throw new ArgumentNullException(nameof(srcDirectory));
-        if (string.IsNullOrEmpty(destDirectory))
-            throw new ArgumentNullException(nameof(destDirectory));
-
-        if (!Directory.Exists(srcDirectory))
-        {
-            return;
-        }
-
-        CreateDirectoryIfNotExists(destDirectory);
-
-        // Process subdirectories recursively
-        foreach (var directory in Directory.GetDirectories(srcDirectory))
-        {
-            var targetSubDir = Path.Combine(destDirectory,
-                Path.GetFileName(directory));
-            DeleteFolderFiles(directory, targetSubDir);
-        }
-
-        // Delete files in target directory
-        foreach (var file in Directory.GetFiles(srcDirectory))
-        {
-            var targetFile = Path.Combine(destDirectory,
-                Path.GetFileName(file));
-            DeleteFileIfExists(targetFile);
-        }
-    }
+ 
 
     public static void ClearDirectory(string directoryPath)
     {

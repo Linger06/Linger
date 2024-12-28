@@ -150,10 +150,8 @@ public static class GuidExtensions
             DateTimeOffset timestamp = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
             return timestamp;
         }
-        else
-        {
-            throw new NotSupportedException("This method is only supported for GUIDs with version 7.");
-        }
+
+        throw new NotSupportedException("This method is only supported for GUIDs with version 7.");
     }
 #endif
 }

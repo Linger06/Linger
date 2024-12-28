@@ -29,7 +29,7 @@ public class GuardExtensionsTests
         var str = "test";
 
         // Act & Assert
-        str.EnsureStringIsNotNullAndEmpty();
+        str.EnsureIsNotNullAndEmpty();
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class GuardExtensionsTests
         var str = "";
 
         // Act & Assert
-        ArgumentException? exception = Assert.Throws<ArgumentException>(() => str.EnsureStringIsNotNullAndEmpty());
+        ArgumentException? exception = Assert.Throws<ArgumentException>(() => str.EnsureIsNotNullAndEmpty());
         Assert.Equal("Value cannot be an empty string", exception.Message);
     }
 
@@ -50,7 +50,7 @@ public class GuardExtensionsTests
         string? str = null;
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => str.EnsureStringIsNotNullAndEmpty());
+        Assert.Throws<ArgumentNullException>(() => str.EnsureIsNotNullAndEmpty());
     }
 
     [Fact]

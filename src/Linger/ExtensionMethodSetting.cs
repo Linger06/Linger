@@ -1,6 +1,5 @@
 ﻿using System.Globalization;
 using System.Text;
-
 #if !NETFRAMEWORK || NET462_OR_GREATER
 
 using System.Text.Encodings.Web;

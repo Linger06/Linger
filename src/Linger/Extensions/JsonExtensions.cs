@@ -1,6 +1,5 @@
 ﻿#if !NETFRAMEWORK || NET462_OR_GREATER
 
-using System;
 using System.Dynamic;
 using System.Runtime.Serialization.Json;
 using System.Text;

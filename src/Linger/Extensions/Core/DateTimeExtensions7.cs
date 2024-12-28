@@ -84,19 +84,15 @@ public static partial class DateTimeExtensions
         {
             return firstWeekStartEndDay;
         }
-        else
-        {
-
 #if NET40
             var targetWeekStart = firstWeekStartEndDay.Item1.AddDays(7 * (weekNumber - 1));
             var targetWeekEnd = targetWeekStart.AddDays(7).AddMilliseconds(-1);
             return Tuple.Create(targetWeekStart, targetWeekEnd);
 #else
-            var targetWeekStart = firstWeekStartEndDay.Start.AddDays(7 * (weekNumber - 1));
-            var targetWeekEnd = targetWeekStart.AddDays(7).AddMilliseconds(-1);
-            return (targetWeekStart, targetWeekEnd);
+        var targetWeekStart = firstWeekStartEndDay.Start.AddDays(7 * (weekNumber - 1));
+        var targetWeekEnd = targetWeekStart.AddDays(7).AddMilliseconds(-1);
+        return (targetWeekStart, targetWeekEnd);
 #endif
-        }
     }
 
     /// <summary>

@@ -200,7 +200,6 @@ public static partial class FileInfoExtensions
             {
                 if (consolidateExceptions)
                 {
-                    exceptions ??= [];
                     exceptions.Add(e);
                 }
                 else

@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+
 namespace Linger.Extensions.Core;
 
 /// <summary>
