@@ -48,8 +48,8 @@ public static class ListExtensions
     /// </example>
     public static string ToSeparatedString(this List<string> list, string separator = ",", bool singleQuoted = true, bool notSpace = false)
     {
-        if (list == null) throw new ArgumentNullException(nameof(list));
-        if (separator == null) throw new ArgumentNullException(nameof(separator));
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(separator);
 
         string Format(string item)
         {

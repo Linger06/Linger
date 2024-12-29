@@ -40,7 +40,7 @@ public class GuardExtensionsTests
 
         // Act & Assert
         ArgumentException? exception = Assert.Throws<ArgumentException>(() => str.EnsureIsNotNullAndEmpty());
-        Assert.Equal("Value cannot be an empty string", exception.Message);
+        Assert.Equal("The value cannot be an empty string.", exception.Message);
     }
 
     [Fact]

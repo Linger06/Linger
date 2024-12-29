@@ -1,6 +1,5 @@
 ﻿using System.Reflection;
 using Linger.Extensions.Core;
-using Linger.Helper;
 #if !NETFRAMEWORK || NET462_OR_GREATER
 using Linger.JsonConverter;
 using System.Text.Json;
@@ -24,9 +23,9 @@ public static partial class DataTableExtensions
     public static DataTable TableRowTurnToColumn(this DataTable source, DataColumn[] groupColumns,
         DataColumn[] captionColumns, DataColumn valueColumn)
     {
-        source.EnsureIsNotNull();
-        groupColumns.EnsureIsNotNull();
-        captionColumns.EnsureIsNotNull();
+        ArgumentNullException.ThrowIfNull(source, nameof(source));
+        ArgumentNullException.ThrowIfNull(groupColumns, nameof(groupColumns));
+        ArgumentNullException.ThrowIfNull(captionColumns, nameof(captionColumns));
 
         var dt = new DataTable();
         foreach (DataColumn item in groupColumns)

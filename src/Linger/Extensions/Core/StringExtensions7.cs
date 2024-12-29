@@ -31,7 +31,7 @@ public static partial class StringExtensions
     /// <returns>The original string if not null, otherwise the result of the default function.</returns>
     public static string? ToStringOrNull(this string? value, Func<string?> defaultFunc) //=> value ?? defaultFunc?.Invoke();
     {
-        GuardExtensions.EnsureIsNotNull(defaultFunc, nameof(defaultFunc));
+        ArgumentNullException.ThrowIfNull(defaultFunc);
         return value ?? defaultFunc.Invoke();
     }
 
@@ -93,10 +93,8 @@ public static partial class StringExtensions
         {
             return result.Value;
         }
-        else
-        {
-            return defaultValueFunc != null ? defaultValueFunc.Invoke() : '\0';
-        }
+
+        return defaultValueFunc?.Invoke() ?? '\0';
     }
 
     #endregion

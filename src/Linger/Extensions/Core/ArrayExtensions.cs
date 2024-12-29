@@ -1,6 +1,4 @@
-﻿using Linger.Helper;
-
-namespace Linger.Extensions.Core;
+﻿namespace Linger.Extensions.Core;
 
 /// <summary>
 /// Provides extension methods for array manipulation.
@@ -22,7 +20,7 @@ public static partial class ArrayExtensions
     /// </example>
     public static void ForEach<T>(this T[] array, Action<T> action)
     {
-        action.EnsureIsNotNull(nameof(action));
+        ArgumentNullException.ThrowIfNull(action);
         Array.ForEach(array, action);
     }
 
@@ -41,7 +39,7 @@ public static partial class ArrayExtensions
     /// </example>
     public static void ForEach<T>(this T[] array, Action<T, int> action)
     {
-        action.EnsureIsNotNull(nameof(action));
+        ArgumentNullException.ThrowIfNull(action);
         for (var i = 0; i < array.Length; i++)
         {
             action(array[i], i);

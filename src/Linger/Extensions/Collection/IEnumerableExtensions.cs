@@ -24,8 +24,8 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (action == null) throw new ArgumentNullException(nameof(action));
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(action);
 
         foreach (T item in source)
         {
@@ -48,8 +48,8 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static void ForEach<T>(this IEnumerable<T> source, Action<T, int> action)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (action == null) throw new ArgumentNullException(nameof(action));
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(action);
 
         var index = 0;
         foreach (T item in source)
@@ -76,8 +76,8 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static bool HasAttribute(this IEnumerable<CustomAttributeData> customs, Type type)
     {
-        if (customs == null) throw new ArgumentNullException(nameof(customs));
-        if (type == null) throw new ArgumentNullException(nameof(type));
+        ArgumentNullException.ThrowIfNull(customs);
+        ArgumentNullException.ThrowIfNull(type);
 
         return customs.Any(a => a.AttributeType == type);
     }
@@ -133,7 +133,7 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static DataTable ToDataTable<T>(this IEnumerable<T> recordList, Action<DataColumn, ColumnInfo>? actionColumn = null, Action<DataRow, ColumnInfo, T>? actionRow = null) // where T : new()
     {
-        if (recordList == null) throw new ArgumentNullException(nameof(recordList));
+        ArgumentNullException.ThrowIfNull(recordList);
 
         Type type = typeof(T);
         List<ColumnInfo> columns = type.GetColumnsInfo();
@@ -236,7 +236,7 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static string ToSeparatedString<T>(this IEnumerable<T>? self, string separator = ",", Func<T, string>? format = null)
     {
-        if (separator == null) throw new ArgumentNullException(nameof(separator));
+        ArgumentNullException.ThrowIfNull(separator);
         if (self == null) return string.Empty;
 
         var formattedList = self.Select(item => format?.Invoke(item) ?? item?.ToString() ?? string.Empty);

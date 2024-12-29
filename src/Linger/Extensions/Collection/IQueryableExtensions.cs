@@ -124,7 +124,7 @@ public static class IQueryableExtensions
     public static IQueryable<T> CreateOrderBy<T>(this IQueryable<T> source,
         params KeyValuePair<string, bool>[] orderByPropertyList)
     {
-        orderByPropertyList.EnsureIsNotNull();
+        ArgumentNullException.ThrowIfNull(source, nameof(source));
 
         if (orderByPropertyList.Length == 0)
         {
@@ -141,7 +141,7 @@ public static class IQueryableExtensions
 
         Expression<Func<T, object>> KeySelectorFunc(string propertyName)
         {
-            propertyName.EnsureIsNotNullAndEmpty(message: "The parameter cannot be null or empty");
+            ArgumentNullException.ThrowIfNullOrEmpty(propertyName, nameof(propertyName));
             MemberExpression property = Expression.Property(param, propertyName);
             UnaryExpression converted = Expression.Convert(property, typeof(object));
             return Expression.Lambda<Func<T, object>>(converted, param);

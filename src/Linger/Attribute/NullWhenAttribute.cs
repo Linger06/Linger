@@ -55,5 +55,10 @@ namespace System.Diagnostics.CodeAnalysis
         /// <summary>Gets the associated parameter name.</summary>
         public string ParameterName { get; }
     }
+
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter, Inherited = false)]
+    public sealed class DisallowNullAttribute : Attribute { }
+    [AttributeUsage(AttributeTargets.Method, Inherited = false)]
+    public sealed class DoesNotReturnAttribute : Attribute { }
 }
 #endif

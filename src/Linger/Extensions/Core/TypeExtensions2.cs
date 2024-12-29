@@ -92,8 +92,8 @@ public static partial class TypeExtension
     /// </example>
     public static PropertyInfo GetPropertyInfo(this Type objType, string name)
     {
-        if (objType == null) throw new ArgumentNullException(nameof(objType));
-        if (name == null) throw new ArgumentNullException(nameof(name));
+        ArgumentNullException.ThrowIfNull(objType);
+        ArgumentNullException.ThrowIfNull(name);
 
         PropertyInfo? matchedProperty = objType.GetProperties().FirstOrDefault(p => p.Name == name);
         if (matchedProperty == null)

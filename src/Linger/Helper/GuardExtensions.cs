@@ -13,18 +13,9 @@ public static class GuardExtensions
     /// </summary>
     /// <param name="value">The value to check.</param>
     /// <param name="paramName">The name of the parameter.</param>
-    /// <param name="message">The message to include in the exception if the value is null.</param>
-    /// <example>
-    /// <code>
-    /// object obj = null;
-    /// obj.EnsureIsNotNull(nameof(obj), "Object cannot be null");
-    /// // Output: Throws ArgumentNullException
-    /// </code>
-    /// </example>
-    public static void EnsureIsNotNull([NotNull] this object? value, string? paramName = null, string? message = null)
+    public static void EnsureIsNotNull([NotNull] this object? value, string? paramName = null)
     {
-        if (value == null)
-            throw new ArgumentNullException(paramName ?? nameof(value), message);
+        ArgumentNullException.ThrowIfNull(value, paramName);
     }
 
     /// <summary>
@@ -40,18 +31,14 @@ public static class GuardExtensions
     /// // Output: Throws ArgumentException
     /// </code>
     /// </example>
-    public static void EnsureIsNotNullAndEmpty([NotNull] this string? value, string? message = null, string? paramName = null)
+    public static void EnsureIsNotNullAndEmpty([NotNull] this string? value, string? paramName = null)
     {
-        EnsureIsNotNull(value, paramName);
-        if (value.IsEmpty())
-            throw new ArgumentException(message ?? "Value cannot be an empty string", paramName);
+        ArgumentNullException.ThrowIfNullOrEmpty(value, paramName);
     }
 
-    public static void EnsureIsNotNullAndWhiteSpace([NotNull] this string? value, string? message = null, string? paramName = null)
+    public static void EnsureIsNotNullAndWhiteSpace([NotNull] this string? value, string? paramName = null)
     {
-        EnsureIsNotNull(value, paramName);
-        if (value.IsWhiteSpace())
-            throw new ArgumentException(message ?? "Value cannot be an white space", paramName);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(value, paramName);
     }
 
 

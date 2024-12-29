@@ -68,7 +68,7 @@ public static class PathExtensions
     /// </example>
     public static string GetAbsolutePath(this string path, string? basePath = null)
     {
-        path.EnsureIsNotNull();
+        ArgumentNullException.ThrowIfNull(path, nameof(path));
 
         if (Path.IsPathRooted(path))
         {

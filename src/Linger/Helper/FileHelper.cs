@@ -77,8 +77,7 @@ public static class FileHelper
     {
         if (string.IsNullOrEmpty(filePath))
             throw new ArgumentNullException(nameof(filePath));
-        if (encoding == null)
-            throw new ArgumentNullException(nameof(encoding));
+        ArgumentNullException.ThrowIfNull(encoding);
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
@@ -190,8 +189,7 @@ public static class FileHelper
     {
         if (string.IsNullOrEmpty(filePath))
             throw new ArgumentNullException(nameof(filePath));
-        if (buffer == null)
-            throw new ArgumentNullException(nameof(buffer));
+        ArgumentNullException.ThrowIfNull(buffer);
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))

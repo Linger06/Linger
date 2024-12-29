@@ -71,8 +71,7 @@ public static class PathHelper
 
     public static bool IsFile([NotNull] string path)
     {
-        if (path == null)
-            throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
 
         if (path.IsNullOrWhiteSpace())
             return false;
@@ -103,8 +102,7 @@ public static class PathHelper
 
     public static bool IsDirectory([NotNull] string path)
     {
-        if (path == null)
-            throw new ArgumentNullException(nameof(path));
+        ArgumentNullException.ThrowIfNull(path);
 
         if (path.IsWhiteSpace())
             return false;
