@@ -1,4 +1,6 @@
-﻿namespace Linger.Extensions.Core;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Linger.Extensions.Core;
 
 /// <summary>
 /// Provides extension methods for array manipulation.
@@ -37,7 +39,7 @@ public static partial class ArrayExtensions
     /// // Output: 0: 1 1: 2 2: 3
     /// </code>
     /// </example>
-    public static void ForEach<T>(this T[] array, Action<T, int> action)
+    public static void ForEach<T>(this T[] array, [NotNull] Action<T, int> action)
     {
         ArgumentNullException.ThrowIfNull(action);
         for (var i = 0; i < array.Length; i++)

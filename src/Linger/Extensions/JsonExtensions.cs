@@ -5,6 +5,8 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Linger.Extensions.Collection;
+using Linger.Extensions.Core;
 
 namespace Linger.Extensions;
 
@@ -197,166 +199,103 @@ public static class JsonExtensions
         return new JsonTextAccessor(JsonSerializer.Deserialize<JsonElement>(data));
     }
 
-    /// <summary>
-    /// Converts a JsonElement to a DataTable.
-    /// </summary>
-    /// <param name="dataRoot">The JsonElement to convert.</param>
-    /// <returns>A DataTable representation of the JsonElement.</returns>
-    /// <example>
-    /// <code>
-    /// var json = "[{\"Name\":\"John\",\"Age\":30},{\"Name\":\"Jane\",\"Age\":25}]";
-    /// var element = JsonSerializer.Deserialize&lt;JsonElement&gt;(json);
-    /// var dataTable = element.JsonElementToDataTable();
-    /// // dataTable: DataTable with columns "Name" and "Age"
-    /// </code>
-    /// </example>
     public static DataTable JsonElementToDataTable(this JsonElement dataRoot)
     {
         var dataTable = new DataTable();
-        var firstPass = true;
+        bool firstPass = true;
         foreach (JsonElement element in dataRoot.EnumerateArray())
         {
-            if (firstPass)
-            {
-                foreach (JsonProperty col in element.EnumerateObject())
-                {
-                    JsonElement colValue = col.Value;
-                    Type? type = colValue.ValueKind.ValueKindToType(colValue.ToString());
-                    //if (type != null)
-                    //{
-                    dataTable.Columns.Add(new DataColumn(col.Name, type!));
-                    //}
-                    //else
-                    //{
-                    //    dataTable.Columns.Add(new DataColumn(col.Name, typeof(DBNull)));
-                    //}
-                }
-
-                firstPass = false;
-            }
-
             DataRow row = dataTable.NewRow();
+            dataTable.Rows.Add(row);
             foreach (JsonProperty col in element.EnumerateObject())
             {
+                if (firstPass)
+                {
+                    JsonElement colValue = col.Value;
+                    dataTable.Columns.Add(new DataColumn(col.Name, colValue.ValueKind.ValueKindToType(colValue.ToString()!)));
+                }
                 row[col.Name] = col.Value.JsonElementToTypedValue();
             }
-
-            dataTable.Rows.Add(row);
+            firstPass = false;
         }
 
         return dataTable;
     }
 
-    /// <summary>
-    /// Converts a JsonElement to a DataSet.
-    /// </summary>
-    /// <param name="dataRoot">The JsonElement to convert.</param>
-    /// <returns>A DataSet representation of the JsonElement.</returns>
-    /// <example>
-    /// <code>
-    /// var json = "{\"Table1\":[{\"Name\":\"John\",\"Age\":30}],\"Table2\":[{\"Name\":\"Jane\",\"Age\":25}]}";
-    /// var element = JsonSerializer.Deserialize&lt;JsonElement&gt;(json);
-    /// var dataSet = element.JsonElementToDataSet();
-    /// // dataSet: DataSet with tables "Table1" and "Table2"
-    /// </code>
-    /// </example>
-    public static DataSet JsonElementToDataSet(this JsonElement dataRoot)
+    private static Type ValueKindToType(this JsonValueKind valueKind, string value)
     {
-        var dataSet = new DataSet();
-        foreach (JsonProperty item in dataRoot.EnumerateObject())
+        switch (valueKind)
         {
-            DataTable dataTable = item.Value.JsonElementToDataTable();
-            dataTable.TableName = item.Name;
-            dataSet.Tables.Add(dataTable);
+            case JsonValueKind.String:
+                return typeof(string);
+            case JsonValueKind.Number:
+                if (long.TryParse(value, out _))
+                {
+                    return typeof(long);
+                }
+                else
+                {
+                    return typeof(double);
+                }
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                return typeof(bool);
+            case JsonValueKind.Undefined:
+                throw new NotSupportedException();
+            case JsonValueKind.Object:
+                return typeof(object);
+            case JsonValueKind.Array:
+                return typeof(System.Array);
+            case JsonValueKind.Null:
+                throw new NotSupportedException();
+            default:
+                return typeof(object);
         }
-
-        return dataSet;
     }
 
-    /// <summary>
-    /// Converts a JsonValueKind to a .NET Type.
-    /// </summary>
-    /// <param name="valueKind">The JsonValueKind to convert.</param>
-    /// <param name="value">The value to use for conversion.</param>
-    /// <returns>The corresponding .NET Type.</returns>
-    /// <example>
-    /// <code>
-    /// var type = JsonValueKind.String.ValueKindToType("example");
-    /// // type: typeof(string)
-    /// </code>
-    /// </example>
-    private static Type? ValueKindToType(this JsonValueKind valueKind, string value)
-    {
-        return valueKind switch
-        {
-            JsonValueKind.String => typeof(string),
-            JsonValueKind.Number => long.TryParse(value, out _) ? typeof(long) : typeof(double),
-            JsonValueKind.True or JsonValueKind.False => typeof(bool),
-            JsonValueKind.Undefined => null,
-            JsonValueKind.Object => typeof(object),
-            JsonValueKind.Array => typeof(Array),
-            JsonValueKind.Null => null,
-            _ => typeof(object)
-        };
-    }
-
-    /// <summary>
-    /// Converts a JsonElement to a typed value.
-    /// </summary>
-    /// <param name="jsonElement">The JsonElement to convert.</param>
-    /// <returns>The corresponding typed value.</returns>
-    /// <example>
-    /// <code>
-    /// var json = "{\"Name\":\"John\",\"Age\":30}";
-    /// var element = JsonSerializer.Deserialize&lt;JsonElement&gt;(json);
-    /// var value = element.GetProperty("Name").JsonElementToTypedValue();
-    /// // value: "John"
-    /// </code>
-    /// </example>
     private static object? JsonElementToTypedValue(this JsonElement jsonElement)
     {
         switch (jsonElement.ValueKind)
         {
-            case JsonValueKind.Object: // 1  (these need special handling)?
-            case JsonValueKind.Array: // 2
-            case JsonValueKind.String: // 3
+            case JsonValueKind.Object:
+            case JsonValueKind.Array:
+                throw new NotSupportedException();
+            case JsonValueKind.String:
                 if (jsonElement.TryGetGuid(out Guid guidValue))
                 {
                     return guidValue;
                 }
-
-                if (jsonElement.TryGetDateTime(out DateTime datetime))
+                else
                 {
-                    // If an offset was provided, use DateTimeOffset.
-                    if (datetime.Kind == DateTimeKind.Local)
+                    if (jsonElement.TryGetDateTime(out DateTime datetime))
                     {
-                        if (jsonElement.TryGetDateTimeOffset(out DateTimeOffset datetimeOffset))
+                        // If an offset was provided, use DateTimeOffset.
+                        if (datetime.Kind == DateTimeKind.Local)
                         {
-                            return datetimeOffset;
+                            if (jsonElement.TryGetDateTimeOffset(out DateTimeOffset datetimeOffset))
+                            {
+                                return datetimeOffset;
+                            }
                         }
+                        return datetime;
                     }
-
-                    return datetime;
+                    return jsonElement.ToString();
                 }
-
-                return jsonElement.ToString();
-
-            case JsonValueKind.Number: // 4
-                if (jsonElement.TryGetInt64(out var longValue))
+            case JsonValueKind.Number:
+                if (jsonElement.TryGetInt64(out long longValue))
                 {
                     return longValue;
                 }
-
-                return jsonElement.GetDouble();
-
-            case JsonValueKind.True: // 5
-            case JsonValueKind.False: // 6
+                else
+                {
+                    return jsonElement.GetDouble();
+                }
+            case JsonValueKind.True:
+            case JsonValueKind.False:
                 return jsonElement.GetBoolean();
-
-            case JsonValueKind.Undefined: // 0
-            case JsonValueKind.Null: // 7
+            case JsonValueKind.Undefined:
+            case JsonValueKind.Null:
                 return null;
-
             default:
                 return jsonElement.ToString();
         }

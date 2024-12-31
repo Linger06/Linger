@@ -147,7 +147,7 @@ public static partial class TypeExtension
     /// // Output: MyAttribute object or null
     /// </code>
     /// </example>
-    private static T? GetAttribute<T>(ICustomAttributeProvider propertyInfo) where T : System.Attribute
+    private static T? GetAttribute<T>(PropertyInfo propertyInfo) where T : System.Attribute
     {
         return propertyInfo.GetCustomAttributes(typeof(T), false).OfType<T>().FirstOrDefault();
     }

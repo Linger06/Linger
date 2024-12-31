@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Linger.Extensions.Core;
 namespace Linger;
-public class ArgumentNullException : System.ArgumentNullException
+internal class ArgumentNullException : System.ArgumentNullException
 {
     public ArgumentNullException(string paramName) : base(paramName)
     {
@@ -25,14 +25,14 @@ public class ArgumentNullException : System.ArgumentNullException
     {
         ThrowIfNull(argument, paramName);
         if (argument.IsEmpty())
-            throw new System.ArgumentException("Value cannot be an empty string", paramName);
+            throw new System.ArgumentException("The value cannot be an empty string.", paramName);
     }
 
     public static void ThrowIfNullOrWhiteSpace([NotNull] string? argument, [CallerArgumentExpression("argument")] string? paramName = null)
     {
         ThrowIfNull(argument, paramName);
         if (argument.IsWhiteSpace())
-            throw new System.ArgumentException("Value cannot be an white space", paramName);
+            throw new System.ArgumentException("The value cannot be a white space", paramName);
     }
 }
 #endif

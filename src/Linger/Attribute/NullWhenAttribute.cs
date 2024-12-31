@@ -2,7 +2,9 @@
 
 // These Annotations are Part of .NET Standard 2.1 and .NET Core 3.0+. Defining them here allows
 // their usage to support developers using this library with nullable-reference-type-warnings enabled.
+#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace System.Diagnostics.CodeAnalysis
+#pragma warning restore IDE0130 // Namespace does not match folder structure
 {
     [AttributeUsage(AttributeTargets.Parameter)]
     internal sealed class MaybeNullWhenAttribute(bool returnValue) : Attribute
@@ -14,7 +16,9 @@ namespace System.Diagnostics.CodeAnalysis
 #endif
 
 #if NETSTANDARD1_0 || NETSTANDARD2_0 || NETFRAMEWORK
+#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace System.Diagnostics.CodeAnalysis
+#pragma warning restore IDE0130 // Namespace does not match folder structure
 {
     /// <summary>
     /// Required for reference nullability annotations.

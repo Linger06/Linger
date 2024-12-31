@@ -56,6 +56,22 @@ public class PathHelperTests : IDisposable
     {
         Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
 
+        var winFile = Path.Combine(_testDir, "windows_txt");
+
+        Assert.False(PathHelper.IsFile(winFile));
+        Assert.False(PathHelper.IsFile(winFile.Replace('\\', '/')));
+
+        File.WriteAllText(winFile, "windows");
+
+        Assert.True(PathHelper.IsFile(winFile));
+        Assert.True(PathHelper.IsFile(winFile.Replace('\\', '/')));
+    }
+
+    [SkippableFact]
+    public void IsFile_Windows_2()
+    {
+        Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
+
         var winFile = Path.Combine(_testDir, "windows.txt");
 
         Assert.True(PathHelper.IsFile(winFile));
@@ -91,6 +107,24 @@ public class PathHelperTests : IDisposable
 
     [SkippableFact]
     public void IsDirectory_Windows()
+    {
+        Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
+
+        var winDir = Path.Combine(_testDir, "windows.dir");
+
+        Assert.False(PathHelper.IsDirectory(winDir));
+        Assert.True(PathHelper.IsDirectory(winDir + "\\"));
+        Assert.False(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
+
+        Directory.CreateDirectory(winDir);
+
+        Assert.True(PathHelper.IsDirectory(winDir));
+        Assert.True(PathHelper.IsDirectory(winDir + "\\"));
+        Assert.True(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
+    }
+
+    [SkippableFact]
+    public void IsDirectory_Windows_2()
     {
         Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
 

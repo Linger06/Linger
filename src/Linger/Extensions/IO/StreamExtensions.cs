@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using Linger.Extensions.Core;
 #if NET6_0_OR_GREATER
 #endif
 
@@ -101,8 +102,7 @@ public static class StreamExtensions
     {
         _ = inputStream.Seek(0, SeekOrigin.Begin);
         var arrayHashValue = inputStream.ToMd5HashByte();
-        var strHashData = BitConverter.ToString(arrayHashValue).Replace("-", string.Empty);
-        return strHashData;
+        return arrayHashValue.ToMd5HashCode();
     }
 
     /// <summary>

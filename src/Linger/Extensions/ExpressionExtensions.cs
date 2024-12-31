@@ -158,7 +158,7 @@ public static class ExpressionExtensions
         /// <param name="map">The map of parameters to replace.</param>
         private ParameterRebindVisitor(Dictionary<ParameterExpression, ParameterExpression>? map)
         {
-            _map = map ?? new Dictionary<ParameterExpression, ParameterExpression>();
+            _map = map ?? [];
         }
 
         /// <summary>

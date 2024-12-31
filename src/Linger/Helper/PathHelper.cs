@@ -85,9 +85,23 @@ public static class PathHelper
             if (ContainsInvalidPathChars(fullPath))
                 return false;
 
+            bool hasDirectorySeparatorAtEnd = fullPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) ||
+                                            fullPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal);
+            if (hasDirectorySeparatorAtEnd)
+            {
+                return false;
+            }
+
             // 使用 FileInfo 可以一次性获取所有需要的信息
             var fileInfo = new FileInfo(fullPath);
-            return fileInfo.Exists && !fileInfo.Attributes.HasFlag(FileAttributes.Directory);
+            if (fileInfo.Exists)
+            {
+                return true;
+            }
+
+            // 文件通常都有扩展名
+            return Path.GetExtension(fullPath).IsNotNullAndEmpty();
+            //return fileInfo.Exists && !fileInfo.Attributes.HasFlag(FileAttributes.Directory);
         }
         catch (Exception ex) when (
             ex is SecurityException ||
@@ -158,18 +172,18 @@ public static class PathHelper
         {
             // Windows 特定的检查
             // 检查Windows保留字符
-            if (path.IndexOfAny(new[] { '*', '?', '"', '<', '>', '|' }) != -1)
+            if (path.IndexOfAny(['*', '?', '"', '<', '>', '|']) != -1)
                 return true;
 
             // 检查Windows保留名称
-            string[] windowsReservedNames = {
+            string[] windowsReservedNames = [
             "CON", "PRN", "AUX", "NUL",
             "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-        };
+        ];
 
             // 检查每个路径段
-            var segments = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            var segments = path.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
                 StringSplitOptions.RemoveEmptyEntries);
 
             foreach (var segment in segments)

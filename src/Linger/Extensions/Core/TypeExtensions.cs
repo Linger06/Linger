@@ -89,12 +89,13 @@ public static partial class TypeExtension
     {
         var fullName = self.FullName ?? throw new NullReferenceException(nameof(self.FullName));
 
-        if (!PropertyCache.ContainsKey(fullName))
+        if (!PropertyCache.TryGetValue(fullName, out List<PropertyInfo>? value))
         {
-            PropertyCache[fullName] = self.GetProperties().ToList();
+            value = self.GetProperties().ToList();
+            PropertyCache[fullName] = value;
         }
 
-        return PropertyCache[fullName].FirstOrDefault(x => x.Name == name);
+        return value.FirstOrDefault(x => x.Name == name);
     }
 
     /// <summary>

@@ -122,17 +122,6 @@ public class JsonExtensionsTests
         Assert.Equal("John Doe", dataTable.Rows[0]["Name"]);
         Assert.Equal(30, dataTable.Rows[0]["Age"].ToInt());
     }
-
-    [Fact]
-    public void JsonElementToDataSet_ShouldConvert()
-    {
-        var json = "{\"People\":[{\"Name\":\"John Doe\",\"Age\":30}]}";
-        JsonElement jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
-        DataSet? dataSet = jsonElement.JsonElementToDataSet();
-        Assert.Single(dataSet.Tables["People"]!.Rows);
-        Assert.Equal("John Doe", dataSet.Tables["People"]!.Rows[0]["Name"]);
-        Assert.Equal(30, dataSet.Tables["People"]!.Rows[0]["Age"].ToInt());
-    }
 }
 
 public class Person

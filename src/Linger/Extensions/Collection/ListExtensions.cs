@@ -1,4 +1,6 @@
-﻿namespace Linger.Extensions.Collection;
+﻿using Linger.Extensions.Core;
+
+namespace Linger.Extensions.Collection;
 
 /// <summary>
 /// Provides extension methods for <see cref="List{T}"/>.
@@ -60,7 +62,6 @@ public static class ListExtensions
 
         return list.ToSeparatedString(separator, Format);
     }
-
 
     /// <summary>
     /// Converts the <see cref="List{T}"/> to a tree structure based on the specified conditions.

@@ -25,7 +25,7 @@ public class DataTableJsonHelperTests
         row["String"] = "Test";
         row["Guid"] = Guid.NewGuid();
         row["NullableGuid"] = DBNull.Value;
-        row["DateTime"] = DateTime.Now;
+        row["DateTime"] = new DateTime(2019, 8, 1);
         row["NullableDateTime"] = DBNull.Value;
         row["Boolean"] = true;
         row["Int16"] = (short)2;
@@ -42,7 +42,7 @@ public class DataTableJsonHelperTests
     [Fact]
     public void ReadDataTable_ValidJson_ReturnsDataTable()
     {
-        var json = "[{\"Int\":1,\"String\":\"Test\",\"Guid\":\"" + Guid.NewGuid() + "\",\"DateTime\":\"" + DateTime.Now.ToString("o") + "\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8}]";
+        var json = "[{\"Int\":1,\"String\":\"Test\",\"Guid\":\"" + Guid.NewGuid() + "\",\"DateTime\":\"" + new DateTime(2019, 8, 1) + "\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8}]";
         var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json));
 
         DataTable? result = DataTableJsonHelper.ReadDataTable(ref reader);
@@ -81,9 +81,9 @@ public class DataTableJsonHelperTests
         var json = Encoding.UTF8.GetString(stream.ToArray());
 
 #if NETCOREAPP3_0_OR_GREATER
-        var expectedJson = "[{\"Int\":1,\"NullableInt\":null,\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":null,\"DateTime\":\"" + ((DateTime)dataTable.Rows[0]["DateTime"]).GetDateTimeFormats('s')[0].ToString() + "\",\"NullableDateTime\":null,\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8}]";
+        var expectedJson = "[{\"Int\":1,\"NullableInt\":\"\",\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":\"\",\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":\"\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8}]";
 #else
-        var expectedJson = "[{\"Int\":1,\"NullableInt\":null,\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":null,\"DateTime\":\"" + ((DateTime)dataTable.Rows[0]["DateTime"]).GetDateTimeFormats('s')[0].ToString() + "\",\"NullableDateTime\":null,\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5}]";
+        var expectedJson = "[{\"Int\":1,\"NullableInt\":\"\",\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":\"\",\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":\"\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5}]";
 #endif
         Assert.Equal(expectedJson, json);
     }
@@ -152,7 +152,7 @@ public class DataTableJsonHelperTests
         writer.Flush();
 
         var json = Encoding.UTF8.GetString(stream.ToArray());
-        var expectedJson = "[{\"NullableInt\":null,\"NullableGuid\":null,\"NullableDateTime\":null}]";
+        var expectedJson = "[{\"NullableInt\":\"\",\"NullableGuid\":\"\",\"NullableDateTime\":\"\"}]";
 
         Assert.Equal(expectedJson, json);
     }

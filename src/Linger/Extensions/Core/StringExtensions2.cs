@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Linger.Extensions.Core;
@@ -101,5 +103,22 @@ public static partial class StringExtensions
         }
 
         return str;
+    }
+
+    public static byte[] ToMd5HashByte(this string input)
+    {
+        var inputBytes = Encoding.ASCII.GetBytes(input);
+#if NET5_0_OR_GREATER
+        return MD5.HashData(inputBytes);
+#else
+        using var md5 = MD5.Create();
+        return md5.ComputeHash(inputBytes);
+#endif
+    }
+
+    public static string ToMd5HashCode(this string input)
+    {
+        var hashBytes = input.ToMd5HashByte();
+        return hashBytes.ToMd5HashCode();
     }
 }

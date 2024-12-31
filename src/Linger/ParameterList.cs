@@ -11,7 +11,7 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// </summary>
     public ParameterList()
     {
-        Parameters = new Dictionary<string, object>();
+        Parameters = [];
     }
 
     /// <summary>

@@ -25,80 +25,48 @@ public static class DataTableJsonHelper
     /// Writes a DataTable to a Utf8JsonWriter.
     /// </summary>
     /// <param name="jsonWriter">The Utf8JsonWriter to write to.</param>
-    /// <param name="source">The DataTable to write.</param>
-    public static void WriteDataTable(Utf8JsonWriter jsonWriter, DataTable source)
+    /// <param name="value">The DataTable to write.</param>
+    public static void WriteDataTable(Utf8JsonWriter jsonWriter, DataTable value)
     {
         jsonWriter.WriteStartArray();
-        foreach (DataRow dr in source.Rows)
+        foreach (DataRow dr in value.Rows)
         {
             jsonWriter.WriteStartObject();
-            foreach (DataColumn col in source.Columns)
+            foreach (DataColumn col in value.Columns)
             {
-                var key = col.ColumnName.Trim();
-                var value = dr[col];
-                if (value is DBNull)
-                {
-                    jsonWriter.WriteNull(key);
-                }
-                else
-                {
-                    var valueString = value.ToString();
-                    switch (col.DataType.FullName)
-                    {
-                        case "System.Guid":
-                        case "System.Char":
-                        case "System.String":
-                            jsonWriter.WriteString(key, valueString);
-                            break;
-                        case "System.Boolean":
-                            _ = bool.TryParse(valueString, out var boolValue);
-                            jsonWriter.WriteBoolean(key, boolValue);
-                            break;
-                        case "System.DateTime":
-                            _ = DateTime.TryParse(valueString, out DateTime dateValue);
-                            jsonWriter.WriteString(key, dateValue);
-                            break;
-                        case "System.TimeSpan":
-                            _ = TimeSpan.TryParse(valueString, out TimeSpan timeSpanValue);
-                            jsonWriter.WriteString(key, timeSpanValue.ToString());
-                            break;
-                        case "System.Double":
-                            _ = double.TryParse(valueString, out var doubleValue2);
-                            jsonWriter.WriteNumber(key, doubleValue2);
-                            break;
-                        case "System.Single":
-                            _ = float.TryParse(valueString, out var floatValue);
-                            jsonWriter.WriteNumber(key, floatValue);
-                            break;
-                        case "System.Byte":
-                        case "System.SByte":
-                        case "System.Decimal":
-                        case "System.Int16":
-                        case "System.Int32":
-                        case "System.Int64":
-                        case "System.UInt16":
-                        case "System.UInt32":
-                        case "System.UInt64":
-                            if (long.TryParse(valueString, out var intValue))
-                            {
-                                jsonWriter.WriteNumber(key, intValue);
-                            }
-                            else
-                            {
-                                _ = double.TryParse(valueString, out var doubleValue);
-                                jsonWriter.WriteNumber(key, doubleValue);
-                            }
-                            break;
-                        default:
-                            jsonWriter.WriteString(key, valueString);
-                            break;
-                    }
-                }
-            }
+                string key = col.ColumnName.Trim();
 
+                Action<string> action = GetWriteAction(dr, col, jsonWriter);
+                action.Invoke(key);
+
+                static Action<string> GetWriteAction(DataRow row, DataColumn column, Utf8JsonWriter writer) =>
+                    row[column] switch
+                    {
+                        // bool
+                        bool value => key => writer.WriteBoolean(key, value),
+
+                        // numbers
+                        byte value => key => writer.WriteNumber(key, value),
+                        sbyte value => key => writer.WriteNumber(key, value),
+                        decimal value => key => writer.WriteNumber(key, value),
+                        double value => key => writer.WriteNumber(key, value),
+                        float value => key => writer.WriteNumber(key, value),
+                        short value => key => writer.WriteNumber(key, value),
+                        int value => key => writer.WriteNumber(key, value),
+                        ushort value => key => writer.WriteNumber(key, value),
+                        uint value => key => writer.WriteNumber(key, value),
+                        ulong value => key => writer.WriteNumber(key, value),
+                        long value => key => writer.WriteNumber(key, value),
+
+                        // strings
+                        DateTime value => key => writer.WriteString(key, value),
+                        Guid value => key => writer.WriteString(key, value),
+
+                        _ => key => writer.WriteString(key, row[column].ToString())
+                    };
+            }
             jsonWriter.WriteEndObject();
         }
-
         jsonWriter.WriteEndArray();
     }
 }

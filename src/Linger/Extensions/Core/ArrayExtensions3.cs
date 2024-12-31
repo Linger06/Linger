@@ -112,6 +112,17 @@ public static partial class ArrayExtensions
     /// </example>
     public static List<string> ToList(this string[]? value)
     {
-        return [..value.ToEnumerable()];
+        return value.ToEnumerable().ToList();
+    }
+
+    public static string ToMd5HashCode(this byte[] inputHashBytes)
+    {
+#if NET5_0_OR_GREATER
+        return Convert.ToHexString(inputHashBytes);
+#elif NETFRAMEWORK || NETSTANDARD2_0
+        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty);
+#else
+        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty, StringComparison.Ordinal);
+#endif
     }
 }

@@ -57,7 +57,7 @@ public static partial class StringExtensions
             return string.Empty;
         }
 
-        return value.Substring(0, value.IndexOf("@", StringComparison.Ordinal));
+        return value.Substring(0, value.IndexOf('@'));
     }
 
     /// <summary>

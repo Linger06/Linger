@@ -91,7 +91,7 @@ public static partial class FileInfoExtensions
     {
         using var fileStream = fileInfo.OpenRead();
         var arrayHashValue = fileStream.ToMd5HashByte();
-        return BitConverter.ToString(arrayHashValue).Replace("-", string.Empty);
+        return arrayHashValue.ToMd5HashCode();
     }
 
     /// <summary>
