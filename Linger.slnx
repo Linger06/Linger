@@ -3,9 +3,13 @@
     <File Path=".editorconfig" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Linger.Audit/Linger.Audit.csproj" />
+    <Project Path="src/Linger.EFCore.Audit/Linger.EFCore.Audit.csproj" />
+    <Project Path="src/Linger.EFCore/Linger.EFCore.csproj" />
     <Project Path="src\Linger\Linger.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Linger.EFCore.Audit.UnitTests/Linger.EFCore.Audit.UnitTests.csproj" Id="08c4a8a9-c92a-4abd-9720-099f704ae250" />
     <Project Path="tests\Linger.UnitTests\Linger.UnitTests.csproj" />
   </Folder>
 </Solution>
