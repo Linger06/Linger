@@ -1,6 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
-namespace Linger.EFCore.Tests;
+namespace Linger.EFCore.UnitTests;
 
 public class PropertyBuilderExtensionsTests
 {
@@ -11,6 +11,7 @@ public class PropertyBuilderExtensionsTests
         public IEnumerable<string>? StringEnumerable { get; set; }
         public ICollection<string>? StringCollection { get; set; }
         public List<string>? StringList { get; set; }
+        public string[]? StringArray { get; set; }
     }
 
     public class JsonData
@@ -35,12 +36,15 @@ public class PropertyBuilderExtensionsTests
                     .HasJsonConversion();
 
                 builder.Property(e => e.StringEnumerable)
-                    .HasArrayConversion();
+                    .HasStringCollectionConversion();
 
                 builder.Property(e => e.StringCollection)
-                    .HasArrayConversion();
+                    .HasStringCollectionConversion();
 
                 builder.Property(e => e.StringList)
+                    .HasStringCollectionConversion();
+
+                builder.Property(e => e.StringArray)
                     .HasStringCollectionConversion();
             });
         }

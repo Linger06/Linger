@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-      <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-      <ImplicitUsings>enable</ImplicitUsings>
-      <LangVersion>latest</LangVersion>
-      <IsPackable>false</IsPackable>
-      <IsTestProject>true</IsTestProject>
-      <Nullable>enable</Nullable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="FluentAssertions" Version="7.0.0" />
@@ -27,11 +27,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\Linger.EFCore.Audit\Linger.EFCore.Audit.csproj" />
+        <ProjectReference Include="..\..\src\Linger.EFCore.Audit\Linger.EFCore.Audit.csproj" />
     </ItemGroup>
 
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
+    <ItemGroup>
+        <Using Include="Xunit" />
+    </ItemGroup>
 
 </Project>

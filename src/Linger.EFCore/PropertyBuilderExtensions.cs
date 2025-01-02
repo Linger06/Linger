@@ -36,30 +36,10 @@ public static class PropertyBuilderExtensions
         return propertyBuilder;
     }
 
-    public static PropertyBuilder<IEnumerable<string>?> HasArrayConversion(this PropertyBuilder<IEnumerable<string>?> propertyBuilder, string separator = ";")
-    {
-        var converter = new StringArrayConverter(separator);
-        var comparer = new StringArrayComparer();
-
-        propertyBuilder.HasConversion(converter, comparer);
-        return propertyBuilder;
-    }
-
-    public static PropertyBuilder<ICollection<string>?> HasArrayConversion(this PropertyBuilder<ICollection<string>?> propertyBuilder, string separator = ";")
-    {
-        var converter = new StringArrayConverter(separator);
-        var comparer = new StringArrayComparer();
-
-        propertyBuilder.HasConversion(converter, comparer);
-        return propertyBuilder;
-    }
-
-    public static PropertyBuilder<T?> HasStringCollectionConversion<T>(
-        this PropertyBuilder<T?> propertyBuilder,
-        string separator = ";") where T : class, IEnumerable<string>
+    public static PropertyBuilder<T?> HasStringCollectionConversion<T>(this PropertyBuilder<T?> propertyBuilder, string separator = ";") where T : class, IEnumerable<string>
     {
         var converter = new StringCollectionConverter<T>(separator);
-        var comparer = new StringArrayComparer();
+        var comparer = new StringCollectionComparer();
 
         propertyBuilder.HasConversion(converter, comparer);
         return propertyBuilder;

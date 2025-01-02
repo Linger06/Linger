@@ -1,4 +1,4 @@
-﻿namespace Linger.EFCore.Tests;
+﻿namespace Linger.EFCore.UnitTests;
 
 public class PagingQueryableExtensionsTests
 {

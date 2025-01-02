@@ -101,12 +101,11 @@ public class AuditEntitiesSaveChangesInterceptor(IAuditUserProvider auditUserPro
 
                 // TempProperties are properties that are only generated on save, e.g. ID's
                 // These properties will be set correctly after the audited entity has been saved
-                TempProperties = entry.Properties.Where(p => p.IsTemporary).ToList(),
+                TempProperties = entry.Properties.Where(p => p.IsTemporary),
                 NewValues = [],
                 OldValues = [],
                 AffectedColumns = []
             };
-
 
             foreach (PropertyEntry prop in entry.Properties)
             {

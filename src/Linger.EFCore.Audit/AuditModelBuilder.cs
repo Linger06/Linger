@@ -9,6 +9,6 @@ public static class AuditModelBuilder
         modelBuilder.Entity<AuditTrailEntry>().Property(t => t.Changes).HasJsonConversion();
         modelBuilder.Entity<AuditTrailEntry>().Property(t => t.NewValues).HasJsonConversion();
         modelBuilder.Entity<AuditTrailEntry>().Property(t => t.OldValues).HasJsonConversion();
-        modelBuilder.Entity<AuditTrailEntry>().Property(t => t.AffectedColumns).HasArrayConversion();
+        modelBuilder.Entity<AuditTrailEntry>().Property(t => t.AffectedColumns).HasStringCollectionConversion();
     }
 }

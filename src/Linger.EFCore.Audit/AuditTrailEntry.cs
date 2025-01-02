@@ -24,5 +24,5 @@ public class AuditTrailEntry
 
     [NotMapped]
     // TempProperties are used for properties that are only generated on save, e.g. ID's
-    public List<PropertyEntry> TempProperties { get; set; } = [];
+    public IEnumerable<PropertyEntry> TempProperties { get; set; } = [];
 }

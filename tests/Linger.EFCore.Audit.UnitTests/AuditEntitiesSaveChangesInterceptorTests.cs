@@ -212,7 +212,7 @@ public class TestAuditEntity : FullAuditEntity<int>
     public string Name { get; set; } = null!;
 }
 
-public class TestAuditEntityWithoutSoftDelete : AuditableEntity
+public class TestAuditEntityWithoutSoftDelete : AuditEntity
 {
     public int Id { get; set; }
     public string Name { get; set; } = null!;

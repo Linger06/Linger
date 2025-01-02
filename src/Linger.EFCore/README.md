@@ -16,7 +16,7 @@ Linger.EFCore extends Entity Framework Core with powerful features including glo
 
 ### Property Conversions
 - JSON serialization support for complex types
-- Array conversion for string collections
+- Conversion for string collections
 - Custom value comparers
 - Flexible configuration options
 
@@ -37,7 +37,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
-### String Array Conversion
+### String Collection Conversion
 ```csharp
 public class Product 
 { 
@@ -47,7 +47,7 @@ public class Product
 
 protected override void OnModelCreating(ModelBuilder modelBuilder) 
 {
-    modelBuilder.Entity<Product>().Property(x => x.Tags).HasArrayConversion(separator: ","); 
+    modelBuilder.Entity<Product>().Property(x => x.Tags).HasStringCollectionConversion(separator: ","); 
 }
 ```
 
