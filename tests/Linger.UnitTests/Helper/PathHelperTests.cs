@@ -261,14 +261,14 @@ public class PathHelperTests : IDisposable
     [Fact]
     public void IsFile_InvalidPath()
     {
-        Assert.Throws<ArgumentNullException>(() => PathHelper.IsFile(null));
+        Assert.Throws<System.ArgumentNullException>(() => PathHelper.IsFile(null));
         Assert.False(PathHelper.IsFile("非法路径*:|"));
     }
 
     [Fact]
     public void IsDirectory_InvalidPath()
     {
-        Assert.Throws<ArgumentNullException>(() => PathHelper.IsDirectory(null));
+        Assert.Throws<System.ArgumentNullException>(() => PathHelper.IsDirectory(null));
         Assert.False(PathHelper.IsDirectory("非法路径*:|"));
     }
 

@@ -24,4 +24,8 @@
             <PackagePath>\</PackagePath>
         </None>
     </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Linger\Linger.csproj" />
+    </ItemGroup>
 </Project>

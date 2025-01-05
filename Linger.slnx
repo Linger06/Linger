@@ -4,18 +4,25 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Linger.Audit/Linger.Audit.csproj" />
+    <Project Path="src/Linger.Configuration/Linger.Configuration.csproj" />
     <Project Path="src/Linger.EFCore.Audit/Linger.EFCore.Audit.csproj" />
     <Project Path="src/Linger.EFCore/Linger.EFCore.csproj" />
+    <Project Path="src/Linger.Email.AspNetCore/Linger.Email.AspNetCore.csproj" />
+    <Project Path="src/Linger.Email/Linger.Email.csproj" />
+    <Project Path="src/Linger.FileSystem.Ftp/Linger.FileSystem.Ftp.csproj" />
+    <Project Path="src/Linger.FileSystem.Sftp/Linger.FileSystem.Sftp.csproj" />
+    <Project Path="src/Linger.FileSystem/Linger.FileSystem.csproj" />
     <Project Path="src/Linger.Ldap.ActiveDirectory/Linger.Ldap.ActiveDirectory.csproj" />
     <Project Path="src/Linger.Ldap.AspNetCore/Linger.Ldap.AspNetCore.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />
+    <Project Path="src/Linger.Logging/Linger.Logging.csproj" />
     <Project Path="src\Linger\Linger.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Linger.EFCore.Audit.UnitTests/Linger.EFCore.Audit.UnitTests.csproj" Id="08c4a8a9-c92a-4abd-9720-099f704ae250" />
     <Project Path="tests/Linger.EFCore.UnitTests/Linger.EFCore.UnitTests.csproj" />
-    <Project Path="tests/Linger.Ldap.UnitTests/Linger.Ldap.UnitTests.csproj" Id="43393bf9-885c-4338-8667-3386f3ab8d17" />
+    <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" Id="ee10be32-3420-46de-a6bd-7e843841d4be" />
     <Project Path="tests\Linger.UnitTests\Linger.UnitTests.csproj" />
   </Folder>
 </Solution>

@@ -33,14 +33,14 @@ public partial class ArrayExtensionsTests
     public void ForEach_NullAction_ShouldThrowArgumentNullException()
     {
         int[] numbers = { 1, 2, 3 };
-        Assert.Throws<ArgumentNullException>(() => numbers.ForEach((Action<int>)null));
+        Assert.Throws<System.ArgumentNullException>(() => numbers.ForEach((Action<int>)null));
     }
 
     [Fact]
     public void ForEach_WithIndex_NullAction_ShouldThrowArgumentNullException()
     {
         int[] numbers = { 1, 2, 3 };
-        Assert.Throws<ArgumentNullException>(() => numbers.ForEach((Action<int, int>)null));
+        Assert.Throws<System.ArgumentNullException>(() => numbers.ForEach((Action<int, int>)null));
     }
 
     [Fact]

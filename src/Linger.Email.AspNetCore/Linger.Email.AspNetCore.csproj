@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net8.0;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
         <PackageId>$(MSBuildProjectName)</PackageId>
         <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -24,4 +24,15 @@
             <PackagePath>\</PackagePath>
         </None>
     </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Linger.Configuration\Linger.Configuration.csproj" />
+      <ProjectReference Include="..\Linger.Email\Linger.Email.csproj" />
+    </ItemGroup>
+
 </Project>

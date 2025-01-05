@@ -24,4 +24,14 @@
             <PackagePath>\</PackagePath>
         </None>
     </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="FluentFTP" Version="52.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Linger.FileSystem\Linger.FileSystem.csproj" />
+        <ProjectReference Include="..\Linger.Logging\Linger.Logging.csproj" />
+    </ItemGroup>
+
 </Project>

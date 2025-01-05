@@ -1,13 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-      <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-      <ImplicitUsings>enable</ImplicitUsings>
-      <LangVersion>latest</LangVersion>
-      <IsPackable>false</IsPackable>
-      <IsTestProject>true</IsTestProject>
-      <Nullable>enable</Nullable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFrameworks>net9.0;net8.0;net462</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>latest</LangVersion>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="FluentAssertions" Version="7.0.0" />
@@ -26,12 +26,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\Linger.Ldap.ActiveDirectory\Linger.Ldap.ActiveDirectory.csproj" />
-      <ProjectReference Include="..\..\src\Linger.Ldap.Novell\Linger.Ldap.Novell.csproj" />
+        <ProjectReference Include="..\..\src\Linger.FileSystem\Linger.FileSystem.csproj" />
     </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
-  </ItemGroup>
 
 </Project>

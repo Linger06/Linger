@@ -3,7 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Linger.Extensions.Core;
 namespace Linger;
-internal class ArgumentNullException : System.ArgumentNullException
+public class ArgumentNullException : System.ArgumentNullException
 {
     public ArgumentNullException(string paramName) : base(paramName)
     {

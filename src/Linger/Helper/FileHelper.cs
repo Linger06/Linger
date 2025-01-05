@@ -251,19 +251,17 @@ public static class FileHelper
         var file = new FileInfo(absolutePath);
         if (file.Exists)
         {
-            using (var memoryStream = file.ToMemoryStream2())
+            using var memoryStream = file.ToMemoryStream2();
+            var strHashData = memoryStream.ComputeHashMd5();
+            return new CustomExistFileInfo
             {
-                var strHashData = memoryStream.ComputeHashMd5();
-                return new CustomExistFileInfo
-                {
-                    HashData = strHashData,
-                    FileName = file.Name,
-                    RelativeFilePath = absolutePath.GetRelativePath(),
-                    FullFilePath = file.FullName,
-                    FileSize = file.Length.FileSize(),
-                    Length = file.Length
-                };
-            }
+                HashData = strHashData,
+                FileName = file.Name,
+                RelativeFilePath = absolutePath.GetRelativePath(),
+                FullFilePath = file.FullName,
+                FileSize = file.Length.FileSize(),
+                Length = file.Length
+            };
         }
         return null;
     }
@@ -399,7 +397,7 @@ public static class FileHelper
 
     #region Directory Operations
 
- 
+
 
     public static void ClearDirectory(string directoryPath)
     {

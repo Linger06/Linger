@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net8.0;net6.0;netstandard2.0;net462;</TargetFrameworks>
+        <TargetFrameworks>net9.0;net8.0;netstandard2.0;</TargetFrameworks>
         <PackageId>$(MSBuildProjectName)</PackageId>
         <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -17,18 +17,6 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Nullable>enable</Nullable>
     </PropertyGroup>
-    
-    <ItemGroup Condition="'$(TargetFramework)'=='net462'">
-        <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
-        <PackageReference Include="System.DirectoryServices" Version="4.5.0" />
-        <PackageReference Include="System.DirectoryServices.AccountManagement" Version="4.5.0" />
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(TargetFramework)'=='net6.0'">
-        <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
-        <PackageReference Include="System.DirectoryServices" Version="8.0.0" />
-        <PackageReference Include="System.DirectoryServices.AccountManagement" Version="8.0.1" />
-    </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0' Or '$(TargetFramework)'=='net8.0' Or '$(TargetFramework)'=='net9.0'">
         <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />

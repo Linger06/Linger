@@ -28,10 +28,6 @@ A comprehensive .NET library providing seamless integration with LDAP directorie
 
 - .NET 9.0
 - .NET 8.0
-- .NET 6.0
-- .NET Standard 2.0
-- .NET Framework 4.6.2
-- .NET Framework 4.0
 
 ## Installation
 ### From Visual Studio

@@ -66,7 +66,7 @@ public class PathExtensionsTests
     {
         string? path = null;
         var basePath = @"..\Projects";
-        Assert.Throws<ArgumentNullException>(() => path.GetAbsolutePath(basePath));
+        Assert.Throws<System.ArgumentNullException>(() => path.GetAbsolutePath(basePath));
     }
 
     [Fact]

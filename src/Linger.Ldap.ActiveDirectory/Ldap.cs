@@ -105,8 +105,5 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             adUserInfo = null;
             return false;
         }
-
     }
 }
-
-

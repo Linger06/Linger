@@ -19,7 +19,7 @@ public class GuardExtensionsTests
         object? obj = null;
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => obj.EnsureIsNotNull());
+        Assert.Throws<System.ArgumentNullException>(() => obj.EnsureIsNotNull());
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class GuardExtensionsTests
         string? str = null;
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => str.EnsureIsNotNullAndEmpty());
+        Assert.Throws<System.ArgumentNullException>(() => str.EnsureIsNotNullAndEmpty());
     }
 
     [Fact]

@@ -1,4 +1,5 @@
-﻿using Linger.Ldap.Contracts;
+﻿namespace Linger.Ldap.Contracts;
+
 
 /// <summary>
 /// Represents low-level LDAP operations

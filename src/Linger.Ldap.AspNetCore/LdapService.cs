@@ -19,8 +19,7 @@ public class LdapService : ILdapService
         string password,
         CancellationToken cancellationToken = default)
     {
-        AdUserInfo? userInfo;
-        var isValid = _ldap.ValidateUser(userName, password, out userInfo);
+        var isValid = _ldap.ValidateUser(userName, password, out AdUserInfo? userInfo);
         return await Task.FromResult((isValid, userInfo));
     }
 

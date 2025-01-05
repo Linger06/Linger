@@ -39,7 +39,7 @@ public static class LdapEntryExtensions
         MapAddressInfo(userInfo, directoryEntry);
 
         // 系统和账户信息
-        MapSystemInfo(userInfo, userPrincipal, directoryEntry);
+        MapSystemInfo(userInfo, directoryEntry);
 
         // 安全信息
         MapSecurityInfo(userInfo, userPrincipal);
@@ -102,7 +102,7 @@ public static class LdapEntryExtensions
         userInfo.Country = GetPropertyValue(entry, LdapUserType.Country);
     }
 
-    private static void MapSystemInfo(AdUserInfo userInfo, UserPrincipal user, System.DirectoryServices.DirectoryEntry entry)
+    private static void MapSystemInfo(AdUserInfo userInfo, System.DirectoryServices.DirectoryEntry entry)
     {
         userInfo.WhenCreated = GetWhenCreated(entry);
         userInfo.UserType = GetUserType(entry);
@@ -199,8 +199,8 @@ public static class LdapEntryExtensions
 
             // 转换为天数（去掉负号并转换为天数）
             // 使用decimal确保精确计算
-            const decimal ticksPerDay = 864000000000M; // 24 * 60 * 60 * 10000000 (一天的100纳秒数)
-            var maxPwdAgeDays = Math.Abs(maxPwdAge.Value) / ticksPerDay;
+            const decimal TicksPerDay = 864000000000M; // 24 * 60 * 60 * 10000000 (一天的100纳秒数)
+            var maxPwdAgeDays = Math.Abs(maxPwdAge.Value) / TicksPerDay;
 
             // 计算剩余天数
             var expirationDate = lastSet.Value.AddDays((double)maxPwdAgeDays);
