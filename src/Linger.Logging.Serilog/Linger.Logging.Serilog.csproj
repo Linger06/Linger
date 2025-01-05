@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net8.0;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net9.0</TargetFrameworks>
         <PackageId>$(MSBuildProjectName)</PackageId>
         <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
         <ImplicitUsings>enable</ImplicitUsings>
@@ -19,22 +18,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="log4net" Version="3.0.3" />
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.0" />
-        <PackageReference Include="NLog" Version="5.3.4" />
-
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+        <PackageReference Include="Serilog.Sinks.Elasticsearch" Version="10.0.0" />
+        <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+        <PackageReference Include="Serilog.Sinks.Seq" Version="9.0.0" />
+        <ProjectReference Include="..\Linger.Logging\Linger.Logging.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\Linger\Linger.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <None Include="README.md">
-            <Pack>True</Pack>
-            <PackagePath>\</PackagePath>
-        </None>
-    </ItemGroup>
-
 </Project>

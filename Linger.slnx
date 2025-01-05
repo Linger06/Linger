@@ -16,6 +16,7 @@
     <Project Path="src/Linger.Ldap.AspNetCore/Linger.Ldap.AspNetCore.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />
+    <Project Path="src/Linger.Logging.Serilog/Linger.Logging.Serilog.csproj" Id="397d95c5-e9a9-48c8-9292-68043d366c8f" />
     <Project Path="src/Linger.Logging/Linger.Logging.csproj" />
     <Project Path="src\Linger\Linger.csproj" />
   </Folder>
