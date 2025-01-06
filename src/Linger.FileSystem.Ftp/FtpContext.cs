@@ -1,6 +1,6 @@
 ﻿using FluentFTP;
 using Linger.FileSystem.Remote;
-using Linger.Logging;
+using Linger.Logging.Core;
 
 namespace Linger.FileSystem.Ftp;
 

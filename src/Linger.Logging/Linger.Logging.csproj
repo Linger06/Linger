@@ -31,10 +31,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="README.md">
-            <Pack>True</Pack>
-            <PackagePath>\</PackagePath>
-        </None>
+      <Folder Include="Configuration\Providers\" />
+      <Folder Include="Extensions\" />
     </ItemGroup>
 
 </Project>

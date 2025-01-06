@@ -1,4 +1,7 @@
-﻿namespace Linger.Logging;
+﻿using Linger.Logging.Abstractions;
+using Linger.Logging.Configuration.Providers;
+
+namespace Linger.Logging.Configuration;
 
 /// <summary>
 /// 日志配置
@@ -9,6 +12,11 @@ public class LingerLoggerConfiguration
     /// 日志提供程序类型
     /// </summary>
     public LoggerType LoggerType { get; set; } = LoggerType.Serilog;
+
+    /// <summary>
+    /// 应用程序名称
+    /// </summary>
+    public string SoftwareName { get; set; } = "Application";
 
     /// <summary>
     /// 日志路径
@@ -26,9 +34,9 @@ public class LingerLoggerConfiguration
     public bool EnableConsoleLogging { get; set; } = true;
 
     /// <summary>
-    /// 应用程序名称
+    /// 控制台主题设置
     /// </summary>
-    public string SoftwareName { get; set; } = "Application";
+    public ConsoleThemeSettings ConsoleTheme { get; set; } = new();
 
     /// <summary>
     /// 日志输出模板
@@ -47,9 +55,23 @@ public class LingerLoggerConfiguration
     public long FileSizeLimitMB { get; set; } = 100;
 
     /// <summary>
-    /// 各日志框架特定配置
+    /// Serilog特定配置
     /// </summary>
     public SerilogOptions? SerilogOptions { get; set; }
+
+    /// <summary>
+    /// NLog特定配置
+    /// </summary>
     public NLogOptions? NLogOptions { get; set; }
+
+    /// <summary>
+    /// Log4Net特定配置
+    /// </summary>
     public Log4NetOptions? Log4NetOptions { get; set; }
+
+    /// <summary>
+    /// Microsoft.Extensions.Logging特定配置
+    /// </summary>
+    public MicrosoftLoggingOptions? MicrosoftLoggingOptions { get; set; }
+
 }

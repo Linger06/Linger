@@ -24,6 +24,7 @@
     <Project Path="tests/Linger.EFCore.Audit.UnitTests/Linger.EFCore.Audit.UnitTests.csproj" Id="08c4a8a9-c92a-4abd-9720-099f704ae250" />
     <Project Path="tests/Linger.EFCore.UnitTests/Linger.EFCore.UnitTests.csproj" />
     <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" Id="ee10be32-3420-46de-a6bd-7e843841d4be" />
+    <Project Path="tests/Linger.Logging.UnitTests/Linger.Logging.UnitTests.csproj" Id="a8269c56-9576-4154-adc5-07cbe74fff13" />
     <Project Path="tests\Linger.UnitTests\Linger.UnitTests.csproj" />
   </Folder>
 </Solution>

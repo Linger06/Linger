@@ -1,22 +1,25 @@
-﻿namespace Linger.Logging;
+﻿using Linger.Logging.Abstractions;
+using Linger.Logging.Configuration;
 
+namespace Linger.Logging.Core;
+
+/// <summary>
+/// 日志工厂类
+/// </summary>
 public static class LingerLoggerFactory
 {
     private static readonly object Lock = new();
     private static volatile ILingerLoggerProvider? _provider;
     private static readonly Dictionary<LoggerType, Func<LingerLoggerConfiguration, ILingerLoggerProvider>> _providerFactories = new();
 
-    /// <summary>
-    /// 注册日志提供程序工厂
-    /// </summary>
     public static void RegisterProvider(LoggerType type, Func<LingerLoggerConfiguration, ILingerLoggerProvider> factory)
     {
         ArgumentNullException.ThrowIfNull(factory);
         _providerFactories[type] = factory;
     }
 
-    public static ILingerLogger CreateLogger<T>()
-        => CreateLogger(typeof(T).FullName!);
+    public static ILingerLogger CreateLogger<T>() =>
+        CreateLogger(typeof(T).FullName!);
 
     public static ILingerLogger CreateLogger(string categoryName)
     {
@@ -58,4 +61,6 @@ public static class LingerLoggerFactory
             _provider = null;
         }
     }
+
+    public static bool IsInitialized => _provider != null;
 }
