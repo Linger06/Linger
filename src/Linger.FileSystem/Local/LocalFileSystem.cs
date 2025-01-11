@@ -1,16 +1,22 @@
 ﻿using Linger.Extensions.Core;
 using Linger.Extensions.IO;
 using Linger.FileSystem.Exceptions;
+using Linger.FileSystem.Helpers;
 using Linger.Helper;
 
 namespace Linger.FileSystem.Local;
 
-public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOptions = null) : ILocalFileSystem
+public class LocalFileSystem : ILocalFileSystem
 {
-    private readonly RetryOptions _retryOptions = retryOptions ?? new RetryOptions();
-    private readonly Random _random = new();
+    private readonly RetryHelper _retryHelper;
 
-    public string RootDirectoryPath { get; } = rootDirectoryPath;
+    public LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOptions = null)
+    {
+        RootDirectoryPath = rootDirectoryPath;
+        _retryHelper = new RetryHelper(retryOptions);
+    }
+
+    public string RootDirectoryPath { get; }
     public bool Exists()
     {
         return DirectoryExists(RootDirectoryPath);
@@ -59,57 +65,19 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         ArgumentNullException.ThrowIfNullOrEmpty(sourceFileName);
         ArgumentNullException.ThrowIfNullOrEmpty(containerName);
 
-        Exception? lastException = null;
-        for (int retry = 0; retry < _retryOptions.MaxRetries; retry++)
-        {
-            try
-            {
-                return await UploadInternalAsync(
-                    inputStream,
-                    sourceFileName,
-                    containerName,
-                    destPath,
-                    useUuidName,
-                    overwrite,
-                    useSequencedName,
-                    useHashMd5Name);
-            }
-            catch (DuplicateFileException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                lastException = ex;
-                if (retry == _retryOptions.MaxRetries - 1)
-                {
-                    throw new OutOfReTryCountException("已达到最大重试次数", lastException);
-                }
-                // 计算延迟时间
-                var delayMs = CalculateDelayWithJitter(retry);
-                // 等待后继续重试
-                await Task.Delay(delayMs);
-            }
-        }
-        throw new OutOfReTryCountException("已达到最大重试次数", lastException);
-    }
+        return await _retryHelper.ExecuteAsync(
+            async () => await UploadInternalAsync(
+                inputStream,
+                sourceFileName,
+                containerName,
+                destPath,
+                useUuidName,
+                overwrite,
+                useSequencedName,
+                useHashMd5Name),
+            "文件上传",
+            ex => !(ex is DuplicateFileException)); // 文件重复异常不重试
 
-    private int CalculateDelayWithJitter(int retryAttempt)
-    {
-        // 计算基础延迟
-        var delay = _retryOptions.UseExponentialBackoff
-            ? _retryOptions.BaseDelayMs * Math.Pow(2, retryAttempt)
-            : _retryOptions.BaseDelayMs;
-
-        // 限制最大延迟时间
-        delay = Math.Min(delay, _retryOptions.MaxDelayMs);
-
-        // 添加随机抖动
-        var jitterRange = delay * _retryOptions.JitterFactor;
-        var jitter = _random.NextDouble() * jitterRange;
-        delay += jitter;
-
-        return (int)delay;
     }
 
     private async Task<UploadedInfo> UploadInternalAsync(
@@ -348,20 +316,26 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         ArgumentNullException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNullOrEmpty(destFileName);
 
-        var sourceFilePath = GetRealPath(filePath);
-        if (!File.Exists(sourceFilePath))
-        {
-            throw new FileNotFoundException("Source file not found", sourceFilePath);
-        }
+        return await _retryHelper.ExecuteAsync(
+            async () =>
+            {
+                var sourceFilePath = GetRealPath(filePath);
+                if (!File.Exists(sourceFilePath))
+                {
+                    throw new FileNotFoundException("源文件不存在", sourceFilePath);
+                }
 
-        var destFilePath = await GetUniqueDestFilePathAsync(
-            destFileName,
-            overwrite,
-            useSequencedName);
+                var destFilePath = await GetUniqueDestFilePathAsync(
+                    destFileName,
+                    overwrite,
+                    useSequencedName);
 
-        await CopyFileAsync(sourceFilePath, destFilePath);
+                await CopyFileAsync(sourceFilePath, destFilePath);
+                return destFilePath;
+            },
+            "文件下载",
+            ex => !(ex is FileNotFoundException || ex is DuplicateFileException));
 
-        return destFilePath;
     }
 
     /// <summary>
@@ -459,32 +433,4 @@ public class UploadedInfo : CustomFileInfo
     /// 除 destRootPath 以外的存储位置
     /// </summary>
     public string FilePath { get; set; } = null!;
-}
-
-public class RetryOptions
-{
-    /// <summary>
-    /// 最大重试次数
-    /// </summary>
-    public int MaxRetries { get; set; } = 3;
-
-    /// <summary>
-    /// 基础延迟时间(毫秒)
-    /// </summary>
-    public int BaseDelayMs { get; set; } = 1000;
-
-    /// <summary>
-    /// 是否使用指数退避
-    /// </summary>
-    public bool UseExponentialBackoff { get; set; } = true;
-
-    /// <summary>
-    /// 最大延迟时间(毫秒)
-    /// </summary>
-    public int MaxDelayMs { get; set; } = 30000;
-
-    /// <summary>
-    /// 抖动因子(0-1之间)
-    /// </summary>
-    public double JitterFactor { get; set; } = 0.2;
 }

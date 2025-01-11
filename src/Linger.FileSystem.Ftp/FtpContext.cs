@@ -1,11 +1,13 @@
 ﻿using FluentFTP;
 using FluentFTP.Exceptions;
+using Linger.FileSystem.Helpers;
 using Linger.FileSystem.Remote;
 
 namespace Linger.FileSystem.Ftp;
 
-public abstract class FtpContext : IRemoteFileSystemContext
+public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFileSystemContext
 {
+    private readonly RetryHelper _retryHelper = new(retryOptions ?? new RetryOptions());
     protected IFtpClient FtpClient { get; set; } = default!;
 
     protected virtual void HandleException(string operation, Exception ex, string? path = null)
@@ -140,10 +142,16 @@ public abstract class FtpContext : IRemoteFileSystemContext
         using var scope = CreateConnectionScope();
         try
         {
-            if (!File.Exists(localFilePath))
-                throw new FileNotFoundException("Local file not found", localFilePath);
+            _retryHelper.ExecuteAsync(
+                            () => Task.Run(() =>
+                            {
+                                if (!File.Exists(localFilePath))
+                                    throw new FileNotFoundException("Local file not found", localFilePath);
 
-            _ = FtpClient.UploadFile(localFilePath, remoteFilePath);
+                                _ = FtpClient.UploadFile(localFilePath, remoteFilePath);
+                                return true;
+                            }),
+                            "Upload file").GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
@@ -156,11 +164,16 @@ public abstract class FtpContext : IRemoteFileSystemContext
         using var scope = CreateConnectionScope();
         try
         {
-            if (!Directory.Exists(localDic))
-                Directory.CreateDirectory(localDic);
+            return _retryHelper.ExecuteAsync(
+                () => Task.Run(() =>
+                {
+                    if (!Directory.Exists(localDic))
+                        Directory.CreateDirectory(localDic);
 
-            string localPath = Path.Combine(localDic, Path.GetFileName(remotePath));
-            return FtpClient.DownloadFile(localPath, remotePath) == FtpStatus.Success;
+                    string localPath = Path.Combine(localDic, Path.GetFileName(remotePath));
+                    return FtpClient.DownloadFile(localPath, remotePath) == FtpStatus.Success;
+                }),
+                "Download file").GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
@@ -209,16 +222,21 @@ public abstract class FtpContext : IRemoteFileSystemContext
         using var scope = CreateConnectionScope();
         try
         {
-            var listFiles = localFiles.Where(File.Exists)
-                                    .Select(f => new FileInfo(f))
-                                    .ToList();
+            return _retryHelper.ExecuteAsync(
+                () => Task.Run(() =>
+                {
+                    var listFiles = localFiles.Where(File.Exists)
+                                            .Select(f => new FileInfo(f))
+                                            .ToList();
 
-            if (!listFiles.Any())
-                return 0;
+                    if (!listFiles.Any())
+                        return 0;
 
-            remoteDic = NormalizePath(remoteDic);
-            List<FtpResult>? results = FtpClient.UploadFiles(listFiles, remoteDic, remoteExistsMode);
-            return results.Count;
+                    remoteDic = NormalizePath(remoteDic);
+                    List<FtpResult>? results = FtpClient.UploadFiles(listFiles, remoteDic, remoteExistsMode);
+                    return results.Count;
+                }),
+                "Upload files").GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {
@@ -276,11 +294,16 @@ public abstract class FtpContext : IRemoteFileSystemContext
         using var scope = CreateConnectionScope();
         try
         {
-            if (!Directory.Exists(localDic))
-                Directory.CreateDirectory(localDic);
+            return _retryHelper.ExecuteAsync(
+                () => Task.Run(() =>
+                {
+                    if (!Directory.Exists(localDic))
+                        Directory.CreateDirectory(localDic);
 
-            List<FtpResult> results = FtpClient.DownloadFiles(localDic, remoteFiles);
-            return results.Count;
+                    List<FtpResult> results = FtpClient.DownloadFiles(localDic, remoteFiles);
+                    return results.Count;
+                }),
+                "Download files").GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

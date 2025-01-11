@@ -8,32 +8,57 @@ namespace Linger.FileSystem.Ftp;
 public class FtpRemoteFileSystem : FtpContext
 {
     private readonly string _serverDetails;
+    private readonly RemoteSystemSetting _setting;
 
-    public FtpRemoteFileSystem(RemoteSystemSetting setting)
+    public FtpRemoteFileSystem(RemoteSystemSetting setting, RetryOptions? retryOptions = null)
+         : base(retryOptions)
     {
-        _serverDetails = FtpHelper.ServerDetails(setting.Host, setting.Port.ToString(), setting.UserName, setting.Type);
-        FtpClient = new FtpClient(setting.Host)
+        ArgumentNullException.ThrowIfNull(setting);
+        ArgumentNullException.ThrowIfNullOrEmpty(setting.Host);
+
+        _setting = setting;
+        _serverDetails = FtpHelper.ServerDetails(
+            setting.Host,
+            setting.Port.ToString(),
+            setting.UserName,
+            setting.Type);
+
+        InitializeFtpClient();
+    }
+
+    private void InitializeFtpClient()
+    {
+        var client = new FtpClient(_setting.Host)
         {
-            Credentials = new NetworkCredential(setting.UserName, setting.Password),
-            Port = setting.Port,
-            Encoding = setting.Encoding ?? Encoding.Default
+            Credentials = new NetworkCredential(_setting.UserName, _setting.Password),
+            Port = _setting.Port,
+            Encoding = _setting.Encoding ?? Encoding.Default
         };
 
 #if NET5_0_OR_GREATER
-        var config = new FtpConfig
+        client.Config = new FtpConfig
         {
-            RetryAttempts = 3,
+            RetryAttempts = 0, // 使用基类中的重试机制
             TimeConversion = FtpDate.LocalTime,
             ServerTimeZone = TimeZoneInfo.Utc,
             ClientTimeZone = TimeZoneInfo.Local,
-            ConnectTimeout = 60000
+            ConnectTimeout = 60000,
+            StaleDataCheck = true
         };
-        FtpClient.Config = config;
 #endif
+
+        FtpClient = client;
     }
 
-    public override string ServerDetails()
+    public override string ServerDetails() => _serverDetails;
+
+    protected override void HandleException(string operation, Exception ex, string? path = null)
     {
-        return _serverDetails;
+        // 增强异常信息，添加服务器详情
+        var message = $"{operation} failed on {_setting.Host}:{_setting.Port}. " +
+                     $"{(path != null ? $"Path: {path}. " : string.Empty)}" +
+                     $"Type: {_setting.Type}";
+
+        base.HandleException(operation, ex, message);
     }
 }

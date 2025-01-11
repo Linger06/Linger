@@ -236,4 +236,3 @@ public class Email : IEmail, IDisposable, IAsyncDisposable
         _disposed = true;
     }
 }
-
