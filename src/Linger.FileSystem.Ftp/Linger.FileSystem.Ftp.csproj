@@ -31,7 +31,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Linger.FileSystem\Linger.FileSystem.csproj" />
-        <ProjectReference Include="..\Linger.Logging\Linger.Logging.csproj" />
     </ItemGroup>
 
 </Project>
