@@ -17,9 +17,12 @@ public static class PathHelper
         if (path.StartsWith("""\\""", StringComparison.Ordinal)
             || path.StartsWith("//", StringComparison.Ordinal)
             || path.StartsWith("/", StringComparison.Ordinal)
-            /*|| FtpHelpers.IsFtpPath(path)*/
-            )
+            || path.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase))
+        {
             return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
 
         // 确保路径以目录分隔符结尾
         if (!path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal))

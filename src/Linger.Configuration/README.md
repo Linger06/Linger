@@ -1,5 +1,7 @@
-﻿C# Helper Library
+﻿# Linger.Configuration
 
-## Supported .NET versions
+A lightweight configuration helper library for .NET applications.
 
-This library supports .NET applications that utilize .NET Framework 4.6.2+ or .NET Standard 2.0+.
+## Overview
+
+Linger.Configuration provides utilities and extensions to simplify configuration management in .NET applications.
