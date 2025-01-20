@@ -7,7 +7,7 @@ using MimeKit;
 
 namespace Linger.Email;
 
-public class Email : IEmail, IDisposable, IAsyncDisposable
+public class Email : IEmail, IDisposable
 {
     private readonly EmailConfig _emailConfig;
     private readonly SmtpClient _smtpClient;
@@ -140,13 +140,16 @@ public class Email : IEmail, IDisposable, IAsyncDisposable
             }
         }
 
-        if (emailMessage.Attachments?.Any() == true)
+        var attachments = emailMessage.Attachments;
+
+        if (attachments?.Count == 0 || attachments == null)
         {
-            foreach (var att in emailMessage.Attachments)
-            {
-                var mimePart = CreateMimePart(att);
-                bodyBuilder.Attachments.Add(mimePart);
-            }
+            return;
+        }
+        foreach (var att in attachments)
+        {
+            var mimePart = CreateMimePart(att);
+            bodyBuilder.Attachments.Add(mimePart);
         }
     }
 

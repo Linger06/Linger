@@ -2,14 +2,9 @@
 
 namespace Linger.Ldap.AspNetCore;
 
-public class LdapService : ILdapService
+public class LdapService(ILdap ldap) : ILdapService
 {
-    private readonly ILdap _ldap;
-
-    public LdapService(ILdap ldap)
-    {
-        _ldap = ldap ?? throw new ArgumentNullException(nameof(ldap));
-    }
+    private readonly ILdap _ldap = ldap ?? throw new ArgumentNullException(nameof(ldap));
 
     public bool ValidateUser(string userName, string password, out AdUserInfo? userInfo)
         => _ldap.ValidateUser(userName, password, out userInfo);
