@@ -229,7 +229,7 @@ public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFil
                                             .Select(f => new FileInfo(f))
                                             .ToList();
 
-                    if (!listFiles.Any())
+                    if (listFiles.Count == 0)
                         return 0;
 
                     remoteDic = NormalizePath(remoteDic);

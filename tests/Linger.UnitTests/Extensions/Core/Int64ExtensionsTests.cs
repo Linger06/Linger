@@ -49,20 +49,4 @@ public class Int64ExtensionsTests
         var result = length.FileSize();
         Assert.Equal("1GB", result);
     }
-
-    [Fact]
-    public void ToThousand_FormatsLongWithThousandSeparators()
-    {
-        long value = 1234567;
-        var result = value.ToThousand();
-        Assert.Equal("1,234,567.00", result);
-    }
-
-    [Fact]
-    public void ToThousand_FormatsNegativeLongWithThousandSeparators()
-    {
-        long value = -1234567;
-        var result = value.ToThousand();
-        Assert.Equal("-1,234,567.00", result);
-    }
 }

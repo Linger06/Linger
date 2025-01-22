@@ -77,7 +77,7 @@ public class JsonStringConverterTests
         }
         catch (JsonException ex)
         {
-            ex.Message.Should().Be("Unsupported token type: StartArray");
+            Assert.Equal("Unsupported token type: StartArray", ex.Message);
         }
     }
 

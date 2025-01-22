@@ -6,21 +6,15 @@ namespace Linger.Email.AspNetCore;
 /// <summary>
 /// 邮件服务实现
 /// </summary>
-public sealed class EmailService : Email, IEmailService
+/// <remarks>
+/// 初始化邮件服务
+/// </remarks>
+public sealed class EmailService(
+    IOptions<EmailConfig> emailConfig,
+    ILogger<EmailService> logger) : Email(emailConfig?.Value ?? throw new ArgumentNullException(nameof(emailConfig))), IEmailService
 {
-    private readonly ILogger<EmailService> _logger;
+    private readonly ILogger<EmailService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     private bool _disposed;
-
-    /// <summary>
-    /// 初始化邮件服务
-    /// </summary>
-    public EmailService(
-        IOptions<EmailConfig> emailConfig,
-        ILogger<EmailService> logger)
-        : base(emailConfig?.Value ?? throw new ArgumentNullException(nameof(emailConfig)))
-    {
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
 
     /// <inheritdoc/>
     public override async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null)

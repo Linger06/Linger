@@ -24,14 +24,4 @@ public static class IntExtensions
 
         return Math.Round(size) + units[i];
     }
-
-    /// <summary>
-    /// Converts the value to a string representation with thousand separators.
-    /// </summary>
-    /// <param name="value">The value to convert.</param>
-    /// <returns>A string representation of the value with thousand separators.</returns>
-    public static string ToThousand(this int value)
-    {
-        return $"{value:N}";
-    }
 }

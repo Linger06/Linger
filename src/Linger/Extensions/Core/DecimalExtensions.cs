@@ -6,16 +6,6 @@
 public static class DecimalExtensions
 {
     /// <summary>
-    /// Converts the value of this instance to its string representation with thousand separators.
-    /// </summary>
-    /// <param name="value">The <see cref="decimal"/> to convert.</param>
-    /// <returns>A string representation of the value with thousand separators.</returns>
-    public static string ToThousand(this decimal value)
-    {
-        return $"{value:N}";
-    }
-
-    /// <summary>
     /// Determines whether the value is an integer.
     /// </summary>
     /// <param name="value">The <see cref="decimal"/> to check.</param>

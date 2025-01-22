@@ -458,7 +458,7 @@ public class DateTimeExtensions7Tests(ITestOutputHelper outputHelper)
         var (start, end) = DateTimeExtensions.GetStartEndDayOfWeek(year, weekNumber, cultureInfo);
 
         // Assert
-        start.Should().Be(new DateTime(2023, 1, 1));
-        end.Should().Be(new DateTime(2023, 1, 7, 23, 59, 59, 999));
+        Assert.Equal(new DateTime(2023, 1, 1), start);
+        Assert.Equal(new DateTime(2023, 1, 7, 23, 59, 59, 999), end);
     }
 }

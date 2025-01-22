@@ -1,12 +1,10 @@
-﻿using System.Runtime.InteropServices;
-
-namespace Linger.UnitTests.Helper;
+﻿namespace Linger.UnitTests.Helper;
 
 public class PathHelperTests : IDisposable
 {
-    private readonly bool _isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-    private readonly bool _isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-    private readonly bool _isMacOS = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+    private readonly bool _isWindows = OSPlatformHelper.IsWindows;
+    private readonly bool _isLinux = OSPlatformHelper.IsLinux;
+    private readonly bool _isMacOS = OSPlatformHelper.IsMacOSX;
     private readonly string _testDir;
     private readonly string _testFile;
     private readonly ITestOutputHelper _output;
@@ -24,17 +22,16 @@ public class PathHelperTests : IDisposable
         _output.WriteLine($"运行平台: {GetPlatformName()}");
     }
 
-    private string GetPlatformName() =>
-        _isWindows ? "Windows" : _isLinux ? "Linux" : _isMacOS ? "macOS" : "Unknown";
+    private string GetPlatformName() => _isWindows ? "Windows" : _isLinux ? "Linux" : _isMacOS ? "macOS" : "Unknown";
 
-    [SkippableTheory]
+    [Theory]
     [InlineData("C:\\example\\path", "C:\\example\\path", true)]
     [InlineData("file:///C:/folder/file.txt", "C:\\folder\\file.txt", true)]
     [InlineData("/home/user/path", "/home/user/path", false)]
     public void NormalizePath_PlatformSpecific(string input, string expected, bool windowsOnly)
     {
-        Skip.If(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Skip.If(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
+        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
 
         var result = PathHelper.NormalizePath(input);
         Assert.Equal(expected, result);
@@ -51,10 +48,10 @@ public class PathHelperTests : IDisposable
         Assert.Equal(expected, result);
     }
 
-    [SkippableFact]
+    [Fact]
     public void IsFile_Windows()
     {
-        Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
 
         var winFile = Path.Combine(_testDir, "windows_txt");
 
@@ -67,10 +64,10 @@ public class PathHelperTests : IDisposable
         Assert.True(PathHelper.IsFile(winFile.Replace('\\', '/')));
     }
 
-    [SkippableFact]
+    [Fact]
     public void IsFile_Windows_2()
     {
-        Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
 
         var winFile = Path.Combine(_testDir, "windows.txt");
 
@@ -83,10 +80,10 @@ public class PathHelperTests : IDisposable
         Assert.True(PathHelper.IsFile(winFile.Replace('\\', '/')));
     }
 
-    [SkippableFact]
+    [Fact]
     public void IsFile_Unix()
     {
-        Skip.If(_isWindows, "仅在类 Unix 平台运行");
+        Assert.SkipWhen(_isWindows, "仅在类 Unix 平台运行");
 
         var unixFile = Path.Combine(_testDir, "unix.txt");
 
@@ -105,10 +102,10 @@ public class PathHelperTests : IDisposable
         Assert.False(PathHelper.IsFile(path));
     }
 
-    [SkippableFact]
+    [Fact]
     public void IsDirectory_Windows()
     {
-        Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
 
         var winDir = Path.Combine(_testDir, "windows.dir");
 
@@ -123,10 +120,10 @@ public class PathHelperTests : IDisposable
         Assert.True(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
     }
 
-    [SkippableFact]
+    [Fact]
     public void IsDirectory_Windows_2()
     {
-        Skip.IfNot(_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
 
         var winDir = Path.Combine(_testDir, "windows_dir");
 
@@ -141,10 +138,10 @@ public class PathHelperTests : IDisposable
         Assert.True(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
     }
 
-    [SkippableFact]
+    [Fact]
     public void IsDirectory_Unix()
     {
-        Skip.If(_isWindows, "仅在类 Unix 平台运行");
+        Assert.SkipWhen(_isWindows, "仅在类 Unix 平台运行");
 
         var unixDir = Path.Combine(_testDir, "unix_dir");
 
@@ -157,13 +154,13 @@ public class PathHelperTests : IDisposable
         Assert.True(PathHelper.IsDirectory(unixDir + "/"));
     }
 
-    [SkippableTheory]
+    [Theory]
     [InlineData(@"C:\test\PATH", @"C:\test\path", true, true)]  // Windows 路径，忽略大小写
     [InlineData("/home/User/test", "/home/user/test", false, false)]  // Unix 路径，区分大小写
     public void PathEquals_PlatformSpecific(string path1, string path2, bool windowsOnly, bool expected)
     {
-        Skip.If(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Skip.If(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
+        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
 
         var result = PathHelper.PathEquals(path1, path2);
         Assert.Equal(expected, result);
@@ -179,13 +176,13 @@ public class PathHelperTests : IDisposable
         Assert.Equal(expected, result);
     }
 
-    [SkippableTheory]
+    [Theory]
     [InlineData(@"C:\folder1\folder2", 1, @"C:\folder1", true)]
     [InlineData("/home/user/folder", 1, "/home/user", false)]
     public void GetParentDirectory_PlatformSpecific(string path, int levels, string expected, bool windowsOnly)
     {
-        Skip.If(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Skip.If(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
+        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
 
         var result = PathHelper.GetParentDirectory(path, levels);
         Assert.Equal(expected, result);
@@ -202,13 +199,13 @@ public class PathHelperTests : IDisposable
 
     // 在现有的 PathHelperTests 类中添加以下测试方法
 
-    [SkippableTheory]
+    [Theory]
     [InlineData(@"C:\test\path", @"C:\test\path\", true)]   // Windows路径
     [InlineData("/home/user/path", "/home/user/path/", false)] // Unix路径
     public void NormalizePathEndingDirectorySeparator_PlatformSpecific(string input, string expected, bool windowsOnly)
     {
-        Skip.If(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Skip.If(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
+        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
 
         var result = PathHelper.NormalizePathEndingDirectorySeparator(input);
         Assert.Equal(expected, result);
@@ -233,14 +230,14 @@ public class PathHelperTests : IDisposable
         Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), result);
     }
 
-    [SkippableTheory]
+    [Theory]
     [InlineData(@"C:\folder1\folder2", 2, @"C:\", true)]  // Windows 双层目录
     [InlineData("/home/user/folder", 2, "/home", false)]   // Unix 双层目录
     [InlineData(@"C:\folder1\folder2\folder3", 3, @"C:\", true)] // Windows 三层目录
     public void GetParentDirectory_MultiLevelPlatformSpecific(string path, int levels, string expected, bool windowsOnly)
     {
-        Skip.If(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Skip.If(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
+        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
+        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
 
         var result = PathHelper.GetParentDirectory(path, levels);
         Assert.Equal(expected, result);
@@ -272,7 +269,7 @@ public class PathHelperTests : IDisposable
         Assert.False(PathHelper.IsDirectory("非法路径*:|"));
     }
 
-    [SkippableFact]
+    [Fact]
     public void PathEquals_FileAndDirectory()
     {
         var fileInDir = Path.Combine(_testDir, "test.txt");

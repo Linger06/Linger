@@ -415,13 +415,5 @@
             var result = input.ToGuidOrNull();
             Assert.Equal(expected, result);
         }
-        public static TheoryData<object, object> MapToData()
-        {
-            return new TheoryData<object, object>
-            {
-                { new { Name = "Test", Value = 123 }, new { Name = "Test", Value = 123 } },
-                { null, null }
-            };
-        }
     }
 }

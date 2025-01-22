@@ -67,9 +67,10 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     public IEnumerable<AdUserInfo> GetUsers(string userName, LdapCredentials? ldapCredentials = null)
     {
         PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
-        UserPrincipal userPrincipal = new UserPrincipal(principalContext);
-
-        userPrincipal.SamAccountName = userName + "*";
+        UserPrincipal userPrincipal = new UserPrincipal(principalContext)
+        {
+            SamAccountName = userName + "*"
+        };
 
         PrincipalSearcher principalSearcher = new PrincipalSearcher(userPrincipal);
 

@@ -44,10 +44,8 @@ public static class FileHelper
 
         encoding ??= ExtensionMethodSetting.DefaultEncoding;
 
-        using (var sr = new StreamReader(filename, encoding))
-        {
-            return sr.ReadToEnd();
-        }
+        using var sr = new StreamReader(filename, encoding);
+        return sr.ReadToEnd();
     }
 
     public static bool TryReadText(string filename, out string content, Encoding? encoding = null)
@@ -199,10 +197,8 @@ public static class FileHelper
 
         if (!IsExistFile(filePath))
         {
-            using (var fs = File.Create(filePath))
-            {
-                fs.Write(buffer, 0, buffer.Length);
-            }
+            using var fs = File.Create(filePath);
+            fs.Write(buffer, 0, buffer.Length);
         }
     }
 

@@ -18,8 +18,7 @@ public static class LdapEntryExtensions
     {
         if (userPrincipal == null) return null;
 
-        var directoryEntry = userPrincipal.GetUnderlyingObject() as System.DirectoryServices.DirectoryEntry;
-        if (directoryEntry == null) return null;
+        if (userPrincipal.GetUnderlyingObject() is not System.DirectoryServices.DirectoryEntry directoryEntry) return null;
 
         var userInfo = new AdUserInfo();
 

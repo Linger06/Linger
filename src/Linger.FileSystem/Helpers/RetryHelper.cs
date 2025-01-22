@@ -6,16 +6,10 @@ namespace Linger.FileSystem.Helpers;
 /// <summary>
 /// 重试操作的工具类
 /// </summary>
-public sealed class RetryHelper
+public sealed class RetryHelper(RetryOptions? options = null)
 {
-    private readonly RetryOptions _options;
-    private readonly Random _random;
-
-    public RetryHelper(RetryOptions? options = null)
-    {
-        _options = options ?? new RetryOptions();
-        _random = new Random();
-    }
+    private readonly RetryOptions _options = options ?? new RetryOptions();
+    private readonly Random _random = new();
 
     /// <summary>
     /// 执行可重试的异步操作

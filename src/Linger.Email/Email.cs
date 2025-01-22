@@ -105,12 +105,12 @@ public class Email : IEmail, IDisposable
             throw new InvalidOperationException("From address cannot be null");
         message.From.Add(new MailboxAddress(fromAddress.Name, fromAddress.Address));
 
-        if (emailMessage.Bcc?.Any() == true)
+        if (emailMessage.Bcc?.Count > 0)
         {
             message.Bcc.AddRange(emailMessage.Bcc.Select(x => new MailboxAddress(x.Name, x.Address)));
         }
 
-        if (emailMessage.Cc?.Any() == true)
+        if (emailMessage.Cc?.Count > 0)
         {
             message.Cc.AddRange(emailMessage.Cc.Select(x => new MailboxAddress(x.Name, x.Address)));
         }
@@ -126,7 +126,7 @@ public class Email : IEmail, IDisposable
 
     private static void ProcessAttachments(EmailMessage emailMessage, BodyBuilder bodyBuilder)
     {
-        if (emailMessage.AttachmentsPath?.Any() == true)
+        if (emailMessage.AttachmentsPath?.Count > 0)
         {
             foreach (var path in emailMessage.AttachmentsPath)
             {

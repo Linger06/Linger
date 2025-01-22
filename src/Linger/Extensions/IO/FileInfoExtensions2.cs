@@ -172,7 +172,7 @@ public static partial class FileInfoExtensions
     public static string GetFilePath(this string filePath)
     {
         var fi = new FileInfo(filePath);
-        return fi.FullName.Replace(fi.Name, string.Empty);
+        return fi.DirectoryName;
     }
 
     /// <summary>
@@ -188,7 +188,7 @@ public static partial class FileInfoExtensions
     /// </example>
     public static string GetFilePath(this FileInfo fi)
     {
-        return fi.FullName.Replace(fi.Name, string.Empty);
+        return fi.DirectoryName;
     }
 
     /// <summary>

@@ -101,7 +101,7 @@ public class DataTableJsonHelperTests
         }
         catch (Exception ex)
         {
-            ex.Should().Be(expectedException);
+            Assert.IsType(expectedException, ex);
         }
     }
 

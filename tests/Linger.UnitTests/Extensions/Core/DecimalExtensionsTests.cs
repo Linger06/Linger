@@ -4,13 +4,6 @@ using Xunit;
 
 public class DecimalExtensionsTests
 {
-    [Fact]
-    public void ToThousand_FormatsDecimalWithThousandSeparators()
-    {
-        var value = 1234567.89m;
-        var result = value.ToThousand();
-        Assert.Equal("1,234,567.89", result);
-    }
 
     [Fact]
     public void IsInteger_ReturnsTrueForIntegerValue()

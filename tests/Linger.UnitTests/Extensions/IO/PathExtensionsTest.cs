@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices;
-
-namespace Linger.UnitTests.Extensions.IO;
+﻿namespace Linger.UnitTests.Extensions.IO;
 
 public class PathExtensionsTest()
 {
@@ -9,16 +7,38 @@ public class PathExtensionsTest()
         new object[] { "./Test", "", "Test" },
         new object[] { @".\Test", "", "Test" },
         new object[] { "../Test", "", @"..\Test" },
-        new object[] { @"..\Test", "", @"..\Test" },
-        new object[] { @"C:\Path\Test", @"C:\Path", "Test" },
-        new object[] { @"D:\Path\Test", @"D:\Path2\Test\Test", @"..\..\..\Path\Test" },
-        new object[] { @"D:\Path\Test\a.txt", @"D:\Path", @"Test\a.txt" }
+        new object[] { @"..\Test", "", @"..\Test" }
     };
 
     [Theory]
     [MemberData(nameof(PathData))]
     public void GetRelativePathTest(string path1, string path2, string path3)
     {
+        if (path2.IsNotNullAndEmpty())
+        {
+            var result = path1.GetRelativePath(path2);
+            Assert.Equal(result, path3);
+        }
+        else
+        {
+            var result = path1.GetRelativePath();
+            Assert.Equal(result, path3);
+        }
+    }
+
+
+    public static IEnumerable<object[]> PathDataWindows = new List<object[]>
+    {
+        new object[] { @"C:\Path\Test", @"C:\Path", "Test" },
+        new object[] { @"D:\Path\Test", @"D:\Path2\Test\Test", @"..\..\..\Path\Test" },
+        new object[] { @"D:\Path\Test\a.txt", @"D:\Path", @"Test\a.txt" }
+    };
+
+    [Theory]
+    [MemberData(nameof(PathDataWindows))]
+    public void GetRelativePathTest_Windows(string path1, string path2, string path3)
+    {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         if (path2.IsNotNullAndEmpty())
         {
             var result = path1.GetRelativePath(path2);
@@ -38,7 +58,27 @@ public class PathExtensionsTest()
         new object[] { @".\Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
         new object[] { "./Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
         new object[] { "../Test", "", Path.Combine(Path.GetFullPath(".."), "Test") },
-        new object[] { @"..\Test", "", Path.Combine(Path.GetFullPath(".."), "Test") },
+        new object[] { @"..\Test", "", Path.Combine(Path.GetFullPath(".."), "Test") }
+    };
+
+    [Theory]
+    [MemberData(nameof(PathData2))]
+    public void GetAbsolutePathTest(string value, string? basePath, string expectedPath)
+    {
+        if (basePath.IsNotNullAndEmpty())
+        {
+            var result = value.GetAbsolutePath(basePath);
+            Assert.True(PathHelper.PathEquals(result, expectedPath));
+        }
+        else
+        {
+            var result = value.GetAbsolutePath();
+            Assert.True(PathHelper.PathEquals(result, expectedPath));
+        }
+    }
+
+    public static IEnumerable<object[]> PathData2_Windows = new List<object[]>
+    {
         new object[] { @"C:\Path\Test", "", @"C:\Path\Test" },
         new object[] { "../Test", @"C:\Path\Test", @"C:\Path\Test" },
         new object[] { "../Test", @"C:\Path\Test\XXX", @"C:\Path\Test\Test" },
@@ -49,9 +89,10 @@ public class PathExtensionsTest()
     };
 
     [Theory]
-    [MemberData(nameof(PathData2))]
-    public void GetAbsolutePathTest(string value, string? basePath, string expectedPath)
+    [MemberData(nameof(PathData2_Windows))]
+    public void GetAbsolutePathTest_Windows(string value, string? basePath, string expectedPath)
     {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         if (basePath.IsNotNullAndEmpty())
         {
             var result = value.GetAbsolutePath(basePath);
@@ -79,58 +120,5 @@ public class PathExtensionsTest()
             var relativePath = Path.GetRelativePath(fakeRoot, result);
             Assert.Equal(path.GetRelativePath(fakeRoot), relativePath);
         }
-#endif    
-
-    private static string GetFullPath(string path)
-    {
-        string rv;
-        if (path.StartsWith("."))
-        {
-            rv = Path.Combine(string.Empty, path);
-        }
-        else
-        {
-            rv = path;
-        }
-
-        rv = Path.GetFullPath(rv);
-        return rv;
-    }
-
-    public static string GetRuntimeDirectory(string path)
-    {
-        if (IsLinuxRunTime())
-        {
-            return GetLinuxDirectory(path);
-        }
-
-        if (IsWindowRunTime())
-        {
-            return GetWindowDirectory(path);
-        }
-
-        return path;
-    }
-
-    public static bool IsWindowRunTime()
-    {
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-    }
-
-    public static bool IsLinuxRunTime()
-    {
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-    }
-
-    public static string GetLinuxDirectory(string path)
-    {
-        var pathTemp = Path.Combine(path);
-        return pathTemp.Replace("\\", "/");
-    }
-
-    public static string GetWindowDirectory(string path)
-    {
-        var pathTemp = Path.Combine(path);
-        return pathTemp.Replace("/", "\\");
-    }
+#endif
 }

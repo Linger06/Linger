@@ -33,20 +33,4 @@ public class IntExtensionsTests
         var result = length.FileSize();
         Assert.Equal("1GB", result);
     }
-
-    [Fact]
-    public void ToThousand_FormatsIntWithThousandSeparators()
-    {
-        var value = 1234567;
-        var result = value.ToThousand();
-        Assert.Equal("1,234,567.00", result);
-    }
-
-    [Fact]
-    public void ToThousand_FormatsNegativeIntWithThousandSeparators()
-    {
-        var value = -1234567;
-        var result = value.ToThousand();
-        Assert.Equal("-1,234,567.00", result);
-    }
 }

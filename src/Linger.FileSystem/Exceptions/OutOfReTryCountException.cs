@@ -1,7 +1,4 @@
 ﻿namespace Linger.FileSystem.Exceptions;
-public class OutOfReTryCountException : Exception
+public class OutOfReTryCountException(string? message, Exception? innerException) : Exception(message, innerException)
 {
-    public OutOfReTryCountException(string? message, Exception? innerException) : base(message, innerException)
-    {
-    }
 }

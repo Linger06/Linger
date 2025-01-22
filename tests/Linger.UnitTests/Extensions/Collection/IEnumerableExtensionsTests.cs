@@ -90,16 +90,16 @@ public class IEnumerableExtensionsTests
 
         var jointList = list1.LeftOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
-        jointList.Should().HaveCount(3);
+        Assert.Equal(3, jointList.Count());
 
-        jointList.ElementAt(0).x.Should().Be(1);
-        jointList.ElementAt(0).y.Should().BeNull();
+        Assert.Equal(1, jointList.ElementAt(0).x);
+        Assert.Null(jointList.ElementAt(0).y);
 
-        jointList.ElementAt(1).x.Should().Be(2);
-        jointList.ElementAt(1).y.Should().BeNull();
+        Assert.Equal(2, jointList.ElementAt(1).x);
+        Assert.Null(jointList.ElementAt(1).y);
 
-        jointList.ElementAt(2).x.Should().Be(3);
-        jointList.ElementAt(2).y.Should().Be(3);
+        Assert.Equal(3, jointList.ElementAt(2).x);
+        Assert.Equal(3, jointList.ElementAt(2).y);
     }
 
     [Fact]
@@ -134,16 +134,16 @@ public class IEnumerableExtensionsTests
 
         var jointList = list1.RightOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
-        jointList.Should().HaveCount(3);
+        Assert.Equal(3, jointList.Count());
 
-        jointList.ElementAt(0).x.Should().Be(3);
-        jointList.ElementAt(0).y.Should().Be(3);
+        Assert.Equal(3, jointList.ElementAt(0).x);
+        Assert.Equal(3, jointList.ElementAt(0).y);
 
-        jointList.ElementAt(1).x.Should().BeNull();
-        jointList.ElementAt(1).y.Should().Be(4);
+        Assert.Null(jointList.ElementAt(1).x);
+        Assert.Equal(4, jointList.ElementAt(1).y);
 
-        jointList.ElementAt(2).x.Should().BeNull();
-        jointList.ElementAt(2).y.Should().Be(5);
+        Assert.Null(jointList.ElementAt(2).x);
+        Assert.Equal(5, jointList.ElementAt(2).y);
     }
 
     [Fact]
@@ -177,10 +177,10 @@ public class IEnumerableExtensionsTests
 
         var jointList = list1.InnerJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
-        jointList.Should().HaveCount(1);
+        Assert.Single(jointList);
 
-        jointList.ElementAt(0).x.Should().Be(3);
-        jointList.ElementAt(0).y.Should().Be(3);
+        Assert.Equal(3, jointList.ElementAt(0).x);
+        Assert.Equal(3, jointList.ElementAt(0).y);
     }
 
     [Fact]
@@ -216,22 +216,22 @@ public class IEnumerableExtensionsTests
 
         var jointList = list1.FullOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
-        jointList.Should().HaveCount(5);
+        Assert.Equal(5, jointList.Count());
 
-        jointList.ElementAt(0).x.Should().Be(1);
-        jointList.ElementAt(0).y.Should().BeNull();
+        Assert.Equal(1, jointList.ElementAt(0).x);
+        Assert.Null(jointList.ElementAt(0).y);
 
-        jointList.ElementAt(1).x.Should().Be(2);
-        jointList.ElementAt(1).y.Should().BeNull();
+        Assert.Equal(2, jointList.ElementAt(1).x);
+        Assert.Null(jointList.ElementAt(1).y);
 
-        jointList.ElementAt(2).x.Should().Be(3);
-        jointList.ElementAt(2).y.Should().Be(3);
+        Assert.Equal(3, jointList.ElementAt(2).x);
+        Assert.Equal(3, jointList.ElementAt(2).y);
 
-        jointList.ElementAt(3).x.Should().BeNull();
-        jointList.ElementAt(3).y.Should().Be(4);
+        Assert.Null(jointList.ElementAt(3).x);
+        Assert.Equal(4, jointList.ElementAt(3).y);
 
-        jointList.ElementAt(4).x.Should().BeNull();
-        jointList.ElementAt(4).y.Should().Be(5);
+        Assert.Null(jointList.ElementAt(4).x);
+        Assert.Equal(5, jointList.ElementAt(4).y);
     }
 
     [Fact]

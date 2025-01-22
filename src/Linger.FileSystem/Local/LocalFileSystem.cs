@@ -6,17 +6,11 @@ using Linger.Helper;
 
 namespace Linger.FileSystem.Local;
 
-public class LocalFileSystem : ILocalFileSystem
+public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOptions = null) : ILocalFileSystem
 {
-    private readonly RetryHelper _retryHelper;
+    private readonly RetryHelper _retryHelper = new(retryOptions);
 
-    public LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOptions = null)
-    {
-        RootDirectoryPath = rootDirectoryPath;
-        _retryHelper = new RetryHelper(retryOptions);
-    }
-
-    public string RootDirectoryPath { get; }
+    public string RootDirectoryPath { get; } = rootDirectoryPath;
     public bool Exists()
     {
         return DirectoryExists(RootDirectoryPath);
@@ -76,7 +70,7 @@ public class LocalFileSystem : ILocalFileSystem
                 useSequencedName,
                 useHashMd5Name),
             "文件上传",
-            ex => !(ex is DuplicateFileException)); // 文件重复异常不重试
+            ex => ex is not DuplicateFileException); // 文件重复异常不重试
 
     }
 

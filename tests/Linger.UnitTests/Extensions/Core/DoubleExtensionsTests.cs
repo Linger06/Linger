@@ -37,14 +37,6 @@ public class DoubleExtensionsTests
     }
 
     [Fact]
-    public void ToThousand_FormatsDoubleWithThousandSeparators()
-    {
-        var value = 1234567.89;
-        var result = value.ToThousand();
-        Assert.Equal("1,234,567.89", result);
-    }
-
-    [Fact]
     public void Days_ReturnsCorrectTimeSpan()
     {
         var days = 2.5;

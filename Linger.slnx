@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
+    <File Path="testEnvironments.json" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Linger.Audit/Linger.Audit.csproj" />

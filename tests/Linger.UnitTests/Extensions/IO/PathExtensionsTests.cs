@@ -6,6 +6,7 @@ public class PathExtensionsTests
     public void GetRelativePath_ShouldReturnRelativePath_NETCOREAPP()
     {
 #if NETCOREAPP
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         var path = @"C:\Projects\Test";
         var relativeTo = @"C:\Projects";
         var expected = "Test";
@@ -20,6 +21,7 @@ public class PathExtensionsTests
     public void GetRelativePath_ShouldReturnRelativePath_NETFRAMEWORK_NETSTANDARD()
     {
 #if NETFRAMEWORK || NETSTANDARD
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         var path = @"C:\Projects\Test";
         var relativeTo = @"C:\Projects";
         var expected = "Test";
@@ -33,6 +35,7 @@ public class PathExtensionsTests
     [Fact]
     public void GetAbsolutePath_ShouldReturnAbsolutePath_WhenPathIsRelative()
     {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         var path = @"..\Test";
         var basePath = @"C:\Projects";
         var expected = Path.GetFullPath(Path.Combine(basePath, path));
@@ -45,6 +48,7 @@ public class PathExtensionsTests
     [Fact]
     public void GetAbsolutePath_ShouldReturnAbsolutePath_WhenPathIsAbsolute()
     {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         var path = @"C:\Test";
         var expected = Path.GetFullPath(path);
 
@@ -72,6 +76,7 @@ public class PathExtensionsTests
     [Fact]
     public void IsAbsolutePath_ShouldReturnTrue_WhenPathIsAbsolute()
     {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         var path = @"C:\Test";
 
         var result = path.IsAbsolutePath();
@@ -92,6 +97,7 @@ public class PathExtensionsTests
     [Fact]
     public void RelativeTo_ShouldReturnRelativePath()
     {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         var sourcePath = @"C:\Projects\Test\File.txt";
         var folder = @"C:\Projects";
         var expected = @"Test\File.txt";

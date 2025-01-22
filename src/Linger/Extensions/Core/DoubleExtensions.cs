@@ -25,16 +25,6 @@ public static class DoubleExtensions
     }
 
     /// <summary>
-    /// Converts the value of this instance to its string representation with thousand separators.
-    /// </summary>
-    /// <param name="value">The <see cref="double"/> to convert.</param>
-    /// <returns>A string representation of the value with thousand separators.</returns>
-    public static string ToThousand(this double value)
-    {
-        return $"{value:N}";
-    }
-
-    /// <summary>
     /// Gets a TimeSpan from a double number of days.
     /// </summary>
     /// <param name="days">The number of days the TimeSpan will contain.</param>
