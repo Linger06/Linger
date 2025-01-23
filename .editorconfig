@@ -148,7 +148,7 @@ dotnet_naming_style.pascal_case_style.capitalization = pascal_case
 # RS0016: Only enable if API files are present
 dotnet_public_api_analyzer.require_api_files = true
 tab_width = 4
-end_of_line = crlf
+end_of_line = lf
 dotnet_style_require_accessibility_modifiers = for_non_interface_members:silent
 dotnet_code_quality_unused_parameters = all:suggestion
 dotnet_style_readonly_field = true:suggestion

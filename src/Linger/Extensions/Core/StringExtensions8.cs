@@ -435,6 +435,28 @@ public static partial class StringExtensions
     public static DateTime ToDateTime(this string? value, Func<DateTime>? defaultValueFunc)
         => value.TryToDateTime(out var result) ? result.Value : defaultValueFunc?.Invoke() ?? new DateTime();
 
+    ///// <summary>
+    ///// Converts the string to a DateTime
+    ///// </summary>
+    ///// <param name="DateString">The date string.</param>
+    ///// <param name="DateFormat">The date format.</param>
+    ///// <returns></returns>
+    //public static DateTime ToDateTime(this string DateString, string DateFormat)
+    //{
+    //    return DateTime.ParseExact(DateString, DateFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault);
+    //}
+
+    ///// <summary>
+    ///// Converts the string to a DateTime
+    ///// </summary>
+    ///// <param name="DateString">The date string.</param>
+    ///// <param name="DateFormats">Array of date formats.</param>
+    ///// <returns></returns>
+    //public static DateTime ToDateTime(this string DateString, string[] DateFormats)
+    //{
+    //    return DateTime.ParseExact(DateString, DateFormats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault);
+    //}
+
     #endregion
 
     #region bool

@@ -2,8 +2,8 @@
 
 public class FileHelper2Tests
 {
-    private readonly string _testDirPath = "testDir2";
-    private readonly string _testFilePath = "testDir2/testFile.txt";
+    private readonly string _testDirPath = Path.Combine("TestTempDir", "FileHelper2Tests", $"testDir-{Guid.NewGuid().ToString()}");
+    private readonly string _testFileName = "testFile.txt";
     private readonly string _testContent = "Hello, World!";
     private readonly Encoding _encoding = new UTF8Encoding(false);
 
@@ -13,7 +13,7 @@ public class FileHelper2Tests
         {
             Directory.CreateDirectory(_testDirPath);
         }
-        File.WriteAllText(_testFilePath, _testContent, _encoding);
+        File.WriteAllText(Path.Combine(_testDirPath, _testFileName), _testContent, _encoding);
     }
 
     [Fact]

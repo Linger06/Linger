@@ -36,7 +36,7 @@ public class SqlCommandProfilerInterceptor : DbCommandInterceptor
     {
         var sql = command.CommandText;
         Debug.WriteLine("++++++++++++++++++++");
-        Debug.WriteLine("ReaderExecutingAsync:\r\n" + sql);
+        Debug.WriteLine($"ReaderExecutingAsync: {sql}");
         Debug.WriteLine("++++++++++++++++++++");
         return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
     }
@@ -46,7 +46,7 @@ public class SqlCommandProfilerInterceptor : DbCommandInterceptor
     {
         var sql = command.CommandText;
         Debug.WriteLine("++++++++++++++++++++");
-        Debug.WriteLine("NonQueryExecuting:\r\n" + sql);
+        Debug.WriteLine($"NonQueryExecuting: {sql}");
         Debug.WriteLine("++++++++++++++++++++");
         return base.NonQueryExecuting(command, eventData, result);
     }
@@ -79,7 +79,7 @@ public class SqlCommandProfilerInterceptor : DbCommandInterceptor
     {
         var sql = command.CommandText;
         Debug.WriteLine("++++++++++++++++++++");
-        Debug.WriteLine("ScalarExecuting:\r\n" + sql);
+        Debug.WriteLine($"ScalarExecuting: {sql}");
         Debug.WriteLine("++++++++++++++++++++");
         return base.ScalarExecuting(command, eventData, result);
     }
@@ -89,7 +89,7 @@ public class SqlCommandProfilerInterceptor : DbCommandInterceptor
     {
         var sql = command.CommandText;
         Debug.WriteLine("++++++++++++++++++++");
-        Debug.WriteLine("ScalarExecutingAsync:\r\n" + sql);
+        Debug.WriteLine($"ScalarExecutingAsync: {sql}");
         Debug.WriteLine("++++++++++++++++++++");
         return base.ScalarExecutingAsync(command, eventData, result, cancellationToken);
     }

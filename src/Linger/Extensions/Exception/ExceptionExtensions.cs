@@ -93,29 +93,39 @@ public static class ExceptionExtensions
     /// }
     /// </code>
     /// </example>
-    public static string ExtractAllStackTrace(this System.Exception exception, string? lastStackTrace = null,
-        int exCount = 1)
+    public static string ExtractAllStackTrace(this System.Exception exception, string? lastStackTrace = null, int exCount = 1)
     {
         System.Exception? ex = exception;
-        const string EntryFormat = "#{0}: {1}\r\n{2}";
+        const string EntryFormat = """
+            #{0}: {1}
+            {2}
+            """;
         // Fix the last stack trace parameter
         lastStackTrace ??= string.Empty;
         // Add the stack trace of the exception
         lastStackTrace += string.Format(EntryFormat, exCount, ex.Message, ex.StackTrace);
         if (exception.Data.Count > 0)
         {
-            lastStackTrace += "\r\n    Data: ";
+            lastStackTrace += """
+
+                    Data:
+
+                """;
             foreach (var item in exception.Data)
             {
                 var entry = (DictionaryEntry)item;
-                lastStackTrace += $"\r\n\t{entry.Key}: {exception.Data[entry.Key]}";
+                lastStackTrace += $"{entry.Key}: {exception.Data[entry.Key]}";
             }
         }
 
         // Recursively add the stack trace of inner exceptions
         if ((ex = ex.InnerException) != null)
         {
-            return ex.ExtractAllStackTrace($"{lastStackTrace}\r\n\r\n", ++exCount);
+            return ex.ExtractAllStackTrace($"""
+                {lastStackTrace}
+
+
+                """, ++exCount);
         }
 
         return lastStackTrace;

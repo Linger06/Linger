@@ -62,15 +62,6 @@ public class StringExtensions6Tests
     }
 
     [Theory]
-    [InlineData("line1\r\nline2", new[] { "line1", "line2" })]
-    [InlineData(null, new string[] { })]
-    public void ToSplitArrayByCrlf_ShouldReturnExpectedResult(string? value, string[] expected)
-    {
-        var result = value.ToSplitArrayByCrlf();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
     [InlineData("line1,line2", ',', new[] { "line1", "line2" })]
     [InlineData(null, ',', new string[] { })]
     public void ToSplitArray_ShouldReturnExpectedResult(string? value, char symbol, string[] expected)

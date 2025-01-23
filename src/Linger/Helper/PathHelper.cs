@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using System.Security;
 using Linger.Extensions.Core;
 
@@ -170,7 +169,7 @@ public static class PathHelper
         if (path.IndexOfAny(Path.GetInvalidPathChars()) != -1)
             return true;
 
-        bool isWindows = IsWindowsOperatingSystem();
+        bool isWindows = OSPlatformHelper.IsWindows;
         if (isWindows)
         {
             // Windows 特定的检查
@@ -183,7 +182,7 @@ public static class PathHelper
             "CON", "PRN", "AUX", "NUL",
             "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
             "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-        ];
+            ];
 
             // 检查每个路径段
             var segments = path.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
@@ -234,7 +233,7 @@ public static class PathHelper
             string fullPath2 = Path.GetFullPath(normalizedPath2);
 
             // 检查操作系统类型
-            bool isWindows = IsWindowsOperatingSystem();
+            bool isWindows = OSPlatformHelper.IsWindows; ;
 
             // 在 Windows 上忽略大小写，在其他平台上区分大小写
             return isWindows
@@ -247,28 +246,13 @@ public static class PathHelper
                 ex is NotSupportedException || ex is PathTooLongException)
             {
                 // 如果无法解析路径，则进行简单的字符串比较
-                bool isWindows = IsWindowsOperatingSystem();
+                bool isWindows = OSPlatformHelper.IsWindows; ;
                 return isWindows
                     ? string.Equals(path1, path2, StringComparison.OrdinalIgnoreCase)
                     : string.Equals(path1, path2, StringComparison.Ordinal);
             }
             throw;
         }
-    }
-
-    /// <summary>
-    /// Determines whether the current operating system is Windows.
-    /// </summary>
-    private static bool IsWindowsOperatingSystem()
-    {
-#if NETFRAMEWORK
-        // .NET Framework 4.0 方式
-        OperatingSystem os = Environment.OSVersion;
-        return os.Platform == PlatformID.Win32NT;
-#else
-        // 更新的 .NET 版本使用 RuntimeInformation
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-#endif
     }
 
     public static string? GetParentDirectory(string? path, int levels)

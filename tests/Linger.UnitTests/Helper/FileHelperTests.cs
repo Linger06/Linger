@@ -8,7 +8,7 @@ public class FileHelperTests : IDisposable
 
     public FileHelperTests()
     {
-        _testDirectory = $"testDir-{Guid.NewGuid().ToString()}";
+        _testDirectory = Path.Combine("TestTempDir", "FileHelperTests", $"testDir-{Guid.NewGuid().ToString()}");
         Directory.CreateDirectory(_testDirectory);
     }
 

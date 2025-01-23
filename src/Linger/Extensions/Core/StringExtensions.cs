@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace Linger.Extensions.Core;
@@ -171,13 +172,31 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="DateTime"/> object.
+    /// Determines whether the specified date string is a datetime.
     /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="DateTime"/> object; otherwise, false.</returns>
-    public static bool IsDateTime(this string value)
+    /// <param name="value">The date string.</param>
+    /// <param name="format">Array of date formats.</param>
+    /// <returns>
+    ///   <c>true</c> if the specified date string is a date; otherwise, <c>false</c>.
+    /// </returns>
+    public static bool IsDateTime(this string value, string[] format)
     {
-        return DateTime.TryParse(value, out _);
+        if (value == null) return false;
+        return (DateTime.TryParseExact(value, format, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _));
+    }
+
+    /// <summary>
+    /// Determines whether the specified date string is datetime.
+    /// </summary>
+    /// <param name="value">The date string.</param>
+    /// <param name="format">The date format.</param>
+    /// <returns>
+    ///   <c>true</c> if the specified date string is a date; otherwise, <c>false</c>.
+    /// </returns>
+    public static bool IsDateTime(this string value, string format)
+    {
+        if (value == null) return false;
+        return (DateTime.TryParseExact(value, format, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _));
     }
 
     /// <summary>

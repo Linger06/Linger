@@ -112,7 +112,7 @@ public class PathExtensionsTests
     {
         var sourcePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test", "File.txt");
         var folder = "/";
-        var expected = @"Test\File.txt";
+        var expected = Path.Combine("Test", "File.txt");
 
         var result = sourcePath.RelativeTo(folder);
 

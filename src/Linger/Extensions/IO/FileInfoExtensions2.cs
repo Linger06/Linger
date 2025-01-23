@@ -169,9 +169,9 @@ public static partial class FileInfoExtensions
     /// string absolutePath = filePath.GetFilePath();
     /// </code>
     /// </example>
-    public static string GetFilePath(this string filePath)
+    public static string? GetFilePath(this string filePath)
     {
-        var fi = new FileInfo(filePath);
+        FileInfo fi = new FileInfo(filePath);
         return fi.DirectoryName;
     }
 
@@ -186,7 +186,7 @@ public static partial class FileInfoExtensions
     /// string absolutePath = fileInfo.GetFilePath();
     /// </code>
     /// </example>
-    public static string GetFilePath(this FileInfo fi)
+    public static string? GetFilePath(this FileInfo fi)
     {
         return fi.DirectoryName;
     }

@@ -67,7 +67,7 @@ public static partial class StringExtensions
     /// <returns>The string without the last newline character.</returns>
     public static string DelLastNewLine(this string value)
     {
-        return value.TrimEnd(Environment.NewLine.ToCharArray());
+        return value.TrimEnd(Environment.NewLine.ToCharArray()).TrimEnd(['\n', '\r']);
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ public static partial class StringExtensions
             return string.Empty;
         }
 
-        return value.Replace(Environment.NewLine, string.Empty).Replace("\n", string.Empty);
+        return value.Replace(Environment.NewLine, string.Empty).Replace("\n", string.Empty).Replace("\r", string.Empty);
     }
 
     /// <summary>

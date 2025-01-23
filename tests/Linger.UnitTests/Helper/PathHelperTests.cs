@@ -12,7 +12,7 @@ public class PathHelperTests : IDisposable
     public PathHelperTests(ITestOutputHelper output)
     {
         _output = output;
-        _testDir = Path.Combine(Path.GetTempPath(), "PathHelperTests");
+        _testDir = Path.Combine("TestTempDir", "PathHelperTests", $"testDir-{Guid.NewGuid().ToString()}");
         _testFile = Path.Combine(_testDir, "test.txt");
 
         Directory.CreateDirectory(_testDir);
@@ -266,7 +266,20 @@ public class PathHelperTests : IDisposable
     public void IsDirectory_InvalidPath()
     {
         Assert.Throws<System.ArgumentNullException>(() => PathHelper.IsDirectory(null));
-        Assert.False(PathHelper.IsDirectory("非法路径*:|"));
+    }
+
+    [Fact]
+    public void IsDirectory_InvalidPath_Windows()
+    {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
+        Assert.False(PathHelper.IsDirectory("Windows非法路径*:|"));
+    }
+
+    [Fact]
+    public void IsDirectory_InvalidPath_Liunx()
+    {
+        Assert.SkipUnless(OSPlatformHelper.IsLinux, "仅在类 Unix 平台运行");
+        Assert.True(PathHelper.IsDirectory("Linux合法路径*:|"));
     }
 
     [Fact]

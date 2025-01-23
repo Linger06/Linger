@@ -387,7 +387,7 @@ public class StringExtensionsTests
         var value = "2021-10-01";
 
         // Act
-        var result = value.IsDateTime();
+        var result = value.IsDateTime("yyyy-MM-dd");
 
         // Assert
         Assert.True(result);

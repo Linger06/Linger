@@ -7,7 +7,7 @@ public class FileInfoExtensionsTests : IDisposable
 
     public FileInfoExtensionsTests(ITestOutputHelper outputHelper)
     {
-        _testDirectory = $"testDir-{Guid.NewGuid().ToString()}";
+        _testDirectory = Path.Combine("TestTempDir", "FileInfoExtensionsTests", $"testDir-{Guid.NewGuid().ToString()}");
         Directory.CreateDirectory(_testDirectory);
         _outputHelper = outputHelper;
     }

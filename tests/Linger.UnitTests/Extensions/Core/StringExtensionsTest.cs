@@ -139,7 +139,7 @@ public class StringExtensionsTest
     [InlineData("1/18/2016")]
     public void IsDateTime(string value)
     {
-        var result = value.IsDateTime();
+        var result = value.IsDateTime("M/d/yyyy");
         Assert.True(result);
     }
 

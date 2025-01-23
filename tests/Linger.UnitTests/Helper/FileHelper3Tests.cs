@@ -2,8 +2,8 @@
 
 public class FileHelper3Tests
 {
-    private readonly string _testDirPath = "testDir3";
-    private readonly string _testFilePath = "testDir3/testFile.txt";
+    private readonly string _testDirPath = Path.Combine("TestTempDir", "FileHelper4Tests", $"testDir-{Guid.NewGuid().ToString()}");
+    private readonly string _testFileName = "testFile.txt";
     private readonly string _testContent = "Hello, World!";
     private readonly Encoding _encoding = Encoding.UTF8;
 
@@ -13,13 +13,13 @@ public class FileHelper3Tests
         {
             Directory.CreateDirectory(_testDirPath);
         }
-        File.WriteAllText(_testFilePath, _testContent, _encoding);
+        File.WriteAllText(Path.Combine(_testDirPath, _testFileName), _testContent, _encoding);
     }
 
     [Fact]
     public void GetFileName_ReturnsCorrectFileName()
     {
-        var fileName = FileHelper.GetFileName(_testFilePath);
+        var fileName = FileHelper.GetFileName(Path.Combine(_testDirPath, _testFileName));
         Assert.Equal("testFile.txt", fileName);
     }
 
@@ -39,8 +39,8 @@ public class FileHelper3Tests
     [Fact]
     public void ClearFile_ClearsFileContent()
     {
-        FileHelper.ClearFile(_testFilePath);
-        Assert.Empty(File.ReadAllText(_testFilePath));
+        FileHelper.ClearFile(Path.Combine(_testDirPath, _testFileName));
+        Assert.Empty(File.ReadAllText(Path.Combine(_testDirPath, _testFileName)));
     }
 
     [Fact]

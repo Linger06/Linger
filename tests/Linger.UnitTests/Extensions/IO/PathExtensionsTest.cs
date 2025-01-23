@@ -5,30 +5,30 @@ public class PathExtensionsTest()
     public static IEnumerable<object[]> PathData = new List<object[]>
     {
         new object[] { "./Test", "", "Test" },
-        new object[] { @".\Test", "", "Test" },
-        new object[] { "../Test", "", @"..\Test" },
-        new object[] { @"..\Test", "", @"..\Test" }
+        new object[] { "../Test/Test2", "../Test", "Test2" }
     };
 
     [Theory]
     [MemberData(nameof(PathData))]
-    public void GetRelativePathTest(string path1, string path2, string path3)
+    public void GetRelativePathTest(string path1, string path2, string expectedPath)
     {
         if (path2.IsNotNullAndEmpty())
         {
             var result = path1.GetRelativePath(path2);
-            Assert.Equal(result, path3);
+            Assert.Equal(expectedPath, result);
         }
         else
         {
             var result = path1.GetRelativePath();
-            Assert.Equal(result, path3);
+            Assert.Equal(expectedPath, result);
         }
     }
 
 
     public static IEnumerable<object[]> PathDataWindows = new List<object[]>
     {
+        new object[] { @".\Test", "", "Test" },
+        new object[] { @"..\Test", "", @"..\Test" },
         new object[] { @"C:\Path\Test", @"C:\Path", "Test" },
         new object[] { @"D:\Path\Test", @"D:\Path2\Test\Test", @"..\..\..\Path\Test" },
         new object[] { @"D:\Path\Test\a.txt", @"D:\Path", @"Test\a.txt" }
@@ -36,18 +36,18 @@ public class PathExtensionsTest()
 
     [Theory]
     [MemberData(nameof(PathDataWindows))]
-    public void GetRelativePathTest_Windows(string path1, string path2, string path3)
+    public void GetRelativePathTest_Windows(string path1, string path2, string expectedPath)
     {
         Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
         if (path2.IsNotNullAndEmpty())
         {
             var result = path1.GetRelativePath(path2);
-            Assert.Equal(result, path3);
+            Assert.Equal(expectedPath, result);
         }
         else
         {
             var result = path1.GetRelativePath();
-            Assert.Equal(result, path3);
+            Assert.Equal(expectedPath, result);
         }
     }
 
@@ -55,10 +55,8 @@ public class PathExtensionsTest()
     {
         new object[] { "Test", null, Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
         new object[] { "Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
-        new object[] { @".\Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
         new object[] { "./Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
-        new object[] { "../Test", "", Path.Combine(Path.GetFullPath(".."), "Test") },
-        new object[] { @"..\Test", "", Path.Combine(Path.GetFullPath(".."), "Test") }
+        new object[] { "../Test", "", Path.Combine(Path.GetFullPath(".."), "Test") }
     };
 
     [Theory]
@@ -79,6 +77,8 @@ public class PathExtensionsTest()
 
     public static IEnumerable<object[]> PathData2_Windows = new List<object[]>
     {
+        new object[] { @".\Test", "", Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Test") },
+        new object[] { @"..\Test", "", Path.Combine(Path.GetFullPath(".."), "Test") },
         new object[] { @"C:\Path\Test", "", @"C:\Path\Test" },
         new object[] { "../Test", @"C:\Path\Test", @"C:\Path\Test" },
         new object[] { "../Test", @"C:\Path\Test\XXX", @"C:\Path\Test\Test" },

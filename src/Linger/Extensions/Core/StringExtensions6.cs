@@ -13,7 +13,7 @@ public static partial class StringExtensions
     /// <param name="value">The string to split.</param>
     /// <param name="symbol">The delimiter to use. Default is carriage return and line feed.</param>
     /// <returns>A list of strings.</returns>
-    public static List<string> ToSplitList(this string? value, string symbol = "\r\n")
+    public static List<string> ToSplitList(this string? value, string symbol = ",")
     {
         if (value.IsNullOrEmpty())
         {
@@ -33,21 +33,6 @@ public static partial class StringExtensions
     {
         var value2 = value.ToSplitArray(symbol);
         return value2.ToEnumerable();
-    }
-
-    /// <summary>
-    /// Splits the string into an array of strings using carriage return and line feed as the delimiter.
-    /// </summary>
-    /// <param name="value">The string to split.</param>
-    /// <returns>An array of strings.</returns>
-    public static string[] ToSplitArrayByCrlf(this string? value)
-    {
-        if (value.IsNullOrEmpty())
-        {
-            return [];
-        }
-
-        return Regex.Split(value, Environment.NewLine, RegexOptions.IgnoreCase);
     }
 
     /// <summary>
