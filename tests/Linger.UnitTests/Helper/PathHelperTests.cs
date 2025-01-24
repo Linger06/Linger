@@ -1,312 +1,189 @@
-﻿namespace Linger.UnitTests.Helper;
+﻿using System.Runtime.InteropServices;
 
-public class PathHelperTests : IDisposable
+namespace Linger.Tests.Helper;
+
+public class PathHelperTests
 {
-    private readonly bool _isWindows = OSPlatformHelper.IsWindows;
-    private readonly bool _isLinux = OSPlatformHelper.IsLinux;
-    private readonly bool _isMacOS = OSPlatformHelper.IsMacOSX;
-    private readonly string _testDir;
-    private readonly string _testFile;
-    private readonly ITestOutputHelper _output;
+    private readonly string _windowsBasePath = @"C:\test\path";
+    private readonly string _unixBasePath = "/test/path";
+    private readonly string _basePath;
 
-    public PathHelperTests(ITestOutputHelper output)
+    public PathHelperTests()
     {
-        _output = output;
-        _testDir = Path.Combine("TestTempDir", "PathHelperTests", $"testDir-{Guid.NewGuid().ToString()}");
-        _testFile = Path.Combine(_testDir, "test.txt");
-
-        Directory.CreateDirectory(_testDir);
-        if (!File.Exists(_testFile))
-            File.WriteAllText(_testFile, "test content");
-
-        _output.WriteLine($"运行平台: {GetPlatformName()}");
+        _basePath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? _windowsBasePath
+            : _unixBasePath;
     }
 
-    private string GetPlatformName() => _isWindows ? "Windows" : _isLinux ? "Linux" : _isMacOS ? "macOS" : "Unknown";
-
-    [Theory]
-    [InlineData("C:\\example\\path", "C:\\example\\path", true)]
-    [InlineData("file:///C:/folder/file.txt", "C:\\folder\\file.txt", true)]
-    [InlineData("/home/user/path", "/home/user/path", false)]
-    public void NormalizePath_PlatformSpecific(string input, string expected, bool windowsOnly)
+    public class ProcessPathTests : PathHelperTests
     {
-        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
-
-        var result = PathHelper.NormalizePath(input);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("//server/share/path", "//server/share/path")]
-    [InlineData("//server/share/path/", "//server/share/path")]
-    [InlineData("", "")]
-    [InlineData(null, null)]
-    public void NormalizePath_CrossPlatform(string input, string expected)
-    {
-        var result = PathHelper.NormalizePath(input);
-        Assert.Equal(expected, result);
-    }
-
-    [Fact]
-    public void IsFile_Windows()
-    {
-        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
-
-        var winFile = Path.Combine(_testDir, "windows_txt");
-
-        Assert.False(PathHelper.IsFile(winFile));
-        Assert.False(PathHelper.IsFile(winFile.Replace('\\', '/')));
-
-        File.WriteAllText(winFile, "windows");
-
-        Assert.True(PathHelper.IsFile(winFile));
-        Assert.True(PathHelper.IsFile(winFile.Replace('\\', '/')));
-    }
-
-    [Fact]
-    public void IsFile_Windows_2()
-    {
-        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
-
-        var winFile = Path.Combine(_testDir, "windows.txt");
-
-        Assert.True(PathHelper.IsFile(winFile));
-        Assert.True(PathHelper.IsFile(winFile.Replace('\\', '/')));
-
-        File.WriteAllText(winFile, "windows");
-
-        Assert.True(PathHelper.IsFile(winFile));
-        Assert.True(PathHelper.IsFile(winFile.Replace('\\', '/')));
-    }
-
-    [Fact]
-    public void IsFile_Unix()
-    {
-        Assert.SkipWhen(_isWindows, "仅在类 Unix 平台运行");
-
-        var unixFile = Path.Combine(_testDir, "unix.txt");
-
-        Assert.True(PathHelper.IsFile(unixFile));
-
-        File.WriteAllText(unixFile, "unix");
-
-        Assert.True(PathHelper.IsFile(unixFile));
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void IsFile_CommonCases(string path)
-    {
-        Assert.False(PathHelper.IsFile(path));
-    }
-
-    [Fact]
-    public void IsDirectory_Windows()
-    {
-        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
-
-        var winDir = Path.Combine(_testDir, "windows.dir");
-
-        Assert.False(PathHelper.IsDirectory(winDir));
-        Assert.True(PathHelper.IsDirectory(winDir + "\\"));
-        Assert.False(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
-
-        Directory.CreateDirectory(winDir);
-
-        Assert.True(PathHelper.IsDirectory(winDir));
-        Assert.True(PathHelper.IsDirectory(winDir + "\\"));
-        Assert.True(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
-    }
-
-    [Fact]
-    public void IsDirectory_Windows_2()
-    {
-        Assert.SkipUnless(_isWindows, "仅在 Windows 平台运行");
-
-        var winDir = Path.Combine(_testDir, "windows_dir");
-
-        Assert.True(PathHelper.IsDirectory(winDir));
-        Assert.True(PathHelper.IsDirectory(winDir + "\\"));
-        Assert.True(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
-
-        Directory.CreateDirectory(winDir);
-
-        Assert.True(PathHelper.IsDirectory(winDir));
-        Assert.True(PathHelper.IsDirectory(winDir + "\\"));
-        Assert.True(PathHelper.IsDirectory(winDir.Replace('\\', '/')));
-    }
-
-    [Fact]
-    public void IsDirectory_Unix()
-    {
-        Assert.SkipWhen(_isWindows, "仅在类 Unix 平台运行");
-
-        var unixDir = Path.Combine(_testDir, "unix_dir");
-
-        Assert.True(PathHelper.IsDirectory(unixDir));
-        Assert.True(PathHelper.IsDirectory(unixDir + "/"));
-
-        Directory.CreateDirectory(unixDir);
-
-        Assert.True(PathHelper.IsDirectory(unixDir));
-        Assert.True(PathHelper.IsDirectory(unixDir + "/"));
-    }
-
-    [Theory]
-    [InlineData(@"C:\test\PATH", @"C:\test\path", true, true)]  // Windows 路径，忽略大小写
-    [InlineData("/home/User/test", "/home/user/test", false, false)]  // Unix 路径，区分大小写
-    public void PathEquals_PlatformSpecific(string path1, string path2, bool windowsOnly, bool expected)
-    {
-        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
-
-        var result = PathHelper.PathEquals(path1, path2);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData(null, null, true)]
-    [InlineData(null, "path", false)]
-    [InlineData("path", null, false)]
-    public void PathEquals_CommonCases(string path1, string path2, bool expected)
-    {
-        var result = PathHelper.PathEquals(path1, path2);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData(@"C:\folder1\folder2", 1, @"C:\folder1", true)]
-    [InlineData("/home/user/folder", 1, "/home/user", false)]
-    public void GetParentDirectory_PlatformSpecific(string path, int levels, string expected, bool windowsOnly)
-    {
-        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
-
-        var result = PathHelper.GetParentDirectory(path, levels);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("folder1/folder2", 1, "folder1")]
-    public void GetParentDirectory_CommonCases(string path, int levels, string expected)
-    {
-        var normalizedExpected = expected.Replace('/', Path.DirectorySeparatorChar);
-        var result = PathHelper.GetParentDirectory(path, levels);
-        Assert.True(PathHelper.PathEquals(normalizedExpected, result));
-    }
-
-    // 在现有的 PathHelperTests 类中添加以下测试方法
-
-    [Theory]
-    [InlineData(@"C:\test\path", @"C:\test\path\", true)]   // Windows路径
-    [InlineData("/home/user/path", "/home/user/path/", false)] // Unix路径
-    public void NormalizePathEndingDirectorySeparator_PlatformSpecific(string input, string expected, bool windowsOnly)
-    {
-        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
-
-        var result = PathHelper.NormalizePathEndingDirectorySeparator(input);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("", "")]
-    [InlineData(null, null)]
-    [InlineData("  ", "  ")]
-    public void NormalizePathEndingDirectorySeparator_EdgeCases(string input, string expected)
-    {
-        var result = PathHelper.NormalizePathEndingDirectorySeparator(input);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("path/")]
-    [InlineData("path\\")]
-    public void NormalizePathEndingDirectorySeparator_AlreadyHasSeparator(string input)
-    {
-        var result = PathHelper.NormalizePathEndingDirectorySeparator(input);
-        Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), result);
-    }
-
-    [Theory]
-    [InlineData(@"C:\folder1\folder2", 2, @"C:\", true)]  // Windows 双层目录
-    [InlineData("/home/user/folder", 2, "/home", false)]   // Unix 双层目录
-    [InlineData(@"C:\folder1\folder2\folder3", 3, @"C:\", true)] // Windows 三层目录
-    public void GetParentDirectory_MultiLevelPlatformSpecific(string path, int levels, string expected, bool windowsOnly)
-    {
-        Assert.SkipWhen(windowsOnly && !_isWindows, "仅在 Windows 平台运行");
-        Assert.SkipWhen(!windowsOnly && _isWindows, "仅在类 Unix 平台运行");
-
-        var result = PathHelper.GetParentDirectory(path, levels);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("folder1/folder2/folder3", 0, "folder1/folder2/folder3")] // 0级返回原路径
-    [InlineData("folder1", 1, ".")] // 到达根目录
-    [InlineData("folder1/folder2", -2, ".")] // 负数级别测试
-    public void GetParentDirectory_EdgeCases(string path, int levels, string expected)
-    {
-        var normalizedPath = path.Replace('/', Path.DirectorySeparatorChar);
-        var normalizedExpected = expected.Replace('/', Path.DirectorySeparatorChar);
-        var result = PathHelper.GetParentDirectory(normalizedPath, levels);
-        Assert.True(PathHelper.PathEquals(normalizedExpected, result));
-    }
-
-    [Fact]
-    public void IsFile_InvalidPath()
-    {
-        Assert.Throws<System.ArgumentNullException>(() => PathHelper.IsFile(null));
-        Assert.False(PathHelper.IsFile("非法路径*:|"));
-    }
-
-    [Fact]
-    public void IsDirectory_InvalidPath()
-    {
-        Assert.Throws<System.ArgumentNullException>(() => PathHelper.IsDirectory(null));
-    }
-
-    [Fact]
-    public void IsDirectory_InvalidPath_Windows()
-    {
-        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
-        Assert.False(PathHelper.IsDirectory("Windows非法路径*:|"));
-    }
-
-    [Fact]
-    public void IsDirectory_InvalidPath_Liunx()
-    {
-        Assert.SkipUnless(OSPlatformHelper.IsLinux, "仅在类 Unix 平台运行");
-        Assert.True(PathHelper.IsDirectory("Linux合法路径*:|"));
-    }
-
-    [Fact]
-    public void PathEquals_FileAndDirectory()
-    {
-        var fileInDir = Path.Combine(_testDir, "test.txt");
-        File.WriteAllText(fileInDir, "test");
-
-        // 同一路径但一个有目录分隔符一个没有
-        var pathWithSeparator = _testDir + Path.DirectorySeparatorChar;
-        var pathWithoutSeparator = _testDir;
-
-        Assert.True(PathHelper.PathEquals(pathWithSeparator, pathWithoutSeparator));
-    }
-
-    public void Dispose()
-    {
-        try
+        [Theory]
+        [InlineData(null, null, false, "")]
+        [InlineData("", "", false, "")]
+        [InlineData(" ", null, false, "")]
+        public void ProcessPath_EmptyOrWhitespace_ReturnsExpected(string? basePath, string? relativePath,
+            bool preserveEndingSeparator, string expected)
         {
-            if (File.Exists(_testFile))
-                File.Delete(_testFile);
-            if (Directory.Exists(_testDir))
-                Directory.Delete(_testDir, true);
+            var result = PathHelper.ProcessPath(basePath, relativePath, preserveEndingSeparator);
+            Assert.Equal(expected, result);
         }
-        catch (Exception ex)
+
+        [Theory]
+        [InlineData("ftp://test.com/path")]
+        [InlineData("//network/share")]
+        [InlineData("/absolute/unix/path")]
+        public void ProcessPath_SpecialPaths_ReturnsNormalizedPath(string path)
         {
-            _output.WriteLine($"清理时出错: {ex.Message}");
+            var result = PathHelper.ProcessPath(null, path);
+            Assert.Equal(PathHelper.NormalizePath(path), result);
+        }
+
+        [Fact]
+        public void ProcessPath_RelativePath_CombinesCorrectly()
+        {
+            var relativePath = "subfolder/file.txt";
+            var result = PathHelper.ProcessPath(_basePath, relativePath);
+            Assert.True(PathHelper.PathEquals(Path.Combine(_basePath, relativePath), result));
+        }
+    }
+
+    public class GetRelativePathTests : PathHelperTests
+    {
+        [Fact]
+        public void GetRelativePath_SameDirectory_ReturnsFileName()
+        {
+            var path = Path.Combine(_basePath, "file.txt");
+            var result = PathHelper.GetRelativePath(path, _basePath);
+            Assert.Equal("file.txt", result);
+        }
+
+        [Fact]
+        public void GetRelativePath_SubDirectory_ReturnsRelativePath()
+        {
+            var path = Path.Combine(_basePath, "sub", "file.txt");
+            var result = PathHelper.GetRelativePath(path, _basePath);
+            Assert.Equal(Path.Combine("sub", "file.txt"), result);
+        }
+    }
+
+    public class NormalizePathTests : PathHelperTests
+    {
+        [Theory]
+        [InlineData(null, false, "")]
+        [InlineData("", true, "")]
+        public void NormalizePath_EmptyOrNull_ReturnsInput(string? input, bool preserveEndingSeparator,
+            string expected)
+        {
+            var result = PathHelper.NormalizePath(input, preserveEndingSeparator);
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void NormalizePath_WithPreserveEndingSeparator_AddsDirectorySeparator()
+        {
+            var result = PathHelper.NormalizePath(_basePath, true);
+            Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), result);
+        }
+    }
+
+    public class ExistsTests : PathHelperTests
+    {
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public void Exists_EmptyOrWhitespace_ReturnsFalse(string? path)
+        {
+            Assert.False(PathHelper.Exists(path));
+        }
+
+
+        [Theory]
+        [InlineData(@"C:\CON\test.txt")]
+        [InlineData(@"C:\test\*.txt")]
+        [InlineData(@"C:\test\PRN")]
+        public void Exists_WindowsInvalidPaths_ReturnsFalse(string path)
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Assert.False(PathHelper.Exists(path));
+            }
+        }
+
+        [Theory]
+        [InlineData("/test/./")]
+        [InlineData("/test/../")]
+        public void Exists_UnixSpecialPaths_ReturnsFalse(string path)
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                Assert.False(PathHelper.Exists(path));
+            }
+        }
+
+        [Fact]
+        public void Exists_InvalidCharacters_ReturnsFalse()
+        {
+            var invalidPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? @"C:\test\invalid<>path"  // Windows invalid characters
+                : "/test/invalid\0path";     // Unix null character
+
+            Assert.False(PathHelper.Exists(invalidPath));
+        }
+    }
+
+    public class PathEqualsTests : PathHelperTests
+    {
+        [Theory]
+        [InlineData(null, null, true, true)]
+        [InlineData(null, "path", true, false)]
+        [InlineData("path", null, true, false)]
+        public void PathEquals_NullPaths_HandlesCorrectly(string? path1, string? path2,
+            bool ignoreCase, bool expected)
+        {
+            var result = PathHelper.PathEquals(path1, path2, ignoreCase);
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void PathEquals_SamePath_DifferentCase_ReturnsExpected()
+        {
+            var path1 = Path.Combine(_basePath, "File.txt");
+            var path2 = Path.Combine(_basePath, "file.txt");
+
+            Assert.True(PathHelper.PathEquals(path1, path2, true));
+            Assert.False(PathHelper.PathEquals(path1, path2, false));
+        }
+    }
+
+    public class GetParentDirectoryTests : PathHelperTests
+    {
+        [Theory]
+        [InlineData(0)]
+        [InlineData(1)]
+        [InlineData(2)]
+        public void GetParentDirectory_ValidLevels_ReturnsExpectedPath(int levels)
+        {
+            var path = Path.Combine(_basePath, "level1", "level2", "level3");
+            var result = PathHelper.GetParentDirectory(path, levels);
+
+            var expected = path;
+            for (int i = 0; i < levels; i++)
+            {
+                expected = Path.GetDirectoryName(expected);
+            }
+
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void GetParentDirectory_RootPath_ReturnsSamePathForExcessiveLevels()
+        {
+            var rootPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? @"C:\"
+                : "/";
+            var result = PathHelper.GetParentDirectory(rootPath, 5);
+            Assert.Equal(rootPath, result);
         }
     }
 }

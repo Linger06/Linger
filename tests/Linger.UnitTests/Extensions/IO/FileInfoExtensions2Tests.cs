@@ -62,34 +62,6 @@ public class FileInfoExtensions2Tests : IDisposable
     }
 
     [Fact]
-    public void SetAttributes_ShouldSetAttributes()
-    {
-        List<string>? tempFiles = CreateTempFiles(2);
-        FileInfo[]? files = tempFiles.Select(f => new FileInfo(f)).ToArray();
-
-        files.SetAttributes(FileAttributes.Hidden);
-
-        foreach (FileInfo? file in files)
-        {
-            Assert.True(file.Attributes.HasFlag(FileAttributes.Hidden));
-        }
-    }
-
-    [Fact]
-    public void SetAttributesAdditive_ShouldAddAttributes()
-    {
-        List<string>? tempFiles = CreateTempFiles(2);
-        FileInfo[]? files = tempFiles.Select(f => new FileInfo(f)).ToArray();
-
-        files.SetAttributesAdditive(FileAttributes.Hidden);
-
-        foreach (FileInfo? file in files)
-        {
-            Assert.True(file.Attributes.HasFlag(FileAttributes.Hidden));
-        }
-    }
-
-    [Fact]
     public void Delete_ShouldDeleteFiles()
     {
         List<string>? tempFiles = CreateTempFiles(2);

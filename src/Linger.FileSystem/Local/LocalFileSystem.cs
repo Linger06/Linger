@@ -412,6 +412,7 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         }
         filePath = Path.Combine(RootDirectoryPath, filePath);
         return filePath;
+        //return PathHelper.ProcessPath(RootDirectoryPath, filePath);
     }
 
     public void DeleteAsync(string filePath)

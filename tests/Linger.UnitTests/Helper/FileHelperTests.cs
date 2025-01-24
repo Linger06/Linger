@@ -142,9 +142,8 @@ public class FileHelperTests : IDisposable
     [Fact]
     public void CopyDir_CopiesDirectoryContent()
     {
-        var destDirPath = "destDir";
+        var destDirPath = $"testDir-{Guid.NewGuid().ToString()}";
         var fileName = Guid.NewGuid().ToString() + ".txt";
-        Directory.CreateDirectory(_testDirectory);
         var filePath = Path.Combine(_testDirectory, fileName);
         FileHelper.WriteText(filePath, _testContent, _encoding);
         FileHelper.CopyDir(_testDirectory, destDirPath);

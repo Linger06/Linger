@@ -8,10 +8,8 @@ public static class FileHelper
 {
     #region File Existence & Information
 
-    public static bool IsExistFile(string filePath)
-    {
-        return !string.IsNullOrEmpty(filePath) && File.Exists(filePath);
-    }
+    public static bool IsExistFile(string filePath) => PathHelper.Exists(filePath, true);
+
 
     public static long GetFileSize(string filePath)
     {
@@ -112,16 +110,19 @@ public static class FileHelper
         File.Move(sourceFilePath, destFileName);
     }
 
-    public static void CopyFile(string originFile, string newFile)
+    public static void CopyFile(string sourceFile, string destFile)
     {
-        originFile.EnsureFileExist();
+        sourceFile.EnsureFileExist();
 
-        var directory = Path.GetDirectoryName(newFile);
+        var normalizedDest = PathHelper.NormalizePath(destFile);
+        var directory = Path.GetDirectoryName(normalizedDest);
+
         if (!string.IsNullOrEmpty(directory))
         {
             CreateDirectoryIfNotExists(directory);
         }
-        File.Copy(originFile, newFile, true);
+
+        File.Copy(sourceFile, normalizedDest, true);
     }
 
     public static void DeleteFileIfExists(string file)
@@ -266,10 +267,7 @@ public static class FileHelper
 
     #region Directory Existence & Creation
 
-    public static bool IsExistDirectory(string directoryPath)
-    {
-        return !string.IsNullOrEmpty(directoryPath) && Directory.Exists(directoryPath);
-    }
+    public static bool IsExistDirectory(string directoryPath) => PathHelper.Exists(directoryPath, false);
 
     public static DirectoryInfo CreateDirectoryIfNotExists(string directoryPath)
     {
@@ -392,8 +390,6 @@ public static class FileHelper
     #endregion
 
     #region Directory Operations
-
-
 
     public static void ClearDirectory(string directoryPath)
     {

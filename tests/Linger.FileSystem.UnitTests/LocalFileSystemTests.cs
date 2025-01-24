@@ -13,7 +13,7 @@ namespace Linger.FileSystem.Tests.Local
         public LocalFileSystemTests()
         {
             // 设置测试根目录
-            _testRootPath = Path.Combine(Path.GetTempPath(), "LocalFileSystemTests");
+            _testRootPath = Path.Combine("TestTempDir", $"testDir-{Guid.NewGuid().ToString()}");
             _fileSystem = new LocalFileSystem(_testRootPath);
 
             // 确保测试目录存在且为空

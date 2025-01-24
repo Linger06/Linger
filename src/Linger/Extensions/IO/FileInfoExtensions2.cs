@@ -9,50 +9,6 @@ namespace Linger.Extensions.IO;
 public static partial class FileInfoExtensions
 {
     /// <summary>
-    /// Sets file attributes for several files at once.
-    /// </summary>
-    /// <param name="files">The files.</param>
-    /// <param name="attributes">The attributes to be set.</param>
-    /// <returns>The changed files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.SetAttributes(FileAttributes.Archive);
-    /// </code>
-    /// </example>
-    public static FileInfo[] SetAttributes(this FileInfo[] files, FileAttributes attributes)
-    {
-        foreach (FileInfo file in files)
-        {
-            file.Attributes = attributes;
-        }
-
-        return files;
-    }
-
-    /// <summary>
-    /// Appends file attributes for several files at once (additive to any existing attributes).
-    /// </summary>
-    /// <param name="files">The files.</param>
-    /// <param name="attributes">The attributes to be set.</param>
-    /// <returns>The changed files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.SetAttributesAdditive(FileAttributes.Archive);
-    /// </code>
-    /// </example>
-    public static FileInfo[] SetAttributesAdditive(this FileInfo[] files, FileAttributes attributes)
-    {
-        foreach (FileInfo file in files)
-        {
-            file.Attributes |= attributes;
-        }
-
-        return files;
-    }
-
-    /// <summary>
     /// Deletes the given files.
     /// </summary>
     /// <param name="this">The files to delete.</param>

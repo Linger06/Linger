@@ -6,61 +6,148 @@ namespace Linger.Helper;
 
 public static class PathHelper
 {
+    private static readonly HashSet<string> WindowsReservedNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CON", "PRN", "AUX", "NUL",
+        "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+    };
+
+    private static readonly char[] WindowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
+
+    public static string ProcessPath(string? basePath, string? relativePath, bool preserveEndingSeparator = false)
+    {
+        if (string.IsNullOrWhiteSpace(relativePath))
+            return relativePath ?? string.Empty;
+
+        try
+        {
+            // 如果是特殊路径，直接标准化处理
+            if (IsSpecialPath(relativePath))
+                return NormalizePath(relativePath, preserveEndingSeparator);
+
+            // 如果是绝对路径，直接标准化
+            if (Path.IsPathRooted(relativePath))
+                return NormalizePath(relativePath, preserveEndingSeparator);
+
+            // 处理基础路径
+            basePath ??= Environment.CurrentDirectory;
+            if (!Path.IsPathRooted(basePath))
+                throw new ArgumentException("Base path must be absolute", nameof(basePath));
+
+            // 组合并标准化路径
+            var combinedPath = Path.Combine(basePath, relativePath);
+            return NormalizePath(combinedPath, preserveEndingSeparator);
+        }
+        catch (Exception ex) when (IsPathException(ex))
+        {
+            throw new ArgumentException(
+                $"Invalid path. Base: {basePath}, Relative: {relativePath}", ex);
+        }
+    }
+
+    /// <summary>
+    /// 获取相对路径
+    /// </summary>
+    public static string GetRelativePath(string path, string basePath)
+    {
+        // 标准化两个路径
+        path = NormalizePath(path);
+        basePath = NormalizePath(basePath, true);
+
+        try
+        {
+#if NETCOREAPP
+            return Path.GetRelativePath(basePath, path);
+#else
+            var pathUri = new Uri(path);
+            var baseUri = new Uri(basePath);
+            var relativeUri = baseUri.MakeRelativeUri(pathUri);
+            return Uri.UnescapeDataString(relativeUri.ToString())
+                     .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+#endif
+        }
+        catch (Exception ex) when (IsPathException(ex))
+        {
+            throw new ArgumentException($"Invalid path. Path: {path}, Base: {basePath}", ex);
+        }
+    }
+
     [return: NotNullIfNotNull(nameof(path))]
-    public static string? NormalizePath(string? path)
+    public static string? NormalizePath(string? path, bool preserveEndingSeparator = false)
     {
         if (path.IsNullOrWhiteSpace())
-            return path;
+            return path ?? string.Empty;
 
         // 处理网络路径和特殊前缀
-        if (path.StartsWith("""\\""", StringComparison.Ordinal)
-            || path.StartsWith("//", StringComparison.Ordinal)
-            || path.StartsWith("/", StringComparison.Ordinal)
-            || path.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase)
-            || path.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase))
+        if (IsSpecialPath(path))
         {
-            return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-
-        // 确保路径以目录分隔符结尾
-        if (!path.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal))
-        {
-            path += Path.DirectorySeparatorChar;
+            return preserveEndingSeparator
+                ? path
+                : path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
 
         try
         {
-            // 对于标准路径，直接使用 Path.GetFullPath
-            if (Path.IsPathRooted(path))
-            {
-                return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            }
-
-            // 对于特殊格式路径，使用 Uri
-            if (path.Contains("file://"))
-            {
-                var pathUri = new Uri(path).LocalPath;
-                if (string.IsNullOrEmpty(pathUri))
-                    return path;
-
-                return Path.GetFullPath(pathUri).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            }
-
-            // 其他情况尝试直接规范化
-            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedPath = StandardizePath(path);
+            return preserveEndingSeparator
+                ? normalizedPath + Path.DirectorySeparatorChar
+                : normalizedPath;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (IsPathException(ex))
         {
-            if (ex is UriFormatException || ex is ArgumentException ||
-             ex is SecurityException || ex is NotSupportedException)
-            {
-                // 如果转换失败，保持原始路径
-                return path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            }
-            throw;
+            return preserveEndingSeparator
+                ? path + Path.DirectorySeparatorChar
+                : path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }
     }
+
+    /// <summary>
+    /// 检查是否为特殊路径格式
+    /// </summary>
+    private static bool IsSpecialPath(string path) =>
+        path.StartsWith("""\\""", StringComparison.Ordinal) ||
+        path.StartsWith("//", StringComparison.Ordinal) ||
+        path.StartsWith("/", StringComparison.Ordinal) ||
+        path.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 标准化路径格式
+    /// </summary>
+    private static string StandardizePath(string path)
+    {
+        // 对于标准路径,直接使用 GetFullPath
+        if (Path.IsPathRooted(path))
+        {
+            return Path.GetFullPath(path)
+                       .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        // 处理 file:// 格式
+        if (path.Contains("file://"))
+        {
+            var localPath = new Uri(path).LocalPath;
+            if (!string.IsNullOrEmpty(localPath))
+            {
+                return Path.GetFullPath(localPath)
+                          .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+        }
+
+        // 其他情况尝试直接规范化
+        return Path.GetFullPath(path)
+                  .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+    }
+
+    public static bool IsPathException(Exception ex) =>
+        ex is UriFormatException ||
+        ex is ArgumentException ||
+        ex is SecurityException ||
+        ex is NotSupportedException ||
+        ex is PathTooLongException ||
+        ex is IOException;
 
     public static string NormalizePathEndingDirectorySeparator(string directory)
     {
@@ -71,88 +158,26 @@ public static class PathHelper
         return normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
     }
 
-    public static bool IsFile([NotNull] string path)
+    /// <summary>
+    /// 统一的文件/目录存在性检查
+    /// </summary>
+    public static bool Exists(string path, bool checkAsFile = true)
     {
-        ArgumentNullException.ThrowIfNull(path);
-
-        if (path.IsNullOrWhiteSpace())
-            return false;
-
         try
         {
-            // 获取完整路径并规范化
-            string fullPath = Path.GetFullPath(path);
+            if (string.IsNullOrWhiteSpace(path))
+                return false;
 
-            // 检查特殊字符（包括Windows保留名称）
+            var fullPath = Path.GetFullPath(path);
+
             if (ContainsInvalidPathChars(fullPath))
                 return false;
 
-            bool hasDirectorySeparatorAtEnd = fullPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) ||
-                                            fullPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal);
-            if (hasDirectorySeparatorAtEnd)
-            {
-                return false;
-            }
-
-            // 使用 FileInfo 可以一次性获取所有需要的信息
-            var fileInfo = new FileInfo(fullPath);
-            if (fileInfo.Exists)
-            {
-                return true;
-            }
-
-            // 文件通常都有扩展名
-            return Path.GetExtension(fullPath).IsNotNullAndEmpty();
-            //return fileInfo.Exists && !fileInfo.Attributes.HasFlag(FileAttributes.Directory);
+            return checkAsFile ?
+                   File.Exists(path) :
+                   Directory.Exists(path);
         }
-        catch (Exception ex) when (
-            ex is SecurityException ||
-            ex is IOException ||
-            ex is NotSupportedException ||
-            ex is PathTooLongException ||
-            ex is ArgumentException)
-        {
-            return false;
-        }
-    }
-
-    public static bool IsDirectory([NotNull] string path)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-
-        if (path.IsWhiteSpace())
-            return false;
-
-        try
-        {
-            // 获取完整路径并规范化
-            string fullPath = Path.GetFullPath(path);
-
-            // 检查特殊字符（包括Windows保留名称）
-            if (ContainsInvalidPathChars(fullPath))
-                return false;
-
-            // 使用 DirectoryInfo 可以一次性获取所有需要的信息
-            var dirInfo = new DirectoryInfo(fullPath);
-            if (dirInfo.Exists)
-                return true;
-
-            // 如果不存在，进行额外的启发式检查
-            bool hasDirectorySeparatorAtEnd = fullPath.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal) ||
-                                            fullPath.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal);
-
-            // 如果存在同名文件，则不是目录
-            if (!hasDirectorySeparatorAtEnd && File.Exists(fullPath))
-                return false;
-
-            // 目录通常没有扩展名
-            return hasDirectorySeparatorAtEnd || string.IsNullOrEmpty(Path.GetExtension(fullPath));
-        }
-        catch (Exception ex) when (
-            ex is SecurityException ||
-            ex is NotSupportedException ||
-            ex is PathTooLongException ||
-            ex is ArgumentException)
+        catch (Exception ex) when (IsPathException(ex))
         {
             return false;
         }
@@ -174,15 +199,8 @@ public static class PathHelper
         {
             // Windows 特定的检查
             // 检查Windows保留字符
-            if (path.IndexOfAny(['*', '?', '"', '<', '>', '|']) != -1)
+            if (path.IndexOfAny(WindowsInvalidChars) != -1)
                 return true;
-
-            // 检查Windows保留名称
-            string[] windowsReservedNames = [
-            "CON", "PRN", "AUX", "NUL",
-            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
-            ];
 
             // 检查每个路径段
             var segments = path.Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
@@ -191,7 +209,7 @@ public static class PathHelper
             foreach (var segment in segments)
             {
                 string upperSegment = segment.ToUpperInvariant();
-                if (windowsReservedNames.Any(name =>
+                if (WindowsReservedNames.Any(name =>
                     upperSegment.Equals(name, StringComparison.Ordinal) ||
                     upperSegment.StartsWith(name + ".", StringComparison.Ordinal)))
                 {
@@ -214,44 +232,40 @@ public static class PathHelper
         return false;
     }
 
-    /// <summary>
-    /// Determines whether two paths are equivalent.
-    /// </summary>
-    public static bool PathEquals(string path1, string path2)
+    public static bool PathEquals(string? path1, string? path2, bool ignoreCase = true)
     {
         if (path1 == null || path2 == null)
             return path1 == path2;
 
         try
         {
-            // 标准化两个路径
-            var normalizedPath1 = NormalizePath(path1);
-            var normalizedPath2 = NormalizePath(path2);
+            // 尝试获取完整路径
+            var fullPath1 = NormalizePath(path1);
+            var fullPath2 = NormalizePath(path2);
 
-            // 获取完整路径
-            string fullPath1 = Path.GetFullPath(normalizedPath1);
-            string fullPath2 = Path.GetFullPath(normalizedPath2);
+            var comparison = ignoreCase ?
+                StringComparison.OrdinalIgnoreCase :
+                StringComparison.Ordinal;
 
-            // 检查操作系统类型
-            bool isWindows = OSPlatformHelper.IsWindows; ;
+            // 首先比较标准化路径
+            if (string.Equals(fullPath1, fullPath2, comparison))
+                return true;
 
-            // 在 Windows 上忽略大小写，在其他平台上区分大小写
-            return isWindows
-                ? string.Equals(fullPath1, fullPath2, StringComparison.OrdinalIgnoreCase)
-                : string.Equals(fullPath1, fullPath2, StringComparison.Ordinal);
-        }
-        catch (Exception ex)
-        {
-            if (ex is ArgumentException || ex is SecurityException ||
-                ex is NotSupportedException || ex is PathTooLongException)
+            // 如果标准化路径不相等，尝试解析为绝对路径再比较
+            if (Path.IsPathRooted(fullPath1) && Path.IsPathRooted(fullPath2))
             {
-                // 如果无法解析路径，则进行简单的字符串比较
-                bool isWindows = OSPlatformHelper.IsWindows; ;
-                return isWindows
-                    ? string.Equals(path1, path2, StringComparison.OrdinalIgnoreCase)
-                    : string.Equals(path1, path2, StringComparison.Ordinal);
+                var absolutePath1 = Path.GetFullPath(fullPath1);
+                var absolutePath2 = Path.GetFullPath(fullPath2);
+                return string.Equals(absolutePath1, absolutePath2, comparison);
             }
-            throw;
+
+            return false;
+        }
+        catch (Exception ex) when (IsPathException(ex))
+        {
+            // 如果路径解析失败，回退到简单字符串比较
+            return string.Equals(path1, path2,
+                ignoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
     }
 
