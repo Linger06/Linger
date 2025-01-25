@@ -7,7 +7,7 @@ namespace Linger.Extensions.IO;
 /// </summary>
 public static class PathExtensions
 {
-    public static string GetAbsolutePath(this string path, string? basePath = null) => PathHelper.ProcessPath(basePath, path);
+    public static string GetAbsolutePath(this string path, string? basePath = null) => PathHelper.ResolveToAbsolutePath(basePath, path);
     public static string GetRelativePath(this string path, string? relativeTo = null) => PathHelper.GetRelativePath(path, relativeTo ?? Environment.CurrentDirectory);
     public static bool IsAbsolutePath(this string path) => !string.IsNullOrEmpty(path) && Path.IsPathRooted(path);
     public static string RelativeTo(this string sourcePath, string folder) => GetRelativePath(sourcePath, folder);

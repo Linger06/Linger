@@ -24,7 +24,7 @@ public class PathHelperTests
         public void ProcessPath_EmptyOrWhitespace_ReturnsExpected(string? basePath, string? relativePath,
             bool preserveEndingSeparator, string expected)
         {
-            var result = PathHelper.ProcessPath(basePath, relativePath, preserveEndingSeparator);
+            var result = PathHelper.ResolveToAbsolutePath(basePath, relativePath, preserveEndingSeparator);
             Assert.Equal(expected, result);
         }
 
@@ -34,7 +34,7 @@ public class PathHelperTests
         [InlineData("/absolute/unix/path")]
         public void ProcessPath_SpecialPaths_ReturnsNormalizedPath(string path)
         {
-            var result = PathHelper.ProcessPath(null, path);
+            var result = PathHelper.ResolveToAbsolutePath(null, path);
             Assert.Equal(PathHelper.NormalizePath(path), result);
         }
 
@@ -42,7 +42,7 @@ public class PathHelperTests
         public void ProcessPath_RelativePath_CombinesCorrectly()
         {
             var relativePath = "subfolder/file.txt";
-            var result = PathHelper.ProcessPath(_basePath, relativePath);
+            var result = PathHelper.ResolveToAbsolutePath(_basePath, relativePath);
             Assert.True(PathHelper.PathEquals(Path.Combine(_basePath, relativePath), result));
         }
     }

@@ -14,15 +14,24 @@ public static class PathHelper
     };
 
     private static readonly char[] s_windowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
-
-    public static string ProcessPath(string? basePath, string? relativePath, bool preserveEndingSeparator = false)
+    
+    /// <summary>
+    /// 解析并生成绝对路径
+    /// </summary>
+    /// <param name="basePath">基础路径。如果未提供，则使用当前目录</param>
+    /// <param name="relativePath">要处理的相对路径或绝对路径</param>
+    /// <param name="preserveEndingSeparator">是否保留路径末尾的分隔符</param>
+    /// <returns>标准化后的路径</returns>
+    /// <exception cref="ArgumentException">当路径无效或基础路径不是绝对路径时抛出</exception>
+    public static string ResolveToAbsolutePath(string? basePath, string? relativePath, bool preserveEndingSeparator = false)
     {
+        // 检查相对路径是否为空或仅包含空白字符
         if (relativePath.IsNullOrWhiteSpace())
             return relativePath ?? string.Empty;
 
         try
         {
-            // 如果是特殊路径，直接标准化处理
+            // 如果是特殊路径（如网络路径、FTP路径等），直接标准化处理
             if (IsSpecialPath(relativePath))
                 return NormalizePath(relativePath, preserveEndingSeparator);
 
@@ -31,20 +40,76 @@ public static class PathHelper
                 return NormalizePath(relativePath, preserveEndingSeparator);
 
             // 处理基础路径
+            // 如果未提供基础路径，则使用当前目录
             basePath ??= Environment.CurrentDirectory;
+
+            // 确保基础路径必须是绝对路径
             if (!Path.IsPathRooted(basePath))
                 throw new ArgumentException("Base path must be absolute", nameof(basePath));
 
-            // 组合并标准化路径
+            // 组合基础路径和相对路径，并进行标准化处理
             var combinedPath = Path.Combine(basePath, relativePath);
+
+            // 对组合后的路径进行标准化处理
             return NormalizePath(combinedPath, preserveEndingSeparator);
         }
         catch (Exception ex) when (IsPathException(ex))
         {
+            // 捕获所有路径相关的异常，并转换为ArgumentException
             throw new ArgumentException(
-                $"Invalid path. Base: {basePath}, Relative: {relativePath}", ex);
+            $"Invalid path. Base: {basePath ?? "<null>"}, Relative: {relativePath ?? "<null>"}",
+            nameof(relativePath),
+            ex);
         }
     }
+
+    // 辅助方法：检查是否为特殊路径格式
+    private static bool IsSpecialPath(string path) =>
+        path.StartsWith("""\\""", StringComparison.Ordinal) ||  // UNC路径
+        path.StartsWith("//", StringComparison.Ordinal) ||      // 网络路径
+        path.StartsWith("/", StringComparison.Ordinal) ||       // Unix绝对路径
+        path.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||   // FTP路径
+        path.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase) ||  // FTPS路径
+        path.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);    // SFTP路径
+
+    // 辅助方法：标准化路径
+    [return: NotNullIfNotNull(nameof(path))]
+    private static string? NormalizePath(string? path, bool preserveEndingSeparator = false)
+    {
+        if (path.IsNullOrWhiteSpace())
+            return path ?? string.Empty;
+
+        // 处理网络路径和特殊前缀
+        if (IsSpecialPath(path))
+        {
+            return preserveEndingSeparator
+                ? path
+                : path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
+        try
+        {
+            var normalizedPath = StandardizePath(path);
+            return preserveEndingSeparator
+                ? normalizedPath + Path.DirectorySeparatorChar
+                : normalizedPath;
+        }
+        catch (Exception ex) when (IsPathException(ex))
+        {
+            return preserveEndingSeparator
+                ? path + Path.DirectorySeparatorChar
+                : path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+    }
+
+    // 辅助方法：检查是否为路径相关异常
+    private static bool IsPathException(Exception ex) =>
+        ex is UriFormatException ||
+        ex is ArgumentException ||
+        ex is SecurityException ||
+        ex is NotSupportedException ||
+        ex is PathTooLongException ||
+        ex is IOException;
 
     /// <summary>
     /// 获取相对路径
@@ -73,46 +138,6 @@ public static class PathHelper
         }
     }
 
-    [return: NotNullIfNotNull(nameof(path))]
-    public static string? NormalizePath(string? path, bool preserveEndingSeparator = false)
-    {
-        if (path.IsNullOrWhiteSpace())
-            return path ?? string.Empty;
-
-        // 处理网络路径和特殊前缀
-        if (IsSpecialPath(path))
-        {
-            return preserveEndingSeparator
-                ? path
-                : path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-
-        try
-        {
-            var normalizedPath = StandardizePath(path);
-            return preserveEndingSeparator
-                ? normalizedPath + Path.DirectorySeparatorChar
-                : normalizedPath;
-        }
-        catch (Exception ex) when (IsPathException(ex))
-        {
-            return preserveEndingSeparator
-                ? path + Path.DirectorySeparatorChar
-                : path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-    }
-
-    /// <summary>
-    /// 检查是否为特殊路径格式
-    /// </summary>
-    private static bool IsSpecialPath(string path) =>
-        path.StartsWith("""\\""", StringComparison.Ordinal) ||
-        path.StartsWith("//", StringComparison.Ordinal) ||
-        path.StartsWith("/", StringComparison.Ordinal) ||
-        path.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);
-
     /// <summary>
     /// 标准化路径格式
     /// </summary>
@@ -140,15 +165,6 @@ public static class PathHelper
         return Path.GetFullPath(path)
                   .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     }
-
-    public static bool IsPathException(Exception ex) =>
-        ex is UriFormatException ||
-        ex is ArgumentException ||
-        ex is SecurityException ||
-        ex is NotSupportedException ||
-        ex is PathTooLongException ||
-        ex is IOException;
-
     public static string NormalizePathEndingDirectorySeparator(string directory)
     {
         if (directory.IsNullOrWhiteSpace())
