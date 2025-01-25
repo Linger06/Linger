@@ -22,7 +22,7 @@ public class Int64ExtensionsTests
     public void FileSize_ReturnsCorrectSizeForBytes()
     {
         long length = 512;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("512Bytes", result);
     }
 
@@ -30,7 +30,7 @@ public class Int64ExtensionsTests
     public void FileSize_ReturnsCorrectSizeForKilobytes()
     {
         long length = 2048;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("2KB", result);
     }
 
@@ -38,7 +38,7 @@ public class Int64ExtensionsTests
     public void FileSize_ReturnsCorrectSizeForMegabytes()
     {
         long length = 1048576;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("1MB", result);
     }
 
@@ -46,7 +46,7 @@ public class Int64ExtensionsTests
     public void FileSize_ReturnsCorrectSizeForGigabytes()
     {
         long length = 1073741824;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("1GB", result);
     }
 }

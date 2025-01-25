@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using Linger.Extensions.Core;
+using Linger.Helper;
 
 namespace Linger.Extensions.IO;
 
@@ -8,24 +9,6 @@ namespace Linger.Extensions.IO;
 /// </summary>
 public static partial class FileInfoExtensions
 {
-    /// <summary>
-    /// Deletes the given files.
-    /// </summary>
-    /// <param name="this">The files to delete.</param>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt");
-    /// files.Delete();
-    /// </code>
-    /// </example>
-    public static void Delete(this IEnumerable<FileInfo> @this)
-    {
-        foreach (FileInfo t in @this)
-        {
-            t.Delete();
-        }
-    }
-
     /// <summary>
     /// Formats a byte count as a string for display (e.g., "1K", "1M", "1G").
     /// </summary>
@@ -49,135 +32,119 @@ public static partial class FileInfoExtensions
     }
 
     /// <summary>
-    /// Retrieves the version information for the specified file.
+    /// Gets the file size in bytes from a file path
+    /// </summary>
+    /// <param name="filePath"></param>
+    /// <returns></returns>
+    /// <exception cref="IOException"></exception>
+    public static long GetFileSize(this string filePath)
+    {
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
+        GuardExtensions.EnsureFileExist(filePath);
+        try
+        {
+            return new FileInfo(filePath).Length;
+        }
+        catch (System.Exception ex)
+        {
+            throw new IOException($"Failed to get size for file: {filePath}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Gets formated file size string (e.g. "1.5 MB" from a file path)
+    /// </summary>
+    /// <param name="filePath">The file path.</param>
+    /// <returns>The file size.</returns>
+    public static string GetFileSizeFormatted(this string filePath)
+    {
+        var bytes = GetFileSize(filePath);
+        return bytes.FormatFileSize();
+    }
+
+    /// <summary>
+    /// Retrieves the size of the specified file.
     /// </summary>
     /// <param name="fileInfo">The file.</param>
-    /// <returns>The version information.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file");
-    /// var versionInfo = fileInfo.GetVersionInfo();
-    /// </code>
-    /// </example>
-    public static FileVersionInfo GetVersionInfo(this FileInfo fileInfo)
+    /// <returns>The file size.</returns>
+    public static string GetFileSizeFormatted(this FileInfo fileInfo)
     {
-        var path = fileInfo.FullName;
-        return path.GetVersionInfo();
+        return fileInfo.Length.FormatFileSize();
     }
 
     /// <summary>
-    /// Retrieves the version information for the specified file path.
-    /// </summary>
-    /// <param name="fileFullPath">The fully qualified path and name of the file.</param>
-    /// <returns>The version information.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file";
-    /// var versionInfo = filePath.GetVersionInfo();
-    /// </code>
-    /// </example>
-    public static FileVersionInfo GetVersionInfo(this string fileFullPath)
-    {
-        var versionInfo = FileVersionInfo.GetVersionInfo(fileFullPath);
-        return versionInfo;
-    }
-
-    /// <summary>
-    /// Retrieves the file version for the specified file.
+    /// Gets the file version from a FileInfo object.
     /// </summary>
     /// <param name="fileInfo">The file.</param>
     /// <returns>The file version.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file");
-    /// string version = fileInfo.GetFileVersion();
-    /// </code>
-    /// </example>
     public static string? GetFileVersion(this FileInfo fileInfo)
     {
-        return fileInfo.GetVersionInfo().FileVersion;
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
+        if (!fileInfo.Exists)
+            throw new FileNotFoundException("File not found", fileInfo.FullName);
+
+        try
+        {
+            var versionInfo = FileVersionInfo.GetVersionInfo(fileInfo.FullName);
+            return versionInfo.FileVersion;
+        }
+        catch (System.Exception ex)
+        {
+            throw new IOException($"Failed to get version for file: {fileInfo.FullName}", ex);
+        }
     }
 
     /// <summary>
-    /// Retrieves the file version for the specified file path.
+    /// Gets the file version from a file path.
     /// </summary>
     /// <param name="fileFullPath">The fully qualified path and name of the file.</param>
     /// <returns>The file version.</returns>
-    /// <example>
-    /// <code>
-    /// string fileFullPath = "path/to/file";
-    /// string version = fileFullPath.GetFileVersion();
-    /// </code>
-    /// </example>
     public static string? GetFileVersion(this string fileFullPath)
     {
-        return fileFullPath.GetVersionInfo().FileVersion;
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileFullPath));
+        GuardExtensions.EnsureFileExist(fileFullPath);
+        try
+        {
+            var versionInfo = FileVersionInfo.GetVersionInfo(fileFullPath);
+            return versionInfo.FileVersion;
+        }
+        catch (System.Exception ex)
+        {
+            throw new IOException($"Failed to get version for file: {fileFullPath}", ex);
+        }
     }
 
     /// <summary>
-    /// Retrieves the absolute path of the specified file.
+    /// Gets the directory path from a file path string.
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>The absolute path.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file";
-    /// string absolutePath = filePath.GetFilePath();
-    /// </code>
-    /// </example>
-    public static string? GetFilePath(this string filePath)
+    public static string? GetDirectoryPath(this string filePath)
     {
-        FileInfo fi = new FileInfo(filePath);
-        return fi.DirectoryName;
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
+        return Path.GetDirectoryName(Path.GetFullPath(filePath)) ?? throw new DirectoryNotFoundException($"Directory not found for path: {filePath}");
     }
 
     /// <summary>
-    /// Retrieves the absolute path of the specified file.
+    /// Retrieves the full path of the specified file.
     /// </summary>
     /// <param name="fi">The file.</param>
     /// <returns>The absolute path.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file");
-    /// string absolutePath = fileInfo.GetFilePath();
-    /// </code>
-    /// </example>
-    public static string? GetFilePath(this FileInfo fi)
+    public static string? GetFilePath(this string filePath)
     {
-        return fi.DirectoryName;
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
+        return Path.GetFullPath(filePath);
     }
 
     /// <summary>
-    /// Retrieves the size of the specified file.
+    /// Retrieves the full path from a FileInfo object.
     /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file size.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file";
-    /// string size = filePath.FileSize();
-    /// </code>
-    /// </example>
-    public static string FileSize(this string filePath)
+    /// <param name="fi">The file.</param>
+    /// <returns>The absolute path.</returns>
+    public static string? GetFilePath(this FileInfo fileInfo)
     {
-        var fi = new FileInfo(filePath);
-        return fi.Length.FileSize();
-    }
-
-    /// <summary>
-    /// Retrieves the size of the specified file.
-    /// </summary>
-    /// <param name="fileInfo">The file.</param>
-    /// <returns>The file size.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file");
-    /// string size = fileInfo.FileSize();
-    /// </code>
-    /// </example>
-    public static string FileSize(this FileInfo fileInfo)
-    {
-        return fileInfo.Length.FileSize();
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
+        return fileInfo.FullName;
     }
 
     /// <summary>
@@ -185,31 +152,9 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>The file name without extension.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file.txt";
-    /// string fileName = filePath.GetFileNameNoExtension();
-    /// </code>
-    /// </example>
     public static string GetFileNameWithoutExtension(this string filePath)
     {
-        var fi = new FileInfo(filePath);
-        return fi.GetFileNameWithoutExtension();
-    }
-
-    /// <summary>
-    /// Retrieves the file name without extension from the specified file path.
-    /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file name without extension.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file.txt";
-    /// string fileName = filePath.GetFileNameNoExtensionString();
-    /// </code>
-    /// </example>
-    public static string GetFileNameWithoutExtensionString(this string filePath)
-    {
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
         return Path.GetFileNameWithoutExtension(filePath);
     }
 
@@ -218,15 +163,11 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="fileInfo">The file.</param>
     /// <returns>The file name without extension.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file.txt");
-    /// string fileName = fileInfo.GetFileNameNoExtension();
-    /// </code>
     /// </example>
     public static string GetFileNameWithoutExtension(this FileInfo fileInfo)
     {
-        return fileInfo.Name.Replace(fileInfo.Extension, string.Empty);
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
+        return Path.GetFileNameWithoutExtension(fileInfo.Name);
     }
 
     /// <summary>
@@ -234,31 +175,43 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>The file name with extension.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file.txt";
-    /// string fileName = filePath.GetFileNameString();
-    /// </code>
-    /// </example>
-    public static string GetFileNameString(this string filePath)
+    public static string GetFileName(this string filePath)
     {
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
         return Path.GetFileName(filePath);
     }
 
     /// <summary>
-    /// Retrieves the file path without the file name from the specified file path.
+    /// Retrieves the file extension (including the dot) from the specified file path.
     /// </summary>
-    /// <param name="fileFullPath">The file path.</param>
-    /// <returns>The file path without the file name.</returns>
-    /// <example>
-    /// <code>
-    /// string fileFullPath = "path/to/file.txt";
-    /// string filePath = fileFullPath.GetFilePathString();
-    /// </code>
-    /// </example>
-    public static string? GetFilePathString(this string fileFullPath)
+    /// <param name="filePath">The file path.</param>
+    /// <returns>The file extension.</returns>
+    public static string GetExtension(this string filePath)
     {
-        return Path.GetDirectoryName(fileFullPath);
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
+        return Path.GetExtension(filePath);
+    }
+
+    /// <summary>
+    /// Retrieves the file extension without the dot from the specified file path.
+    /// </summary>
+    /// <param name="filePath">The file path.</param>
+    /// <returns>The file extension.</returns>
+    public static string GetExtensionWithoutDot(this string filePath)
+    {
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
+        return Path.GetExtension(filePath).TrimStart('.');
+    }
+
+    /// <summary>
+    /// Retrieves the file extension (including the dot) from the specified file.
+    /// </summary>
+    /// <param name="fileInfo">The file.</param>
+    /// <returns>The file extension.</returns>
+    public static string GetExtension(this FileInfo fileInfo)
+    {
+        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
+        return fileInfo.Extension;
     }
 
     /// <summary>
@@ -266,12 +219,6 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="fileInfo">The file.</param>
     /// <returns>The MD5 hash.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file");
-    /// string md5Hash = fileInfo.ToMd5Hash();
-    /// </code>
-    /// </example>
     public static string ToMd5Hash(this FileInfo fileInfo)
     {
         return fileInfo.ToMemoryStream().ToMd5Hash();
@@ -282,81 +229,74 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="fileInfo">The file.</param>
     /// <returns>The MD5 hash as a byte array.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file");
-    /// byte[] md5Hash = fileInfo.ToMd5HashByte();
-    /// </code>
-    /// </example>
     public static byte[] ToMd5HashByte(this FileInfo fileInfo)
     {
         return fileInfo.ToMemoryStream().ToMd5HashByte();
     }
 
     /// <summary>
-    /// Retrieves the file extension (including the dot) from the specified file path.
+    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
     /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file extension.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file.txt";
-    /// string extension = filePath.GetExtension();
-    /// </code>
-    /// </example>
-    public static string GetExtension(this string filePath)
+    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
+    /// <param name="deleteFile">Whether to delete the file after conversion.</param>
+    /// <returns>A <see cref="MemoryStream"/> object.</returns>
+    public static MemoryStream ToMemoryStream(this FileInfo fileInfo, bool deleteFile = false)
     {
-        var fi = new FileInfo(filePath);
-        return fi.Extension;
+        var memoryStream = new MemoryStream();
+        FileStream fileStream = fileInfo.OpenRead();
+        var bytes = new byte[fileStream.Length];
+        _ = fileStream.Read(bytes, 0, (int)fileStream.Length);
+        memoryStream.Write(bytes, 0, (int)fileStream.Length);
+        fileStream.Close();
+        if (deleteFile)
+        {
+            fileInfo.Delete();
+        }
+        _ = memoryStream.Seek(0, SeekOrigin.Begin);
+        return memoryStream;
     }
 
     /// <summary>
-    /// Retrieves the file extension (including the dot) from the specified file path.
+    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object. This method sets the position to 0.
     /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file extension.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file.txt";
-    /// string extension = filePath.GetExtensionString();
-    /// </code>
-    /// </example>
-    public static string GetExtensionString(this string filePath)
+    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
+    /// <returns>A <see cref="MemoryStream"/> object.</returns>
+    public static MemoryStream ToMemoryStream2(this FileInfo fileInfo)
     {
-        return Path.GetExtension(filePath);
+        FileStream fileStream = fileInfo.OpenRead();
+        var bytes = new byte[fileStream.Length];
+        _ = fileStream.Read(bytes, 0, bytes.Length);
+        fileStream.Close();
+        var stream = new MemoryStream(bytes);
+        return stream;
     }
 
     /// <summary>
-    /// Retrieves the file extension (excluding the dot) from the specified file path.
+    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
     /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file extension.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file.txt";
-    /// string extension = filePath.GetExtensionNotDotString();
-    /// </code>
-    /// </example>
-    public static string GetExtensionWithoutDotString(this string filePath)
+    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
+    /// <returns>A <see cref="MemoryStream"/> object.</returns>
+    public static MemoryStream ToMemoryStream3(this FileInfo fileInfo)
     {
-        return Path.GetExtension(filePath).Replace(".", string.Empty);
+        var memoryStream = new MemoryStream();
+        using FileStream fileStream = fileInfo.OpenRead();
+        fileStream.CopyTo(memoryStream);
+        _ = memoryStream.Seek(0, SeekOrigin.Begin);
+        return memoryStream;
     }
 
     /// <summary>
-    /// Retrieves the file extension (including the dot) from the specified file.
+    /// Computes the MD5 hash of the file.
     /// </summary>
-    /// <param name="fileInfo">The file.</param>
-    /// <returns>The file extension.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = new FileInfo("path/to/file.txt");
-    /// string extension = fileInfo.GetExtension();
-    /// </code>
-    /// </example>
-    public static string GetExtension(this FileInfo fileInfo)
+    /// <param name="fileInfo">The <see cref="FileInfo"/> object.</param>
+    /// <returns>The MD5 hash as a string.</returns>
+    public static string ComputeHashMd5(this FileInfo fileInfo)
     {
-        return fileInfo.Extension;
+        using var fileStream = fileInfo.OpenRead();
+        var arrayHashValue = fileStream.ToMd5HashByte();
+        return arrayHashValue.ToMd5HashCode();
     }
+
 
 #if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
     /// <summary>
@@ -364,12 +304,6 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the file data as a byte array.</returns>
-    /// <example>
-    /// <code>
-    /// string filePath = "path/to/file";
-    /// byte[] data = await filePath.GetFileDataAsync();
-    /// </code>
-    /// </example>
     public static async Task<byte[]> GetFileDataAsync(this string filePath)
     {
         using FileStream fs = File.OpenRead(filePath);

@@ -42,31 +42,53 @@ public class PathExtensionsTests
         Assert.Equal("SubDir", result);
     }
 
-    private static string GetRelativePathCompat(string relativeTo, string path)
+    public static IEnumerable<object[]> PathData = new List<object[]>
     {
-#if NETFRAMEWORK
-        var uri1 = new Uri(Path.GetFullPath(relativeTo));
-        var uri2 = new Uri(Path.GetFullPath(path));
-        return Uri.UnescapeDataString(uri1.MakeRelativeUri(uri2).ToString()).Replace('/', Path.DirectorySeparatorChar);
-#else
-        return Path.GetRelativePath(relativeTo, path);
-#endif
-    }
+        new object[] { "./Test", "", "Test" },
+        new object[] { "../Test/Test2", "../Test", "Test2" }
+    };
 
     [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    public void GetRelativePath_EmptyRelativeTo_UsesCurrentDirectory(string? relativeTo)
+    [MemberData(nameof(PathData))]
+    public void GetRelativePathTest(string path1, string path2, string expectedPath)
     {
-        // Arrange
-        var path = Path.Combine(_testBasePath, "Test");
-        var expected = GetRelativePathCompat(Environment.CurrentDirectory, path);
+        if (path2.IsNotNullAndEmpty())
+        {
+            var result = path1.GetRelativePath(path2);
+            Assert.Equal(expectedPath, result);
+        }
+        else
+        {
+            var result = path1.GetRelativePath();
+            Assert.Equal(expectedPath, result);
+        }
+    }
 
-        // Act
-        var result = path.GetRelativePath(relativeTo);
 
-        // Assert
-        Assert.Equal(expected, result);
+    public static IEnumerable<object[]> PathDataWindows = new List<object[]>
+    {
+        new object[] { @".\Test", "", "Test" },
+        new object[] { @"..\Test", "", @"..\Test" },
+        new object[] { @"C:\Path\Test", @"C:\Path", "Test" },
+        new object[] { @"D:\Path\Test", @"D:\Path2\Test\Test", @"..\..\..\Path\Test" },
+        new object[] { @"D:\Path\Test\a.txt", @"D:\Path", @"Test\a.txt" }
+    };
+
+    [Theory]
+    [MemberData(nameof(PathDataWindows))]
+    public void GetRelativePathTest_Windows(string path1, string path2, string expectedPath)
+    {
+        Assert.SkipUnless(OSPlatformHelper.IsWindows, "仅在 Windows 平台运行");
+        if (path2.IsNotNullAndEmpty())
+        {
+            var result = path1.GetRelativePath(path2);
+            Assert.Equal(expectedPath, result);
+        }
+        else
+        {
+            var result = path1.GetRelativePath();
+            Assert.Equal(expectedPath, result);
+        }
     }
 
     [Theory]
@@ -112,7 +134,8 @@ public class PathExtensionsTests
         var result = path.NormalizeWithSeparator();
 
         // Assert
-        Assert.Equal(expected, result);
+        Assert.True(PathHelper.PathEquals(expected, result));
+        Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), result);
     }
 
     [Fact]

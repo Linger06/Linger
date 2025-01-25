@@ -256,7 +256,7 @@ public static class FileHelper
                 FileName = file.Name,
                 RelativeFilePath = absolutePath.GetRelativePath(),
                 FullFilePath = file.FullName,
-                FileSize = file.Length.FileSize(),
+                FileSize = file.Length.FormatFileSize(),
                 Length = file.Length
             };
         }
@@ -295,9 +295,9 @@ public static class FileHelper
         return fileList.Select(file =>
         {
             if (!containPath && containExtension)
-                return file.GetFileNameString();
+                return file.GetFileName();
             if (!containPath && !containExtension)
-                return file.GetFileNameWithoutExtensionString();
+                return file.GetFileNameWithoutExtension();
             return file;
         }).ToList();
     }

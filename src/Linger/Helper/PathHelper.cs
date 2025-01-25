@@ -6,18 +6,18 @@ namespace Linger.Helper;
 
 public static class PathHelper
 {
-    private static readonly HashSet<string> WindowsReservedNames = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> s_windowsReservedNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "CON", "PRN", "AUX", "NUL",
         "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
     };
 
-    private static readonly char[] WindowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
+    private static readonly char[] s_windowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
 
     public static string ProcessPath(string? basePath, string? relativePath, bool preserveEndingSeparator = false)
     {
-        if (string.IsNullOrWhiteSpace(relativePath))
+        if (relativePath.IsNullOrWhiteSpace())
             return relativePath ?? string.Empty;
 
         try
@@ -199,7 +199,7 @@ public static class PathHelper
         {
             // Windows 特定的检查
             // 检查Windows保留字符
-            if (path.IndexOfAny(WindowsInvalidChars) != -1)
+            if (path.IndexOfAny(s_windowsInvalidChars) != -1)
                 return true;
 
             // 检查每个路径段
@@ -209,7 +209,7 @@ public static class PathHelper
             foreach (var segment in segments)
             {
                 string upperSegment = segment.ToUpperInvariant();
-                if (WindowsReservedNames.Any(name =>
+                if (s_windowsReservedNames.Any(name =>
                     upperSegment.Equals(name, StringComparison.Ordinal) ||
                     upperSegment.StartsWith(name + ".", StringComparison.Ordinal)))
                 {
@@ -269,7 +269,7 @@ public static class PathHelper
         }
     }
 
-    public static string? GetParentDirectory(string? path, int levels)
+    public static string GetParentDirectory(string? path, int levels)
     {
         path.EnsureIsNotNullAndWhiteSpace();
 

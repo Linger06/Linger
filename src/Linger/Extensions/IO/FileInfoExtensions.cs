@@ -8,93 +8,6 @@ namespace Linger.Extensions.IO;
 public static partial class FileInfoExtensions
 {
     /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <param name="deleteFile">Whether to delete the file after conversion.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// using var memoryStream = file.ToMemoryStream();
-    /// </code>
-    /// </example>
-    public static MemoryStream ToMemoryStream(this FileInfo fileInfo, bool deleteFile = false)
-    {
-        var memoryStream = new MemoryStream();
-        FileStream fileStream = fileInfo.OpenRead();
-        var bytes = new byte[fileStream.Length];
-        _ = fileStream.Read(bytes, 0, (int)fileStream.Length);
-        memoryStream.Write(bytes, 0, (int)fileStream.Length);
-        fileStream.Close();
-        if (deleteFile)
-        {
-            fileInfo.Delete();
-        }
-        _ = memoryStream.Seek(0, SeekOrigin.Begin);
-        return memoryStream;
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object. This method sets the position to 0.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// using var memoryStream = file.ToMemoryStream2();
-    /// </code>
-    /// </example>
-    public static MemoryStream ToMemoryStream2(this FileInfo fileInfo)
-    {
-        FileStream fileStream = fileInfo.OpenRead();
-        var bytes = new byte[fileStream.Length];
-        _ = fileStream.Read(bytes, 0, bytes.Length);
-        fileStream.Close();
-        var stream = new MemoryStream(bytes);
-        return stream;
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// using var memoryStream = file.ToMemoryStream3();
-    /// </code>
-    /// </example>
-    public static MemoryStream ToMemoryStream3(this FileInfo fileInfo)
-    {
-        var memoryStream = new MemoryStream();
-        using FileStream fileStream = fileInfo.OpenRead();
-        fileStream.CopyTo(memoryStream);
-        _ = memoryStream.Seek(0, SeekOrigin.Begin);
-        return memoryStream;
-    }
-
-    /// <summary>
-    /// Computes the MD5 hash of the file.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object.</param>
-    /// <returns>The MD5 hash as a string.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// string hash = file.ComputeHashMd5();
-    /// </code>
-    /// </example>
-    public static string ComputeHashMd5(this FileInfo fileInfo)
-    {
-        using var fileStream = fileInfo.OpenRead();
-        var arrayHashValue = fileStream.ToMd5HashByte();
-        return arrayHashValue.ToMd5HashCode();
-    }
-
-    /// <summary>
     /// Renames a file.
     /// </summary>
     /// <param name="file">The file.</param>
@@ -187,7 +100,7 @@ public static partial class FileInfoExtensions
     /// files.Delete();
     /// </code>
     /// </example>
-    public static void Delete(this FileInfo[] files, bool consolidateExceptions = true)
+    public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions = true)
     {
         var exceptions = new List<System.Exception>();
         foreach (FileInfo file in files)

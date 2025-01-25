@@ -21,7 +21,7 @@ public static class Int64Extensions
     /// </summary>
     /// <param name="length">The file size in bytes.</param>
     /// <returns>A string representing the file size in a human-readable format (e.g., Bytes, KB, MB, GB, etc.).</returns>
-    public static string FileSize(this long length)
+    public static string FormatFileSize(this long length)
     {
         var size = Convert.ToDouble(length);
         string[] units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];

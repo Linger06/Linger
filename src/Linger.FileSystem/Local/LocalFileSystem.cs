@@ -150,7 +150,7 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
             FilePath = filePath,
             RelativeFilePath = relativeFilePath,
             FullFilePath = fileInfo.FullName,
-            FileSize = memoryStream.Length.FileSize(),
+            FileSize = memoryStream.Length.FormatFileSize(),
             Length = fileInfo.Length
         };
     }
