@@ -13,12 +13,6 @@ public static partial class FileInfoExtensions
     /// <param name="file">The file.</param>
     /// <param name="newName">The new name.</param>
     /// <returns>The renamed file.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// file.Rename("test2.txt");
-    /// </code>
-    /// </example>
     public static FileInfo Rename(this FileInfo file, string newName)
     {
         if (!file.Exists)
@@ -38,12 +32,6 @@ public static partial class FileInfoExtensions
     /// <param name="file">The file.</param>
     /// <param name="newName">The new name.</param>
     /// <returns>The renamed file.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// file.RenameFileWithoutExtension("test3");
-    /// </code>
-    /// </example>
     public static FileInfo RenameFileWithoutExtension(this FileInfo file, string newName)
     {
         var fileName = string.Concat(newName, file.Extension);
@@ -56,12 +44,6 @@ public static partial class FileInfoExtensions
     /// <param name="file">The file.</param>
     /// <param name="newExtension">The new extension.</param>
     /// <returns>The renamed file.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// file.ChangeExtension("xml");
-    /// </code>
-    /// </example>
     public static FileInfo ChangeExtension(this FileInfo file, string newExtension)
     {
         newExtension = newExtension.EnsureStartsWith(".");
@@ -75,12 +57,6 @@ public static partial class FileInfoExtensions
     /// <param name="files">The files.</param>
     /// <param name="newExtension">The new extension.</param>
     /// <returns>The renamed files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.ChangeExtensions("tmp");
-    /// </code>
-    /// </example>
     public static FileInfo[] ChangeExtensions(this FileInfo[] files, string newExtension)
     {
         ArrayExtensions.ForEach(files, f => f.ChangeExtension(newExtension));
@@ -94,12 +70,6 @@ public static partial class FileInfoExtensions
     /// <param name="consolidateExceptions">
     /// If set to <c>true</c>, exceptions are consolidated and the processing is not interrupted.
     /// </param>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.Delete();
-    /// </code>
-    /// </example>
     public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions = true)
     {
         var exceptions = new List<System.Exception>();
@@ -136,12 +106,6 @@ public static partial class FileInfoExtensions
     /// <param name="files">The files.</param>
     /// <param name="targetPath">The target path.</param>
     /// <returns>The newly created file copies.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// var copiedFiles = files.CopyTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] CopyTo(this FileInfo[] files, string targetPath)
     {
         return files.CopyTo(targetPath, true);
@@ -156,12 +120,6 @@ public static partial class FileInfoExtensions
     /// If set to <c>true</c>, exceptions are consolidated and the processing is not interrupted.
     /// </param>
     /// <returns>The newly created file copies.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// var copiedFiles = files.CopyTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] CopyTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
         var copiedFiles = new List<FileInfo>();
@@ -204,12 +162,6 @@ public static partial class FileInfoExtensions
     /// <param name="files">The files.</param>
     /// <param name="targetPath">The target path.</param>
     /// <returns>The moved files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.MoveTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] MoveTo(this FileInfo[] files, string targetPath)
     {
         return files.MoveTo(targetPath, true);
@@ -224,12 +176,6 @@ public static partial class FileInfoExtensions
     /// If set to <c>true</c>, exceptions are consolidated and the processing is not interrupted.
     /// </param>
     /// <returns>The moved files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.MoveTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] MoveTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
         List<System.Exception>? exceptions = null;

@@ -86,7 +86,7 @@ public static class GuardExtensions
             throw new ArgumentException("File path cannot be empty", paramName ?? nameof(filePath));
         }
 
-        if (!FileHelper.IsExistFile(filePath))
+        if (!PathHelper.Exists(filePath, true))
         {
             throw new FileNotFoundException(message ?? "File Not Found", paramName ?? nameof(filePath));
         }
@@ -110,7 +110,7 @@ public static class GuardExtensions
     public static void EnsureDirectoryExist(this string? directory, string? paramName = null, string? message = null)
     {
         EnsureIsNotNull(directory);
-        if (!FileHelper.IsExistDirectory(directory))
+        if (!PathHelper.Exists(directory))
         {
             throw new DirectoryNotFoundException(message ?? $"Directory Not Found:{paramName}");
         }

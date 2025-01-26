@@ -24,7 +24,7 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
     public void CreateDirectoryIfNotExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
-        FileHelper.CreateDirectoryIfNotExists(realPath);
+        Directory.CreateDirectory(realPath);
     }
 
     public void DeleteFileIfExists(string filePath)
@@ -36,13 +36,13 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
     public bool DirectoryExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
-        return FileHelper.IsExistDirectory(realPath);
+        return PathHelper.Exists(realPath, false);
     }
 
     public bool FileExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
-        return FileHelper.IsExistFile(realPath);
+        return PathHelper.Exists(realPath, true);
     }
 
     public async Task<UploadedInfo> UploadAsync(

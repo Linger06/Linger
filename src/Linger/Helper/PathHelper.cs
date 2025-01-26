@@ -67,7 +67,7 @@ public static class PathHelper
     private static bool IsSpecialPath(string path) =>
         path.StartsWith("""\\""", StringComparison.Ordinal) ||  // UNC路径
         path.StartsWith("//", StringComparison.Ordinal) ||      // 网络路径
-                                                                //path.StartsWith("/", StringComparison.Ordinal) ||       // Unix绝对路径
+                                                                // path.StartsWith("/", StringComparison.Ordinal) ||       // Unix绝对路径
         path.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||   // FTP路径
         path.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase) ||  // FTPS路径
         path.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);    // SFTP路径
@@ -114,6 +114,8 @@ public static class PathHelper
     /// <summary>
     /// 获取相对路径
     /// </summary>
+    /// <param name="relativeTo">The source path the output should be relative to. This path is always considered to be a directory.</param>
+    /// <param name="path">The destination path.</param>
     public static string GetRelativePath(string relativeTo, string path)
     {
         // 标准化两个路径
@@ -191,7 +193,7 @@ public static class PathHelper
 
             case PathReturnType.Relative when isRooted:
                 // 将绝对路径转换为相对路径
-                return GetRelativePath(basePath, path)
+                return GetRelativePath(basePath, path)// Path.GetRelativePath(basePath, path)
                           .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
                           .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
@@ -203,7 +205,7 @@ public static class PathHelper
                     return Path.GetFullPath(path)
                               .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 }
-                return GetRelativePath(basePath, path)
+                return path
                           .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
                           .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         }

@@ -93,127 +93,7 @@ public static partial class FileInfoExtensions
             throw new IOException($"Failed to get version for file: {fileInfo.FullName}", ex);
         }
     }
-
-    /// <summary>
-    /// Gets the file version from a file path.
-    /// </summary>
-    /// <param name="fileFullPath">The fully qualified path and name of the file.</param>
-    /// <returns>The file version.</returns>
-    public static string? GetFileVersion(this string fileFullPath)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileFullPath));
-        GuardExtensions.EnsureFileExist(fileFullPath);
-        try
-        {
-            var versionInfo = FileVersionInfo.GetVersionInfo(fileFullPath);
-            return versionInfo.FileVersion;
-        }
-        catch (System.Exception ex)
-        {
-            throw new IOException($"Failed to get version for file: {fileFullPath}", ex);
-        }
-    }
-
-    /// <summary>
-    /// Gets the directory path from a file path string.
-    /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The absolute path.</returns>
-    public static string? GetDirectoryPath(this string filePath)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        return Path.GetDirectoryName(Path.GetFullPath(filePath)) ?? throw new DirectoryNotFoundException($"Directory not found for path: {filePath}");
-    }
-
-    /// <summary>
-    /// Retrieves the full path of the specified file.
-    /// </summary>
-    /// <param name="fi">The file.</param>
-    /// <returns>The absolute path.</returns>
-    public static string? GetFilePath(this string filePath)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        return Path.GetFullPath(filePath);
-    }
-
-    /// <summary>
-    /// Retrieves the full path from a FileInfo object.
-    /// </summary>
-    /// <param name="fi">The file.</param>
-    /// <returns>The absolute path.</returns>
-    public static string? GetFilePath(this FileInfo fileInfo)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
-        return fileInfo.FullName;
-    }
-
-    /// <summary>
-    /// Retrieves the file name without extension from the specified file path.
-    /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file name without extension.</returns>
-    public static string GetFileNameWithoutExtension(this string filePath)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        return Path.GetFileNameWithoutExtension(filePath);
-    }
-
-    /// <summary>
-    /// Retrieves the file name without extension from the specified file.
-    /// </summary>
-    /// <param name="fileInfo">The file.</param>
-    /// <returns>The file name without extension.</returns>
-    /// </example>
-    public static string GetFileNameWithoutExtension(this FileInfo fileInfo)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
-        return Path.GetFileNameWithoutExtension(fileInfo.Name);
-    }
-
-    /// <summary>
-    /// Retrieves the file name with extension from the specified file path.
-    /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file name with extension.</returns>
-    public static string GetFileName(this string filePath)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        return Path.GetFileName(filePath);
-    }
-
-    /// <summary>
-    /// Retrieves the file extension (including the dot) from the specified file path.
-    /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file extension.</returns>
-    public static string GetExtension(this string filePath)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        return Path.GetExtension(filePath);
-    }
-
-    /// <summary>
-    /// Retrieves the file extension without the dot from the specified file path.
-    /// </summary>
-    /// <param name="filePath">The file path.</param>
-    /// <returns>The file extension.</returns>
-    public static string GetExtensionWithoutDot(this string filePath)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        return Path.GetExtension(filePath).TrimStart('.');
-    }
-
-    /// <summary>
-    /// Retrieves the file extension (including the dot) from the specified file.
-    /// </summary>
-    /// <param name="fileInfo">The file.</param>
-    /// <returns>The file extension.</returns>
-    public static string GetExtension(this FileInfo fileInfo)
-    {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
-        return fileInfo.Extension;
-    }
-
+    
     /// <summary>
     /// Returns the MD5 hash of the specified file.
     /// </summary>
@@ -240,6 +120,7 @@ public static partial class FileInfoExtensions
     /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
     /// <param name="deleteFile">Whether to delete the file after conversion.</param>
     /// <returns>A <see cref="MemoryStream"/> object.</returns>
+    [Obsolete("This method is obsolete, use ToMemoryStream3 instead.")]
     public static MemoryStream ToMemoryStream(this FileInfo fileInfo, bool deleteFile = false)
     {
         var memoryStream = new MemoryStream();
@@ -261,6 +142,7 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
     /// <returns>A <see cref="MemoryStream"/> object.</returns>
+    [Obsolete("This method is obsolete, use ToMemoryStream3 instead.")]
     public static MemoryStream ToMemoryStream2(this FileInfo fileInfo)
     {
         FileStream fileStream = fileInfo.OpenRead();
