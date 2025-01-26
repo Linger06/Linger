@@ -14,7 +14,7 @@ public static class PathHelper
     };
 
     private static readonly char[] s_windowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
-    
+
     /// <summary>
     /// 解析并生成绝对路径
     /// </summary>
@@ -67,14 +67,14 @@ public static class PathHelper
     private static bool IsSpecialPath(string path) =>
         path.StartsWith("""\\""", StringComparison.Ordinal) ||  // UNC路径
         path.StartsWith("//", StringComparison.Ordinal) ||      // 网络路径
-        path.StartsWith("/", StringComparison.Ordinal) ||       // Unix绝对路径
+                                                                //path.StartsWith("/", StringComparison.Ordinal) ||       // Unix绝对路径
         path.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||   // FTP路径
         path.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase) ||  // FTPS路径
         path.StartsWith("sftp://", StringComparison.OrdinalIgnoreCase);    // SFTP路径
 
-    // 辅助方法：标准化路径
+    // 更新 NormalizePath 方法的调用
     [return: NotNullIfNotNull(nameof(path))]
-    private static string? NormalizePath(string? path, bool preserveEndingSeparator = false)
+    public static string? NormalizePath(string? path, bool preserveEndingSeparator = false, PathReturnType returnType = PathReturnType.KeepOriginal)
     {
         if (path.IsNullOrWhiteSpace())
             return path ?? string.Empty;
@@ -89,7 +89,7 @@ public static class PathHelper
 
         try
         {
-            var normalizedPath = StandardizePath(path);
+            var normalizedPath = StandardizePath(path, returnType);
             return preserveEndingSeparator
                 ? normalizedPath + Path.DirectorySeparatorChar
                 : normalizedPath;
@@ -114,19 +114,19 @@ public static class PathHelper
     /// <summary>
     /// 获取相对路径
     /// </summary>
-    public static string GetRelativePath(string path, string basePath)
+    public static string GetRelativePath(string relativeTo, string path)
     {
         // 标准化两个路径
         path = NormalizePath(path);
-        basePath = NormalizePath(basePath, true);
+        relativeTo = NormalizePath(relativeTo, true);
 
         try
         {
 #if NETCOREAPP
-            return Path.GetRelativePath(basePath, path);
+            return Path.GetRelativePath(relativeTo, path);
 #else
             var pathUri = new Uri(path);
-            var baseUri = new Uri(basePath);
+            var baseUri = new Uri(relativeTo);
             var relativeUri = baseUri.MakeRelativeUri(pathUri);
             return Uri.UnescapeDataString(relativeUri.ToString())
                      .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
@@ -134,44 +134,79 @@ public static class PathHelper
         }
         catch (Exception ex) when (IsPathException(ex))
         {
-            throw new ArgumentException($"Invalid path. Path: {path}, Base: {basePath}", ex);
+            throw new ArgumentException($"Invalid path. Path: {path}, Base: {relativeTo}", ex);
         }
+    }
+
+    /// <summary>
+    /// 指定路径的返回类型
+    /// </summary>
+    public enum PathReturnType
+    {
+        /// <summary>
+        /// 保持原始类型（绝对路径返回绝对路径，相对路径返回相对路径）
+        /// </summary>
+        KeepOriginal,
+
+        /// <summary>
+        /// 强制返回绝对路径
+        /// </summary>
+        Absolute,
+
+        /// <summary>
+        /// 强制返回相对路径
+        /// </summary>
+        Relative
     }
 
     /// <summary>
     /// 标准化路径格式
     /// </summary>
-    private static string StandardizePath(string path)
+    /// <param name="path">要标准化的路径</param>
+    /// <param name="returnType">指定返回路径的类型</param>
+    /// <returns>标准化后的路径</param>
+    private static string StandardizePath(string path, PathReturnType returnType = PathReturnType.KeepOriginal)
     {
-        // 对于标准路径,直接使用 GetFullPath
-        if (Path.IsPathRooted(path))
-        {
-            return Path.GetFullPath(path)
-                       .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        }
-
         // 处理 file:// 格式
         if (path.Contains("file://"))
         {
             var localPath = new Uri(path).LocalPath;
             if (!string.IsNullOrEmpty(localPath))
             {
-                return Path.GetFullPath(localPath)
-                          .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                path = localPath;
             }
         }
 
-        // 其他情况尝试直接规范化
-        return Path.GetFullPath(path)
-                  .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-    }
-    public static string NormalizePathEndingDirectorySeparator(string directory)
-    {
-        if (directory.IsNullOrWhiteSpace())
-            return directory;
+        bool isRooted = Path.IsPathRooted(path);
+        string basePath = Environment.CurrentDirectory;
+        string normalizedPath;
 
-        var normalizedPath = NormalizePath(directory);
-        return normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        switch (returnType)
+        {
+            case PathReturnType.Absolute:
+                // 强制返回绝对路径
+                normalizedPath = isRooted ? path : Path.Combine(basePath, path);
+                return Path.GetFullPath(normalizedPath)
+                          .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            case PathReturnType.Relative when isRooted:
+                // 将绝对路径转换为相对路径
+                return GetRelativePath(basePath, path)
+                          .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                          .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            case PathReturnType.KeepOriginal:
+            default:
+                // 保持原始路径类型
+                if (isRooted)
+                {
+                    return Path.GetFullPath(path)
+                              .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                }
+                return GetRelativePath(basePath, path)
+                          .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+                          .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
     }
 
     /// <summary>

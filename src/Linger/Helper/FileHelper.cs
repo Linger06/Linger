@@ -114,7 +114,7 @@ public static class FileHelper
     {
         sourceFile.EnsureFileExist();
 
-        var normalizedDest = PathHelper.NormalizePath(destFile);
+        var normalizedDest = destFile.NormalizeWithSeparator();
         var directory = Path.GetDirectoryName(normalizedDest);
 
         if (!string.IsNullOrEmpty(directory))

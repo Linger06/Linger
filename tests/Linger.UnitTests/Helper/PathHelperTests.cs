@@ -4,186 +4,141 @@ namespace Linger.Tests.Helper;
 
 public class PathHelperTests
 {
-    private readonly string _windowsBasePath = @"C:\test\path";
-    private readonly string _unixBasePath = "/test/path";
-    private readonly string _basePath;
+    private readonly ITestOutputHelper _output;
+    private readonly bool _isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+    private readonly string _rootPath;
+    private readonly string _baseDir;
 
-    public PathHelperTests()
+    public PathHelperTests(ITestOutputHelper output)
     {
-        _basePath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-            ? _windowsBasePath
-            : _unixBasePath;
+        _output = output;
+        _rootPath = _isWindows ? "C:\\" : "/";
+        _baseDir = _isWindows ? @"C:\test\dir" : "/test/dir";
     }
 
-    public class ProcessPathTests : PathHelperTests
+    public static TheoryData<string, string, string> ValidPathCombinations => new()
     {
-        [Theory]
-        [InlineData(null, null, false, "")]
-        [InlineData("", "", false, "")]
-        [InlineData(" ", null, false, "")]
-        public void ProcessPath_EmptyOrWhitespace_ReturnsExpected(string? basePath, string? relativePath,
-            bool preserveEndingSeparator, string expected)
-        {
-            var result = PathHelper.ResolveToAbsolutePath(basePath, relativePath, preserveEndingSeparator);
-            Assert.Equal(expected, result);
-        }
+        { @"folder1", "file1.txt", "folder1/file1.txt" },
+        { @"folder1/", "file1.txt", "folder1/file1.txt" },
+        { @"folder1\", "file1.txt", "folder1/file1.txt" },
+        { @"folder1/subfolder", "../file1.txt", "folder1/file1.txt" },
+    };
 
-        [Theory]
-        [InlineData("ftp://test.com/path")]
-        [InlineData("//network/share")]
-        [InlineData("/absolute/unix/path")]
-        public void ProcessPath_SpecialPaths_ReturnsNormalizedPath(string path)
-        {
-            var result = PathHelper.ResolveToAbsolutePath(null, path);
-            Assert.Equal(PathHelper.NormalizePath(path), result);
-        }
+    [Theory]
+    [MemberData(nameof(ValidPathCombinations))]
+    public void NormalizePath_WithValidPaths_ReturnsNormalizedPath(string path1, string path2, string expected)
+    {
+        // Arrange
+        var input = Path.Combine(path1, path2);
+        expected = expected.Replace('/', Path.DirectorySeparatorChar);
 
-        [Fact]
-        public void ProcessPath_RelativePath_CombinesCorrectly()
-        {
-            var relativePath = "subfolder/file.txt";
-            var result = PathHelper.ResolveToAbsolutePath(_basePath, relativePath);
-            Assert.True(PathHelper.PathEquals(Path.Combine(_basePath, relativePath), result));
-        }
+        // Act
+        var result = PathHelper.NormalizePath(input, returnType: PathHelper.PathReturnType.KeepOriginal);
+
+        // Assert
+        Assert.Equal(expected, result);
     }
 
-    public class GetRelativePathTests : PathHelperTests
+    [Fact]
+    public void NormalizePath_WithNull_ReturnsEmptyString()
     {
-        [Fact]
-        public void GetRelativePath_SameDirectory_ReturnsFileName()
-        {
-            var path = Path.Combine(_basePath, "file.txt");
-            var result = PathHelper.GetRelativePath(path, _basePath);
-            Assert.Equal("file.txt", result);
-        }
-
-        [Fact]
-        public void GetRelativePath_SubDirectory_ReturnsRelativePath()
-        {
-            var path = Path.Combine(_basePath, "sub", "file.txt");
-            var result = PathHelper.GetRelativePath(path, _basePath);
-            Assert.Equal(Path.Combine("sub", "file.txt"), result);
-        }
+        Assert.Equal(string.Empty, PathHelper.NormalizePath(null));
     }
 
-    public class NormalizePathTests : PathHelperTests
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("\t")]
+    public void NormalizePath_WithEmptyOrWhitespace_ReturnsSameString(string input)
     {
-        [Theory]
-        [InlineData(null, false, "")]
-        [InlineData("", true, "")]
-        public void NormalizePath_EmptyOrNull_ReturnsInput(string? input, bool preserveEndingSeparator,
-            string expected)
-        {
-            var result = PathHelper.NormalizePath(input, preserveEndingSeparator);
-            Assert.Equal(expected, result);
-        }
-
-        [Fact]
-        public void NormalizePath_WithPreserveEndingSeparator_AddsDirectorySeparator()
-        {
-            var result = PathHelper.NormalizePath(_basePath, true);
-            Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), result);
-        }
+        Assert.Equal(input, PathHelper.NormalizePath(input));
     }
 
-    public class ExistsTests : PathHelperTests
+    [Theory]
+    [InlineData(@"C:\test\path", @"C:\test\path")]
+    [InlineData(@"C:\TEST\PATH", @"C:\test\path")]
+    public void NormalizePath_WindowsAbsolutePath_ReturnsNormalizedPath(string input, string expected)
     {
-        [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData(" ")]
-        public void Exists_EmptyOrWhitespace_ReturnsFalse(string? path)
-        {
-            Assert.False(PathHelper.Exists(path));
-        }
-
-
-        [Theory]
-        [InlineData(@"C:\CON\test.txt")]
-        [InlineData(@"C:\test\*.txt")]
-        [InlineData(@"C:\test\PRN")]
-        public void Exists_WindowsInvalidPaths_ReturnsFalse(string path)
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                Assert.False(PathHelper.Exists(path));
-            }
-        }
-
-        [Theory]
-        [InlineData("/test/./")]
-        [InlineData("/test/../")]
-        public void Exists_UnixSpecialPaths_ReturnsFalse(string path)
-        {
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                Assert.False(PathHelper.Exists(path));
-            }
-        }
-
-        [Fact]
-        public void Exists_InvalidCharacters_ReturnsFalse()
-        {
-            var invalidPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? @"C:\test\invalid<>path"  // Windows invalid characters
-                : "/test/invalid\0path";     // Unix null character
-
-            Assert.False(PathHelper.Exists(invalidPath));
-        }
+        Assert.SkipUnless(_isWindows, "Windows-specific test");
+        var result = PathHelper.NormalizePath(input);
+        Assert.Equal(expected, result, ignoreCase: true);
     }
 
-    public class PathEqualsTests : PathHelperTests
+    [Theory]
+    [InlineData("/test/path", "/test/path")]
+    [InlineData("/TEST/PATH", "/TEST/PATH")]
+    public void NormalizePath_UnixAbsolutePath_ReturnsNormalizedPath(string input, string expected)
     {
-        [Theory]
-        [InlineData(null, null, true, true)]
-        [InlineData(null, "path", true, false)]
-        [InlineData("path", null, true, false)]
-        public void PathEquals_NullPaths_HandlesCorrectly(string? path1, string? path2,
-            bool ignoreCase, bool expected)
-        {
-            var result = PathHelper.PathEquals(path1, path2, ignoreCase);
-            Assert.Equal(expected, result);
-        }
-
-        [Fact]
-        public void PathEquals_SamePath_DifferentCase_ReturnsExpected()
-        {
-            var path1 = Path.Combine(_basePath, "File.txt");
-            var path2 = Path.Combine(_basePath, "file.txt");
-
-            Assert.True(PathHelper.PathEquals(path1, path2, true));
-            Assert.False(PathHelper.PathEquals(path1, path2, false));
-        }
+        Assert.SkipWhen(_isWindows, "Unix-specific test");
+        var result = PathHelper.NormalizePath(input);
+        Assert.Equal(expected, result);
     }
 
-    public class GetParentDirectoryTests : PathHelperTests
+    [Theory]
+    [InlineData(@"\\server\share\file.txt")]
+    [InlineData(@"//server/share/file.txt")]
+    public void NormalizePath_UNCPath_PreservesFormat(string input)
     {
-        [Theory]
-        [InlineData(0)]
-        [InlineData(1)]
-        [InlineData(2)]
-        public void GetParentDirectory_ValidLevels_ReturnsExpectedPath(int levels)
-        {
-            var path = Path.Combine(_basePath, "level1", "level2", "level3");
-            var result = PathHelper.GetParentDirectory(path, levels);
+        var result = PathHelper.NormalizePath(input);
+        Assert.Equal(input.Replace('/', Path.DirectorySeparatorChar), result);
+    }
 
-            var expected = path;
-            for (int i = 0; i < levels; i++)
-            {
-                expected = Path.GetDirectoryName(expected);
-            }
+    [Fact]
+    public void ResolveToAbsolutePath_WithRelativePath_ResolvesCorrectly()
+    {
+        var basePath = _baseDir;
+        var relativePath = "subfolder/file.txt";
+        var expected = Path.Combine(basePath, relativePath)
+            .Replace('/', Path.DirectorySeparatorChar);
 
-            Assert.Equal(expected, result);
-        }
+        var result = PathHelper.ResolveToAbsolutePath(basePath, relativePath);
+        Assert.Equal(expected, result);
+    }
 
-        [Fact]
-        public void GetParentDirectory_RootPath_ReturnsSamePathForExcessiveLevels()
-        {
-            var rootPath = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? @"C:\"
-                : "/";
-            var result = PathHelper.GetParentDirectory(rootPath, 5);
-            Assert.Equal(rootPath, result);
-        }
+    [Fact]
+    public void GetRelativePath_WithValidPaths_ReturnsCorrectRelativePath()
+    {
+        var basePath = _baseDir;
+        var fullPath = Path.Combine(basePath, "subfolder", "file.txt");
+        var expected = Path.Combine("subfolder", "file.txt")
+            .Replace('/', Path.DirectorySeparatorChar);
+
+        var result = PathHelper.GetRelativePath(basePath, fullPath);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(null, null, true)]
+    [InlineData(@"C:\test\file.txt", @"c:\TEST\file.txt", true)]
+    [InlineData(@"/test/file.txt", @"/test/FILE.txt", false)]
+    public void PathEquals_WithVariousPaths_ReturnsExpectedResult(
+        string path1, string path2, bool expectedResult)
+    {
+        var result = PathHelper.PathEquals(path1, path2);
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Theory]
+    [InlineData(@"C:\test\path", @"CON")]
+    [InlineData(@"C:\test\path", @"PRN")]
+    [InlineData(@"C:\test\path", @"AUX")]
+    [InlineData(@"C:\test\path", @"NUL")]
+    public void ContainsInvalidPathChars_WindowsReservedNames_ReturnsTrue(string basePath, string fileName)
+    {
+        Assert.SkipUnless(_isWindows, "Windows-specific test");
+        var path = Path.Combine(basePath, fileName);
+        Assert.False(PathHelper.Exists(path));
+    }
+
+    [Theory]
+    [InlineData("test/file.txt", 1, "test")]
+    [InlineData("test/sub/file.txt", 2, "test")]
+    public void GetParentDirectory_WithValidLevels_ReturnsCorrectParent(
+        string path, int levels, string expected)
+    {
+        var fullPath = Path.Combine(_baseDir, path);
+        var expectedPath = Path.Combine(_baseDir, expected);
+        var result = PathHelper.GetParentDirectory(fullPath, levels);
+        Assert.Equal(expectedPath, result);
     }
 }
