@@ -5,8 +5,17 @@ namespace Linger.UnitTests.Extensions.Core;
 /// <summary>
 /// 测试 GetYearWeekCount 方法的功能
 /// </summary>
-public class DateTimeExtensions7Tests(ITestOutputHelper outputHelper)
+public class DateTimeExtensions7Tests
 {
+    private readonly ITestOutputHelper _outputHelper;
+
+    public DateTimeExtensions7Tests(ITestOutputHelper outputHelper)
+    {
+        _outputHelper = outputHelper;
+        // 重置默认文化信息
+        CultureInfo.CurrentCulture = new CultureInfo("en-US", false);
+        CultureInfo.CurrentUICulture = new CultureInfo("en-US", false);
+    }
 
     [Theory]
     [InlineData("en-US", 2023, 53)] // 美国文化
@@ -153,8 +162,10 @@ public class DateTimeExtensions7Tests(ITestOutputHelper outputHelper)
         yield return new object[] { "de-DE", "2023-07-01", 26 };
         yield return new object[] { "fr-FR", "2023-07-01", 26 };
 #if NETFRAMEWORK
+        // Framework使用ISO 8601标准
         yield return new object[] { "zh-CN", "2023-07-01", 27 };
 #else
+        // Core使用简化的日历周计算
         yield return new object[] { "zh-CN", "2023-07-01", 26 };
 #endif
     }
@@ -163,12 +174,19 @@ public class DateTimeExtensions7Tests(ITestOutputHelper outputHelper)
     [MemberData(nameof(GetMidYearWeekData2))]
     public void WeekOfYear_MidYear_ReturnsCorrectWeek(string cultureName, string dateStr, int expectedWeek)
     {
-        // Arrange
-        var culture = CultureInfo.GetCultureInfo(cultureName);
+    // Arrange
+    var culture = new CultureInfo(cultureName, false);
+    // 先克隆DateTimeFormat，然后再设置给culture
+    var dateTimeFormat = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
+    culture = (CultureInfo)culture.Clone();
+    culture.DateTimeFormat = dateTimeFormat;
         var date = DateTime.Parse(dateStr);
 
-        outputHelper.WriteLine($"FirstDayOfWeek:{culture.DateTimeFormat.FirstDayOfWeek}");
-        outputHelper.WriteLine($"CalendarWeekRule:{culture.DateTimeFormat.CalendarWeekRule}");
+        _outputHelper.WriteLine($"Culture: {cultureName}");
+        _outputHelper.WriteLine($"Date: {dateStr}");
+        _outputHelper.WriteLine($"Runtime: {Environment.Version}");
+        _outputHelper.WriteLine($"FirstDayOfWeek:{culture.DateTimeFormat.FirstDayOfWeek}");
+        _outputHelper.WriteLine($"CalendarWeekRule:{culture.DateTimeFormat.CalendarWeekRule}");
 
         // Act
         var result = date.WeekNumberOfYear(culture);
@@ -312,8 +330,8 @@ public class DateTimeExtensions7Tests(ITestOutputHelper outputHelper)
         //1.  .NET Core 重新实现了 Globalization 功能，使用了 ICU 库（International Components for Unicode）
         //2.ICU 库中对中国地区的默认设置是以周日作为一周的开始
         //这就解释了为什么同样的代码在不同的.NET 运行时中会有不同的行为：
-        //•	.NET Framework：FirstDayOfWeek = Monday（基于 Windows NLS）
-        //•	.NET Core /.NET 5 +：FirstDayOfWeek = Sunday（基于 ICU）
+        //•	.NET Framework：FirstDayOfWeek = Monday，Framework: CalendarWeekRule = FirstFourDayWeek(第一周最少要有4天)（基于 Windows NLS）
+        //•	.NET Core /.NET 5 +：FirstDayOfWeek = Sunday，CalendarWeekRule = FirstDay(第一周从第一天开始)（基于 ICU）
 
         // Arrange
         var culture = CultureInfo.GetCultureInfo(cultureName);
