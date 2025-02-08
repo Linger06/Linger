@@ -94,11 +94,6 @@ public static class LdapEntryExtensions
         }
     }
 
-    private static DateTime? ParseDateTime(string? value)
-    {
-        return DateTime.TryParse(value, out var result) ? result : null;
-    }
-
     private static string[]? GetMemberOf(System.DirectoryServices.DirectoryEntry entry)
     {
         try
@@ -269,8 +264,8 @@ public static class LdapEntryExtensions
         userInfo.HomeDirectory = GetPropertyValue(entry, LdapUserType.HomeDirectory);
         userInfo.ExMailboxDb = GetPropertyValue(entry, LdapUserType.ExMailboxDb);
         userInfo.ExtensionAttribute1 = GetPropertyValue(entry, LdapUserType.ExtensionAttribute1);
-        // 修改 UserType 的判断逻辑，避免直接访问 Properties
         userInfo.UserType = GetPropertyValue(entry, LdapUserType.ExMailboxDb) != null ? "UserMailbox" : "User";
+        userInfo.MemberOf = GetMemberOf(entry);    // 添加 MemberOf 属性映射
 
         var createdDate = GetPropertyValue(entry, LdapUserType.WhenCreated);
         if (createdDate != null && DateTime.TryParse(createdDate, out var whenCreated))
