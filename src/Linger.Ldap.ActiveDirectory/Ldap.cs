@@ -177,8 +177,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     private IEnumerable<AdUserInfo> GetUsers3(string userName, LdapCredentials? ldapCredentials = null)
     {
         var collection = GetUserCollByFilter(
-                    "(samAccountName=" + userName + "*)(userPrincipalName=" + userName + "*)(mail=" + userName +
-                    "*)(displayName=" + userName + "*)");
+                    $"""(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)""");
 
         return collection.ToAdUsersInfo();
     }
