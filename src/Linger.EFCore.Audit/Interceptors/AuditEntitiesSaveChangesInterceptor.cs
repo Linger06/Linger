@@ -39,7 +39,10 @@ public class AuditEntitiesSaveChangesInterceptor(IAuditUserProvider auditUserPro
                 case EntityState.Added:
                     ArgumentException.ThrowIfNullOrEmpty(userId);
                     entry.Entity.CreatorId ??= userId;
-                    entry.Entity.CreationTime = DateTime.Now;
+                    if (entry.Entity.CreationTime.IsNull() || entry.Entity.CreationTime == DateTimeOffset.MinValue)
+                    {
+                        entry.Entity.CreationTime = DateTimeOffset.Now;
+                    }
                     break;
             }
         }
@@ -50,7 +53,7 @@ public class AuditEntitiesSaveChangesInterceptor(IAuditUserProvider auditUserPro
             {
                 softDelete.IsDeleted = true;
                 softDelete.DeleterId ??= userId;
-                softDelete.DeletionTime = DateTime.Now;
+                softDelete.DeletionTime = DateTimeOffset.Now;
                 entry.State = EntityState.Modified;
             }
         }
@@ -61,7 +64,7 @@ public class AuditEntitiesSaveChangesInterceptor(IAuditUserProvider auditUserPro
             {
                 case EntityState.Modified:
                     entry.Entity.LastModifierId = userId;
-                    entry.Entity.LastModificationTime = DateTime.Now;
+                    entry.Entity.LastModificationTime = DateTimeOffset.Now;
                     break;
             }
         }

@@ -6,41 +6,6 @@
 public static partial class DateTimeExtensions
 {
     /// <summary>
-    /// Sql Server database <see cref="DateTime"/> initial value: January 1, 1900, 00:00:00.000
-    /// </summary>
-    public static DateTime MsSqlDateTimeInitial => new(1900, 1, 1, 0, 0, 0, 0);
-
-    /// <summary>
-    /// Sql Server database <see cref="DateTime"/> minimum value: January 1, 1900, 00:00:00.000
-    /// </summary>
-    public static DateTime MsSqlDateTimeMinValue => MsSqlDateTimeInitial;
-
-    /// <summary>
-    /// Sql Server database <see cref="DateTime"/> maximum value: December 31, 9999, 23:59:59.999
-    /// </summary>
-    public static DateTime MsSqlDateTimeMaxValue => DateTime.MaxValue;
-
-    /// <summary>
-    /// MySql database <see cref="DateTime"/> initial value: January 1, 1753, 00:00:00.000
-    /// </summary>
-    public static DateTime MySqlDateTimeInitial => new(1753, 1, 1, 0, 0, 0, 0);
-
-    /// <summary>
-    /// MySql database <see cref="DateTime"/> minimum value: January 1, 1753, 00:00:00.000
-    /// </summary>
-    public static DateTime MySqlDateTimeMinValue => MySqlDateTimeInitial;
-
-    /// <summary>
-    /// MySql database <see cref="DateTime"/> maximum value: December 31, 9999, 23:59:59.999
-    /// </summary>
-    public static DateTime MySqlDateTimeMaxValue => DateTime.MaxValue;
-
-    /// <summary>
-    /// Returns the system UTC offset.
-    /// </summary>
-    public static double UtcOffset => DateTime.Now.Subtract(DateTime.UtcNow).TotalHours;
-
-    /// <summary>
     /// Converts the current <see cref="DateTime"/> instance to a formatted date string representation.
     /// </summary>
     /// <param name="dateTime">The <see cref="DateTime"/> instance to convert.</param>

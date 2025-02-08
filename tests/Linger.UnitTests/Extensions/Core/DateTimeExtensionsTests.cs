@@ -2,52 +2,6 @@
 
 public partial class DateTimeExtensionsTests(ITestOutputHelper testOutputHelper)
 {
-    [Fact]
-    public void MsSqlDateTimeInitial_ShouldReturnCorrectValue()
-    {
-        var expected = new DateTime(1900, 1, 1, 0, 0, 0, 0);
-        Assert.Equal(expected, DateTimeExtensions.MsSqlDateTimeInitial);
-    }
-
-    [Fact]
-    public void MsSqlDateTimeMinValue_ShouldReturnCorrectValue()
-    {
-        var expected = new DateTime(1900, 1, 1, 0, 0, 0, 0);
-        Assert.Equal(expected, DateTimeExtensions.MsSqlDateTimeMinValue);
-    }
-
-    [Fact]
-    public void MsSqlDateTimeMaxValue_ShouldReturnCorrectValue()
-    {
-        Assert.Equal(DateTime.MaxValue, DateTimeExtensions.MsSqlDateTimeMaxValue);
-    }
-
-    [Fact]
-    public void MySqlDateTimeInitial_ShouldReturnCorrectValue()
-    {
-        var expected = new DateTime(1753, 1, 1, 0, 0, 0, 0);
-        Assert.Equal(expected, DateTimeExtensions.MySqlDateTimeInitial);
-    }
-
-    [Fact]
-    public void MySqlDateTimeMinValue_ShouldReturnCorrectValue()
-    {
-        var expected = new DateTime(1753, 1, 1, 0, 0, 0, 0);
-        Assert.Equal(expected, DateTimeExtensions.MySqlDateTimeMinValue);
-    }
-
-    [Fact]
-    public void MySqlDateTimeMaxValue_ShouldReturnCorrectValue()
-    {
-        Assert.Equal(DateTime.MaxValue, DateTimeExtensions.MySqlDateTimeMaxValue);
-    }
-
-    [Fact]
-    public void UtcOffset_ShouldReturnCorrectValue()
-    {
-        var expected = DateTime.Now.Subtract(DateTime.UtcNow).TotalHours;
-        Assert.Equal(expected, DateTimeExtensions.UtcOffset, 1);
-    }
 
     [Fact]
     public void ToFormatDate_ShouldReturnFormattedDate()

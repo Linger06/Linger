@@ -10,13 +10,6 @@ public static partial class DateTimeExtensions
     /// </summary>
     /// <param name="dateOfBirth">The date of birth.</param>
     /// <returns>The calculated age.</returns>
-    /// <example>
-    /// <code>
-    /// DateTime birthDate = new DateTime(1990, 1, 1);
-    /// int age = birthDate.CalculateAge();
-    /// // age is the number of years from 1990 to the current year
-    /// </code>
-    /// </example>
     public static int CalculateAge(this DateTime dateOfBirth)
     {
         return dateOfBirth.CalculateAge(DateTime.Now);
@@ -120,5 +113,59 @@ public static partial class DateTimeExtensions
     public static DateTime SetTime(this DateTime current, int hour, int minute, int second = 0, int millisecond = 0)
     {
         return new DateTime(current.Year, current.Month, current.Day, hour, minute, second, millisecond);
+    }
+
+    /// <summary>
+    /// Sets the day of the current DateTime instance.
+    /// </summary>
+    /// <param name="time">The DateTime instance.</param>
+    /// <param name="day">The day to set.</param>
+    /// <returns>A new DateTime instance with the specified day.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime newDate = date.SetDay(15);
+    /// // newDate is 2023-10-15
+    /// </code>
+    /// </example>
+    public static DateTime SetDay(this DateTime time, int day)
+    {
+        return new DateTime(time.Year, time.Month, day);
+    }
+
+    /// <summary>
+    /// Sets the month of the current DateTime instance.
+    /// </summary>
+    /// <param name="time">The DateTime instance.</param>
+    /// <param name="month">The month to set.</param>
+    /// <returns>A new DateTime instance with the specified month.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime newDate = date.SetMonth(12);
+    /// // newDate is 2023-12-05
+    /// </code>
+    /// </example>
+    public static DateTime SetMonth(this DateTime time, int month)
+    {
+        return new DateTime(time.Year, month, time.Day);
+    }
+
+    /// <summary>
+    /// Sets the year of the current DateTime instance.
+    /// </summary>
+    /// <param name="time">The DateTime instance.</param>
+    /// <param name="year">The year to set.</param>
+    /// <returns>A new DateTime instance with the specified year.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime newDate = date.SetYear(2025);
+    /// // newDate is 2025-10-05
+    /// </code>
+    /// </example>
+    public static DateTime SetYear(this DateTime time, int year)
+    {
+        return new DateTime(year, time.Month, time.Day);
     }
 }

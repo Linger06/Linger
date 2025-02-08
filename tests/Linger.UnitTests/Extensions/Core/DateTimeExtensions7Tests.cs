@@ -174,12 +174,8 @@ public class DateTimeExtensions7Tests
     [MemberData(nameof(GetMidYearWeekData2))]
     public void WeekOfYear_MidYear_ReturnsCorrectWeek(string cultureName, string dateStr, int expectedWeek)
     {
-    // Arrange
-    var culture = new CultureInfo(cultureName, false);
-    // 先克隆DateTimeFormat，然后再设置给culture
-    var dateTimeFormat = (DateTimeFormatInfo)CultureInfo.InvariantCulture.DateTimeFormat.Clone();
-    culture = (CultureInfo)culture.Clone();
-    culture.DateTimeFormat = dateTimeFormat;
+        // Arrange
+        var culture = new CultureInfo(cultureName, false);
         var date = DateTime.Parse(dateStr);
 
         _outputHelper.WriteLine($"Culture: {cultureName}");

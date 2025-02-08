@@ -5,65 +5,6 @@
 /// </summary>
 public static partial class DateTimeExtensions
 {
-    /// <summary>
-    /// Checks if the DateTime value is between the specified minimum and maximum values inclusively.
-    /// </summary>
-    /// <param name="this">The DateTime instance to act on.</param>
-    /// <param name="minValue">The minimum value.</param>
-    /// <param name="maxValue">The maximum value.</param>
-    /// <returns>true if the value is between the minimum and maximum values inclusively; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// DateTime date = new DateTime(2023, 10, 5);
-    /// DateTime minValue = new DateTime(2023, 1, 1);
-    /// DateTime maxValue = new DateTime(2023, 12, 31);
-    /// bool inRange = date.InRange(minValue, maxValue);
-    /// // inRange is true
-    /// </code>
-    /// </example>
-    public static bool InRange(this DateTime @this, DateTime minValue, DateTime maxValue)
-    {
-        return @this >= minValue && @this <= maxValue;
-    }
-
-    /// <summary>
-    /// Gets the day of the year for the specified DateTime.
-    /// </summary>
-    /// <param name="dateSrc">The DateTime instance.</param>
-    /// <returns>The day of the year.</returns>
-    /// <example>
-    /// <code>
-    /// DateTime date = new DateTime(2023, 10, 5);
-    /// int dayOfYear = date.DayInYear();
-    /// // dayOfYear is 278
-    /// </code>
-    /// </example>
-    public static int DayInYear(this DateTime dateSrc)
-    {
-        return dateSrc.DayOfYear;
-    }
-
-    /// <summary>
-    /// Gets the day of the week for the specified DateTime.
-    /// </summary>
-    /// <param name="dateSrc">The DateTime instance.</param>
-    /// <returns>The day of the week as an integer.</returns>
-    /// <example>
-    /// <code>
-    /// DateTime date = new DateTime(2023, 10, 5);
-    /// int dayOfWeek = date.DayInWeek();
-    /// // dayOfWeek is 4 (Thursday)
-    /// </code>
-    /// </example>
-    public static int DayInWeek(this DateTime dateSrc)
-    {
-        return dateSrc.DayOfWeek switch
-        {
-            DayOfWeek.Sunday => 7,
-            _ => (int)dateSrc.DayOfWeek
-        };
-    }
-
 #if NET6_0_OR_GREATER
 
     /// <summary>

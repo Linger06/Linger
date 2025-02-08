@@ -6,6 +6,57 @@
 public static partial class DateTimeExtensions
 {
     /// <summary>
+    /// Returns the first moment of the day with the time set to "00:00:00:000".
+    /// </summary>
+    /// <param name="this">The DateTime instance.</param>
+    /// <returns>A DateTime instance representing the first moment of the day with the time set to "00:00:00:000".</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5, 14, 30, 0);
+    /// DateTime startOfDay = date.StartOfDay();
+    /// // startOfDay is 2023-10-05 00:00:00.000
+    /// </code>
+    /// </example>
+    public static DateTime StartOfDay(this DateTime @this)
+    {
+        return new DateTime(@this.Year, @this.Month, @this.Day);
+    }
+
+    /// <summary>
+    /// Returns the date at 23:59:59.999 for the specified DateTime.
+    /// </summary>
+    /// <param name="date">The DateTime to be processed.</param>
+    /// <returns>The date at 23:59:59.999.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime endOfDay = date.EndOfDay();
+    /// // endOfDay is 2023-10-05 23:59:59.999
+    /// </code>
+    /// </example>
+    public static DateTime EndOfDay(this DateTime date)
+    {
+        return date.SetTime(23, 59, 59, 999);
+    }
+
+    /// <summary>
+    /// Returns the first day of the month with the time set to "00:00:00:000".
+    /// </summary>
+    /// <param name="this">The DateTime instance.</param>
+    /// <returns>A DateTime instance representing the first day of the month with the time set to "00:00:00:000".</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime startOfMonth = date.StartOfMonth();
+    /// // startOfMonth is 2023-10-01 00:00:00.000
+    /// </code>
+    /// </example>
+    public static DateTime StartOfMonth(this DateTime @this)
+    {
+        return new DateTime(@this.Year, @this.Month, 1);
+    }
+
+    /// <summary>
     /// A DateTime extension method that returns a DateTime of the last day of the month with the
     /// time set to "23:59:59:999". The last moment of the last day of the month. Use "DateTime2"
     /// column type in SQL to keep the precision.
@@ -22,6 +73,65 @@ public static partial class DateTimeExtensions
     public static DateTime EndOfMonth(this DateTime @this)
     {
         return new DateTime(@this.Year, @this.Month, 1).AddMonths(1).AddMilliseconds(-1);
+    }
+
+    /// <summary>
+    /// Returns the first day of the month of the provided date.
+    /// </summary>
+    /// <param name="date">The date.</param>
+    /// <returns>The first day of the month.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime firstDayOfMonth = date.FirstDayOfMonth();
+    /// // firstDayOfMonth is 2023-10-01
+    /// </code>
+    /// </example>
+    public static DateTime FirstDayOfMonth(this DateTime date)
+    {
+        return new DateTime(date.Year, date.Month, 1);
+    }
+
+    /// <summary>
+    /// Returns the first day of the month of the provided date.
+    /// </summary>
+    /// <param name="date">The date.</param>
+    /// <param name="dayOfWeek">The desired day of the week.</param>
+    /// <returns>The DateTime instance representing the first occurrence of the specified day of the week in the month.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime firstMonday = date.FirstDayOfMonth(DayOfWeek.Monday);
+    /// // firstMonday is the first Monday of the month
+    /// </code>
+    /// </example>
+    public static DateTime FirstDayOfMonth(this DateTime date, DayOfWeek dayOfWeek)
+    {
+        DateTime dt = date.FirstDayOfMonth();
+        while (dt.DayOfWeek != dayOfWeek)
+        {
+            dt = dt.AddDays(1);
+        }
+
+        return dt;
+    }
+
+    /// <summary>
+    /// Gets the first day of the current month.
+    /// </summary>
+    /// <param name="dateTime">The DateTime instance.</param>
+    /// <param name="mode">The time mode, default is the current time's hour, minute, and second.</param>
+    /// <returns>A DateTime instance representing the first day of the current month.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2023, 10, 5);
+    /// DateTime firstDayOfMonth = date.FirstDayOfMonth2();
+    /// // firstDayOfMonth is 2023-10-01
+    /// </code>
+    /// </example>
+    public static DateTime FirstDayOfMonth2(this DateTime dateTime, TimeMode mode = TimeMode.Now)
+    {
+        return dateTime.AddDays(1 - dateTime.Day).ToDateTimeOfMode(mode);
     }
 
     /// <summary>
@@ -66,62 +176,20 @@ public static partial class DateTimeExtensions
     }
 
     /// <summary>
-    /// Gets the first day of the current month.
+    /// Returns the last day of the year with the time set to "23:59:59:999".
     /// </summary>
-    /// <param name="dateTime">The DateTime instance.</param>
-    /// <param name="mode">The time mode, default is the current time's hour, minute, and second.</param>
-    /// <returns>A DateTime instance representing the first day of the current month.</returns>
+    /// <param name="this">The DateTime instance.</param>
+    /// <returns>A DateTime instance representing the last day of the year with the time set to "23:59:59:999".</returns>
     /// <example>
     /// <code>
     /// DateTime date = new DateTime(2023, 10, 5);
-    /// DateTime firstDayOfMonth = date.FirstDayOfMonth2();
-    /// // firstDayOfMonth is 2023-10-01
+    /// DateTime endOfYear = date.EndOfYear();
+    /// // endOfYear is 2023-12-31 23:59:59.999
     /// </code>
     /// </example>
-    public static DateTime FirstDayOfMonth2(this DateTime dateTime, TimeMode mode = TimeMode.Now)
+    public static DateTime EndOfYear(this DateTime @this)
     {
-        return dateTime.AddDays(1 - dateTime.Day).ToDateTimeOfMode(mode);
-    }
-
-    /// <summary>
-    /// Returns the first day of the month of the provided date.
-    /// </summary>
-    /// <param name="date">The date.</param>
-    /// <returns>The first day of the month.</returns>
-    /// <example>
-    /// <code>
-    /// DateTime date = new DateTime(2023, 10, 5);
-    /// DateTime firstDayOfMonth = date.FirstDayOfMonth();
-    /// // firstDayOfMonth is 2023-10-01
-    /// </code>
-    /// </example>
-    public static DateTime FirstDayOfMonth(this DateTime date)
-    {
-        return new DateTime(date.Year, date.Month, 1);
-    }
-
-    /// <summary>
-    /// Returns the first day of the month of the provided date.
-    /// </summary>
-    /// <param name="date">The date.</param>
-    /// <param name="dayOfWeek">The desired day of the week.</param>
-    /// <returns>The DateTime instance representing the first occurrence of the specified day of the week in the month.</returns>
-    /// <example>
-    /// <code>
-    /// DateTime date = new DateTime(2023, 10, 5);
-    /// DateTime firstMonday = date.FirstDayOfMonth(DayOfWeek.Monday);
-    /// // firstMonday is the first Monday of the month
-    /// </code>
-    /// </example>
-    public static DateTime FirstDayOfMonth(this DateTime date, DayOfWeek dayOfWeek)
-    {
-        DateTime dt = date.FirstDayOfMonth();
-        while (dt.DayOfWeek != dayOfWeek)
-        {
-            dt = dt.AddDays(1);
-        }
-
-        return dt;
+        return new DateTime(@this.Year, 1, 1).AddYears(1).Subtract(new TimeSpan(0, 0, 0, 0, 1));
     }
 
     /// <summary>

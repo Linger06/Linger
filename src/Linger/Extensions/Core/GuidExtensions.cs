@@ -6,38 +6,6 @@
 public static class GuidExtensions
 {
     /// <summary>
-    /// Generates a new <see cref="Guid"/> for database use.
-    /// </summary>
-    /// <remarks>
-    /// The generated <see cref="Guid"/> is based on the current date and time, 
-    /// ensuring uniqueness and suitability for database operations.
-    /// </remarks>
-    public static Guid NewId
-    {
-        get
-        {
-            var guidArray = Guid.NewGuid().ToByteArray();
-            DateTime dbMinDate = DateTimeExtensions.MsSqlDateTimeInitial;
-            DateTime nowDate = DateTime.Now;
-
-            var days = new TimeSpan(nowDate.Ticks - dbMinDate.Ticks);
-            var msSecond =
-                new TimeSpan(nowDate.Ticks - new DateTime(nowDate.Year, nowDate.Month, nowDate.Day).Ticks);
-
-            var daysArray = BitConverter.GetBytes(days.Days);
-            var msSecondArray = BitConverter.GetBytes((long)(msSecond.TotalMilliseconds / 3.333333));
-
-            Array.Reverse(daysArray);
-            Array.Reverse(msSecondArray);
-
-            Array.Copy(daysArray, daysArray.Length - 2, guidArray, guidArray.Length - 6, 2);
-            Array.Copy(msSecondArray, daysArray.Length - 4, guidArray, guidArray.Length - 4, 4);
-
-            return new Guid(guidArray);
-        }
-    }
-
-    /// <summary>
     /// Check if the specified <see cref="Guid"/> is <see cref="Guid.Empty"/>.
     /// </summary>
     /// <param name="value">The <see cref="Guid"/> to check.</param>

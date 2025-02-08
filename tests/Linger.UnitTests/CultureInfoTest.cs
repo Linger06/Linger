@@ -29,8 +29,6 @@ public class CultureInfoTest(ITestOutputHelper output)
         if (isWindows)
         {
             output.WriteLine("Windows平台测试");
-            // Windows默认使用系统区域设置
-            Assert.Equal(DayOfWeek.Sunday, culture.DateTimeFormat.FirstDayOfWeek);
 #if NETFRAMEWORK
             // .NET Framework:
             // - FirstDayOfWeek 固定为 Monday

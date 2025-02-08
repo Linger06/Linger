@@ -1,5 +1,6 @@
 ﻿using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
+using System.DirectoryServices.ActiveDirectory;
 using System.Runtime.Versioning;
 using Linger.Extensions.Core;
 using Linger.Helper;
@@ -83,6 +84,31 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         return adUserList;
     }
 
+    //private IEnumerable<AdUserInfo> GetUsers2(string userName, LdapCredentials? ldapCredentials = null)
+    //{
+    //    PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
+    //    UserPrincipal userPrincipal = new UserPrincipal(principalContext);
+    //    //userPrincipal.SamAccountName = userName + "*";
+
+    //    PrincipalSearcher principalSearcher = new PrincipalSearcher(userPrincipal);
+
+    //    var adUserList = new List<AdUserInfo>();
+    //    var usersPrincipal = principalSearcher.FindAll().Cast<UserPrincipal>()
+    //        .Where(x => x.SamAccountName.ToUpperInvariant().StartsWith(userName.ToUpperInvariant())
+    //        || x.UserPrincipalName.ToUpperInvariant().StartsWith(userName.ToUpperInvariant())
+    //        || x.EmailAddress.Contains(userName, StringComparison.OrdinalIgnoreCase)
+    //        || x.DisplayName.Contains(userName, StringComparison.OrdinalIgnoreCase)
+    //        || x.DistinguishedName.ToUpperInvariant().StartsWith(userName.ToUpperInvariant())
+    //        );
+
+    //    foreach (UserPrincipal userSearchResult in usersPrincipal)
+    //    {
+    //        var adUserInfo = userSearchResult.ToAdUser();
+    //        adUserList.Add(adUserInfo!);
+    //    }
+    //    return adUserList;
+    //}
+
 
     /// <summary>
     /// Validates the username and password of a given user
@@ -106,5 +132,54 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             adUserInfo = null;
             return false;
         }
+    }
+
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <returns>xxx-DC.xxx.com</returns>
+    public static string GetDomainController()
+    {
+        var directoryContext = new DirectoryContext(DirectoryContextType.Domain);
+        string result;
+        {
+            var domainController = DomainController.FindOne(directoryContext);
+            result = domainController.ToString();
+        }
+
+        return result;
+    }
+
+    public SearchResultCollection GetUserCollByFilter(string? filter)
+    {
+        DirectoryEntry domain = new DirectoryEntry($"LDAP://{ldapConfig.Url}/{ldapConfig.SearchBase}");
+        var directorySearcher = new DirectorySearcher(domain)
+        {
+            //PropertiesToLoad = { "SamAccountName", "DistinguishedName" },
+            SearchScope = SearchScope.Subtree,
+            PageSize = 1000
+        };
+
+        if (string.IsNullOrEmpty(filter))
+        {
+            directorySearcher.Filter = "(&(objectCategory=person)(objectClass=user))";
+        }
+        else
+        {
+            directorySearcher.Filter = "(&(objectCategory=person)(objectClass=user)(|" + filter + "))";
+        }
+
+        SearchResultCollection result = directorySearcher.FindAll();
+        domain.Close();
+        return result;
+    }
+
+    private IEnumerable<AdUserInfo> GetUsers3(string userName, LdapCredentials? ldapCredentials = null)
+    {
+        var collection = GetUserCollByFilter(
+                    "(samAccountName=" + userName + "*)(userPrincipalName=" + userName + "*)(mail=" + userName +
+                    "*)(displayName=" + userName + "*)");
+
+        return collection.ToAdUsersInfo();
     }
 }
