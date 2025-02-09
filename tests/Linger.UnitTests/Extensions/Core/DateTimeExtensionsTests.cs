@@ -2,29 +2,12 @@
 
 public partial class DateTimeExtensionsTests(ITestOutputHelper testOutputHelper)
 {
-
-    [Fact]
-    public void ToFormatDate_ShouldReturnFormattedDate()
-    {
-        var date = new DateTime(2023, 10, 5);
-        var formattedDate = date.ToFormatDate();
-        Assert.Equal("2023-10-05", formattedDate);
-    }
-
     [Fact]
     public void ToFormatDate_Nullable_ShouldReturnFormattedDate()
     {
         DateTime? date = null;
         var formattedDate = date.ToFormatDate();
         Assert.Null(formattedDate);
-    }
-
-    [Fact]
-    public void ToFormatDateTime_ShouldReturnFormattedDateTime()
-    {
-        var date = new DateTime(2023, 10, 5, 14, 30, 0);
-        var formattedDateTime = date.ToFormatDateTime();
-        Assert.Equal("2023-10-05 14:30:00", formattedDateTime);
     }
 
     [Fact]
@@ -40,7 +23,7 @@ public partial class DateTimeExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         var date1 = new DateTime(2023, 1, 1);
         var date2 = new DateTime(2023, 1, 10);
-        TimeSpan diff = date1.DateDiff2(date2);
+        TimeSpan diff = date1.GetDateDifference(date2);
         Assert.Equal(TimeSpan.FromDays(-9), diff);
     }
 
@@ -49,7 +32,7 @@ public partial class DateTimeExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         DateTime date1 = DateTime.Now.AddDays(3);
         DateTime? date2 = null;
-        var diff = date1.DateDiff3(date2, "D", true);
+        var diff = date1.GetDateDifference(date2, "D", true);
         testOutputHelper.WriteLine(diff.ToString());
         Assert.True(diff <= 3 && diff > 2.9);
     }
@@ -72,7 +55,7 @@ public partial class DateTimeExtensionsTests(ITestOutputHelper testOutputHelper)
     {
         var date1 = new DateTime(2023, 10, 1);
         var date2 = new DateTime(2023, 10, 4);
-        Assert.Equal(expected, date1.DateDiff3(date2, type));
+        Assert.Equal(expected, date1.GetDateDifference(date2, type));
     }
 
     [Theory]

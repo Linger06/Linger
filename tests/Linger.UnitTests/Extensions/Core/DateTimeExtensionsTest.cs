@@ -130,10 +130,10 @@ public class DateTimeExtensionsTest
         DateTime value1 = DateTime.Now;
         DateTime value2 = value1.AddDays(2);
 
-        TimeSpan diff = value1.DateDiff2(value2);
+        TimeSpan diff = value1.GetDateDifference(value2);
         Assert.Equal(diff.TotalDays, -2.ToDouble());
 
-        TimeSpan diff2 = value2.DateDiff2(value1);
+        TimeSpan diff2 = value2.GetDateDifference(value1);
         Assert.Equal(diff2.TotalDays, 2.ToDouble());
     }
 }
