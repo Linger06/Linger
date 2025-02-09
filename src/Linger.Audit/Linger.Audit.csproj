@@ -11,7 +11,7 @@
         <Description>C# Helper Library</Description>
         <Copyright>Copyright © Linger 2024</Copyright>
         <NeutralLanguage>en-US</NeutralLanguage>
-        <VersionPrefix>0.1.2</VersionPrefix>
+        <VersionPrefix>0.2.0</VersionPrefix>
         <VersionSuffix>alpha</VersionSuffix>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
