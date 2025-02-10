@@ -1,8 +1,8 @@
 ﻿using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
 using System.Runtime.Versioning;
-using Linger.Ldap.Contracts;
 using Linger.Ldap.ActiveDirectory.Constants;
+using Linger.Ldap.Contracts;
 using static Linger.Ldap.ActiveDirectory.Constants.ActiveDirectoryConstants;
 
 namespace Linger.Ldap.ActiveDirectory;
@@ -31,18 +31,18 @@ public static class LdapEntryExtensions
         userInfo.Upn = userPrincipal.UserPrincipalName;
         userInfo.Name = userPrincipal.Name;
         userInfo.Dn = userPrincipal.DistinguishedName;
-        
+
         // 个人信息 - 优先使用 UserPrincipal 中的值
         userInfo.FirstName = userPrincipal.GivenName;
         userInfo.LastName = userPrincipal.Surname;
         userInfo.Description = userPrincipal.Description;
-        
+
         // 使用 DirectoryEntry 填充其余属性
         MapContactInfo(userInfo, directoryEntry);
         MapOrganizationInfo(userInfo, directoryEntry);
         MapAddressInfo(userInfo, directoryEntry);
         MapSystemInfo(userInfo, directoryEntry);
-        
+
         // 安全信息使用 UserPrincipal 特有的方法
         MapSpecialUserPrincipalProperties(userInfo, userPrincipal);
 
@@ -303,7 +303,7 @@ public static class LdapEntryExtensions
         }
     }
 
-    private static bool IsAccountDisabled(int userAccountControl) => 
+    private static bool IsAccountDisabled(int userAccountControl) =>
         (userAccountControl & ActiveDirectoryConstants.UserAccountControl.Disabled) != 0;
 
     private static bool IsAccountLocked(DirectoryEntry entry)
@@ -351,7 +351,7 @@ public static class LdapEntryExtensions
     private static void GetPasswordInfo(AdUserInfo userInfo, DirectoryEntry entry, int userAccountControl)
     {
         var pwdLastSet = GetPropertyValue(entry, LdapUserType.PwdLastSet);
-        
+
         if (pwdLastSet == null)
         {
             userInfo.PwdLastSet = PasswordStatus.Unknown;
@@ -366,12 +366,12 @@ public static class LdapEntryExtensions
             return;
         }
 
-        userInfo.PwdLastSet = lastSetValue == 0 
+        userInfo.PwdLastSet = lastSetValue == 0
             ? PasswordStatus.NeverChanged
             : DateTime.FromFileTime(lastSetValue).ToString();
 
-        userInfo.PwdExpirationLeftDays = 
-            (userAccountControl & ActiveDirectoryConstants.UserAccountControl.PasswordNeverExpires) != 0 
+        userInfo.PwdExpirationLeftDays =
+            (userAccountControl & ActiveDirectoryConstants.UserAccountControl.PasswordNeverExpires) != 0
                 ? PasswordStatus.NeverExpires
                 : GetPasswordExpirationInfo(entry, lastSetValue);
     }
@@ -379,7 +379,7 @@ public static class LdapEntryExtensions
     private static string GetPasswordExpirationInfo(DirectoryEntry entry, long lastSetValue)
     {
         if (lastSetValue == 0) return PasswordStatus.NeverChanged;
-        
+
         try
         {
             using var de = entry.Parent;

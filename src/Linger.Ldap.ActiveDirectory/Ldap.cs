@@ -13,6 +13,8 @@ namespace Linger.Ldap.ActiveDirectory;
 #endif
 public class Ldap(LdapConfig ldapConfig) : ILdap
 {
+    private const string BaseFilter = "(&(objectCategory=person)(objectClass=user))";
+
     /// <summary>
     /// Gets a certain user on Active Directory
     /// </summary>
@@ -67,21 +69,8 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
 
     public IEnumerable<AdUserInfo> GetUsers(string userName, LdapCredentials? ldapCredentials = null)
     {
-        PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
-        UserPrincipal userPrincipal = new UserPrincipal(principalContext)
-        {
-            SamAccountName = userName + "*"
-        };
-
-        PrincipalSearcher principalSearcher = new PrincipalSearcher(userPrincipal);
-
-        var adUserList = new List<AdUserInfo>();
-        foreach (UserPrincipal userSearchResult in principalSearcher.FindAll().Cast<UserPrincipal>())
-        {
-            var adUserInfo = userSearchResult.ToAdUser();
-            adUserList.Add(adUserInfo!);
-        }
-        return adUserList;
+        var collection = SearchUsersByFilter($"""(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)""", ldapCredentials);
+        return collection.ToAdUsersInfo();
     }
 
     //private IEnumerable<AdUserInfo> GetUsers2(string userName, LdapCredentials? ldapCredentials = null)
@@ -150,35 +139,53 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         return result;
     }
 
-    public SearchResultCollection GetUserCollByFilter(string? filter)
+    public SearchResultCollection SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null)
     {
-        DirectoryEntry domain = new DirectoryEntry($"LDAP://{ldapConfig.Url}/{ldapConfig.SearchBase}");
-        var directorySearcher = new DirectorySearcher(domain)
+        if (ldapCredentials == null)
         {
-            //PropertiesToLoad = { "SamAccountName", "DistinguishedName" },
+            if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullAndEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullAndEmpty())
+            {
+                ldapCredentials = ldapConfig.Credentials;
+            }
+        }
+
+        using DirectoryEntry directoryEntry = CreateDirectoryEntry(ldapCredentials);
+        using DirectorySearcher directorySearcher = new(directoryEntry)
+        {
             SearchScope = SearchScope.Subtree,
             PageSize = 1000
         };
 
-        if (string.IsNullOrEmpty(filter))
+        if (ldapConfig.Attributes.IsNotNull())
         {
-            directorySearcher.Filter = "(&(objectCategory=person)(objectClass=user))";
-        }
-        else
-        {
-            directorySearcher.Filter = "(&(objectCategory=person)(objectClass=user)(|" + filter + "))";
+            // 加载默认属性
+            foreach (var property in ldapConfig.Attributes)
+            {
+                directorySearcher.PropertiesToLoad.Add(property);
+            }
         }
 
-        SearchResultCollection result = directorySearcher.FindAll();
-        domain.Close();
-        return result;
+        // 构建搜索过滤器
+        directorySearcher.Filter = string.IsNullOrEmpty(filter)
+            ? BaseFilter
+            : $"{BaseFilter}(|{filter})";
+
+        return directorySearcher.FindAll();
     }
 
-    private IEnumerable<AdUserInfo> GetUsers3(string userName, LdapCredentials? ldapCredentials = null)
+    private DirectoryEntry CreateDirectoryEntry(LdapCredentials? ldapCredentials)
     {
-        var collection = GetUserCollByFilter(
-                    $"""(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)""");
+        var ldapPath = $"LDAP://{ldapConfig.Url}/{ldapConfig.SearchBase}";
 
-        return collection.ToAdUsersInfo();
+        if (ldapCredentials == null)
+        {
+            return new DirectoryEntry(ldapPath);
+        }
+
+        var domain = ldapConfig.Domain;
+        var userId = ldapCredentials.BindDn;
+        var password = ldapCredentials.BindCredentials;
+
+        return new DirectoryEntry(ldapPath, $@"{domain}\{userId}", password);
     }
 }
