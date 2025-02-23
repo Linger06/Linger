@@ -18,7 +18,7 @@ public class LdapConfig
     /// <summary>
     /// Domain name
     /// </summary>
-    public string Domain { get; set; }= null!;
+    public string Domain { get; set; } = null!;
 
     /// <summary>
     /// LDAP credentials
@@ -28,12 +28,12 @@ public class LdapConfig
     /// <summary>
     /// Search base, e.g., "DC=AC,DC=LOCAL"
     /// </summary>
-    public string SearchBase { get; set; }= null!;
+    public string SearchBase { get; set; } = null!;
 
     /// <summary>
     /// Search filter, e.g., "(&(objectClass=user)(objectClass=person)(sAMAccountName={0}))"
     /// </summary>
-    public string SearchFilter { get; set; }= null!;
+    public string SearchFilter { get; set; } = null!;
 
     /// <summary>
     /// Attributes to retrieve, e.g., ["memberOf", "displayName", "sAMAccountName", "userPrincipalName"]

@@ -1,4 +1,6 @@
-﻿namespace Linger.Extensions.Core;
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace Linger.Extensions.Core;
 
 /// <summary>
 /// <see cref="DateTime"/> extensions
@@ -129,4 +131,25 @@ public static partial class DateTimeExtensions
     }
 
 #endif
+
+    public static DateTimeOffset ToDateTimeOffset(this DateTime value)
+    {
+        if (value.Kind == DateTimeKind.Unspecified)
+            value = DateTime.SpecifyKind(value, DateTimeKind.Local);
+        return value;
+    }
+
+    [return: NotNullIfNotNull(nameof(input))]
+    public static DateTimeOffset? ToDateTimeOffset(this DateTime? input)
+    {
+        if (input == null)
+        {
+            return null;
+        }
+
+        var value = (DateTime)input;
+        if (value.Kind == DateTimeKind.Unspecified)
+            value = DateTime.SpecifyKind(value, DateTimeKind.Local);
+        return value;
+    }
 }

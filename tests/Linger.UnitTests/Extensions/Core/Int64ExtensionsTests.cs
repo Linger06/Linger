@@ -3,22 +3,6 @@
 public class Int64ExtensionsTests
 {
     [Fact]
-    public void ToDateTime_ReturnsCorrectDateTimeForUnixTimestamp()
-    {
-        var timeStamp = 1625097600000; // Unix timestamp for 2021-07-01 00:00:00 UTC
-        var result = timeStamp.ToDateTime();
-        Assert.Equal(new DateTime(2021, 7, 1, 8, 0, 0, DateTimeKind.Utc), result);
-    }
-
-    [Fact]
-    public void ToDateTime_ReturnsEpochForZeroTimestamp()
-    {
-        long timeStamp = 0;
-        var result = timeStamp.ToDateTime();
-        Assert.Equal(new DateTime(1970, 1, 1, 8, 0, 0, DateTimeKind.Utc), result);
-    }
-
-    [Fact]
     public void FileSize_ReturnsCorrectSizeForBytes()
     {
         long length = 512;

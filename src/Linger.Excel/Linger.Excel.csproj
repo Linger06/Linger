@@ -1,22 +1,33 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-        <PackageId>$(MSBuildProjectName)</PackageId>
-        <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
+        <TargetFrameworks>net9.0;net8.0;netstandard2.0;</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <LangVersion>latest</LangVersion>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageId>Linger.Excel</PackageId>
         <Authors>Linger</Authors>
         <Description>C# Helper Library</Description>
         <Copyright>Copyright © Linger 2024</Copyright>
+        <AssemblyTitle>Linger.Excel</AssemblyTitle>
         <NeutralLanguage>en-US</NeutralLanguage>
-        <VersionPrefix>0.2.0</VersionPrefix>
+        <VersionPrefix>0.1.2</VersionPrefix>
         <VersionSuffix>alpha</VersionSuffix>
         <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <Nullable>enable</Nullable>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Magicodes.IE.EPPlus" Version="2.7.5.2" />
+        <PackageReference Include="NPOI" Version="2.7.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Linger.Excel.Contracts\Linger.Excel.Contracts.csproj" />
+      <ProjectReference Include="..\Linger\Linger.csproj" />
+    </ItemGroup>
 
     <ItemGroup>
         <None Include="README.md">
@@ -24,13 +35,5 @@
             <PackagePath>\</PackagePath>
         </None>
     </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.2" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Linger\Linger.csproj" />
-  </ItemGroup>
 
 </Project>

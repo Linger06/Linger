@@ -10,6 +10,10 @@
     <Project Path="src/Linger.EFCore/Linger.EFCore.csproj" />
     <Project Path="src/Linger.Email.AspNetCore/Linger.Email.AspNetCore.csproj" />
     <Project Path="src/Linger.Email/Linger.Email.csproj" />
+    <Project Path="src/Linger.Excel.Contracts/Linger.Excel.Contracts.csproj" Id="4e34425f-f615-4173-a5e6-8fbbbfb2ee6f" />
+    <Project Path="src/Linger.Excel.EPPlus/Linger.Excel.EPPlus.csproj" Id="cce894db-bc25-4e1f-af5d-33184444f571" />
+    <Project Path="src/Linger.Excel.Npoi/Linger.Excel.Npoi.csproj" Id="dff0ad46-c843-4f36-afe6-ce7106b3c99c" />
+    <Project Path="src/Linger.Excel/Linger.Excel.csproj" />
     <Project Path="src/Linger.FileSystem.Ftp/Linger.FileSystem.Ftp.csproj" />
     <Project Path="src/Linger.FileSystem.Sftp/Linger.FileSystem.Sftp.csproj" />
     <Project Path="src/Linger.FileSystem/Linger.FileSystem.csproj" />

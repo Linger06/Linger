@@ -25,10 +25,10 @@ public class LdapService(ILdap ldap) : ILdapService
         => await Task.FromResult(_ldap.FindUser(userName, credentials));
 
     public async Task<IEnumerable<AdUserInfo>?> GetUsersAsync(
-        string filter,
+        string userName,
         LdapCredentials? credentials = null,
         CancellationToken cancellationToken = default)
-        => await Task.FromResult(_ldap.GetUsers(filter, credentials));
+        => await Task.FromResult(_ldap.GetUsers(userName, credentials));
 
     public async Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default)
         => await FindUserAsync(userName, cancellationToken: cancellationToken) != null;

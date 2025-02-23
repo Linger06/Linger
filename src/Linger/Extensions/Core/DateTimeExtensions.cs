@@ -7,8 +7,11 @@ public static partial class DateTimeExtensions
     public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd")
         => dateTime?.ToString(format);
 
+    public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss")
+        => dateTime.ToString(format);
+
     public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss")
-        => dateTime?.ToString(format);
+    => dateTime?.ToString(format);
 
     public static TimeSpan GetDateDifference(this DateTime dateTime1, DateTime dateTime2)
         => dateTime1 - dateTime2;
@@ -23,10 +26,10 @@ public static partial class DateTimeExtensions
             TimeUnit.Minutes => (date2 - dateTime1).TotalMinutes,
             TimeUnit.Seconds => (date2 - dateTime1).TotalSeconds,
             TimeUnit.Milliseconds => (date2 - dateTime1).TotalMilliseconds,
-            TimeUnit.Months => (date2.Year - dateTime1.Year) * 12 + date2.Month - dateTime1.Month + 
+            TimeUnit.Months => (date2.Year - dateTime1.Year) * 12 + date2.Month - dateTime1.Month +
                              (date2.Day >= dateTime1.Day ? 0 : -1),
-            TimeUnit.Years => date2.Year - dateTime1.Year + 
-                            ((date2.Month > dateTime1.Month || 
+            TimeUnit.Years => date2.Year - dateTime1.Year +
+                            ((date2.Month > dateTime1.Month ||
                              (date2.Month == dateTime1.Month && date2.Day >= dateTime1.Day)) ? 0 : -1),
             _ => 0
         };

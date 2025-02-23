@@ -13,8 +13,6 @@ namespace Linger.Ldap.ActiveDirectory;
 #endif
 public class Ldap(LdapConfig ldapConfig) : ILdap
 {
-    private const string BaseFilter = "(&(objectCategory=person)(objectClass=user))";
-
     /// <summary>
     /// Gets a certain user on Active Directory
     /// </summary>
@@ -166,26 +164,41 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         }
 
         // 构建搜索过滤器
-        directorySearcher.Filter = string.IsNullOrEmpty(filter)
-            ? BaseFilter
-            : $"{BaseFilter}(|{filter})";
+        if (string.IsNullOrEmpty(filter))
+        {
+            directorySearcher.Filter = "(&(objectCategory=person)(objectClass=user))";
+        }
+        else
+        {
+            directorySearcher.Filter = "(&(objectCategory=person)(objectClass=user)(|" + filter + "))";
+        }
 
-        return directorySearcher.FindAll();
+        var userCollection = directorySearcher.FindAll();
+        return userCollection;
     }
 
     private DirectoryEntry CreateDirectoryEntry(LdapCredentials? ldapCredentials)
     {
-        var ldapPath = $"LDAP://{ldapConfig.Url}/{ldapConfig.SearchBase}";
-
-        if (ldapCredentials == null)
+        string? ldapPath;
+        if (ldapConfig == null)
         {
+            ldapPath = $"LDAP://{GetDomainController()}";
             return new DirectoryEntry(ldapPath);
         }
+        else
+        {
+            ldapPath = $"LDAP://{ldapConfig.Url}/{ldapConfig.SearchBase}";
 
-        var domain = ldapConfig.Domain;
-        var userId = ldapCredentials.BindDn;
-        var password = ldapCredentials.BindCredentials;
+            if (ldapCredentials == null)
+            {
+                return new DirectoryEntry(ldapPath);
+            }
 
-        return new DirectoryEntry(ldapPath, $@"{domain}\{userId}", password);
+            var domain = ldapConfig.Domain;
+            var userId = ldapCredentials.BindDn;
+            var password = ldapCredentials.BindCredentials;
+
+            return new DirectoryEntry(ldapPath, $@"{domain}\{userId}", password);
+        }
     }
 }

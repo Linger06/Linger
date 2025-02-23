@@ -38,15 +38,8 @@ public interface ILdapService
         LdapCredentials? credentials = null,
         CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// Gets all users matching the specified filter
-    /// </summary>
-    /// <param name="filter">LDAP filter string</param>
-    /// <param name="credentials">Optional LDAP credentials for binding</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Collection of matching users; null if none found</returns>
     Task<IEnumerable<AdUserInfo>?> GetUsersAsync(
-        string filter,
+        string userName,
         LdapCredentials? credentials = null,
         CancellationToken cancellationToken = default);
 
