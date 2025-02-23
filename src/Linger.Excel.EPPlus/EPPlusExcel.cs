@@ -300,16 +300,7 @@ public class EPPlusExcel : ExcelBase
     #endregion
 
     #region ExcelWorksheet ==> DataTable
-
-    /// <summary>
-    ///     ExcelWorksheet ==> DataTable
-    /// </summary>
-    /// <param name="sheet">指定的 Sheet 工作簿</param>
-    /// <param name="firstRowIsColumnName">首行是否为 <see cref="DataColumn.ColumnName" /></param>
-    /// <param name="addEmptyRow">是否添加空行，默认为 false，不添加</param>
-    /// <returns></returns>
-    protected DataTable ConvertSheetToDataTable(ExcelWorksheet sheet, int headerRowIndex = 0,
-        bool addEmptyRow = false)
+    protected DataTable ConvertSheetToDataTable(ExcelWorksheet sheet, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         var tbl = new DataTable();
 
@@ -366,15 +357,7 @@ public class EPPlusExcel : ExcelBase
     #endregion
 
     #region ExcelWorksheet ==> List<T>
-
-    /// <summary>
-    ///     将 ExcelWorksheet 写入到 <see cref="List{T}" />
-    /// </summary>
-    /// <param name="worksheet"></param>
-    /// <param name="firstRowIsColumnName"></param>
-    /// <typeparam name="T"></typeparam>
-    /// <returns></returns>
-    public List<T> ConvertSheetToList<T>(ExcelWorksheet worksheet, int headerRowIndex = 0) where T : new()
+   public List<T> ConvertSheetToList<T>(ExcelWorksheet worksheet, int headerRowIndex = 0) where T : new()
     {
         //Func<CustomAttributeData, bool> columnOnly = y => y.AttributeType == typeof(ExcelColumn);
         var columns = typeof(T)

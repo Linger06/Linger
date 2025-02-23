@@ -22,7 +22,6 @@ public static class GuardExtensions
     /// Ensures that the specified string is not null or empty.
     /// </summary>
     /// <param name="value">The string to check.</param>
-    /// <param name="message">The message to include in the exception if the string is null or empty.</param>
     /// <param name="paramName">The name of the parameter.</param>
     /// <example>
     /// <code>

@@ -166,7 +166,7 @@ public static class PathHelper
     /// </summary>
     /// <param name="path">要标准化的路径</param>
     /// <param name="returnType">指定返回路径的类型</param>
-    /// <returns>标准化后的路径</param>
+    /// <returns>标准化后的路径</returns>
     private static string StandardizePath(string path, PathReturnType returnType = PathReturnType.KeepOriginal)
     {
         // 处理 file:// 格式

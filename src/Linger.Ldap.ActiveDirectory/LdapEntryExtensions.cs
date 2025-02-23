@@ -80,7 +80,7 @@ public static class LdapEntryExtensions
             var values = new List<string>();
             foreach (var value in prop)
             {
-                if (value?.ToString() is string strValue)
+                if (value?.ToString() is { } strValue)
                 {
                     values.Add(strValue);
                 }

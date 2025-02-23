@@ -148,11 +148,9 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         }
 
         using DirectoryEntry directoryEntry = CreateDirectoryEntry(ldapCredentials);
-        using DirectorySearcher directorySearcher = new(directoryEntry)
-        {
-            SearchScope = SearchScope.Subtree,
-            PageSize = 1000
-        };
+        using DirectorySearcher directorySearcher = new(directoryEntry);
+        directorySearcher.SearchScope = SearchScope.Subtree;
+        directorySearcher.PageSize = 1000;
 
         if (ldapConfig.Attributes.IsNotNull())
         {
