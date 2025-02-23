@@ -6,13 +6,13 @@ namespace Linger.Excel.Contracts;
 public interface IExcel
 {
     #region Import
-    DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false);
-    DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true);
-    List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false) where T : new();
-    List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true) where T : new();
+    DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : new();
+    List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : new();
     #endregion
 
-#region Export
+    #region Export
     /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>

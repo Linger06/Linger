@@ -12,7 +12,7 @@ namespace Linger.Excel.EPPlus;
 
 public class EPPlusExcel : ExcelBase
 {
-    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true)
+    private ExcelWorksheet? GetWorksheet(Stream stream, string? sheetName)
     {
         if (stream is not { CanRead: true } || stream.Length <= 0)
         {
@@ -21,59 +21,33 @@ public class EPPlusExcel : ExcelBase
 
         using var pck = new ExcelPackage();
         pck.Load(stream);
-        ExcelWorkbook? workbook = pck.Workbook;
-        ExcelWorksheet? sheet = workbook.Worksheets.First();
-        if (sheetName.IsNotNullAndEmpty())
-        {
-            sheet = workbook.Worksheets[sheetName];
-        }
+        var sheet = sheetName.IsNotNullAndEmpty()
+            ? pck.Workbook.Worksheets[sheetName]
+            : pck.Workbook.Worksheets.First();
 
-        if (sheet == null)
-        {
-            return null;
-        }
-
-        DataTable dataTable = ConvertSheetToDataTable(sheet, columnNameRowIndex, addEmptyRow);
-
-        if (dispose)
-        {
-            stream.Flush();
-            stream.Close();
-        }
-
-        return dataTable;
+        return sheet;
     }
 
-    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true)
+    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        if (stream is not { CanRead: true } || stream.Length <= 0)
-        {
-            return null;
-        }
-
-        using var pck = new ExcelPackage();
-        pck.Load(stream);
-        ExcelWorkbook? workbook = pck.Workbook;
-        ExcelWorksheet? sheet = workbook.Worksheets.First();
-        if (sheetName.IsNotNullAndEmpty())
-        {
-            sheet = workbook.Worksheets[sheetName];
-        }
-
+        var sheet = GetWorksheet(stream, sheetName);
         if (sheet == null)
         {
             return null;
         }
 
-        List<T> list = ConvertSheetToList<T>(sheet, columnNameRowIndex);
+        return ConvertSheetToDataTable(sheet, headerRowIndex, addEmptyRow);
+    }
 
-        if (dispose)
+    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        var sheet = GetWorksheet(stream, sheetName);
+        if (sheet == null)
         {
-            stream.Flush();
-            stream.Close();
+            return null;
         }
 
-        return list;
+        return ConvertSheetToList<T>(sheet, headerRowIndex);
     }
 
     public override MemoryStream? ConvertDataTableToMemoryStream(
@@ -81,44 +55,44 @@ public class EPPlusExcel : ExcelBase
     string sheetsName = "sheet1",
     string title = "",
     Action<object, DataColumnCollection, DataRowCollection>? action = null)
-{
-    if (dataTable.IsNull())
     {
-        return null;
+        if (dataTable.IsNull())
+        {
+            return null;
+        }
+
+        var memoryStream = new MemoryStream();
+        using var package = new ExcelPackage();
+        ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
+        ConvertDataTableToSheet(dataTable, worksheet,
+            action == null ? null : (ws, cols, rows) => action(ws, cols, rows),
+            title);
+        package.SaveAs(memoryStream);
+
+        return memoryStream;
     }
 
-    var memoryStream = new MemoryStream();
-    using var package = new ExcelPackage();
-    ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
-    ConvertDataTableToSheet(dataTable, worksheet,
-        action == null ? null : (ws, cols, rows) => action(ws, cols, rows),
-        title);
-    package.SaveAs(memoryStream);
-
-    return memoryStream;
-}
-
-public override MemoryStream? ConvertCollectionToMemoryStream<T>(
-    List<T> list,
-    string sheetsName = "sheet1",
-    string title = "",
-    Action<object, PropertyInfo[]>? action = null)
-{
-    if (list.IsNull())
+    public override MemoryStream? ConvertCollectionToMemoryStream<T>(
+        List<T> list,
+        string sheetsName = "sheet1",
+        string title = "",
+        Action<object, PropertyInfo[]>? action = null)
     {
-        return null;
+        if (list.IsNull())
+        {
+            return null;
+        }
+
+        var memoryStream = new MemoryStream();
+        using var package = new ExcelPackage();
+        ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
+        ConvertListToSheet(list, worksheet,
+            action == null ? null : (ws, props) => action(ws, props),
+            title);
+        package.SaveAs(memoryStream);
+
+        return memoryStream;
     }
-
-    var memoryStream = new MemoryStream();
-    using var package = new ExcelPackage();
-    ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
-    ConvertListToSheet(list, worksheet,
-        action == null ? null : (ws, props) => action(ws, props),
-        title);
-    package.SaveAs(memoryStream);
-
-    return memoryStream;
-}
 
     /// <summary>
     ///     获取 Excel 列名
@@ -334,13 +308,13 @@ public override MemoryStream? ConvertCollectionToMemoryStream<T>(
     /// <param name="firstRowIsColumnName">首行是否为 <see cref="DataColumn.ColumnName" /></param>
     /// <param name="addEmptyRow">是否添加空行，默认为 false，不添加</param>
     /// <returns></returns>
-    protected DataTable ConvertSheetToDataTable(ExcelWorksheet sheet, int columnNameRowIndex = 0,
+    protected DataTable ConvertSheetToDataTable(ExcelWorksheet sheet, int headerRowIndex = 0,
         bool addEmptyRow = false)
     {
         var tbl = new DataTable();
 
         int startRow;
-        if (columnNameRowIndex < 0)
+        if (headerRowIndex < 0)
         {
             foreach (ExcelRangeBase? firstRowCell in sheet.Cells[1, 1, 1, sheet.Dimension.End.Column])
             {
@@ -350,13 +324,13 @@ public override MemoryStream? ConvertCollectionToMemoryStream<T>(
         }
         else
         {
-            //var row = sheet.Row(columnNameRowIndex + 1);
+            //var row = sheet.Row(headerRowIndex + 1);
             //bool hasHeader = true; // adjust it accordingly( I've mentioned that this is a simple approach)
-            foreach (ExcelRangeBase? firstRowCell in sheet.Cells[columnNameRowIndex + 1, 1, columnNameRowIndex + 1, sheet.Dimension.End.Column])
+            foreach (ExcelRangeBase? firstRowCell in sheet.Cells[headerRowIndex + 1, 1, headerRowIndex + 1, sheet.Dimension.End.Column])
             {
                 tbl.Columns.Add(firstRowCell.Text.Trim());
             }
-            startRow = columnNameRowIndex + 2;
+            startRow = headerRowIndex + 2;
         }
 
 
@@ -400,7 +374,7 @@ public override MemoryStream? ConvertCollectionToMemoryStream<T>(
     /// <param name="firstRowIsColumnName"></param>
     /// <typeparam name="T"></typeparam>
     /// <returns></returns>
-    public List<T> ConvertSheetToList<T>(ExcelWorksheet worksheet, int columnNameRowIndex = 0) where T : new()
+    public List<T> ConvertSheetToList<T>(ExcelWorksheet worksheet, int headerRowIndex = 0) where T : new()
     {
         //Func<CustomAttributeData, bool> columnOnly = y => y.AttributeType == typeof(ExcelColumn);
         var columns = typeof(T)
@@ -414,13 +388,13 @@ public override MemoryStream? ConvertCollectionToMemoryStream<T>(
             .OrderBy(x => x);
         var startRowIndex = 0;
 
-        if (columnNameRowIndex < 0)
+        if (headerRowIndex < 0)
         {
             startRowIndex = 0;
         }
         else
         {
-            startRowIndex = columnNameRowIndex + 1;
+            startRowIndex = headerRowIndex + 1;
         }
 
         IEnumerable<T> collection = rows.Skip(startRowIndex)

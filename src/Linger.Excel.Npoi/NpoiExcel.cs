@@ -13,23 +13,41 @@ using NPOI.XSSF.UserModel;
 namespace Linger.Excel.Npoi;
 public class NpoiExcel : ExcelBase
 {
-    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "",Action<object, PropertyInfo[]>? action = null) where T : class
+    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "", Action<object, PropertyInfo[]>? action = null) where T : class
     {
-        throw new NotImplementedException();
-        //if (list.IsNull() //|| list.Count <= 0 //导出Excel时,如果List只是没有数据,应该输出列名
-        //    )
-        //{
-        //    return null;
-        //}
+        if (list.IsNull())
+        {
+            return null;
+        }
 
-        //var memoryStream = new MemoryStream();
-        //var workbook = new XSSFWorkbook();
-        //workbook = GetWorkbookI(workbook, list, null, title);
-        //workbook.Write(memoryStream);
-        //memoryStream.Flush();
-        //memoryStream.Position = 0;
-        //return memoryStream;
+        var dataTable = new DataTable();
+        var properties = typeof(T).GetProperties();
 
+        // Add columns
+        foreach (var prop in properties)
+        {
+            dataTable.Columns.Add(prop.Name, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+        }
+
+        // Add rows
+        foreach (var item in list)
+        {
+            var row = dataTable.NewRow();
+            foreach (var prop in properties)
+            {
+                var value = prop.GetValue(item);
+                row[prop.Name] = value ?? DBNull.Value;
+            }
+            dataTable.Rows.Add(row);
+        }
+
+        var memoryStream = new MemoryStream();
+        var workbook = new XSSFWorkbook();
+        workbook = GetWorkbookI(workbook, dataTable, sheetsName, title);
+        workbook.Write(memoryStream);
+        memoryStream.Flush();
+        memoryStream.Position = 0;
+        return memoryStream;
     }
 
     public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
@@ -50,7 +68,7 @@ public class NpoiExcel : ExcelBase
         return memoryStream;
     }
 
-    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true)
+    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (stream is not { CanRead: true } || stream.Length <= 0)
         {
@@ -65,37 +83,87 @@ public class NpoiExcel : ExcelBase
 
 
         ISheet? sheet = sheetName.IsNullOrWhiteSpace() ? wb.GetSheetAt(0) : wb.GetSheet(sheetName);
-        DataTable dt = ImportDt(sheet, columnNameRowIndex);
+        DataTable dt = ImportDt(sheet, headerRowIndex);
         return dt;
-
-        //using var pck = new ExcelPackage();
-        //pck.Load(stream);
-        //ExcelWorkbook? workbook = pck.Workbook;
-        //ExcelWorksheet? sheet = workbook.Worksheets.First();
-        //if (sheetName.IsNotNullAndEmpty())
-        //{
-        //    sheet = workbook.Worksheets[sheetName];
-        //}
-
-        //if (sheet == null)
-        //{
-        //    return null;
-        //}
-
-        //DataTable dataTable = ConvertSheetToDataTable(sheet, firstRowIsColumnName, addEmptyRow);
-
-        //if (dispose)
-        //{
-        //    stream.Flush();
-        //    stream.Close();
-        //}
-
-        //return dataTable;
     }
 
-    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true)
+    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        throw new NotImplementedException();
+        if (stream is not { CanRead: true } || stream.Length <= 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            // First convert stream to DataTable
+            var dataTable = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+            if (dataTable == null || dataTable.Rows.Count == 0)
+            {
+                return null;
+            }
+
+            var list = new List<T>();
+            var properties = typeof(T).GetProperties();
+
+            // Create a map of property names to column indices
+            var propertyMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (DataColumn column in dataTable.Columns)
+            {
+                propertyMap[column.ColumnName] = column.Ordinal;
+            }
+
+            // Convert each row to object
+            foreach (DataRow row in dataTable.Rows)
+            {
+                var item = new T();
+                foreach (var prop in properties)
+                {
+                    if (propertyMap.TryGetValue(prop.Name, out int colIndex))
+                    {
+                        var value = row[colIndex];
+                        if (value != DBNull.Value)
+                        {
+                            try
+                            {
+                                // Handle type conversion
+                                if (prop.PropertyType == typeof(string))
+                                {
+                                    prop.SetValue(item, value.ToString());
+                                }
+                                else if (prop.PropertyType == typeof(DateTime) || prop.PropertyType == typeof(DateTime?))
+                                {
+                                    if (value is DateTime dt)
+                                    {
+                                        prop.SetValue(item, dt);
+                                    }
+                                    else if (DateTime.TryParse(value.ToString(), out dt))
+                                    {
+                                        prop.SetValue(item, dt);
+                                    }
+                                }
+                                else
+                                {
+                                    prop.SetValue(item, Convert.ChangeType(value, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType));
+                                }
+                            }
+                            catch
+                            {
+                                // Ignore conversion errors and continue with next property
+                                continue;
+                            }
+                        }
+                    }
+                }
+                list.Add(item);
+            }
+
+            return list;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -328,13 +396,13 @@ public class NpoiExcel : ExcelBase
     ///     将制定sheet中的数据导出到datatable中
     /// </summary>
     /// <param name="sheet">需要导出的sheet</param>
-    /// <param name="columnNameRowIndex">列名所在行号，-1表示没有列名,0表示第一行</param>
+    /// <param name="headerRowIndex">列名所在行号，-1表示没有列名,0表示第一行</param>
     /// <returns></returns>
-    private static DataTable ImportDt(ISheet sheet, int columnNameRowIndex)
+    private static DataTable ImportDt(ISheet sheet, int headerRowIndex)
     {
         var table = new DataTable();
         int cellCount;
-        if (columnNameRowIndex < 0) //没有列名或不需要Header
+        if (headerRowIndex < 0) //没有列名或不需要Header
         {
             //headerRow = sheet.GetRow(0);
             //cellCount = headerRow.LastCellNum;
@@ -356,7 +424,7 @@ public class NpoiExcel : ExcelBase
         }
         else
         {
-            IRow? headerRow = sheet.GetRow(columnNameRowIndex);
+            IRow? headerRow = sheet.GetRow(headerRowIndex);
             cellCount = headerRow.LastCellNum;
 
             for (int i = headerRow.FirstCellNum; i < cellCount; i++)
@@ -387,7 +455,7 @@ public class NpoiExcel : ExcelBase
             }
         }
 
-        for (var i = columnNameRowIndex + 1; i <= sheet.LastRowNum; i++)
+        for (var i = headerRowIndex + 1; i <= sheet.LastRowNum; i++)
         {
             IRow row = sheet.GetRow(i) ?? sheet.CreateRow(i);
 

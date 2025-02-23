@@ -1,11 +1,8 @@
-using System.Data;
+﻿using System.Data;
+using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
 using Linger.Extensions.Core;
-using System.IO;
-using System.Collections.Generic;
-using System;
-using System.Reflection;
 namespace Linger.Excel.ClosedXML;
 
 public class ClosedXmlExcel : ExcelBase
@@ -14,21 +11,21 @@ public class ClosedXmlExcel : ExcelBase
     {
         if (list.IsNull())
         {
-            return null; 
+            return null;
         }
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add(sheetsName);
-        
+
         // Add title if specified
         var currentRow = 1;
-        if(!string.IsNullOrEmpty(title))
+        if (!string.IsNullOrEmpty(title))
         {
             worksheet.Cell(currentRow, 1).Value = title;
             worksheet.Range(1, 1, 1, list.GetType().GetProperties().Length).Merge();
             currentRow++;
         }
-        
+
         // Add headers
         var properties = typeof(T).GetProperties();
         for (var i = 0; i < properties.Length; i++)
@@ -55,7 +52,7 @@ public class ClosedXmlExcel : ExcelBase
         return ms;
     }
 
-    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "",Action<object, DataColumnCollection, DataRowCollection>? action = null)
+    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
     {
         if (dataTable.IsNull())
         {
@@ -73,7 +70,7 @@ public class ClosedXmlExcel : ExcelBase
             worksheet.Range(1, 1, 1, dataTable.Columns.Count).Merge();
             currentRow++;
         }
-        
+
         // Add headers
         for (var i = 0; i < dataTable.Columns.Count; i++)
         {
@@ -98,7 +95,7 @@ public class ClosedXmlExcel : ExcelBase
         return ms;
     }
 
-    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true)
+    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (stream is not { CanRead: true } || stream.Length <= 0)
         {
@@ -107,7 +104,7 @@ public class ClosedXmlExcel : ExcelBase
 
         using var workbook = new XLWorkbook(stream);
         IXLWorksheet worksheet;
-        
+
         if (string.IsNullOrEmpty(sheetName))
             worksheet = workbook.Worksheet(1);
         else
@@ -115,12 +112,12 @@ public class ClosedXmlExcel : ExcelBase
 
         var dt = new DataTable();
         var firstRow = true;
-        var startRow = columnNameRowIndex + 1;
+        var startRow = headerRowIndex + 1;
 
         foreach (IXLRow row in worksheet.RowsUsed())
         {
             if (row.RowNumber() < startRow) continue;
-            
+
             if (firstRow)
             {
                 foreach (IXLCell cell in row.Cells())
@@ -141,17 +138,12 @@ public class ClosedXmlExcel : ExcelBase
             }
         }
 
-        if (dispose)
-        {
-            stream.Dispose();
-        }
-
         return dt;
     }
 
-    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true)
+    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        var dt = ConvertStreamToDataTable(stream, sheetName, columnNameRowIndex, addEmptyRow, dispose);
+        var dt = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
         if (dt == null) return null;
 
         var list = new List<T>();
@@ -163,7 +155,7 @@ public class ClosedXmlExcel : ExcelBase
             foreach (var prop in properties)
             {
                 if (!dt.Columns.Contains(prop.Name)) continue;
-                
+
                 var value = row[prop.Name];
                 if (value != DBNull.Value)
                 {

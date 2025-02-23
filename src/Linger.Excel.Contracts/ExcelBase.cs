@@ -7,7 +7,7 @@ namespace Linger.Excel.Contracts;
 public abstract class ExcelBase : IExcel 
 {
     public static string ContentType => "application/vnd.ms-excel";
-    public DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false)
+    public DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
@@ -15,10 +15,10 @@ public abstract class ExcelBase : IExcel
         }
 
         using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-        return ConvertStreamToDataTable(fileStream, sheetName, columnNameRowIndex, addEmptyRow);
+        return ConvertStreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
     }
 
-    public List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false) where T : new()
+    public List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : new()
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
@@ -26,7 +26,7 @@ public abstract class ExcelBase : IExcel
         }
 
         using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-        return ConvertStreamToList<T>(fileStream, sheetName, columnNameRowIndex, addEmptyRow);
+        return ConvertStreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
     }
 
     public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
@@ -61,9 +61,26 @@ public abstract class ExcelBase : IExcel
         return fullFileName;
     }
 
-    public abstract DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true);
-    public abstract List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int columnNameRowIndex = 0, bool addEmptyRow = false, bool dispose = true) where T : new();
-        public abstract MemoryStream? ConvertDataTableToMemoryStream(
+    /// <summary>
+    /// 将Stream转换为DataTable
+    /// </summary>
+    /// <param name="stream">要转换的Stream</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    public abstract DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为List
+    /// </summary>
+    /// <typeparam name="T">要转换的类型</typeparam>
+    /// <param name="stream">要转换的Stream</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    public abstract List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : new();
+
+    public abstract MemoryStream? ConvertDataTableToMemoryStream(
         DataTable dataTable,
         string sheetsName = "sheet1",
         string title = "",
