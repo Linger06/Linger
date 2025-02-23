@@ -76,39 +76,49 @@ public class EPPlusExcel : ExcelBase
         return list;
     }
 
-    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "")
+    public override MemoryStream? ConvertDataTableToMemoryStream(
+    DataTable dataTable,
+    string sheetsName = "sheet1",
+    string title = "",
+    Action<object, DataColumnCollection, DataRowCollection>? action = null)
+{
+    if (dataTable.IsNull())
     {
-        if (dataTable.IsNull() //|| dataTable.Rows.Count <= 0 //导出Excel时,如果DataTable只是没有数据,有结构,应该输出列名
-   )
-        {
-            return null;
-        }
-
-        var memoryStream = new MemoryStream();
-        using var package = new ExcelPackage();
-        ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
-        ConvertDataTableToSheet(dataTable, worksheet, null, title);
-        package.SaveAs(memoryStream);
-
-        return memoryStream;
+        return null;
     }
 
-    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "")
+    var memoryStream = new MemoryStream();
+    using var package = new ExcelPackage();
+    ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
+    ConvertDataTableToSheet(dataTable, worksheet,
+        action == null ? null : (ws, cols, rows) => action(ws, cols, rows),
+        title);
+    package.SaveAs(memoryStream);
+
+    return memoryStream;
+}
+
+public override MemoryStream? ConvertCollectionToMemoryStream<T>(
+    List<T> list,
+    string sheetsName = "sheet1",
+    string title = "",
+    Action<object, PropertyInfo[]>? action = null)
+{
+    if (list.IsNull())
     {
-        if (list.IsNull() //|| list.Count <= 0 //导出Excel时,如果List只是没有数据,应该输出列名
-   )
-        {
-            return null;
-        }
-
-        var memoryStream = new MemoryStream();
-        using var package = new ExcelPackage();
-        ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
-        ConvertListToSheet(list, worksheet, null, title);
-        package.SaveAs(memoryStream);
-
-        return memoryStream;
+        return null;
     }
+
+    var memoryStream = new MemoryStream();
+    using var package = new ExcelPackage();
+    ExcelWorksheet? worksheet = package.Workbook.Worksheets.Add(sheetsName);
+    ConvertListToSheet(list, worksheet,
+        action == null ? null : (ws, props) => action(ws, props),
+        title);
+    package.SaveAs(memoryStream);
+
+    return memoryStream;
+}
 
     /// <summary>
     ///     获取 Excel 列名

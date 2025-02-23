@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 using Linger.Excel.Contracts;
 using Linger.Extensions.Core;
@@ -12,7 +13,7 @@ using NPOI.XSSF.UserModel;
 namespace Linger.Excel.Npoi;
 public class NpoiExcel : ExcelBase
 {
-    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "")
+    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "",Action<object, PropertyInfo[]>? action = null) where T : class
     {
         throw new NotImplementedException();
         //if (list.IsNull() //|| list.Count <= 0 //导出Excel时,如果List只是没有数据,应该输出列名
@@ -31,7 +32,7 @@ public class NpoiExcel : ExcelBase
 
     }
 
-    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "")
+    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
     {
         if (dataTable.IsNull() //|| dataTable.Rows.Count <= 0 //导出Excel时,如果DataTable只是没有数据,有结构,应该输出列名
 )
