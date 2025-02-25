@@ -246,4 +246,32 @@ public static partial class ObjectExtensions
     {
         return value?.GetType() == typeof(bool);
     }
+
+    //public const string DoubleFixedPoint = "0.###################################################################################################################################################################################################################################################################################################################################################";
+
+    ///// <summary>
+    ///// 数字科学计数法处理
+    ///// </summary>
+    ///// <param name="strData"></param>
+    ///// <returns></returns>
+    //public static Decimal ChangeToDecimal(this object input)
+    //{
+    //    var inputStr = input.ToString();
+    //    if(inputStr.IsScientificNotation())
+    //    {
+    //        Decimal dData = 0.0M;
+    //        if (inputStr.Contains("E"))
+    //        {
+    //            dData = Convert.ToDecimal(Decimal.Parse(inputStr, System.Globalization.NumberStyles.Float));
+
+    //            string numberFromToString = input.ToString(DoubleFixedPoint);//0.00009
+    //        }
+    //        else
+    //        {
+    //            dData = Convert.ToDecimal(inputStr);
+    //        }
+    //        return Math.Round(dData, 4);
+    //    }
+
+    //}
 }

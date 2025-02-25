@@ -22,6 +22,8 @@
     <Project Path="src/Linger.Ldap.AspNetCore/Linger.Ldap.AspNetCore.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />
+    <Project Path="src/Linger.Result/Linger.Result.csproj" />
+    <Project Path="src/Linger.SharedKernel/Linger.SharedKernel.csproj" />
     <Project Path="src/Linger/Linger.csproj" />
   </Folder>
   <Folder Name="/tests/">

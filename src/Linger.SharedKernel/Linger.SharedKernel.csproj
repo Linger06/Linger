@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+      <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
+      <ImplicitUsings>enable</ImplicitUsings>
+      <LangVersion>latest</LangVersion>
+      <PackageReadmeFile>README.md</PackageReadmeFile>
+      <PackageId>$(MSBuildProjectName)</PackageId>
+      <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
+      <Authors>Linger</Authors>
+      <Description>C# Helper Library</Description>
+      <Copyright>Copyright © Linger 2024</Copyright>
+      <NeutralLanguage>en-US</NeutralLanguage>
+      <VersionPrefix>0.2.0</VersionPrefix>
+      <VersionSuffix>alpha</VersionSuffix>
+      <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+      <PackageLicenseExpression>MIT</PackageLicenseExpression>
+      <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Linger\Linger.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -490,7 +490,15 @@ public class NpoiExcel : ExcelBase
                                 }
                                 else
                                 {
-                                    dataRow[j] = Convert.ToDouble(cell.NumericCellValue);
+                                    var cellValue = cell.NumericCellValue;
+                                    if (cellValue.ToString().IsScientificNotation())
+                                    {
+                                        dataRow[j] = cellValue.ToString().ChangeToDecimal();
+                                    }
+                                    else
+                                    {
+                                        dataRow[j] = cellValue;
+                                    }
                                 }
 
                                 break;

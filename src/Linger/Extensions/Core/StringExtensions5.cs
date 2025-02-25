@@ -184,5 +184,30 @@ public static partial class StringExtensions
 
         return Regex.IsMatch(input, pattern);
     }
+
+    // 判断是否是科学计数法
+    public static bool IsScientificNotation(this string input)
+    {
+        return Regex.IsMatch(input, "[+-]?\\d+(\\.\\d+)?[eE][+-]?\\d+");
+    }
+
+    /// <summary>
+    /// 数字科学计数法处理
+    /// </summary>
+    /// <param name="strData"></param>
+    /// <returns></returns>
+    public static Decimal ChangeToDecimal(this string strData)
+    {
+        Decimal dData = 0.0M;
+        if (strData.Contains("E"))
+        {
+            dData = Convert.ToDecimal(Decimal.Parse(strData.ToString(), System.Globalization.NumberStyles.Float));
+        }
+        else
+        {
+            dData = Convert.ToDecimal(strData);
+        }
+        return dData;
+    }
 }
 
