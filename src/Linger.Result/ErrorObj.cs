@@ -10,6 +10,6 @@ public class ErrorObj
         Message = [errorMsg];
     }
 
-    public Dictionary<string, string> Form { get; set; } = default!;
-    public List<string> Message { get; set; } = default!;
+    public Dictionary<string, string> Form { get; set; } = new();
+    public List<string> Message { get; set; } = new();
 }
