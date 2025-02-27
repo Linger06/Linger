@@ -6,11 +6,41 @@ using Linger.Helper;
 
 namespace Linger.FileSystem.Local;
 
-public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOptions = null) : ILocalFileSystem
+public class LocalFileSystem : ILocalFileSystem
 {
-    private readonly RetryHelper _retryHelper = new(retryOptions);
+    private readonly RetryHelper _retryHelper;
+    private readonly LocalFileSystemOptions _options;
 
-    public string RootDirectoryPath { get; } = rootDirectoryPath;
+    public string RootDirectoryPath { get; }
+
+    /// <summary>
+    /// 使用配置选项初始化本地文件系统
+    /// </summary>
+    /// <param name="options">文件系统配置选项</param>
+    public LocalFileSystem(LocalFileSystemOptions options)
+    {
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        RootDirectoryPath = options.RootDirectoryPath;
+        _retryHelper = new RetryHelper(options.RetryOptions);
+
+        // 确保根目录存在
+        Directory.CreateDirectory(RootDirectoryPath);
+    }
+
+    /// <summary>
+    /// 使用根目录路径和可选的重试选项初始化本地文件系统
+    /// </summary>
+    /// <param name="rootDirectoryPath">根目录路径</param>
+    /// <param name="retryOptions">重试选项</param>
+    public LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOptions = null)
+        : this(new LocalFileSystemOptions
+        {
+            RootDirectoryPath = rootDirectoryPath,
+            RetryOptions = retryOptions
+        })
+    {
+    }
+
     public bool Exists()
     {
         return DirectoryExists(RootDirectoryPath);
@@ -50,14 +80,19 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         string sourceFileName,
         string containerName,
         string destPath = "",
-        bool useUuidName = true,
-        bool overwrite = false,
-        bool useSequencedName = true,
-        bool useHashMd5Name = true)
+        NamingRule? namingRule = null, 
+        bool? overwrite = null, 
+        bool? useSequencedName = null)
     {
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentNullException.ThrowIfNullOrEmpty(sourceFileName);
         ArgumentNullException.ThrowIfNullOrEmpty(containerName);
+
+        // 使用传入的值或默认值
+        var effectiveNamingRule = namingRule ?? _options.DefaultNamingRule;
+        var effectiveOverwrite = overwrite ?? _options.DefaultOverwrite;
+        var effectiveUseSequencedName = useSequencedName ?? _options.DefaultUseSequencedName;
+
 
         return await _retryHelper.ExecuteAsync(
             async () => await UploadInternalAsync(
@@ -65,10 +100,9 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
                 sourceFileName,
                 containerName,
                 destPath,
-                useUuidName,
-                overwrite,
-                useSequencedName,
-                useHashMd5Name),
+                effectiveNamingRule,
+                effectiveOverwrite,
+                effectiveUseSequencedName),
             "文件上传",
             ex => ex is not DuplicateFileException); // 文件重复异常不重试
 
@@ -79,10 +113,7 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         string sourceFileName,
         string containerName,
         string destPath,
-        bool useUuidName,
-        bool overwrite,
-        bool useSequencedName,
-        bool useHashMd5Name)
+        NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         // 先将输入流的内容复制到内存流中，这样可以多次读取
         using var memoryStream = new MemoryStream();
@@ -98,10 +129,9 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
             sourceFileName,
             containerName,
             destPath,
-            useUuidName,
-            overwrite,
-            useSequencedName,
-            useHashMd5Name);
+            namingRule,
+                overwrite,
+                useSequencedName);
 
         var relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
 
@@ -120,26 +150,27 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
 
         // 验证文件完整性
         var fileInfo = new FileInfo(relativeFilePath);
+        await ValidateFileIntegrityAsync(fileInfo, sourceHashData);
 
-        // 验证文件MD5
-#if NET8_0_OR_GREATER
-        await
-#endif
-            using (var stream = fileInfo.OpenRead())
-        {
-            var uploadedFileHash = stream.ToMd5Hash();
-            if (uploadedFileHash != sourceHashData)
-            {
-                throw new InvalidOperationException("File integrity check failed: MD5 hash mismatch");
-            }
-        }
+//         // 验证文件MD5
+// #if NET8_0_OR_GREATER
+//         await
+// #endif
+//             using (var stream = fileInfo.OpenRead())
+//         {
+//             var uploadedFileHash = stream.ComputeHashMd5();
+//             if (uploadedFileHash != sourceHashData)
+//             {
+//                 throw new InvalidOperationException("File integrity check failed: MD5 hash mismatch");
+//             }
+//         }
 
-        // 验证文件元数据
-        var customFileInfo = FileHelper.GetCustomFileInfo(fileInfo.FullName);
-        if (customFileInfo?.HashData != null && customFileInfo.HashData != sourceHashData)
-        {
-            throw new InvalidOperationException("File integrity check failed: Metadata hash mismatch");
-        }
+//         // 验证文件元数据
+//         var customFileInfo = FileHelper.GetCustomFileInfo(fileInfo.FullName);
+//         if (customFileInfo?.HashData != null && customFileInfo.HashData != sourceHashData)
+//         {
+//             throw new InvalidOperationException("File integrity check failed: Metadata hash mismatch");
+//         }
 
         // 构建上传信息
         return new UploadedInfo
@@ -155,14 +186,62 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         };
     }
 
+// 验证文件完整性时使用配置
+    private async Task ValidateFileIntegrityAsync(FileInfo fileInfo, string sourceHashData)
+    {
+        if (!_options.ValidateFileIntegrity)
+            return;
+
+        // 验证文件MD5
+#if NET8_0_OR_GREATER
+        await using (var stream = fileInfo.OpenRead())
+#else
+        using (var stream = fileInfo.OpenRead())
+#endif
+        {
+            var uploadedFileHash = stream.ComputeHashMd5();
+            if (uploadedFileHash != sourceHashData)
+            {
+                var ex = new InvalidOperationException($"File integrity check failed: MD5 hash mismatch for {fileInfo.FullName}");
+                
+                // 根据配置决定是否清理
+                if (_options.CleanupOnValidationFailure)
+                {
+                    try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
+                }
+                
+                throw ex;
+            }
+        }
+
+        // 验证文件元数据
+        if (_options.ValidateFileMetadata)
+        {
+            var customFileInfo = FileHelper.GetCustomFileInfo(fileInfo.FullName);
+            if (customFileInfo?.HashData != null && customFileInfo.HashData != sourceHashData)
+            {
+                var ex = new InvalidOperationException($"File integrity check failed: Metadata hash mismatch for {fileInfo.FullName}");
+                
+                if (_options.CleanupOnValidationFailure)
+                {
+                    try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
+                }
+                
+                throw ex;
+            }
+        }
+    }
 
     private void InitDirectory(string createFilePath)
     {
-        var diDesc = new DirectoryInfo(new FileInfo(createFilePath).DirectoryName!);
-        CreateDirectoryIfNotExists(diDesc.FullName);
+        var directory = Path.GetDirectoryName(createFilePath);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            CreateDirectoryIfNotExists(directory);
+        }
     }
 
-    public Task<UploadedInfo> UploadAsync(string sourceFilePathName, string containerName, string destPath = "", bool useUuidName = true, bool overwrite = false, bool useSequencedName = true)
+    public Task<UploadedInfo> UploadAsync(string sourceFilePathName, string containerName, string destPath = "", NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         var fileInfo = new FileInfo(sourceFilePathName);
         // 先将文件内容读入内存流中
@@ -172,8 +251,7 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         // 重置内存流位置
         memoryStream.Position = 0;
         // 使用内存流进行上传
-        return UploadAsync(memoryStream, fileInfo.Name, containerName, destPath, useUuidName, overwrite,
-            useSequencedName);
+        return UploadAsync(memoryStream, fileInfo.Name, containerName, destPath, namingRule, overwrite, useSequencedName);
     }
 
     /// <summary>
@@ -183,20 +261,16 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
     /// <param name="sourceFileName">源文件名</param>
     /// <param name="containerName">容器名</param>
     /// <param name="destPath">目标路径</param>
-    /// <param name="useUuidName">是否使用UUID作为文件名</param>
+    /// <param name="namingRule">文件命名规则（决定如何为上传的文件命名）</param>
     /// <param name="overwrite">是否覆盖已存在的文件</param>
-    /// <param name="useSequencedName">是否使用序号命名</param>
-    /// <param name="useHashMd5Name">是否使用MD5哈希作为文件名</param>
+    /// <param name="useSequencedName">是否使用序号命名（当文件名冲突时）</param>
     /// <returns>目标文件相对路径(只返回除destRootPath以外的存储位置)</returns>
     private string GetDestFilePath(
         Stream inputStream,
         string sourceFileName,
         string containerName,
         string destPath,
-        bool useUuidName,
-        bool overwrite,
-        bool useSequencedName,
-        bool useHashMd5Name = true)
+        NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentNullException.ThrowIfNullOrEmpty(sourceFileName);
@@ -204,21 +278,19 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
 
         var fileExtension = Path.GetExtension(sourceFileName);
 
-        // 1. UUID命名方式
-        if (useUuidName)
+        switch (namingRule)
         {
-            return GenerateUuidBasedPath(containerName, destPath, fileExtension);
+            case NamingRule.Uuid:
+                return GenerateUuidBasedPath(containerName, destPath, fileExtension);
+            case NamingRule.Md5:
+                return GenerateHashBasedPath(inputStream, sourceFileName, containerName, destPath);
+            case NamingRule.Normal:
+            default:
+                {
+                    var basePath = Path.Combine(containerName, destPath);
+                    return GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, RootDirectoryPath);
+                }
         }
-
-        // 2. MD5哈希命名方式
-        if (useHashMd5Name)
-        {
-            return GenerateHashBasedPath(inputStream, sourceFileName, containerName, destPath);
-        }
-
-        // 3. 常规命名方式
-        var basePath = Path.Combine(containerName, destPath);
-        return GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, RootDirectoryPath);
     }
 
     /// <summary>
@@ -244,11 +316,11 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
     private string GenerateHashBasedPath(Stream inputStream, string sourceFileName, string containerName, string destPath)
     {
         var hashData = inputStream.ComputeHashMd5();
-        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName)
-                                         .Replace(" ", string.Empty);
+        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
         var fileExtension = Path.GetExtension(sourceFileName);
 
-        var fileName = $"{fileNameWithoutExtension}^_^{hashData}{fileExtension}";
+        // 使用更标准的分隔符
+        var fileName = $"{fileNameWithoutExtension}-{hashData}{fileExtension}";
         return Path.Combine(containerName, destPath, fileName);
     }
 
@@ -415,10 +487,11 @@ public class LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOption
         //return PathHelper.ProcessPath(RootDirectoryPath, filePath);
     }
 
-    public void DeleteAsync(string filePath)
+    public Task DeleteAsync(string filePath)
     {
         var realPath = GetRealPath(filePath);
         DeleteFileIfExists(realPath);
+        return Task.CompletedTask;
     }
 }
 
