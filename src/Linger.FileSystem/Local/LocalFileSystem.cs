@@ -78,15 +78,14 @@ public class LocalFileSystem : ILocalFileSystem
     public async Task<UploadedInfo> UploadAsync(
         Stream inputStream,
         string sourceFileName,
-        string containerName,
+        string containerName = "",
         string destPath = "",
-        NamingRule? namingRule = null, 
-        bool? overwrite = null, 
+        NamingRule? namingRule = null,
+        bool? overwrite = null,
         bool? useSequencedName = null)
     {
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentNullException.ThrowIfNullOrEmpty(sourceFileName);
-        ArgumentNullException.ThrowIfNullOrEmpty(containerName);
 
         // 使用传入的值或默认值
         var effectiveNamingRule = namingRule ?? _options.DefaultNamingRule;
@@ -117,7 +116,7 @@ public class LocalFileSystem : ILocalFileSystem
     {
         // 先将输入流的内容复制到内存流中，这样可以多次读取
         using var memoryStream = new MemoryStream();
-        await inputStream.CopyToAsync(memoryStream);
+        await inputStream.CopyToAsync(memoryStream, _options.UploadBufferSize);
         memoryStream.Position = 0;
 
         // 计算源文件哈希值
@@ -152,26 +151,6 @@ public class LocalFileSystem : ILocalFileSystem
         var fileInfo = new FileInfo(relativeFilePath);
         await ValidateFileIntegrityAsync(fileInfo, sourceHashData);
 
-//         // 验证文件MD5
-// #if NET8_0_OR_GREATER
-//         await
-// #endif
-//             using (var stream = fileInfo.OpenRead())
-//         {
-//             var uploadedFileHash = stream.ComputeHashMd5();
-//             if (uploadedFileHash != sourceHashData)
-//             {
-//                 throw new InvalidOperationException("File integrity check failed: MD5 hash mismatch");
-//             }
-//         }
-
-//         // 验证文件元数据
-//         var customFileInfo = FileHelper.GetCustomFileInfo(fileInfo.FullName);
-//         if (customFileInfo?.HashData != null && customFileInfo.HashData != sourceHashData)
-//         {
-//             throw new InvalidOperationException("File integrity check failed: Metadata hash mismatch");
-//         }
-
         // 构建上传信息
         return new UploadedInfo
         {
@@ -186,7 +165,7 @@ public class LocalFileSystem : ILocalFileSystem
         };
     }
 
-// 验证文件完整性时使用配置
+    // 验证文件完整性时使用配置
     private async Task ValidateFileIntegrityAsync(FileInfo fileInfo, string sourceHashData)
     {
         if (!_options.ValidateFileIntegrity)
@@ -203,13 +182,13 @@ public class LocalFileSystem : ILocalFileSystem
             if (uploadedFileHash != sourceHashData)
             {
                 var ex = new InvalidOperationException($"File integrity check failed: MD5 hash mismatch for {fileInfo.FullName}");
-                
+
                 // 根据配置决定是否清理
                 if (_options.CleanupOnValidationFailure)
                 {
                     try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
                 }
-                
+
                 throw ex;
             }
         }
@@ -221,12 +200,12 @@ public class LocalFileSystem : ILocalFileSystem
             if (customFileInfo?.HashData != null && customFileInfo.HashData != sourceHashData)
             {
                 var ex = new InvalidOperationException($"File integrity check failed: Metadata hash mismatch for {fileInfo.FullName}");
-                
+
                 if (_options.CleanupOnValidationFailure)
                 {
                     try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
                 }
-                
+
                 throw ex;
             }
         }
@@ -274,7 +253,6 @@ public class LocalFileSystem : ILocalFileSystem
     {
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentNullException.ThrowIfNullOrEmpty(sourceFileName);
-        ArgumentNullException.ThrowIfNullOrEmpty(containerName);
 
         var fileExtension = Path.GetExtension(sourceFileName);
 
@@ -396,7 +374,16 @@ public class LocalFileSystem : ILocalFileSystem
                     overwrite,
                     useSequencedName);
 
-                await CopyFileAsync(sourceFilePath, destFilePath);
+#if NET8_0_OR_GREATER
+                await
+#endif
+                    using var sourceStream = File.OpenRead(sourceFilePath);
+#if NET8_0_OR_GREATER
+                await
+#endif
+                    using var destStream = File.Create(destFilePath);
+
+                await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize);
                 return destFilePath;
             },
             "文件下载",
@@ -430,7 +417,7 @@ public class LocalFileSystem : ILocalFileSystem
             using var sourceStream = File.OpenRead(sourceFilePath);
 
         sourceStream.Position = 0;
-        await sourceStream.CopyToAsync(destStream);
+        await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize);
     }
 
     /// <summary>
@@ -452,24 +439,6 @@ public class LocalFileSystem : ILocalFileSystem
 
         return destFilePath;
     }
-
-    /// <summary>
-    /// 复制文件到目标位置
-    /// </summary>
-    private static async Task CopyFileAsync(string sourcePath, string destPath)
-    {
-#if NET8_0_OR_GREATER
-        await
-#endif
-            using var sourceStream = File.OpenRead(sourcePath);
-#if NET8_0_OR_GREATER
-        await
-#endif
-            using var destStream = File.Create(destPath);
-
-        await sourceStream.CopyToAsync(destStream);
-    }
-
 
     /// <summary>
     /// 得到 带有 RootDirectoryPath 的路径

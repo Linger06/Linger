@@ -2,5 +2,5 @@
 
 public interface ICreationAuditEntity : IHasCreationTime, IBaseAuditEntity
 {
-    string? CreatorId { get; set; }
+    string CreatorId { get; set; }
 }

@@ -8,7 +8,7 @@ public abstract class CreationAuditEntity<T> : CreationAuditEntity, IEntity<T>
 
 public abstract class CreationAuditEntity : BaseEntity, ICreationAuditEntity
 {
-    public string? CreatorId { get; set; }
+    public string CreatorId { get; set; } = null!;
 
     public DateTimeOffset CreationTime { get; set; } = DateTimeOffset.Now;
 }

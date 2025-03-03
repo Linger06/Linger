@@ -64,8 +64,7 @@ namespace Linger.FileSystem.Tests.Local
                 stream,
                 "test.txt",
                 "container1",
-                useUuidName: false,
-                useHashMd5Name: false);
+              namingRule: NamingRule.Normal);
 
             // Assert
             Assert.NotNull(result);
@@ -125,9 +124,9 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Theory]
-        [InlineData(true)]  // 使用UUID命名
-        [InlineData(false)] // 使用常规命名
-        public async Task UploadAsync_WithDifferentNamingSchemes_CreatesCorrectFiles(bool useUuidName)
+        [InlineData(NamingRule.Uuid)]  // 使用UUID命名
+        [InlineData(NamingRule.Normal)] // 使用常规命名
+        public async Task UploadAsync_WithDifferentNamingSchemes_CreatesCorrectFiles(NamingRule namingRule)
         {
             // Arrange
             var content = "Test Content";
@@ -138,13 +137,12 @@ namespace Linger.FileSystem.Tests.Local
                 stream,
                 "test.txt",
                 "container1",
-                useUuidName: useUuidName,
-                useHashMd5Name: false);
+              namingRule: namingRule);
 
             // Assert
             Assert.NotNull(result);
             Assert.True(File.Exists(result.RelativeFilePath));
-            if (useUuidName)
+            if (namingRule == NamingRule.Uuid)
             {
                 Assert.NotEqual("test.txt", result.NewFileName);
                 Assert.EndsWith(".txt", result.NewFileName);
@@ -193,8 +191,7 @@ namespace Linger.FileSystem.Tests.Local
                 stream,
                 "test.txt",
                 "container1",
-                useUuidName: false,
-                useHashMd5Name: false);
+                namingRule: NamingRule.Normal);
 
             stream.Position = 0;
             await Assert.ThrowsAsync<DuplicateFileException>(() =>
@@ -202,10 +199,9 @@ namespace Linger.FileSystem.Tests.Local
                     stream,
                     "test.txt",
                     "container1",
-                    useUuidName: false,
+                    namingRule: NamingRule.Normal,
                     overwrite: false,
-                    useSequencedName: false,
-                    useHashMd5Name: false));
+                    useSequencedName: false));
         }
 
         [Fact]
@@ -221,16 +217,13 @@ namespace Linger.FileSystem.Tests.Local
                 stream1,
                 "test.txt",
                 "container1",
-                useUuidName: false,
-                useHashMd5Name: false);
+                namingRule: NamingRule.Normal);
 
             var result = await _fileSystem.UploadAsync(
                 stream2,
                 "test.txt",
                 "container1",
-                useUuidName: false,
-                useSequencedName: true,
-                useHashMd5Name: false);
+                namingRule: NamingRule.Normal);
 
             // Assert
             Assert.Contains("[1]", result.NewFileName);
@@ -264,11 +257,10 @@ namespace Linger.FileSystem.Tests.Local
                 stream,
                 "test.txt",
                 "container1",
-                useUuidName: false,
-                useHashMd5Name: true);
+                namingRule: NamingRule.Md5);
 
             // Assert
-            Assert.Contains("^_^", result.NewFileName);
+            Assert.Contains("-", result.NewFileName);
             Assert.EndsWith(".txt", result.NewFileName);
         }
 
@@ -298,16 +290,13 @@ namespace Linger.FileSystem.Tests.Local
                 stream1,
                 "test.txt",
                 "container1",
-                useUuidName: false,
-                useHashMd5Name: false);
+                namingRule: NamingRule.Normal);
 
             var result = await _fileSystem.UploadAsync(
                 stream2,
                 "test.txt",
                 "container1",
-                useUuidName: false,
-                overwrite: true,
-                useHashMd5Name: false);
+                namingRule: NamingRule.Normal, overwrite: true);
 
             // Assert
             Assert.Equal("test.txt", result.NewFileName);
@@ -341,7 +330,7 @@ namespace Linger.FileSystem.Tests.Local
             var result = await _fileSystem.UploadAsync(
                 sourceFilePath,
                 "container1",
-                useUuidName: false);
+                namingRule: NamingRule.Md5);
 
             // Assert
             Assert.NotNull(result);
@@ -372,7 +361,7 @@ namespace Linger.FileSystem.Tests.Local
                 stream,
                 "test.txt",
                 "container1",
-                useUuidName: false);
+                namingRule: NamingRule.Md5);
 
             // Assert
             Assert.NotNull(result);
@@ -393,7 +382,7 @@ namespace Linger.FileSystem.Tests.Local
                     stream,
                     "test.txt",
                     "container1",
-                    useUuidName: false));
+                    namingRule: NamingRule.Md5));
         }
 
 
@@ -410,7 +399,7 @@ namespace Linger.FileSystem.Tests.Local
                 stream,
                 "large.bin",
                 "container1",
-                useUuidName: false);
+                namingRule: NamingRule.Md5);
 
             // Assert
             Assert.NotNull(result);
@@ -430,7 +419,7 @@ namespace Linger.FileSystem.Tests.Local
                 stream,
                 "empty.txt",
                 "container1",
-                useUuidName: false);
+                namingRule: NamingRule.Md5);
 
             // Assert
             Assert.NotNull(result);
@@ -439,17 +428,16 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Theory]
-        [InlineData("test.txt", "container1", "", false, false, true, true)]
-        [InlineData("test.txt", "container1", "custom/path", true, false, false, false)]
-        [InlineData("test.txt", "container1", "", false, true, false, true)]
+        [InlineData("test.txt", "container1", "", NamingRule.Md5, false, true)]
+        [InlineData("test.txt", "container1", "custom/path", NamingRule.Uuid, false, false)]
+        [InlineData("test.txt", "container1", "", NamingRule.Md5, true, false)]
         public async Task UploadAsync_WithVariousParameters_WorksCorrectly(
             string fileName,
             string containerName,
             string destPath,
-            bool useUuidName,
+            NamingRule namingRule,
             bool overwrite,
-            bool useSequencedName,
-            bool useHashMd5Name)
+            bool useSequencedName)
         {
             // Arrange
             var content = "Test Content";
@@ -461,23 +449,22 @@ namespace Linger.FileSystem.Tests.Local
                 fileName,
                 containerName,
                 destPath,
-                useUuidName,
+                namingRule,
                 overwrite,
-                useSequencedName,
-                useHashMd5Name);
+                useSequencedName);
 
             // Assert
             Assert.NotNull(result);
             Assert.True(File.Exists(result.RelativeFilePath));
 
-            if (useUuidName)
+            if (namingRule == NamingRule.Uuid)
             {
                 Assert.NotEqual(fileName, result.NewFileName);
                 Assert.EndsWith(Path.GetExtension(fileName), result.NewFileName);
             }
-            else if (useHashMd5Name)
+            else if (namingRule == NamingRule.Md5)
             {
-                Assert.Contains("^_^", result.NewFileName);
+                Assert.Contains("-", result.NewFileName);
             }
 
             if (!string.IsNullOrEmpty(destPath))
