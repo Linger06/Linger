@@ -68,8 +68,17 @@ public class ClosedXmlExcel : ExcelBase
     /// </summary>
     private T HandleException<T>(Exception ex, string methodName) where T : class
     {
-        // 这里可以添加日志记录逻辑，例如：
-        Console.WriteLine($"错误发生在 {methodName}: {ex.Message}");
+        // 记录更详细的异常信息，包括内部异常和堆栈信息
+        var errorMessage = $"错误发生在 {methodName}: {ex.Message}";
+        if (ex.InnerException != null)
+        {
+            errorMessage += $"\r\n内部错误: {ex.InnerException.Message}";
+        }
+        
+        // TODO: 替换为正式的日志记录机制
+        Console.WriteLine(errorMessage);
+        Console.WriteLine($"堆栈跟踪: {ex.StackTrace}");
+        
         return null;
     }
 
@@ -78,7 +87,7 @@ public class ClosedXmlExcel : ExcelBase
     [return: NotNullIfNotNull(nameof(list))]
     public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T>? list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null)
     {
-        if (list.IsNull())
+        if (list == null || list.Count == 0)
         {
             return null;
         }
@@ -86,13 +95,20 @@ public class ClosedXmlExcel : ExcelBase
         try
         {
             using var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add(sheetsName);
+            var worksheet = workbook.Worksheets.Add(sheetsName ?? "Sheet1");
+            
+            // 获取并缓存属性信息以提升性能
+            var properties = typeof(T).GetProperties()
+                .Where(p => p.CanRead)
+                .ToArray();
+                
+            if (properties.Length == 0)
+            {
+                return new MemoryStream(); // 没有可读属性，返回空表
+            }
 
             // Add title if specified
             var currentRow = 1;
-            var properties = typeof(T).GetProperties()
-                .Where(p => p.CanRead)  // 只处理可读属性
-                .ToArray();
 
             if (!string.IsNullOrEmpty(title))
             {
@@ -121,7 +137,7 @@ public class ClosedXmlExcel : ExcelBase
                     var item = list[i];
                     for (var j = 0; j < properties.Length; j++)
                     {
-                        rowDataArray[i, j] = properties[j].GetValue(item);
+                        rowDataArray[i, j] = properties[j].GetValue(item) ?? DBNull.Value;
                     }
                 });
 
@@ -144,7 +160,7 @@ public class ClosedXmlExcel : ExcelBase
                     for (var j = 0; j < properties.Length; j++)
                     {
                         var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                        SetCellValue(cell, properties[j].GetValue(item));
+                        SetCellValue(cell, properties[j].GetValue(item) ?? DBNull.Value);
                     }
                 }
             }
@@ -466,13 +482,24 @@ public class ClosedXmlExcel : ExcelBase
                 }
                 else
                 {
-                    prop.SetValue(item, Enum.Parse(propType, value.ToString(), true));
+                    var strValue = value?.ToString();
+                    if (!string.IsNullOrWhiteSpace(strValue) && Enum.TryParse(propType, strValue, true, out object parsedEnum))
+                    {
+                        prop.SetValue(item, parsedEnum);
+                    }
                 }
             }
             else if (propType == typeof(Guid))
             {
                 // 处理GUID
-                prop.SetValue(item, value is Guid guid ? guid : Guid.Parse(value.ToString()));
+                if (value is Guid guid)
+                {
+                    prop.SetValue(item, guid);
+                }
+                else if (Guid.TryParse(value.ToString(), out Guid parsedGuid))
+                {
+                    prop.SetValue(item, parsedGuid);
+                }
             }
             else if (propType == typeof(DateTime))
             {
