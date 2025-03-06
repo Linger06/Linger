@@ -1,34 +1,49 @@
-﻿using System.Collections.Concurrent;
+﻿using System.Threading.Channels;
 
 namespace Linger.Background;
 
 public interface IBackgroundTaskQueue
 {
-    void QueueBackgroundWorkItem(Func<IServiceProvider, CancellationToken, Task> workItem);
-    Task<Func<IServiceProvider, CancellationToken, Task>> DequeueAsync(CancellationToken cancellationToken);
+    ValueTask QueueBackgroundWorkItemAsync(Func<IServiceProvider, CancellationToken, ValueTask> workItem);
+
+    ValueTask<Func<IServiceProvider, CancellationToken, ValueTask>> DequeueAsync(
+        CancellationToken cancellationToken);
 }
 
 public class BackgroundTaskQueue : IBackgroundTaskQueue
 {
-    private readonly ConcurrentQueue<Func<IServiceProvider, CancellationToken, Task>> _workItems =
-        new ConcurrentQueue<Func<IServiceProvider, CancellationToken, Task>>();
-    private readonly SemaphoreSlim _signal = new SemaphoreSlim(0);
+    private readonly Channel<Func<IServiceProvider, CancellationToken, ValueTask>> _queue;
 
-    public void QueueBackgroundWorkItem(Func<IServiceProvider, CancellationToken, Task> workItem)
+    public BackgroundTaskQueue(int capacity)
+    {
+        // Capacity should be set based on the expected application load and
+        // number of concurrent threads accessing the queue.
+        // BoundedChannelFullMode.Wait will cause calls to WriteAsync() to return a task,
+        // which completes only when space became available. This leads to backpressure,
+        // in case too many publishers/calls start accumulating.
+        var options = new BoundedChannelOptions(capacity)
+        {
+            FullMode = BoundedChannelFullMode.Wait
+        };
+        _queue = Channel.CreateBounded<Func<IServiceProvider, CancellationToken, ValueTask>>(options);
+    }
+
+    public async ValueTask QueueBackgroundWorkItemAsync(
+        Func<IServiceProvider, CancellationToken, ValueTask> workItem)
     {
         if (workItem == null)
         {
             throw new ArgumentNullException(nameof(workItem));
         }
 
-        _workItems.Enqueue(workItem);
-        _signal.Release();
+        await _queue.Writer.WriteAsync(workItem);
     }
 
-    public async Task<Func<IServiceProvider, CancellationToken, Task>> DequeueAsync(CancellationToken cancellationToken)
+    public async ValueTask<Func<IServiceProvider, CancellationToken, ValueTask>> DequeueAsync(
+        CancellationToken cancellationToken)
     {
-        await _signal.WaitAsync(cancellationToken);
-        _workItems.TryDequeue(out var workItem);
+        var workItem = await _queue.Reader.ReadAsync(cancellationToken);
+
         return workItem;
     }
 }

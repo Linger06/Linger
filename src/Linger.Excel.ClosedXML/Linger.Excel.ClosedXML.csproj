@@ -2,24 +2,12 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-      <PackageId>$(MSBuildProjectName)</PackageId>
-      <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
-      <ImplicitUsings>enable</ImplicitUsings>
-      <LangVersion>latest</LangVersion>
-      <PackageReadmeFile>README.md</PackageReadmeFile>
-      <Authors>Linger</Authors>
-      <Description>C# Helper Library</Description>
-      <Copyright>Copyright © Linger 2024</Copyright>
-      <NeutralLanguage>en-US</NeutralLanguage>
       <VersionPrefix>0.2.0</VersionPrefix>
       <VersionSuffix>alpha</VersionSuffix>
-      <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-      <PackageLicenseExpression>MIT</PackageLicenseExpression>
-      <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="ClosedXML" Version="0.95.4" />    
+    <PackageReference Include="ClosedXML" Version="0.104.2" />    
   </ItemGroup>
 
   <ItemGroup>

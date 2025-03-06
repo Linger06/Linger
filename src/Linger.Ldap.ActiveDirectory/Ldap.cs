@@ -19,11 +19,11 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <param name="userName">The username to get</param>
     /// <param name="ldapCredentials"></param>
     /// <returns>Returns the UserPrincipal Object</returns>
-    public AdUserInfo? FindUser(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null)
     {
         PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
         UserPrincipal userPrincipal = UserPrincipal.FindByIdentity(principalContext, userName);
-        return userPrincipal.ToAdUser();
+        return await Task.FromResult(userPrincipal.ToAdUser());
     }
 
     public DirectoryEntry GetEntryByUsername(string username)
@@ -65,10 +65,10 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         }
     }
 
-    public IEnumerable<AdUserInfo> GetUsers(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null)
     {
         var collection = SearchUsersByFilter($"""(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)""", ldapCredentials);
-        return collection.ToAdUsersInfo();
+        return await Task.FromResult(collection.ToAdUsersInfo());
     }
 
     //private IEnumerable<AdUserInfo> GetUsers2(string userName, LdapCredentials? ldapCredentials = null)
@@ -96,7 +96,6 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     //    return adUserList;
     //}
 
-
     /// <summary>
     /// Validates the username and password of a given user
     /// </summary>
@@ -104,21 +103,17 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <param name="password">The password of the username to validate</param>
     /// <param name="adUserInfo"></param>
     /// <returns>Returns True of user is valid</returns>
-    public bool ValidateUser(string userName, string password, out AdUserInfo? adUserInfo)
+    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password)
     {
         PrincipalContext principalContext = GetPrincipalContext();
         var result = principalContext.ValidateCredentials(userName, password);
         if (result)
         {
             var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
-            adUserInfo = FindUser(userName, ldapCredentials);
-            return true;
+            var adUserInfo = await FindUserAsync(userName, ldapCredentials);
+            return await Task.FromResult((true, adUserInfo));
         }
-        else
-        {
-            adUserInfo = null;
-            return false;
-        }
+        return await Task.FromResult<(bool IsValid, AdUserInfo? AdUserInfo)>((false, null));
     }
 
     /// <summary>

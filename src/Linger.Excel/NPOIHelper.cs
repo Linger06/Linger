@@ -1187,8 +1187,8 @@ public static class NpoiHelper
     }
     private static IFont? FindFont(this IWorkbook dWb, IFont font, List<IFont> dFonts)
     {
-        //IFont dFont = dWb.FindFont(font.Boldweight, font.Color, (short)font.FontHeight, font.FontName, font.IsItalic, font.IsStrikeout, font.TypeOffset, font.Underline);
-        IFont? dFont = null;
+        IFont dFont = dWb.FindFont(font.IsBold, font.Color, (short)font.FontHeight, font.FontName, font.IsItalic, font.IsStrikeout, font.TypeOffset, font.Underline);
+        //IFont? dFont = null;
         foreach (IFont currFont in dFonts)
         {
             //if (currFont.Charset != font.Charset) continue;

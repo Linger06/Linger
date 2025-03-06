@@ -6,15 +6,6 @@
 public interface ILdapService
 {
     /// <summary>
-    /// Validates user credentials against LDAP directory
-    /// </summary>
-    /// <param name="userName">Username to validate</param>
-    /// <param name="password">Password to validate</param>
-    /// <param name="userInfo">When successful, contains the user information</param>
-    /// <returns>True if credentials are valid; otherwise, false</returns>
-    bool ValidateUser(string userName, string password, out AdUserInfo? userInfo);
-
-    /// <summary>
     /// Validates user credentials asynchronously
     /// </summary>
     /// <param name="userName">Username to validate</param>
@@ -38,7 +29,7 @@ public interface ILdapService
         LdapCredentials? credentials = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<AdUserInfo>?> GetUsersAsync(
+    Task<IEnumerable<AdUserInfo>> GetUsersAsync(
         string userName,
         LdapCredentials? credentials = null,
         CancellationToken cancellationToken = default);

@@ -15,16 +15,16 @@ public class Ldap : ILdap
         _ldapConn = new LdapConnection { SecureSocketLayer = _ldapConfig.Security };
     }
 
-    public AdUserInfo? FindUser(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null)
     {
-        if (!Connect(ldapCredentials)) return null;
+        if (!await ConnectAsync(ldapCredentials)) return null;
 
         try
         {
             var searchFilter = string.Format(_ldapConfig.SearchFilter, userName);
-            ILdapSearchResults? result = _ldapConn.Search(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false);
+            ILdapSearchResults? result = await _ldapConn.SearchAsync(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false);
 
-            LdapEntry? user = result.Next();
+            LdapEntry? user = await result.NextAsync();
             return user?.ToAdUser();
         }
         catch (Exception ex)
@@ -37,22 +37,22 @@ public class Ldap : ILdap
         }
     }
 
-    public IEnumerable<AdUserInfo>? GetUsers(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null)
     {
-        if (!Connect(ldapCredentials)) return null;
+        if (!await ConnectAsync(ldapCredentials)) return [];
 
         try
         {
             var ldapEntries = new List<LdapEntry>();
 
             var searchFilter = string.Format(_ldapConfig.SearchFilter, userName + "*");
-            ILdapSearchResults? lsc = _ldapConn.Search(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false);
-            while (lsc.HasMore())
+            ILdapSearchResults? lsc = await _ldapConn.SearchAsync(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false);
+            while (await lsc.HasMoreAsync())
             {
                 LdapEntry? nextEntry;
                 try
                 {
-                    nextEntry = lsc.Next();
+                    nextEntry = await lsc.NextAsync();
                 }
                 catch (LdapException e)
                 {
@@ -86,19 +86,19 @@ public class Ldap : ILdap
         }
     }
 
-    public bool ValidateUser(string userName, string password, out AdUserInfo? adUserInfo)
+    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password)
     {
         var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
-        adUserInfo = FindUser(userName, ldapCredentials);
+        var adUserInfo = await FindUserAsync(userName, ldapCredentials);
 
-        if (adUserInfo == null) return false;
+        if (adUserInfo == null) return (false, null);
 
         try
         {
-            if (Connect())
+            if (await ConnectAsync())
             {
-                _ldapConn.Bind(adUserInfo.Dn, password);
-                return _ldapConn.Bound;
+                await _ldapConn.BindAsync(adUserInfo.Dn, password);
+                return (_ldapConn.Bound, adUserInfo);
             }
         }
         catch (Exception ex)
@@ -110,26 +110,26 @@ public class Ldap : ILdap
             DisConnect();
         }
 
-        return false;
+        return (false, null);
     }
 
     public bool IsConnected() => _ldapConn.Connected;
 
-    public bool Connect(LdapCredentials? ldapCredentials = null)
+    public async Task<bool> ConnectAsync(LdapCredentials? ldapCredentials = null)
     {
         if (_ldapConn.Connected) return true;
 
         try
         {
-            _ldapConn.Connect(_ldapConfig.Url, _ldapConfig.Security ? LdapConnection.DefaultSslPort : LdapConnection.DefaultPort);
+            await _ldapConn.ConnectAsync(_ldapConfig.Url, _ldapConfig.Security ? LdapConnection.DefaultSslPort : LdapConnection.DefaultPort);
 
             if (ldapCredentials != null)
             {
-                BindCredentials(ldapCredentials);
+                await BindCredentialsAsync(ldapCredentials);
             }
             else if (_ldapConfig.Credentials != null)
             {
-                BindCredentials(_ldapConfig.Credentials);
+                await BindCredentialsAsync(_ldapConfig.Credentials);
             }
 
             return true;
@@ -140,7 +140,7 @@ public class Ldap : ILdap
         }
     }
 
-    private void BindCredentials(LdapCredentials credentials)
+    private async Task BindCredentialsAsync(LdapCredentials credentials)
     {
         var domain = _ldapConfig.Domain;
         var userId = credentials.BindDn;
@@ -148,11 +148,11 @@ public class Ldap : ILdap
 
         if (userId.IsNotNullAndEmpty() && password.IsNotNullAndEmpty())
         {
-            _ldapConn.Bind($@"{domain}\{userId}", password);
+            await _ldapConn.BindAsync($@"{domain}\{userId}", password);
         }
         else
         {
-            _ldapConn.Bind(null, null);
+            await _ldapConn.BindAsync(null, null);
         }
     }
 

@@ -142,14 +142,20 @@ public class LocalFileSystem : ILocalFileSystem
 #if NET8_0_OR_GREATER
         await
 #endif
-            using (var fileStream = File.Create(relativeFilePath))
+        using (var fileStream = File.Create(relativeFilePath))
         {
             await memoryStream.CopyToAsync(fileStream);
         }
 
         // 验证文件完整性
         var fileInfo = new FileInfo(relativeFilePath);
+
+#if NET8_0_OR_GREATER
         await ValidateFileIntegrityAsync(fileInfo, sourceHashData);
+#else
+        ValidateFileIntegrity(fileInfo, sourceHashData);
+#endif
+
 
         // 构建上传信息
         return new UploadedInfo
@@ -165,8 +171,14 @@ public class LocalFileSystem : ILocalFileSystem
         };
     }
 
-    // 验证文件完整性时使用配置
-    private async Task ValidateFileIntegrityAsync(FileInfo fileInfo, string sourceHashData)
+    private
+#if NET8_0_OR_GREATER
+       async Task ValidateFileIntegrityAsync
+#else
+        void ValidateFileIntegrity
+#endif
+     // 验证文件完整性时使用配置
+     (FileInfo fileInfo, string sourceHashData)
     {
         if (!_options.ValidateFileIntegrity)
             return;
@@ -377,11 +389,11 @@ public class LocalFileSystem : ILocalFileSystem
 #if NET8_0_OR_GREATER
                 await
 #endif
-                    using var sourceStream = File.OpenRead(sourceFilePath);
+                using var sourceStream = File.OpenRead(sourceFilePath);
 #if NET8_0_OR_GREATER
                 await
 #endif
-                    using var destStream = File.Create(destFilePath);
+                using var destStream = File.Create(destFilePath);
 
                 await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize);
                 return destFilePath;
@@ -414,7 +426,7 @@ public class LocalFileSystem : ILocalFileSystem
 #if NET8_0_OR_GREATER
         await
 #endif
-            using var sourceStream = File.OpenRead(sourceFilePath);
+        using var sourceStream = File.OpenRead(sourceFilePath);
 
         sourceStream.Position = 0;
         await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize);
@@ -445,7 +457,7 @@ public class LocalFileSystem : ILocalFileSystem
     /// </summary>
     /// <param name="filePath"></param>
     /// <returns></returns>
-    private string GetRealPath(string filePath)
+    public string GetRealPath(string filePath)
     {
         if (filePath.StartsWith(RootDirectoryPath))
         {

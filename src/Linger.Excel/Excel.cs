@@ -14,6 +14,7 @@ namespace Linger.Excel;
 /// <summary>
 ///     提供 Excel 读取、写入功能。//此类不可被继承
 /// </summary>
+[Obsolete("请使用Linger.Excel.EPPlus")]
 public class Excel : IExcel
 {
     #region 构造函数

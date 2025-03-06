@@ -13,7 +13,7 @@ using NPOI.XSSF.UserModel;
 namespace Linger.Excel.Npoi;
 public class NpoiExcel : ExcelBase
 {
-    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "", Action<object, PropertyInfo[]>? action = null) where T : class
+    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null) where T : class
     {
         if (list.IsNull())
         {
@@ -50,7 +50,7 @@ public class NpoiExcel : ExcelBase
         return memoryStream;
     }
 
-    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
+    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
     {
         if (dataTable.IsNull() //|| dataTable.Rows.Count <= 0 //导出Excel时,如果DataTable只是没有数据,有结构,应该输出列名
 )
@@ -60,11 +60,10 @@ public class NpoiExcel : ExcelBase
 
         var memoryStream = new MemoryStream();
         var workbook = new XSSFWorkbook();
-        workbook = GetWorkbookI(workbook, dataTable, null, title);
+        workbook = GetWorkbookI(workbook, dataTable, sheetsName, title);
 
         workbook.Write(memoryStream);
-        memoryStream.Flush();
-        memoryStream.Position = 0;
+        //memoryStream.Seek(0, SeekOrigin.Begin);
         return memoryStream;
     }
 
@@ -80,7 +79,6 @@ public class NpoiExcel : ExcelBase
         {
             wb = WorkbookFactory.Create(stream);
         }
-
 
         ISheet? sheet = sheetName.IsNullOrWhiteSpace() ? wb.GetSheetAt(0) : wb.GetSheet(sheetName);
         DataTable dt = ImportDt(sheet, headerRowIndex);
@@ -211,7 +209,7 @@ public class NpoiExcel : ExcelBase
         var arrColWidth = new int[dt.Columns.Count];
         foreach (DataColumn item in dt.Columns)
         {
-            arrColWidth[item.Ordinal] = Encoding.GetEncoding(936).GetBytes(item.ColumnName).Length;
+            arrColWidth[item.Ordinal] = Encoding.Default.GetBytes(item.ColumnName).Length;
         }
 
         for (var i = 0; i < dt.Rows.Count; i++)
@@ -219,7 +217,7 @@ public class NpoiExcel : ExcelBase
             for (var j = 0; j < dt.Columns.Count; j++)
             {
                 var cellValue = dt.Rows[i][j].ToString()!;
-                var intTemp = Encoding.GetEncoding(936).GetBytes(cellValue).Length;
+                var intTemp = Encoding.Default.GetBytes(cellValue).Length;
                 if (intTemp > arrColWidth[j])
                 {
                     arrColWidth[j] = intTemp;
@@ -563,15 +561,16 @@ public class NpoiExcel : ExcelBase
         return table;
     }
 
-    private static XSSFWorkbook GetWorkbookI(XSSFWorkbook workbook, DataTable dt, string? sheetName = null,
-        string? strHeaderText = null)
+    private static XSSFWorkbook GetWorkbookI(XSSFWorkbook workbook, DataTable dt, string? sheetName = null, string? headerText = null)
     {
-        //ISheet? sheet = workbook.CreateSheet(sheetName);
-
-        ISheet? sheet = workbook.CreateSheet();
-        if (!string.IsNullOrEmpty(sheetName))
+        ISheet? sheet;
+        if (sheetName.IsNotNullAndEmpty())
         {
             sheet = workbook.CreateSheet(sheetName);
+        }
+        else
+        {
+            sheet = workbook.CreateSheet();
         }
 
         #region 右击文件 属性信息
@@ -602,14 +601,14 @@ public class NpoiExcel : ExcelBase
         var arrColWidth = new int[dt.Columns.Count];
         foreach (DataColumn item in dt.Columns)
         {
-            arrColWidth[item.Ordinal] = Encoding.GetEncoding(936).GetBytes(item.ColumnName).Length;
+            arrColWidth[item.Ordinal] = Encoding.Default.GetBytes(item.ColumnName).Length;
         }
 
         for (var i = 0; i < dt.Rows.Count; i++)
         {
             for (var j = 0; j < dt.Columns.Count; j++)
             {
-                var intTemp = Encoding.GetEncoding(936).GetBytes(dt.Rows[i][j].ToString()!).Length;
+                var intTemp = Encoding.Default.GetBytes(dt.Rows[i][j].ToString()!).Length;
                 if (intTemp > arrColWidth[j])
                 {
                     arrColWidth[j] = intTemp;
@@ -627,11 +626,11 @@ public class NpoiExcel : ExcelBase
             {
                 #region 表头及样式
 
-                if (!string.IsNullOrEmpty(strHeaderText))
+                if (!string.IsNullOrEmpty(headerText))
                 {
                     IRow? headerRow = sheet.CreateRow(0);
                     headerRow.HeightInPoints = 25;
-                    headerRow.CreateCell(0).SetCellValue(strHeaderText);
+                    headerRow.CreateCell(0).SetCellValue(headerText);
 
                     ICellStyle? headStyle = workbook.CreateCellStyle();
                     headStyle.Alignment = HorizontalAlignment.Center;

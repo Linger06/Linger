@@ -9,6 +9,7 @@
     <File Path="testEnvironments.json" />
   </Folder>
   <Folder Name="/src/">
+    <File Path="src/Directory.Build.props" />
     <Project Path="src/Linger.Audit/Linger.Audit.csproj" />
     <Project Path="src/Linger.Background/Linger.Background.csproj" />
     <Project Path="src/Linger.Configuration/Linger.Configuration.csproj" />

@@ -2,20 +2,9 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-        <PackageId>$(MSBuildProjectName)</PackageId>
-        <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <LangVersion>latest</LangVersion>
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-        <Authors>Linger</Authors>
-        <Description>C# Helper Library</Description>
-        <Copyright>Copyright © Linger 2024</Copyright>
-        <NeutralLanguage>en-US</NeutralLanguage>
         <VersionPrefix>0.2.0</VersionPrefix>
         <VersionSuffix>alpha</VersionSuffix>
-        <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <Nullable>enable</Nullable>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <ItemGroup>

@@ -1,7 +1,6 @@
 ﻿using System.Text.Json;
 using Linger.EFCore.Comparers;
 using Linger.EFCore.Converters;
-using Linger.Extensions.Core;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
@@ -46,23 +45,23 @@ public static class PropertyBuilderExtensions
         return propertyBuilder;
     }
 
-    public static PropertyBuilder<DateTimeOffset?> HasDateTimeOffsetConversion(this PropertyBuilder<DateTimeOffset?> propertyBuilder)
-    {
-        ArgumentNullException.ThrowIfNull(propertyBuilder);
-        var converter = new ValueConverter<DateTimeOffset?, DateTime?>
-        (
-            v => v.ToDateTime(),
-            v => v.ToDateTimeOffset()
-        );
+    //public static PropertyBuilder<DateTimeOffset?> HasDateTimeOffsetConversion(this PropertyBuilder<DateTimeOffset?> propertyBuilder)
+    //{
+    //    ArgumentNullException.ThrowIfNull(propertyBuilder);
+    //    var converter = new ValueConverter<DateTimeOffset?, DateTime?>
+    //    (
+    //        v => v.ToDateTime(),
+    //        v => v.ToDateTimeOffset()
+    //    );
 
-        var comparer = new ValueComparer<DateTimeOffset?>
-        (
-            (l, r) => l.Equals(r),
-            v => v.GetHashCode(),
-            v => v
-        );
+    //    var comparer = new ValueComparer<DateTimeOffset?>
+    //    (
+    //        (l, r) => l.Equals(r),
+    //        v => v.GetHashCode(),
+    //        v => v
+    //    );
 
-        propertyBuilder.HasConversion(converter, comparer);
-        return propertyBuilder;
-    }
+    //    propertyBuilder.HasConversion(converter, comparer);
+    //    return propertyBuilder;
+    //}
 }
