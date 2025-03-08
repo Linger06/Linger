@@ -155,7 +155,7 @@ public class StringExtensionsTest
     [MemberData(nameof(Data))]
     public void ToDecimal2(string value, decimal value2)
     {
-        var result = value.ToDecimal2();
+        var result = value.ToDecimalForScientificNotation();
         var result2 = value2.ToString(CultureInfo.CurrentCulture);
         Assert.Equal(result.ToString(CultureInfo.CurrentCulture), result2);
     }

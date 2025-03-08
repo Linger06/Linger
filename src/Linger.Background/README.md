@@ -1,4 +1,4 @@
-﻿# Linger.Background
+# Linger.Background
 
 一个轻量级的.NET后台任务处理库。
 
@@ -21,7 +21,12 @@ public void ConfigureServices(IServiceCollection services)
 {
     // 根据实际项目中的扩展方法来注册Background服务
     services.AddHostedService<QueuedHostedService>();
-    services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
+    builder.Services.AddSingleton<IBackgroundTaskQueue>(ctx =>
+    {
+        //if (!int.TryParse(hostContext.Configuration["QueueCapacity"], out var queueCapacity))
+        var queueCapacity = 100;
+        return new BackgroundTaskQueue(queueCapacity);
+    });
 }
 
 // 使用后台任务队列

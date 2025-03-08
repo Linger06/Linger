@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Linger.Extensions.Core;
 
@@ -192,20 +193,21 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// 数字科学计数法处理
+    /// Converts a scientific notation string to its equivalent <see cref="decimal"/> value.
     /// </summary>
-    /// <param name="strData"></param>
-    /// <returns></returns>
-    public static Decimal ChangeToDecimal(this string strData)
+    /// <param name="input">The input string in scientific notation.</param>
+    /// <returns>The equivalent <see cref="decimal"/> value.</returns>
+    /// <exception cref="FormatException">Thrown when the input string is not in scientific notation.</exception>
+    public static decimal ToDecimalForScientificNotation(this string input)
     {
-        Decimal dData = 0.0M;
-        if (strData.Contains("E"))
+        decimal dData;
+        if (input.IsScientificNotation())
         {
-            dData = Convert.ToDecimal(Decimal.Parse(strData.ToString(), System.Globalization.NumberStyles.Float));
+            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float));
         }
         else
         {
-            dData = Convert.ToDecimal(strData);
+            throw new FormatException(nameof(input));
         }
         return dData;
     }

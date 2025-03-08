@@ -491,7 +491,7 @@ public class NpoiExcel : ExcelBase
                                     var cellValue = cell.NumericCellValue;
                                     if (cellValue.ToString().IsScientificNotation())
                                     {
-                                        dataRow[j] = cellValue.ToString().ChangeToDecimal();
+                                        dataRow[j] = cellValue.ToString().ToDecimalForScientificNotation();
                                     }
                                     else
                                     {

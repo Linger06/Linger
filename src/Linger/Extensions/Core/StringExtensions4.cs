@@ -9,11 +9,22 @@ namespace Linger.Extensions.Core;
 public static partial class StringExtensions
 {
     /// <summary>
-    /// Converts a Base64 string representation to its equivalent string.
+    /// Converts a Base64 string representation to its equivalent string using UTF-8 encoding.
     /// </summary>
     /// <param name="value">The string to convert.</param>
     /// <returns>If the Base64 string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the equivalent string.</returns>
     public static string FromBase64ToString(this string? value)
+    {
+        return value.FromBase64ToString(Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// Converts a Base64 string representation to its equivalent string using the specified encoding.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="encoding">The encoding to use for the conversion.</param>
+    /// <returns>If the Base64 string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the equivalent string.</returns>
+    public static string FromBase64ToString(this string? value, Encoding encoding)
     {
         if (value.IsNullOrEmpty())
         {
@@ -21,22 +32,33 @@ public static partial class StringExtensions
         }
 
         var result = Convert.FromBase64String(value);
-        return Encoding.Default.GetString(result);
+        return encoding.GetString(result);
     }
 
     /// <summary>
-    /// Converts the current string to its Base64 string representation.
+    /// Converts the current string to its Base64 string representation using UTF-8 encoding.
     /// </summary>
     /// <param name="value">The string to convert.</param>
     /// <returns>If the string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the Base64 string representation.</returns>
     public static string ToBase64String(this string? value)
+    {
+        return value.ToBase64String(Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// Converts the current string to its Base64 string representation using the specified encoding.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="encoding">The encoding to use for the conversion.</param>
+    /// <returns>If the string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the Base64 string representation.</returns>
+    public static string ToBase64String(this string? value, Encoding encoding)
     {
         if (value.IsNullOrEmpty())
         {
             return string.Empty;
         }
 
-        var result = Encoding.Default.GetBytes(value);
+        var result = encoding.GetBytes(value);
         return Convert.ToBase64String(result);
     }
 
@@ -57,7 +79,8 @@ public static partial class StringExtensions
             return string.Empty;
         }
 
-        return value.Substring(0, value.IndexOf('@'));
+        int atIndex = value.IndexOf('@');
+        return atIndex > 0 ? value.Substring(0, atIndex) : string.Empty;
     }
 
     /// <summary>
@@ -67,7 +90,7 @@ public static partial class StringExtensions
     /// <returns>The string without the last newline character.</returns>
     public static string DelLastNewLine(this string value)
     {
-        return value.TrimEnd(Environment.NewLine.ToCharArray()).TrimEnd(['\n', '\r']);
+        return value.TrimEnd('\r', '\n');
     }
 
     /// <summary>
@@ -103,9 +126,9 @@ public static partial class StringExtensions
     /// <returns>The string without the specified character at the end.</returns>
     public static string DelLastChar(this string str, string character)
     {
-        if (str.IsNullOrEmpty())
+        if (str.IsNullOrEmpty() || character.IsNullOrEmpty())
         {
-            return string.Empty;
+            return str ?? string.Empty;
         }
 
         return str.TrimEnd(character.ToCharArray());
@@ -121,8 +144,12 @@ public static partial class StringExtensions
     public static DataTable? ToDataTable(this string json)
     {
         if (json.IsNullOrEmpty()) return null;
-        var serializeOptions = new JsonSerializerOptions { WriteIndented = true, Converters = { new DataTableJsonConverter() } };
-        return JsonSerializer.Deserialize<DataTable>(json, serializeOptions);
+        var serializeOptions = new JsonSerializerOptions 
+        { 
+            WriteIndented = true, 
+            Converters = { new DataTableJsonConverter() } 
+        };
+        return JsonSerializer.Deserialize<System.Data.DataTable>(json, serializeOptions);
     }
 
 #endif
@@ -135,6 +162,9 @@ public static partial class StringExtensions
     /// <returns>The string value including the prefix.</returns>
     public static string EnsureStartsWith(this string value, string prefix)
     {
+        if (value == null) return prefix ?? string.Empty;
+        if (prefix == null) return value;
+
         return value.StartsWith(prefix) ? value : string.Concat(prefix, value);
     }
 
@@ -146,6 +176,9 @@ public static partial class StringExtensions
     /// <returns>The string value including the suffix.</returns>
     public static string EnsureEndsWith(this string value, string suffix)
     {
+        if (value == null) return suffix ?? string.Empty;
+        if (suffix == null) return value;
+
         return value.EndsWith(suffix) ? value : string.Concat(value, suffix);
     }
 
@@ -155,14 +188,10 @@ public static partial class StringExtensions
     /// <param name="self">The string to truncate.</param>
     /// <param name="length">The length to truncate to.</param>
     /// <returns>The truncated string.</returns>
-    public static string Substring2(this string self, int length)
+    public static string TruncateFromStart(this string self, int length)
     {
-        if (length > self.Length)
-        {
-            length = self.Length;
-        }
-
-        return self.Substring(0, length);
+        // 复用 StringExtensions2.cs 中的 Truncate 方法，传入空后缀
+        return self.Truncate(length, string.Empty);
     }
 
     /// <summary>
@@ -171,14 +200,35 @@ public static partial class StringExtensions
     /// <param name="self">The string to truncate.</param>
     /// <param name="length">The length to truncate to.</param>
     /// <returns>The truncated string.</returns>
-    public static string Substring3(this string self, int length)
+    public static string TakeLast(this string self, int length)
     {
-        if (length > self.Length)
+        if (self == null) return string.Empty;
+        if (length <= 0) return string.Empty;
+
+        if (length >= self.Length)
         {
-            length = self.Length;
-            return self.Substring(0, length);
+            return self;
         }
 
         return self.Substring(self.Length - length);
     }
+
+    // 保留旧方法名称以保持兼容性
+    /// <summary>
+    /// Truncates the string to the specified length, or returns the entire string if it is shorter than the specified length.
+    /// </summary>
+    /// <param name="self">The string to truncate.</param>
+    /// <param name="length">The length to truncate to.</param>
+    /// <returns>The truncated string.</returns>
+    [Obsolete("Use TruncateFromStart instead")]
+    public static string Substring2(this string self, int length) => TruncateFromStart(self, length);
+
+    /// <summary>
+    /// Truncates the string to the specified length from the end, or returns the entire string if it is shorter than the specified length.
+    /// </summary>
+    /// <param name="self">The string to truncate.</param>
+    /// <param name="length">The length to truncate to.</param>
+    /// <returns>The truncated string.</returns>
+    [Obsolete("Use TakeLast instead")]
+    public static string Substring3(this string self, int length) => TakeLast(self, length);
 }

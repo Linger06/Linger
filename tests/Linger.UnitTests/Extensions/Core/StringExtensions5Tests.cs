@@ -16,7 +16,7 @@ public class StringExtensions5Tests
     [InlineData("1.23E-3", 0.00123)]
     public void ToDecimal2_ShouldReturnExpectedResult(string value, decimal expected)
     {
-        var result = value.ToDecimal2();
+        var result = value.ToDecimalForScientificNotation();
         Assert.Equal(expected, result);
     }
 
@@ -185,7 +185,7 @@ public class StringExtensions5Tests
     public void ToDecimal2_ReturnsDecimalValue_WhenInputIsValidScientificNotation()
     {
         var input = "1.23e4";
-        var result = input.ToDecimal2();
+        var result = input.ToDecimalForScientificNotation();
         Assert.Equal(12300m, result);
     }
 
@@ -193,7 +193,7 @@ public class StringExtensions5Tests
     public void ToDecimal2_ThrowsFormatException_WhenInputIsInvalid()
     {
         var input = "invalid";
-        Assert.Throws<FormatException>(() => input.ToDecimal2());
+        Assert.Throws<FormatException>(() => input.ToDecimalForScientificNotation());
     }
 
     [Fact]

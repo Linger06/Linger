@@ -4,17 +4,15 @@ namespace Linger.Extensions.Core;
 
 public static partial class DateTimeExtensions
 {
-    public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd")
-        => dateTime?.ToString(format);
+    public static string ToFormatDate(this DateTime dateTime, string format = "yyyy-MM-dd") => dateTime.ToString(format);
 
-    public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss")
-        => dateTime.ToString(format);
+    public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd") => dateTime?.ToString(format);
 
-    public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss")
-    => dateTime?.ToString(format);
+    public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime.ToString(format);
 
-    public static TimeSpan GetDateDifference(this DateTime dateTime1, DateTime dateTime2)
-        => dateTime1 - dateTime2;
+    public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime?.ToString(format);
+
+    public static TimeSpan GetDateDifference(this DateTime dateTime1, DateTime dateTime2) => dateTime1 - dateTime2;
 
     public static double GetDateDifference(this DateTime dateTime1, DateTime? dateTime2, TimeUnit unit, bool abs = false)
     {

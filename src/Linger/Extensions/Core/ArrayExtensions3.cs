@@ -7,122 +7,42 @@ namespace Linger.Extensions.Core;
 public static partial class ArrayExtensions
 {
     /// <summary>
-    /// Converts the current Byte[] sequence to a Base64 encoded string.
+    /// Searches for an element that matches the conditions defined by the specified predicate, and returns the first occurrence within the entire <see cref="Array"/>.
     /// </summary>
-    /// <param name="value">The Byte[] to convert.</param>
-    /// <returns>The converted string representation in Base64.</returns>
+    /// <typeparam name="T">The type of the elements in the array.</typeparam>
+    /// <param name="array">The one-dimensional, zero-based <see cref="Array"/> to search.</param>
+    /// <param name="match">The <see cref="Predicate{T}"/> that defines the conditions of the element to search for.</param>
+    /// <returns>The first element that matches the conditions defined by the specified predicate, if found; otherwise, the default value for type <typeparamref name="T"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when the array is null or the match is null.</exception>
     /// <example>
     /// <code>
-    /// byte[] bytes = { 1, 2, 3, 4, 5 };
-    /// string base64String = bytes.ToBase64String();
-    /// // base64String is "AQIDBAU="
+    /// int[] numbers = { 1, 2, 3, 4, 5 };
+    /// int result = numbers.Find(n => n > 3);
+    /// // result is 4
     /// </code>
     /// </example>
-    public static string ToBase64String(this byte[] value)
+    public static T? Find<T>(this T[] array, Predicate<T> match)
     {
-        return Convert.ToBase64String(value, 0, value.Length);
+        return Array.Find(array, match);
     }
 
     /// <summary>
-    /// Converts the current Byte[] sequence to a Base64 encoded string for an image.
+    /// Retrieves all the elements that match the conditions defined by the specified predicate.
     /// </summary>
-    /// <param name="value">The Byte[] to convert.</param>
-    /// <returns>The converted string representation of the image in Base64.</returns>
+    /// <typeparam name="T">The type of the elements in the array.</typeparam>
+    /// <param name="array">The one-dimensional, zero-based <see cref="Array"/> to search.</param>
+    /// <param name="match">The <see cref="Predicate{T}"/> that defines the conditions of the elements to search for.</param>
+    /// <returns>An <see cref="Array"/> containing all the elements that match the conditions defined by the specified predicate, if found; otherwise, an empty <see cref="Array"/>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when the array is null or the match is null.</exception>
     /// <example>
     /// <code>
-    /// byte[] imageBytes = { 1, 2, 3, 4, 5 };
-    /// string imageBase64String = imageBytes.ToImageBase64String();
-    /// // imageBase64String is "data:image/jpeg;base64,AQIDBAU="
+    /// int[] numbers = { 1, 2, 3, 4, 5 };
+    /// int[] results = numbers.FindAll(n => n > 2);
+    /// // results is { 3, 4, 5 }
     /// </code>
     /// </example>
-    public static string ToImageBase64String(this byte[] value)
+    public static T[] FindAll<T>(this T[] array, Predicate<T> match)
     {
-        return $"data:image/jpeg;base64,{Convert.ToBase64String(value, 0, value.Length)}";
-    }
-
-    /// <summary>
-    /// Converts the current Byte[] sequence to a MemoryStream.
-    /// </summary>
-    /// <param name="value">The Byte[] to convert.</param>
-    /// <returns>A MemoryStream created from the Byte[].</returns>
-    /// <example>
-    /// <code>
-    /// byte[] bytes = { 1, 2, 3, 4, 5 };
-    /// MemoryStream stream = bytes.ToMemoryStream();
-    /// // stream is a MemoryStream containing the bytes
-    /// </code>
-    /// </example>
-    public static MemoryStream ToMemoryStream(this byte[] value)
-    {
-        return new MemoryStream(value);
-    }
-
-    /// <summary>
-    /// Converts the current System.String[] to DataTable columns.
-    /// </summary>
-    /// <param name="stringArray">The string array to convert.</param>
-    /// <returns>A DataTable with columns named after the strings in the array.</returns>
-    /// <example>
-    /// <code>
-    /// string[] columns = { "Name", "Age", "Gender" };
-    /// DataTable table = columns.ToDataTableColumns();
-    /// // table has columns "Name", "Age", "Gender"
-    /// </code>
-    /// </example>
-    public static DataTable ToDataTableColumns(this string[] stringArray)
-    {
-        var table = new DataTable();
-
-        foreach (var item in stringArray)
-        {
-            table.Columns.Add(new DataColumn(item));
-        }
-
-        return table;
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="string"/>[] to an <see cref="IEnumerable{String}"/>.
-    /// </summary>
-    /// <param name="value">The <see cref="string"/>[] to convert.</param>
-    /// <returns>An <see cref="IEnumerable{String}"/> created from the array.</returns>
-    /// <example>
-    /// <code>
-    /// string[] array = { "one", "two", "three" };
-    /// IEnumerable&lt;string&gt; enumerable = array.ToEnumerable();
-    /// // enumerable contains "one", "two", "three"
-    /// </code>
-    /// </example>
-    public static IEnumerable<string> ToEnumerable(this string[]? value)
-    {
-        return value.IsNull() ? [] : new List<string>(value);
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="string"/>[] to a <see cref="List{String}"/>.
-    /// </summary>
-    /// <param name="value">The <see cref="string"/>[] to convert.</param>
-    /// <returns>A <see cref="List{String}"/> created from the array.</returns>
-    /// <example>
-    /// <code>
-    /// string[] array = { "one", "two", "three" };
-    /// List&lt;string&gt; list = array.ToList();
-    /// // list contains "one", "two", "three"
-    /// </code>
-    /// </example>
-    public static List<string> ToList(this string[]? value)
-    {
-        return value.ToEnumerable().ToList();
-    }
-
-    public static string ToMd5HashCode(this byte[] inputHashBytes)
-    {
-#if NET5_0_OR_GREATER
-        return Convert.ToHexString(inputHashBytes);
-#elif NETFRAMEWORK || NETSTANDARD2_0
-        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty);
-#else
-        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty, StringComparison.Ordinal);
-#endif
+        return Array.FindAll(array, match);
     }
 }
