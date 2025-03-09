@@ -41,6 +41,8 @@ PM> Install-Package Linger.EFCore.Audit
 // 1. Add audit trail to your DbContext 
 public class AppDbContext : DbContext 
 { 
+    public DbSet<AuditTrailEntry> AuditTrails { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder) 
     { 
         modelBuilder.ApplyAudit(); // Apply audit configurations 

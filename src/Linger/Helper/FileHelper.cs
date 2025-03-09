@@ -178,7 +178,7 @@ public static class FileHelper
         var file = new FileInfo(absolutePath);
         if (file.Exists)
         {
-            using var memoryStream = file.ToMemoryStream2();
+            using var memoryStream = file.ToMemoryStream3();
             var strHashData = memoryStream.ComputeHashMd5();
             return new CustomExistFileInfo
             {
