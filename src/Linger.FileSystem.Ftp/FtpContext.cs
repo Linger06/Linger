@@ -1,7 +1,7 @@
 ﻿using FluentFTP;
 using FluentFTP.Exceptions;
-using Linger.FileSystem.Helpers;
 using Linger.FileSystem.Remote;
+using Linger.Helper;
 
 namespace Linger.FileSystem.Ftp;
 

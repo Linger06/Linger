@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Linger.Exceptions;
 using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Local;
 using Xunit;

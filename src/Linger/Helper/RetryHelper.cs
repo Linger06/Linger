@@ -1,7 +1,7 @@
 ﻿using System.Runtime.ExceptionServices;
-using Linger.FileSystem.Exceptions;
+using Linger.Exceptions;
 
-namespace Linger.FileSystem.Helpers;
+namespace Linger.Helper;
 
 /// <summary>
 /// 重试操作的工具类

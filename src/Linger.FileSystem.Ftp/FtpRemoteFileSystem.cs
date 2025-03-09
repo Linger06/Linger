@@ -2,6 +2,7 @@
 using System.Text;
 using FluentFTP;
 using Linger.FileSystem.Helpers;
+using Linger.Helper;
 
 namespace Linger.FileSystem.Ftp;
 

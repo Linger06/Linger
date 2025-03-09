@@ -4,6 +4,7 @@ using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
 using Linger.Extensions.Core;
+using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.ClosedXML;
 
@@ -12,104 +13,46 @@ namespace Linger.Excel.ClosedXML;
 /// </summary>
 public class ClosedXmlExcel : ExcelBase
 {
-    #region 私有辅助方法
-
     /// <summary>
-    /// 设置Excel单元格格式
+    /// 构造函数
     /// </summary>
-    private void ApplyBasicFormatting(IXLWorksheet worksheet, int rowCount, int columnCount)
+    /// <param name="options">Excel配置选项</param>
+    /// <param name="logger">日志记录器</param>
+    public ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel>? logger = null)
+        : base(options, logger)
     {
-        // 设置标题行样式
-        var headerRow = worksheet.Row(1);
-        headerRow.Style.Font.Bold = true;
-        headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-
-        // 设置所有单元格自动适应宽度
-        worksheet.Columns().AdjustToContents();
-
-        // 设置表格边框
-        worksheet.Range(1, 1, rowCount, columnCount).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-        worksheet.Range(1, 1, rowCount, columnCount).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
     }
 
     /// <summary>
-    /// 安全地设置单元格值
+    /// 将对象集合转换为MemoryStream
     /// </summary>
-    private void SetCellValue(IXLCell cell, object value)
-    {
-        if (value == null || value is DBNull)
-        {
-            cell.Value = string.Empty;
-            return;
-        }
-
-        // 根据值类型进行特殊处理
-        switch (value)
-        {
-            case DateTime dateTime:
-                cell.Value = dateTime;
-                cell.Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
-                break;
-            case bool boolean:
-                cell.Value = boolean;
-                break;
-            case decimal or double or float:
-                cell.Value = value.ToString();
-                cell.Style.NumberFormat.Format = "#,##0.00";
-                break;
-            default:
-                cell.Value = value.ToString();
-                break;
-        }
-    }
-
-    /// <summary>
-    /// 处理异常并记录日志
-    /// </summary>
-    private T HandleException<T>(Exception ex, string methodName) where T : class
-    {
-        // 记录更详细的异常信息，包括内部异常和堆栈信息
-        var errorMessage = $"错误发生在 {methodName}: {ex.Message}";
-        if (ex.InnerException != null)
-        {
-            errorMessage += $"\r\n内部错误: {ex.InnerException.Message}";
-        }
-        
-        // TODO: 替换为正式的日志记录机制
-        Console.WriteLine(errorMessage);
-        Console.WriteLine($"堆栈跟踪: {ex.StackTrace}");
-        
-        return null;
-    }
-
-    #endregion
-
     [return: NotNullIfNotNull(nameof(list))]
     public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T>? list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null)
     {
-        if (list == null || list.Count == 0)
-        {
-            return null;
-        }
+        //if (list == null || list.Count == 0)
+        //{
+        //    Logger?.LogWarning("要转换的集合为空");
+        //    return null;
+        //}
 
-        try
+        return SafeExecute(() =>
         {
             using var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add(sheetsName ?? "Sheet1");
-            
-            // 获取并缓存属性信息以提升性能
+            var worksheet = workbook.Worksheets.Add(sheetsName);
+
+            // 获取可读属性
             var properties = typeof(T).GetProperties()
                 .Where(p => p.CanRead)
                 .ToArray();
-                
+
             if (properties.Length == 0)
             {
-                return new MemoryStream(); // 没有可读属性，返回空表
+                Logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
+                return new MemoryStream();
             }
 
-            // Add title if specified
+            // 处理标题
             var currentRow = 1;
-
             if (!string.IsNullOrEmpty(title))
             {
                 var cell = worksheet.Cell(currentRow, 1);
@@ -121,46 +64,60 @@ public class ClosedXmlExcel : ExcelBase
                 currentRow++;
             }
 
-            // Add headers
+            // 设置表头
             for (var i = 0; i < properties.Length; i++)
             {
                 worksheet.Cell(currentRow, i + 1).Value = properties[i].Name;
+                worksheet.Cell(currentRow, i + 1).Style.Font.Bold = true;
             }
 
-            // 并行处理提升性能，适用于大数据集
-            if (list.Count > 1000)
+            // 判断是否需要并行处理
+            bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+
+            if (useParallelProcessing)
             {
-                var rowDataArray = new object[list.Count, properties.Length];
+                Logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
+
+                // 使用批处理提高性能
+                int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
+
+                // 预先计算所有值以避免在多线程中重复计算
+                var cellValues = new object[list.Count, properties.Length];
 
                 Parallel.For(0, list.Count, i =>
                 {
                     var item = list[i];
                     for (var j = 0; j < properties.Length; j++)
                     {
-                        rowDataArray[i, j] = properties[j].GetValue(item) ?? DBNull.Value;
+                        cellValues[i, j] = properties[j].GetValue(item) ?? DBNull.Value;
                     }
                 });
 
-                // 批量写入单元格值
-                for (var i = 0; i < list.Count; i++)
+                // 批量写入
+                for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
                 {
-                    for (var j = 0; j < properties.Length; j++)
+                    int batchEnd = Math.Min(batchStart + batchSize, list.Count);
+
+                    for (int i = batchStart; i < batchEnd; i++)
                     {
-                        var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                        SetCellValue(cell, rowDataArray[i, j]);
+                        for (var j = 0; j < properties.Length; j++)
+                        {
+                            var cell = worksheet.Cell(i + currentRow + 1, j + 1);
+                            WriteValueToCell(cell, cellValues[i, j]);
+                        }
                     }
                 }
             }
             else
             {
-                // 对于小数据集，直接处理
+                // 小数据集顺序处理
                 for (var i = 0; i < list.Count; i++)
                 {
                     var item = list[i];
                     for (var j = 0; j < properties.Length; j++)
                     {
                         var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                        SetCellValue(cell, properties[j].GetValue(item) ?? DBNull.Value);
+                        WriteValueToCell(cell, properties[j].GetValue(item));
                     }
                 }
             }
@@ -168,33 +125,36 @@ public class ClosedXmlExcel : ExcelBase
             // 执行自定义操作
             action?.Invoke(worksheet, properties);
 
-            // 应用基本格式
-            ApplyBasicFormatting(worksheet, list.Count + currentRow, properties.Length);
+            // 根据配置应用格式化
+            if (Options.AutoFitColumns)
+            {
+                ApplyBasicFormatting(worksheet, list.Count + currentRow, properties.Length);
+            }
 
             var ms = new MemoryStream();
             workbook.SaveAs(ms);
             ms.Position = 0;
             return ms;
-        }
-        catch (Exception ex)
-        {
-            return HandleException<MemoryStream>(ex, nameof(ConvertCollectionToMemoryStream));
-        }
+        }, null, nameof(ConvertCollectionToMemoryStream));
     }
 
+    /// <summary>
+    /// 将DataTable转换为MemoryStream
+    /// </summary>
     public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
     {
-        if (dataTable.IsNull() || dataTable.Rows.Count == 0)
+        if (dataTable == null || dataTable.Columns.Count == 0)
         {
+            Logger?.LogWarning("要转换的DataTable为空或没有列");
             return null;
         }
 
-        try
+        return SafeExecute(() =>
         {
             using var workbook = new XLWorkbook();
             var worksheet = workbook.Worksheets.Add(sheetsName);
 
-            // Add title if specified
+            // 处理标题
             var currentRow = 1;
             if (!string.IsNullOrEmpty(title))
             {
@@ -207,44 +167,58 @@ public class ClosedXmlExcel : ExcelBase
                 currentRow++;
             }
 
-            // Add headers
+            // 设置表头
             for (var i = 0; i < dataTable.Columns.Count; i++)
             {
                 worksheet.Cell(currentRow, i + 1).Value = dataTable.Columns[i].ColumnName;
+                worksheet.Cell(currentRow, i + 1).Style.Font.Bold = true;
             }
 
-            // 对于大数据表使用并行处理
-            if (dataTable.Rows.Count > 1000)
+            // 判断是否需要并行处理
+            bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+
+            if (useParallelProcessing)
             {
-                var rowDataArray = new object[dataTable.Rows.Count, dataTable.Columns.Count];
+                Logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
+
+                // 使用批处理提高性能
+                int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
+
+                // 预先计算所有值以避免在多线程中重复计算
+                var cellValues = new object[dataTable.Rows.Count, dataTable.Columns.Count];
 
                 Parallel.For(0, dataTable.Rows.Count, i =>
                 {
                     for (var j = 0; j < dataTable.Columns.Count; j++)
                     {
-                        rowDataArray[i, j] = dataTable.Rows[i][j];
+                        cellValues[i, j] = dataTable.Rows[i][j];
                     }
                 });
 
-                // 批量写入单元格值
-                for (var i = 0; i < dataTable.Rows.Count; i++)
+                // 批量写入
+                for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
                 {
-                    for (var j = 0; j < dataTable.Columns.Count; j++)
+                    int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
+
+                    for (int i = batchStart; i < batchEnd; i++)
                     {
-                        var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                        SetCellValue(cell, rowDataArray[i, j]);
+                        for (var j = 0; j < dataTable.Columns.Count; j++)
+                        {
+                            var cell = worksheet.Cell(i + currentRow + 1, j + 1);
+                            WriteValueToCell(cell, cellValues[i, j]);
+                        }
                     }
                 }
             }
             else
             {
-                // 对于小数据集直接处理
+                // 小数据集顺序处理
                 for (var i = 0; i < dataTable.Rows.Count; i++)
                 {
                     for (var j = 0; j < dataTable.Columns.Count; j++)
                     {
                         var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                        SetCellValue(cell, dataTable.Rows[i][j]);
+                        WriteValueToCell(cell, dataTable.Rows[i][j]);
                     }
                 }
             }
@@ -252,35 +226,45 @@ public class ClosedXmlExcel : ExcelBase
             // 执行自定义操作
             action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
 
-            // 应用基本格式
-            ApplyBasicFormatting(worksheet, dataTable.Rows.Count + currentRow, dataTable.Columns.Count);
+            // 根据配置应用格式化
+            if (Options.AutoFitColumns)
+            {
+                ApplyBasicFormatting(worksheet, dataTable.Rows.Count + currentRow, dataTable.Columns.Count);
+            }
 
             var ms = new MemoryStream();
             workbook.SaveAs(ms);
             ms.Position = 0;
             return ms;
-        }
-        catch (Exception ex)
-        {
-            return HandleException<MemoryStream>(ex, nameof(ConvertDataTableToMemoryStream));
-        }
+        }, null, nameof(ConvertDataTableToMemoryStream));
     }
 
+    /// <summary>
+    /// 将Stream转换为DataTable
+    /// </summary>
     public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (stream is not { CanRead: true } || stream.Length <= 0)
         {
+            Logger?.LogWarning("无效的Stream: 不可读或长度为0");
             return null;
         }
 
-        try
+        return SafeExecute(() =>
         {
-            using var workbook = new XLWorkbook(stream);
-            IXLWorksheet worksheet;
+            // 创建新的流以避免流位置问题
+            using var memoryStream = new MemoryStream();
+            stream.CopyTo(memoryStream);
+            memoryStream.Position = 0;
 
+            using var workbook = new XLWorkbook(memoryStream);
+
+            // 获取工作表
+            IXLWorksheet worksheet;
             if (string.IsNullOrEmpty(sheetName))
             {
                 worksheet = workbook.Worksheet(1);
+                Logger?.LogDebug("使用第一个工作表, 名称: {SheetName}", worksheet.Name);
             }
             else if (workbook.Worksheets.TryGetWorksheet(sheetName, out var namedSheet))
             {
@@ -288,253 +272,316 @@ public class ClosedXmlExcel : ExcelBase
             }
             else
             {
-                // 如果找不到指定名称的工作表，则使用第一个工作表
                 worksheet = workbook.Worksheet(1);
+                Logger?.LogWarning("未找到指定的工作表 {SheetName}, 使用第一个工作表代替", sheetName);
             }
 
-            var dt = new DataTable();
-            var firstRow = true;
-            var startRow = headerRowIndex + 1;
-            var usedRange = worksheet.RangeUsed();
+            // 创建DataTable
+            var dt = new DataTable(worksheet.Name);
 
+            // 检查是否有数据
+            var usedRange = worksheet.RangeUsed();
             if (usedRange == null)
             {
-                return dt; // 返回空表
+                Logger?.LogWarning("工作表 {SheetName} 没有数据", worksheet.Name);
+                return dt;
             }
 
-            // 预先获取范围以提高性能
+            // 处理行数据
             var rows = usedRange.RowsUsed().ToList();
-            if (!rows.Any() || rows[0].RowNumber() < startRow)
+            if (rows.Count <= headerRowIndex)
             {
+                Logger?.LogWarning("工作表 {SheetName} 的行数 {RowCount} 小于或等于表头行号 {HeaderRowIndex}",
+                    worksheet.Name, rows.Count, headerRowIndex);
                 return dt;
             }
 
             // 处理表头
-            var headerRow = rows.First(r => r.RowNumber() >= startRow);
-            foreach (IXLCell cell in headerRow.CellsUsed())
+            var headerRow = headerRowIndex >= 0
+                ? rows.FirstOrDefault(r => r.RowNumber() == headerRowIndex + 1)
+                : null;
+
+            if (headerRow == null && headerRowIndex >= 0)
             {
-                var columnName = cell.Value.ToString();
-                dt.Columns.Add(columnName.IsNullOrEmpty() ? $"Column{cell.Address.ColumnNumber}" : columnName);
+                // 如果找不到表头行但指定了表头行号，使用默认列名
+                headerRowIndex = -1;
             }
 
-            // 处理数据行
-            foreach (var row in rows.Where(r => r.RowNumber() > headerRow.RowNumber()))
-            {
-                var toInsert = dt.NewRow();
-                var i = 0;
-                foreach (IXLCell cell in row.Cells(1, dt.Columns.Count))
-                {
-                    if (i >= dt.Columns.Count) break;
+            // 读取列名
+            var columnCount = rows.Max(r => r.CellsUsed().Count());
 
-                    // 根据单元格的数据类型进行转换
+            if (headerRowIndex < 0)
+            {
+                // 使用默认列名
+                for (int i = 0; i < columnCount; i++)
+                {
+                    dt.Columns.Add($"Column{i + 1}");
+                }
+            }
+            else
+            {
+                // 使用表头行作为列名
+                foreach (var cell in headerRow!.CellsUsed())
+                {
+                    var columnName = cell.Value.ToString();
+                    if (string.IsNullOrEmpty(columnName))
+                    {
+                        columnName = $"Column{cell.Address.ColumnNumber}";
+                    }
+                    else if (dt.Columns.Contains(columnName))
+                    {
+                        columnName = $"{columnName}_{cell.Address.ColumnNumber}";
+                    }
+
+                    dt.Columns.Add(columnName);
+                }
+            }
+
+            // 读取数据行
+            var startRow = headerRowIndex < 0 ? 0 : headerRowIndex + 1;
+            foreach (var row in rows.Where(r => r.RowNumber() > startRow))
+            {
+                var dataRow = dt.NewRow();
+                var hasData = false;
+
+                foreach (var cell in row.CellsUsed())
+                {
+                    int colIndex = cell.Address.ColumnNumber - 1;
+                    if (colIndex >= dt.Columns.Count) continue;
+
+                    // 根据单元格类型读取值
                     switch (cell.DataType)
                     {
                         case XLDataType.DateTime:
-                            toInsert[i] = cell.GetDateTime();
+                            dataRow[colIndex] = cell.GetDateTime();
+                            hasData = true;
                             break;
                         case XLDataType.Number:
-                            toInsert[i] = cell.GetDouble();
+                            dataRow[colIndex] = cell.GetDouble();
+                            hasData = true;
                             break;
                         case XLDataType.Boolean:
-                            toInsert[i] = cell.GetBoolean();
+                            dataRow[colIndex] = cell.GetBoolean();
+                            hasData = true;
                             break;
                         case XLDataType.Text:
-                            toInsert[i] = cell.GetString();
+                            var text = cell.GetString();
+                            dataRow[colIndex] = string.IsNullOrEmpty(text) ? DBNull.Value : (object)text;
+                            hasData = hasData || !string.IsNullOrEmpty(text);
                             break;
                         default:
-                            toInsert[i] = cell.Value;
+                            var value = cell.Value;
+                            dataRow[colIndex] = value.IsBlank ? DBNull.Value : value;
+                            hasData = hasData || !value.IsBlank;
                             break;
                     }
-                    i++;
                 }
-                dt.Rows.Add(toInsert);
-            }
 
-            if (addEmptyRow && dt.Rows.Count > 0)
-            {
-                dt.Rows.Add(dt.NewRow());
+                // 只添加有数据的行和指定添加空行的情况
+                if (hasData || addEmptyRow)
+                {
+                    dt.Rows.Add(dataRow);
+                }
             }
 
             return dt;
-        }
-        catch (Exception ex)
-        {
-            return HandleException<DataTable>(ex, nameof(ConvertStreamToDataTable));
-        }
+        }, new DataTable(), nameof(ConvertStreamToDataTable));
     }
 
+    /// <summary>
+    /// 将Stream转换为对象列表
+    /// </summary>
     public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         var dt = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
-        if (dt == null || dt.Rows.Count == 0) return new List<T>();
-
-        try
+        if (dt == null || dt.Columns.Count == 0)
         {
-            var list = new List<T>(dt.Rows.Count);
+            Logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
+            return new List<T>();
+        }
+
+        return SafeExecute(() =>
+        {
+            var result = new List<T>(dt.Rows.Count);
             var properties = typeof(T).GetProperties()
-                .Where(p => p.CanWrite)  // 只处理可写属性
+                .Where(p => p.CanWrite)
                 .ToArray();
 
-            var propertyDict = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-
-            // 创建属性字典以提高查找效率 - 使用不区分大小写的比较器
-            foreach (var prop in properties)
+            if (properties.Length == 0)
             {
-                propertyDict[prop.Name] = prop;
+                Logger?.LogWarning("类型 {Type} 没有可写属性", typeof(T).Name);
+                return result;
             }
 
-            // 创建列到属性的映射
+            // 创建列名到属性的映射（不区分大小写）
+            var propertyMap = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in properties)
+            {
+                propertyMap[prop.Name] = prop;
+            }
+
+            // 创建列索引到属性的映射
             var columnMappings = new Dictionary<int, PropertyInfo>();
             for (int i = 0; i < dt.Columns.Count; i++)
             {
-                string columnName = dt.Columns[i].ColumnName;
-                if (propertyDict.TryGetValue(columnName, out var prop))
+                if (propertyMap.TryGetValue(dt.Columns[i].ColumnName, out var property))
                 {
-                    columnMappings[i] = prop;
+                    columnMappings[i] = property;
                 }
             }
 
-            // 使用并行处理提高大数据集性能
-            if (dt.Rows.Count > 1000)
+            if (columnMappings.Count == 0)
             {
-                var resultList = new T[dt.Rows.Count];
+                Logger?.LogWarning("未找到任何列名与类型 {Type} 的属性匹配", typeof(T).Name);
+                return result;
+            }
+
+            // 判断是否使用并行处理
+            bool useParallel = dt.Rows.Count > Options.ParallelProcessingThreshold;
+
+            if (useParallel)
+            {
+                Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dt.Rows.Count);
+
+                var items = new T[dt.Rows.Count];
 
                 Parallel.For(0, dt.Rows.Count, i =>
                 {
-                    var item = Activator.CreateInstance<T>();
+                    var item = new T();
                     var row = dt.Rows[i];
 
                     foreach (var mapping in columnMappings)
                     {
                         int colIndex = mapping.Key;
-                        PropertyInfo prop = mapping.Value;
+                        PropertyInfo property = mapping.Value;
+                        var value = row[colIndex];
 
-                        if (row[colIndex] is DBNull) continue;
-
-                        try
+                        if (value != DBNull.Value)
                         {
-                            SetPropertyValue(item, prop, row[colIndex]);
-                        }
-                        catch
-                        {
-                            // 忽略转换错误
+                            // 使用基类的安全属性设置方法
+                            SetPropertySafely(item, property, value);
                         }
                     }
 
-                    resultList[i] = item;
+                    items[i] = item;
                 });
 
-                list.AddRange(resultList);
+                result.AddRange(items);
             }
             else
             {
                 foreach (DataRow row in dt.Rows)
                 {
-                    var item = Activator.CreateInstance<T>();
+                    var item = new T();
 
                     foreach (var mapping in columnMappings)
                     {
                         int colIndex = mapping.Key;
-                        PropertyInfo prop = mapping.Value;
+                        PropertyInfo property = mapping.Value;
+                        var value = row[colIndex];
 
-                        if (row[colIndex] is DBNull) continue;
-
-                        try
+                        if (value != DBNull.Value)
                         {
-                            SetPropertyValue(item, prop, row[colIndex]);
-                        }
-                        catch
-                        {
-                            // 忽略转换错误
+                            // 使用基类的安全属性设置方法
+                            SetPropertySafely(item, property, value);
                         }
                     }
 
-                    list.Add(item);
+                    result.Add(item);
                 }
             }
 
-            return list;
-        }
-        catch (Exception ex)
+            return result;
+        }, new List<T>(), nameof(ConvertStreamToList));
+    }
+
+    #region 私有辅助方法
+
+    /// <summary>
+    /// 将值写入Excel单元格并设置适当的格式
+    /// </summary>
+    private void WriteValueToCell(IXLCell cell, object? value)
+    {
+        if (value == null || value is DBNull)
         {
-            return HandleException<List<T>>(ex, nameof(ConvertStreamToList));
+            cell.Value = string.Empty;
+            return;
+        }
+
+        // 根据值类型进行特殊处理
+        switch (value)
+        {
+            case DateTime dateTime:
+                cell.Value = dateTime;
+                cell.Style.DateFormat.Format = Options.DefaultDateFormat;
+                break;
+            case bool boolean:
+                cell.Value = boolean;
+                break;
+            case decimal decimalValue:
+                cell.Value = decimalValue;
+                cell.Style.NumberFormat.Format = "#,##0.00";
+                break;
+            case double doubleValue:
+                cell.Value = doubleValue;
+                cell.Style.NumberFormat.Format = doubleValue % 1 == 0 ? "#,##0" : "#,##0.00";
+                break;
+            case float floatValue:
+                cell.Value = floatValue;
+                cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? "#,##0" : "#,##0.00";
+                break;
+            case int or long or short or byte or sbyte or ushort or uint or ulong:
+                cell.Value = Convert.ToInt64(value);
+                cell.Style.NumberFormat.Format = "#,##0";
+                break;
+            default:
+                cell.Value = value.ToString();
+                break;
+        }
+
+        // 应用边框
+        DrawBorder(cell);
+    }
+
+    /// <summary>
+    /// 设置Excel单元格格式和边框
+    /// </summary>
+    private void ApplyBasicFormatting(IXLWorksheet worksheet, int rowCount, int columnCount)
+    {
+        // 设置标题行样式
+        var headerRow = worksheet.Row(1);
+        headerRow.Style.Font.Bold = true;
+        headerRow.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+        // 设置所有单元格自动适应宽度
+        worksheet.Columns().AdjustToContents();
+
+        // 对标题行进行特殊处理，最小宽度为12
+        for (int i = 1; i <= columnCount; i++)
+        {
+            var column = worksheet.Column(i);
+            if (column.Width < 12)
+                column.Width = 12;
+        }
+
+        // 设置表格边框
+        if (rowCount > 1 && columnCount > 0)
+        {
+            worksheet.Range(1, 1, rowCount, columnCount).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            worksheet.Range(1, 1, rowCount, columnCount).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
         }
     }
 
     /// <summary>
-    /// 根据属性类型安全设置属性值
+    /// 为单元格添加边框
     /// </summary>
-    private void SetPropertyValue<T>(T item, PropertyInfo prop, object value)
+    private static void DrawBorder(IXLCell cell)
     {
-        if (value == null || value is DBNull)
-            return;
-
-        var propType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
-
-        try
-        {
-            if (propType.IsEnum)
-            {
-                // 处理枚举类型
-                if (int.TryParse(value.ToString(), out int enumValue))
-                {
-                    prop.SetValue(item, Enum.ToObject(propType, enumValue));
-                }
-                else
-                {
-                    var strValue = value?.ToString();
-                    if (!string.IsNullOrWhiteSpace(strValue) && Enum.TryParse(propType, strValue, true, out object parsedEnum))
-                    {
-                        prop.SetValue(item, parsedEnum);
-                    }
-                }
-            }
-            else if (propType == typeof(Guid))
-            {
-                // 处理GUID
-                if (value is Guid guid)
-                {
-                    prop.SetValue(item, guid);
-                }
-                else if (Guid.TryParse(value.ToString(), out Guid parsedGuid))
-                {
-                    prop.SetValue(item, parsedGuid);
-                }
-            }
-            else if (propType == typeof(DateTime))
-            {
-                // 处理日期时间
-                if (value is DateTime dateTime)
-                {
-                    prop.SetValue(item, dateTime);
-                }
-                else if (DateTime.TryParse(value.ToString(), out DateTime parsedDate))
-                {
-                    prop.SetValue(item, parsedDate);
-                }
-            }
-            else if (propType == typeof(bool))
-            {
-                // 处理布尔值
-                if (value is bool boolValue)
-                {
-                    prop.SetValue(item, boolValue);
-                }
-                else
-                {
-                    string strValue = value.ToString().ToLower();
-                    prop.SetValue(item, strValue == "true" || strValue == "1" || strValue == "yes" || strValue == "y");
-                }
-            }
-            else
-            {
-                // 处理其他基本类型
-                prop.SetValue(item, Convert.ChangeType(value, propType));
-            }
-        }
-        catch
-        {
-            // 忽略转换错误
-        }
+        cell.Style.Border.TopBorder = XLBorderStyleValues.Thin;
+        cell.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+        cell.Style.Border.LeftBorder = XLBorderStyleValues.Thin;
+        cell.Style.Border.RightBorder = XLBorderStyleValues.Thin;
     }
+
+    #endregion
 }
