@@ -442,7 +442,89 @@ public class EPPlusExcel : ExcelBase
             return ConvertWorksheetToDataTable(worksheet, headerRowIndex, addEmptyRow);
         }, new DataTable(), nameof(ConvertStreamToDataTable));
     }
+    
+    /// <summary>
+    /// 流式读取（内存优化）
+    /// </summary>
+    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, 
+        int headerRowIndex = 0) where T : class, new()
+    {
+        if (stream == null || !stream.CanRead)
+            yield break;
             
+        using var package = new ExcelPackage(stream);
+        
+        var workbook = package.Workbook;
+        if (workbook.Worksheets.Count == 0)
+            yield break;
+            
+        ExcelWorksheet worksheet = GetWorksheet(workbook, sheetName);
+        
+        if (worksheet?.Dimension == null)
+            yield break;
+            
+        // 读取表头
+        var columnMappings = GetColumnMappings<T>(worksheet, headerRowIndex);
+        
+        // 流式读取数据行
+        int startRow = headerRowIndex + 2; // EPPlus从1开始计数，加2表示从表头下一行开始
+        for (int rowNum = startRow; rowNum <= worksheet.Dimension.End.Row; rowNum++)
+        {
+            var item = new T();
+            bool hasData = false;
+            
+            foreach (var mapping in columnMappings)
+            {
+                var cell = worksheet.Cells[rowNum, mapping.Key];
+                if (cell?.Value != null)
+                {
+                    hasData = true;
+                    var value = GetTypedCellValue(cell);
+                    
+                    if (value != DBNull.Value)
+                    {
+                        SetPropertySafely(item, mapping.Value, value);
+                    }
+                }
+            }
+            
+            if (hasData)
+                yield return item;
+        }
+    }
+    
+    private ExcelWorksheet GetWorksheet(ExcelWorkbook workbook, string? sheetName)
+    {
+        if (!string.IsNullOrEmpty(sheetName))
+        {
+            return workbook.Worksheets[sheetName] ?? workbook.Worksheets[0];
+        }
+        return workbook.Worksheets[0];
+    }
+    
+    private Dictionary<int, PropertyInfo> GetColumnMappings<T>(ExcelWorksheet worksheet, int headerRowIndex)
+    {
+        var columnMappings = new Dictionary<int, PropertyInfo>();
+        var properties = typeof(T).GetProperties().Where(p => p.CanWrite)
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+            
+        if (headerRowIndex >= 0)
+        {
+            int colCount = worksheet.Dimension.End.Column;
+            
+            for (int i = 1; i <= colCount; i++)
+            {
+                string? columnName = worksheet.Cells[headerRowIndex + 1, i].Text?.Trim();
+                if (!string.IsNullOrEmpty(columnName) && properties.TryGetValue(columnName, out var property))
+                {
+                    columnMappings[i] = property;
+                }
+            }
+        }
+        
+        return columnMappings;
+    }
+    
     #region 私有辅助方法
     
     /// <summary>

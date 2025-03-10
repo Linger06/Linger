@@ -512,6 +512,98 @@ public abstract class ExcelBase : IExcel
         }
     }
     
+    /// <summary>
+    /// 批量写入Excel时通用的行创建方法
+    /// </summary>
+    /// <typeparam name="T">行数据类型</typeparam>
+    /// <param name="currentRow">当前行索引</param>
+    /// <param name="rowData">行数据</param>
+    /// <param name="columnMappings">列映射</param>
+    /// <param name="createCellAction">创建单元格的操作</param>
+    protected void ProcessExcelRow<T>(int currentRow, T rowData, 
+        Dictionary<string, int> columnMappings, 
+        Action<string, int, object?> createCellAction) where T : class
+    {
+        if (rowData == null) return;
+        
+        var type = typeof(T);
+        var properties = type.GetProperties();
+        
+        foreach (var prop in properties)
+        {
+            if (!prop.CanRead) continue;
+            
+            if (columnMappings.TryGetValue(prop.Name, out int columnIndex))
+            {
+                var value = prop.GetValue(rowData);
+                createCellAction(prop.Name, columnIndex, value);
+            }
+        }
+    }
+    
+    /// <summary>
+    /// 创建Excel模板
+    /// </summary>
+    /// <typeparam name="T">数据类型</typeparam>
+    /// <param name="sheetName">工作表名称</param>
+    /// <returns>Excel模板内存流</returns>
+    public MemoryStream CreateExcelTemplate<T>() where T : class, new()
+    {
+        var type = typeof(T);
+        var properties = type.GetProperties().Where(p => p.CanRead).ToArray();
+        
+        // 创建一个空的列表，只包含列名
+        var list = new List<T>(1);
+        
+        // 使用现有方法创建模板
+        var result = ConvertCollectionToMemoryStream(list, type.Name, $"{type.Name} 模板");
+        
+        if (result == null)
+            return new MemoryStream();
+            
+        return result;
+    }
+    
+    /// <summary>
+    /// 将对象转换为DataRow
+    /// </summary>
+    protected DataRow ObjectToDataRow<T>(T obj, DataTable dt) where T : class
+    {
+        var row = dt.NewRow();
+        var properties = typeof(T).GetProperties().Where(p => p.CanRead);
+        
+        foreach (var prop in properties)
+        {
+            if (dt.Columns.Contains(prop.Name))
+            {
+                var value = prop.GetValue(obj);
+                row[prop.Name] = value ?? DBNull.Value;
+            }
+        }
+        
+        return row;
+    }
+    
+    /// <summary>
+    /// 将流保存到文件
+    /// </summary>
+    protected async Task SaveStreamToFileAsync(Stream stream, string filePath)
+    {
+        EnsureDirectoryExists(filePath);
+        using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+        stream.Position = 0;
+        await stream.CopyToAsync(fileStream);
+        await fileStream.FlushAsync();
+    }
+
+    /// <summary>
+    /// 获取Excel单元格值的通用方法
+    /// </summary>
+    protected object GetExcelCellValue(object cellValue, bool isDateFormat = false)
+    {
+        return ExcelValueConverter.ConvertToDbValue(cellValue, isDateFormat);
+    }
+    
     #region 异步方法
     
     /// <summary>
@@ -670,6 +762,21 @@ public class ExcelOptions
     /// 批量写入大小
     /// </summary>
     public int BatchSize { get; set; } = 5000;
+    
+    /// <summary>
+    /// 是否在错误时继续处理（不抛出异常）
+    /// </summary>
+    public bool ContinueOnError { get; set; } = true;
+    
+    /// <summary>
+    /// 是否使用内存优化（处理大文件时）
+    /// </summary>
+    public bool UseMemoryOptimization { get; set; } = false;
+    
+    /// <summary>
+    /// 内存优化缓冲区大小（行数）
+    /// </summary>
+    public int MemoryBufferSize { get; set; } = 1000;
 }
 
 /// <summary>

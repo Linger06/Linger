@@ -343,6 +343,101 @@ public class ClosedXmlExcel : ExcelBase
         }, new DataTable(), nameof(ConvertStreamToDataTable));
     }
 
+    /// <summary>
+    /// 扩展的流式读取方法 - 适用于大文件
+    /// </summary>
+    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, 
+        int headerRowIndex = 0) where T : class, new()
+    {
+        if (stream == null || stream.Length == 0)
+            yield break;
+            
+        using var memoryStream = new MemoryStream();
+        stream.CopyTo(memoryStream);
+        memoryStream.Position = 0;
+        
+        using var workbook = new XLWorkbook(memoryStream);
+        
+        IXLWorksheet worksheet;
+        if (string.IsNullOrEmpty(sheetName))
+        {
+            worksheet = workbook.Worksheet(1);
+        }
+        else if (workbook.Worksheets.TryGetWorksheet(sheetName, out var namedSheet))
+        {
+            worksheet = namedSheet;
+        }
+        else
+        {
+            worksheet = workbook.Worksheet(1);
+        }
+        
+        // 获取使用范围
+        var usedRange = worksheet.RangeUsed();
+        if (usedRange == null) yield break;
+        
+        // 读取表头并创建属性映射
+        var columnMappings = GetPropertyMappings<T>(worksheet, headerRowIndex);
+        
+        // 流式读取数据
+        var startRow = headerRowIndex < 0 ? 1 : headerRowIndex + 2;
+        foreach (var row in worksheet.RowsUsed()
+            .Where(r => r.RowNumber() >= startRow))
+        {
+            var item = new T();
+            bool hasData = false;
+            
+            foreach (var cell in row.CellsUsed())
+            {
+                int colIndex = cell.Address.ColumnNumber;
+                if (columnMappings.TryGetValue(colIndex, out var property))
+                {
+                    bool isDateFormat = cell.DataType == XLDataType.DateTime;
+                    var value = ExcelValueConverter.ConvertToDbValue(cell.Value, isDateFormat);
+                    
+                    if (value != DBNull.Value)
+                    {
+                        SetPropertySafely(item, property, value);
+                        hasData = true;
+                    }
+                }
+            }
+            
+            if (hasData)
+                yield return item;
+                
+            // 使用更小的内存块减少内存压力
+            if (row.RowNumber() % Options.MemoryBufferSize == 0 && Options.UseMemoryOptimization)
+            {
+                GC.Collect();
+            }
+        }
+    }
+    
+    private Dictionary<int, PropertyInfo> GetPropertyMappings<T>(IXLWorksheet worksheet, int headerRowIndex)
+    {
+        var result = new Dictionary<int, PropertyInfo>();
+        if (headerRowIndex < 0) return result;
+        
+        var headerRow = worksheet.Row(headerRowIndex + 1);
+        var properties = typeof(T).GetProperties()
+            .Where(p => p.CanWrite)
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+            
+        foreach (var cell in headerRow.CellsUsed())
+        {
+            var columnName = cell.Value.ToString();
+            if (string.IsNullOrEmpty(columnName)) continue;
+            
+            if (properties.TryGetValue(columnName, out var property))
+            {
+                result[cell.Address.ColumnNumber] = property;
+            }
+        }
+        
+        return result;
+    }
+
     #region 私有辅助方法
 
     /// <summary>

@@ -18,6 +18,9 @@ namespace Linger.Excel.Npoi;
 /// </summary>
 public class NpoiExcel : ExcelBase
 {
+    // 缓存样式数据，避免重复创建
+    private readonly Dictionary<string, ICellStyle> _styleCache = new();
+    
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -353,7 +356,115 @@ public class NpoiExcel : ExcelBase
         }, null, nameof(ConvertStreamToDataTable));
     }
 
+    /// <summary>
+    /// 流式读取大Excel文件
+    /// </summary>
+    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, 
+        int headerRowIndex = 0) where T : class, new()
+    {
+        if (stream == null || !stream.CanRead)
+            yield break;
+            
+        // 使用BufferedStream提高读取性能
+        using var bufferedStream = new BufferedStream(stream);
+        IWorkbook workbook;
+        
+        try
+        {
+            workbook = WorkbookFactory.Create(bufferedStream);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "无法创建工作簿");
+            yield break;
+        }
+        
+        ISheet sheet;
+        if (string.IsNullOrWhiteSpace(sheetName))
+        {
+            sheet = workbook.GetSheetAt(0);
+        }
+        else
+        {
+            sheet = workbook.GetSheet(sheetName) ?? workbook.GetSheetAt(0);
+        }
+        
+        // 读取表头并创建属性映射
+        var propertyMap = CreatePropertyMap<T>(sheet, headerRowIndex);
+        
+        // 流式读取数据行
+        for (int rowNum = headerRowIndex + 1; rowNum <= sheet.LastRowNum; rowNum++)
+        {
+            var row = sheet.GetRow(rowNum);
+            if (row == null) continue;
+            
+            var item = new T();
+            bool hasData = false;
+            
+            foreach (var mapping in propertyMap)
+            {
+                int colIndex = mapping.Key;
+                if (colIndex >= row.LastCellNum) continue;
+                
+                var cell = row.GetCell(colIndex);
+                if (cell != null)
+                {
+                    var value = GetCellValue(cell);
+                    if (value != DBNull.Value)
+                    {
+                        SetPropertySafely(item, mapping.Value, value);
+                        hasData = true;
+                    }
+                }
+            }
+            
+            if (hasData)
+                yield return item;
+        }
+    }
+    
+    private Dictionary<int, PropertyInfo> CreatePropertyMap<T>(ISheet sheet, int headerRowIndex)
+    {
+        var propertyMap = new Dictionary<int, PropertyInfo>();
+        var headerRow = sheet.GetRow(headerRowIndex);
+        if (headerRow == null) return propertyMap;
+        
+        var properties = typeof(T).GetProperties()
+            .Where(p => p.CanWrite)
+            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+            
+        for (int i = headerRow.FirstCellNum; i < headerRow.LastCellNum; i++)
+        {
+            var cell = headerRow.GetCell(i);
+            if (cell == null) continue;
+            
+            var columnName = cell.ToString();
+            if (string.IsNullOrEmpty(columnName)) continue;
+            
+            if (properties.TryGetValue(columnName, out var property))
+            {
+                propertyMap[i] = property;
+            }
+        }
+        
+        return propertyMap;
+    }
+
     #region 私有辅助方法
+
+    /// <summary>
+    /// 获取或创建样式
+    /// </summary>
+    private ICellStyle GetOrCreateStyle(IWorkbook workbook, string styleKey, Action<ICellStyle> styleInitializer)
+    {
+        if (!_styleCache.TryGetValue(styleKey, out var style))
+        {
+            style = workbook.CreateCellStyle();
+            styleInitializer(style);
+            _styleCache[styleKey] = style;
+        }
+        return style;
+    }
 
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式
