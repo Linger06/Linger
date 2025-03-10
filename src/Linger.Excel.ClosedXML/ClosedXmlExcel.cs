@@ -1,5 +1,4 @@
 ﻿using System.Data;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
@@ -27,7 +26,7 @@ public class ClosedXmlExcel : ExcelBase
     /// <summary>
     /// 将对象集合转换为MemoryStream
     /// </summary>
-    [return: NotNullIfNotNull(nameof(list))]
+    //[return: NotNullIfNotNull(nameof(list))]
     public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T>? list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null)
     {
         //if (list == null || list.Count == 0)
@@ -320,11 +319,11 @@ public class ClosedXmlExcel : ExcelBase
                     cellValue = ExcelValueConverter.ConvertToDbValue(
                         cell.DataType == XLDataType.DateTime ? cell.GetDateTime() :
                         cell.DataType == XLDataType.Number ? cell.GetDouble() :
-                        cell.DataType == XLDataType.Boolean ? cell.GetBoolean() : 
-                        cell.DataType == XLDataType.Text ? cell.GetString() : 
+                        cell.DataType == XLDataType.Boolean ? cell.GetBoolean() :
+                        cell.DataType == XLDataType.Text ? cell.GetString() :
                         cell.Value,
                         isDateFormat);
-                    
+
                     dataRow[colIndex] = cellValue;
                     if (cellValue != DBNull.Value)
                     {
@@ -346,18 +345,18 @@ public class ClosedXmlExcel : ExcelBase
     /// <summary>
     /// 扩展的流式读取方法 - 适用于大文件
     /// </summary>
-    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, 
+    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null,
         int headerRowIndex = 0) where T : class, new()
     {
         if (stream == null || stream.Length == 0)
             yield break;
-            
+
         using var memoryStream = new MemoryStream();
         stream.CopyTo(memoryStream);
         memoryStream.Position = 0;
-        
+
         using var workbook = new XLWorkbook(memoryStream);
-        
+
         IXLWorksheet worksheet;
         if (string.IsNullOrEmpty(sheetName))
         {
@@ -371,14 +370,14 @@ public class ClosedXmlExcel : ExcelBase
         {
             worksheet = workbook.Worksheet(1);
         }
-        
+
         // 获取使用范围
         var usedRange = worksheet.RangeUsed();
         if (usedRange == null) yield break;
-        
+
         // 读取表头并创建属性映射
         var columnMappings = GetPropertyMappings<T>(worksheet, headerRowIndex);
-        
+
         // 流式读取数据
         var startRow = headerRowIndex < 0 ? 1 : headerRowIndex + 2;
         foreach (var row in worksheet.RowsUsed()
@@ -386,7 +385,7 @@ public class ClosedXmlExcel : ExcelBase
         {
             var item = new T();
             bool hasData = false;
-            
+
             foreach (var cell in row.CellsUsed())
             {
                 int colIndex = cell.Address.ColumnNumber;
@@ -394,7 +393,7 @@ public class ClosedXmlExcel : ExcelBase
                 {
                     bool isDateFormat = cell.DataType == XLDataType.DateTime;
                     var value = ExcelValueConverter.ConvertToDbValue(cell.Value, isDateFormat);
-                    
+
                     if (value != DBNull.Value)
                     {
                         SetPropertySafely(item, property, value);
@@ -402,10 +401,10 @@ public class ClosedXmlExcel : ExcelBase
                     }
                 }
             }
-            
+
             if (hasData)
                 yield return item;
-                
+
             // 使用更小的内存块减少内存压力
             if (row.RowNumber() % Options.MemoryBufferSize == 0 && Options.UseMemoryOptimization)
             {
@@ -413,28 +412,28 @@ public class ClosedXmlExcel : ExcelBase
             }
         }
     }
-    
+
     private Dictionary<int, PropertyInfo> GetPropertyMappings<T>(IXLWorksheet worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, PropertyInfo>();
         if (headerRowIndex < 0) return result;
-        
+
         var headerRow = worksheet.Row(headerRowIndex + 1);
         var properties = typeof(T).GetProperties()
             .Where(p => p.CanWrite)
             .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
-            
+
         foreach (var cell in headerRow.CellsUsed())
         {
             var columnName = cell.Value.ToString();
             if (string.IsNullOrEmpty(columnName)) continue;
-            
+
             if (properties.TryGetValue(columnName, out var property))
             {
                 result[cell.Address.ColumnNumber] = property;
             }
         }
-        
+
         return result;
     }
 

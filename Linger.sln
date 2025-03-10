@@ -67,6 +67,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linger.FileSystem.UnitTests
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linger.UnitTests", "tests\Linger.UnitTests\Linger.UnitTests.csproj", "{74358696-51CD-3C35-C352-0F889F747093}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Linger.Excel.Tests", "tests\Linger.Excel.Tests\Linger.Excel.Tests.csproj", "{3D8585BB-6CE5-57D1-361E-F42081DFC892}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -389,6 +391,18 @@ Global
 		{74358696-51CD-3C35-C352-0F889F747093}.Release|x64.Build.0 = Release|Any CPU
 		{74358696-51CD-3C35-C352-0F889F747093}.Release|x86.ActiveCfg = Release|Any CPU
 		{74358696-51CD-3C35-C352-0F889F747093}.Release|x86.Build.0 = Release|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Debug|x64.Build.0 = Debug|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Debug|x86.Build.0 = Debug|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Release|x64.ActiveCfg = Release|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Release|x64.Build.0 = Release|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Release|x86.ActiveCfg = Release|Any CPU
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -420,6 +434,7 @@ Global
 		{BDBF580E-0C4E-3BC3-A216-559AE50B2600} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{0F265AA0-A358-2113-C08A-26777833D664} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{74358696-51CD-3C35-C352-0F889F747093} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{3D8585BB-6CE5-57D1-361E-F42081DFC892} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B439A6BE-A3F1-4AA2-88AF-3B1FD891908E}

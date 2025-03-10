@@ -42,18 +42,22 @@ namespace Linger.Excel.Contracts.Utils
         
         private static string GetDisplayName(PropertyInfo property)
         {
+            // 优先使用DisplayAttribute
             var displayAttribute = property.GetCustomAttribute<DisplayAttribute>();
             if (displayAttribute != null && !string.IsNullOrEmpty(displayAttribute.Name))
                 return displayAttribute.Name;
                 
+            // 其次使用DisplayNameAttribute
             var displayNameAttribute = property.GetCustomAttribute<DisplayNameAttribute>();
             if (displayNameAttribute != null && !string.IsNullOrEmpty(displayNameAttribute.DisplayName))
                 return displayNameAttribute.DisplayName;
                 
+            // 最后尝试使用ExcelColumnAttribute
             var excelColumnAttribute = property.GetCustomAttribute<ExcelColumnAttribute>();
             if (excelColumnAttribute != null && !string.IsNullOrEmpty(excelColumnAttribute.ColumnName))
                 return excelColumnAttribute.ColumnName;
                 
+            // 默认返回属性名
             return property.Name;
         }
         
@@ -64,10 +68,12 @@ namespace Linger.Excel.Contracts.Utils
         
         private static int GetColumnOrder(PropertyInfo property)
         {
+            // 优先使用DisplayAttribute的Order
             var columnOrderAttribute = property.GetCustomAttribute<DisplayAttribute>();
             if (columnOrderAttribute != null && columnOrderAttribute.Order >= 0)
                 return columnOrderAttribute.Order;
                 
+            // 其次使用ExcelColumnAttribute的Index
             var excelColumnAttribute = property.GetCustomAttribute<ExcelColumnAttribute>();
             if (excelColumnAttribute != null && excelColumnAttribute.Index != int.MaxValue)
                 return excelColumnAttribute.Index;
