@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using System.Reflection;
+using Linger.Excel.Contracts.Utils;
 using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 
@@ -305,7 +306,7 @@ public abstract class ExcelBase : IExcel
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的对象列表</returns>
-    public abstract List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T :class, new();
+    //public abstract List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T :class, new();
 
     /// <summary>
     /// 将DataTable转换为MemoryStream
@@ -336,6 +337,181 @@ public abstract class ExcelBase : IExcel
         string title = "",
         Action<object, PropertyInfo[]>? action = null) where T : class;
         
+    /// <summary>
+    /// 将Stream转换为对象列表
+    /// </summary>
+    /// <typeparam name="T">要转换的类型</typeparam>
+    /// <param name="stream">要转换的Stream</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的对象列表</returns>
+    public List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)where T : class, new()
+    {
+        var dataTable = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        if (dataTable == null || dataTable.Columns.Count == 0)
+        {
+            Logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
+            return new List<T>();
+        }
+        
+        return SafeExecute(() => ConvertDataTableToList<T>(dataTable), 
+            new List<T>(), 
+            nameof(ConvertStreamToList));
+    }
+    
+    /// <summary>
+    /// 将DataTable转换为对象列表
+    /// </summary>
+    protected List<T> ConvertDataTableToList<T>(DataTable dataTable) where T : class, new()
+    {
+        var result = new List<T>(dataTable.Rows.Count);
+        var properties = typeof(T).GetProperties()
+            .Where(p => p.CanWrite)
+            .ToArray();
+
+        if (properties.Length == 0)
+        {
+            Logger?.LogWarning("类型 {Type} 没有可写属性", typeof(T).Name);
+            return result;
+        }
+
+        // 创建列名到属性的映射（不区分大小写）
+        var propertyMap = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in properties)
+        {
+            propertyMap[prop.Name] = prop;
+        }
+
+        // 创建列索引到属性的映射
+        var columnMappings = new Dictionary<int, PropertyInfo>();
+        for (int i = 0; i < dataTable.Columns.Count; i++)
+        {
+            if (propertyMap.TryGetValue(dataTable.Columns[i].ColumnName, out var property))
+            {
+                columnMappings[i] = property;
+            }
+        }
+
+        if (columnMappings.Count == 0)
+        {
+            Logger?.LogWarning("未找到任何列名与类型 {Type} 的属性匹配", typeof(T).Name);
+            return result;
+        }
+
+        // 判断是否使用并行处理
+        bool useParallel = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+
+        if (useParallel)
+        {
+            Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dataTable.Rows.Count);
+
+            var items = new T[dataTable.Rows.Count];
+
+            Parallel.For(0, dataTable.Rows.Count, i =>
+            {
+                var item = new T();
+                var row = dataTable.Rows[i];
+
+                foreach (var mapping in columnMappings)
+                {
+                    int colIndex = mapping.Key;
+                    PropertyInfo property = mapping.Value;
+                    var value = row[colIndex];
+
+                    if (value != DBNull.Value)
+                    {
+                        SetPropertySafely(item, property, value);
+                    }
+                }
+
+                items[i] = item;
+            });
+
+            result.AddRange(items);
+        }
+        else
+        {
+            foreach (DataRow row in dataTable.Rows)
+            {
+                var item = new T();
+
+                foreach (var mapping in columnMappings)
+                {
+                    int colIndex = mapping.Key;
+                    PropertyInfo property = mapping.Value;
+                    var value = row[colIndex];
+
+                    if (value != DBNull.Value)
+                    {
+                        SetPropertySafely(item, property, value);
+                    }
+                }
+
+                result.Add(item);
+            }
+        }
+
+        return result;
+    }
+    
+    /// <summary>
+    /// 批量处理数据
+    /// </summary>
+    /// <typeparam name="TRow">行类型</typeparam>
+    /// <typeparam name="TValue">值类型</typeparam>
+    /// <param name="totalCount">数据总数</param>
+    /// <param name="createRowFunc">创建行的函数</param>
+    /// <param name="getValuesFunc">获取行值的函数</param>
+    /// <param name="processRowFunc">处理行的函数</param>
+    protected void ProcessInBatches<TRow, TValue>(
+        int totalCount,
+        Func<int, TRow> createRowFunc,
+        Func<int, TValue[]> getValuesFunc,
+        Action<TRow, int, TValue[], object?> processRowFunc,
+        object? additionalParam = null)
+    {
+        if (totalCount <= 0)
+            return;
+
+        bool useParallel = totalCount > Options.ParallelProcessingThreshold;
+        int batchSize = Options.UseBatchWrite ? Options.BatchSize : totalCount;
+
+        if (useParallel)
+        {
+            // 预计算所有值
+            var batchValues = new TValue[totalCount][];
+            
+            Parallel.For(0, totalCount, i =>
+            {
+                batchValues[i] = getValuesFunc(i);
+            });
+            
+            // 批量处理
+            for (int batchStart = 0; batchStart < totalCount; batchStart += batchSize)
+            {
+                int batchEnd = Math.Min(batchStart + batchSize, totalCount);
+                
+                for (int i = batchStart; i < batchEnd; i++)
+                {
+                    var row = createRowFunc(i);
+                    var values = batchValues[i];
+                    processRowFunc(row, i, values, additionalParam);
+                }
+            }
+        }
+        else
+        {
+            // 直接处理每一行
+            for (int i = 0; i < totalCount; i++)
+            {
+                var row = createRowFunc(i);
+                var values = getValuesFunc(i);
+                processRowFunc(row, i, values, additionalParam);
+            }
+        }
+    }
+    
     #region 异步方法
     
     /// <summary>

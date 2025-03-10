@@ -2,6 +2,7 @@
 using System.Reflection;
 using Linger.Excel.Contracts;
 using Linger.Excel.Contracts.Attributes;
+using Linger.Excel.Contracts.Utils;
 using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
 using Linger.Extensions.Data;
@@ -441,114 +442,7 @@ public class EPPlusExcel : ExcelBase
             return ConvertWorksheetToDataTable(worksheet, headerRowIndex, addEmptyRow);
         }, new DataTable(), nameof(ConvertStreamToDataTable));
     }
-    
-    /// <summary>
-    /// 将流转换为对象列表
-    /// </summary>
-    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
-    {
-        var dataTable = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
-        if (dataTable == null || dataTable.Columns.Count == 0)
-        {
-            Logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
-            return new List<T>();
-        }
-        
-        return SafeExecute(() =>
-        {
-            var result = new List<T>(dataTable.Rows.Count);
-            var properties = typeof(T).GetProperties()
-                .Where(p => p.CanWrite)
-                .ToArray();
             
-            if (properties.Length == 0)
-            {
-                Logger?.LogWarning("类型 {Type} 没有可写属性", typeof(T).Name);
-                return result;
-            }
-            
-            // 创建列名到属性的映射（不区分大小写）
-            var propertyMap = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-            foreach (var prop in properties)
-            {
-                propertyMap[prop.Name] = prop;
-            }
-            
-            // 创建列索引到属性的映射
-            var columnMappings = new Dictionary<int, PropertyInfo>();
-            for (int i = 0; i < dataTable.Columns.Count; i++)
-            {
-                if (propertyMap.TryGetValue(dataTable.Columns[i].ColumnName, out var property))
-                {
-                    columnMappings[i] = property;
-                }
-            }
-            
-            if (columnMappings.Count == 0)
-            {
-                Logger?.LogWarning("未找到任何列名与类型 {Type} 的属性匹配", typeof(T).Name);
-                return result;
-            }
-            
-            // 判断是否使用并行处理
-            bool useParallel = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
-            
-            if (useParallel)
-            {
-                Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dataTable.Rows.Count);
-                
-                var items = new T[dataTable.Rows.Count];
-                
-                Parallel.For(0, dataTable.Rows.Count, i =>
-                {
-                    var item = new T();
-                    var row = dataTable.Rows[i];
-                    
-                    foreach (var mapping in columnMappings)
-                    {
-                        int colIndex = mapping.Key;
-                        PropertyInfo property = mapping.Value;
-                        var value = row[colIndex];
-                        
-                        if (value != DBNull.Value)
-                        {
-                            // 使用基类的安全属性设置方法
-                            SetPropertySafely(item, property, value);
-                        }
-                    }
-                    
-                    items[i] = item;
-                });
-                
-                result.AddRange(items);
-            }
-            else
-            {
-                foreach (DataRow row in dataTable.Rows)
-                {
-                    var item = new T();
-                    
-                    foreach (var mapping in columnMappings)
-                    {
-                        int colIndex = mapping.Key;
-                        PropertyInfo property = mapping.Value;
-                        var value = row[colIndex];
-                        
-                        if (value != DBNull.Value)
-                        {
-                            // 使用基类的安全属性设置方法
-                            SetPropertySafely(item, property, value);
-                        }
-                    }
-                    
-                    result.Add(item);
-                }
-            }
-            
-            return result;
-        }, new List<T>(), nameof(ConvertStreamToList));
-    }
-    
     #region 私有辅助方法
     
     /// <summary>
@@ -626,36 +520,11 @@ public class EPPlusExcel : ExcelBase
         if (cell.Value == null)
             return DBNull.Value;
             
-        switch (cell.Value)
-        {
-            case string s when string.IsNullOrEmpty(s):
-                return DBNull.Value;
-            case DateTime date:
-                return date;
-            case double d when cell.Style.Numberformat.Format.Contains("yy"):
-                try
-                {
-                    return DateTime.FromOADate(d);
-                }
-                catch
-                {
-                    return d;
-                }
-            case double d:
-                // 检查是否为整数
-                if (Math.Abs(d - Math.Round(d)) < double.Epsilon)
-                {
-                    if (d >= int.MinValue && d <= int.MaxValue)
-                        return (int)d;
-                    else
-                        return (long)d;
-                }
-                return d;
-            case bool b:
-                return b;
-            default:
-                return cell.Value;
-        }
+        // 处理日期格式
+        bool isDateFormat = cell.Style.Numberformat.Format.Contains("yy");
+        
+        // 使用通用转换器
+        return ExcelValueConverter.ConvertToDbValue(cell.Value, isDateFormat);
     }
     
     /// <summary>

@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
+using Linger.Excel.Contracts.Utils;
 using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 
@@ -71,56 +72,20 @@ public class ClosedXmlExcel : ExcelBase
                 worksheet.Cell(currentRow, i + 1).Style.Font.Bold = true;
             }
 
-            // 判断是否需要并行处理
-            bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
-
-            if (useParallelProcessing)
-            {
-                Logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
-
-                // 使用批处理提高性能
-                int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-
-                // 预先计算所有值以避免在多线程中重复计算
-                var cellValues = new object[list.Count, properties.Length];
-
-                Parallel.For(0, list.Count, i =>
+            // 使用基类的批处理方法处理数据行
+            ProcessInBatches<IXLCell, object?>(
+                list.Count,
+                i => worksheet.Cell(i + currentRow + 1, 1),
+                i => properties.Select(p => p.GetValue(list[i])).ToArray(),
+                (cell, rowIndex, values, _) =>
                 {
-                    var item = list[i];
                     for (var j = 0; j < properties.Length; j++)
                     {
-                        cellValues[i, j] = properties[j].GetValue(item) ?? DBNull.Value;
-                    }
-                });
-
-                // 批量写入
-                for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
-                {
-                    int batchEnd = Math.Min(batchStart + batchSize, list.Count);
-
-                    for (int i = batchStart; i < batchEnd; i++)
-                    {
-                        for (var j = 0; j < properties.Length; j++)
-                        {
-                            var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                            WriteValueToCell(cell, cellValues[i, j]);
-                        }
+                        var currentCell = worksheet.Cell(rowIndex + currentRow + 1, j + 1);
+                        WriteValueToCell(currentCell, values[j]);
                     }
                 }
-            }
-            else
-            {
-                // 小数据集顺序处理
-                for (var i = 0; i < list.Count; i++)
-                {
-                    var item = list[i];
-                    for (var j = 0; j < properties.Length; j++)
-                    {
-                        var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                        WriteValueToCell(cell, properties[j].GetValue(item));
-                    }
-                }
-            }
+            );
 
             // 执行自定义操作
             action?.Invoke(worksheet, properties);
@@ -349,31 +314,21 @@ public class ClosedXmlExcel : ExcelBase
                     int colIndex = cell.Address.ColumnNumber - 1;
                     if (colIndex >= dt.Columns.Count) continue;
 
-                    // 根据单元格类型读取值
-                    switch (cell.DataType)
+                    // 使用通用值转换方法
+                    object cellValue;
+                    bool isDateFormat = cell.DataType == XLDataType.DateTime;
+                    cellValue = ExcelValueConverter.ConvertToDbValue(
+                        cell.DataType == XLDataType.DateTime ? cell.GetDateTime() :
+                        cell.DataType == XLDataType.Number ? cell.GetDouble() :
+                        cell.DataType == XLDataType.Boolean ? cell.GetBoolean() : 
+                        cell.DataType == XLDataType.Text ? cell.GetString() : 
+                        cell.Value,
+                        isDateFormat);
+                    
+                    dataRow[colIndex] = cellValue;
+                    if (cellValue != DBNull.Value)
                     {
-                        case XLDataType.DateTime:
-                            dataRow[colIndex] = cell.GetDateTime();
-                            hasData = true;
-                            break;
-                        case XLDataType.Number:
-                            dataRow[colIndex] = cell.GetDouble();
-                            hasData = true;
-                            break;
-                        case XLDataType.Boolean:
-                            dataRow[colIndex] = cell.GetBoolean();
-                            hasData = true;
-                            break;
-                        case XLDataType.Text:
-                            var text = cell.GetString();
-                            dataRow[colIndex] = string.IsNullOrEmpty(text) ? DBNull.Value : (object)text;
-                            hasData = hasData || !string.IsNullOrEmpty(text);
-                            break;
-                        default:
-                            var value = cell.Value;
-                            dataRow[colIndex] = value.IsBlank ? DBNull.Value : value;
-                            hasData = hasData || !value.IsBlank;
-                            break;
+                        hasData = true;
                     }
                 }
 
@@ -386,113 +341,6 @@ public class ClosedXmlExcel : ExcelBase
 
             return dt;
         }, new DataTable(), nameof(ConvertStreamToDataTable));
-    }
-
-    /// <summary>
-    /// 将Stream转换为对象列表
-    /// </summary>
-    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
-    {
-        var dt = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
-        if (dt == null || dt.Columns.Count == 0)
-        {
-            Logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
-            return new List<T>();
-        }
-
-        return SafeExecute(() =>
-        {
-            var result = new List<T>(dt.Rows.Count);
-            var properties = typeof(T).GetProperties()
-                .Where(p => p.CanWrite)
-                .ToArray();
-
-            if (properties.Length == 0)
-            {
-                Logger?.LogWarning("类型 {Type} 没有可写属性", typeof(T).Name);
-                return result;
-            }
-
-            // 创建列名到属性的映射（不区分大小写）
-            var propertyMap = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-            foreach (var prop in properties)
-            {
-                propertyMap[prop.Name] = prop;
-            }
-
-            // 创建列索引到属性的映射
-            var columnMappings = new Dictionary<int, PropertyInfo>();
-            for (int i = 0; i < dt.Columns.Count; i++)
-            {
-                if (propertyMap.TryGetValue(dt.Columns[i].ColumnName, out var property))
-                {
-                    columnMappings[i] = property;
-                }
-            }
-
-            if (columnMappings.Count == 0)
-            {
-                Logger?.LogWarning("未找到任何列名与类型 {Type} 的属性匹配", typeof(T).Name);
-                return result;
-            }
-
-            // 判断是否使用并行处理
-            bool useParallel = dt.Rows.Count > Options.ParallelProcessingThreshold;
-
-            if (useParallel)
-            {
-                Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dt.Rows.Count);
-
-                var items = new T[dt.Rows.Count];
-
-                Parallel.For(0, dt.Rows.Count, i =>
-                {
-                    var item = new T();
-                    var row = dt.Rows[i];
-
-                    foreach (var mapping in columnMappings)
-                    {
-                        int colIndex = mapping.Key;
-                        PropertyInfo property = mapping.Value;
-                        var value = row[colIndex];
-
-                        if (value != DBNull.Value)
-                        {
-                            // 使用基类的安全属性设置方法
-                            SetPropertySafely(item, property, value);
-                        }
-                    }
-
-                    items[i] = item;
-                });
-
-                result.AddRange(items);
-            }
-            else
-            {
-                foreach (DataRow row in dt.Rows)
-                {
-                    var item = new T();
-
-                    foreach (var mapping in columnMappings)
-                    {
-                        int colIndex = mapping.Key;
-                        PropertyInfo property = mapping.Value;
-                        var value = row[colIndex];
-
-                        if (value != DBNull.Value)
-                        {
-                            // 使用基类的安全属性设置方法
-                            SetPropertySafely(item, property, value);
-                        }
-                    }
-
-                    result.Add(item);
-                }
-            }
-
-            return result;
-        }, new List<T>(), nameof(ConvertStreamToList));
     }
 
     #region 私有辅助方法

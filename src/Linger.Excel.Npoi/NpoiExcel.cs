@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using Linger.Excel.Contracts;
+using Linger.Excel.Contracts.Utils;
 using Microsoft.Extensions.Logging;
 using NPOI.HSSF.UserModel;
 using NPOI.SS.Formula.Eval;
@@ -102,27 +103,18 @@ public class NpoiExcel : ExcelBase
                 columnWidths[i] = Encoding.UTF8.GetBytes(properties[i].Name).Length;
             }
 
-            // 判断是否使用并行处理
-            bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
-            
-            if (useParallelProcessing)
-            {
-                // 并行处理大数据集
-                var cellValues = new object[list.Count, properties.Length];
-                
-                // 并行填充数据
-                Parallel.For(0, list.Count, i =>
-                {
-                    var item = list[i];
+            // 使用基类的批处理方法处理数据行
+            ProcessInBatches<IRow, object?>(
+                list.Count,
+                i => sheet.CreateRow(i + titleIndex),
+                i => {
+                    var values = properties.Select(p => p.GetValue(list[i])).ToArray();
+                    // 计算列宽
                     for (int j = 0; j < properties.Length; j++)
                     {
-                        var value = properties[j].GetValue(item);
-                        cellValues[i, j] = value ?? DBNull.Value;
-                        
-                        // 计算列宽
-                        if (value != null)
+                        if (values[j] != null)
                         {
-                            var strValue = value.ToString() ?? string.Empty;
+                            var strValue = values[j].ToString() ?? string.Empty;
                             var length = Encoding.UTF8.GetBytes(strValue).Length;
                             lock (columnWidths)
                             {
@@ -130,45 +122,15 @@ public class NpoiExcel : ExcelBase
                             }
                         }
                     }
-                });
-                
-                // 批量写入
-                int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-                for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
-                {
-                    int batchEnd = Math.Min(batchStart + batchSize, list.Count);
-                    for (int i = batchStart; i < batchEnd; i++)
-                    {
-                        var dataRow = sheet.CreateRow(i + titleIndex);
-                        for (int j = 0; j < properties.Length; j++)
-                        {
-                            var value = cellValues[i, j];
-                            WriteValueToCell(workbook, dataRow, j, value, properties[j].PropertyType, styleCache);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // 顺序处理小数据集
-                for (int i = 0; i < list.Count; i++)
-                {
-                    var dataRow = sheet.CreateRow(i + titleIndex);
+                    return values;
+                },
+                (row, _, values, param) => {
                     for (int j = 0; j < properties.Length; j++)
                     {
-                        var value = properties[j].GetValue(list[i]);
-                        WriteValueToCell(workbook, dataRow, j, value, properties[j].PropertyType, styleCache);
-                        
-                        // 计算列宽
-                        if (value != null)
-                        {
-                            var strValue = value.ToString() ?? string.Empty;
-                            var length = Encoding.UTF8.GetBytes(strValue).Length;
-                            columnWidths[j] = Math.Max(columnWidths[j], length);
-                        }
+                        WriteValueToCell(workbook, row, j, values[j], properties[j].PropertyType, styleCache);
                     }
                 }
-            }
+            );
             
             // 设置列宽
             if (Options.AutoFitColumns)
@@ -391,100 +353,6 @@ public class NpoiExcel : ExcelBase
         }, null, nameof(ConvertStreamToDataTable));
     }
 
-    /// <summary>
-    /// 将Stream转换为对象列表
-    /// </summary>
-    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
-    {
-        DataTable? dataTable = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
-        if (dataTable == null)
-        {
-            return null;
-        }
-
-        return SafeExecute(() =>
-        {
-            var result = new List<T>(dataTable.Rows.Count);
-            var properties = typeof(T).GetProperties()
-                .Where(p => p.CanWrite)
-                .ToArray();
-            
-            // 创建列名到属性的映射（不区分大小写）
-            var propertyMap = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-            foreach (var prop in properties)
-            {
-                propertyMap[prop.Name] = prop;
-            }
-            
-            // 创建列索引到属性的映射
-            var columnMappings = new Dictionary<int, PropertyInfo>();
-            for (int i = 0; i < dataTable.Columns.Count; i++)
-            {
-                if (propertyMap.TryGetValue(dataTable.Columns[i].ColumnName, out var property))
-                {
-                    columnMappings[i] = property;
-                }
-            }
-            
-            // 转换数据行为对象
-            bool useParallel = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
-            
-            if (useParallel)
-            {
-                var items = new T[dataTable.Rows.Count];
-                
-                Parallel.For(0, dataTable.Rows.Count, i =>
-                {
-                    var row = dataTable.Rows[i];
-                    var item = new T();
-                    
-                    // 设置每个匹配的列
-                    foreach (var mapping in columnMappings)
-                    {
-                        int columnIndex = mapping.Key;
-                        PropertyInfo property = mapping.Value;
-                        var value = row[columnIndex];
-                        
-                        if (value != DBNull.Value)
-                        {
-                            // 使用BaseClass的安全属性设置方法
-                            SetPropertySafely(item, property, value);
-                        }
-                    }
-                    
-                    items[i] = item;
-                });
-                
-                result.AddRange(items);
-            }
-            else
-            {
-                foreach (DataRow row in dataTable.Rows)
-                {
-                    var item = new T();
-                    
-                    // 设置每个匹配的列
-                    foreach (var mapping in columnMappings)
-                    {
-                        int columnIndex = mapping.Key;
-                        PropertyInfo property = mapping.Value;
-                        var value = row[columnIndex];
-                        
-                        if (value != DBNull.Value)
-                        {
-                            // 使用BaseClass的安全属性设置方法
-                            SetPropertySafely(item, property, value);
-                        }
-                    }
-                    
-                    result.Add(item);
-                }
-            }
-            
-            return result;
-        }, new List<T>(), nameof(ConvertStreamToList));
-    }
-
     #region 私有辅助方法
 
     /// <summary>
@@ -639,14 +507,13 @@ public class NpoiExcel : ExcelBase
         switch (cell.CellType)
         {
             case CellType.Numeric:
-                if (DateUtil.IsCellDateFormatted(cell))
-                {
-                    return cell.DateCellValue;
-                }
-                return cell.NumericCellValue;
+                bool isDate = DateUtil.IsCellDateFormatted(cell);
+                return ExcelValueConverter.ConvertToDbValue(
+                    isDate ? cell.DateCellValue : cell.NumericCellValue, 
+                    isDate);
                 
             case CellType.String:
-                return cell.StringCellValue;
+                return ExcelValueConverter.ConvertToDbValue(cell.StringCellValue);
                 
             case CellType.Boolean:
                 return cell.BooleanCellValue;
