@@ -36,6 +36,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Linger.EFCore.Audit.UnitTests/Linger.EFCore.Audit.UnitTests.csproj" />
     <Project Path="tests/Linger.EFCore.UnitTests/Linger.EFCore.UnitTests.csproj" />
+    <Project Path="tests/Linger.Excel.Tests/Linger.Excel.Tests.csproj" />
     <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" />
     <Project Path="tests/Linger.UnitTests/Linger.UnitTests.csproj" />
   </Folder>
