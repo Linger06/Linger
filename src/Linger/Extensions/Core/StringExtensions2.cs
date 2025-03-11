@@ -42,7 +42,7 @@ public static partial class StringExtensions
     /// <returns>The string without parentheses and their contents.</returns>
     public static string DeleteBrackets(this string value)
     {
-        if (string.IsNullOrEmpty(value))
+        if (value.IsNullOrEmpty())
             return value;
 
         // 替换中文括号为英文括号
@@ -60,7 +60,7 @@ public static partial class StringExtensions
     /// <returns>The content within the first pair of parentheses, or the original string if no complete brackets are found.</returns>
     public static string? GetBracketsContent(this string? value, bool includeBrackets = false)
     {
-        if (string.IsNullOrEmpty(value))
+        if (value.IsNullOrEmpty())
             return value;
 
         // 替换中文括号为英文括号
@@ -85,7 +85,7 @@ public static partial class StringExtensions
     /// <returns>Array of contents found within parentheses.</returns>
     public static string[] GetAllBracketsContents(this string? value)
     {
-        if (string.IsNullOrEmpty(value))
+        if (value.IsNullOrEmpty())
             return Array.Empty<string>();
 
         // 替换中文括号为英文括号

@@ -1,8 +1,9 @@
-using System.Data;
+﻿using System.Data;
 using System.Reflection;
 using Linger.Excel.Contracts;
 using Linger.Excel.Tests.Helpers;
 using Linger.Excel.Tests.Models;
+using Linger.Extensions.Data;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -12,13 +13,13 @@ public class ExcelBaseTests
 {
     private readonly ILogger<TestExcelImplementation> _logger;
     private readonly TestExcelImplementation _excel;
-    
+
     public ExcelBaseTests()
     {
         _logger = TestHelper.CreateLogger<TestExcelImplementation>();
         _excel = new TestExcelImplementation(new ExcelOptions(), _logger);
     }
-    
+
     [Fact]
     public void ConvertDataTableToList_ValidData_ReturnsCorrectList()
     {
@@ -27,14 +28,14 @@ public class ExcelBaseTests
         dt.Columns.Add("Id", typeof(int));
         dt.Columns.Add("Name", typeof(string));
         dt.Columns.Add("Birthday", typeof(DateTime));
-        
+
         var today = DateTime.Today;
         dt.Rows.Add(1, "张三", today);
         dt.Rows.Add(2, "李四", today.AddDays(-10));
-        
+
         // Act
         var result = _excel.TestConvertDataTableToList<TestPerson>(dt);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Equal(2, result.Count);
@@ -45,7 +46,7 @@ public class ExcelBaseTests
         Assert.Equal("李四", result[1].Name);
         Assert.Equal(today.AddDays(-10), result[1].Birthday);
     }
-    
+
     [Fact]
     public void ConvertDataTableToList_EmptyTable_ReturnsEmptyList()
     {
@@ -53,15 +54,15 @@ public class ExcelBaseTests
         var dt = new DataTable();
         dt.Columns.Add("Id", typeof(int));
         dt.Columns.Add("Name", typeof(string));
-        
+
         // Act
         var result = _excel.TestConvertDataTableToList<TestPerson>(dt);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Empty(result);
     }
-    
+
     [Fact]
     public void ConvertDataTableToList_MismatchedColumns_MatchesAvailableColumns()
     {
@@ -70,17 +71,17 @@ public class ExcelBaseTests
         dt.Columns.Add("Id", typeof(int));
         dt.Columns.Add("NotName", typeof(string)); // 与TestPerson.Name不匹配
         dt.Rows.Add(123, "Test");
-        
+
         // Act
         var result = _excel.TestConvertDataTableToList<TestPerson>(dt);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Single(result);
         Assert.Equal(123, result[0].Id);
         Assert.Equal(string.Empty, result[0].Name); // Name应该是默认值
     }
-    
+
     [Fact]
     public void SetPropertySafely_ValidValues_SetsPropertiesCorrectly()
     {
@@ -90,34 +91,34 @@ public class ExcelBaseTests
         var nameProp = typeof(TestPerson).GetProperty("Name")!;
         var birthdayProp = typeof(TestPerson).GetProperty("Birthday")!;
         var isActiveProp = typeof(TestPerson).GetProperty("IsActive")!;
-        
+
         // Act
         _excel.TestSetPropertySafely(person, idProp, 123);
         _excel.TestSetPropertySafely(person, nameProp, "测试姓名");
         _excel.TestSetPropertySafely(person, birthdayProp, DateTime.Today);
         _excel.TestSetPropertySafely(person, isActiveProp, true);
-        
+
         // Assert
         Assert.Equal(123, person.Id);
         Assert.Equal("测试姓名", person.Name);
         Assert.Equal(DateTime.Today, person.Birthday);
         Assert.True(person.IsActive);
     }
-    
+
     [Fact]
     public void SetPropertySafely_NullableProperty_HandlesNullValue()
     {
         // Arrange
         var person = new TestPerson { Department = "测试部门" };
         var deptProp = typeof(TestPerson).GetProperty("Department")!;
-        
+
         // Act
         _excel.TestSetPropertySafely(person, deptProp, null);
-        
+
         // Assert
         Assert.Equal("测试部门", person.Department); // 值应保持不变
     }
-    
+
     [Fact]
     public void SetPropertySafely_SpecialTypes_HandlesCorrectly()
     {
@@ -125,23 +126,23 @@ public class ExcelBaseTests
         var person = new TestPerson();
         var birthdayProp = typeof(TestPerson).GetProperty("Birthday")!;
         var isActiveProp = typeof(TestPerson).GetProperty("IsActive")!;
-        
+
         // Act - 从字符串转换
         _excel.TestSetPropertySafely(person, birthdayProp, "2023-01-01");
         _excel.TestSetPropertySafely(person, isActiveProp, "true");
-        
+
         // Assert
         Assert.Equal(new DateTime(2023, 1, 1), person.Birthday);
         Assert.True(person.IsActive);
     }
-    
+
     [Fact]
     public void ProcessInBatches_AllItemsProcessed()
     {
         // Arrange
         int totalCount = 100;
         var processedItems = new List<int>();
-        
+
         // Act
         _excel.TestProcessInBatches<int, string>(
             totalCount,
@@ -151,7 +152,7 @@ public class ExcelBaseTests
             {
                 processedItems.Add(index);
             });
-        
+
         // Assert
         Assert.Equal(totalCount, processedItems.Count);
         for (int i = 0; i < totalCount; i++)
@@ -159,65 +160,65 @@ public class ExcelBaseTests
             Assert.Contains(i, processedItems);
         }
     }
-    
+
     [Fact]
     public void GetExcelCellValue_TypeConversion_HandlesCorrectly()
     {
         // Act & Assert
-        
+
         // 数字类型
         Assert.Equal(42, _excel.TestGetExcelCellValue(42.0));
         Assert.Equal(42.5, _excel.TestGetExcelCellValue(42.5));
-        
+
         // 字符串
         Assert.Equal("test", _excel.TestGetExcelCellValue("test"));
-        
+
         // 日期
         var date = new DateTime(2023, 1, 1);
         Assert.Equal(date, _excel.TestGetExcelCellValue(date, true));
-        
+
         // 从Excel数字日期
         var oaDate = 44927.0; // 2023-01-01
         Assert.Equal(DateTime.FromOADate(oaDate), _excel.TestGetExcelCellValue(oaDate, true));
-        
+
         // 空值
         Assert.Equal(DBNull.Value, _excel.TestGetExcelCellValue(null));
         Assert.Equal(DBNull.Value, _excel.TestGetExcelCellValue(""));
     }
-    
+
     [Fact]
     public void CreateExcelTemplate_CreatesValidTemplate()
     {
         // Act
         using var template = _excel.CreateExcelTemplate<TestPerson>();
-        
+
         // Assert
         Assert.NotNull(template);
         Assert.True(template.Length > 0);
     }
-    
+
     [Fact]
     public void ObjectToDataRow_ConvertsProperly()
     {
         // Arrange
-        var person = new TestPerson 
-        { 
-            Id = 1, 
+        var person = new TestPerson
+        {
+            Id = 1,
             Name = "Test",
             Birthday = new DateTime(2000, 1, 1),
             IsActive = true
         };
-        
+
         var dt = new DataTable();
         dt.Columns.Add("Id", typeof(int));
         dt.Columns.Add("Name", typeof(string));
         dt.Columns.Add("Birthday", typeof(DateTime));
         dt.Columns.Add("IsActive", typeof(bool));
         dt.Columns.Add("InvalidColumn", typeof(string)); // 不匹配的列
-        
+
         // Act
         var row = _excel.TestObjectToDataRow(person, dt);
-        
+
         // Assert
         Assert.NotNull(row);
         Assert.Equal(1, row["Id"]);
@@ -237,18 +238,18 @@ public class TestExcelImplementation : ExcelBase
         : base(options, logger)
     {
     }
-    
+
     // 暴露protected方法以便测试
     public List<T> TestConvertDataTableToList<T>(DataTable dataTable) where T : class, new()
     {
-        return ConvertDataTableToList<T>(dataTable);
+        return dataTable.ToList<T>();
     }
-    
+
     public void TestSetPropertySafely<T>(T obj, PropertyInfo property, object? value) where T : class
     {
         SetPropertySafely(obj, property, value);
     }
-    
+
     public void TestProcessInBatches<TRow, TValue>(
         int totalCount,
         Func<int, TRow> createRowFunc,
@@ -258,28 +259,28 @@ public class TestExcelImplementation : ExcelBase
     {
         ProcessInBatches(totalCount, createRowFunc, getValuesFunc, processRowFunc, additionalParam);
     }
-    
+
     public object TestGetExcelCellValue(object? cellValue, bool isDateFormat = false)
     {
         return GetExcelCellValue(cellValue, isDateFormat);
     }
-    
+
     public DataRow TestObjectToDataRow<T>(T obj, DataTable dt) where T : class
     {
         return ObjectToDataRow(obj, dt);
     }
-    
+
     // 实现抽象方法
     public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         return new DataTable("Test");
     }
-    
+
     public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
     {
         return new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });
     }
-    
+
     public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null)
     {
         return new MemoryStream(new byte[] { 1, 2, 3, 4, 5 });

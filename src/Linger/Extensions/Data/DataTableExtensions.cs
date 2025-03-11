@@ -20,9 +20,10 @@ public static partial class DataTableExtensions
     /// List&lt;MyClass&gt; list = await table.ToListAsync&lt;MyClass&gt;();
     /// </code>
     /// </example>
-    public static async Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
+    public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
-        return await Task.Run(dt.ToList<T>).ConfigureAwait(false);
+        return Task.FromResult(dt.ToList<T>(1000));
+        //return await Task.Run(dt.ToList<T>).ConfigureAwait(false);
     }
 #endif
 

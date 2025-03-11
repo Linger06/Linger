@@ -2,6 +2,7 @@
 using System.Reflection;
 using Linger.Excel.Contracts.Utils;
 using Linger.Extensions.Core;
+using Linger.Extensions.Data;
 using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.Contracts;
@@ -15,7 +16,7 @@ public abstract class ExcelBase : IExcel
     /// Excel配置选项
     /// </summary>
     protected readonly ExcelOptions Options;
-    
+
     /// <summary>
     /// 日志记录器
     /// </summary>
@@ -74,7 +75,7 @@ public abstract class ExcelBase : IExcel
     /// <param name="headerRowIndex">列名所在行号</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的对象列表</returns>
-    public List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T: class, new()
+    public List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
@@ -261,7 +262,7 @@ public abstract class ExcelBase : IExcel
         catch (Exception ex)
         {
             // 转换失败记录日志
-            Logger?.LogDebug(ex, "属性设置失败: {PropertyName}, 值: {Value}, 值类型: {ValueType}", 
+            Logger?.LogDebug(ex, "属性设置失败: {PropertyName}, 值: {Value}, 值类型: {ValueType}",
                 property.Name, value, value.GetType().Name);
         }
     }
@@ -288,6 +289,29 @@ public abstract class ExcelBase : IExcel
     }
 
     /// <summary>
+    /// 使用性能监控执行操作
+    /// </summary>
+    protected T MonitorPerformance<T>(string operationName, Func<T> operation)
+    {
+        if (!Options.EnablePerformanceMonitoring)
+            return operation();
+        
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            return operation();
+        }
+        finally
+        {
+            sw.Stop();
+            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+            {
+                Logger?.LogInformation("{Operation} 耗时: {Time}ms", operationName, sw.ElapsedMilliseconds);
+            }
+        }
+    }
+
+    /// <summary>
     /// 将Stream转换为DataTable
     /// </summary>
     /// <param name="stream">要转换的Stream</param>
@@ -296,17 +320,6 @@ public abstract class ExcelBase : IExcel
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的DataTable</returns>
     public abstract DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-
-    /// <summary>
-    /// 将Stream转换为List
-    /// </summary>
-    /// <typeparam name="T">要转换的类型</typeparam>
-    /// <param name="stream">要转换的Stream</param>
-    /// <param name="sheetName">工作表名称</param>
-    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
-    /// <param name="addEmptyRow">是否添加空行</param>
-    /// <returns>转换后的对象列表</returns>
-    //public abstract List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T :class, new();
 
     /// <summary>
     /// 将DataTable转换为MemoryStream
@@ -336,7 +349,7 @@ public abstract class ExcelBase : IExcel
         string sheetsName = "Sheet1",
         string title = "",
         Action<object, PropertyInfo[]>? action = null) where T : class;
-        
+
     /// <summary>
     /// 将Stream转换为对象列表
     /// </summary>
@@ -346,115 +359,22 @@ public abstract class ExcelBase : IExcel
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的对象列表</returns>
-    public List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)where T : class, new()
+    public List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
-        var dataTable = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        var dataTable = MonitorPerformance("读取Excel到DataTable", () => 
+            ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow));
+        
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
             Logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
             return new List<T>();
         }
-        
-        return SafeExecute(() => ConvertDataTableToList<T>(dataTable), 
-            new List<T>(), 
+
+        return SafeExecute(() => dataTable.ToList<T>(Options.ParallelProcessingThreshold),
+            new List<T>(),
             nameof(ConvertStreamToList));
     }
-    
-    /// <summary>
-    /// 将DataTable转换为对象列表
-    /// </summary>
-    protected List<T> ConvertDataTableToList<T>(DataTable dataTable) where T : class, new()
-    {
-        var result = new List<T>(dataTable.Rows.Count);
-        var properties = typeof(T).GetProperties()
-            .Where(p => p.CanWrite)
-            .ToArray();
 
-        if (properties.Length == 0)
-        {
-            Logger?.LogWarning("类型 {Type} 没有可写属性", typeof(T).Name);
-            return result;
-        }
-
-        // 创建列名到属性的映射（不区分大小写）
-        var propertyMap = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-        foreach (var prop in properties)
-        {
-            propertyMap[prop.Name] = prop;
-        }
-
-        // 创建列索引到属性的映射
-        var columnMappings = new Dictionary<int, PropertyInfo>();
-        for (int i = 0; i < dataTable.Columns.Count; i++)
-        {
-            if (propertyMap.TryGetValue(dataTable.Columns[i].ColumnName, out var property))
-            {
-                columnMappings[i] = property;
-            }
-        }
-
-        if (columnMappings.Count == 0)
-        {
-            Logger?.LogWarning("未找到任何列名与类型 {Type} 的属性匹配", typeof(T).Name);
-            return result;
-        }
-
-        // 判断是否使用并行处理
-        bool useParallel = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
-
-        if (useParallel)
-        {
-            Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dataTable.Rows.Count);
-
-            var items = new T[dataTable.Rows.Count];
-
-            Parallel.For(0, dataTable.Rows.Count, i =>
-            {
-                var item = new T();
-                var row = dataTable.Rows[i];
-
-                foreach (var mapping in columnMappings)
-                {
-                    int colIndex = mapping.Key;
-                    PropertyInfo property = mapping.Value;
-                    var value = row[colIndex];
-
-                    if (value != DBNull.Value)
-                    {
-                        SetPropertySafely(item, property, value);
-                    }
-                }
-
-                items[i] = item;
-            });
-
-            result.AddRange(items);
-        }
-        else
-        {
-            foreach (DataRow row in dataTable.Rows)
-            {
-                var item = new T();
-
-                foreach (var mapping in columnMappings)
-                {
-                    int colIndex = mapping.Key;
-                    PropertyInfo property = mapping.Value;
-                    var value = row[colIndex];
-
-                    if (value != DBNull.Value)
-                    {
-                        SetPropertySafely(item, property, value);
-                    }
-                }
-
-                result.Add(item);
-            }
-        }
-
-        return result;
-    }
-    
     /// <summary>
     /// 批量处理数据
     /// </summary>
@@ -481,17 +401,17 @@ public abstract class ExcelBase : IExcel
         {
             // 预计算所有值
             var batchValues = new TValue[totalCount][];
-            
+
             Parallel.For(0, totalCount, i =>
             {
                 batchValues[i] = getValuesFunc(i);
             });
-            
+
             // 批量处理
             for (int batchStart = 0; batchStart < totalCount; batchStart += batchSize)
             {
                 int batchEnd = Math.Min(batchStart + batchSize, totalCount);
-                
+
                 for (int i = batchStart; i < batchEnd; i++)
                 {
                     var row = createRowFunc(i);
@@ -511,36 +431,7 @@ public abstract class ExcelBase : IExcel
             }
         }
     }
-    
-    /// <summary>
-    /// 批量写入Excel时通用的行创建方法
-    /// </summary>
-    /// <typeparam name="T">行数据类型</typeparam>
-    /// <param name="currentRow">当前行索引</param>
-    /// <param name="rowData">行数据</param>
-    /// <param name="columnMappings">列映射</param>
-    /// <param name="createCellAction">创建单元格的操作</param>
-    protected void ProcessExcelRow<T>(int currentRow, T rowData, 
-        Dictionary<string, int> columnMappings, 
-        Action<string, int, object?> createCellAction) where T : class
-    {
-        if (rowData == null) return;
-        
-        var type = typeof(T);
-        var properties = type.GetProperties();
-        
-        foreach (var prop in properties)
-        {
-            if (!prop.CanRead) continue;
-            
-            if (columnMappings.TryGetValue(prop.Name, out int columnIndex))
-            {
-                var value = prop.GetValue(rowData);
-                createCellAction(prop.Name, columnIndex, value);
-            }
-        }
-    }
-    
+
     /// <summary>
     /// 创建Excel模板
     /// </summary>
@@ -551,19 +442,19 @@ public abstract class ExcelBase : IExcel
     {
         var type = typeof(T);
         var properties = type.GetProperties().Where(p => p.CanRead).ToArray();
-        
+
         // 创建一个空的列表，只包含列名
         var list = new List<T>(1);
-        
+
         // 使用现有方法创建模板
         var result = ConvertCollectionToMemoryStream(list, type.Name, $"{type.Name} 模板");
-        
+
         if (result == null)
             return new MemoryStream();
-            
+
         return result;
     }
-    
+
     /// <summary>
     /// 将对象转换为DataRow
     /// </summary>
@@ -571,7 +462,7 @@ public abstract class ExcelBase : IExcel
     {
         var row = dt.NewRow();
         var properties = typeof(T).GetProperties().Where(p => p.CanRead);
-        
+
         foreach (var prop in properties)
         {
             if (dt.Columns.Contains(prop.Name))
@@ -580,10 +471,10 @@ public abstract class ExcelBase : IExcel
                 row[prop.Name] = value ?? DBNull.Value;
             }
         }
-        
+
         return row;
     }
-    
+
     /// <summary>
     /// 将流保存到文件
     /// </summary>
@@ -603,9 +494,9 @@ public abstract class ExcelBase : IExcel
     {
         return ExcelValueConverter.ConvertToDbValue(cellValue, isDateFormat);
     }
-    
+
     #region 异步方法
-    
+
     /// <summary>
     /// 异步将Excel文件转换为DataTable
     /// </summary>
@@ -622,11 +513,15 @@ public abstract class ExcelBase : IExcel
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             // 使用TaskCompletionSource将同步操作包装为异步任务
             var tcs = new TaskCompletionSource<DataTable?>();
-            await Task.Run(() => {
-                try {
+            await Task.Run(() =>
+            {
+                try
+                {
                     var result = ConvertStreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
                     tcs.SetResult(result);
-                } catch (Exception ex) {
+                }
+                catch (Exception ex)
+                {
                     tcs.SetException(ex);
                 }
             });
@@ -638,11 +533,11 @@ public abstract class ExcelBase : IExcel
             return null;
         }
     }
-    
+
     /// <summary>
     /// 异步将Excel文件转换为对象列表
     /// </summary>
-    public async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class,new()
+    public async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
@@ -655,11 +550,15 @@ public abstract class ExcelBase : IExcel
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             // 使用TaskCompletionSource将同步操作包装为异步任务
             var tcs = new TaskCompletionSource<List<T>?>();
-            await Task.Run(() => {
-                try {
+            await Task.Run(() =>
+            {
+                try
+                {
                     var result = ConvertStreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
                     tcs.SetResult(result);
-                } catch (Exception ex) {
+                }
+                catch (Exception ex)
+                {
                     tcs.SetException(ex);
                 }
             });
@@ -671,7 +570,7 @@ public abstract class ExcelBase : IExcel
             return null;
         }
     }
-    
+
     /// <summary>
     /// 异步将DataTable导出为Excel文件
     /// </summary>
@@ -700,7 +599,7 @@ public abstract class ExcelBase : IExcel
             throw new ExcelException("异步保存DataTable到Excel文件失败", ex);
         }
     }
-    
+
     /// <summary>
     /// 异步将对象列表导出为Excel文件
     /// </summary>
@@ -729,7 +628,7 @@ public abstract class ExcelBase : IExcel
             throw new ExcelException("异步保存对象列表到Excel文件失败", ex);
         }
     }
-    
+
     #endregion
 }
 
@@ -752,31 +651,41 @@ public class ExcelOptions
     /// 默认日期格式
     /// </summary>
     public string DefaultDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
-    
+
     /// <summary>
     /// 是否使用批量写入优化
     /// </summary>
     public bool UseBatchWrite { get; set; } = true;
-    
+
     /// <summary>
     /// 批量写入大小
     /// </summary>
     public int BatchSize { get; set; } = 5000;
-    
+
     /// <summary>
     /// 是否在错误时继续处理（不抛出异常）
     /// </summary>
     public bool ContinueOnError { get; set; } = true;
-    
+
     /// <summary>
     /// 是否使用内存优化（处理大文件时）
     /// </summary>
     public bool UseMemoryOptimization { get; set; } = false;
-    
+
     /// <summary>
     /// 内存优化缓冲区大小（行数）
     /// </summary>
     public int MemoryBufferSize { get; set; } = 1000;
+
+    /// <summary>
+    /// 是否启用性能监控
+    /// </summary>
+    public bool EnablePerformanceMonitoring { get; set; } = false;
+
+    /// <summary>
+    /// 性能监控阈值(毫秒)，超过此阈值才记录日志
+    /// </summary>
+    public int PerformanceThreshold { get; set; } = 500;
 }
 
 /// <summary>
@@ -785,6 +694,6 @@ public class ExcelOptions
 public class ExcelException : Exception
 {
     public ExcelException(string message) : base(message) { }
-    
+
     public ExcelException(string message, Exception innerException) : base(message, innerException) { }
 }

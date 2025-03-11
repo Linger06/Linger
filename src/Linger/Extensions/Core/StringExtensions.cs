@@ -111,6 +111,11 @@ public static partial class StringExtensions
         return !string.IsNullOrEmpty(value);
     }
 
+    public static bool IsNotNullAndWhiteSpace([NotNullWhen(true)] this string? value)
+    {
+        return !string.IsNullOrWhiteSpace(value);
+    }
+
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="short"/> type.
     /// </summary>

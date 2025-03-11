@@ -272,7 +272,7 @@ public class EPPlusExcelTests : IDisposable
     }
 
     [Fact]
-    public async Task ConvertStreamToListAsync_ValidExcelFile_ReturnsValidList()
+    public void ConvertStreamToListAsync_ValidExcelFile_ReturnsValidList()
     {
         // Arrange
         var persons = TestHelper.CreateTestPersonList(5);
@@ -285,7 +285,7 @@ public class EPPlusExcelTests : IDisposable
         List<TestPerson>? result;
         using (var fs = File.OpenRead(filePath))
         {
-            result = await _excel.ConvertStreamToList<TestPerson>(fs).ToListAsync();
+            result = _excel.ConvertStreamToList<TestPerson>(fs);
         }
 
         // Assert
