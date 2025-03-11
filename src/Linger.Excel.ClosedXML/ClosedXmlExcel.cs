@@ -2,26 +2,13 @@
 using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
-using Linger.Excel.Contracts.Utils;
 using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.ClosedXML;
 
-/// <summary>
-/// 基于ClosedXML的Excel处理实现
-/// </summary>
-public class ClosedXmlExcel : ExcelBase
+public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel>? logger = null) : ExcelBase(options, logger)
 {
-    /// <summary>
-    /// 构造函数
-    /// </summary>
-    /// <param name="options">Excel配置选项</param>
-    /// <param name="logger">日志记录器</param>
-    public ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel>? logger = null)
-        : base(options, logger)
-    {
-    }
 
     /// <summary>
     /// 将对象集合转换为MemoryStream
@@ -29,77 +16,79 @@ public class ClosedXmlExcel : ExcelBase
     //[return: NotNullIfNotNull(nameof(list))]
     public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T>? list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null)
     {
-        if (list == null //|| list.Count == 0
-            )
+        if (list == null)
         {
-            Logger?.LogWarning("要转换的集合为空");
+            logger?.LogWarning("要转换的集合为空");
             return null;
         }
 
         return SafeExecute(() =>
         {
-            using var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add(sheetsName);
-
-            // 获取可读属性
-            var properties = typeof(T).GetProperties()
-                .Where(p => p.CanRead)
-                .ToArray();
-
-            if (properties.Length == 0)
+            return MonitorPerformance("集合导出到Excel", () =>
             {
-                Logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
-                return new MemoryStream();
-            }
+                using var workbook = new XLWorkbook();
+                var worksheet = workbook.Worksheets.Add(sheetsName);
 
-            // 处理标题
-            var currentRow = 1;
-            if (!string.IsNullOrEmpty(title))
-            {
-                var cell = worksheet.Cell(currentRow, 1);
-                cell.Value = title;
-                cell.Style.Font.Bold = true;
-                cell.Style.Font.FontSize = 14;
-                cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                worksheet.Range(1, 1, 1, properties.Length).Merge();
-                currentRow++;
-            }
+                // 获取可读属性
+                var properties = typeof(T).GetProperties()
+                    .Where(p => p.CanRead)
+                    .ToArray();
 
-            // 设置表头
-            for (var i = 0; i < properties.Length; i++)
-            {
-                worksheet.Cell(currentRow, i + 1).Value = properties[i].Name;
-                worksheet.Cell(currentRow, i + 1).Style.Font.Bold = true;
-            }
-
-            // 使用基类的批处理方法处理数据行
-            ProcessInBatches<IXLCell, object?>(
-                list.Count,
-                i => worksheet.Cell(i + currentRow + 1, 1),
-                i => properties.Select(p => p.GetValue(list[i])).ToArray(),
-                (cell, rowIndex, values, _) =>
+                if (properties.Length == 0)
                 {
-                    for (var j = 0; j < properties.Length; j++)
-                    {
-                        var currentCell = worksheet.Cell(rowIndex + currentRow + 1, j + 1);
-                        WriteValueToCell(currentCell, values[j]);
-                    }
+                    logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
+                    return new MemoryStream();
                 }
-            );
 
-            // 执行自定义操作
-            action?.Invoke(worksheet, properties);
+                // 处理标题
+                var currentRow = 1;
+                if (!string.IsNullOrEmpty(title))
+                {
+                    var cell = worksheet.Cell(currentRow, 1);
+                    cell.Value = title;
+                    cell.Style.Font.Bold = true;
+                    cell.Style.Font.FontSize = 14;
+                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                    worksheet.Range(1, 1, 1, properties.Length).Merge();
+                    currentRow++;
+                }
 
-            // 根据配置应用格式化
-            if (Options.AutoFitColumns)
-            {
-                ApplyBasicFormatting(worksheet, list.Count + currentRow, properties.Length);
-            }
+                // 设置表头
+                for (var i = 0; i < properties.Length; i++)
+                {
+                    worksheet.Cell(currentRow, i + 1).Value = properties[i].Name;
+                    worksheet.Cell(currentRow, i + 1).Style.Font.Bold = true;
+                }
 
-            var ms = new MemoryStream();
-            workbook.SaveAs(ms);
-            ms.Position = 0;
-            return ms;
+                // 使用基类的批处理方法处理数据行
+                ProcessInBatches<IXLCell, object?>(
+                    list.Count,
+                    i => worksheet.Cell(i + currentRow + 1, 1),
+                    i => properties.Select(p => p.GetValue(list[i])).ToArray(),
+                    (cell, rowIndex, values, _) =>
+                    {
+                        for (var j = 0; j < properties.Length; j++)
+                        {
+                            var currentCell = worksheet.Cell(rowIndex + currentRow + 1, j + 1);
+                            WriteValueToCell(currentCell, values[j]);
+                        }
+                    }
+                );
+
+                // 执行自定义操作
+                action?.Invoke(worksheet, properties);
+
+                // 根据配置应用格式化
+                if (Options.AutoFitColumns)
+                {
+                    ApplyBasicFormatting(worksheet, list.Count + currentRow, properties.Length);
+                }
+
+                var ms = new MemoryStream();
+                workbook.SaveAs(ms);
+                ms.Position = 0;
+                return ms;
+            });
         }, null, nameof(ConvertCollectionToMemoryStream));
     }
 
@@ -110,13 +99,14 @@ public class ClosedXmlExcel : ExcelBase
     {
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
-            Logger?.LogWarning("要转换的DataTable为空或没有列");
+            logger?.LogWarning("要转换的DataTable为空或没有列");
             return null;
         }
 
         return SafeExecute(() =>
         {
-            return MonitorPerformance("DataTable导出到Excel", () => {
+            return MonitorPerformance("DataTable导出到Excel", () =>
+            {
                 using var workbook = new XLWorkbook();
                 var worksheet = workbook.Worksheets.Add(sheetsName);
 
@@ -145,7 +135,7 @@ public class ClosedXmlExcel : ExcelBase
 
                 if (useParallelProcessing)
                 {
-                    Logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
+                    logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
 
                     // 使用批处理提高性能
                     int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
@@ -213,7 +203,7 @@ public class ClosedXmlExcel : ExcelBase
     {
         if (stream is not { CanRead: true } || stream.Length <= 0)
         {
-            Logger?.LogWarning("无效的Stream: 不可读或长度为0");
+            logger?.LogWarning("无效的Stream: 不可读或长度为0");
             return null;
         }
 
@@ -231,7 +221,7 @@ public class ClosedXmlExcel : ExcelBase
             if (sheetName.IsNullOrEmpty())
             {
                 worksheet = workbook.Worksheet(1);
-                Logger?.LogDebug("使用第一个工作表, 名称: {SheetName}", worksheet.Name);
+                logger?.LogDebug("使用第一个工作表, 名称: {SheetName}", worksheet.Name);
             }
             else if (workbook.Worksheets.TryGetWorksheet(sheetName, out var namedSheet))
             {
@@ -240,7 +230,7 @@ public class ClosedXmlExcel : ExcelBase
             else
             {
                 worksheet = workbook.Worksheet(1);
-                Logger?.LogWarning("未找到指定的工作表 {SheetName}, 使用第一个工作表代替", sheetName);
+                logger?.LogWarning("未找到指定的工作表 {SheetName}, 使用第一个工作表代替", sheetName);
             }
 
             // 创建DataTable
@@ -250,7 +240,7 @@ public class ClosedXmlExcel : ExcelBase
             var usedRange = worksheet.RangeUsed();
             if (usedRange == null)
             {
-                Logger?.LogWarning("工作表 {SheetName} 没有数据", worksheet.Name);
+                logger?.LogWarning("工作表 {SheetName} 没有数据", worksheet.Name);
                 return dt;
             }
 
@@ -258,7 +248,7 @@ public class ClosedXmlExcel : ExcelBase
             var rows = usedRange.RowsUsed().ToList();
             if (rows.Count <= headerRowIndex)
             {
-                Logger?.LogWarning("工作表 {SheetName} 的行数 {RowCount} 小于或等于表头行号 {HeaderRowIndex}",
+                logger?.LogWarning("工作表 {SheetName} 的行数 {RowCount} 小于或等于表头行号 {HeaderRowIndex}",
                     worksheet.Name, rows.Count, headerRowIndex);
                 return dt;
             }
@@ -345,90 +335,52 @@ public class ClosedXmlExcel : ExcelBase
         }, new DataTable(), nameof(ConvertStreamToDataTable));
     }
 
-    /// <summary>
-    /// 扩展的流式读取方法 - 适用于大文件
-    /// </summary>
-    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null,
-        int headerRowIndex = 0) where T : class, new()
+    // 添加基类要求的方法实现
+    protected override object OpenWorkbook(Stream stream)
     {
-        if (stream == null || stream.Length == 0)
-            yield break;
-
-        using var memoryStream = new MemoryStream();
+        var memoryStream = new MemoryStream();
         stream.CopyTo(memoryStream);
         memoryStream.Position = 0;
+        return new XLWorkbook(memoryStream);
+    }
 
-        using var workbook = new XLWorkbook(memoryStream);
-
-        IXLWorksheet worksheet;
+    protected override object GetWorksheet(object workbook, string? sheetName)
+    {
+        var xlWorkbook = (XLWorkbook)workbook;
+        
         if (sheetName.IsNullOrEmpty())
         {
-            worksheet = workbook.Worksheet(1);
+            return xlWorkbook.Worksheet(1);
         }
-        else if (workbook.Worksheets.TryGetWorksheet(sheetName, out var namedSheet))
+        else if (xlWorkbook.Worksheets.TryGetWorksheet(sheetName, out var namedSheet))
         {
-            worksheet = namedSheet;
+            return namedSheet;
         }
         else
         {
-            worksheet = workbook.Worksheet(1);
-        }
-
-        // 获取使用范围
-        var usedRange = worksheet.RangeUsed();
-        if (usedRange == null) yield break;
-
-        // 读取表头并创建属性映射
-        var columnMappings = GetPropertyMappings<T>(worksheet, headerRowIndex);
-
-        // 流式读取数据
-        var startRow = headerRowIndex < 0 ? 1 : headerRowIndex + 2;
-        foreach (var row in worksheet.RowsUsed()
-            .Where(r => r.RowNumber() >= startRow))
-        {
-            var item = new T();
-            bool hasData = false;
-
-            foreach (var cell in row.CellsUsed())
-            {
-                int colIndex = cell.Address.ColumnNumber;
-                if (columnMappings.TryGetValue(colIndex, out var property))
-                {
-                    bool isDateFormat = cell.DataType == XLDataType.DateTime;
-                    // 使用基类的 GetExcelCellValue 方法，而不是直接调用 ExcelValueConverter.ConvertToDbValue
-                    var value = GetExcelCellValue(
-                        cell.DataType == XLDataType.DateTime ? cell.GetDateTime() :
-                        cell.DataType == XLDataType.Number ? cell.GetDouble() :
-                        cell.DataType == XLDataType.Boolean ? cell.GetBoolean() :
-                        cell.DataType == XLDataType.Text ? cell.GetString() :
-                        cell.Value,
-                        isDateFormat);
-
-                    if (value != DBNull.Value)
-                    {
-                        SetPropertySafely(item, property, value);
-                        hasData = true;
-                    }
-                }
-            }
-
-            if (hasData)
-                yield return item;
-
-            // 使用更温和的GC方式
-            if (row.RowNumber() % Options.MemoryBufferSize == 0 && Options.UseMemoryOptimization)
-            {
-                GC.Collect(0, GCCollectionMode.Optimized);
-            }
+            return xlWorkbook.Worksheet(1);
         }
     }
 
-    private Dictionary<int, PropertyInfo> GetPropertyMappings<T>(IXLWorksheet worksheet, int headerRowIndex)
+    protected override string GetSheetName(object worksheet)
+    {
+        return ((IXLWorksheet)worksheet).Name;
+    }
+
+    protected override bool HasData(object worksheet)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        return xlWorksheet.RangeUsed() != null;
+    }
+
+    protected override Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(object worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, PropertyInfo>();
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        
         if (headerRowIndex < 0) return result;
 
-        var headerRow = worksheet.Row(headerRowIndex + 1);
+        var headerRow = xlWorksheet.Row(headerRowIndex + 1);
         var properties = typeof(T).GetProperties()
             .Where(p => p.CanWrite)
             .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
@@ -445,6 +397,64 @@ public class ClosedXmlExcel : ExcelBase
         }
 
         return result;
+    }
+
+    protected override int GetDataStartRow(object worksheet, int headerRowIndex)
+    {
+        return headerRowIndex < 0 ? 1 : headerRowIndex + 2;
+    }
+
+    protected override int GetDataEndRow(object worksheet)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        var usedRange = xlWorksheet.RangeUsed();
+        return usedRange?.LastRow()?.RowNumber() ?? 0;
+    }
+
+    protected override bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        var row = xlWorksheet.Row(rowNum);
+        bool hasData = false;
+
+        foreach (var cell in row.CellsUsed())
+        {
+            int colIndex = cell.Address.ColumnNumber;
+            if (columnMappings.TryGetValue(colIndex, out var property))
+            {
+                bool isDateFormat = cell.DataType == XLDataType.DateTime;
+                var value = GetExcelCellValue(
+                    cell.DataType == XLDataType.DateTime ? cell.GetDateTime() :
+                    cell.DataType == XLDataType.Number ? cell.GetDouble() :
+                    cell.DataType == XLDataType.Boolean ? cell.GetBoolean() :
+                    cell.DataType == XLDataType.Text ? cell.GetString() :
+                    cell.Value,
+                    isDateFormat);
+
+                if (value != DBNull.Value)
+                {
+                    SetPropertySafely(item, property, value);
+                    hasData = true;
+                }
+            }
+        }
+
+        return hasData;
+    }
+
+    protected override void CloseWorkbook(object workbook)
+    {
+        if (workbook is XLWorkbook xlWorkbook)
+        {
+            try
+            {
+                xlWorkbook.Dispose();
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "关闭ClosedXML工作簿时出错");
+            }
+        }
     }
 
     #region 私有辅助方法

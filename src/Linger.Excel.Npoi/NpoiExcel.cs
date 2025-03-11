@@ -1,5 +1,4 @@
 ﻿using System.Data;
-using System.Globalization;
 using System.Reflection;
 using System.Text;
 using Linger.Excel.Contracts;
@@ -12,23 +11,10 @@ using NPOI.XSSF.UserModel;
 
 namespace Linger.Excel.Npoi;
 
-/// <summary>
-/// 基于NPOI的Excel处理实现
-/// </summary>
-public class NpoiExcel : ExcelBase
+public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger = null) : ExcelBase(options, logger)
 {
     // 缓存样式数据，避免重复创建
     private readonly Dictionary<string, ICellStyle> _styleCache = new();
-
-    /// <summary>
-    /// 构造函数
-    /// </summary>
-    /// <param name="options">Excel配置选项</param>
-    /// <param name="logger">日志记录器</param>
-    public NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger = null)
-        : base(options, logger)
-    {
-    }
 
     /// <summary>
     /// 将对象集合转换为MemoryStream
@@ -37,124 +23,127 @@ public class NpoiExcel : ExcelBase
     {
         if (list == null || list.Count == 0)
         {
-            Logger?.LogWarning("要转换的集合为空");
+            logger?.LogWarning("要转换的集合为空");
             return null;
         }
 
         return SafeExecute(() =>
         {
-            var workbook = new XSSFWorkbook();
-            var sheet = workbook.CreateSheet(sheetsName);
-
-            // 获取属性信息
-            var properties = typeof(T).GetProperties()
-                .Where(p => p.CanRead)
-                .ToArray();
-
-            if (properties.Length == 0)
+            return MonitorPerformance("集合导出到Excel", () =>
             {
-                Logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
-                return new MemoryStream();
-            }
+                var workbook = new XSSFWorkbook();
+                var sheet = workbook.CreateSheet(sheetsName);
 
-            // 设置标题样式
-            var titleIndex = 0;
-            if (!string.IsNullOrEmpty(title))
-            {
-                var titleRow = sheet.CreateRow(titleIndex++);
-                titleRow.HeightInPoints = 25;
-                var titleCell = titleRow.CreateCell(0);
-                titleCell.SetCellValue(title);
+                // 获取属性信息
+                var properties = typeof(T).GetProperties()
+                    .Where(p => p.CanRead)
+                    .ToArray();
 
-                var titleStyle = workbook.CreateCellStyle();
-                titleStyle.Alignment = HorizontalAlignment.Center;
-                var titleFont = workbook.CreateFont();
-                titleFont.FontHeightInPoints = 14;
-                titleFont.IsBold = true;
-                titleStyle.SetFont(titleFont);
-                titleCell.CellStyle = titleStyle;
-
-                sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, properties.Length - 1));
-            }
-
-            // 创建表头
-            var headerRow = sheet.CreateRow(titleIndex++);
-            var headerStyle = workbook.CreateCellStyle();
-            headerStyle.Alignment = HorizontalAlignment.Center;
-            var headerFont = workbook.CreateFont();
-            headerFont.FontHeightInPoints = 10;
-            headerFont.IsBold = true;
-            headerStyle.SetFont(headerFont);
-
-            // 预创建样式字典，提高性能
-            var styleCache = new Dictionary<Type, ICellStyle>();
-
-            // 创建日期样式
-            var dateStyle = workbook.CreateCellStyle();
-            var format = workbook.CreateDataFormat();
-            dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
-            styleCache[typeof(DateTime)] = dateStyle;
-
-            // 设置列标题并计算列宽
-            var columnWidths = new int[properties.Length];
-            for (var i = 0; i < properties.Length; i++)
-            {
-                var cell = headerRow.CreateCell(i);
-                cell.SetCellValue(properties[i].Name);
-                cell.CellStyle = headerStyle;
-                columnWidths[i] = Encoding.UTF8.GetBytes(properties[i].Name).Length;
-            }
-
-            // 使用基类的批处理方法处理数据行
-            ProcessInBatches<IRow, object?>(
-                list.Count,
-                i => sheet.CreateRow(i + titleIndex),
-                i =>
+                if (properties.Length == 0)
                 {
-                    var values = properties.Select(p => p.GetValue(list[i])).ToArray();
-                    // 计算列宽
-                    for (int j = 0; j < properties.Length; j++)
+                    logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
+                    return new MemoryStream();
+                }
+
+                // 设置标题样式
+                var titleIndex = 0;
+                if (!string.IsNullOrEmpty(title))
+                {
+                    var titleRow = sheet.CreateRow(titleIndex++);
+                    titleRow.HeightInPoints = 25;
+                    var titleCell = titleRow.CreateCell(0);
+                    titleCell.SetCellValue(title);
+
+                    var titleStyle = workbook.CreateCellStyle();
+                    titleStyle.Alignment = HorizontalAlignment.Center;
+                    var titleFont = workbook.CreateFont();
+                    titleFont.FontHeightInPoints = 14;
+                    titleFont.IsBold = true;
+                    titleStyle.SetFont(titleFont);
+                    titleCell.CellStyle = titleStyle;
+
+                    sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, properties.Length - 1));
+                }
+
+                // 创建表头
+                var headerRow = sheet.CreateRow(titleIndex++);
+                var headerStyle = workbook.CreateCellStyle();
+                headerStyle.Alignment = HorizontalAlignment.Center;
+                var headerFont = workbook.CreateFont();
+                headerFont.FontHeightInPoints = 10;
+                headerFont.IsBold = true;
+                headerStyle.SetFont(headerFont);
+
+                // 预创建样式字典，提高性能
+                var styleCache = new Dictionary<Type, ICellStyle>();
+
+                // 创建日期样式
+                var dateStyle = workbook.CreateCellStyle();
+                var format = workbook.CreateDataFormat();
+                dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
+                styleCache[typeof(DateTime)] = dateStyle;
+
+                // 设置列标题并计算列宽
+                var columnWidths = new int[properties.Length];
+                for (var i = 0; i < properties.Length; i++)
+                {
+                    var cell = headerRow.CreateCell(i);
+                    cell.SetCellValue(properties[i].Name);
+                    cell.CellStyle = headerStyle;
+                    columnWidths[i] = Encoding.UTF8.GetBytes(properties[i].Name).Length;
+                }
+
+                // 使用基类的批处理方法处理数据行
+                ProcessInBatches<IRow, object?>(
+                    list.Count,
+                    i => sheet.CreateRow(i + titleIndex),
+                    i =>
                     {
-                        var value = values[j];
-                        if (value != null)
+                        var values = properties.Select(p => p.GetValue(list[i])).ToArray();
+                        // 计算列宽
+                        for (int j = 0; j < properties.Length; j++)
                         {
-                            var strValue = value.ToString() ?? string.Empty;
-                            var length = Encoding.UTF8.GetBytes(strValue).Length;
-                            lock (columnWidths)
+                            var value = values[j];
+                            if (value != null)
                             {
-                                columnWidths[j] = Math.Max(columnWidths[j], length);
+                                var strValue = value.ToString() ?? string.Empty;
+                                var length = Encoding.UTF8.GetBytes(strValue).Length;
+                                lock (columnWidths)
+                                {
+                                    columnWidths[j] = Math.Max(columnWidths[j], length);
+                                }
                             }
                         }
-                    }
-                    return values;
-                },
-                (row, _, values, param) =>
-                {
-                    for (int j = 0; j < properties.Length; j++)
+                        return values;
+                    },
+                    (row, _, values, param) =>
                     {
-                        WriteValueToCell(workbook, row, j, values[j], properties[j].PropertyType, styleCache);
+                        for (int j = 0; j < properties.Length; j++)
+                        {
+                            WriteValueToCell(workbook, row, j, values[j], properties[j].PropertyType, styleCache);
+                        }
+                    }
+                );
+
+                // 设置列宽
+                if (Options.AutoFitColumns)
+                {
+                    for (int i = 0; i < properties.Length; i++)
+                    {
+                        int width = Math.Min(255, columnWidths[i] + 2) * 256;
+                        sheet.SetColumnWidth(i, width);
                     }
                 }
-            );
 
-            // 设置列宽
-            if (Options.AutoFitColumns)
-            {
-                for (int i = 0; i < properties.Length; i++)
-                {
-                    int width = Math.Min(255, columnWidths[i] + 2) * 256;
-                    sheet.SetColumnWidth(i, width);
-                }
-            }
+                // 执行自定义操作
+                action?.Invoke(sheet, properties);
 
-            // 执行自定义操作
-            action?.Invoke(sheet, properties);
+                var ms = new MemoryStream();
+                workbook.Write(ms, true);
+                ms.Position = 0;
 
-            var ms = new MemoryStream();
-            workbook.Write(ms, true);
-            ms.Position = 0;
-
-            return ms;
+                return ms;
+            });
         }, null, nameof(ConvertCollectionToMemoryStream));
     }
 
@@ -165,155 +154,158 @@ public class NpoiExcel : ExcelBase
     {
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
-            Logger?.LogWarning("要转换的DataTable为空或没有列");
+            logger?.LogWarning("要转换的DataTable为空或没有列");
             return null;
         }
 
         return SafeExecute(() =>
         {
-            var workbook = new XSSFWorkbook();
-            var sheet = workbook.CreateSheet(sheetsName);
-
-            // 设置标题样式
-            var titleIndex = 0;
-            if (!string.IsNullOrEmpty(title))
+            return MonitorPerformance("DataTable导出到Excel", () =>
             {
-                var titleRow = sheet.CreateRow(titleIndex++);
-                titleRow.HeightInPoints = 25;
-                var titleCell = titleRow.CreateCell(0);
-                titleCell.SetCellValue(title);
+                var workbook = new XSSFWorkbook();
+                var sheet = workbook.CreateSheet(sheetsName);
 
-                var titleStyle = workbook.CreateCellStyle();
-                titleStyle.Alignment = HorizontalAlignment.Center;
-                var titleFont = workbook.CreateFont();
-                titleFont.FontHeightInPoints = 14;
-                titleFont.IsBold = true;
-                titleStyle.SetFont(titleFont);
-                titleCell.CellStyle = titleStyle;
-
-                sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, dataTable.Columns.Count - 1));
-            }
-
-            // 创建表头
-            var headerRow = sheet.CreateRow(titleIndex++);
-            var headerStyle = workbook.CreateCellStyle();
-            headerStyle.Alignment = HorizontalAlignment.Center;
-            var headerFont = workbook.CreateFont();
-            headerFont.FontHeightInPoints = 10;
-            headerFont.IsBold = true;
-            headerStyle.SetFont(headerFont);
-
-            // 预创建样式字典，提高性能
-            var styleCache = new Dictionary<Type, ICellStyle>();
-
-            // 创建日期样式
-            var dateStyle = workbook.CreateCellStyle();
-            var format = workbook.CreateDataFormat();
-            dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
-            styleCache[typeof(DateTime)] = dateStyle;
-
-            // 设置列标题并计算列宽
-            var columnWidths = new int[dataTable.Columns.Count];
-            for (var i = 0; i < dataTable.Columns.Count; i++)
-            {
-                var cell = headerRow.CreateCell(i);
-                cell.SetCellValue(dataTable.Columns[i].ColumnName);
-                cell.CellStyle = headerStyle;
-                columnWidths[i] = Encoding.UTF8.GetBytes(dataTable.Columns[i].ColumnName).Length;
-            }
-
-            // 判断是否使用并行处理
-            bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
-
-            if (useParallelProcessing)
-            {
-                // 并行处理大数据集
-                var cellValues = new object[dataTable.Rows.Count, dataTable.Columns.Count];
-                var columnTypes = new Type[dataTable.Columns.Count];
-
-                // 获取列类型
-                for (int i = 0; i < dataTable.Columns.Count; i++)
+                // 设置标题样式
+                var titleIndex = 0;
+                if (!string.IsNullOrEmpty(title))
                 {
-                    columnTypes[i] = dataTable.Columns[i].DataType;
+                    var titleRow = sheet.CreateRow(titleIndex++);
+                    titleRow.HeightInPoints = 25;
+                    var titleCell = titleRow.CreateCell(0);
+                    titleCell.SetCellValue(title);
+
+                    var titleStyle = workbook.CreateCellStyle();
+                    titleStyle.Alignment = HorizontalAlignment.Center;
+                    var titleFont = workbook.CreateFont();
+                    titleFont.FontHeightInPoints = 14;
+                    titleFont.IsBold = true;
+                    titleStyle.SetFont(titleFont);
+                    titleCell.CellStyle = titleStyle;
+
+                    sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, dataTable.Columns.Count - 1));
                 }
 
-                // 并行填充数据
-                Parallel.For(0, dataTable.Rows.Count, i =>
-                {
-                    for (int j = 0; j < dataTable.Columns.Count; j++)
-                    {
-                        cellValues[i, j] = dataTable.Rows[i][j];
+                // 创建表头
+                var headerRow = sheet.CreateRow(titleIndex++);
+                var headerStyle = workbook.CreateCellStyle();
+                headerStyle.Alignment = HorizontalAlignment.Center;
+                var headerFont = workbook.CreateFont();
+                headerFont.FontHeightInPoints = 10;
+                headerFont.IsBold = true;
+                headerStyle.SetFont(headerFont);
 
-                        // 计算列宽
-                        var value = dataTable.Rows[i][j];
-                        if (value != DBNull.Value)
+                // 预创建样式字典，提高性能
+                var styleCache = new Dictionary<Type, ICellStyle>();
+
+                // 创建日期样式
+                var dateStyle = workbook.CreateCellStyle();
+                var format = workbook.CreateDataFormat();
+                dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
+                styleCache[typeof(DateTime)] = dateStyle;
+
+                // 设置列标题并计算列宽
+                var columnWidths = new int[dataTable.Columns.Count];
+                for (var i = 0; i < dataTable.Columns.Count; i++)
+                {
+                    var cell = headerRow.CreateCell(i);
+                    cell.SetCellValue(dataTable.Columns[i].ColumnName);
+                    cell.CellStyle = headerStyle;
+                    columnWidths[i] = Encoding.UTF8.GetBytes(dataTable.Columns[i].ColumnName).Length;
+                }
+
+                // 判断是否使用并行处理
+                bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+
+                if (useParallelProcessing)
+                {
+                    // 并行处理大数据集
+                    var cellValues = new object[dataTable.Rows.Count, dataTable.Columns.Count];
+                    var columnTypes = new Type[dataTable.Columns.Count];
+
+                    // 获取列类型
+                    for (int i = 0; i < dataTable.Columns.Count; i++)
+                    {
+                        columnTypes[i] = dataTable.Columns[i].DataType;
+                    }
+
+                    // 并行填充数据
+                    Parallel.For(0, dataTable.Rows.Count, i =>
+                    {
+                        for (int j = 0; j < dataTable.Columns.Count; j++)
                         {
-                            var strValue = value.ToString() ?? string.Empty;
-                            var length = Encoding.UTF8.GetBytes(strValue).Length;
-                            lock (columnWidths)
+                            cellValues[i, j] = dataTable.Rows[i][j];
+
+                            // 计算列宽
+                            var value = dataTable.Rows[i][j];
+                            if (value != DBNull.Value)
                             {
-                                columnWidths[j] = Math.Max(columnWidths[j], length);
+                                var strValue = value.ToString() ?? string.Empty;
+                                var length = Encoding.UTF8.GetBytes(strValue).Length;
+                                lock (columnWidths)
+                                {
+                                    columnWidths[j] = Math.Max(columnWidths[j], length);
+                                }
+                            }
+                        }
+                    });
+
+                    // 批量写入
+                    int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
+                    for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
+                    {
+                        int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
+                        for (int i = batchStart; i < batchEnd; i++)
+                        {
+                            var dataRow = sheet.CreateRow(i + titleIndex);
+                            for (int j = 0; j < dataTable.Columns.Count; j++)
+                            {
+                                var value = cellValues[i, j];
+                                WriteValueToCell(workbook, dataRow, j, value, columnTypes[j], styleCache);
                             }
                         }
                     }
-                });
-
-                // 批量写入
-                int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
-                for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
+                }
+                else
                 {
-                    int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
-                    for (int i = batchStart; i < batchEnd; i++)
+                    // 顺序处理小数据集
+                    for (int i = 0; i < dataTable.Rows.Count; i++)
                     {
                         var dataRow = sheet.CreateRow(i + titleIndex);
                         for (int j = 0; j < dataTable.Columns.Count; j++)
                         {
-                            var value = cellValues[i, j];
-                            WriteValueToCell(workbook, dataRow, j, value, columnTypes[j], styleCache);
+                            var value = dataTable.Rows[i][j];
+                            WriteValueToCell(workbook, dataRow, j, value, dataTable.Columns[j].DataType, styleCache);
+
+                            // 计算列宽
+                            if (value != DBNull.Value)
+                            {
+                                var strValue = value.ToString() ?? string.Empty;
+                                var length = Encoding.UTF8.GetBytes(strValue).Length;
+                                columnWidths[j] = Math.Max(columnWidths[j], length);
+                            }
                         }
                     }
                 }
-            }
-            else
-            {
-                // 顺序处理小数据集
-                for (int i = 0; i < dataTable.Rows.Count; i++)
+
+                // 设置列宽
+                if (Options.AutoFitColumns)
                 {
-                    var dataRow = sheet.CreateRow(i + titleIndex);
-                    for (int j = 0; j < dataTable.Columns.Count; j++)
+                    for (int i = 0; i < dataTable.Columns.Count; i++)
                     {
-                        var value = dataTable.Rows[i][j];
-                        WriteValueToCell(workbook, dataRow, j, value, dataTable.Columns[j].DataType, styleCache);
-
-                        // 计算列宽
-                        if (value != DBNull.Value)
-                        {
-                            var strValue = value.ToString() ?? string.Empty;
-                            var length = Encoding.UTF8.GetBytes(strValue).Length;
-                            columnWidths[j] = Math.Max(columnWidths[j], length);
-                        }
+                        int width = Math.Min(255, columnWidths[i] + 2) * 256;
+                        sheet.SetColumnWidth(i, width);
                     }
                 }
-            }
 
-            // 设置列宽
-            if (Options.AutoFitColumns)
-            {
-                for (int i = 0; i < dataTable.Columns.Count; i++)
-                {
-                    int width = Math.Min(255, columnWidths[i] + 2) * 256;
-                    sheet.SetColumnWidth(i, width);
-                }
-            }
+                // 执行自定义操作
+                action?.Invoke(sheet, dataTable.Columns, dataTable.Rows);
 
-            // 执行自定义操作
-            action?.Invoke(sheet, dataTable.Columns, dataTable.Rows);
+                var ms = new MemoryStream();
+                workbook.Write(ms, true);
+                ms.Position = 0;
 
-            var ms = new MemoryStream();
-            workbook.Write(ms, true);
-            ms.Position = 0;
-
-            return ms;
+                return ms;
+            });
         }, null, nameof(ConvertDataTableToMemoryStream));
     }
 
@@ -324,7 +316,7 @@ public class NpoiExcel : ExcelBase
     {
         if (stream is not { CanRead: true, Length: > 0 })
         {
-            Logger?.LogWarning("无效的Stream: 不可读或长度为0");
+            logger?.LogWarning("无效的Stream: 不可读或长度为0");
             return null;
         }
 
@@ -344,14 +336,14 @@ public class NpoiExcel : ExcelBase
                 if (string.IsNullOrWhiteSpace(sheetName))
                 {
                     sheet = workbook.GetSheetAt(0);
-                    Logger?.LogDebug("使用第一个工作表, 名称: {SheetName}", sheet.SheetName);
+                    logger?.LogDebug("使用第一个工作表, 名称: {SheetName}", sheet.SheetName);
                 }
                 else
                 {
                     sheet = workbook.GetSheet(sheetName) ?? workbook.GetSheetAt(0);
                     if (sheet.SheetName != sheetName)
                     {
-                        Logger?.LogWarning("未找到指定的工作表 {SheetName}, 使用第一个工作表代替", sheetName);
+                        logger?.LogWarning("未找到指定的工作表 {SheetName}, 使用第一个工作表代替", sheetName);
                     }
                 }
 
@@ -366,76 +358,52 @@ public class NpoiExcel : ExcelBase
         }, null, nameof(ConvertStreamToDataTable));
     }
 
-    /// <summary>
-    /// 流式读取大Excel文件
-    /// </summary>
-    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null,
-        int headerRowIndex = 0) where T : class, new()
+    // 删除原来的StreamReadExcel方法
+
+    // 添加基类要求的方法实现
+    protected override object OpenWorkbook(Stream stream)
     {
-        if (stream == null || !stream.CanRead)
-            yield break;
-
-        // 使用BufferedStream提高读取性能
-        using var bufferedStream = new BufferedStream(stream);
-        IWorkbook workbook;
-
+        var bufferedStream = new BufferedStream(stream);
         try
         {
-            workbook = WorkbookFactory.Create(bufferedStream);
+            return WorkbookFactory.Create(bufferedStream);
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "无法创建工作簿");
-            yield break;
-        }
-
-        ISheet sheet;
-        if (string.IsNullOrWhiteSpace(sheetName))
-        {
-            sheet = workbook.GetSheetAt(0);
-        }
-        else
-        {
-            sheet = workbook.GetSheet(sheetName) ?? workbook.GetSheetAt(0);
-        }
-
-        // 读取表头并创建属性映射
-        var propertyMap = CreatePropertyMap<T>(sheet, headerRowIndex);
-
-        // 流式读取数据行
-        for (int rowNum = headerRowIndex + 1; rowNum <= sheet.LastRowNum; rowNum++)
-        {
-            var row = sheet.GetRow(rowNum);
-            if (row == null) continue;
-
-            var item = new T();
-            bool hasData = false;
-
-            foreach (var mapping in propertyMap)
-            {
-                int colIndex = mapping.Key;
-                if (colIndex >= row.LastCellNum) continue;
-
-                var cell = row.GetCell(colIndex);
-                if (cell != null)
-                {
-                    var value = GetExcelCellValue(cell);
-                    if (value != DBNull.Value)
-                    {
-                        SetPropertySafely(item, mapping.Value, value);
-                        hasData = true;
-                    }
-                }
-            }
-
-            if (hasData)
-                yield return item;
+            logger?.LogError(ex, "无法创建工作簿");
+            return null!;
         }
     }
 
-    private Dictionary<int, PropertyInfo> CreatePropertyMap<T>(ISheet sheet, int headerRowIndex)
+    protected override object GetWorksheet(object workbook, string? sheetName)
+    {
+        var workBook = (IWorkbook)workbook;
+        
+        if (string.IsNullOrWhiteSpace(sheetName))
+        {
+            return workBook.GetSheetAt(0);
+        }
+        else
+        {
+            return workBook.GetSheet(sheetName) ?? workBook.GetSheetAt(0);
+        }
+    }
+
+    protected override string GetSheetName(object worksheet)
+    {
+        return ((ISheet)worksheet).SheetName;
+    }
+
+    protected override bool HasData(object worksheet)
+    {
+        var sheet = (ISheet)worksheet;
+        return sheet.LastRowNum > 0;
+    }
+
+    protected override Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(object worksheet, int headerRowIndex)
     {
         var propertyMap = new Dictionary<int, PropertyInfo>();
+        var sheet = (ISheet)worksheet;
         var headerRow = sheet.GetRow(headerRowIndex);
         if (headerRow == null) return propertyMap;
 
@@ -460,21 +428,105 @@ public class NpoiExcel : ExcelBase
         return propertyMap;
     }
 
-    #region 私有辅助方法
-
-    /// <summary>
-    /// 获取或创建样式
-    /// </summary>
-    private ICellStyle GetOrCreateStyle(IWorkbook workbook, string styleKey, Action<ICellStyle> styleInitializer)
+    protected override int GetDataStartRow(object worksheet, int headerRowIndex)
     {
-        if (!_styleCache.TryGetValue(styleKey, out var style))
-        {
-            style = workbook.CreateCellStyle();
-            styleInitializer(style);
-            _styleCache[styleKey] = style;
-        }
-        return style;
+        return headerRowIndex + 1;
     }
+
+    protected override int GetDataEndRow(object worksheet)
+    {
+        var sheet = (ISheet)worksheet;
+        return sheet.LastRowNum;
+    }
+
+    protected override bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item)
+    {
+        var sheet = (ISheet)worksheet;
+        var row = sheet.GetRow(rowNum);
+        if (row == null) return false;
+        
+        bool hasData = false;
+
+        foreach (var mapping in columnMappings)
+        {
+            int colIndex = mapping.Key;
+            if (colIndex >= row.LastCellNum) continue;
+
+            var cell = row.GetCell(colIndex);
+            if (cell != null)
+            {
+                var value = GetCellValue(cell);
+                if (value != DBNull.Value)
+                {
+                    SetPropertySafely(item, mapping.Value, value);
+                    hasData = true;
+                }
+            }
+        }
+
+        return hasData;
+    }
+
+    private object GetCellValue(ICell cell)
+    {
+        switch (cell.CellType)
+        {
+            case CellType.String:
+                return GetExcelCellValue(cell.StringCellValue);
+            case CellType.Numeric:
+                if (DateUtil.IsCellDateFormatted(cell))
+                {
+                    return GetExcelCellValue(cell.NumericCellValue, true);
+                }
+                else
+                {
+                    return GetExcelCellValue(cell.NumericCellValue);
+                }
+            case CellType.Boolean:
+                return GetExcelCellValue(cell.BooleanCellValue);
+            case CellType.Formula:
+                switch (cell.CachedFormulaResultType)
+                {
+                    case CellType.String:
+                        return GetExcelCellValue(cell.StringCellValue);
+                    case CellType.Numeric:
+                        if (DateUtil.IsCellDateFormatted(cell))
+                        {
+                            return GetExcelCellValue(cell.DateCellValue, true);
+                        }
+                        return GetExcelCellValue(cell.NumericCellValue);
+                    case CellType.Boolean:
+                        return GetExcelCellValue(cell.BooleanCellValue);
+                    case CellType.Error:
+                        return GetExcelCellValue(ErrorEval.GetText(cell.ErrorCellValue));
+                    default:
+                        return GetExcelCellValue(string.Empty);
+                }
+            case CellType.Error:
+                return GetExcelCellValue(ErrorEval.GetText(cell.ErrorCellValue));
+            case CellType.Blank:
+            case CellType.Unknown:
+            default:
+                return DBNull.Value;
+        }
+    }
+
+    protected override void CloseWorkbook(object workbook)
+    {
+        if (workbook is IWorkbook npoiWorkbook)
+        {
+            try
+            {
+                npoiWorkbook.Close();
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "关闭NPOI工作簿时出错");
+            }
+        }
+    }
+
+    #region 私有辅助方法
 
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式
@@ -535,16 +587,16 @@ public class NpoiExcel : ExcelBase
                 boolValue = parsedBool;
             else
                 boolValue = false;
-                
+
             cell.SetCellValue(boolValue);
         }
-        else if (valueType == typeof(int) || valueType == typeof(long) || 
+        else if (valueType == typeof(int) || valueType == typeof(long) ||
                  valueType == typeof(short) || valueType == typeof(byte) ||
-                 valueType == typeof(sbyte) || valueType == typeof(ushort) || 
+                 valueType == typeof(sbyte) || valueType == typeof(ushort) ||
                  valueType == typeof(uint) || valueType == typeof(ulong) ||
                  valueType == typeof(int?) || valueType == typeof(long?) ||
                  valueType == typeof(short?) || valueType == typeof(byte?) ||
-                 valueType == typeof(sbyte?) || valueType == typeof(ushort?) || 
+                 valueType == typeof(sbyte?) || valueType == typeof(ushort?) ||
                  valueType == typeof(uint?) || valueType == typeof(ulong?))
         {
             // 整数类型
@@ -552,7 +604,7 @@ public class NpoiExcel : ExcelBase
             {
                 long longValue = Convert.ToInt64(value);
                 cell.SetCellValue((double)longValue);
-                
+
                 // 应用整数样式
                 if (!styleCache.TryGetValue(typeof(int), out var intStyle))
                 {
@@ -568,8 +620,8 @@ public class NpoiExcel : ExcelBase
                 cell.SetCellValue(value.ToString());
             }
         }
-        else if (valueType == typeof(double) || valueType == typeof(float) || 
-                 valueType == typeof(decimal) || valueType == typeof(double?) || 
+        else if (valueType == typeof(double) || valueType == typeof(float) ||
+                 valueType == typeof(decimal) || valueType == typeof(double?) ||
                  valueType == typeof(float?) || valueType == typeof(decimal?))
         {
             // 浮点类型
@@ -577,7 +629,7 @@ public class NpoiExcel : ExcelBase
             {
                 double doubleValue = Convert.ToDouble(value);
                 cell.SetCellValue(doubleValue);
-                
+
                 // 应用浮点数样式
                 if (!styleCache.TryGetValue(typeof(double), out var doubleStyle))
                 {
@@ -610,10 +662,11 @@ public class NpoiExcel : ExcelBase
     /// </summary>
     private DataTable ImportFromSheet(ISheet sheet, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        return MonitorPerformance("解析Excel工作表", () => {
+        return MonitorPerformance("解析Excel工作表", () =>
+        {
             var dataTable = new DataTable();
             dataTable.TableName = sheet.SheetName;
-            
+
             // 处理表头
             if (headerRowIndex < 0)
             {
@@ -639,7 +692,7 @@ public class NpoiExcel : ExcelBase
                 var headerRow = sheet.GetRow(headerRowIndex);
                 if (headerRow == null)
                 {
-                    Logger?.LogWarning("未能在行 {Row} 找到表头", headerRowIndex);
+                    logger?.LogWarning("未能在行 {Row} 找到表头", headerRowIndex);
                     return dataTable;
                 }
 

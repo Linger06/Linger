@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Linger.Excel.Tests.Utils;
 
+[Collection("ExcelValueConverter")]
 public class ExcelValueConverterTests
 {
     [Fact]
@@ -169,5 +170,91 @@ public class ExcelValueConverterTests
         
         // Assert
         Assert.Equal(-1, result);
+    }
+
+    [Fact]
+    public void GetExcelColumnName_ShouldReturnCorrectColumnNames()
+    {
+        // Arrange & Act & Assert
+        Assert.Equal("A", ExcelValueConverter.GetExcelColumnName(1));
+        Assert.Equal("Z", ExcelValueConverter.GetExcelColumnName(26));
+        Assert.Equal("AA", ExcelValueConverter.GetExcelColumnName(27));
+        Assert.Equal("AZ", ExcelValueConverter.GetExcelColumnName(52));
+        Assert.Equal("BA", ExcelValueConverter.GetExcelColumnName(53));
+        Assert.Equal("ZZ", ExcelValueConverter.GetExcelColumnName(702));
+        Assert.Equal("AAA", ExcelValueConverter.GetExcelColumnName(703));
+    }
+
+    [Fact]
+    public void GetExcelColumnIndex_ShouldReturnCorrectColumnIndices()
+    {
+        // Arrange & Act & Assert
+        Assert.Equal(1, ExcelValueConverter.GetExcelColumnIndex("A"));
+        Assert.Equal(26, ExcelValueConverter.GetExcelColumnIndex("Z"));
+        Assert.Equal(27, ExcelValueConverter.GetExcelColumnIndex("AA"));
+        Assert.Equal(52, ExcelValueConverter.GetExcelColumnIndex("AZ"));
+        Assert.Equal(53, ExcelValueConverter.GetExcelColumnIndex("BA"));
+        Assert.Equal(702, ExcelValueConverter.GetExcelColumnIndex("ZZ"));
+        Assert.Equal(703, ExcelValueConverter.GetExcelColumnIndex("AAA"));
+    }
+
+    [Fact]
+    public void TryConvertValue_ShouldHandleNullableTypes()
+    {
+        // Arrange & Act & Assert
+        Assert.Equal(42, ExcelValueConverter.TryConvertValue("42", typeof(int?)));
+        Assert.Equal(42.5, ExcelValueConverter.TryConvertValue("42.5", typeof(double?)));
+        Assert.Equal(true, ExcelValueConverter.TryConvertValue("true", typeof(bool?)));
+        Assert.Equal(new DateTime(2023, 1, 1), ExcelValueConverter.TryConvertValue("2023-01-01", typeof(DateTime?)));
+    }
+
+    [Theory]
+    [InlineData("2023-01-01", true, typeof(DateTime))]
+    [InlineData("100", false, typeof(int))]
+    [InlineData("100.123", false, typeof(double))]
+    [InlineData("true", false, typeof(bool))]
+    public void ConvertToDbValue_AutoDetectsTypes(string input, bool isDateFormat, Type expectedType)
+    {
+        // Act
+        var result = ExcelValueConverter.ConvertToDbValue(input, isDateFormat);
+        
+        // Assert
+        Assert.IsType(expectedType, result);
+    }
+    
+    [Theory]
+    [InlineData("", typeof(int?))]
+    [InlineData(null, typeof(DateTime?))]
+    [InlineData("invalid", typeof(decimal?))]
+    public void TryConvertValue_HandlesInvalidInputsForNullable(object input, Type targetType)
+    {
+        // Act
+        var result = ExcelValueConverter.TryConvertValue(input, targetType);
+        
+        // Assert
+        Assert.Null(result);
+    }
+    
+    // 测试边界情况
+    [Fact]
+    public void ConvertToDbValue_MaxValues()
+    {
+        // Arrange & Act & Assert
+        Assert.Equal(int.MaxValue, ExcelValueConverter.ConvertToDbValue((double)int.MaxValue));
+        Assert.Equal((long)int.MaxValue + 1, ExcelValueConverter.ConvertToDbValue((double)(int.MaxValue) + 1));
+    }
+    
+    [Theory]
+    [InlineData(1, "A")]
+    [InlineData(26, "Z")]
+    [InlineData(27, "AA")]
+    [InlineData(52, "AZ")]
+    [InlineData(53, "BA")]
+    [InlineData(702, "ZZ")]
+    [InlineData(703, "AAA")]
+    [InlineData(18278, "ZZZ")]  // Excel的最大列
+    public void GetExcelColumnName_ExtremeValues(int columnIndex, string expected)
+    {
+        Assert.Equal(expected, ExcelValueConverter.GetExcelColumnName(columnIndex));
     }
 }

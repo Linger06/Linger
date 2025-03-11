@@ -33,4 +33,14 @@ public interface IExcel
     /// </summary>
     MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null);
     #endregion
+
+    /// <summary>
+    /// 流式读取Excel文件（内存优化方式）
+    /// </summary>
+    /// <typeparam name="T">要转换成的对象类型</typeparam>
+    /// <param name="stream">Excel文件流</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="headerRowIndex">表头行索引</param>
+    /// <returns>对象序列</returns>
+    IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0) where T : class, new();
 }

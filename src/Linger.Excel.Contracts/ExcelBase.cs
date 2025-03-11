@@ -7,36 +7,17 @@ using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.Contracts;
 
-/// <summary>
-/// Excel处理基类
-/// </summary>
-public abstract class ExcelBase : IExcel
+public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = null) : IExcel
 {
     /// <summary>
     /// Excel配置选项
     /// </summary>
-    protected readonly ExcelOptions Options;
-
-    /// <summary>
-    /// 日志记录器
-    /// </summary>
-    protected readonly ILogger? Logger;
+    protected readonly ExcelOptions Options = options ?? new ExcelOptions();
 
     /// <summary>
     /// Excel内容类型
     /// </summary>
     public static string ContentType => "application/vnd.ms-excel";
-
-    /// <summary>
-    /// 构造函数
-    /// </summary>
-    /// <param name="options">Excel配置选项</param>
-    /// <param name="logger">日志记录器</param>
-    protected ExcelBase(ExcelOptions? options = null, ILogger? logger = null)
-    {
-        Options = options ?? new ExcelOptions();
-        Logger = logger;
-    }
 
     /// <summary>
     /// 将Excel文件转换为DataTable
@@ -50,7 +31,7 @@ public abstract class ExcelBase : IExcel
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -61,7 +42,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取失败: {FilePath}", filePath);
+            logger?.LogError(ex, "从Excel文件读取失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -79,7 +60,7 @@ public abstract class ExcelBase : IExcel
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -90,7 +71,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取并转换为对象列表失败: {FilePath}", filePath);
+            logger?.LogError(ex, "从Excel文件读取并转换为对象列表失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -111,7 +92,7 @@ public abstract class ExcelBase : IExcel
             using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
             if (ms == null)
             {
-                Logger?.LogError("转换DataTable到MemoryStream失败");
+                logger?.LogError("转换DataTable到MemoryStream失败");
                 throw new InvalidOperationException("转换DataTable到MemoryStream失败");
             }
 
@@ -125,7 +106,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "保存DataTable到Excel文件失败: {FilePath}", fullFileName);
+            logger?.LogError(ex, "保存DataTable到Excel文件失败: {FilePath}", fullFileName);
             throw new ExcelException("保存DataTable到Excel文件失败", ex);
         }
     }
@@ -147,7 +128,7 @@ public abstract class ExcelBase : IExcel
             using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
             if (ms == null)
             {
-                Logger?.LogError("转换对象列表到MemoryStream失败");
+                logger?.LogError("转换对象列表到MemoryStream失败");
                 throw new InvalidOperationException("转换对象列表到MemoryStream失败");
             }
 
@@ -161,7 +142,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "保存对象列表到Excel文件失败: {FilePath}", fullFileName);
+            logger?.LogError(ex, "保存对象列表到Excel文件失败: {FilePath}", fullFileName);
             throw new ExcelException("保存对象列表到Excel文件失败", ex);
         }
     }
@@ -262,7 +243,7 @@ public abstract class ExcelBase : IExcel
         catch (Exception ex)
         {
             // 转换失败记录日志
-            Logger?.LogDebug(ex, "属性设置失败: {PropertyName}, 值: {Value}, 值类型: {ValueType}",
+            logger?.LogDebug(ex, "属性设置失败: {PropertyName}, 值: {Value}, 值类型: {ValueType}",
                 property.Name, value, value.GetType().Name);
         }
     }
@@ -283,7 +264,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "Excel操作失败: {OperationName}", operationName ?? "未知操作");
+            logger?.LogError(ex, "Excel操作失败: {OperationName}", operationName ?? "未知操作");
             return defaultValue;
         }
     }
@@ -306,7 +287,7 @@ public abstract class ExcelBase : IExcel
             sw.Stop();
             if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
             {
-                Logger?.LogInformation("{Operation} 耗时: {Time}ms", operationName, sw.ElapsedMilliseconds);
+                logger?.LogInformation("{Operation} 耗时: {Time}ms", operationName, sw.ElapsedMilliseconds);
             }
         }
     }
@@ -366,7 +347,7 @@ public abstract class ExcelBase : IExcel
         
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
-            Logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
+            logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
             return new List<T>();
         }
 
@@ -504,7 +485,7 @@ public abstract class ExcelBase : IExcel
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -529,7 +510,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取失败: {FilePath}", filePath);
+            logger?.LogError(ex, "从Excel文件异步读取失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -541,7 +522,7 @@ public abstract class ExcelBase : IExcel
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -566,7 +547,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取并转换为对象列表失败: {FilePath}", filePath);
+            logger?.LogError(ex, "从Excel文件异步读取并转换为对象列表失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -581,7 +562,7 @@ public abstract class ExcelBase : IExcel
             using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
             if (ms == null)
             {
-                Logger?.LogError("转换DataTable到MemoryStream失败");
+                logger?.LogError("转换DataTable到MemoryStream失败");
                 throw new InvalidOperationException("转换DataTable到MemoryStream失败");
             }
 
@@ -595,7 +576,7 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "异步保存DataTable到Excel文件失败: {FilePath}", fullFileName);
+            logger?.LogError(ex, "异步保存DataTable到Excel文件失败: {FilePath}", fullFileName);
             throw new ExcelException("异步保存DataTable到Excel文件失败", ex);
         }
     }
@@ -610,7 +591,7 @@ public abstract class ExcelBase : IExcel
             using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
             if (ms == null)
             {
-                Logger?.LogError("转换对象列表到MemoryStream失败");
+                logger?.LogError("转换对象列表到MemoryStream失败");
                 throw new InvalidOperationException("转换对象列表到MemoryStream失败");
             }
 
@@ -624,76 +605,141 @@ public abstract class ExcelBase : IExcel
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "异步保存对象列表到Excel文件失败: {FilePath}", fullFileName);
+            logger?.LogError(ex, "异步保存对象列表到Excel文件失败: {FilePath}", fullFileName);
             throw new ExcelException("异步保存对象列表到Excel文件失败", ex);
         }
     }
 
     #endregion
-}
-
-/// <summary>
-/// Excel配置选项
-/// </summary>
-public class ExcelOptions
-{
-    /// <summary>
-    /// 并行处理阈值，超过此数量的数据将使用并行处理
-    /// </summary>
-    public int ParallelProcessingThreshold { get; set; } = 1000;
 
     /// <summary>
-    /// 是否自动调整列宽
+    /// 流式读取Excel文件（内存优化方式）
     /// </summary>
-    public bool AutoFitColumns { get; set; } = true;
+    /// <typeparam name="T">要转换成的对象类型</typeparam>
+    /// <param name="stream">Excel文件流</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="headerRowIndex">表头行索引</param>
+    /// <returns>对象序列</returns>
+    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0) 
+        where T : class, new()
+    {
+        // 验证输入
+        if (stream == null || !stream.CanRead || stream.Length == 0)
+            yield break;
+
+        // 打开工作簿 - 不使用using，手动管理资源
+        var workbook = OpenWorkbook(stream);
+        if (workbook == null)
+        {
+            logger?.LogError("无法打开Excel工作簿");
+            yield break;
+        }
+
+        try
+        {
+            // 获取工作表
+            var worksheet = GetWorksheet(workbook, sheetName);
+            if (worksheet == null)
+            {
+                logger?.LogError("无法获取Excel工作表");
+                yield break;
+            }
+
+            // 验证工作表是否包含数据
+            if (!HasData(worksheet))
+            {
+                logger?.LogWarning("工作表 {SheetName} 不包含数据", GetSheetName(worksheet));
+                yield break;
+            }
+
+            // 读取表头并创建属性映射
+            var columnMappings = CreatePropertyMappings<T>(worksheet, headerRowIndex);
+
+            // 获取数据开始行 
+            int startRow = GetDataStartRow(worksheet, headerRowIndex);
+            int endRow = GetDataEndRow(worksheet);
+            
+            // 流式读取数据行
+            for (int rowNum = startRow; rowNum <= endRow; rowNum++)
+            {
+                var item = new T();
+                bool hasData = false;
+
+                // 处理当前行
+                hasData = ProcessRow(worksheet, rowNum, columnMappings, item);
+
+                if (hasData)
+                    yield return item;
+
+                // 内存优化
+                OptimizeMemory(rowNum);
+            }
+        }
+        finally
+        {
+            // 确保无论如何都释放工作簿资源
+            CloseWorkbook(workbook);
+        }
+    }
 
     /// <summary>
-    /// 默认日期格式
+    /// 优化内存使用
     /// </summary>
-    public string DefaultDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+    /// <param name="currentRowIndex">当前处理的行索引</param>
+    protected void OptimizeMemory(int currentRowIndex)
+    {
+        if (Options.UseMemoryOptimization && currentRowIndex % Options.MemoryBufferSize == 0)
+        {
+            GC.Collect(0, GCCollectionMode.Optimized);
+        }
+    }
+
+    #region 由子类实现的抽象方法
 
     /// <summary>
-    /// 是否使用批量写入优化
+    /// 打开Excel工作簿
     /// </summary>
-    public bool UseBatchWrite { get; set; } = true;
+    protected abstract object OpenWorkbook(Stream stream);
 
     /// <summary>
-    /// 批量写入大小
+    /// 获取工作表
     /// </summary>
-    public int BatchSize { get; set; } = 5000;
+    protected abstract object GetWorksheet(object workbook, string? sheetName);
 
     /// <summary>
-    /// 是否在错误时继续处理（不抛出异常）
+    /// 获取工作表名称
     /// </summary>
-    public bool ContinueOnError { get; set; } = true;
+    protected abstract string GetSheetName(object worksheet);
 
     /// <summary>
-    /// 是否使用内存优化（处理大文件时）
+    /// 检查工作表是否包含数据
     /// </summary>
-    public bool UseMemoryOptimization { get; set; } = false;
+    protected abstract bool HasData(object worksheet);
 
     /// <summary>
-    /// 内存优化缓冲区大小（行数）
+    /// 创建属性映射关系
     /// </summary>
-    public int MemoryBufferSize { get; set; } = 1000;
+    protected abstract Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(object worksheet, int headerRowIndex) where T : class, new();
 
     /// <summary>
-    /// 是否启用性能监控
+    /// 获取数据开始行
     /// </summary>
-    public bool EnablePerformanceMonitoring { get; set; } = false;
+    protected abstract int GetDataStartRow(object worksheet, int headerRowIndex);
 
     /// <summary>
-    /// 性能监控阈值(毫秒)，超过此阈值才记录日志
+    /// 获取数据结束行
     /// </summary>
-    public int PerformanceThreshold { get; set; } = 500;
-}
+    protected abstract int GetDataEndRow(object worksheet);
 
-/// <summary>
-/// Excel异常类
-/// </summary>
-public class ExcelException : Exception
-{
-    public ExcelException(string message) : base(message) { }
+    /// <summary>
+    /// 处理单行数据
+    /// </summary>
+    protected abstract bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item) where T : class, new();
 
-    public ExcelException(string message, Exception innerException) : base(message, innerException) { }
+    /// <summary>
+    /// 关闭工作簿并释放资源
+    /// </summary>
+    protected abstract void CloseWorkbook(object workbook);
+
+    #endregion
 }
