@@ -540,6 +540,47 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         }
     }
 
+    protected override int EstimateColumnCount(object worksheet)
+    {
+        var excelWorksheet = (ExcelWorksheet)worksheet;
+        return excelWorksheet.Dimension?.End.Column ?? 0;
+    }
+
+    protected override Dictionary<int, string> CreateHeaderMappings(object worksheet, int headerRowIndex)
+    {
+        var result = new Dictionary<int, string>();
+        var excelWorksheet = (ExcelWorksheet)worksheet;
+        
+        if (headerRowIndex < 0 || excelWorksheet.Dimension == null) 
+            return result;
+        
+        int colCount = excelWorksheet.Dimension.End.Column;
+        
+        for (int i = 1; i <= colCount; i++)
+        {
+            var cell = excelWorksheet.Cells[headerRowIndex + 1, i]; // EPPlus从1开始计数
+            string columnName = cell.Text?.Trim() ?? $"Column{i}";
+            result[i] = columnName;
+        }
+        
+        return result;
+    }
+
+    protected override object GetCellValue(object worksheet, int rowNum, int colIndex)
+    {
+        var excelWorksheet = (ExcelWorksheet)worksheet;
+        var cell = excelWorksheet.Cells[rowNum, colIndex + 1]; // EPPlus从1开始计数，需要+1
+        
+        if (cell?.Value == null)
+            return DBNull.Value;
+        
+        // 处理日期格式
+        bool isDateFormat = cell.Style.Numberformat.Format.Contains("yy");
+        
+        // 使用通用转换器
+        return GetExcelCellValue(cell.Value, isDateFormat);
+    }
+
     #region 私有辅助方法
 
     /// <summary>

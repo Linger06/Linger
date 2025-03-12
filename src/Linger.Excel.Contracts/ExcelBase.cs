@@ -288,7 +288,154 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的DataTable</returns>
-    public abstract DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    public virtual DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        if (stream is not { CanRead: true } || stream.Length <= 0)
+        {
+            logger?.LogWarning("无效的Stream: 不可读或长度为0");
+            return null;
+        }
+
+        return SafeExecute(() =>
+        {
+            // 打开工作簿 - 不使用using，手动管理资源
+            var workbook = OpenWorkbook(stream);
+            if (workbook == null)
+            {
+                logger?.LogError("无法打开Excel工作簿");
+                return null;
+            }
+
+            try
+            {
+                // 获取工作表
+                var worksheet = GetWorksheet(workbook, sheetName);
+                if (worksheet == null)
+                {
+                    logger?.LogError("无法获取Excel工作表");
+                    return null;
+                }
+
+                // 验证工作表是否包含数据
+                if (!HasData(worksheet))
+                {
+                    logger?.LogWarning("工作表 {SheetName} 不包含数据", GetSheetName(worksheet));
+                    return new DataTable(GetSheetName(worksheet));
+                }
+
+                var dataTable = new DataTable(GetSheetName(worksheet));
+                
+                // 获取表头行索引和数据行范围
+                int startRow = headerRowIndex < 0 ? 0 : headerRowIndex;
+                int endRow = GetDataEndRow(worksheet);
+
+                // 处理表头和列定义
+                CreateDataTableColumns(worksheet, dataTable, headerRowIndex);
+                
+                // 处理数据行
+                ProcessDataTableRows(worksheet, dataTable, startRow + 1, endRow, addEmptyRow);
+
+                return dataTable;
+            }
+            finally
+            {
+                // 确保无论如何都释放工作簿资源
+                CloseWorkbook(workbook);
+            }
+        }, new DataTable(), nameof(ConvertStreamToDataTable));
+    }
+
+    // 添加新的辅助方法以创建数据表列
+    protected virtual void CreateDataTableColumns(object worksheet, DataTable dataTable, int headerRowIndex)
+    {
+        if (headerRowIndex < 0)
+        {
+            // 没有表头，使用默认列名
+            int columnCount = EstimateColumnCount(worksheet);
+            for (int i = 0; i < columnCount; i++)
+            {
+                dataTable.Columns.Add($"Column{i + 1}");
+            }
+        }
+        else
+        {
+            // 使用指定行作为表头
+            var headerMappings = CreateHeaderMappings(worksheet, headerRowIndex);
+            foreach (var mapping in headerMappings)
+            {
+                string columnName = mapping.Value;
+                if (string.IsNullOrEmpty(columnName))
+                    columnName = $"Column{mapping.Key + 1}";
+                
+                // 处理重复的列名
+                if (dataTable.Columns.Contains(columnName))
+                    columnName = $"{columnName}_{mapping.Key}";
+                
+                dataTable.Columns.Add(columnName);
+            }
+        }
+    }
+
+    // 添加处理数据行的方法
+    protected virtual void ProcessDataTableRows(object worksheet, DataTable dataTable, int startRow, int endRow, bool addEmptyRow)
+    {
+        for (int rowNum = startRow; rowNum <= endRow; rowNum++)
+        {
+            var dataRow = dataTable.NewRow();
+            bool hasData = GetRowValues(worksheet, rowNum, dataRow);
+
+            // 只添加有数据的行或指定添加空行的情况
+            if (hasData || addEmptyRow)
+            {
+                dataTable.Rows.Add(dataRow);
+            }
+
+            // 内存优化
+            OptimizeMemory(rowNum);
+        }
+    }
+
+    // 添加获取行值的方法
+    protected virtual bool GetRowValues(object worksheet, int rowNum, DataRow dataRow)
+    {
+        // 这是默认实现，子类可以重写以提供更高效的实现
+        bool hasData = false;
+        
+        // 根据行索引和DataRow的列来获取单元格值
+        for (int colIndex = 0; colIndex < dataRow.Table.Columns.Count; colIndex++)
+        {
+            object cellValue = GetCellValue(worksheet, rowNum, colIndex);
+            
+            if (cellValue != DBNull.Value)
+            {
+                dataRow[colIndex] = cellValue;
+                hasData = true;
+            }
+        }
+        
+        return hasData;
+    }
+
+    // 添加获取单元格值的方法
+    protected virtual object GetCellValue(object worksheet, int rowNum, int colIndex)
+    {
+        // 这是一个简单的默认实现，子类应该重写以提供实际的单元格值获取逻辑
+        return DBNull.Value;
+    }
+
+    // 添加估算列数的方法
+    protected virtual int EstimateColumnCount(object worksheet)
+    {
+        // 默认返回一个基本值，子类应该重写以提供准确的列计数
+        return 10;
+    }
+
+    // 添加创建表头映射的方法
+    protected virtual Dictionary<int, string> CreateHeaderMappings(object worksheet, int headerRowIndex)
+    {
+        // 默认返回空映射，子类应该重写以提供实际的表头映射
+        return new Dictionary<int, string>();
+    }
 
     /// <summary>
     /// 将DataTable转换为MemoryStream

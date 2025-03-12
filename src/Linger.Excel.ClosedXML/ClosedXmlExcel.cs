@@ -449,6 +449,53 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         }
     }
 
+    protected override int EstimateColumnCount(object worksheet)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        var usedRange = xlWorksheet.RangeUsed();
+        return usedRange?.LastColumn()?.ColumnNumber() ?? 0;
+    }
+
+    protected override Dictionary<int, string> CreateHeaderMappings(object worksheet, int headerRowIndex)
+    {
+        var result = new Dictionary<int, string>();
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        
+        if (headerRowIndex < 0) 
+            return result;
+        
+        var headerRow = xlWorksheet.Row(headerRowIndex + 1); // ClosedXML从1开始计数
+        
+        foreach (var cell in headerRow.CellsUsed())
+        {
+            int colIndex = cell.Address.ColumnNumber;
+            string columnName = cell.Value.ToString() ?? $"Column{colIndex}";
+            result[colIndex] = columnName;
+        }
+        
+        return result;
+    }
+
+    protected override object GetCellValue(object worksheet, int rowNum, int colIndex)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        
+        // ClosedXML从1开始计数
+        var row = xlWorksheet.Row(rowNum);
+        var cell = row.Cell(colIndex);
+        
+        if (cell.IsEmpty())
+            return DBNull.Value;
+        
+        return GetExcelCellValue(
+            cell.DataType == XLDataType.DateTime ? cell.GetDateTime() :
+            cell.DataType == XLDataType.Number ? cell.GetDouble() :
+            cell.DataType == XLDataType.Boolean ? cell.GetBoolean() :
+            cell.DataType == XLDataType.Text ? cell.GetString() :
+            cell.Value,
+            cell.DataType == XLDataType.DateTime);
+    }
+
     #region 私有辅助方法
 
     /// <summary>

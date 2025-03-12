@@ -306,56 +306,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         }, null, nameof(ConvertDataTableToMemoryStream));
     }
 
-    /// <summary>
-    /// 将Stream转换为DataTable
-    /// </summary>
-    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
-    {
-        if (stream is not { CanRead: true, Length: > 0 })
-        {
-            logger?.LogWarning("无效的Stream: 不可读或长度为0");
-            return null;
-        }
-
-        return SafeExecute(() =>
-        {
-            IWorkbook? workbook = null;
-            try
-            {
-                using (var ms = new MemoryStream())
-                {
-                    stream.CopyTo(ms);
-                    ms.Position = 0;
-                    workbook = WorkbookFactory.Create(ms);
-                }
-
-                ISheet sheet;
-                if (string.IsNullOrWhiteSpace(sheetName))
-                {
-                    sheet = workbook.GetSheetAt(0);
-                    logger?.LogDebug("使用第一个工作表, 名称: {SheetName}", sheet.SheetName);
-                }
-                else
-                {
-                    sheet = workbook.GetSheet(sheetName) ?? workbook.GetSheetAt(0);
-                    if (sheet.SheetName != sheetName)
-                    {
-                        logger?.LogWarning("未找到指定的工作表 {SheetName}, 使用第一个工作表代替", sheetName);
-                    }
-                }
-
-                DataTable dataTable = ImportFromSheet(sheet, headerRowIndex, addEmptyRow);
-                return dataTable;
-            }
-            finally
-            {
-                // NPOI中对Workbook的释放需特别处理
-                workbook?.Close();
-            }
-        }, null, nameof(ConvertStreamToDataTable));
-    }
-
-    // 删除原来的StreamReadExcel方法
+    // 删除原有的 public override DataTable? ConvertStreamToDataTable 方法
 
     // 添加基类要求的方法实现
     protected override object OpenWorkbook(Stream stream)
@@ -477,6 +428,55 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 logger?.LogError(ex, "关闭NPOI工作簿时出错");
             }
         }
+    }
+
+    protected override int EstimateColumnCount(object worksheet)
+    {
+        var sheet = (ISheet)worksheet;
+        int maxCellCount = 0;
+        
+        // 扫描所有行找到最大列数
+        for (int i = sheet.FirstRowNum; i <= sheet.LastRowNum; i++)
+        {
+            var row = sheet.GetRow(i);
+            if (row != null && row.LastCellNum > maxCellCount)
+            {
+                maxCellCount = row.LastCellNum;
+            }
+        }
+        
+        return maxCellCount;
+    }
+
+    protected override Dictionary<int, string> CreateHeaderMappings(object worksheet, int headerRowIndex)
+    {
+        var result = new Dictionary<int, string>();
+        var sheet = (ISheet)worksheet;
+        var headerRow = sheet.GetRow(headerRowIndex);
+        
+        if (headerRow == null) return result;
+        
+        for (int i = headerRow.FirstCellNum; i < headerRow.LastCellNum; i++)
+        {
+            var cell = headerRow.GetCell(i);
+            string columnName = cell?.ToString() ?? $"Column{i + 1}";
+            result[i] = columnName;
+        }
+        
+        return result;
+    }
+
+    protected override object GetCellValue(object worksheet, int rowNum, int colIndex)
+    {
+        var sheet = (ISheet)worksheet;
+        var row = sheet.GetRow(rowNum);
+        
+        if (row == null) return DBNull.Value;
+        
+        var cell = row.GetCell(colIndex);
+        if (cell == null) return DBNull.Value;
+        
+        return GetExcelCellValue(cell);
     }
 
     #region 私有辅助方法
