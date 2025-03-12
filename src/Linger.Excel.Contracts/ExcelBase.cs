@@ -3,6 +3,7 @@ using System.Reflection;
 using Linger.Excel.Contracts.Utils;
 using Linger.Extensions.Core;
 using Linger.Extensions.Data;
+using Linger.Helper;
 using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.Contracts;
@@ -96,7 +97,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 throw new InvalidOperationException("转换DataTable到MemoryStream失败");
             }
 
-            EnsureDirectoryExists(fullFileName);
+            FileHelper.EnsureDirectoryExists(fullFileName);
             using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
             ms.Position = 0; // 确保内存流位置在开头
             ms.CopyTo(fs);
@@ -132,7 +133,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 throw new InvalidOperationException("转换对象列表到MemoryStream失败");
             }
 
-            EnsureDirectoryExists(fullFileName);
+            FileHelper.EnsureDirectoryExists(fullFileName);
             using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
             ms.Position = 0; // 确保内存流位置在开头
             ms.CopyTo(fs);
@@ -144,19 +145,6 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
         {
             logger?.LogError(ex, "保存对象列表到Excel文件失败: {FilePath}", fullFileName);
             throw new ExcelException("保存对象列表到Excel文件失败", ex);
-        }
-    }
-
-    /// <summary>
-    /// 确保目录存在
-    /// </summary>
-    /// <param name="filePath">文件路径</param>
-    protected void EnsureDirectoryExists(string filePath)
-    {
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
         }
     }
 
@@ -276,7 +264,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     {
         if (!Options.EnablePerformanceMonitoring)
             return operation();
-        
+
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
@@ -342,9 +330,9 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <returns>转换后的对象列表</returns>
     public List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
-        var dataTable = MonitorPerformance("读取Excel到DataTable", () => 
+        var dataTable = MonitorPerformance("读取Excel到DataTable", () =>
             ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow));
-        
+
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
             logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
@@ -434,38 +422,6 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             return new MemoryStream();
 
         return result;
-    }
-
-    /// <summary>
-    /// 将对象转换为DataRow
-    /// </summary>
-    protected DataRow ObjectToDataRow<T>(T obj, DataTable dt) where T : class
-    {
-        var row = dt.NewRow();
-        var properties = typeof(T).GetProperties().Where(p => p.CanRead);
-
-        foreach (var prop in properties)
-        {
-            if (dt.Columns.Contains(prop.Name))
-            {
-                var value = prop.GetValue(obj);
-                row[prop.Name] = value ?? DBNull.Value;
-            }
-        }
-
-        return row;
-    }
-
-    /// <summary>
-    /// 将流保存到文件
-    /// </summary>
-    protected async Task SaveStreamToFileAsync(Stream stream, string filePath)
-    {
-        EnsureDirectoryExists(filePath);
-        using var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-        stream.Position = 0;
-        await stream.CopyToAsync(fileStream);
-        await fileStream.FlushAsync();
     }
 
     /// <summary>
@@ -566,7 +522,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 throw new InvalidOperationException("转换DataTable到MemoryStream失败");
             }
 
-            EnsureDirectoryExists(fullFileName);
+            FileHelper.EnsureDirectoryExists(fullFileName);
             using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
             ms.Position = 0; // 确保内存流位置在开头
             await ms.CopyToAsync(fs);
@@ -595,7 +551,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 throw new InvalidOperationException("转换对象列表到MemoryStream失败");
             }
 
-            EnsureDirectoryExists(fullFileName);
+            FileHelper.EnsureDirectoryExists(fullFileName);
             using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
             ms.Position = 0; // 确保内存流位置在开头
             await ms.CopyToAsync(fs);
@@ -620,7 +576,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <param name="sheetName">工作表名称</param>
     /// <param name="headerRowIndex">表头行索引</param>
     /// <returns>对象序列</returns>
-    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0) 
+    public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0)
         where T : class, new()
     {
         // 验证输入
@@ -658,7 +614,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             // 获取数据开始行 
             int startRow = GetDataStartRow(worksheet, headerRowIndex);
             int endRow = GetDataEndRow(worksheet);
-            
+
             // 流式读取数据行
             for (int rowNum = startRow; rowNum <= endRow; rowNum++)
             {

@@ -9,7 +9,6 @@ namespace Linger.Excel.ClosedXML;
 
 public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel>? logger = null) : ExcelBase(options, logger)
 {
-
     /// <summary>
     /// 将对象集合转换为MemoryStream
     /// </summary>
@@ -347,7 +346,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     protected override object GetWorksheet(object workbook, string? sheetName)
     {
         var xlWorkbook = (XLWorkbook)workbook;
-        
+
         if (sheetName.IsNullOrEmpty())
         {
             return xlWorkbook.Worksheet(1);
@@ -377,7 +376,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     {
         var result = new Dictionary<int, PropertyInfo>();
         var xlWorksheet = (IXLWorksheet)worksheet;
-        
+
         if (headerRowIndex < 0) return result;
 
         var headerRow = xlWorksheet.Row(headerRowIndex + 1);
@@ -422,14 +421,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             int colIndex = cell.Address.ColumnNumber;
             if (columnMappings.TryGetValue(colIndex, out var property))
             {
-                bool isDateFormat = cell.DataType == XLDataType.DateTime;
-                var value = GetExcelCellValue(
-                    cell.DataType == XLDataType.DateTime ? cell.GetDateTime() :
-                    cell.DataType == XLDataType.Number ? cell.GetDouble() :
-                    cell.DataType == XLDataType.Boolean ? cell.GetBoolean() :
-                    cell.DataType == XLDataType.Text ? cell.GetString() :
-                    cell.Value,
-                    isDateFormat);
+                var value = GetExcelCellValue(cell);
 
                 if (value != DBNull.Value)
                 {
@@ -458,6 +450,30 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     }
 
     #region 私有辅助方法
+
+    /// <summary>
+    /// 从Excel单元格获取适当类型的值
+    /// </summary>
+    private object GetExcelCellValue(IXLCell cell)
+    {
+        switch (cell.DataType)
+        {
+            case XLDataType.Text:
+                return GetExcelCellValue(cell.GetString());
+            case XLDataType.Number:
+                return GetExcelCellValue(cell.GetDouble());
+            case XLDataType.Boolean:
+                return GetExcelCellValue(cell.GetBoolean());
+            case XLDataType.DateTime:
+                return GetExcelCellValue(cell.GetDateTime(), true);
+            case XLDataType.TimeSpan:
+                return GetExcelCellValue(cell.GetTimeSpan(), true);
+            case XLDataType.Error:
+            case XLDataType.Blank:
+            default:
+                return cell.Value;
+        }
+    }
 
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式

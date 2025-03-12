@@ -341,5 +341,18 @@ public static class FileHelper
         }
     }
 
+    /// <summary>
+    /// 确保目录存在
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    public static void EnsureDirectoryExists(string filePath)
+    {
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+    }
+
     #endregion
 }

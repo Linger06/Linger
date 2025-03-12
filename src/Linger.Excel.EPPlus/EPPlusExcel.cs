@@ -12,7 +12,6 @@ namespace Linger.Excel.EPPlus;
 
 public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? logger = null) : ExcelBase(options, logger)
 {
-
     /// <summary>
     /// 将对象集合转换为内存流
     /// </summary>
@@ -434,8 +433,6 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         }, new DataTable(), nameof(ConvertStreamToDataTable));
     }
 
-    // 删除原来的StreamReadExcel方法
-
     // 添加基类要求的方法实现
     protected override object OpenWorkbook(Stream stream)
     {
@@ -446,15 +443,15 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         var package = (ExcelPackage)workbook;
         var workBook = package.Workbook;
-        
+
         if (workBook.Worksheets.Count == 0)
             return null!;
-            
+
         if (!string.IsNullOrEmpty(sheetName))
         {
             return workBook.Worksheets[sheetName] ?? workBook.Worksheets[0];
         }
-        
+
         return workBook.Worksheets[0];
     }
 
@@ -473,7 +470,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         var columnMappings = new Dictionary<int, PropertyInfo>();
         var excelWorksheet = (ExcelWorksheet)worksheet;
-        
+
         var properties = typeof(T).GetProperties().Where(p => p.CanWrite)
             .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 
@@ -515,7 +512,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             var cell = excelWorksheet.Cells[rowNum, mapping.Key];
             if (cell?.Value != null)
             {
-                var value = GetTypedCellValue(cell);
+                var value = GetExcelCellValue(cell);
 
                 if (value != DBNull.Value)
                 {
@@ -599,7 +596,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 if (cell != null && cell.Value != null)
                 {
                     hasData = true;
-                    dataRow[colNum - 1] = GetTypedCellValue(cell);
+                    dataRow[colNum - 1] = GetExcelCellValue(cell);
                 }
             }
 
@@ -615,7 +612,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 获取单元格值并转换为适当类型
     /// </summary>
-    private object GetTypedCellValue(ExcelRange cell)
+    private object GetExcelCellValue(ExcelRange cell)
     {
         if (cell.Value == null)
             return DBNull.Value;

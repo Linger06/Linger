@@ -13,9 +13,6 @@ namespace Linger.Excel.Npoi;
 
 public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger = null) : ExcelBase(options, logger)
 {
-    // 缓存样式数据，避免重复创建
-    private readonly Dictionary<string, ICellStyle> _styleCache = new();
-
     /// <summary>
     /// 将对象集合转换为MemoryStream
     /// </summary>
@@ -378,7 +375,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     protected override object GetWorksheet(object workbook, string? sheetName)
     {
         var workBook = (IWorkbook)workbook;
-        
+
         if (string.IsNullOrWhiteSpace(sheetName))
         {
             return workBook.GetSheetAt(0);
@@ -444,7 +441,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         var sheet = (ISheet)worksheet;
         var row = sheet.GetRow(rowNum);
         if (row == null) return false;
-        
+
         bool hasData = false;
 
         foreach (var mapping in columnMappings)
@@ -455,7 +452,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             var cell = row.GetCell(colIndex);
             if (cell != null)
             {
-                var value = GetCellValue(cell);
+                var value = GetExcelCellValue(cell);
                 if (value != DBNull.Value)
                 {
                     SetPropertySafely(item, mapping.Value, value);
@@ -465,50 +462,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         }
 
         return hasData;
-    }
-
-    private object GetCellValue(ICell cell)
-    {
-        switch (cell.CellType)
-        {
-            case CellType.String:
-                return GetExcelCellValue(cell.StringCellValue);
-            case CellType.Numeric:
-                if (DateUtil.IsCellDateFormatted(cell))
-                {
-                    return GetExcelCellValue(cell.NumericCellValue, true);
-                }
-                else
-                {
-                    return GetExcelCellValue(cell.NumericCellValue);
-                }
-            case CellType.Boolean:
-                return GetExcelCellValue(cell.BooleanCellValue);
-            case CellType.Formula:
-                switch (cell.CachedFormulaResultType)
-                {
-                    case CellType.String:
-                        return GetExcelCellValue(cell.StringCellValue);
-                    case CellType.Numeric:
-                        if (DateUtil.IsCellDateFormatted(cell))
-                        {
-                            return GetExcelCellValue(cell.DateCellValue, true);
-                        }
-                        return GetExcelCellValue(cell.NumericCellValue);
-                    case CellType.Boolean:
-                        return GetExcelCellValue(cell.BooleanCellValue);
-                    case CellType.Error:
-                        return GetExcelCellValue(ErrorEval.GetText(cell.ErrorCellValue));
-                    default:
-                        return GetExcelCellValue(string.Empty);
-                }
-            case CellType.Error:
-                return GetExcelCellValue(ErrorEval.GetText(cell.ErrorCellValue));
-            case CellType.Blank:
-            case CellType.Unknown:
-            default:
-                return DBNull.Value;
-        }
     }
 
     protected override void CloseWorkbook(object workbook)
