@@ -1,6 +1,7 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 using Linger.Extensions.Core;
+using Linger.Helper;
 #if NET6_0_OR_GREATER
 #endif
 
@@ -132,6 +133,44 @@ public static class StreamExtensions
         bw.Write(bytes);
         bw.Close();
         fs.Close();
+    }
+
+    /// <summary>
+    /// 将内存流保存到文件
+    /// </summary>
+    public static void ToFile(this MemoryStream stream, string fullFileName)
+    {
+        try
+        {
+            FileHelper.EnsureDirectoryExists(fullFileName);
+            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
+            stream.Position = 0; // 确保内存流位置在开头
+            stream.CopyTo(fs);
+            fs.Flush();
+        }
+        catch (System.Exception ex)
+        {
+            throw new System.Exception($"保存Excel到文件失败:{fullFileName}", ex);
+        }
+    }
+
+    /// <summary>
+    /// 异步将内存流保存到文件
+    /// </summary>
+    public static async Task ToFileAsync(this MemoryStream stream, string fullFileName)
+    {
+        try
+        {
+            FileHelper.EnsureDirectoryExists(fullFileName);
+            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
+            stream.Position = 0; // 确保内存流位置在开头
+            await stream.CopyToAsync(fs);
+            await fs.FlushAsync();
+        }
+        catch (System.Exception ex)
+        {
+            throw new System.Exception($"异步保存Excel到文件失败: {fullFileName}", ex);
+        }
     }
 }
 

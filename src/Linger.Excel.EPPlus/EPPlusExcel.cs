@@ -138,8 +138,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                             for (int j = 0; j < columns.Count; j++)
                             {
                                 var cell = worksheet.Cells[titleIndex + i + 2, j + 1];
-                                cell.Value = cellValues[i, j];
-                                DrawBorder(cell.Style);
+                                WriteValueToCell(cell, cellValues[i, j]);
                             }
                         }
                     }
@@ -157,43 +156,12 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                             if (property != null)
                             {
                                 var value = property.GetValue(list[i]);
-
-                                // 处理特殊类型
-                                if (value != null)
-                                {
-                                    if (property.PropertyType == typeof(DateTime))
-                                    {
-                                        var dateValue = value is DateTime dateTime ? dateTime : value.ToString().ToDateTime();
-                                        cell.Value = dateValue != DateTime.MinValue ? dateValue : null;
-                                        if (dateValue != DateTime.MinValue)
-                                        {
-                                            cell.Style.Numberformat.Format = Options.DefaultDateFormat;
-                                        }
-                                    }
-                                    else if (property.PropertyType == typeof(DateTime?))
-                                    {
-                                        if (value is DateTime dateValue)
-                                        {
-                                            cell.Value = dateValue;
-                                            cell.Style.Numberformat.Format = Options.DefaultDateFormat;
-                                        }
-                                        else
-                                        {
-                                            cell.Value = null;
-                                        }
-                                    }
-                                    else
-                                    {
-                                        cell.Value = value;
-                                    }
-                                }
-                                else
-                                {
-                                    cell.Value = null;
-                                }
+                                WriteValueToCell(cell, value);
                             }
-
-                            DrawBorder(cell.Style);
+                            else
+                            {
+                                DrawBorder(cell.Style);
+                            }
                         }
                     }
                 }
@@ -293,23 +261,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                             for (int j = 0; j < dataTable.Columns.Count; j++)
                             {
                                 var cell = worksheet.Cells[titleIndex + i + 2, j + 1];
-                                var value = cellValues[i, j];
-
-                                if (value != null)
-                                {
-                                    // 特殊类型处理
-                                    if (value is DateTime dateTime)
-                                    {
-                                        cell.Value = dateTime;
-                                        cell.Style.Numberformat.Format = Options.DefaultDateFormat;
-                                    }
-                                    else
-                                    {
-                                        cell.Value = value;
-                                    }
-                                }
-
-                                DrawBorder(cell.Style);
+                                WriteValueToCell(cell, cellValues[i, j]);
                             }
                         }
                     }
@@ -323,44 +275,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                         {
                             var cell = worksheet.Cells[titleIndex + i + 2, j + 1];
                             var value = dataTable.Rows[i][j];
-
-                            if (value != DBNull.Value)
-                            {
-                                // 特殊类型处理
-                                if (value is DateTime dateTime)
-                                {
-                                    cell.Value = dateTime;
-                                    cell.Style.Numberformat.Format = Options.DefaultDateFormat;
-                                }
-                                else
-                                {
-                                    switch (dataTable.Columns[j].DataType.Name)
-                                    {
-                                        case "String":
-                                            cell.Value = value.ToString();
-                                            break;
-                                        case "Boolean":
-                                            cell.Value = Convert.ToBoolean(value);
-                                            break;
-                                        case "Int16":
-                                        case "Int32":
-                                        case "Int64":
-                                        case "Byte":
-                                            cell.Value = Convert.ToInt64(value);
-                                            break;
-                                        case "Decimal":
-                                        case "Double":
-                                        case "Single":
-                                            cell.Value = Convert.ToDouble(value);
-                                            break;
-                                        default:
-                                            cell.Value = value;
-                                            break;
-                                    }
-                                }
-                            }
-
-                            DrawBorder(cell.Style);
+                            WriteValueToCell(cell, value != DBNull.Value ? value : null);
                         }
                     }
                 }
@@ -380,57 +295,6 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 return memoryStream;
             });
         }, null, nameof(ConvertDataTableToMemoryStream));
-    }
-
-    /// <summary>
-    /// 将流转换为DataTable
-    /// </summary>
-    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
-    {
-        if (stream is not { CanRead: true, Length: > 0 })
-        {
-            logger?.LogWarning("无效的Stream: 不可读或长度为0");
-            return null;
-        }
-
-        return SafeExecute(() =>
-        {
-            using var memoryStream = new MemoryStream();
-            stream.CopyTo(memoryStream);
-            memoryStream.Position = 0;
-
-            using var package = new ExcelPackage(memoryStream);
-
-            var workbook = package.Workbook;
-            if (workbook.Worksheets.Count == 0)
-            {
-                logger?.LogWarning("Excel文件不包含任何工作表");
-                return new DataTable();
-            }
-
-            ExcelWorksheet worksheet;
-            if (!string.IsNullOrEmpty(sheetName))
-            {
-                worksheet = workbook.Worksheets[sheetName] ?? workbook.Worksheets[0];
-                if (worksheet != workbook.Worksheets[sheetName])
-                {
-                    logger?.LogWarning("未找到指定的工作表 {SheetName}, 使用第一个工作表代替", sheetName);
-                }
-            }
-            else
-            {
-                worksheet = workbook.Worksheets[0];
-                logger?.LogDebug("使用第一个工作表, 名称: {SheetName}", worksheet.Name);
-            }
-
-            if (worksheet.Dimension == null)
-            {
-                logger?.LogWarning("工作表为空");
-                return new DataTable(worksheet.Name);
-            }
-
-            return ConvertWorksheetToDataTable(worksheet, headerRowIndex, addEmptyRow);
-        }, new DataTable(), nameof(ConvertStreamToDataTable));
     }
 
     // 添加基类要求的方法实现
@@ -550,19 +414,19 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         var result = new Dictionary<int, string>();
         var excelWorksheet = (ExcelWorksheet)worksheet;
-        
-        if (headerRowIndex < 0 || excelWorksheet.Dimension == null) 
+
+        if (headerRowIndex < 0 || excelWorksheet.Dimension == null)
             return result;
-        
+
         int colCount = excelWorksheet.Dimension.End.Column;
-        
+
         for (int i = 1; i <= colCount; i++)
         {
             var cell = excelWorksheet.Cells[headerRowIndex + 1, i]; // EPPlus从1开始计数
             string columnName = cell.Text?.Trim() ?? $"Column{i}";
             result[i] = columnName;
         }
-        
+
         return result;
     }
 
@@ -570,85 +434,18 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         var excelWorksheet = (ExcelWorksheet)worksheet;
         var cell = excelWorksheet.Cells[rowNum, colIndex + 1]; // EPPlus从1开始计数，需要+1
-        
+
         if (cell?.Value == null)
             return DBNull.Value;
-        
+
         // 处理日期格式
         bool isDateFormat = cell.Style.Numberformat.Format.Contains("yy");
-        
+
         // 使用通用转换器
         return GetExcelCellValue(cell.Value, isDateFormat);
     }
 
     #region 私有辅助方法
-
-    /// <summary>
-    /// 从工作表获取数据表
-    /// </summary>
-    private DataTable ConvertWorksheetToDataTable(ExcelWorksheet worksheet, int headerRowIndex, bool addEmptyRow)
-    {
-        var dataTable = new DataTable(worksheet.Name);
-        int startRow;
-
-        // 处理表头
-        if (headerRowIndex < 0)
-        {
-            // 没有表头，使用默认列名
-            startRow = 1;
-            int colCount = worksheet.Dimension.End.Column;
-
-            for (int i = 1; i <= colCount; i++)
-            {
-                dataTable.Columns.Add($"Column{i}");
-            }
-        }
-        else
-        {
-            // 使用指定行作为表头
-            startRow = headerRowIndex + 2; // +1是因为EPPlus从1开始计数，再+1是因为我们需要跳过表头行
-            int colCount = worksheet.Dimension.End.Column;
-
-            for (int i = 1; i <= colCount; i++)
-            {
-                string columnName = worksheet.Cells[headerRowIndex + 1, i].Text.Trim();
-                if (string.IsNullOrEmpty(columnName))
-                {
-                    columnName = $"Column{i}";
-                }
-                else if (dataTable.Columns.Contains(columnName))
-                {
-                    columnName = $"{columnName}_{i}";
-                }
-
-                dataTable.Columns.Add(columnName);
-            }
-        }
-
-        // 处理数据行
-        for (int rowNum = startRow; rowNum <= worksheet.Dimension.End.Row; rowNum++)
-        {
-            var dataRow = dataTable.NewRow();
-            bool hasData = false;
-
-            for (int colNum = 1; colNum <= dataTable.Columns.Count; colNum++)
-            {
-                var cell = worksheet.Cells[rowNum, colNum];
-                if (cell != null && cell.Value != null)
-                {
-                    hasData = true;
-                    dataRow[colNum - 1] = GetExcelCellValue(cell);
-                }
-            }
-
-            if (hasData || addEmptyRow)
-            {
-                dataTable.Rows.Add(dataRow);
-            }
-        }
-
-        return dataTable;
-    }
 
     /// <summary>
     /// 获取单元格值并转换为适当类型
@@ -702,6 +499,52 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         style.Border.Bottom.Style = borderStyle;
         style.Border.Left.Style = borderStyle;
         style.Border.Right.Style = borderStyle;
+    }
+
+    /// <summary>
+    /// 将值写入Excel单元格并设置适当的格式
+    /// </summary>
+    private void WriteValueToCell(ExcelRange cell, object? value)
+    {
+        if (value == null || value is DBNull)
+        {
+            cell.Value = null;
+            return;
+        }
+
+        // 根据值类型进行特殊处理
+        switch (value)
+        {
+            case DateTime dateTime:
+                cell.Value = dateTime;
+                cell.Style.Numberformat.Format = Options.DefaultDateFormat;
+                break;
+            case bool boolean:
+                cell.Value = boolean;
+                break;
+            case decimal decimalValue:
+                cell.Value = decimalValue;
+                cell.Style.Numberformat.Format = DECIMAL_FORMAT;
+                break;
+            case double doubleValue:
+                cell.Value = doubleValue;
+                cell.Style.Numberformat.Format = doubleValue % 1 == 0 ? INTEGER_FORMAT : DECIMAL_FORMAT;
+                break;
+            case float floatValue:
+                cell.Value = floatValue;
+                cell.Style.Numberformat.Format = floatValue % 1 == 0 ? INTEGER_FORMAT : DECIMAL_FORMAT;
+                break;
+            case int or long or short or byte or sbyte or ushort or uint or ulong:
+                cell.Value = Convert.ToInt64(value);
+                cell.Style.Numberformat.Format = INTEGER_FORMAT;
+                break;
+            default:
+                cell.Value = value.ToString();
+                break;
+        }
+
+        // 应用边框
+        DrawBorder(cell.Style);
     }
 
     #endregion

@@ -2,7 +2,6 @@
 using System.Reflection;
 using System.Text;
 using Linger.Excel.Contracts;
-using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 using NPOI.SS.Formula.Eval;
 using NPOI.SS.UserModel;
@@ -434,7 +433,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     {
         var sheet = (ISheet)worksheet;
         int maxCellCount = 0;
-        
+
         // 扫描所有行找到最大列数
         for (int i = sheet.FirstRowNum; i <= sheet.LastRowNum; i++)
         {
@@ -444,7 +443,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 maxCellCount = row.LastCellNum;
             }
         }
-        
+
         return maxCellCount;
     }
 
@@ -453,16 +452,16 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         var result = new Dictionary<int, string>();
         var sheet = (ISheet)worksheet;
         var headerRow = sheet.GetRow(headerRowIndex);
-        
+
         if (headerRow == null) return result;
-        
+
         for (int i = headerRow.FirstCellNum; i < headerRow.LastCellNum; i++)
         {
             var cell = headerRow.GetCell(i);
             string columnName = cell?.ToString() ?? $"Column{i + 1}";
             result[i] = columnName;
         }
-        
+
         return result;
     }
 
@@ -470,12 +469,12 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     {
         var sheet = (ISheet)worksheet;
         var row = sheet.GetRow(rowNum);
-        
+
         if (row == null) return DBNull.Value;
-        
+
         var cell = row.GetCell(colIndex);
         if (cell == null) return DBNull.Value;
-        
+
         return GetExcelCellValue(cell);
     }
 
@@ -516,7 +515,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             if (dateValue != DateTime.MinValue)
             {
                 cell.SetCellValue(dateValue);
-                // 使用valueType作为样式缓存键
+                // 使用统一的日期格式
                 if (!styleCache.TryGetValue(valueType, out var dateStyle))
                 {
                     dateStyle = workbook.CreateCellStyle();
@@ -552,7 +551,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                  valueType == typeof(sbyte?) || valueType == typeof(ushort?) ||
                  valueType == typeof(uint?) || valueType == typeof(ulong?))
         {
-            // 整数类型
+            // 整数类型 - 使用统一的整数格式
             try
             {
                 long longValue = Convert.ToInt64(value);
@@ -563,7 +562,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     intStyle = workbook.CreateCellStyle();
                     var format = workbook.CreateDataFormat();
-                    intStyle.DataFormat = format.GetFormat("#,##0");
+                    intStyle.DataFormat = format.GetFormat(INTEGER_FORMAT);
                     styleCache[typeof(int)] = intStyle;
                 }
                 cell.CellStyle = intStyle;
@@ -577,7 +576,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                  valueType == typeof(decimal) || valueType == typeof(double?) ||
                  valueType == typeof(float?) || valueType == typeof(decimal?))
         {
-            // 浮点类型
+            // 浮点类型 - 使用统一的小数格式
             try
             {
                 double doubleValue = Convert.ToDouble(value);
@@ -588,7 +587,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     doubleStyle = workbook.CreateCellStyle();
                     var format = workbook.CreateDataFormat();
-                    doubleStyle.DataFormat = format.GetFormat("#,##0.00");
+                    doubleStyle.DataFormat = format.GetFormat(DECIMAL_FORMAT);
                     styleCache[typeof(double)] = doubleStyle;
                 }
                 cell.CellStyle = doubleStyle;
@@ -598,126 +597,32 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 cell.SetCellValue(value.ToString());
             }
         }
-        else if (valueType.IsEnum)
-        {
-            // 处理枚举类型 - 显示枚举名称而不是数值
-            cell.SetCellValue(value.ToString());
-        }
         else
         {
             // 默认处理为字符串
             cell.SetCellValue(value.ToString());
         }
+        
+        // 应用边框 - 单元格样式应该已经由上面的代码设置，需要在这里修改它
+        DrawBorder(workbook, cell);
     }
 
     /// <summary>
-    /// 从Excel工作表导入数据到DataTable
+    /// 为单元格添加边框
     /// </summary>
-    private DataTable ImportFromSheet(ISheet sheet, int headerRowIndex = 0, bool addEmptyRow = false)
+    private void DrawBorder(IWorkbook workbook, ICell cell)
     {
-        return MonitorPerformance("解析Excel工作表", () =>
-        {
-            var dataTable = new DataTable();
-            dataTable.TableName = sheet.SheetName;
-
-            // 处理表头
-            if (headerRowIndex < 0)
-            {
-                // 没有表头，使用默认列名
-                int maxCellCount = 0;
-                for (int i = sheet.FirstRowNum; i <= sheet.LastRowNum; i++)
-                {
-                    var row = sheet.GetRow(i);
-                    if (row != null && row.LastCellNum > maxCellCount)
-                    {
-                        maxCellCount = row.LastCellNum;
-                    }
-                }
-
-                for (int i = 0; i < maxCellCount; i++)
-                {
-                    dataTable.Columns.Add($"Column{i}");
-                }
-            }
-            else
-            {
-                // 使用指定行作为表头
-                var headerRow = sheet.GetRow(headerRowIndex);
-                if (headerRow == null)
-                {
-                    logger?.LogWarning("未能在行 {Row} 找到表头", headerRowIndex);
-                    return dataTable;
-                }
-
-                for (int i = headerRow.FirstCellNum; i < headerRow.LastCellNum; i++)
-                {
-                    var cell = headerRow.GetCell(i);
-                    string columnName;
-
-                    if (cell == null)
-                    {
-                        columnName = $"Column{i}";
-                    }
-                    else
-                    {
-                        var colName = cell.ToString();
-                        if (colName.IsNullOrWhiteSpace())
-                        {
-                            columnName = $"Column{i}";
-                        }
-                        else
-                        {
-                            if (dataTable.Columns.Contains(colName))
-                            {
-                                columnName = $"{colName}_{i}";
-                            }
-                            else
-                            {
-                                columnName = colName;
-                            }
-                        }
-                    }
-                    dataTable.Columns.Add(columnName);
-                }
-            }
-
-            // 从表头行之后开始读取数据
-            int startRow = headerRowIndex < 0 ? sheet.FirstRowNum : headerRowIndex + 1;
-
-            for (int rowNum = startRow; rowNum <= sheet.LastRowNum; rowNum++)
-            {
-                var row = sheet.GetRow(rowNum);
-                if (row == null) continue;
-
-                var dataRow = dataTable.NewRow();
-                bool hasData = false;
-
-                for (int colIndex = 0; colIndex < dataTable.Columns.Count; colIndex++)
-                {
-                    if (colIndex < row.LastCellNum)
-                    {
-                        var cell = row.GetCell(colIndex);
-                        if (cell != null)
-                        {
-                            object cellValue = GetExcelCellValue(cell);
-                            dataRow[colIndex] = cellValue;
-
-                            if (cellValue != DBNull.Value)
-                            {
-                                hasData = true;
-                            }
-                        }
-                    }
-                }
-
-                if (hasData || addEmptyRow)
-                {
-                    dataTable.Rows.Add(dataRow);
-                }
-            }
-
-            return dataTable;
-        });
+        // 如果单元格没有样式，创建一个新样式
+        ICellStyle style = cell.CellStyle ?? workbook.CreateCellStyle();
+        
+        // 设置边框
+        style.BorderTop = BorderStyle.Thin;
+        style.BorderBottom = BorderStyle.Thin;
+        style.BorderLeft = BorderStyle.Thin;
+        style.BorderRight = BorderStyle.Thin;
+        
+        // 应用样式到单元格
+        cell.CellStyle = style;
     }
 
     /// <summary>

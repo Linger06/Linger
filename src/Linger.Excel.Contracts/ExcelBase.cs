@@ -3,6 +3,7 @@ using System.Reflection;
 using Linger.Excel.Contracts.Utils;
 using Linger.Extensions.Core;
 using Linger.Extensions.Data;
+using Linger.Extensions.IO;
 using Linger.Helper;
 using Microsoft.Extensions.Logging;
 
@@ -19,6 +20,28 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// Excel内容类型
     /// </summary>
     public static string ContentType => "application/vnd.ms-excel";
+
+    #region 格式化常量
+    /// <summary>
+    /// 整数格式
+    /// </summary>
+    protected const string INTEGER_FORMAT = "#,##0";
+
+    /// <summary>
+    /// 小数格式
+    /// </summary>
+    protected const string DECIMAL_FORMAT = "#,##0.00";
+
+    /// <summary>
+    /// 头部字体大小
+    /// </summary>
+    protected const int HEADER_FONT_SIZE = 14;
+
+    /// <summary>
+    /// 标题字体大小
+    /// </summary>
+    protected const int TITLE_FONT_SIZE = 10;
+    #endregion
 
     /// <summary>
     /// 将Excel文件转换为DataTable
@@ -88,28 +111,15 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <returns>文件路径</returns>
     public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
     {
-        try
+        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
+        if (ms == null)
         {
-            using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
-            if (ms == null)
-            {
-                logger?.LogError("转换DataTable到MemoryStream失败");
-                throw new InvalidOperationException("转换DataTable到MemoryStream失败");
-            }
-
-            FileHelper.EnsureDirectoryExists(fullFileName);
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            ms.Position = 0; // 确保内存流位置在开头
-            ms.CopyTo(fs);
-            fs.Flush();
-
-            return fullFileName;
+            logger?.LogError("转换DataTable到MemoryStream失败");
+            throw new InvalidOperationException("转换DataTable到MemoryStream失败");
         }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "保存DataTable到Excel文件失败: {FilePath}", fullFileName);
-            throw new ExcelException("保存DataTable到Excel文件失败", ex);
-        }
+
+        ms.ToFile(fullFileName);
+        return fullFileName;
     }
 
     /// <summary>
@@ -124,28 +134,15 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <returns>文件路径</returns>
     public string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null) where T : class
     {
-        try
+        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
+        if (ms == null)
         {
-            using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
-            if (ms == null)
-            {
-                logger?.LogError("转换对象列表到MemoryStream失败");
-                throw new InvalidOperationException("转换对象列表到MemoryStream失败");
-            }
-
-            FileHelper.EnsureDirectoryExists(fullFileName);
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            ms.Position = 0; // 确保内存流位置在开头
-            ms.CopyTo(fs);
-            fs.Flush();
-
-            return fullFileName;
+            logger?.LogError("转换对象列表到MemoryStream失败");
+            throw new InvalidOperationException("转换对象列表到MemoryStream失败");
         }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "保存对象列表到Excel文件失败: {FilePath}", fullFileName);
-            throw new ExcelException("保存对象列表到Excel文件失败", ex);
-        }
+        
+        ms.ToFile(fullFileName);
+        return fullFileName;
     }
 
     /// <summary>
@@ -324,14 +321,14 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 }
 
                 var dataTable = new DataTable(GetSheetName(worksheet));
-                
+
                 // 获取表头行索引和数据行范围
                 int startRow = headerRowIndex < 0 ? 0 : headerRowIndex;
                 int endRow = GetDataEndRow(worksheet);
 
                 // 处理表头和列定义
                 CreateDataTableColumns(worksheet, dataTable, headerRowIndex);
-                
+
                 // 处理数据行
                 ProcessDataTableRows(worksheet, dataTable, startRow + 1, endRow, addEmptyRow);
 
@@ -366,11 +363,11 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 string columnName = mapping.Value;
                 if (string.IsNullOrEmpty(columnName))
                     columnName = $"Column{mapping.Key + 1}";
-                
+
                 // 处理重复的列名
                 if (dataTable.Columns.Contains(columnName))
                     columnName = $"{columnName}_{mapping.Key}";
-                
+
                 dataTable.Columns.Add(columnName);
             }
         }
@@ -400,19 +397,19 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     {
         // 这是默认实现，子类可以重写以提供更高效的实现
         bool hasData = false;
-        
+
         // 根据行索引和DataRow的列来获取单元格值
         for (int colIndex = 0; colIndex < dataRow.Table.Columns.Count; colIndex++)
         {
             object cellValue = GetCellValue(worksheet, rowNum, colIndex);
-            
+
             if (cellValue != DBNull.Value)
             {
                 dataRow[colIndex] = cellValue;
                 hasData = true;
             }
         }
-        
+
         return hasData;
     }
 
@@ -467,7 +464,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
         Action<object, PropertyInfo[]>? action = null) where T : class;
 
     /// <summary>
-    /// 将Stream转换为对象列表
+    /// 将Stream转换为对象列表 - 适用于中小型Excel文件
     /// </summary>
     /// <typeparam name="T">要转换的类型</typeparam>
     /// <param name="stream">要转换的Stream</param>
@@ -475,6 +472,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的对象列表</returns>
+    /// <remarks>此方法将Excel数据一次性全部加载到内存，如果处理大文件请考虑使用StreamReadExcel</remarks>
     public List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
         var dataTable = MonitorPerformance("读取Excel到DataTable", () =>
@@ -484,6 +482,12 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
         {
             logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
             return new List<T>();
+        }
+
+        // 如果数据量过大，建议使用StreamReadExcel
+        if (dataTable.Rows.Count > 10000)
+        {
+            logger?.LogWarning("当前数据量较大({RowCount}行)，考虑使用StreamReadExcel方法以减少内存占用", dataTable.Rows.Count);
         }
 
         return SafeExecute(() => dataTable.ToList<T>(Options.ParallelProcessingThreshold),
@@ -586,36 +590,10 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// </summary>
     public async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
-        {
-            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return null;
-        }
-
-        try
-        {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            // 使用TaskCompletionSource将同步操作包装为异步任务
-            var tcs = new TaskCompletionSource<DataTable?>();
-            await Task.Run(() =>
-            {
-                try
-                {
-                    var result = ConvertStreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
-                    tcs.SetResult(result);
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
-            });
-            return await tcs.Task;
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "从Excel文件异步读取失败: {FilePath}", filePath);
-            return null;
-        }
+        return await ProcessExcelFileAsync<DataTable?>(
+            filePath,
+            stream => ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow),
+            "从Excel文件异步读取");
     }
 
     /// <summary>
@@ -623,22 +601,33 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// </summary>
     public async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
+        return await ProcessExcelFileAsync<List<T>?>(
+            filePath,
+            stream => ConvertStreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow),
+            "从Excel文件异步读取并转换为对象列表");
+    }
+
+    /// <summary>
+    /// 异步处理Excel文件
+    /// </summary>
+    private async Task<TResult> ProcessExcelFileAsync<TResult>(string filePath, Func<Stream, TResult> operation, string operationName)
+    {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
             logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return null;
+            return default!;
         }
 
         try
         {
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
             // 使用TaskCompletionSource将同步操作包装为异步任务
-            var tcs = new TaskCompletionSource<List<T>?>();
+            var tcs = new TaskCompletionSource<TResult>();
             await Task.Run(() =>
             {
                 try
                 {
-                    var result = ConvertStreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
+                    var result = operation(fileStream);
                     tcs.SetResult(result);
                 }
                 catch (Exception ex)
@@ -650,8 +639,8 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "从Excel文件异步读取并转换为对象列表失败: {FilePath}", filePath);
-            return null;
+            logger?.LogError(ex, "{OperationName}失败: {FilePath}", operationName, filePath);
+            return default!;
         }
     }
 
@@ -660,28 +649,15 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// </summary>
     public async Task<string> DataTableToFileAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
     {
-        try
+        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
+        if (ms == null)
         {
-            using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
-            if (ms == null)
-            {
-                logger?.LogError("转换DataTable到MemoryStream失败");
-                throw new InvalidOperationException("转换DataTable到MemoryStream失败");
-            }
-
-            FileHelper.EnsureDirectoryExists(fullFileName);
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            ms.Position = 0; // 确保内存流位置在开头
-            await ms.CopyToAsync(fs);
-            await fs.FlushAsync();
-
-            return fullFileName;
+            logger?.LogError("转换DataTable到MemoryStream失败");
+            throw new InvalidOperationException("转换DataTable到MemoryStream失败");
         }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "异步保存DataTable到Excel文件失败: {FilePath}", fullFileName);
-            throw new ExcelException("异步保存DataTable到Excel文件失败", ex);
-        }
+
+        await ms.ToFileAsync(fullFileName);
+        return fullFileName;
     }
 
     /// <summary>
@@ -689,28 +665,15 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// </summary>
     public async Task<string> ListToFileAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null) where T : class
     {
-        try
+        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
+        if (ms == null)
         {
-            using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
-            if (ms == null)
-            {
-                logger?.LogError("转换对象列表到MemoryStream失败");
-                throw new InvalidOperationException("转换对象列表到MemoryStream失败");
-            }
-
-            FileHelper.EnsureDirectoryExists(fullFileName);
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            ms.Position = 0; // 确保内存流位置在开头
-            await ms.CopyToAsync(fs);
-            await fs.FlushAsync();
-
-            return fullFileName;
+            logger?.LogError("转换对象列表到MemoryStream失败");
+            throw new InvalidOperationException("转换对象列表到MemoryStream失败");
         }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "异步保存对象列表到Excel文件失败: {FilePath}", fullFileName);
-            throw new ExcelException("异步保存对象列表到Excel文件失败", ex);
-        }
+
+        await ms.ToFileAsync(fullFileName);
+        return fullFileName;
     }
 
     #endregion

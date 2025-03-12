@@ -8,7 +8,29 @@ public interface IExcel
     #region Import
     DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    
+    /// <summary>
+    /// 将Excel文件转换为对象列表 - 适用于中小型Excel文件
+    /// </summary>
+    /// <typeparam name="T">要转换的对象类型</typeparam>
+    /// <param name="filePath">Excel文件路径</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="headerRowIndex">表头行索引</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>对象列表</returns>
+    /// <remarks>此方法将Excel数据一次性全部加载到内存，如果处理大文件请考虑使用StreamReadExcel</remarks>
     List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class,new();
+    
+    /// <summary>
+    /// 将Stream转换为对象列表 - 适用于中小型Excel文件
+    /// </summary>
+    /// <typeparam name="T">要转换的对象类型</typeparam>
+    /// <param name="stream">Excel文件流</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="headerRowIndex">表头行索引</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>对象列表</returns>
+    /// <remarks>此方法将Excel数据一次性全部加载到内存，如果处理大文件请考虑使用StreamReadExcel</remarks>
     List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class,new();
     #endregion
 
@@ -35,12 +57,16 @@ public interface IExcel
     #endregion
 
     /// <summary>
-    /// 流式读取Excel文件（内存优化方式）
+    /// 流式读取Excel文件 - 适用于大型Excel文件，内存占用低
     /// </summary>
     /// <typeparam name="T">要转换成的对象类型</typeparam>
     /// <param name="stream">Excel文件流</param>
     /// <param name="sheetName">工作表名称</param>
     /// <param name="headerRowIndex">表头行索引</param>
-    /// <returns>对象序列</returns>
+    /// <returns>对象序列（惰性加载）</returns>
+    /// <remarks>
+    /// 此方法采用流式处理，一次只处理一行数据，适合处理大文件。
+    /// 返回的IEnumerable采用惰性加载，每次迭代才会读取一行数据。
+    /// </remarks>
     IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0) where T : class, new();
 }
