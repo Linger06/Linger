@@ -225,47 +225,54 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     }
 
     /// <summary>
-    /// 安全处理异常并返回默认值
+    /// 执行操作并提供安全性和性能监控
     /// </summary>
     /// <typeparam name="T">返回类型</typeparam>
-    /// <param name="operation">操作函数</param>
-    /// <param name="defaultValue">默认值</param>
-    /// <param name="operationName">操作名称</param>
+    /// <param name="operation">要执行的操作</param>
+    /// <param name="operationName">操作名称（用于日志）</param>
+    /// <param name="defaultValue">出错时返回的默认值</param>
     /// <returns>操作结果或默认值</returns>
-    protected T? SafeExecute<T>(Func<T> operation, T? defaultValue = default, string? operationName = null)
+    protected T? ExecuteSafely<T>(Func<T> operation, string operationName, T? defaultValue = default)
     {
+        System.Diagnostics.Stopwatch? sw = null;
+        if (Options.EnablePerformanceMonitoring)
+        {
+            sw = System.Diagnostics.Stopwatch.StartNew();
+        }
+        
         try
         {
             return operation();
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "Excel操作失败: {OperationName}", operationName ?? "未知操作");
+            logger?.LogError(ex, "Excel操作失败: {OperationName}", operationName);
             return defaultValue;
-        }
-    }
-
-    /// <summary>
-    /// 使用性能监控执行操作
-    /// </summary>
-    protected T MonitorPerformance<T>(string operationName, Func<T> operation)
-    {
-        if (!Options.EnablePerformanceMonitoring)
-            return operation();
-
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        try
-        {
-            return operation();
         }
         finally
         {
-            sw.Stop();
-            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+            if (sw != null)
             {
-                logger?.LogInformation("{Operation} 耗时: {Time}ms", operationName, sw.ElapsedMilliseconds);
+                sw.Stop();
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    logger?.LogInformation("{Operation} 耗时: {Time}ms", operationName, sw.ElapsedMilliseconds);
+                }
             }
         }
+    }
+
+    // 可以保留这些方法但标记为过时，以保持向后兼容性
+    [Obsolete("请使用ExecuteSafely方法代替")]
+    protected T? SafeExecute<T>(Func<T> operation, T? defaultValue = default, string? operationName = null)
+    {
+        return ExecuteSafely(operation, operationName ?? "未知操作", defaultValue);
+    }
+
+    [Obsolete("请使用ExecuteSafely方法代替")]
+    protected T MonitorPerformance<T>(string operationName, Func<T> operation)
+    {
+        return ExecuteSafely(operation, operationName, default(T))!;
     }
 
     /// <summary>
@@ -284,7 +291,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             return null;
         }
 
-        return SafeExecute(() =>
+        return ExecuteSafely(() =>
         {
             // 打开工作簿 - 不使用using，手动管理资源
             var workbook = OpenWorkbook(stream);
@@ -331,7 +338,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 // 确保无论如何都释放工作簿资源
                 CloseWorkbook(workbook);
             }
-        }, new DataTable(), nameof(ConvertStreamToDataTable));
+        }, nameof(ConvertStreamToDataTable));
     }
 
     // 添加新的辅助方法以创建数据表列
@@ -467,8 +474,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <remarks>此方法将Excel数据一次性全部加载到内存，如果处理大文件请考虑使用StreamReadExcel</remarks>
     public List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
-        var dataTable = MonitorPerformance("读取Excel到DataTable", () =>
-            ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow));
+        var dataTable = ExecuteSafely(() => ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow), "读取Excel到DataTable");
 
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
@@ -482,8 +488,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             logger?.LogWarning("当前数据量较大({RowCount}行)，考虑使用StreamReadExcel方法以减少内存占用", dataTable.Rows.Count);
         }
 
-        return SafeExecute(() => dataTable.ToList<T>(Options.ParallelProcessingThreshold),
-            new List<T>(),
+        return ExecuteSafely(() => dataTable.ToList<T>(Options.ParallelProcessingThreshold),
             nameof(ConvertStreamToList));
     }
 
