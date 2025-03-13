@@ -2,6 +2,8 @@
 using System.Reflection;
 using System.Text;
 using Linger.Excel.Contracts;
+using Linger.Excel.Contracts.Attributes;
+using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 using NPOI.HSSF.UserModel;
 using NPOI.SS.Formula.Eval;
@@ -845,19 +847,87 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     }
 
     /// <summary>
+    /// 创建标题行的核心方法 - 处理共通逻辑
+    /// </summary>
+    protected void CreateHeaderRowCore(ISheet sheet, string[] columnNames, int startRowIndex)
+    {
+        var headerRow = sheet.CreateRow(startRowIndex);
+        
+        for (int i = 0; i < columnNames.Length; i++)
+        {
+            var cell = headerRow.CreateCell(i);
+            cell.SetCellValue(columnNames[i]);
+            ApplyHeaderRowFormatting(cell);
+        }
+    }
+
+    /// <summary>
     /// 创建标题行
     /// </summary>
     protected override void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
     {
         var sheet = (ISheet)worksheet;
-        var headerRow = sheet.CreateRow(startRowIndex);
+        string[] columnNames = new string[columns.Count];
         
         for (int i = 0; i < columns.Count; i++)
         {
-            var cell = headerRow.CreateCell(i);
-            cell.SetCellValue(columns[i].ColumnName);
-            ApplyHeaderRowFormatting(cell);
+            columnNames[i] = columns[i].ColumnName;
         }
+        
+        CreateHeaderRowCore(sheet, columnNames, startRowIndex);
+    }
+
+    /// <summary>
+    /// 创建集合标题行
+    /// </summary>
+    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
+    {
+        var sheet = (ISheet)worksheet;
+        
+        // 获取有ExcelColumn特性的列，如果没有则使用所有列
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            string[] columnNames = properties.Select(p => p.Name).ToArray();
+            CreateHeaderRowCore(sheet, columnNames, startRowIndex);
+        }
+        else
+        {
+            // 使用特性标记的属性及其顺序
+            columns = columns.OrderBy(c => c.Item3).ToList();
+            string[] columnNames = columns.Select(c => 
+                string.IsNullOrEmpty(c.Item2) ? c.Item1 : c.Item2).ToArray();
+            CreateHeaderRowCore(sheet, columnNames, startRowIndex);
+        }
+    }
+
+    /// <summary>
+    /// 获取标记有ExcelColumn特性的属性信息
+    /// </summary>
+    private List<Tuple<string, string, int>> GetExcelColumns(IEnumerable<PropertyInfo> properties)
+    {
+        var columns = new List<Tuple<string, string, int>>();
+        Type excelColumnAttributeType = typeof(ExcelColumnAttribute);
+        
+        foreach (var prop in properties)
+        {
+            var attrs = prop.GetCustomAttributesData();
+            if (attrs.Any(a => a.AttributeType == excelColumnAttributeType))
+            {
+                var attr = prop.GetCustomAttributes(excelColumnAttributeType, true)
+                    .FirstOrDefault() as ExcelColumnAttribute;
+                    
+                if (attr != null)
+                {
+                    columns.Add(new Tuple<string, string, int>(
+                        prop.Name,
+                        attr.ColumnName.IsNullOrEmpty() ? prop.Name : attr.ColumnName,
+                        attr.Index == int.MaxValue ? columns.Count : attr.Index));
+                }
+            }
+        }
+        
+        return columns;
     }
 
     /// <summary>
@@ -978,21 +1048,21 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     //     return ExecuteCollectionExportWorkflow(list, sheetsName, title, action);
     // }
 
-    /// <summary>
-    /// 创建集合标题行
-    /// </summary>
-    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
-    {
-        var sheet = (ISheet)worksheet;
-        var headerRow = sheet.CreateRow(startRowIndex);
+    // /// <summary>
+    // /// 创建集合标题行
+    // /// </summary>
+    // protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
+    // {
+    //     var sheet = (ISheet)worksheet;
+    //     var headerRow = sheet.CreateRow(startRowIndex);
         
-        for (int i = 0; i < properties.Length; i++)
-        {
-            var cell = headerRow.CreateCell(i);
-            cell.SetCellValue(properties[i].Name);
-            ApplyHeaderRowFormatting(cell);
-        }
-    }
+    //     for (int i = 0; i < properties.Length; i++)
+    //     {
+    //         var cell = headerRow.CreateCell(i);
+    //         cell.SetCellValue(properties[i].Name);
+    //         ApplyHeaderRowFormatting(cell);
+    //     }
+    // }
 
     /// <summary>
     /// 处理集合数据行

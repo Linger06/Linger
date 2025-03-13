@@ -531,17 +531,55 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     }
 
     /// <summary>
+    /// 创建标题行的核心方法 - 处理共通逻辑
+    /// </summary>
+    protected void CreateHeaderRowCore(IXLWorksheet worksheet, string[] columnNames, int startRowIndex)
+    {
+        for (int i = 0; i < columnNames.Length; i++)
+        {
+            var cell = worksheet.Cell(startRowIndex + 1, i + 1);
+            cell.Value = columnNames[i];
+            ApplyHeaderRowFormatting(cell);
+        }
+    }
+
+    /// <summary>
     /// 创建标题行
     /// </summary>
     protected override void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
     {
         var xlWorksheet = (IXLWorksheet)worksheet;
+        string[] columnNames = new string[columns.Count];
         
         for (int i = 0; i < columns.Count; i++)
         {
-            var cell = xlWorksheet.Cell(startRowIndex + 1, i + 1);
-            cell.Value = columns[i].ColumnName;
-            ApplyHeaderRowFormatting(cell);
+            columnNames[i] = columns[i].ColumnName;
+        }
+        
+        CreateHeaderRowCore(xlWorksheet, columnNames, startRowIndex);
+    }
+
+    /// <summary>
+    /// 创建集合标题行
+    /// </summary>
+    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        
+        // 获取有ExcelColumn特性的列，如果没有则使用所有列
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            string[] columnNames = properties.Select(p => p.Name).ToArray();
+            CreateHeaderRowCore(xlWorksheet, columnNames, startRowIndex);
+        }
+        else
+        {
+            // 使用特性标记的属性及其顺序
+            columns = columns.OrderBy(c => c.Item3).ToList();
+            string[] columnNames = columns.Select(c => 
+                string.IsNullOrEmpty(c.Item2) ? c.Item1 : c.Item2).ToArray();
+            CreateHeaderRowCore(xlWorksheet, columnNames, startRowIndex);
         }
     }
 
@@ -634,38 +672,6 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     //     // 默认调用工作流模板方法
     //     return ExecuteCollectionExportWorkflow(list, sheetsName, title, action);
     // }
-
-    /// <summary>
-    /// 创建集合标题行
-    /// </summary>
-    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
-    {
-        var xlWorksheet = (IXLWorksheet)worksheet;
-        
-        // 优先查找带有ExcelColumn特性的属性
-        var columns = GetExcelColumns(properties);
-        if (columns.Count == 0)
-        {
-            // 如果没有特性标记，则使用所有属性
-            for (int i = 0; i < properties.Length; i++)
-            {
-                var headerCell = xlWorksheet.Cell(startRowIndex + 1, i + 1);
-                headerCell.Value = properties[i].Name;
-                ApplyHeaderRowFormatting(headerCell);
-            }
-        }
-        else
-        {
-            // 使用特性标记的属性及其顺序
-            columns = columns.OrderBy(c => c.Item3).ToList();
-            for (int i = 0; i < columns.Count; i++)
-            {
-                var headerCell = xlWorksheet.Cell(startRowIndex + 1, i + 1);
-                headerCell.Value = string.IsNullOrEmpty(columns[i].Item2) ? columns[i].Item1 : columns[i].Item2;
-                ApplyHeaderRowFormatting(headerCell);
-            }
-        }
-    }
 
     /// <summary>
     /// 处理集合数据行

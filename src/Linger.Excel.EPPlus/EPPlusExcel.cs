@@ -549,16 +549,55 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     }
 
     /// <summary>
+    /// 创建标题行的核心方法 - 处理共通逻辑
+    /// </summary>
+    protected void CreateHeaderRowCore(ExcelWorksheet worksheet, string[] columnNames, int startRowIndex)
+    {
+        for (int i = 0; i < columnNames.Length; i++)
+        {
+            var cell = worksheet.Cells[startRowIndex + 1, i + 1];
+            cell.Value = columnNames[i];
+            ApplyHeaderRowFormatting(cell);
+        }
+    }
+
+    /// <summary>
     /// 创建标题行
     /// </summary>
     protected override void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
     {
         var excelWorksheet = (ExcelWorksheet)worksheet;
+        string[] columnNames = new string[columns.Count];
+        
         for (int i = 0; i < columns.Count; i++)
         {
-            var cell = excelWorksheet.Cells[startRowIndex + 1, i + 1];
-            cell.Value = columns[i].ColumnName;
-            ApplyHeaderRowFormatting(cell);
+            columnNames[i] = columns[i].ColumnName;
+        }
+        
+        CreateHeaderRowCore(excelWorksheet, columnNames, startRowIndex);
+    }
+
+    /// <summary>
+    /// 创建集合标题行
+    /// </summary>
+    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
+    {
+        var excelWorksheet = (ExcelWorksheet)worksheet;
+        
+        // 获取有ExcelColumn特性的列，如果没有则使用所有列
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            string[] columnNames = properties.Select(p => p.Name).ToArray();
+            CreateHeaderRowCore(excelWorksheet, columnNames, startRowIndex);
+        }
+        else
+        {
+            // 使用特性标记的属性及其顺序
+            columns = columns.OrderBy(c => c.Item3).ToList();
+            string[] columnNames = columns.Select(c => 
+                string.IsNullOrEmpty(c.Item2) ? c.Item1 : c.Item2).ToArray();
+            CreateHeaderRowCore(excelWorksheet, columnNames, startRowIndex);
         }
     }
 
@@ -638,31 +677,6 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         package.SaveAs(ms);
         ms.Position = 0;
         return ms;
-    }
-
-    /// <summary>
-    /// 创建集合标题行
-    /// </summary>
-    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
-    {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
-        
-        // 获取有ExcelColumn特性的列，如果没有则使用所有列
-        var columns = GetExcelColumns(properties);
-        if (columns.Count == 0)
-        {
-            columns = properties.Select((p, i) => new Tuple<string, string, int>(
-                p.Name, p.Name, i)).ToList();
-        }
-        columns = columns.OrderBy(a => a.Item3).ToList();
-        
-        // 填充列头
-        for (int i = 0; i < columns.Count; i++)
-        {
-            var cell = excelWorksheet.Cells[startRowIndex + 1, i + 1];
-            cell.Value = string.IsNullOrEmpty(columns[i].Item2) ? columns[i].Item1 : columns[i].Item2;
-            ApplyHeaderRowFormatting(cell);
-        }
     }
 
     /// <summary>

@@ -607,6 +607,18 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     protected abstract void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex);
 
     /// <summary>
+    /// 创建标题行的核心逻辑 - 供子类实现使用
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="columnNames">列名数组</param>
+    /// <param name="startRowIndex">起始行索引</param>
+    protected virtual void CreateHeaderRowCore(object worksheet, string[] columnNames, int startRowIndex)
+    {
+        // 这是一个可选的默认实现，子类可以使用它来减少重复代码
+        // 基类不实现具体逻辑，因为每个Excel库的实现方式不同
+    }
+
+    /// <summary>
     /// 处理数据行
     /// </summary>
     protected abstract void ProcessDataRows(object worksheet, DataTable dataTable, int startRowIndex);
