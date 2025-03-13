@@ -809,4 +809,230 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     //}
 
     #endregion
+
+    /// <summary>
+    /// 创建空工作簿
+    /// </summary>
+    protected override object CreateWorkbook()
+    {
+        return new XSSFWorkbook();
+    }
+
+    /// <summary>
+    /// 创建工作表
+    /// </summary>
+    protected override object CreateWorksheet(object workbook, string sheetName)
+    {
+        var xssfWorkbook = (XSSFWorkbook)workbook;
+        return xssfWorkbook.CreateSheet(sheetName);
+    }
+
+    /// <summary>
+    /// 应用标题到工作表
+    /// </summary>
+    protected override int ApplyTitle(object worksheet, string title, int columnCount)
+    {
+        var sheet = (ISheet)worksheet;
+        var titleRow = sheet.CreateRow(0);
+        titleRow.HeightInPoints = 25;
+        var titleCell = titleRow.CreateCell(0);
+        titleCell.SetCellValue(title);
+
+        ApplyTitleRowFormatting(titleCell);
+        
+        sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, columnCount - 1));
+        return 1; // 标题占用1行
+    }
+
+    /// <summary>
+    /// 创建标题行
+    /// </summary>
+    protected override void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
+    {
+        var sheet = (ISheet)worksheet;
+        var headerRow = sheet.CreateRow(startRowIndex);
+        
+        for (int i = 0; i < columns.Count; i++)
+        {
+            var cell = headerRow.CreateCell(i);
+            cell.SetCellValue(columns[i].ColumnName);
+            ApplyHeaderRowFormatting(cell);
+        }
+    }
+
+    /// <summary>
+    /// 处理数据行
+    /// </summary>
+    protected override void ProcessDataRows(object worksheet, DataTable dataTable, int startRowIndex)
+    {
+        var sheet = (ISheet)worksheet;
+        var workbook = sheet.Workbook;
+        bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+        
+        // 预创建样式字典，提高性能
+        var styleCache = new Dictionary<Type, ICellStyle>();
+        
+        // 创建日期样式
+        var dateStyle = workbook.CreateCellStyle();
+        var format = workbook.CreateDataFormat();
+        dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
+        styleCache[typeof(DateTime)] = dateStyle;
+
+        if (useParallelProcessing)
+        {
+            // 并行处理大数据集
+            var cellValues = new object[dataTable.Rows.Count, dataTable.Columns.Count];
+            var columnTypes = new Type[dataTable.Columns.Count];
+
+            // 获取列类型
+            for (int i = 0; i < dataTable.Columns.Count; i++)
+            {
+                columnTypes[i] = dataTable.Columns[i].DataType;
+            }
+
+            // 并行填充数据
+            Parallel.For(0, dataTable.Rows.Count, i =>
+            {
+                for (int j = 0; j < dataTable.Columns.Count; j++)
+                {
+                    cellValues[i, j] = dataTable.Rows[i][j];
+                }
+            });
+
+            // 批量写入
+            int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
+            for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
+            {
+                int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
+                for (int i = batchStart; i < batchEnd; i++)
+                {
+                    var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
+                    for (int j = 0; j < dataTable.Columns.Count; j++)
+                    {
+                        var value = cellValues[i, j];
+                        WriteValueToCell(workbook, dataRow, j, value, columnTypes[j], styleCache);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // 顺序处理小数据集
+            for (int i = 0; i < dataTable.Rows.Count; i++)
+            {
+                var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
+                for (int j = 0; j < dataTable.Columns.Count; j++)
+                {
+                    var value = dataTable.Rows[i][j];
+                    WriteValueToCell(workbook, dataRow, j, value, dataTable.Columns[j].DataType, styleCache);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 应用工作表格式化
+    /// </summary>
+    protected override void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount)
+    {
+        var sheet = (ISheet)worksheet;
+        
+        // 设置所有单元格自动适应宽度
+        if (Options.AutoFitColumns)
+        {
+            for (int i = 0; i < columnCount; i++)
+            {
+                sheet.AutoSizeColumn(i);
+                // 确保最小列宽
+                var width = sheet.GetColumnWidth(i);
+                if (width < 256 * 12) // 约12个字符宽
+                {
+                    sheet.SetColumnWidth(i, 256 * 12);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 保存工作簿到内存流
+    /// </summary>
+    protected override MemoryStream SaveWorkbookToStream(object workbook)
+    {
+        var xssfWorkbook = (XSSFWorkbook)workbook;
+        var ms = new MemoryStream();
+        xssfWorkbook.Write(ms, true);
+        ms.Position = 0;
+        return ms;
+    }
+
+    /// <summary>
+    /// 内部实现：将对象列表转换为MemoryStream
+    /// </summary>
+    protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
+        List<T> list,
+        string sheetsName,
+        string title,
+        Action<object, PropertyInfo[]>? action)
+    {
+        var workbook = CreateWorkbook();
+        var sheet = CreateWorksheet(workbook, sheetsName);
+
+        // 获取属性信息
+        var properties = typeof(T).GetProperties()
+            .Where(p => p.CanRead)
+            .ToArray();
+
+        if (properties.Length == 0)
+        {
+            logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
+            return new MemoryStream();
+        }
+
+        // 设置标题样式
+        var titleIndex = 0;
+        if (!string.IsNullOrEmpty(title))
+        {
+            titleIndex = ApplyTitle(sheet, title, properties.Length);
+        }
+
+        // 创建表头行 (模拟DataColumnCollection)
+        var columnNames = new DataTable();
+        foreach (var prop in properties)
+        {
+            columnNames.Columns.Add(prop.Name);
+        }
+        CreateHeaderRow(sheet, columnNames.Columns, titleIndex);
+
+        // 处理数据行 - 为了重用现有代码，我们将List<T>转换为DataTable
+        var dataTable = new DataTable();
+        foreach (var prop in properties)
+        {
+            dataTable.Columns.Add(prop.Name, Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType);
+        }
+
+        foreach (var item in list)
+        {
+            var row = dataTable.NewRow();
+            for (int i = 0; i < properties.Length; i++)
+            {
+                row[i] = properties[i].GetValue(item) ?? DBNull.Value;
+            }
+            dataTable.Rows.Add(row);
+        }
+
+        // 处理数据部分
+        ProcessDataRows(sheet, dataTable, titleIndex);
+
+        // 执行自定义操作
+        action?.Invoke(sheet, properties);
+
+        // 应用工作表格式化
+        if (Options.AutoFitColumns)
+        {
+            ApplyWorksheetFormatting(sheet, titleIndex + list.Count + 1, properties.Length);
+        }
+
+        // 保存并返回
+        return SaveWorkbookToStream(workbook);
+    }
 }

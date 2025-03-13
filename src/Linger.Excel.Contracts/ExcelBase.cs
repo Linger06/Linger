@@ -261,20 +261,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             }
         }
     }
-
-    // 可以保留这些方法但标记为过时，以保持向后兼容性
-    [Obsolete("请使用ExecuteSafely方法代替")]
-    protected T? SafeExecute<T>(Func<T> operation, T? defaultValue = default, string? operationName = null)
-    {
-        return ExecuteSafely(operation, operationName ?? "未知操作", defaultValue);
-    }
-
-    [Obsolete("请使用ExecuteSafely方法代替")]
-    protected T MonitorPerformance<T>(string operationName, Func<T> operation)
-    {
-        return ExecuteSafely(operation, operationName, default(T))!;
-    }
-
+    
     /// <summary>
     /// 将Stream转换为DataTable
     /// </summary>
@@ -441,11 +428,21 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>内存流</returns>
-    public abstract MemoryStream? ConvertDataTableToMemoryStream(
+    public virtual MemoryStream? ConvertDataTableToMemoryStream(
         DataTable dataTable,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, DataColumnCollection, DataRowCollection>? action = null);
+        Action<object, DataColumnCollection, DataRowCollection>? action = null)
+    {
+        if (dataTable == null || dataTable.Columns.Count == 0)
+        {
+            logger?.LogWarning("要转换的DataTable为空或没有列");
+            return null;
+        }
+
+        return ExecuteSafely(() => InternalConvertDataTableToMemoryStream(dataTable, sheetsName, title, action), 
+            "DataTable导出到Excel");
+    }
 
     /// <summary>
     /// 将对象列表转换为MemoryStream
@@ -456,11 +453,105 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>内存流</returns>
-    public abstract MemoryStream? ConvertCollectionToMemoryStream<T>(
+    public virtual MemoryStream? ConvertCollectionToMemoryStream<T>(
         List<T> list,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, PropertyInfo[]>? action = null) where T : class;
+        Action<object, PropertyInfo[]>? action = null) where T : class
+    {
+        if (list == null || list.Count == 0)
+        {
+            logger?.LogWarning("要转换的集合为空");
+            return null;
+        }
+
+        return ExecuteSafely(() => InternalConvertCollectionToMemoryStream(list, sheetsName, title, action), 
+            "集合导出到Excel");
+    }
+
+    /// <summary>
+    /// 内部实现：将DataTable转换为MemoryStream
+    /// </summary>
+    protected virtual MemoryStream InternalConvertDataTableToMemoryStream(
+        DataTable dataTable,
+        string sheetsName,
+        string title,
+        Action<object, DataColumnCollection, DataRowCollection>? action)
+    {
+        // 1. 创建工作簿和工作表
+        var workbook = CreateWorkbook();
+        var worksheet = CreateWorksheet(workbook, sheetsName);
+        
+        // 2. 应用标题(如果有)
+        int titleRowsCount = 0;
+        if (!string.IsNullOrEmpty(title))
+        {
+            titleRowsCount = ApplyTitle(worksheet, title, dataTable.Columns.Count);
+        }
+        
+        // 3. 创建标题行
+        CreateHeaderRow(worksheet, dataTable.Columns, titleRowsCount);
+        
+        // 4. 处理数据行
+        ProcessDataRows(worksheet, dataTable, titleRowsCount);
+        
+        // 5. 执行自定义操作
+        action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
+        
+        // 6. 应用工作表格式化
+        if (Options.AutoFitColumns)
+        {
+            ApplyWorksheetFormatting(worksheet, titleRowsCount + dataTable.Rows.Count, dataTable.Columns.Count);
+        }
+        
+        // 7. 保存并返回
+        return SaveWorkbookToStream(workbook);
+    }
+
+    /// <summary>
+    /// 创建空工作簿
+    /// </summary>
+    protected abstract object CreateWorkbook();
+
+    /// <summary>
+    /// 创建工作表
+    /// </summary>
+    protected abstract object CreateWorksheet(object workbook, string sheetName);
+
+    /// <summary>
+    /// 应用标题到工作表
+    /// </summary>
+    /// <returns>标题占用的行数</returns>
+    protected abstract int ApplyTitle(object worksheet, string title, int columnCount);
+
+    /// <summary>
+    /// 创建标题行
+    /// </summary>
+    protected abstract void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex);
+
+    /// <summary>
+    /// 处理数据行
+    /// </summary>
+    protected abstract void ProcessDataRows(object worksheet, DataTable dataTable, int startRowIndex);
+
+    /// <summary>
+    /// 应用工作表格式化
+    /// </summary>
+    protected abstract void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount);
+
+    /// <summary>
+    /// 保存工作簿到内存流
+    /// </summary>
+    protected abstract MemoryStream SaveWorkbookToStream(object workbook);
+
+    /// <summary>
+    /// 内部实现：将对象列表转换为MemoryStream
+    /// </summary>
+    protected abstract MemoryStream InternalConvertCollectionToMemoryStream<T>(
+        List<T> list,
+        string sheetsName,
+        string title,
+        Action<object, PropertyInfo[]>? action) where T : class;
 
     /// <summary>
     /// 将Stream转换为对象列表 - 适用于中小型Excel文件

@@ -497,4 +497,228 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     }
 
     #endregion
+
+    /// <summary>
+    /// 创建空工作簿
+    /// </summary>
+    protected override object CreateWorkbook()
+    {
+        return new XLWorkbook();
+    }
+
+    /// <summary>
+    /// 创建工作表
+    /// </summary>
+    protected override object CreateWorksheet(object workbook, string sheetName)
+    {
+        var xlWorkbook = (XLWorkbook)workbook;
+        return xlWorkbook.Worksheets.Add(sheetName);
+    }
+
+    /// <summary>
+    /// 应用标题到工作表
+    /// </summary>
+    protected override int ApplyTitle(object worksheet, string title, int columnCount)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        var cell = xlWorksheet.Cell(1, 1);
+        cell.Value = title;
+        var titleRange = xlWorksheet.Range(1, 1, 1, columnCount);
+        titleRange.Merge();
+        ApplyTitleRowFormatting(titleRange);
+        return 1; // 标题占用1行
+    }
+
+    /// <summary>
+    /// 创建标题行
+    /// </summary>
+    protected override void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        
+        for (int i = 0; i < columns.Count; i++)
+        {
+            var cell = xlWorksheet.Cell(startRowIndex + 1, i + 1);
+            cell.Value = columns[i].ColumnName;
+            ApplyHeaderRowFormatting(cell);
+        }
+    }
+
+    /// <summary>
+    /// 处理数据行
+    /// </summary>
+    protected override void ProcessDataRows(object worksheet, DataTable dataTable, int startRowIndex)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+
+        if (useParallelProcessing)
+        {
+            // 并行处理大数据集
+            logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
+            
+            // 使用批处理提高性能
+            int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
+            
+            // 预先计算所有值以避免在多线程中重复计算
+            var cellValues = new object?[dataTable.Rows.Count, dataTable.Columns.Count];
+            
+            Parallel.For(0, dataTable.Rows.Count, i =>
+            {
+                for (var j = 0; j < dataTable.Columns.Count; j++)
+                {
+                    cellValues[i, j] = dataTable.Rows[i][j];
+                }
+            });
+            
+            // 批量写入
+            for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
+            {
+                int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
+                
+                for (int i = batchStart; i < batchEnd; i++)
+                {
+                    for (var j = 0; j < dataTable.Columns.Count; j++)
+                    {
+                        var cell = xlWorksheet.Cell(startRowIndex + i + 2, j + 1);
+                        WriteValueToCell(cell, cellValues[i, j]);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // 顺序处理小数据集
+            for (var i = 0; i < dataTable.Rows.Count; i++)
+            {
+                for (var j = 0; j < dataTable.Columns.Count; j++)
+                {
+                    var cell = xlWorksheet.Cell(startRowIndex + i + 2, j + 1);
+                    WriteValueToCell(cell, dataTable.Rows[i][j]);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 应用工作表格式化
+    /// </summary>
+    protected override void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        ApplyBasicFormatting(xlWorksheet, rowCount, columnCount);
+    }
+
+    /// <summary>
+    /// 保存工作簿到内存流
+    /// </summary>
+    protected override MemoryStream SaveWorkbookToStream(object workbook)
+    {
+        var xlWorkbook = (XLWorkbook)workbook;
+        var ms = new MemoryStream();
+        xlWorkbook.SaveAs(ms);
+        ms.Position = 0;
+        return ms;
+    }
+
+    /// <summary>
+    /// 内部实现：将对象列表转换为MemoryStream
+    /// </summary>
+    protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
+        List<T> list,
+        string sheetsName,
+        string title,
+        Action<object, PropertyInfo[]>? action)
+    {
+        var workbook = CreateWorkbook();
+        var worksheet = CreateWorksheet(workbook, sheetsName);
+
+        // 获取属性信息
+        var properties = typeof(T).GetProperties()
+            .Where(p => p.CanRead)
+            .ToArray();
+
+        if (properties.Length == 0)
+        {
+            logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
+            return new MemoryStream();
+        }
+
+        // 处理标题
+        var titleIndex = 0;
+        if (!string.IsNullOrEmpty(title))
+        {
+            titleIndex = ApplyTitle(worksheet, title, properties.Length);
+        }
+
+        // 创建表头行 (模拟DataColumnCollection)
+        var columnNames = new DataTable();
+        foreach (var prop in properties)
+        {
+            columnNames.Columns.Add(prop.Name);
+        }
+        CreateHeaderRow(worksheet, columnNames.Columns, titleIndex);
+
+        // 使用基类的批处理方法处理数据行
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+
+        if (useParallelProcessing)
+        {
+            // 并行处理大数据集
+            logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
+
+            // 使用批处理提高性能
+            int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
+
+            // 预计算所有值
+            var cellValues = new object?[list.Count, properties.Length];
+
+            Parallel.For(0, list.Count, rowIndex =>
+            {
+                for (int colIndex = 0; colIndex < properties.Length; colIndex++)
+                {
+                    cellValues[rowIndex, colIndex] = properties[colIndex].GetValue(list[rowIndex]);
+                }
+            });
+
+            // 批量写入
+            for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
+            {
+                int batchEnd = Math.Min(batchStart + batchSize, list.Count);
+                for (int i = batchStart; i < batchEnd; i++)
+                {
+                    for (int j = 0; j < properties.Length; j++)
+                    {
+                        var cell = xlWorksheet.Cell(i + titleIndex + 2, j + 1);
+                        WriteValueToCell(cell, cellValues[i, j]);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // 小数据集顺序处理
+            for (int i = 0; i < list.Count; i++)
+            {
+                for (int j = 0; j < properties.Length; j++)
+                {
+                    var cell = xlWorksheet.Cell(i + titleIndex + 2, j + 1);
+                    WriteValueToCell(cell, properties[j].GetValue(list[i]));
+                }
+            }
+        }
+
+        // 执行自定义操作
+        action?.Invoke(worksheet, properties);
+
+        // 应用工作表格式化
+        if (Options.AutoFitColumns)
+        {
+            ApplyWorksheetFormatting(worksheet, titleIndex + list.Count + 1, properties.Length);
+        }
+
+        // 保存并返回
+        return SaveWorkbookToStream(workbook);
+    }
 }
