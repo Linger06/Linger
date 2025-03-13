@@ -2,6 +2,7 @@
 using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
+using Linger.Excel.Contracts.Attributes;
 using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 
@@ -9,184 +10,184 @@ namespace Linger.Excel.ClosedXML;
 
 public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel>? logger = null) : ExcelBase(options, logger)
 {
-    /// <summary>
-    /// 将对象集合转换为MemoryStream
-    /// </summary>
-    //[return: NotNullIfNotNull(nameof(list))]
-    public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T>? list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null)
-    {
-        if (list == null)
-        {
-            logger?.LogWarning("要转换的集合为空");
-            return null;
-        }
+    // /// <summary>
+    // /// 将对象集合转换为MemoryStream
+    // /// </summary>
+    // //[return: NotNullIfNotNull(nameof(list))]
+    // public override MemoryStream? ConvertCollectionToMemoryStream<T>(List<T>? list, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null)
+    // {
+    //     if (list == null)
+    //     {
+    //         logger?.LogWarning("要转换的集合为空");
+    //         return null;
+    //     }
 
-        return ExecuteSafely(() =>
-        {
-            using var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add(sheetsName);
+    //     return ExecuteSafely(() =>
+    //     {
+    //         using var workbook = new XLWorkbook();
+    //         var worksheet = workbook.Worksheets.Add(sheetsName);
 
-            // 获取可读属性
-            var properties = typeof(T).GetProperties()
-                .Where(p => p.CanRead)
-                .ToArray();
+    //         // 获取可读属性
+    //         var properties = typeof(T).GetProperties()
+    //             .Where(p => p.CanRead)
+    //             .ToArray();
 
-            if (properties.Length == 0)
-            {
-                logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
-                return new MemoryStream();
-            }
+    //         if (properties.Length == 0)
+    //         {
+    //             logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
+    //             return new MemoryStream();
+    //         }
 
-            // 处理标题
-            var currentRow = 1;
-            if (!string.IsNullOrEmpty(title))
-            {
-                var cell = worksheet.Cell(currentRow, 1);
-                cell.Value = title;
-                var titleRange = worksheet.Range(1, 1, 1, properties.Length);
-                titleRange.Merge();
-                ApplyTitleRowFormatting(titleRange);
-                currentRow++;
-            }
+    //         // 处理标题
+    //         var currentRow = 1;
+    //         if (!string.IsNullOrEmpty(title))
+    //         {
+    //             var cell = worksheet.Cell(currentRow, 1);
+    //             cell.Value = title;
+    //             var titleRange = worksheet.Range(1, 1, 1, properties.Length);
+    //             titleRange.Merge();
+    //             ApplyTitleRowFormatting(titleRange);
+    //             currentRow++;
+    //         }
 
-            // 设置表头
-            for (var i = 0; i < properties.Length; i++)
-            {
-                worksheet.Cell(currentRow, i + 1).Value = properties[i].Name;
-                worksheet.Cell(currentRow, i + 1).Style.Font.Bold = true;
-            }
+    //         // 设置表头
+    //         for (var i = 0; i < properties.Length; i++)
+    //         {
+    //             worksheet.Cell(currentRow, i + 1).Value = properties[i].Name;
+    //             worksheet.Cell(currentRow, i + 1).Style.Font.Bold = true;
+    //         }
 
-            // 使用基类的批处理方法处理数据行
-            ProcessInBatches<IXLCell, object?>(
-                list.Count,
-                i => worksheet.Cell(i + currentRow + 1, 1),
-                i => properties.Select(p => p.GetValue(list[i])).ToArray(),
-                (cell, rowIndex, values, _) =>
-                {
-                    for (var j = 0; j < properties.Length; j++)
-                    {
-                        var currentCell = worksheet.Cell(rowIndex + currentRow + 1, j + 1);
-                        WriteValueToCell(currentCell, values[j]);
-                    }
-                }
-            );
+    //         // 使用基类的批处理方法处理数据行
+    //         ProcessInBatches<IXLCell, object?>(
+    //             list.Count,
+    //             i => worksheet.Cell(i + currentRow + 1, 1),
+    //             i => properties.Select(p => p.GetValue(list[i])).ToArray(),
+    //             (cell, rowIndex, values, _) =>
+    //             {
+    //                 for (var j = 0; j < properties.Length; j++)
+    //                 {
+    //                     var currentCell = worksheet.Cell(rowIndex + currentRow + 1, j + 1);
+    //                     WriteValueToCell(currentCell, values[j]);
+    //                 }
+    //             }
+    //         );
 
-            // 执行自定义操作
-            action?.Invoke(worksheet, properties);
+    //         // 执行自定义操作
+    //         action?.Invoke(worksheet, properties);
 
-            // 根据配置应用格式化
-            if (Options.AutoFitColumns)
-            {
-                ApplyBasicFormatting(worksheet, list.Count + currentRow, properties.Length);
-            }
+    //         // 根据配置应用格式化
+    //         if (Options.AutoFitColumns)
+    //         {
+    //             ApplyBasicFormatting(worksheet, list.Count + currentRow, properties.Length);
+    //         }
 
-            var ms = new MemoryStream();
-            workbook.SaveAs(ms);
-            ms.Position = 0;
-            return ms;
-        }, "集合导出到Excel");
-    }
+    //         var ms = new MemoryStream();
+    //         workbook.SaveAs(ms);
+    //         ms.Position = 0;
+    //         return ms;
+    //     }, "集合导出到Excel");
+    // }
 
-    /// <summary>
-    /// 将DataTable转换为MemoryStream
-    /// </summary>
-    public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
-    {
-        if (dataTable == null || dataTable.Columns.Count == 0)
-        {
-            logger?.LogWarning("要转换的DataTable为空或没有列");
-            return null;
-        }
+    // /// <summary>
+    // /// 将DataTable转换为MemoryStream
+    // /// </summary>
+    // public override MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
+    // {
+    //     if (dataTable == null || dataTable.Columns.Count == 0)
+    //     {
+    //         logger?.LogWarning("要转换的DataTable为空或没有列");
+    //         return null;
+    //     }
 
-        return ExecuteSafely(() =>
-        {
-            using var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add(sheetsName);
+    //     return ExecuteSafely(() =>
+    //     {
+    //         using var workbook = new XLWorkbook();
+    //         var worksheet = workbook.Worksheets.Add(sheetsName);
 
-            // 处理标题
-            var currentRow = 1;
-            if (!string.IsNullOrEmpty(title))
-            {
-                var cell = worksheet.Cell(currentRow, 1);
-                cell.Value = title;
-                var titleRange = worksheet.Range(1, 1, 1, dataTable.Columns.Count);
-                titleRange.Merge();
-                ApplyTitleRowFormatting(titleRange);
-                currentRow++;
-            }
+    //         // 处理标题
+    //         var currentRow = 1;
+    //         if (!string.IsNullOrEmpty(title))
+    //         {
+    //             var cell = worksheet.Cell(currentRow, 1);
+    //             cell.Value = title;
+    //             var titleRange = worksheet.Range(1, 1, 1, dataTable.Columns.Count);
+    //             titleRange.Merge();
+    //             ApplyTitleRowFormatting(titleRange);
+    //             currentRow++;
+    //         }
 
-            // 设置表头
-            for (var i = 0; i < dataTable.Columns.Count; i++)
-            {
-                var cell = worksheet.Cell(currentRow, i + 1);
-                cell.Value = dataTable.Columns[i].ColumnName;
-                ApplyHeaderRowFormatting(cell);
-            }
+    //         // 设置表头
+    //         for (var i = 0; i < dataTable.Columns.Count; i++)
+    //         {
+    //             var cell = worksheet.Cell(currentRow, i + 1);
+    //             cell.Value = dataTable.Columns[i].ColumnName;
+    //             ApplyHeaderRowFormatting(cell);
+    //         }
 
-            // 判断是否需要并行处理
-            bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+    //         // 判断是否需要并行处理
+    //         bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
 
-            if (useParallelProcessing)
-            {
-                logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
+    //         if (useParallelProcessing)
+    //         {
+    //             logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
 
-                // 使用批处理提高性能
-                int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
+    //             // 使用批处理提高性能
+    //             int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
 
-                // 预先计算所有值以避免在多线程中重复计算
-                var cellValues = new object[dataTable.Rows.Count, dataTable.Columns.Count];
+    //             // 预先计算所有值以避免在多线程中重复计算
+    //             var cellValues = new object[dataTable.Rows.Count, dataTable.Columns.Count];
 
-                Parallel.For(0, dataTable.Rows.Count, i =>
-                {
-                    for (var j = 0; j < dataTable.Columns.Count; j++)
-                    {
-                        cellValues[i, j] = dataTable.Rows[i][j];
-                    }
-                });
+    //             Parallel.For(0, dataTable.Rows.Count, i =>
+    //             {
+    //                 for (var j = 0; j < dataTable.Columns.Count; j++)
+    //                 {
+    //                     cellValues[i, j] = dataTable.Rows[i][j];
+    //                 }
+    //             });
 
-                // 批量写入
-                for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
-                {
-                    int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
+    //             // 批量写入
+    //             for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
+    //             {
+    //                 int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
 
-                    for (int i = batchStart; i < batchEnd; i++)
-                    {
-                        for (var j = 0; j < dataTable.Columns.Count; j++)
-                        {
-                            var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                            WriteValueToCell(cell, cellValues[i, j]);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // 小数据集顺序处理
-                for (var i = 0; i < dataTable.Rows.Count; i++)
-                {
-                    for (var j = 0; j < dataTable.Columns.Count; j++)
-                    {
-                        var cell = worksheet.Cell(i + currentRow + 1, j + 1);
-                        WriteValueToCell(cell, dataTable.Rows[i][j]);
-                    }
-                }
-            }
+    //                 for (int i = batchStart; i < batchEnd; i++)
+    //                 {
+    //                     for (var j = 0; j < dataTable.Columns.Count; j++)
+    //                     {
+    //                         var cell = worksheet.Cell(i + currentRow + 1, j + 1);
+    //                         WriteValueToCell(cell, cellValues[i, j]);
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         else
+    //         {
+    //             // 小数据集顺序处理
+    //             for (var i = 0; i < dataTable.Rows.Count; i++)
+    //             {
+    //                 for (var j = 0; j < dataTable.Columns.Count; j++)
+    //                 {
+    //                     var cell = worksheet.Cell(i + currentRow + 1, j + 1);
+    //                     WriteValueToCell(cell, dataTable.Rows[i][j]);
+    //                 }
+    //             }
+    //         }
 
-            // 执行自定义操作
-            action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
+    //         // 执行自定义操作
+    //         action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
 
-            // 根据配置应用格式化
-            if (Options.AutoFitColumns)
-            {
-                ApplyBasicFormatting(worksheet, dataTable.Rows.Count + currentRow, dataTable.Columns.Count);
-            }
+    //         // 根据配置应用格式化
+    //         if (Options.AutoFitColumns)
+    //         {
+    //             ApplyBasicFormatting(worksheet, dataTable.Rows.Count + currentRow, dataTable.Columns.Count);
+    //         }
 
-            var ms = new MemoryStream();
-            workbook.SaveAs(ms);
-            ms.Position = 0;
-            return ms;
-        }, "DataTable导出到Excel");
-    }
+    //         var ms = new MemoryStream();
+    //         workbook.SaveAs(ms);
+    //         ms.Position = 0;
+    //         return ms;
+    //     }, "DataTable导出到Excel");
+    // }
 
     // 添加基类要求的方法实现
     protected override object OpenWorkbook(Stream stream)
@@ -621,76 +622,100 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return ms;
     }
 
+    // /// <summary>
+    // /// 内部实现：将对象列表转换为MemoryStream
+    // /// </summary>
+    // protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
+    //     List<T> list,
+    //     string sheetsName,
+    //     string title,
+    //     Action<object, PropertyInfo[]>? action)
+    // {
+    //     // 默认调用工作流模板方法
+    //     return ExecuteCollectionExportWorkflow(list, sheetsName, title, action);
+    // }
+
     /// <summary>
-    /// 内部实现：将对象列表转换为MemoryStream
+    /// 创建集合标题行
     /// </summary>
-    protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
-        List<T> list,
-        string sheetsName,
-        string title,
-        Action<object, PropertyInfo[]>? action)
+    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
     {
-        var workbook = CreateWorkbook();
-        var worksheet = CreateWorksheet(workbook, sheetsName);
-
-        // 获取属性信息
-        var properties = typeof(T).GetProperties()
-            .Where(p => p.CanRead)
-            .ToArray();
-
-        if (properties.Length == 0)
-        {
-            logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
-            return new MemoryStream();
-        }
-
-        // 处理标题
-        var titleIndex = 0;
-        if (!string.IsNullOrEmpty(title))
-        {
-            titleIndex = ApplyTitle(worksheet, title, properties.Length);
-        }
-
-        // 创建表头行 (模拟DataColumnCollection)
-        var columnNames = new DataTable();
-        foreach (var prop in properties)
-        {
-            columnNames.Columns.Add(prop.Name);
-        }
-        CreateHeaderRow(worksheet, columnNames.Columns, titleIndex);
-
-        // 使用基类的批处理方法处理数据行
         var xlWorksheet = (IXLWorksheet)worksheet;
-        bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+        
+        // 优先查找带有ExcelColumn特性的属性
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            // 如果没有特性标记，则使用所有属性
+            for (int i = 0; i < properties.Length; i++)
+            {
+                var headerCell = xlWorksheet.Cell(startRowIndex + 1, i + 1);
+                headerCell.Value = properties[i].Name;
+                ApplyHeaderRowFormatting(headerCell);
+            }
+        }
+        else
+        {
+            // 使用特性标记的属性及其顺序
+            columns = columns.OrderBy(c => c.Item3).ToList();
+            for (int i = 0; i < columns.Count; i++)
+            {
+                var headerCell = xlWorksheet.Cell(startRowIndex + 1, i + 1);
+                headerCell.Value = string.IsNullOrEmpty(columns[i].Item2) ? columns[i].Item1 : columns[i].Item2;
+                ApplyHeaderRowFormatting(headerCell);
+            }
+        }
+    }
 
+    /// <summary>
+    /// 处理集合数据行
+    /// </summary>
+    protected override void ProcessCollectionRows<T>(object worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
+    {
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        
+        // 优先查找带有ExcelColumn特性的属性
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            columns = properties.Select((p, i) => new Tuple<string, string, int>(
+                p.Name, p.Name, i)).ToList();
+        }
+        columns = columns.OrderBy(c => c.Item3).ToList();
+        
+        // 判断是否需要并行处理
+        bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+        
         if (useParallelProcessing)
         {
             // 并行处理大数据集
             logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
-
+            
             // 使用批处理提高性能
             int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-
+            
             // 预计算所有值
-            var cellValues = new object?[list.Count, properties.Length];
-
-            Parallel.For(0, list.Count, rowIndex =>
+            var cellValues = new object?[list.Count, columns.Count];
+            
+            Parallel.For(0, list.Count, i =>
             {
-                for (int colIndex = 0; colIndex < properties.Length; colIndex++)
+                for (int j = 0; j < columns.Count; j++)
                 {
-                    cellValues[rowIndex, colIndex] = properties[colIndex].GetValue(list[rowIndex]);
+                    // 查找对应的属性
+                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Item1);
+                    cellValues[i, j] = property?.GetValue(list[i]);
                 }
             });
-
+            
             // 批量写入
             for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
             {
                 int batchEnd = Math.Min(batchStart + batchSize, list.Count);
                 for (int i = batchStart; i < batchEnd; i++)
                 {
-                    for (int j = 0; j < properties.Length; j++)
+                    for (int j = 0; j < columns.Count; j++)
                     {
-                        var cell = xlWorksheet.Cell(i + titleIndex + 2, j + 1);
+                        var cell = xlWorksheet.Cell(startRowIndex + i + 2, j + 1);
                         WriteValueToCell(cell, cellValues[i, j]);
                     }
                 }
@@ -698,27 +723,45 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         }
         else
         {
-            // 小数据集顺序处理
+            // 顺序处理小数据集
             for (int i = 0; i < list.Count; i++)
             {
-                for (int j = 0; j < properties.Length; j++)
+                for (int j = 0; j < columns.Count; j++)
                 {
-                    var cell = xlWorksheet.Cell(i + titleIndex + 2, j + 1);
-                    WriteValueToCell(cell, properties[j].GetValue(list[i]));
+                    var cell = xlWorksheet.Cell(startRowIndex + i + 2, j + 1);
+                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Item1);
+                    WriteValueToCell(cell, property?.GetValue(list[i]));
                 }
             }
         }
+    }
 
-        // 执行自定义操作
-        action?.Invoke(worksheet, properties);
-
-        // 应用工作表格式化
-        if (Options.AutoFitColumns)
+    /// <summary>
+    /// 获取标记有ExcelColumn特性的属性信息
+    /// </summary>
+    private List<Tuple<string, string, int>> GetExcelColumns(IEnumerable<PropertyInfo> properties)
+    {
+        var columns = new List<Tuple<string, string, int>>();
+        Type excelColumnAttributeType = typeof(ExcelColumnAttribute);
+        
+        foreach (var prop in properties)
         {
-            ApplyWorksheetFormatting(worksheet, titleIndex + list.Count + 1, properties.Length);
+            var attrs = prop.GetCustomAttributesData();
+            if (attrs.Any(a => a.AttributeType == excelColumnAttributeType))
+            {
+                var attr = prop.GetCustomAttributes(excelColumnAttributeType, true)
+                    .FirstOrDefault() as ExcelColumnAttribute;
+                    
+                if (attr != null)
+                {
+                    columns.Add(new Tuple<string, string, int>(
+                        prop.Name,
+                        attr.ColumnName.IsNullOrEmpty() ? prop.Name : attr.ColumnName,
+                        attr.Index == int.MaxValue ? columns.Count : attr.Index));
+                }
+            }
         }
-
-        // 保存并返回
-        return SaveWorkbookToStream(workbook);
+        
+        return columns;
     }
 }

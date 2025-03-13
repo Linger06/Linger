@@ -440,7 +440,8 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             return null;
         }
 
-        return ExecuteSafely(() => InternalConvertDataTableToMemoryStream(dataTable, sheetsName, title, action), 
+        // 修改这里调用新的模板方法
+        return ExecuteSafely(() => ExecuteExcelExportWorkflow(dataTable, sheetsName, title, action), 
             "DataTable导出到Excel");
     }
 
@@ -465,14 +466,90 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             return null;
         }
 
-        return ExecuteSafely(() => InternalConvertCollectionToMemoryStream(list, sheetsName, title, action), 
+        // 修改调用模板方法
+        return ExecuteSafely(() => ExecuteCollectionExportWorkflow(list, sheetsName, title, action), 
             "集合导出到Excel");
     }
 
     /// <summary>
+    /// 将对象列表转换为MemoryStream的工作流
+    /// </summary>
+    protected MemoryStream ExecuteCollectionExportWorkflow<T>(
+        List<T> list,
+        string sheetsName,
+        string title,
+        Action<object, PropertyInfo[]>? action) where T : class
+    {
+        // 1. 创建工作簿和工作表
+        var workbook = CreateWorkbook();
+        var worksheet = CreateWorksheet(workbook, sheetsName);
+        
+        // 2. 获取属性信息
+        var properties = GetTypeProperties<T>();
+        
+        // 3. 应用标题(如果有)
+        int titleRowsCount = 0;
+        if (!string.IsNullOrEmpty(title))
+        {
+            titleRowsCount = ApplyTitle(worksheet, title, properties.Length);
+        }
+        
+        // 4. 创建标题行
+        CreateCollectionHeaderRow(worksheet, properties, titleRowsCount);
+        
+        // 5. 处理数据行
+        ProcessCollectionRows(worksheet, list, properties, titleRowsCount);
+        
+        // 6. 执行自定义操作
+        action?.Invoke(worksheet, properties);
+        
+        // 7. 应用工作表格式化
+        if (Options.AutoFitColumns)
+        {
+            ApplyWorksheetFormatting(worksheet, titleRowsCount + list.Count + 1, properties.Length);
+        }
+        
+        // 8. 保存并返回
+        return SaveWorkbookToStream(workbook);
+    }
+
+    /// <summary>
+    /// 获取类型的可读属性
+    /// </summary>
+    protected virtual PropertyInfo[] GetTypeProperties<T>() where T : class
+    {
+        return typeof(T).GetProperties()
+            .Where(p => p.CanRead)
+            .ToArray();
+    }
+
+    /// <summary>
+    /// 创建集合标题行
+    /// </summary>
+    protected abstract void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex);
+
+    /// <summary>
+    /// 处理集合数据行
+    /// </summary>
+    protected abstract void ProcessCollectionRows<T>(object worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex) where T : class;
+
+    // /// <summary>
+    // /// 内部实现：将对象列表转换为MemoryStream
+    // /// </summary>
+    // protected virtual MemoryStream InternalConvertCollectionToMemoryStream<T>(
+    //     List<T> list,
+    //     string sheetsName,
+    //     string title,
+    //     Action<object, PropertyInfo[]>? action) where T : class
+    // {
+    //     // 默认调用工作流模板方法
+    //     return ExecuteCollectionExportWorkflow(list, sheetsName, title, action);
+    // }
+
+    /// <summary>
     /// 内部实现：将DataTable转换为MemoryStream
     /// </summary>
-    protected virtual MemoryStream InternalConvertDataTableToMemoryStream(
+    protected MemoryStream ExecuteExcelExportWorkflow(
         DataTable dataTable,
         string sheetsName,
         string title,
@@ -543,15 +620,6 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// 保存工作簿到内存流
     /// </summary>
     protected abstract MemoryStream SaveWorkbookToStream(object workbook);
-
-    /// <summary>
-    /// 内部实现：将对象列表转换为MemoryStream
-    /// </summary>
-    protected abstract MemoryStream InternalConvertCollectionToMemoryStream<T>(
-        List<T> list,
-        string sheetsName,
-        string title,
-        Action<object, PropertyInfo[]>? action) where T : class;
 
     /// <summary>
     /// 将Stream转换为对象列表 - 适用于中小型Excel文件

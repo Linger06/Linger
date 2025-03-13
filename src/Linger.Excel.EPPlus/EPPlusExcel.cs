@@ -13,47 +13,47 @@ namespace Linger.Excel.EPPlus;
 
 public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? logger = null) : ExcelBase(options, logger)
 {
-    /// <summary>
-    /// 将对象集合转换为内存流
-    /// </summary>
-    public override MemoryStream? ConvertCollectionToMemoryStream<T>(
-        List<T> list,
-        string sheetsName = "Sheet1",
-        string title = "",
-        Action<object, PropertyInfo[]>? action = null)
-    {
-        if (list == null || list.Count == 0)
-        {
-            logger?.LogWarning("要转换的集合为空");
-            return null;
-        }
+    // /// <summary>
+    // /// 将对象集合转换为内存流
+    // /// </summary>
+    // public override MemoryStream? ConvertCollectionToMemoryStream<T>(
+    //     List<T> list,
+    //     string sheetsName = "Sheet1",
+    //     string title = "",
+    //     Action<object, PropertyInfo[]>? action = null)
+    // {
+    //     if (list == null || list.Count == 0)
+    //     {
+    //         logger?.LogWarning("要转换的集合为空");
+    //         return null;
+    //     }
 
-        return ExecuteSafely(() =>
-        {
-            return InternalConvertCollectionToMemoryStream(list, sheetsName, title, action);
-        }, "集合导出到Excel");
-    }
+    //     return ExecuteSafely(() =>
+    //     {
+    //         return InternalConvertCollectionToMemoryStream(list, sheetsName, title, action);
+    //     }, "集合导出到Excel");
+    // }
 
-    /// <summary>
-    /// 将DataTable转换为内存流
-    /// </summary>
-    public override MemoryStream? ConvertDataTableToMemoryStream(
-        DataTable dataTable,
-        string sheetsName = "Sheet1",
-        string title = "",
-        Action<object, DataColumnCollection, DataRowCollection>? action = null)
-    {
-        if (dataTable == null || dataTable.Columns.Count == 0)
-        {
-            logger?.LogWarning("要转换的DataTable为空或没有列");
-            return null;
-        }
+    // /// <summary>
+    // /// 将DataTable转换为内存流
+    // /// </summary>
+    // public override MemoryStream? ConvertDataTableToMemoryStream(
+    //     DataTable dataTable,
+    //     string sheetsName = "Sheet1",
+    //     string title = "",
+    //     Action<object, DataColumnCollection, DataRowCollection>? action = null)
+    // {
+    //     if (dataTable == null || dataTable.Columns.Count == 0)
+    //     {
+    //         logger?.LogWarning("要转换的DataTable为空或没有列");
+    //         return null;
+    //     }
 
-        return ExecuteSafely(() =>
-        {
-            return InternalConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
-        }, "DataTable导出到Excel");
-    }
+    //     return ExecuteSafely(() =>
+    //     {
+    //         return ConvertCollectionToMemoryStream(dataTable, sheetsName, title, action);
+    //     }, "DataTable导出到Excel");
+    // }
 
     // 添加基类要求的方法实现
     protected override object OpenWorkbook(Stream stream)
@@ -379,144 +379,144 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         cell.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
     }
 
-    /// <summary>
-    /// 内部实现：将对象集合转换为内存流
-    /// </summary>
-    protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
-        List<T> list,
-        string sheetsName,
-        string title,
-        Action<object, PropertyInfo[]>? action)
-    {
-        var memoryStream = new MemoryStream();
-        using var package = new ExcelPackage();
-        var worksheet = package.Workbook.Worksheets.Add(sheetsName);
+    // /// <summary>
+    // /// 内部实现：将对象集合转换为内存流
+    // /// </summary>
+    // protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
+    //     List<T> list,
+    //     string sheetsName,
+    //     string title,
+    //     Action<object, PropertyInfo[]>? action)
+    // {
+    //     var memoryStream = new MemoryStream();
+    //     using var package = new ExcelPackage();
+    //     var worksheet = package.Workbook.Worksheets.Add(sheetsName);
 
-        // 获取属性信息
-        var properties = typeof(T).GetProperties()
-            .Where(p => p.CanRead)
-            .ToArray();
+    //     // 获取属性信息
+    //     var properties = typeof(T).GetProperties()
+    //         .Where(p => p.CanRead)
+    //         .ToArray();
 
-        if (properties.Length == 0)
-        {
-            logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
-            return new MemoryStream();
-        }
+    //     if (properties.Length == 0)
+    //     {
+    //         logger?.LogWarning("类型 {Type} 没有可读属性", typeof(T).Name);
+    //         return new MemoryStream();
+    //     }
 
-        // 获取有ExcelColumn特性的列，如果没有则使用所有列
-        var columns = GetExcelColumns(properties);
-        if (columns.Count == 0)
-        {
-            columns = properties.Select((p, i) => new Tuple<string, string, int>(
-                p.Name, p.Name, i)).ToList();
-        }
-        columns = columns.OrderBy(a => a.Item3).ToList();
+    //     // 获取有ExcelColumn特性的列，如果没有则使用所有列
+    //     var columns = GetExcelColumns(properties);
+    //     if (columns.Count == 0)
+    //     {
+    //         columns = properties.Select((p, i) => new Tuple<string, string, int>(
+    //             p.Name, p.Name, i)).ToList();
+    //     }
+    //     columns = columns.OrderBy(a => a.Item3).ToList();
 
-        // 处理标题
-        var titleIndex = 0;
-        if (!string.IsNullOrEmpty(title))
-        {
-            titleIndex = 1;
-            worksheet.Cells[1, 1].Value = title;
-            var titleRange = worksheet.Cells[1, 1, 1, columns.Count];
-            titleRange.Merge = true;
-            ApplyTitleRowFormatting(titleRange);
-        }
+    //     // 处理标题
+    //     var titleIndex = 0;
+    //     if (!string.IsNullOrEmpty(title))
+    //     {
+    //         titleIndex = 1;
+    //         worksheet.Cells[1, 1].Value = title;
+    //         var titleRange = worksheet.Cells[1, 1, 1, columns.Count];
+    //         titleRange.Merge = true;
+    //         ApplyTitleRowFormatting(titleRange);
+    //     }
 
-        // 填充列头
-        for (int i = 0; i < columns.Count; i++)
-        {
-            var cell = worksheet.Cells[titleIndex + 1, i + 1];
-            cell.Value = string.IsNullOrEmpty(columns[i].Item2) ? columns[i].Item1 : columns[i].Item2;
-            ApplyHeaderRowFormatting(cell);
-        }
+    //     // 填充列头
+    //     for (int i = 0; i < columns.Count; i++)
+    //     {
+    //         var cell = worksheet.Cells[titleIndex + 1, i + 1];
+    //         cell.Value = string.IsNullOrEmpty(columns[i].Item2) ? columns[i].Item1 : columns[i].Item2;
+    //         ApplyHeaderRowFormatting(cell);
+    //     }
 
-        // 判断是否需要并行处理
-        bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+    //     // 判断是否需要并行处理
+    //     bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
 
-        if (useParallelProcessing)
-        {
-            // ...existing code for parallel processing...
-        }
-        else
-        {
-            // ...existing code for sequential processing...
-        }
+    //     if (useParallelProcessing)
+    //     {
+    //         // ...existing code for parallel processing...
+    //     }
+    //     else
+    //     {
+    //         // ...existing code for sequential processing...
+    //     }
 
-        // 执行自定义操作
-        action?.Invoke(worksheet, properties);
+    //     // 执行自定义操作
+    //     action?.Invoke(worksheet, properties);
 
-        // 根据配置决定是否自动调整列宽
-        if (Options.AutoFitColumns)
-        {
-            //worksheet.Cells[titleIndex + 1, 1, titleIndex + list.Count + 1, columns.Count].AutoFitColumns();
-            ApplyBasicFormatting(worksheet, titleIndex + list.Count + 1, columns.Count);
-        }
+    //     // 根据配置决定是否自动调整列宽
+    //     if (Options.AutoFitColumns)
+    //     {
+    //         //worksheet.Cells[titleIndex + 1, 1, titleIndex + list.Count + 1, columns.Count].AutoFitColumns();
+    //         ApplyBasicFormatting(worksheet, titleIndex + list.Count + 1, columns.Count);
+    //     }
 
-        package.SaveAs(memoryStream);
-        memoryStream.Position = 0;
+    //     package.SaveAs(memoryStream);
+    //     memoryStream.Position = 0;
 
-        return memoryStream;
-    }
+    //     return memoryStream;
+    // }
 
-    /// <summary>
-    /// 内部实现：将DataTable转换为内存流
-    /// </summary>
-    protected override MemoryStream InternalConvertDataTableToMemoryStream(
-        DataTable dataTable,
-        string sheetsName,
-        string title,
-        Action<object, DataColumnCollection, DataRowCollection>? action)
-    {
-        var memoryStream = new MemoryStream();
-        using var package = new ExcelPackage();
-        var worksheet = package.Workbook.Worksheets.Add(sheetsName);
+    // /// <summary>
+    // /// 内部实现：将DataTable转换为内存流
+    // /// </summary>
+    // protected override MemoryStream? ConvertCollectionToMemoryStream(
+    //     DataTable dataTable,
+    //     string sheetsName,
+    //     string title,
+    //     Action<object, DataColumnCollection, DataRowCollection>? action)
+    // {
+    //     var memoryStream = new MemoryStream();
+    //     using var package = new ExcelPackage();
+    //     var worksheet = package.Workbook.Worksheets.Add(sheetsName);
 
-        // 处理标题
-        var titleIndex = 0;
-        if (!string.IsNullOrEmpty(title))
-        {
-            titleIndex = 1;
-            worksheet.Cells[1, 1].Value = title;
-            var titleRange = worksheet.Cells[1, 1, 1, dataTable.Columns.Count];
-            titleRange.Merge = true;
-            ApplyTitleRowFormatting(titleRange);
-        }
+    //     // 处理标题
+    //     var titleIndex = 0;
+    //     if (!string.IsNullOrEmpty(title))
+    //     {
+    //         titleIndex = 1;
+    //         worksheet.Cells[1, 1].Value = title;
+    //         var titleRange = worksheet.Cells[1, 1, 1, dataTable.Columns.Count];
+    //         titleRange.Merge = true;
+    //         ApplyTitleRowFormatting(titleRange);
+    //     }
 
-        // 填充列头
-        for (int i = 0; i < dataTable.Columns.Count; i++)
-        {
-            var cell = worksheet.Cells[titleIndex + 1, i + 1];
-            cell.Value = dataTable.Columns[i].ColumnName;
-            ApplyHeaderRowFormatting(cell);
-        }
+    //     // 填充列头
+    //     for (int i = 0; i < dataTable.Columns.Count; i++)
+    //     {
+    //         var cell = worksheet.Cells[titleIndex + 1, i + 1];
+    //         cell.Value = dataTable.Columns[i].ColumnName;
+    //         ApplyHeaderRowFormatting(cell);
+    //     }
 
-        // 判断是否需要并行处理
-        bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+    //     // 判断是否需要并行处理
+    //     bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
 
-        if (useParallelProcessing)
-        {
-            // ...existing code for parallel processing...
-        }
-        else
-        {
-            // ...existing code for sequential processing...
-        }
+    //     if (useParallelProcessing)
+    //     {
+    //         // ...existing code for parallel processing...
+    //     }
+    //     else
+    //     {
+    //         // ...existing code for sequential processing...
+    //     }
 
-        // 执行自定义操作
-        action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
+    //     // 执行自定义操作
+    //     action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
 
-        // 根据配置决定是否自动调整列宽
-        if (Options.AutoFitColumns)
-        {
-            ApplyBasicFormatting(worksheet, titleIndex + dataTable.Rows.Count + 1, dataTable.Columns.Count);
-        }
+    //     // 根据配置决定是否自动调整列宽
+    //     if (Options.AutoFitColumns)
+    //     {
+    //         ApplyBasicFormatting(worksheet, titleIndex + dataTable.Rows.Count + 1, dataTable.Columns.Count);
+    //     }
 
-        package.SaveAs(memoryStream);
-        memoryStream.Position = 0;
+    //     package.SaveAs(memoryStream);
+    //     memoryStream.Position = 0;
 
-        return memoryStream;
-    }
+    //     return memoryStream;
+    // }
 
     /// <summary>
     /// 创建空工作簿
@@ -638,6 +638,98 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         package.SaveAs(ms);
         ms.Position = 0;
         return ms;
+    }
+
+    /// <summary>
+    /// 创建集合标题行
+    /// </summary>
+    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
+    {
+        var excelWorksheet = (ExcelWorksheet)worksheet;
+        
+        // 获取有ExcelColumn特性的列，如果没有则使用所有列
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            columns = properties.Select((p, i) => new Tuple<string, string, int>(
+                p.Name, p.Name, i)).ToList();
+        }
+        columns = columns.OrderBy(a => a.Item3).ToList();
+        
+        // 填充列头
+        for (int i = 0; i < columns.Count; i++)
+        {
+            var cell = excelWorksheet.Cells[startRowIndex + 1, i + 1];
+            cell.Value = string.IsNullOrEmpty(columns[i].Item2) ? columns[i].Item1 : columns[i].Item2;
+            ApplyHeaderRowFormatting(cell);
+        }
+    }
+
+    /// <summary>
+    /// 处理集合数据行
+    /// </summary>
+    protected override void ProcessCollectionRows<T>(object worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
+    {
+        var excelWorksheet = (ExcelWorksheet)worksheet;
+        
+        // 获取有ExcelColumn特性的列，如果没有则使用所有列
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            columns = properties.Select((p, i) => new Tuple<string, string, int>(
+                p.Name, p.Name, i)).ToList();
+        }
+        columns = columns.OrderBy(a => a.Item3).ToList();
+        
+        // 判断是否需要并行处理
+        bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+
+        if (useParallelProcessing)
+        {
+            // 并行处理大数据集
+            logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
+            
+            // 使用批处理提高性能
+            int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
+            
+            // 预计算所有值
+            var cellValues = new object?[list.Count, columns.Count];
+            
+            Parallel.For(0, list.Count, i =>
+            {
+                for (int j = 0; j < columns.Count; j++)
+                {
+                    cellValues[i, j] = properties.FirstOrDefault(p => p.Name == columns[j].Item1)?.GetValue(list[i]);
+                }
+            });
+            
+            // 批量写入
+            for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
+            {
+                int batchEnd = Math.Min(batchStart + batchSize, list.Count);
+                for (int i = batchStart; i < batchEnd; i++)
+                {
+                    for (int j = 0; j < columns.Count; j++)
+                    {
+                        var cell = excelWorksheet.Cells[startRowIndex + i + 2, j + 1];
+                        WriteValueToCell(cell, cellValues[i, j]);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // 顺序处理小数据集
+            for (int i = 0; i < list.Count; i++)
+            {
+                for (int j = 0; j < columns.Count; j++)
+                {
+                    var cell = excelWorksheet.Cells[startRowIndex + i + 2, j + 1];
+                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Item1);
+                    WriteValueToCell(cell, property?.GetValue(list[i]));
+                }
+            }
+        }
     }
 
     #endregion
