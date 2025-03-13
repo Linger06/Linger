@@ -1,13 +1,4 @@
-﻿using System.Data;
-using System.Reflection;
-using Linger.Excel.Contracts.Utils;
-using Linger.Extensions.Core;
-using Linger.Extensions.Data;
-using Linger.Extensions.IO;
-using Linger.Helper;
-using Microsoft.Extensions.Logging;
-
-namespace Linger.Excel.Contracts;
+﻿namespace Linger.Excel.Contracts;
 
 public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = null) : IExcel
 {
@@ -140,7 +131,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
             logger?.LogError("转换对象列表到MemoryStream失败");
             throw new InvalidOperationException("转换对象列表到MemoryStream失败");
         }
-        
+
         ms.ToFile(fullFileName);
         return fullFileName;
     }
@@ -330,7 +321,8 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
                 CreateDataTableColumns(worksheet, dataTable, headerRowIndex);
 
                 // 处理数据行
-                ProcessDataTableRows(worksheet, dataTable, startRow + 1, endRow, addEmptyRow);
+                //Npoi 的 startRow 从 0 开始
+                ProcessDataTableRows(worksheet, dataTable, startRow, endRow, addEmptyRow);
 
                 return dataTable;
             }

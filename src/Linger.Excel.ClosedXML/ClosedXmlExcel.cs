@@ -115,9 +115,6 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 {
                     var cell = worksheet.Cell(currentRow, 1);
                     cell.Value = title;
-                    cell.Style.Font.Bold = true;
-                    cell.Style.Font.FontSize = 14;
-                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                     var titleRange = worksheet.Range(1, 1, 1, dataTable.Columns.Count);
                     titleRange.Merge();
                     ApplyTitleRowFormatting(titleRange);
@@ -129,7 +126,6 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 {
                     var cell = worksheet.Cell(currentRow, i + 1);
                     cell.Value = dataTable.Columns[i].ColumnName;
-                    cell.Style.Font.Bold = true;
                     ApplyHeaderRowFormatting(cell);
                 }
 
@@ -441,7 +437,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         try
         {
             titleRange.Style.Font.Bold = true;
-            titleRange.Style.Font.FontSize = HEADER_FONT_SIZE;
+            titleRange.Style.Font.FontSize = TITLE_FONT_SIZE;
             titleRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             titleRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
@@ -461,7 +457,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         try
         {
             headerCell.Style.Font.Bold = true;
-            headerCell.Style.Font.FontSize = TITLE_FONT_SIZE;
+            headerCell.Style.Font.FontSize = HEADER_FONT_SIZE;
             headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             headerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
             headerCell.Style.Fill.BackgroundColor = XLColor.LightGray;

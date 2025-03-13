@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using Linger.Extensions.Core;
 
 namespace Linger.Excel.Contracts.Utils;
 
@@ -42,7 +41,7 @@ public static class ExcelValueConverter
                     return value;
                 }
             }
-            
+
             // 从字符串转换日期
             if (value is string dateStr)
             {
@@ -63,7 +62,7 @@ public static class ExcelValueConverter
             }
             return d;
         }
-        
+
         // 处理其他数值类型
         if (value is decimal m)
             return m;

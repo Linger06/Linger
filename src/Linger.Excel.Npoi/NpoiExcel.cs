@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using Linger.Excel.Contracts;
 using Microsoft.Extensions.Logging;
+using NPOI.HSSF.UserModel;
 using NPOI.SS.Formula.Eval;
 using NPOI.SS.UserModel;
 using NPOI.SS.Util;
@@ -50,25 +51,13 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     var titleCell = titleRow.CreateCell(0);
                     titleCell.SetCellValue(title);
 
-                    var titleStyle = workbook.CreateCellStyle();
-                    titleStyle.Alignment = HorizontalAlignment.Center;
-                    var titleFont = workbook.CreateFont();
-                    titleFont.FontHeightInPoints = 14;
-                    titleFont.IsBold = true;
-                    titleStyle.SetFont(titleFont);
-                    titleCell.CellStyle = titleStyle;
+                    ApplyTitleRowFormatting(titleCell);
 
                     sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, properties.Length - 1));
                 }
 
                 // 创建表头
                 var headerRow = sheet.CreateRow(titleIndex++);
-                var headerStyle = workbook.CreateCellStyle();
-                headerStyle.Alignment = HorizontalAlignment.Center;
-                var headerFont = workbook.CreateFont();
-                headerFont.FontHeightInPoints = 10;
-                headerFont.IsBold = true;
-                headerStyle.SetFont(headerFont);
 
                 // 预创建样式字典，提高性能
                 var styleCache = new Dictionary<Type, ICellStyle>();
@@ -85,7 +74,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     var cell = headerRow.CreateCell(i);
                     cell.SetCellValue(properties[i].Name);
-                    cell.CellStyle = headerStyle;
+                    ApplyHeaderRowFormatting(cell);
                     columnWidths[i] = Encoding.UTF8.GetBytes(properties[i].Name).Length;
                 }
 
@@ -170,25 +159,27 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     var titleCell = titleRow.CreateCell(0);
                     titleCell.SetCellValue(title);
 
-                    var titleStyle = workbook.CreateCellStyle();
-                    titleStyle.Alignment = HorizontalAlignment.Center;
-                    var titleFont = workbook.CreateFont();
-                    titleFont.FontHeightInPoints = 14;
-                    titleFont.IsBold = true;
-                    titleStyle.SetFont(titleFont);
-                    titleCell.CellStyle = titleStyle;
+                    //var titleStyle = workbook.CreateCellStyle();
+                    //titleStyle.Alignment = HorizontalAlignment.Center;
+                    //var titleFont = workbook.CreateFont();
+                    //titleFont.FontHeightInPoints = 14;
+                    //titleFont.IsBold = true;
+                    //titleStyle.SetFont(titleFont);
+                    //titleCell.CellStyle = titleStyle;
 
                     sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, dataTable.Columns.Count - 1));
+
+                    ApplyTitleRowFormatting(titleCell);
                 }
 
                 // 创建表头
                 var headerRow = sheet.CreateRow(titleIndex++);
-                var headerStyle = workbook.CreateCellStyle();
-                headerStyle.Alignment = HorizontalAlignment.Center;
-                var headerFont = workbook.CreateFont();
-                headerFont.FontHeightInPoints = 10;
-                headerFont.IsBold = true;
-                headerStyle.SetFont(headerFont);
+                //var headerStyle = workbook.CreateCellStyle();
+                //headerStyle.Alignment = HorizontalAlignment.Center;
+                //var headerFont = workbook.CreateFont();
+                //headerFont.FontHeightInPoints = 10;
+                //headerFont.IsBold = true;
+                //headerStyle.SetFont(headerFont);
 
                 // 预创建样式字典，提高性能
                 var styleCache = new Dictionary<Type, ICellStyle>();
@@ -205,7 +196,8 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     var cell = headerRow.CreateCell(i);
                     cell.SetCellValue(dataTable.Columns[i].ColumnName);
-                    cell.CellStyle = headerStyle;
+                    ApplyHeaderRowFormatting(cell);
+
                     columnWidths[i] = Encoding.UTF8.GetBytes(dataTable.Columns[i].ColumnName).Length;
                 }
 
@@ -283,18 +275,24 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     }
                 }
 
-                // 设置列宽
-                if (Options.AutoFitColumns)
-                {
-                    for (int i = 0; i < dataTable.Columns.Count; i++)
-                    {
-                        int width = Math.Min(255, columnWidths[i] + 2) * 256;
-                        sheet.SetColumnWidth(i, width);
-                    }
-                }
+                //// 设置列宽
+                //if (Options.AutoFitColumns)
+                //{
+                //    for (int i = 0; i < dataTable.Columns.Count; i++)
+                //    {
+                //        int width = Math.Min(255, columnWidths[i] + 2) * 256;
+                //        sheet.SetColumnWidth(i, width);
+                //    }
+                //}
 
                 // 执行自定义操作
                 action?.Invoke(sheet, dataTable.Columns, dataTable.Rows);
+
+                // 根据配置应用格式化
+                if (Options.AutoFitColumns)
+                {
+                    ApplyBasicFormatting(sheet, titleIndex + dataTable.Rows.Count + 1, dataTable.Columns.Count);
+                }
 
                 var ms = new MemoryStream();
                 workbook.Write(ms, true);
@@ -304,8 +302,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             });
         }, null, nameof(ConvertDataTableToMemoryStream));
     }
-
-    // 删除原有的 public override DataTable? ConvertStreamToDataTable 方法
 
     // 添加基类要求的方法实现
     protected override object OpenWorkbook(Stream stream)
@@ -602,27 +598,9 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 默认处理为字符串
             cell.SetCellValue(value.ToString());
         }
-        
-        // 应用边框 - 单元格样式应该已经由上面的代码设置，需要在这里修改它
-        DrawBorder(workbook, cell);
-    }
 
-    /// <summary>
-    /// 为单元格添加边框
-    /// </summary>
-    private void DrawBorder(IWorkbook workbook, ICell cell)
-    {
-        // 如果单元格没有样式，创建一个新样式
-        ICellStyle style = cell.CellStyle ?? workbook.CreateCellStyle();
-        
-        // 设置边框
-        style.BorderTop = BorderStyle.Thin;
-        style.BorderBottom = BorderStyle.Thin;
-        style.BorderLeft = BorderStyle.Thin;
-        style.BorderRight = BorderStyle.Thin;
-        
-        // 应用样式到单元格
-        cell.CellStyle = style;
+        // 应用边框 - 单元格样式应该已经由上面的代码设置，需要在这里修改它
+        DrawBorder(cell);
     }
 
     /// <summary>
@@ -671,6 +649,170 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 return DBNull.Value;
         }
     }
+
+    /// <summary>
+    /// 设置标题行样式
+    /// </summary>
+    private void ApplyTitleRowFormatting(ICell titleRange)
+    {
+        try
+        {
+            var workbook = titleRange.Sheet.Workbook;
+
+            var titleStyle = workbook.CreateCellStyle();
+            titleStyle.Alignment = HorizontalAlignment.Center;
+            titleStyle.VerticalAlignment = VerticalAlignment.Center;
+            var titleFont = workbook.CreateFont();
+            titleFont.FontHeightInPoints = TITLE_FONT_SIZE;
+            titleFont.IsBold = true;
+            titleStyle.SetFont(titleFont);
+            titleRange.CellStyle = titleStyle;
+
+            // 可以在这里添加更多标题行的样式设置
+        }
+        catch (Exception ex)
+        {
+            logger?.LogDebug(ex, "设置标题行样式失败");
+        }
+    }
+
+    /// <summary>
+    /// 设置表头行样式
+    /// </summary>
+    private void ApplyHeaderRowFormatting(ICell headerCell)
+    {
+        try
+        {
+            var workbook = headerCell.Sheet.Workbook;
+
+            var headerStyle = workbook.CreateCellStyle();
+            headerStyle.Alignment = HorizontalAlignment.Center;
+            headerStyle.VerticalAlignment = VerticalAlignment.Center;
+            headerStyle.FillForegroundColor = NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
+            headerStyle.FillPattern = FillPattern.SolidForeground;
+            var headerFont = workbook.CreateFont();
+            headerFont.FontHeightInPoints = HEADER_FONT_SIZE;
+            headerFont.IsBold = true;
+            headerStyle.SetFont(headerFont);
+            headerCell.CellStyle = headerStyle;
+
+            // 应用边框
+            DrawBorder(headerCell);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogDebug(ex, "设置表头行样式失败");
+        }
+    }
+
+    private void ApplyBasicFormatting(ISheet worksheet, int rowCount, int columnCount)
+    {
+        // 设置所有单元格自动适应宽度
+        for (int i = 0; i < columnCount; i++)
+        {
+            worksheet.AutoSizeColumn(i);
+        }
+
+        // 对标题行进行特殊处理，最小宽度为12
+        for (int i = 1; i <= columnCount; i++)
+        {
+            var columnWidth = worksheet.GetColumnWidth(i);
+            if (columnWidth < 12)
+            {
+                columnWidth = 12;
+                worksheet.SetColumnWidth(i, columnWidth);
+            }
+
+        }
+
+        // 设置表格边框
+        if (rowCount > 1 && columnCount > 0)
+        {
+            var cellRangeAddress = new CellRangeAddress(1, rowCount, 1, columnCount);
+            //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
+            SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
+        }
+    }
+
+    /// <summary>
+    /// 这个只能合并单元格使用吗？？？？？？？？？？？？？？？
+    /// </summary>
+    /// <param name="borderStyle"></param>
+    /// <param name="region"></param>
+    /// <param name="sheet"></param>
+    private static void SetRegionBorderStyle(BorderStyle borderStyle, CellRangeAddress region, ISheet sheet)
+    {
+        RegionUtil.SetBorderBottom(borderStyle, region, sheet);
+        RegionUtil.SetBorderLeft(borderStyle, region, sheet);
+        RegionUtil.SetBorderRight(borderStyle, region, sheet);
+        RegionUtil.SetBorderTop(borderStyle, region, sheet);
+    }
+
+    //返回指定范围单元格
+    private ICellRange<ICell> GetCellRange(ISheet ws, CellRangeAddress range)
+    {
+        int firstRow = range.FirstRow;
+        int firstColumn = range.FirstColumn;
+        int lastRow = range.LastRow;
+        int lastColumn = range.LastColumn;
+        int height = lastRow - firstRow + 1;
+        int width = lastColumn - firstColumn + 1;
+        List<ICell> temp = new List<ICell>(height * width);
+        for (int rowIn = firstRow; rowIn <= lastRow; rowIn++)
+        {
+            for (int colIn = firstColumn; colIn <= lastColumn; colIn++)
+            {
+                IRow row = ws.GetRow(rowIn);
+                if (row == null)
+                {
+                    row = ws.CreateRow(rowIn);
+                }
+                ICell cell = row.GetCell(colIn);
+                if (cell == null)
+                {
+                    cell = row.CreateCell(colIn);
+                }
+                temp.Add(cell);
+            }
+        }
+        return SSCellRange<ICell>.Create(firstRow, firstColumn, height, width, temp, typeof(HSSFCell));
+    }
+
+    /// <summary>
+    /// 为单元格添加边框
+    /// </summary>
+    private static void DrawBorder(ICell cell)
+    {
+        // 如果单元格没有样式，创建一个新样式
+        ICellStyle style = cell.CellStyle ?? cell.Sheet.Workbook.CreateCellStyle();
+
+        // 设置边框
+        style.BorderTop = BorderStyle.Thin;
+        style.BorderBottom = BorderStyle.Thin;
+        style.BorderLeft = BorderStyle.Thin;
+        style.BorderRight = BorderStyle.Thin;
+
+        // 应用样式到单元格
+        cell.CellStyle = style;
+    }
+
+    ///// <summary>
+    ///// 为单元格添加边框
+    ///// </summary>
+    //private void DrawBorder(IWorkbook workbook, ICell cell)
+    //{
+    //    // 如果单元格没有样式，创建一个新样式
+    //    ICellStyle style = cell.CellStyle ?? workbook.CreateCellStyle();
+
+    //    // 设置边框
+    //    style.BorderTop = BorderStyle.Thin;
+    //    style.BorderBottom = BorderStyle.Thin;
+    //    style.BorderLeft = BorderStyle.Thin;
+    //    style.BorderRight = BorderStyle.Thin;
+
+    //    // 应用样式到单元格
+    //    cell.CellStyle = style;
+    //}
 
     #endregion
 }

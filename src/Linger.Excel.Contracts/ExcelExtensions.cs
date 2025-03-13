@@ -1,8 +1,4 @@
-﻿using System.Data;
-using System.Reflection;
-using Linger.Helper;
-
-namespace Linger.Excel.Contracts;
+﻿namespace Linger.Excel.Contracts;
 
 /// <summary>
 /// Excel扩展方法

@@ -1,14 +1,11 @@
-﻿using System.Data;
-using System.Reflection;
-
-namespace Linger.Excel.Contracts;
+﻿namespace Linger.Excel.Contracts;
 
 public interface IExcel
 {
     #region Import
     DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    
+
     /// <summary>
     /// 将Excel文件转换为对象列表 - 适用于中小型Excel文件
     /// </summary>
@@ -19,8 +16,8 @@ public interface IExcel
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>对象列表</returns>
     /// <remarks>此方法将Excel数据一次性全部加载到内存，如果处理大文件请考虑使用StreamReadExcel</remarks>
-    List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class,new();
-    
+    List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+
     /// <summary>
     /// 将Stream转换为对象列表 - 适用于中小型Excel文件
     /// </summary>
@@ -31,7 +28,7 @@ public interface IExcel
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>对象列表</returns>
     /// <remarks>此方法将Excel数据一次性全部加载到内存，如果处理大文件请考虑使用StreamReadExcel</remarks>
-    List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class,new();
+    List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
     #endregion
 
     #region Export

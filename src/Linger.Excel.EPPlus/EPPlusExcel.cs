@@ -7,6 +7,7 @@ using Linger.Extensions.Data;
 using Microsoft.Extensions.Logging;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
+using SixLabors.ImageSharp;
 
 namespace Linger.Excel.EPPlus;
 
@@ -55,19 +56,15 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 }
                 columns = columns.OrderBy(a => a.Item3).ToList();
 
-                // 设置日期格式
-                worksheet.Cells.Style.Numberformat.Format = Options.DefaultDateFormat;
-                worksheet.Cells.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-
                 // 处理标题
                 var titleIndex = 0;
                 if (!string.IsNullOrEmpty(title))
                 {
                     titleIndex = 1;
-                    worksheet.Cells[1, 1, 1, columns.Count].Merge = true;
                     worksheet.Cells[1, 1].Value = title;
-                    worksheet.Cells[1, 1].Style.Font.Bold = true;
-                    worksheet.Cells[1, 1].Style.Font.Size = 14;
+                    var titleRange = worksheet.Cells[1, 1, 1, columns.Count];
+                    titleRange.Merge = true;
+                    ApplyTitleRowFormatting(titleRange);
                 }
 
                 // 填充列头
@@ -75,8 +72,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 {
                     var cell = worksheet.Cells[titleIndex + 1, i + 1];
                     cell.Value = string.IsNullOrEmpty(columns[i].Item2) ? columns[i].Item1 : columns[i].Item2;
-                    cell.Style.Font.Bold = true;
-                    DrawBorder(cell.Style);
+                    ApplyHeaderRowFormatting(cell);
                 }
 
                 // 判断是否需要并行处理
@@ -160,7 +156,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                             }
                             else
                             {
-                                DrawBorder(cell.Style);
+                                DrawBorder(cell);
                             }
                         }
                     }
@@ -172,7 +168,8 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 // 根据配置决定是否自动调整列宽
                 if (Options.AutoFitColumns)
                 {
-                    worksheet.Cells[titleIndex + 1, 1, titleIndex + list.Count + 1, columns.Count].AutoFitColumns();
+                    //worksheet.Cells[titleIndex + 1, 1, titleIndex + list.Count + 1, columns.Count].AutoFitColumns();
+                    ApplyBasicFormatting(worksheet, titleIndex + list.Count + 1, columns.Count);
                 }
 
                 package.SaveAs(memoryStream);
@@ -206,19 +203,15 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 using var package = new ExcelPackage();
                 var worksheet = package.Workbook.Worksheets.Add(sheetsName);
 
-                // 设置日期格式
-                worksheet.Cells.Style.Numberformat.Format = Options.DefaultDateFormat;
-                worksheet.Cells.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-
                 // 处理标题
                 var titleIndex = 0;
                 if (!string.IsNullOrEmpty(title))
                 {
                     titleIndex = 1;
-                    worksheet.Cells[1, 1, 1, dataTable.Columns.Count].Merge = true;
                     worksheet.Cells[1, 1].Value = title;
-                    worksheet.Cells[1, 1].Style.Font.Bold = true;
-                    worksheet.Cells[1, 1].Style.Font.Size = 14;
+                    var titleRange = worksheet.Cells[1, 1, 1, dataTable.Columns.Count];
+                    titleRange.Merge = true;
+                    ApplyTitleRowFormatting(titleRange);
                 }
 
                 // 填充列头
@@ -226,8 +219,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 {
                     var cell = worksheet.Cells[titleIndex + 1, i + 1];
                     cell.Value = dataTable.Columns[i].ColumnName;
-                    cell.Style.Font.Bold = true;
-                    DrawBorder(cell.Style);
+                    ApplyHeaderRowFormatting(cell);
                 }
 
                 // 判断是否需要并行处理
@@ -286,7 +278,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 // 根据配置决定是否自动调整列宽
                 if (Options.AutoFitColumns)
                 {
-                    worksheet.Cells[titleIndex + 1, 1, titleIndex + dataTable.Rows.Count + 1, dataTable.Columns.Count].AutoFitColumns();
+                    ApplyBasicFormatting(worksheet, titleIndex + dataTable.Rows.Count + 1, dataTable.Columns.Count);
                 }
 
                 package.SaveAs(memoryStream);
@@ -490,16 +482,16 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return columns;
     }
 
-    /// <summary>
-    /// 绘制单元格边框
-    /// </summary>
-    private static void DrawBorder(ExcelStyle style, ExcelBorderStyle borderStyle = ExcelBorderStyle.Thin)
-    {
-        style.Border.Top.Style = borderStyle;
-        style.Border.Bottom.Style = borderStyle;
-        style.Border.Left.Style = borderStyle;
-        style.Border.Right.Style = borderStyle;
-    }
+    ///// <summary>
+    ///// 绘制单元格边框
+    ///// </summary>
+    //private static void DrawBorder(ExcelStyle style, ExcelBorderStyle borderStyle = ExcelBorderStyle.Thin)
+    //{
+    //    style.Border.Top.Style = borderStyle;
+    //    style.Border.Bottom.Style = borderStyle;
+    //    style.Border.Left.Style = borderStyle;
+    //    style.Border.Right.Style = borderStyle;
+    //}
 
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式
@@ -544,7 +536,81 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         }
 
         // 应用边框
-        DrawBorder(cell.Style);
+        DrawBorder(cell);
+    }
+
+    /// <summary>
+    /// 设置标题行样式
+    /// </summary>
+    private void ApplyTitleRowFormatting(ExcelRange titleRange)
+    {
+        try
+        {
+            titleRange.Style.Font.Bold = true;
+            titleRange.Style.Font.Size = TITLE_FONT_SIZE;
+            titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+
+            // 可以在这里添加更多标题行的样式设置
+        }
+        catch (Exception ex)
+        {
+            logger?.LogDebug(ex, "设置标题行样式失败");
+        }
+    }
+
+    /// <summary>
+    /// 设置表头行样式
+    /// </summary>
+    private void ApplyHeaderRowFormatting(ExcelRange headerCell)
+    {
+        try
+        {
+            headerCell.Style.Font.Bold = true;
+            headerCell.Style.Font.Size = HEADER_FONT_SIZE;
+            headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            headerCell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            headerCell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+
+            // 应用边框
+            DrawBorder(headerCell);
+        }
+        catch (Exception ex)
+        {
+            logger?.LogDebug(ex, "设置表头行样式失败");
+        }
+    }
+
+    private void ApplyBasicFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)
+    {
+        // 设置所有单元格自动适应宽度
+        worksheet.Cells.AutoFitColumns();
+
+        // 对标题行进行特殊处理，最小宽度为12
+        for (int i = 1; i <= columnCount; i++)
+        {
+            var column = worksheet.Column(i);
+            if (column.Width < 12)
+                column.Width = 12;
+        }
+
+        // 设置表格边框
+        if (rowCount > 1 && columnCount > 0)
+        {
+            worksheet.Cells[1, 1, rowCount, columnCount].Style.Border.BorderAround(ExcelBorderStyle.Thin);
+        }
+    }
+
+    /// <summary>
+    /// 为单元格添加边框
+    /// </summary>
+    private static void DrawBorder(ExcelRange cell)
+    {
+        cell.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+        cell.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+        cell.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+        cell.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
     }
 
     #endregion
