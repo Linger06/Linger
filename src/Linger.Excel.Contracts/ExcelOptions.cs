@@ -49,4 +49,9 @@ public class ExcelOptions
     /// 性能监控阈值(毫秒)，超过此阈值才记录日志
     /// </summary>
     public int PerformanceThreshold { get; set; } = 500;
+
+    /// <summary>
+    /// 样式配置选项
+    /// </summary>
+    public ExcelStyleOptions StyleOptions { get; set; } = new ExcelStyleOptions();
 }

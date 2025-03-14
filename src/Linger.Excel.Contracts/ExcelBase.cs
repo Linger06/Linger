@@ -308,9 +308,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>文件路径</returns>
-    public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
+    public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null, Action<object>? styleAction = null)
     {
-        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
+        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
         if (ms == null)
         {
             logger?.LogError("转换DataTable到MemoryStream失败");
@@ -331,9 +331,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>文件路径</returns>
-    public string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null) where T : class
+    public string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null,Action<object>? styleAction = null) where T : class
     {
-        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
+        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action,styleAction);
         if (ms == null)
         {
             logger?.LogError("转换对象列表到MemoryStream失败");
@@ -351,12 +351,14 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <param name="sheetsName">工作表名称</param>
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
+    /// <param name="styleAction">自定义样式操作</param>
     /// <returns>内存流</returns>
     public virtual MemoryStream? ConvertDataTableToMemoryStream(
         DataTable dataTable,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, DataColumnCollection, DataRowCollection>? action = null)
+        Action<object, DataColumnCollection, DataRowCollection>? action = null,
+        Action<object>? styleAction = null)  // 添加样式回调
     {
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
@@ -383,6 +385,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         // 5. 执行自定义操作
         action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
+        
+        // 5.1 执行自定义样式操作
+        styleAction?.Invoke(worksheet);
 
         // 6. 应用工作表格式化
         if (Options.AutoFitColumns)
@@ -402,12 +407,15 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <param name="sheetsName">工作表名称</param>
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
+    /// <param name="styleAction">自定义样式操作</param>
     /// <returns>内存流</returns>
     public virtual MemoryStream? ConvertCollectionToMemoryStream<T>(
         List<T> list,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, PropertyInfo[]>? action = null) where T : class
+        Action<object, PropertyInfo[]>? action = null,
+        Action<object>? styleAction = null)  // 添加样式回调
+        where T : class
     {
         if (list == null || list.Count == 0)
         {
@@ -437,6 +445,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         // 6. 执行自定义操作
         action?.Invoke(worksheet, properties);
+        
+        // 6.1 执行自定义样式操作
+        styleAction?.Invoke(worksheet);
 
         // 7. 应用工作表格式化
         if (Options.AutoFitColumns)

@@ -199,12 +199,26 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         try
         {
-            titleRange.Style.Font.Bold = true;
-            titleRange.Style.Font.Size = TITLE_FONT_SIZE;
+            titleRange.Style.Font.Bold = Options.StyleOptions.TitleBold;
+            titleRange.Style.Font.Size = Options.StyleOptions.TitleFontSize;
+            titleRange.Style.Font.Name = Options.StyleOptions.TitleFontName;
             titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            
+            // 设置背景色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleBackgroundColor))
+            {
+                titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                var color = ColorTranslator.FromHtml(Options.StyleOptions.TitleBackgroundColor);
+                titleRange.Style.Fill.BackgroundColor.SetColor(color);
+            }
 
-            // 可以在这里添加更多标题行的样式设置
+            // 设置文字颜色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
+            {
+                var fontColor = ColorTranslator.FromHtml(Options.StyleOptions.TitleFontColor);
+                titleRange.Style.Font.Color.SetColor(fontColor);
+            }
         }
         catch (Exception ex)
         {
@@ -219,12 +233,26 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         try
         {
-            headerCell.Style.Font.Bold = true;
-            headerCell.Style.Font.Size = HEADER_FONT_SIZE;
+            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderBold;
+            headerCell.Style.Font.Size = Options.StyleOptions.HeaderFontSize;
+            headerCell.Style.Font.Name = Options.StyleOptions.HeaderFontName;
             headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-            headerCell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-            headerCell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+            
+            // 设置背景色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
+            {
+                headerCell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                var color = ColorTranslator.FromHtml(Options.StyleOptions.HeaderBackgroundColor);
+                headerCell.Style.Fill.BackgroundColor.SetColor(color);
+            }
+            
+            // 设置文字颜色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
+            {
+                var fontColor = ColorTranslator.FromHtml(Options.StyleOptions.HeaderFontColor);
+                headerCell.Style.Font.Color.SetColor(fontColor);
+            }
 
             // 应用边框
             DrawBorder(headerCell);
@@ -265,6 +293,10 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         cell.Style.Border.Top.Style = ExcelBorderStyle.Thin;
         cell.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
     }
+
+    // 修改整数和小数格式常量为使用配置
+    private string INTEGER_FORMAT => Options.StyleOptions.IntegerFormat;
+    private string DECIMAL_FORMAT => Options.StyleOptions.DecimalFormat;
     #endregion
 
     #region Export

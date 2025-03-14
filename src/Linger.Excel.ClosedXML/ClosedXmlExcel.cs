@@ -215,12 +215,40 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     {
         try
         {
-            titleRange.Style.Font.Bold = true;
-            titleRange.Style.Font.FontSize = TITLE_FONT_SIZE;
+            titleRange.Style.Font.Bold = Options.StyleOptions.TitleBold;
+            titleRange.Style.Font.FontSize = Options.StyleOptions.TitleFontSize;
+            titleRange.Style.Font.FontName = Options.StyleOptions.TitleFontName;
             titleRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             titleRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
-            // 可以在这里添加更多标题行的样式设置
+            // 设置背景色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleBackgroundColor))
+            {
+                try
+                {
+                    var color = XLColor.FromHtml(Options.StyleOptions.TitleBackgroundColor);
+                    titleRange.Style.Fill.BackgroundColor = color;
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "设置标题背景色失败");
+                    titleRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+                }
+            }
+
+            // 设置文字颜色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
+            {
+                try
+                {
+                    var fontColor = XLColor.FromHtml(Options.StyleOptions.TitleFontColor);
+                    titleRange.Style.Font.FontColor = fontColor;
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "设置标题文字颜色失败");
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -235,11 +263,40 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     {
         try
         {
-            headerCell.Style.Font.Bold = true;
-            headerCell.Style.Font.FontSize = HEADER_FONT_SIZE;
+            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderBold;
+            headerCell.Style.Font.FontSize = Options.StyleOptions.HeaderFontSize;
+            headerCell.Style.Font.FontName = Options.StyleOptions.HeaderFontName;
             headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             headerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-            headerCell.Style.Fill.BackgroundColor = XLColor.LightGray;
+            
+            // 设置背景色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
+            {
+                try
+                {
+                    var color = XLColor.FromHtml(Options.StyleOptions.HeaderBackgroundColor);
+                    headerCell.Style.Fill.BackgroundColor = color;
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "设置表头背景色失败");
+                    headerCell.Style.Fill.BackgroundColor = XLColor.LightGray;
+                }
+            }
+            
+            // 设置文字颜色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
+            {
+                try
+                {
+                    var fontColor = XLColor.FromHtml(Options.StyleOptions.HeaderFontColor);
+                    headerCell.Style.Font.FontColor = fontColor;
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "设置表头文字颜色失败");
+                }
+            }
 
             // 应用边框
             DrawBorder(headerCell);
@@ -465,4 +522,8 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         ms.Position = 0;
         return ms;
     }
+
+    // 在类中添加这些属性来替换常量
+    private string INTEGER_FORMAT => Options.StyleOptions.IntegerFormat;
+    private string DECIMAL_FORMAT => Options.StyleOptions.DecimalFormat;
 }

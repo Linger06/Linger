@@ -333,13 +333,37 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             var titleStyle = workbook.CreateCellStyle();
             titleStyle.Alignment = HorizontalAlignment.Center;
             titleStyle.VerticalAlignment = VerticalAlignment.Center;
+            
             var titleFont = workbook.CreateFont();
-            titleFont.FontHeightInPoints = TITLE_FONT_SIZE;
-            titleFont.IsBold = true;
+            titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleFontSize;
+            titleFont.IsBold = Options.StyleOptions.TitleBold;
+            titleFont.FontName = Options.StyleOptions.TitleFontName;
+            
+            // 设置文字颜色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
+            {
+                try
+                {
+                    // 尝试解析HTML颜色代码
+                    var colorStr = Options.StyleOptions.TitleFontColor.TrimStart('#');
+                    if (colorStr.Length == 6) // 标准RGB格式
+                    {
+                        int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
+                        int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
+                        int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
+                        
+                        // 将RGB值转换为NPOI的最接近的索引颜色
+                        titleFont.Color = GetClosestColorIndex(workbook, r, g, b);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "设置标题文字颜色失败");
+                }
+            }
+            
             titleStyle.SetFont(titleFont);
             titleRange.CellStyle = titleStyle;
-
-            // 可以在这里添加更多标题行的样式设置
         }
         catch (Exception ex)
         {
@@ -359,11 +383,50 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             var headerStyle = workbook.CreateCellStyle();
             headerStyle.Alignment = HorizontalAlignment.Center;
             headerStyle.VerticalAlignment = VerticalAlignment.Center;
-            headerStyle.FillForegroundColor = NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
-            headerStyle.FillPattern = FillPattern.SolidForeground;
+            
+            // 设置背景色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
+            {
+                try
+                {
+                    // NPOI 使用索引色，这里使用灰色作为表头背景
+                    headerStyle.FillForegroundColor = NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
+                    headerStyle.FillPattern = FillPattern.SolidForeground;
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "设置表头背景色失败");
+                }
+            }
+            
             var headerFont = workbook.CreateFont();
-            headerFont.FontHeightInPoints = HEADER_FONT_SIZE;
-            headerFont.IsBold = true;
+            headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderFontSize;
+            headerFont.IsBold = Options.StyleOptions.HeaderBold;
+            headerFont.FontName = Options.StyleOptions.HeaderFontName;
+            
+            // 设置文字颜色
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
+            {
+                try
+                {
+                    // 尝试解析HTML颜色代码
+                    var colorStr = Options.StyleOptions.HeaderFontColor.TrimStart('#');
+                    if (colorStr.Length == 6) // 标准RGB格式
+                    {
+                        int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
+                        int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
+                        int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
+                        
+                        // 将RGB值转换为NPOI的最接近的索引颜色
+                        headerFont.Color = GetClosestColorIndex(workbook, r, g, b);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogDebug(ex, "设置表头文字颜色失败");
+                }
+            }
+            
             headerStyle.SetFont(headerFont);
             headerCell.CellStyle = headerStyle;
 
@@ -374,6 +437,32 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         {
             logger?.LogDebug(ex, "设置表头行样式失败");
         }
+    }
+
+    /// <summary>
+    /// 获取最接近的颜色索引 (NPOI使用索引色)
+    /// </summary>
+    private short GetClosestColorIndex(IWorkbook workbook, int r, int g, int b)
+    {
+        // 为简单起见，仅返回一些常见索引颜色
+        if (r > 200 && g > 200 && b > 200) // 白色或浅色
+            return NPOI.HSSF.Util.HSSFColor.White.Index;
+        else if (r < 50 && g < 50 && b < 50) // 黑色或深色
+            return NPOI.HSSF.Util.HSSFColor.Black.Index;
+        else if (r > 200 && g < 100 && b < 100) // 红色
+            return NPOI.HSSF.Util.HSSFColor.Red.Index;
+        else if (r < 100 && g > 200 && b < 100) // 绿色
+            return NPOI.HSSF.Util.HSSFColor.Green.Index;
+        else if (r < 100 && g < 100 && b > 200) // 蓝色
+            return NPOI.HSSF.Util.HSSFColor.Blue.Index;
+        else if (r > 200 && g > 200 && b < 100) // 黄色
+            return NPOI.HSSF.Util.HSSFColor.Yellow.Index;
+        else if (r < 100 && g > 200 && b > 200) // 青色
+            return NPOI.HSSF.Util.HSSFColor.Cyan.Index;
+        else if (r > 200 && g < 100 && b > 200) // 紫色
+            return NPOI.HSSF.Util.HSSFColor.Violet.Index;
+        else // 默认灰色
+            return NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
     }
 
     private void ApplyBasicFormatting(ISheet worksheet, int rowCount, int columnCount)
@@ -484,6 +573,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     //    // 应用样式到单元格
     //    cell.CellStyle = style;
     //}
+
+    // 在类中添加这些属性来替换常量
+    private string INTEGER_FORMAT => Options.StyleOptions.IntegerFormat;
+    private string DECIMAL_FORMAT => Options.StyleOptions.DecimalFormat;
 
     #endregion
 
