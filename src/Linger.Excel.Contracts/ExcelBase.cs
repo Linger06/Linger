@@ -2,7 +2,7 @@
 
 namespace Linger.Excel.Contracts;
 
-public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = null, ILogger? logger = null) : IExcel
+public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = null, ILogger? logger = null) : IExcel<TWorksheet>
     where TWorkbook : class
     where TWorksheet : class
 {
@@ -16,29 +16,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public static string ContentType => "application/vnd.ms-excel";
 
-    #region 格式化常量
-    /// <summary>
-    /// 整数格式
-    /// </summary>
-    protected const string INTEGER_FORMAT = "#,##0";
-
-    /// <summary>
-    /// 小数格式
-    /// </summary>
-    protected const string DECIMAL_FORMAT = "#,##0.00";
-
-    /// <summary>
-    /// 头部字体大小
-    /// </summary>
-    protected const int HEADER_FONT_SIZE = 14;
-
-    /// <summary>
-    /// 标题字体大小
-    /// </summary>
-    protected const int TITLE_FONT_SIZE = 10;
-    #endregion
-
-    #region Import
+     #region Import
     /// <summary>
     /// 将Excel文件转换为DataTable
     /// </summary>
@@ -308,7 +286,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>文件路径</returns>
-    public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null, Action<object>? styleAction = null)
+    public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
         using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
         if (ms == null)
@@ -331,7 +309,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>文件路径</returns>
-    public string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null,Action<object>? styleAction = null) where T : class
+    public string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, PropertyInfo[]>? action = null,Action<TWorksheet>? styleAction = null) where T : class
     {
         using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action,styleAction);
         if (ms == null)
@@ -357,8 +335,8 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         DataTable dataTable,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, DataColumnCollection, DataRowCollection>? action = null,
-        Action<object>? styleAction = null)  // 添加样式回调
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
+        Action<TWorksheet>? styleAction = null)  // 添加样式回调
     {
         if (dataTable == null || dataTable.Columns.Count == 0)
         {
@@ -413,8 +391,8 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         List<T> list,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, PropertyInfo[]>? action = null,
-        Action<object>? styleAction = null)  // 添加样式回调
+        Action<TWorksheet, PropertyInfo[]>? action = null,
+        Action<TWorksheet>? styleAction = null)  // 添加样式回调
         where T : class
     {
         if (list == null || list.Count == 0)
@@ -760,9 +738,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 异步将DataTable导出为Excel文件
     /// </summary>
-    public async Task<string> DataTableToFileAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null)
+    public async Task<string> DataTableToFileAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
-        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
+        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
         if (ms == null)
         {
             logger?.LogError("转换DataTable到MemoryStream失败");
@@ -776,9 +754,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 异步将对象列表导出为Excel文件
     /// </summary>
-    public async Task<string> ListToFileAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<object, PropertyInfo[]>? action = null) where T : class
+    public async Task<string> ListToFileAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class
     {
-        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action);
+        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
         if (ms == null)
         {
             logger?.LogError("转换对象列表到MemoryStream失败");

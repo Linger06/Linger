@@ -11,7 +11,7 @@ namespace Linger.Excel.Tests;
 /// Excel实现的基础测试类
 /// </summary>
 /// <typeparam name="T">Excel实现类型</typeparam>
-public abstract class BaseExcelTests<T> : IDisposable where T : ExcelBase
+public abstract class BaseExcelTests<T> : IDisposable where T : class, IExcel
 {
     protected readonly T Excel;
     protected readonly ILogger<T> Logger;

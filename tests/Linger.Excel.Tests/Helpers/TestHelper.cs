@@ -87,11 +87,10 @@ public static class TestHelper
     /// </summary>
     public static Contracts.ExcelOptions CreateExcelOptions(bool enablePerformanceMonitoring = false)
     {
-        return new Contracts.ExcelOptions
+        var options = new Contracts.ExcelOptions
         {
             ParallelProcessingThreshold = 1000,
             AutoFitColumns = true,
-            DefaultDateFormat = "yyyy-MM-dd",
             EnablePerformanceMonitoring = enablePerformanceMonitoring,
             PerformanceThreshold = 50,
             UseBatchWrite = true,
@@ -99,5 +98,10 @@ public static class TestHelper
             UseMemoryOptimization = true,
             MemoryBufferSize = 500
         };
+        
+        // 设置StyleOptions中的日期格式
+        options.StyleOptions.DefaultDateFormat = "yyyy-MM-dd";
+        
+        return options;
     }
 }

@@ -1,4 +1,4 @@
-using ClosedXML.Excel;
+﻿using ClosedXML.Excel;
 
 namespace Linger.Excel.ClosedXML;
 
@@ -10,12 +10,12 @@ public static class ExcelStyleHelper
     /// <summary>
     /// 设置单元格样式
     /// </summary>
-    public static void SetCellStyle(IXLCell cell, 
-        string backgroundColor = null,
-        string fontColor = null, 
+    public static void SetCellStyle(IXLCell cell,
+        string? backgroundColor = null,  // 添加可空修饰符
+        string? fontColor = null,        // 添加可空修饰符
         bool? bold = null,
         double? fontSize = null,
-        string fontName = null,
+        string? fontName = null,         // 添加可空修饰符
         XLAlignmentHorizontalValues? horizontalAlignment = null,
         XLAlignmentVerticalValues? verticalAlignment = null,
         bool applyBorder = false)
@@ -67,16 +67,16 @@ public static class ExcelStyleHelper
             cell.Style.Border.RightBorder = XLBorderStyleValues.Thin;
         }
     }
-    
+
     /// <summary>
     /// 设置范围样式
     /// </summary>
-    public static void SetRangeStyle(IXLRange range, 
-        string backgroundColor = null,
-        string fontColor = null, 
+    public static void SetRangeStyle(IXLRange range,
+        string? backgroundColor = null,  // 添加可空修饰符
+        string? fontColor = null,        // 添加可空修饰符
         bool? bold = null,
         double? fontSize = null,
-        string fontName = null,
+        string? fontName = null,         // 添加可空修饰符
         XLAlignmentHorizontalValues? horizontalAlignment = null,
         XLAlignmentVerticalValues? verticalAlignment = null,
         bool applyBorder = false)
@@ -123,13 +123,18 @@ public static class ExcelStyleHelper
         if (applyBorder)
         {
             range.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            range.Style.Border.InsideBorders = new XLBorders
-            {
-                TopBorder = XLBorderStyleValues.Thin,
-                BottomBorder = XLBorderStyleValues.Thin,
-                LeftBorder = XLBorderStyleValues.Thin,
-                RightBorder = XLBorderStyleValues.Thin
-            };
+            // range.Style.Border.InsideBorders = new XLBorders
+            // {
+            //     TopBorder = XLBorderStyleValues.Thin,
+            //     BottomBorder = XLBorderStyleValues.Thin,
+            //     LeftBorder = XLBorderStyleValues.Thin,
+            //     RightBorder = XLBorderStyleValues.Thin
+            // };
+            range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+            range.Style.Border.TopBorder = XLBorderStyleValues.Thin;
+            range.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+            range.Style.Border.LeftBorder = XLBorderStyleValues.Thin;
+            range.Style.Border.RightBorder = XLBorderStyleValues.Thin;
         }
     }
 }

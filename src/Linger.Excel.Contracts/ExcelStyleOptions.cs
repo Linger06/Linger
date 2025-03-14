@@ -27,4 +27,7 @@ public class ExcelStyleOptions
     // 数字格式
     public string IntegerFormat { get; set; } = "#,##0";
     public string DecimalFormat { get; set; } = "#,##0.00";
+    
+    // 日期格式
+    public string DefaultDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
 }

@@ -1,4 +1,4 @@
-using NPOI.SS.UserModel;
+﻿using NPOI.SS.UserModel;
 
 namespace Linger.Excel.Npoi;
 
@@ -10,19 +10,19 @@ public static class ExcelStyleHelper
     /// <summary>
     /// 设置单元格样式
     /// </summary>
-    public static void SetCellStyle(ICell cell, 
-        string backgroundColor = null,
-        string fontColor = null, 
+    public static void SetCellStyle(ICell cell,
+        string? backgroundColor = null,  // 添加可空修饰符
+        string? fontColor = null,        // 添加可空修饰符
         bool? bold = null,
         short? fontSize = null,
-        string fontName = null,
+        string? fontName = null,         // 添加可空修饰符
         HorizontalAlignment? horizontalAlignment = null,
         VerticalAlignment? verticalAlignment = null,
         bool applyBorder = false)
     {
         IWorkbook workbook = cell.Sheet.Workbook;
         ICellStyle style = workbook.CreateCellStyle();
-        
+
         // 复制原始样式
         if (cell.CellStyle != null)
         {
@@ -31,7 +31,7 @@ public static class ExcelStyleHelper
 
         // 创建字体
         IFont font = workbook.CreateFont();
-        
+
         if (bold.HasValue)
             font.IsBold = bold.Value;
 
@@ -52,9 +52,9 @@ public static class ExcelStyleHelper
                     int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
                     int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
                     int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
-                    
+
                     // 获取最接近的颜色索引
-                    font.Color = GetClosestColorIndex(workbook, r, g, b);
+                    font.Color = GetClosestColorIndex(r, g, b);
                 }
             }
             catch
@@ -104,7 +104,7 @@ public static class ExcelStyleHelper
     /// <summary>
     /// 获取最接近的颜色索引
     /// </summary>
-    private static short GetClosestColorIndex(IWorkbook workbook, int r, int g, int b)
+    public static short GetClosestColorIndex(int r, int g, int b)
     {
         // 简化版本，仅返回一些常见的索引颜色
         if (r > 200 && g > 200 && b > 200) // 白色或浅色
@@ -120,7 +120,7 @@ public static class ExcelStyleHelper
         else if (r > 200 && g > 200 && b < 100) // 黄色
             return NPOI.HSSF.Util.HSSFColor.Yellow.Index;
         else if (r < 100 && g > 200 && b > 200) // 青色
-            return NPOI.HSSF.Util.HSSFColor.Cyan.Index;
+            return NPOI.HSSF.Util.HSSFColor.Aqua.Index;
         else if (r > 200 && g < 100 && b > 200) // 紫色
             return NPOI.HSSF.Util.HSSFColor.Violet.Index;
         else // 默认灰色

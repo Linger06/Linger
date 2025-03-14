@@ -15,10 +15,7 @@ public class ExcelOptions
     /// </summary>
     public bool AutoFitColumns { get; set; } = true;
 
-    /// <summary>
-    /// 默认日期格式
-    /// </summary>
-    public string DefaultDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+    // 移除此处的DefaultDateFormat, 改为使用StyleOptions中的配置
 
     /// <summary>
     /// 是否使用批量写入优化

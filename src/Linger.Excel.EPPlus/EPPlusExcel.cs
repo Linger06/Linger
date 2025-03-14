@@ -162,26 +162,26 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         {
             case DateTime dateTime:
                 cell.Value = dateTime;
-                cell.Style.Numberformat.Format = Options.DefaultDateFormat;
+                cell.Style.Numberformat.Format = Options.StyleOptions.DefaultDateFormat; // 从StyleOptions中获取
                 break;
             case bool boolean:
                 cell.Value = boolean;
                 break;
             case decimal decimalValue:
                 cell.Value = decimalValue;
-                cell.Style.Numberformat.Format = DECIMAL_FORMAT;
+                cell.Style.Numberformat.Format = Options.StyleOptions.DecimalFormat; // 从StyleOptions中获取
                 break;
             case double doubleValue:
                 cell.Value = doubleValue;
-                cell.Style.Numberformat.Format = doubleValue % 1 == 0 ? INTEGER_FORMAT : DECIMAL_FORMAT;
+                cell.Style.Numberformat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
                 break;
             case float floatValue:
                 cell.Value = floatValue;
-                cell.Style.Numberformat.Format = floatValue % 1 == 0 ? INTEGER_FORMAT : DECIMAL_FORMAT;
+                cell.Style.Numberformat.Format = floatValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
                 break;
             case int or long or short or byte or sbyte or ushort or uint or ulong:
                 cell.Value = Convert.ToInt64(value);
-                cell.Style.Numberformat.Format = INTEGER_FORMAT;
+                cell.Style.Numberformat.Format = Options.StyleOptions.IntegerFormat;
                 break;
             default:
                 cell.Value = value.ToString();
@@ -204,19 +204,19 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             titleRange.Style.Font.Name = Options.StyleOptions.TitleFontName;
             titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-            
+
             // 设置背景色
             if (!string.IsNullOrEmpty(Options.StyleOptions.TitleBackgroundColor))
             {
                 titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                var color = ColorTranslator.FromHtml(Options.StyleOptions.TitleBackgroundColor);
+                var color = Color.Parse(Options.StyleOptions.TitleBackgroundColor);
                 titleRange.Style.Fill.BackgroundColor.SetColor(color);
             }
 
             // 设置文字颜色
             if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
             {
-                var fontColor = ColorTranslator.FromHtml(Options.StyleOptions.TitleFontColor);
+                var fontColor = Color.Parse(Options.StyleOptions.TitleFontColor);
                 titleRange.Style.Font.Color.SetColor(fontColor);
             }
         }
@@ -238,19 +238,19 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             headerCell.Style.Font.Name = Options.StyleOptions.HeaderFontName;
             headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-            
+
             // 设置背景色
             if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
             {
                 headerCell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                var color = ColorTranslator.FromHtml(Options.StyleOptions.HeaderBackgroundColor);
+                var color = Color.Parse(Options.StyleOptions.HeaderBackgroundColor);
                 headerCell.Style.Fill.BackgroundColor.SetColor(color);
             }
-            
+
             // 设置文字颜色
             if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
             {
-                var fontColor = ColorTranslator.FromHtml(Options.StyleOptions.HeaderFontColor);
+                var fontColor = Color.Parse(Options.StyleOptions.HeaderFontColor);
                 headerCell.Style.Font.Color.SetColor(fontColor);
             }
 
@@ -260,26 +260,6 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         catch (Exception ex)
         {
             logger?.LogDebug(ex, "设置表头行样式失败");
-        }
-    }
-
-    private void ApplyBasicFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)
-    {
-        // 设置所有单元格自动适应宽度
-        worksheet.Cells.AutoFitColumns();
-
-        // 对标题行进行特殊处理，最小宽度为12
-        for (int i = 1; i <= columnCount; i++)
-        {
-            var column = worksheet.Column(i);
-            if (column.Width < 12)
-                column.Width = 12;
-        }
-
-        // 设置表格边框
-        if (rowCount > 1 && columnCount > 0)
-        {
-            worksheet.Cells[1, 1, rowCount, columnCount].Style.Border.BorderAround(ExcelBorderStyle.Thin);
         }
     }
 
@@ -293,10 +273,6 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         cell.Style.Border.Top.Style = ExcelBorderStyle.Thin;
         cell.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
     }
-
-    // 修改整数和小数格式常量为使用配置
-    private string INTEGER_FORMAT => Options.StyleOptions.IntegerFormat;
-    private string DECIMAL_FORMAT => Options.StyleOptions.DecimalFormat;
     #endregion
 
     #region Export
@@ -405,7 +381,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     protected override void ProcessCollectionRows<T>(ExcelWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
         var excelWorksheet = worksheet;
-        
+
         // 获取有ExcelColumn特性的列，如果没有则使用所有列
         var columns = GetExcelColumns(properties);
         if (columns.Count == 0)
@@ -413,7 +389,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             columns = properties.Select((p, i) => (Name: p.Name, ColumnName: p.Name, Index: i)).ToList();
         }
         columns = columns.OrderBy(c => c.Index).ToList();
-        
+
         // 判断是否需要并行处理
         bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
 
@@ -421,13 +397,13 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         {
             // 并行处理大数据集
             logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
-            
+
             // 使用批处理提高性能
             int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-            
+
             // 预计算所有值
             var cellValues = new object?[list.Count, columns.Count];
-            
+
             Parallel.For(0, list.Count, i =>
             {
                 for (int j = 0; j < columns.Count; j++)
@@ -435,7 +411,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                     cellValues[i, j] = properties.FirstOrDefault(p => p.Name == columns[j].Name)?.GetValue(list[i]);
                 }
             });
-            
+
             // 批量写入
             for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
             {
@@ -470,7 +446,26 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// </summary>
     protected override void ApplyWorksheetFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)
     {
-        ApplyBasicFormatting(worksheet, rowCount, columnCount);
+        // 设置所有单元格自动适应宽度
+        if (Options.AutoFitColumns)
+        {
+            // 设置所有单元格自动适应宽度
+            worksheet.Cells.AutoFitColumns();
+
+            // 对所有列设置最小宽度 - 修正注释
+            for (int i = 1; i <= columnCount; i++)
+            {
+                var column = worksheet.Column(i);
+                if (column.Width < 12)
+                    column.Width = 12;
+            }
+        }
+
+        // 设置表格边框
+        if (rowCount > 1 && columnCount > 0)
+        {
+            worksheet.Cells[1, 1, rowCount, columnCount].Style.Border.BorderAround(ExcelBorderStyle.Thin);
+        }
     }
 
     /// <summary>

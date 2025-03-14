@@ -15,19 +15,21 @@ public static class ExcelExtensions
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>文件路径</returns>
-    public static async Task<string> DataTableToFileAsync(
-        this ExcelBase excel,
+    public static async Task<string> DataTableToFileAsync<TWorkbook, TWorksheet>(
+        this ExcelBase<TWorkbook, TWorksheet> excel,
         DataTable dataTable,
         string fullFileName,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, DataColumnCollection, DataRowCollection>? action = null)
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+        where TWorkbook : class
+        where TWorksheet : class
     {
         if (excel == null) throw new ArgumentNullException(nameof(excel));
 
         return await new RetryHelper().ExecuteAsync(async () =>
         {
-            using var ms = excel.ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action);
+            using var ms = excel.ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
             if (ms == null)
             {
                 throw new InvalidOperationException("无法将数据表转换为Excel流");
@@ -58,19 +60,22 @@ public static class ExcelExtensions
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <returns>文件路径</returns>
-    public static async Task<string> ListToFileAsync<T>(
-        this ExcelBase excel,
+    public static async Task<string> ListToFileAsync<T, TWorkbook, TWorksheet>(
+        this ExcelBase<TWorkbook, TWorksheet> excel,
         List<T> list,
         string fullFileName,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<object, PropertyInfo[]>? action = null) where T : class
+        Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
+        where T : class
+        where TWorkbook : class
+        where TWorksheet : class
     {
         if (excel == null) throw new ArgumentNullException(nameof(excel));
 
         return await new RetryHelper().ExecuteAsync(async () =>
         {
-            using var ms = excel.ConvertCollectionToMemoryStream(list, sheetsName, title, action);
+            using var ms = excel.ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
             if (ms == null)
             {
                 throw new InvalidOperationException("无法将对象集合转换为Excel流");

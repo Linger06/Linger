@@ -86,12 +86,13 @@ public class EPPlusExcelTests : BaseExcelTests<EPPlusExcel>
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
         // Act
-        var result = (List<Tuple<string, string, int>>)methodInfo!.Invoke(Excel, new object[] { properties });
+        var result = methodInfo!.Invoke(Excel, new object[] { properties }) as List<(string Name, string ColumnName, int Index)>;
 
         // Assert
-        Assert.Equal(7, result.Count); // 应该有7个属性带有ExcelColumn特性
-        Assert.Equal("Id", result.First(c => c.Item3 == 0).Item1);
-        Assert.Equal("编号", result.First(c => c.Item3 == 0).Item2);
+        Assert.NotNull(result);
+        Assert.Equal(7, result!.Count); // 应该有7个属性带有ExcelColumn特性 
+        Assert.Equal("Id", result.First(c => c.Index == 0).Name);
+        Assert.Equal("编号", result.First(c => c.Index == 0).ColumnName);
     }
 
     #region 实现抽象方法

@@ -1,6 +1,6 @@
 ﻿namespace Linger.Excel.Contracts;
 
-public interface IExcel
+public interface IExcel<TWorksheet> where TWorksheet : class
 {
     #region Import
     DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -35,22 +35,32 @@ public interface IExcel
     /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
-    string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null, Action<object>? styleAction = null);
+    string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "sheet1", string title = "", Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
 
     /// <summary>
     /// 列表转 Excel 文件
     /// </summary>
-    string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "sheet1", string title = "", Action<object, PropertyInfo[]>? action = null,Action<object>? styleAction = null) where T : class;
+    string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "sheet1", string title = "", Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
 
     /// <summary>
     /// 列表转 Excel 内存流
     /// </summary>
-    MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "", Action<object, PropertyInfo[]>? action = null,Action<object>? styleAction = null) where T : class;
+    MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "", Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
 
     /// <summary>
     /// 数据表格转 Excel 内存流
     /// </summary>
-    MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", Action<object, DataColumnCollection, DataRowCollection>? action = null,Action<object>? styleAction = null);
+    MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
+
+    /// <summary>
+    /// 异步将DataTable导出为Excel文件
+    /// </summary>
+    Task<string> DataTableToFileAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
+
+    /// <summary>
+    /// 异步将对象列表导出为Excel文件
+    /// </summary>
+    Task<string> ListToFileAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
     #endregion
 
     /// <summary>

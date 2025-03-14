@@ -7,7 +7,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.ClosedXML;
 
-public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel>? logger = null) 
+public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel>? logger = null)
     : ExcelBase<XLWorkbook, IXLWorksheet>(options, logger)
 {
     // 添加基类要求的方法实现
@@ -178,26 +178,26 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         {
             case DateTime dateTime:
                 cell.Value = dateTime;
-                cell.Style.DateFormat.Format = Options.DefaultDateFormat;
+                cell.Style.DateFormat.Format = Options.StyleOptions.DefaultDateFormat; // 从StyleOptions中获取
                 break;
             case bool boolean:
                 cell.Value = boolean;
                 break;
             case decimal decimalValue:
                 cell.Value = decimalValue;
-                cell.Style.NumberFormat.Format = DECIMAL_FORMAT;
+                cell.Style.NumberFormat.Format = Options.StyleOptions.DecimalFormat;
                 break;
             case double doubleValue:
                 cell.Value = doubleValue;
-                cell.Style.NumberFormat.Format = doubleValue % 1 == 0 ? INTEGER_FORMAT : DECIMAL_FORMAT;
+                cell.Style.NumberFormat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
                 break;
             case float floatValue:
                 cell.Value = floatValue;
-                cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? INTEGER_FORMAT : DECIMAL_FORMAT;
+                cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
                 break;
             case int or long or short or byte or sbyte or ushort or uint or ulong:
                 cell.Value = Convert.ToInt64(value);
-                cell.Style.NumberFormat.Format = INTEGER_FORMAT;
+                cell.Style.NumberFormat.Format = Options.StyleOptions.IntegerFormat;
                 break;
             default:
                 cell.Value = value.ToString();
@@ -268,7 +268,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             headerCell.Style.Font.FontName = Options.StyleOptions.HeaderFontName;
             headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             headerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-            
+
             // 设置背景色
             if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
             {
@@ -283,7 +283,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                     headerCell.Style.Fill.BackgroundColor = XLColor.LightGray;
                 }
             }
-            
+
             // 设置文字颜色
             if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
             {
@@ -304,27 +304,6 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         catch (Exception ex)
         {
             logger?.LogDebug(ex, "设置表头行样式失败");
-        }
-    }
-
-    private void ApplyBasicFormatting(IXLWorksheet worksheet, int rowCount, int columnCount)
-    {
-        // 设置所有单元格自动适应宽度
-        worksheet.Columns().AdjustToContents();
-
-        // 对标题行进行特殊处理，最小宽度为12
-        for (int i = 1; i <= columnCount; i++)
-        {
-            var column = worksheet.Column(i);
-            if (column.Width < 12)
-                column.Width = 12;
-        }
-
-        // 设置表格边框
-        if (rowCount > 1 && columnCount > 0)
-        {
-            worksheet.Range(1, 1, rowCount, columnCount).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
-            worksheet.Range(1, 1, rowCount, columnCount).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
         }
     }
 
@@ -509,7 +488,27 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </summary>
     protected override void ApplyWorksheetFormatting(IXLWorksheet worksheet, int rowCount, int columnCount)
     {
-        ApplyBasicFormatting(worksheet, rowCount, columnCount);
+        // 设置所有单元格自动适应宽度
+        if (Options.AutoFitColumns)
+        {
+            // 设置所有单元格自动适应宽度
+            worksheet.Columns().AdjustToContents();
+
+            // 对所有列设置最小宽度 - 修正注释
+            for (int i = 1; i <= columnCount; i++)
+            {
+                var column = worksheet.Column(i);
+                if (column.Width < 12)
+                    column.Width = 12;
+            }
+        }
+
+        // 设置表格边框
+        if (rowCount > 1 && columnCount > 0)
+        {
+            worksheet.Range(1, 1, rowCount, columnCount).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            worksheet.Range(1, 1, rowCount, columnCount).Style.Border.InsideBorder = XLBorderStyleValues.Thin;
+        }
     }
 
     /// <summary>
@@ -522,8 +521,4 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         ms.Position = 0;
         return ms;
     }
-
-    // 在类中添加这些属性来替换常量
-    private string INTEGER_FORMAT => Options.StyleOptions.IntegerFormat;
-    private string DECIMAL_FORMAT => Options.StyleOptions.DecimalFormat;
 }

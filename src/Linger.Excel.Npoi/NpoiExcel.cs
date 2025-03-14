@@ -10,7 +10,7 @@ using NPOI.XSSF.UserModel;
 
 namespace Linger.Excel.Npoi;
 
-public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger = null) 
+public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger = null)
     : ExcelBase<IWorkbook, ISheet>(options, logger)
 {
     // 添加基类要求的方法实现
@@ -187,7 +187,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     dateStyle = workbook.CreateCellStyle();
                     var format = workbook.CreateDataFormat();
-                    dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
+                    dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DefaultDateFormat); // 从StyleOptions中获取
                     styleCache[valueType] = dateStyle;
                 }
                 cell.CellStyle = dateStyle;
@@ -333,12 +333,12 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             var titleStyle = workbook.CreateCellStyle();
             titleStyle.Alignment = HorizontalAlignment.Center;
             titleStyle.VerticalAlignment = VerticalAlignment.Center;
-            
+
             var titleFont = workbook.CreateFont();
             titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleFontSize;
             titleFont.IsBold = Options.StyleOptions.TitleBold;
             titleFont.FontName = Options.StyleOptions.TitleFontName;
-            
+
             // 设置文字颜色
             if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
             {
@@ -351,9 +351,9 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                         int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
                         int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
                         int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
-                        
+
                         // 将RGB值转换为NPOI的最接近的索引颜色
-                        titleFont.Color = GetClosestColorIndex(workbook, r, g, b);
+                        titleFont.Color = ExcelStyleHelper.GetClosestColorIndex(r, g, b);
                     }
                 }
                 catch (Exception ex)
@@ -361,7 +361,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     logger?.LogDebug(ex, "设置标题文字颜色失败");
                 }
             }
-            
+
             titleStyle.SetFont(titleFont);
             titleRange.CellStyle = titleStyle;
         }
@@ -383,7 +383,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             var headerStyle = workbook.CreateCellStyle();
             headerStyle.Alignment = HorizontalAlignment.Center;
             headerStyle.VerticalAlignment = VerticalAlignment.Center;
-            
+
             // 设置背景色
             if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
             {
@@ -398,12 +398,12 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     logger?.LogDebug(ex, "设置表头背景色失败");
                 }
             }
-            
+
             var headerFont = workbook.CreateFont();
             headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderFontSize;
             headerFont.IsBold = Options.StyleOptions.HeaderBold;
             headerFont.FontName = Options.StyleOptions.HeaderFontName;
-            
+
             // 设置文字颜色
             if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
             {
@@ -416,9 +416,9 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                         int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
                         int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
                         int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
-                        
+
                         // 将RGB值转换为NPOI的最接近的索引颜色
-                        headerFont.Color = GetClosestColorIndex(workbook, r, g, b);
+                        headerFont.Color = ExcelStyleHelper.GetClosestColorIndex(r, g, b);
                     }
                 }
                 catch (Exception ex)
@@ -426,7 +426,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     logger?.LogDebug(ex, "设置表头文字颜色失败");
                 }
             }
-            
+
             headerStyle.SetFont(headerFont);
             headerCell.CellStyle = headerStyle;
 
@@ -436,61 +436,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         catch (Exception ex)
         {
             logger?.LogDebug(ex, "设置表头行样式失败");
-        }
-    }
-
-    /// <summary>
-    /// 获取最接近的颜色索引 (NPOI使用索引色)
-    /// </summary>
-    private short GetClosestColorIndex(IWorkbook workbook, int r, int g, int b)
-    {
-        // 为简单起见，仅返回一些常见索引颜色
-        if (r > 200 && g > 200 && b > 200) // 白色或浅色
-            return NPOI.HSSF.Util.HSSFColor.White.Index;
-        else if (r < 50 && g < 50 && b < 50) // 黑色或深色
-            return NPOI.HSSF.Util.HSSFColor.Black.Index;
-        else if (r > 200 && g < 100 && b < 100) // 红色
-            return NPOI.HSSF.Util.HSSFColor.Red.Index;
-        else if (r < 100 && g > 200 && b < 100) // 绿色
-            return NPOI.HSSF.Util.HSSFColor.Green.Index;
-        else if (r < 100 && g < 100 && b > 200) // 蓝色
-            return NPOI.HSSF.Util.HSSFColor.Blue.Index;
-        else if (r > 200 && g > 200 && b < 100) // 黄色
-            return NPOI.HSSF.Util.HSSFColor.Yellow.Index;
-        else if (r < 100 && g > 200 && b > 200) // 青色
-            return NPOI.HSSF.Util.HSSFColor.Cyan.Index;
-        else if (r > 200 && g < 100 && b > 200) // 紫色
-            return NPOI.HSSF.Util.HSSFColor.Violet.Index;
-        else // 默认灰色
-            return NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
-    }
-
-    private void ApplyBasicFormatting(ISheet worksheet, int rowCount, int columnCount)
-    {
-        // 设置所有单元格自动适应宽度
-        for (int i = 0; i < columnCount; i++)
-        {
-            worksheet.AutoSizeColumn(i);
-        }
-
-        // 对标题行进行特殊处理，最小宽度为12
-        for (int i = 1; i <= columnCount; i++)
-        {
-            var columnWidth = worksheet.GetColumnWidth(i);
-            if (columnWidth < 12)
-            {
-                columnWidth = 12;
-                worksheet.SetColumnWidth(i, columnWidth);
-            }
-
-        }
-
-        // 设置表格边框
-        if (rowCount > 1 && columnCount > 0)
-        {
-            var cellRangeAddress = new CellRangeAddress(1, rowCount, 1, columnCount);
-            //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
-            SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
         }
     }
 
@@ -642,7 +587,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         // 创建日期样式
         var dateStyle = workbook.CreateCellStyle();
         var format = workbook.CreateDataFormat();
-        dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
+        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DefaultDateFormat);
         styleCache[typeof(DateTime)] = dateStyle;
 
         if (useParallelProcessing)
@@ -702,21 +647,27 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// </summary>
     protected override void ApplyWorksheetFormatting(ISheet worksheet, int rowCount, int columnCount)
     {
-        var sheet = (ISheet)worksheet;
-
         // 设置所有单元格自动适应宽度
         if (Options.AutoFitColumns)
         {
             for (int i = 0; i < columnCount; i++)
             {
-                sheet.AutoSizeColumn(i);
+                worksheet.AutoSizeColumn(i);
                 // 确保最小列宽
-                var width = sheet.GetColumnWidth(i);
+                var width = worksheet.GetColumnWidth(i);
                 if (width < 256 * 12) // 约12个字符宽
                 {
-                    sheet.SetColumnWidth(i, 256 * 12);
+                    worksheet.SetColumnWidth(i, 256 * 12);
                 }
             }
+        }
+
+        // 设置表格边框
+        if (rowCount > 1 && columnCount > 0)
+        {
+            var cellRangeAddress = new CellRangeAddress(1, rowCount, 1, columnCount);
+            //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
+            SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
         }
     }
 
@@ -746,7 +697,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         // 创建日期样式
         var dateStyle = workbook.CreateCellStyle();
         var format = workbook.CreateDataFormat();
-        dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
+        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DefaultDateFormat);
         styleCache[typeof(DateTime)] = dateStyle;
 
         // 获取有ExcelColumn特性的列，如果没有则使用所有列
