@@ -41,11 +41,6 @@ public class EPPlusExcelTests : BaseExcelTests<EPPlusExcel>
         TestConvertStreamToDataTable();
     }
 
-    [Fact]
-    public void StreamReadExcel_ValidExcel_ReturnsCorrectObjects()
-    {
-        TestStreamReadExcel();
-    }
 
     [Fact]
     public void CreateExcelTemplate_ReturnsValidTemplate()
@@ -77,11 +72,6 @@ public class EPPlusExcelTests : BaseExcelTests<EPPlusExcel>
         TestEdgeCases();
     }
 
-    [Fact]
-    public void ExceptionHandling_HandlesErrors()
-    {
-        TestExceptionHandling();
-    }
 
     // EPPlus特有的测试
     [Fact]

@@ -2,7 +2,6 @@
 using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
-using Linger.Excel.Contracts.Attributes;
 using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 
@@ -265,29 +264,29 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return usedRange?.LastRow()?.RowNumber() ?? 0;
     }
 
-    protected override bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item)
-    {
-        var xlWorksheet = (IXLWorksheet)worksheet;
-        var row = xlWorksheet.Row(rowNum);
-        bool hasData = false;
+    //protected override bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item)
+    //{
+    //    var xlWorksheet = (IXLWorksheet)worksheet;
+    //    var row = xlWorksheet.Row(rowNum);
+    //    bool hasData = false;
 
-        foreach (var cell in row.CellsUsed())
-        {
-            int colIndex = cell.Address.ColumnNumber;
-            if (columnMappings.TryGetValue(colIndex, out var property))
-            {
-                var value = GetExcelCellValue(cell);
+    //    foreach (var cell in row.CellsUsed())
+    //    {
+    //        int colIndex = cell.Address.ColumnNumber;
+    //        if (columnMappings.TryGetValue(colIndex, out var property))
+    //        {
+    //            var value = GetExcelCellValue(cell);
 
-                if (value != DBNull.Value)
-                {
-                    SetPropertySafely(item, property, value);
-                    hasData = true;
-                }
-            }
-        }
+    //            if (value != DBNull.Value)
+    //            {
+    //                SetPropertySafely(item, property, value);
+    //                hasData = true;
+    //            }
+    //        }
+    //    }
 
-        return hasData;
-    }
+    //    return hasData;
+    //}
 
     protected override void CloseWorkbook(object workbook)
     {
@@ -533,53 +532,14 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// <summary>
     /// 创建标题行的核心方法 - 处理共通逻辑
     /// </summary>
-    protected void CreateHeaderRowCore(IXLWorksheet worksheet, string[] columnNames, int startRowIndex)
+    protected override void CreateHeaderRowCore(object worksheet, string[] columnNames, int startRowIndex)
     {
+        var xlWorksheet = (IXLWorksheet)worksheet;
         for (int i = 0; i < columnNames.Length; i++)
         {
-            var cell = worksheet.Cell(startRowIndex + 1, i + 1);
+            var cell = xlWorksheet.Cell(startRowIndex + 1, i + 1);
             cell.Value = columnNames[i];
             ApplyHeaderRowFormatting(cell);
-        }
-    }
-
-    /// <summary>
-    /// 创建标题行
-    /// </summary>
-    protected override void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
-    {
-        var xlWorksheet = (IXLWorksheet)worksheet;
-        string[] columnNames = new string[columns.Count];
-        
-        for (int i = 0; i < columns.Count; i++)
-        {
-            columnNames[i] = columns[i].ColumnName;
-        }
-        
-        CreateHeaderRowCore(xlWorksheet, columnNames, startRowIndex);
-    }
-
-    /// <summary>
-    /// 创建集合标题行
-    /// </summary>
-    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
-    {
-        var xlWorksheet = (IXLWorksheet)worksheet;
-        
-        // 获取有ExcelColumn特性的列，如果没有则使用所有列
-        var columns = GetExcelColumns(properties);
-        if (columns.Count == 0)
-        {
-            string[] columnNames = properties.Select(p => p.Name).ToArray();
-            CreateHeaderRowCore(xlWorksheet, columnNames, startRowIndex);
-        }
-        else
-        {
-            // 使用特性标记的属性及其顺序
-            columns = columns.OrderBy(c => c.Item3).ToList();
-            string[] columnNames = columns.Select(c => 
-                string.IsNullOrEmpty(c.Item2) ? c.Item1 : c.Item2).ToArray();
-            CreateHeaderRowCore(xlWorksheet, columnNames, startRowIndex);
         }
     }
 
@@ -595,13 +555,13 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         {
             // 并行处理大数据集
             logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
-            
+
             // 使用批处理提高性能
             int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
-            
+
             // 预先计算所有值以避免在多线程中重复计算
             var cellValues = new object?[dataTable.Rows.Count, dataTable.Columns.Count];
-            
+
             Parallel.For(0, dataTable.Rows.Count, i =>
             {
                 for (var j = 0; j < dataTable.Columns.Count; j++)
@@ -609,12 +569,12 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                     cellValues[i, j] = dataTable.Rows[i][j];
                 }
             });
-            
+
             // 批量写入
             for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
             {
                 int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
-                
+
                 for (int i = batchStart; i < batchEnd; i++)
                 {
                     for (var j = 0; j < dataTable.Columns.Count; j++)
@@ -640,79 +600,44 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     }
 
     /// <summary>
-    /// 应用工作表格式化
-    /// </summary>
-    protected override void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount)
-    {
-        var xlWorksheet = (IXLWorksheet)worksheet;
-        ApplyBasicFormatting(xlWorksheet, rowCount, columnCount);
-    }
-
-    /// <summary>
-    /// 保存工作簿到内存流
-    /// </summary>
-    protected override MemoryStream SaveWorkbookToStream(object workbook)
-    {
-        var xlWorkbook = (XLWorkbook)workbook;
-        var ms = new MemoryStream();
-        xlWorkbook.SaveAs(ms);
-        ms.Position = 0;
-        return ms;
-    }
-
-    // /// <summary>
-    // /// 内部实现：将对象列表转换为MemoryStream
-    // /// </summary>
-    // protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
-    //     List<T> list,
-    //     string sheetsName,
-    //     string title,
-    //     Action<object, PropertyInfo[]>? action)
-    // {
-    //     // 默认调用工作流模板方法
-    //     return ExecuteCollectionExportWorkflow(list, sheetsName, title, action);
-    // }
-
-    /// <summary>
     /// 处理集合数据行
     /// </summary>
     protected override void ProcessCollectionRows<T>(object worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
         var xlWorksheet = (IXLWorksheet)worksheet;
-        
+
         // 优先查找带有ExcelColumn特性的属性
         var columns = GetExcelColumns(properties);
         if (columns.Count == 0)
         {
-            columns = properties.Select((p, i) => new Tuple<string, string, int>(
-                p.Name, p.Name, i)).ToList();
+            columns = properties.Select((p, i) => (Name: p.Name, ColumnName: p.Name, Index: i)).ToList();
         }
-        columns = columns.OrderBy(c => c.Item3).ToList();
-        
+        columns = columns.OrderBy(c => c.Index).ToList();
+
         // 判断是否需要并行处理
         bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
-        
+
         if (useParallelProcessing)
         {
             // 并行处理大数据集
             logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
-            
+
             // 使用批处理提高性能
             int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-            
+
             // 预计算所有值
             var cellValues = new object?[list.Count, columns.Count];
-            
+
             Parallel.For(0, list.Count, i =>
             {
                 for (int j = 0; j < columns.Count; j++)
                 {
                     // 查找对应的属性
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Item1);
+                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
                     cellValues[i, j] = property?.GetValue(list[i]);
                 }
             });
-            
+
             // 批量写入
             for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
             {
@@ -735,7 +660,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 for (int j = 0; j < columns.Count; j++)
                 {
                     var cell = xlWorksheet.Cell(startRowIndex + i + 2, j + 1);
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Item1);
+                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
                     WriteValueToCell(cell, property?.GetValue(list[i]));
                 }
             }
@@ -743,31 +668,23 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     }
 
     /// <summary>
-    /// 获取标记有ExcelColumn特性的属性信息
+    /// 应用工作表格式化
     /// </summary>
-    private List<Tuple<string, string, int>> GetExcelColumns(IEnumerable<PropertyInfo> properties)
+    protected override void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount)
     {
-        var columns = new List<Tuple<string, string, int>>();
-        Type excelColumnAttributeType = typeof(ExcelColumnAttribute);
-        
-        foreach (var prop in properties)
-        {
-            var attrs = prop.GetCustomAttributesData();
-            if (attrs.Any(a => a.AttributeType == excelColumnAttributeType))
-            {
-                var attr = prop.GetCustomAttributes(excelColumnAttributeType, true)
-                    .FirstOrDefault() as ExcelColumnAttribute;
-                    
-                if (attr != null)
-                {
-                    columns.Add(new Tuple<string, string, int>(
-                        prop.Name,
-                        attr.ColumnName.IsNullOrEmpty() ? prop.Name : attr.ColumnName,
-                        attr.Index == int.MaxValue ? columns.Count : attr.Index));
-                }
-            }
-        }
-        
-        return columns;
+        var xlWorksheet = (IXLWorksheet)worksheet;
+        ApplyBasicFormatting(xlWorksheet, rowCount, columnCount);
+    }
+
+    /// <summary>
+    /// 保存工作簿到内存流
+    /// </summary>
+    protected override MemoryStream SaveWorkbookToStream(object workbook)
+    {
+        var xlWorkbook = (XLWorkbook)workbook;
+        var ms = new MemoryStream();
+        xlWorkbook.SaveAs(ms);
+        ms.Position = 0;
+        return ms;
     }
 }

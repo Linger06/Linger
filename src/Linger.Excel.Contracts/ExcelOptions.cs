@@ -1,4 +1,4 @@
-namespace Linger.Excel.Contracts;
+﻿namespace Linger.Excel.Contracts;
 
 /// <summary>
 /// Excel配置选项
@@ -29,11 +29,6 @@ public class ExcelOptions
     /// 批量写入大小
     /// </summary>
     public int BatchSize { get; set; } = 5000;
-
-    /// <summary>
-    /// 是否在错误时继续处理（不抛出异常）
-    /// </summary>
-    public bool ContinueOnError { get; set; } = true;
 
     /// <summary>
     /// 是否使用内存优化（处理大文件时）

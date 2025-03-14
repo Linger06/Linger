@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Linger.Excel.Contracts;
 using Linger.Excel.Tests.Helpers;
 using Linger.Excel.Tests.Models;
@@ -152,38 +152,6 @@ public abstract class BaseExcelTests<T> : IDisposable where T : ExcelBase
     }
 
     /// <summary>
-    /// 测试流式读取功能
-    /// </summary>
-    protected void TestStreamReadExcel()
-    {
-        // Arrange - 创建测试Excel文件
-        var persons = TestHelper.CreateTestPersonList(20);
-        var filePath = Path.GetTempFileName() + ".xlsx";
-        TempFiles.Add(filePath);
-
-        Excel.ListToFile(persons, filePath);
-
-        // Act
-        List<TestPerson> result;
-        using (var fs = File.OpenRead(filePath))
-        {
-            result = Excel.StreamReadExcel<TestPerson>(fs).ToList();
-        }
-
-        // Assert
-        Assert.Equal(persons.Count, result.Count);
-
-        // 验证数据
-        for (int i = 0; i < persons.Count; i++)
-        {
-            Assert.Equal(persons[i].Id, result[i].Id);
-            Assert.Equal(persons[i].Name, result[i].Name);
-            Assert.Equal(persons[i].Birthday.Date, result[i].Birthday.Date);
-            Assert.Equal(persons[i].IsActive, result[i].IsActive);
-        }
-    }
-
-    /// <summary>
     /// 测试模板创建功能
     /// </summary>
     protected void TestCreateExcelTemplate()
@@ -221,7 +189,7 @@ public abstract class BaseExcelTests<T> : IDisposable where T : ExcelBase
         // Assert
         Assert.Equal(filePath, result);
         Assert.True(File.Exists(filePath));
-        
+
         // 验证文件内容
         VerifyExcelFile(filePath, persons.Count + 1); // +1表示表头行
     }
@@ -280,39 +248,20 @@ public abstract class BaseExcelTests<T> : IDisposable where T : ExcelBase
         // 空列表
         using var emptyResult = Excel.ConvertCollectionToMemoryStream(new List<TestPerson>(), "EmptySheet");
         Assert.NotNull(emptyResult);
-        
+
         // 空DataTable
         var emptyDt = new DataTable();
         emptyDt.Columns.Add("Test", typeof(string));
         using var emptyDtResult = Excel.ConvertDataTableToMemoryStream(emptyDt, "EmptyDtSheet");
         Assert.NotNull(emptyDtResult);
-        
+
         // 不存在的文件
         var nonExistentResult = Excel.ExcelToDataTable("non_existent_file.xlsx");
         Assert.Null(nonExistentResult);
-        
+
         // 空流
         var emptyStreamResult = Excel.ConvertStreamToDataTable(new MemoryStream());
         Assert.Null(emptyStreamResult);
-    }
-
-    /// <summary>
-    /// 测试异常处理
-    /// </summary>
-    protected void TestExceptionHandling()
-    {
-        // Arrange - 准备一个损坏的Excel流
-        var corruptStream = new MemoryStream();
-        var writer = new BinaryWriter(corruptStream);
-        writer.Write("This is not a valid Excel file"u8.ToArray());
-        corruptStream.Position = 0;
-        
-        // Act & Assert - 应该优雅地处理异常
-        var result = Excel.ConvertStreamToDataTable(corruptStream);
-        Assert.Null(result);
-        
-        // 无效的文件路径
-        Assert.Throws<ExcelException>(() => Excel.DataTableToFile(new DataTable(), ""));
     }
 
     // 添加更多通用测试方法
@@ -366,23 +315,23 @@ public abstract class BaseExcelTests<T> : IDisposable where T : ExcelBase
     {
         // Arrange
         var largePersonList = TestHelper.CreateTestPersonList(3000);
-        
+
         // 确保启用并行处理
         var originalThreshold = Options.ParallelProcessingThreshold;
         Options.ParallelProcessingThreshold = 1000;
-        
+
         // Act - 测量执行时间
         var sw = System.Diagnostics.Stopwatch.StartNew();
         using var stream = Excel.ConvertCollectionToMemoryStream(largePersonList);
         sw.Stop();
-        
+
         // 恢复原始设置
         Options.ParallelProcessingThreshold = originalThreshold;
-        
+
         // Assert
         Assert.NotNull(stream);
         Assert.True(stream!.Length > 0);
-        
+
         // 记录性能数据 - 不做硬性断言，因为依赖于硬件
         System.Diagnostics.Debug.WriteLine($"处理3000条数据耗时: {sw.ElapsedMilliseconds}ms");
     }
@@ -391,17 +340,17 @@ public abstract class BaseExcelTests<T> : IDisposable where T : ExcelBase
     {
         // Arrange
         var persons = TestHelper.CreateTestPersonList(5);
-        
+
         // 添加自定义行为
         bool customActionExecuted = false;
         void CustomAction(object worksheet, System.Reflection.PropertyInfo[] properties)
         {
             customActionExecuted = true;
         }
-        
+
         // Act
         using var stream = Excel.ConvertCollectionToMemoryStream(persons, "TestSheet", action: CustomAction);
-        
+
         // Assert
         Assert.NotNull(stream);
         Assert.True(stream!.Length > 0);

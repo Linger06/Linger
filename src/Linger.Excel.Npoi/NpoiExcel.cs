@@ -1,9 +1,6 @@
 ﻿using System.Data;
 using System.Reflection;
-using System.Text;
 using Linger.Excel.Contracts;
-using Linger.Excel.Contracts.Attributes;
-using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 using NPOI.HSSF.UserModel;
 using NPOI.SS.Formula.Eval;
@@ -378,33 +375,33 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         return sheet.LastRowNum;
     }
 
-    protected override bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item)
-    {
-        var sheet = (ISheet)worksheet;
-        var row = sheet.GetRow(rowNum);
-        if (row == null) return false;
+    //protected override bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item)
+    //{
+    //    var sheet = (ISheet)worksheet;
+    //    var row = sheet.GetRow(rowNum);
+    //    if (row == null) return false;
 
-        bool hasData = false;
+    //    bool hasData = false;
 
-        foreach (var mapping in columnMappings)
-        {
-            int colIndex = mapping.Key;
-            if (colIndex >= row.LastCellNum) continue;
+    //    foreach (var mapping in columnMappings)
+    //    {
+    //        int colIndex = mapping.Key;
+    //        if (colIndex >= row.LastCellNum) continue;
 
-            var cell = row.GetCell(colIndex);
-            if (cell != null)
-            {
-                var value = GetExcelCellValue(cell);
-                if (value != DBNull.Value)
-                {
-                    SetPropertySafely(item, mapping.Value, value);
-                    hasData = true;
-                }
-            }
-        }
+    //        var cell = row.GetCell(colIndex);
+    //        if (cell != null)
+    //        {
+    //            var value = GetExcelCellValue(cell);
+    //            if (value != DBNull.Value)
+    //            {
+    //                SetPropertySafely(item, mapping.Value, value);
+    //                hasData = true;
+    //            }
+    //        }
+    //    }
 
-        return hasData;
-    }
+    //    return hasData;
+    //}
 
     protected override void CloseWorkbook(object workbook)
     {
@@ -841,7 +838,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         titleCell.SetCellValue(title);
 
         ApplyTitleRowFormatting(titleCell);
-        
+
         sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, columnCount - 1));
         return 1; // 标题占用1行
     }
@@ -849,85 +846,17 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// <summary>
     /// 创建标题行的核心方法 - 处理共通逻辑
     /// </summary>
-    protected void CreateHeaderRowCore(ISheet sheet, string[] columnNames, int startRowIndex)
+    protected override void CreateHeaderRowCore(object worksheet, string[] columnNames, int startRowIndex)
     {
+        var sheet = (ISheet)worksheet;
         var headerRow = sheet.CreateRow(startRowIndex);
-        
+
         for (int i = 0; i < columnNames.Length; i++)
         {
             var cell = headerRow.CreateCell(i);
             cell.SetCellValue(columnNames[i]);
             ApplyHeaderRowFormatting(cell);
         }
-    }
-
-    /// <summary>
-    /// 创建标题行
-    /// </summary>
-    protected override void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
-    {
-        var sheet = (ISheet)worksheet;
-        string[] columnNames = new string[columns.Count];
-        
-        for (int i = 0; i < columns.Count; i++)
-        {
-            columnNames[i] = columns[i].ColumnName;
-        }
-        
-        CreateHeaderRowCore(sheet, columnNames, startRowIndex);
-    }
-
-    /// <summary>
-    /// 创建集合标题行
-    /// </summary>
-    protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
-    {
-        var sheet = (ISheet)worksheet;
-        
-        // 获取有ExcelColumn特性的列，如果没有则使用所有列
-        var columns = GetExcelColumns(properties);
-        if (columns.Count == 0)
-        {
-            string[] columnNames = properties.Select(p => p.Name).ToArray();
-            CreateHeaderRowCore(sheet, columnNames, startRowIndex);
-        }
-        else
-        {
-            // 使用特性标记的属性及其顺序
-            columns = columns.OrderBy(c => c.Item3).ToList();
-            string[] columnNames = columns.Select(c => 
-                string.IsNullOrEmpty(c.Item2) ? c.Item1 : c.Item2).ToArray();
-            CreateHeaderRowCore(sheet, columnNames, startRowIndex);
-        }
-    }
-
-    /// <summary>
-    /// 获取标记有ExcelColumn特性的属性信息
-    /// </summary>
-    private List<Tuple<string, string, int>> GetExcelColumns(IEnumerable<PropertyInfo> properties)
-    {
-        var columns = new List<Tuple<string, string, int>>();
-        Type excelColumnAttributeType = typeof(ExcelColumnAttribute);
-        
-        foreach (var prop in properties)
-        {
-            var attrs = prop.GetCustomAttributesData();
-            if (attrs.Any(a => a.AttributeType == excelColumnAttributeType))
-            {
-                var attr = prop.GetCustomAttributes(excelColumnAttributeType, true)
-                    .FirstOrDefault() as ExcelColumnAttribute;
-                    
-                if (attr != null)
-                {
-                    columns.Add(new Tuple<string, string, int>(
-                        prop.Name,
-                        attr.ColumnName.IsNullOrEmpty() ? prop.Name : attr.ColumnName,
-                        attr.Index == int.MaxValue ? columns.Count : attr.Index));
-                }
-            }
-        }
-        
-        return columns;
     }
 
     /// <summary>
@@ -938,10 +867,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         var sheet = (ISheet)worksheet;
         var workbook = sheet.Workbook;
         bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
-        
+
         // 预创建样式字典，提高性能
         var styleCache = new Dictionary<Type, ICellStyle>();
-        
+
         // 创建日期样式
         var dateStyle = workbook.CreateCellStyle();
         var format = workbook.CreateDataFormat();
@@ -1006,7 +935,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     protected override void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount)
     {
         var sheet = (ISheet)worksheet;
-        
+
         // 设置所有单元格自动适应宽度
         if (Options.AutoFitColumns)
         {
@@ -1035,35 +964,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         return ms;
     }
 
-    // /// <summary>
-    // /// 内部实现：将对象列表转换为MemoryStream
-    // /// </summary>
-    // protected override MemoryStream InternalConvertCollectionToMemoryStream<T>(
-    //     List<T> list,
-    //     string sheetsName,
-    //     string title,
-    //     Action<object, PropertyInfo[]>? action)
-    // {
-    //     // 默认调用工作流模板方法
-    //     return ExecuteCollectionExportWorkflow(list, sheetsName, title, action);
-    // }
-
-    // /// <summary>
-    // /// 创建集合标题行
-    // /// </summary>
-    // protected override void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
-    // {
-    //     var sheet = (ISheet)worksheet;
-    //     var headerRow = sheet.CreateRow(startRowIndex);
-        
-    //     for (int i = 0; i < properties.Length; i++)
-    //     {
-    //         var cell = headerRow.CreateCell(i);
-    //         cell.SetCellValue(properties[i].Name);
-    //         ApplyHeaderRowFormatting(cell);
-    //     }
-    // }
-
     /// <summary>
     /// 处理集合数据行
     /// </summary>
@@ -1072,35 +972,44 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         var sheet = (ISheet)worksheet;
         var workbook = sheet.Workbook;
         bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
-        
+
         // 预创建样式字典，提高性能
         var styleCache = new Dictionary<Type, ICellStyle>();
-        
+
         // 创建日期样式
         var dateStyle = workbook.CreateCellStyle();
         var format = workbook.CreateDataFormat();
         dateStyle.DataFormat = format.GetFormat(Options.DefaultDateFormat);
         styleCache[typeof(DateTime)] = dateStyle;
 
+        // 获取有ExcelColumn特性的列，如果没有则使用所有列
+        var columns = GetExcelColumns(properties);
+        if (columns.Count == 0)
+        {
+            columns = properties.Select((p, i) => (Name: p.Name, ColumnName: p.Name, Index: i)).ToList();
+        }
+        columns = columns.OrderBy(c => c.Index).ToList();
+
         if (useParallelProcessing)
         {
             // 并行处理大数据集
             logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
-            
+
             // 使用批处理提高性能
             int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-            
+
             // 预计算所有值
-            var cellValues = new object?[list.Count, properties.Length];
-            
+            var cellValues = new object?[list.Count, columns.Count];
+
             Parallel.For(0, list.Count, rowIndex =>
             {
-                for (int colIndex = 0; colIndex < properties.Length; colIndex++)
+                for (int colIndex = 0; colIndex < columns.Count; colIndex++)
                 {
-                    cellValues[rowIndex, colIndex] = properties[colIndex].GetValue(list[rowIndex]);
+                    var property = properties.FirstOrDefault(p => p.Name == columns[colIndex].Name);
+                    cellValues[rowIndex, colIndex] = property?.GetValue(list[rowIndex]);
                 }
             });
-            
+
             // 批量写入
             for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
             {
@@ -1108,9 +1017,11 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 for (int i = batchStart; i < batchEnd; i++)
                 {
                     var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                    for (int j = 0; j < properties.Length; j++)
+                    for (int j = 0; j < columns.Count; j++)
                     {
-                        WriteValueToCell(workbook, dataRow, j, cellValues[i, j], properties[j].PropertyType, styleCache);
+                        WriteValueToCell(workbook, dataRow, j, cellValues[i, j],
+                            properties.FirstOrDefault(p => p.Name == columns[j].Name)?.PropertyType ?? typeof(string),
+                            styleCache);
                     }
                 }
             }
@@ -1121,10 +1032,12 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             for (int i = 0; i < list.Count; i++)
             {
                 var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                for (int j = 0; j < properties.Length; j++)
+                for (int j = 0; j < columns.Count; j++)
                 {
-                    var value = properties[j].GetValue(list[i]);
-                    WriteValueToCell(workbook, dataRow, j, value, properties[j].PropertyType, styleCache);
+                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
+                    WriteValueToCell(workbook, dataRow, j, property?.GetValue(list[i]),
+                        property?.PropertyType ?? typeof(string),
+                        styleCache);
                 }
             }
         }

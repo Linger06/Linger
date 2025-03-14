@@ -65,5 +65,5 @@ public interface IExcel
     /// 此方法采用流式处理，一次只处理一行数据，适合处理大文件。
     /// 返回的IEnumerable采用惰性加载，每次迭代才会读取一行数据。
     /// </remarks>
-    IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0) where T : class, new();
+    //IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0) where T : class, new();
 }

@@ -39,12 +39,6 @@ public class NpoiExcelTests : BaseExcelTests<NpoiExcel>
     }
 
     [Fact]
-    public void StreamReadExcel_ValidExcel_ReturnsCorrectObjects()
-    {
-        TestStreamReadExcel();
-    }
-
-    [Fact]
     public void CreateExcelTemplate_ReturnsValidTemplate()
     {
         TestCreateExcelTemplate();
@@ -72,12 +66,6 @@ public class NpoiExcelTests : BaseExcelTests<NpoiExcel>
     public void EdgeCases_HandleGracefully()
     {
         TestEdgeCases();
-    }
-
-    [Fact]
-    public void ExceptionHandling_HandlesErrors()
-    {
-        TestExceptionHandling();
     }
 
     [Fact]
