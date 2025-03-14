@@ -10,19 +10,18 @@ using SixLabors.ImageSharp;
 
 namespace Linger.Excel.EPPlus;
 
-public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? logger = null) : ExcelBase(options, logger)
+public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? logger = null) : ExcelBase<ExcelPackage, ExcelWorksheet>(options, logger)
 {
     #region Import
     // 添加基类要求的方法实现
-    protected override object OpenWorkbook(Stream stream)
+    protected override ExcelPackage OpenWorkbook(Stream stream)
     {
         return new ExcelPackage(stream);
     }
 
-    protected override object GetWorksheet(object workbook, string? sheetName)
+    protected override ExcelWorksheet GetWorksheet(ExcelPackage workbook, string? sheetName)
     {
-        var package = (ExcelPackage)workbook;
-        var workBook = package.Workbook;
+        var workBook = workbook.Workbook;
 
         if (workBook.Worksheets.Count == 0)
             return null!;
@@ -35,32 +34,30 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return workBook.Worksheets[0];
     }
 
-    protected override string GetSheetName(object worksheet)
+    protected override string GetSheetName(ExcelWorksheet worksheet)
     {
-        return ((ExcelWorksheet)worksheet).Name;
+        return worksheet.Name;
     }
 
-    protected override bool HasData(object worksheet)
+    protected override bool HasData(ExcelWorksheet worksheet)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
-        return excelWorksheet.Dimension != null;
+        return worksheet.Dimension != null;
     }
 
-    protected override Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(object worksheet, int headerRowIndex)
+    protected override Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(ExcelWorksheet worksheet, int headerRowIndex)
     {
         var columnMappings = new Dictionary<int, PropertyInfo>();
-        var excelWorksheet = (ExcelWorksheet)worksheet;
 
         var properties = typeof(T).GetProperties().Where(p => p.CanWrite)
             .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
 
         if (headerRowIndex >= 0)
         {
-            int colCount = excelWorksheet.Dimension.End.Column;
+            int colCount = worksheet.Dimension.End.Column;
 
             for (int i = 1; i <= colCount; i++)
             {
-                string? columnName = excelWorksheet.Cells[headerRowIndex + 1, i].Text?.Trim();
+                string? columnName = worksheet.Cells[headerRowIndex + 1, i].Text?.Trim();
                 if (columnName.IsNotNullAndEmpty() && properties.TryGetValue(columnName, out var property))
                 {
                     columnMappings[i] = property;
@@ -71,74 +68,45 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return columnMappings;
     }
 
-    protected override int GetDataStartRow(object worksheet, int headerRowIndex)
+    protected override int GetDataStartRow(ExcelWorksheet worksheet, int headerRowIndex)
     {
         return headerRowIndex + 2; // EPPlus从1开始计数，加2表示从表头下一行开始
     }
 
-    protected override int GetDataEndRow(object worksheet)
+    protected override int GetDataEndRow(ExcelWorksheet worksheet)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
-        return excelWorksheet.Dimension.End.Row;
+        return worksheet.Dimension.End.Row;
     }
 
-    //protected override bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item)
-    //{
-    //    var excelWorksheet = (ExcelWorksheet)worksheet;
-    //    bool hasData = false;
-
-    //    foreach (var mapping in columnMappings)
-    //    {
-    //        var cell = excelWorksheet.Cells[rowNum, mapping.Key];
-    //        if (cell?.Value != null)
-    //        {
-    //            var value = GetExcelCellValue(cell);
-
-    //            if (value != DBNull.Value)
-    //            {
-    //                SetPropertySafely(item, mapping.Value, value);
-    //                hasData = true;
-    //            }
-    //        }
-    //    }
-
-    //    return hasData;
-    //}
-
-    protected override void CloseWorkbook(object workbook)
+    protected override void CloseWorkbook(ExcelPackage workbook)
     {
-        if (workbook is ExcelPackage package)
+        try
         {
-            try
-            {
-                package.Dispose();
-            }
-            catch (Exception ex)
-            {
-                logger?.LogError(ex, "关闭EPPlus工作簿时出错");
-            }
+            workbook.Dispose();
+        }
+        catch (Exception ex)
+        {
+            logger?.LogError(ex, "关闭EPPlus工作簿时出错");
         }
     }
 
-    protected override int EstimateColumnCount(object worksheet)
+    protected override int EstimateColumnCount(ExcelWorksheet worksheet)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
-        return excelWorksheet.Dimension?.End.Column ?? 0;
+        return worksheet.Dimension?.End.Column ?? 0;
     }
 
-    protected override Dictionary<int, string> CreateHeaderMappings(object worksheet, int headerRowIndex)
+    protected override Dictionary<int, string> CreateHeaderMappings(ExcelWorksheet worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, string>();
-        var excelWorksheet = (ExcelWorksheet)worksheet;
 
-        if (headerRowIndex < 0 || excelWorksheet.Dimension == null)
+        if (headerRowIndex < 0 || worksheet.Dimension == null)
             return result;
 
-        int colCount = excelWorksheet.Dimension.End.Column;
+        int colCount = worksheet.Dimension.End.Column;
 
         for (int i = 1; i <= colCount; i++)
         {
-            var cell = excelWorksheet.Cells[headerRowIndex + 1, i]; // EPPlus从1开始计数
+            var cell = worksheet.Cells[headerRowIndex + 1, i]; // EPPlus从1开始计数
             string columnName = cell.Text?.Trim() ?? $"Column{i}";
             result[i] = columnName;
         }
@@ -146,10 +114,9 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return result;
     }
 
-    protected override object GetCellValue(object worksheet, int rowNum, int colIndex)
+    protected override object GetCellValue(ExcelWorksheet worksheet, int rowNum, int colIndex)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
-        var cell = excelWorksheet.Cells[rowNum, colIndex + 1]; // EPPlus从1开始计数，需要+1
+        var cell = worksheet.Cells[rowNum, colIndex + 1]; // EPPlus从1开始计数，需要+1
 
         if (cell?.Value == null)
             return DBNull.Value;
@@ -305,7 +272,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 创建空工作簿
     /// </summary>
-    protected override object CreateWorkbook()
+    protected override ExcelPackage CreateWorkbook()
     {
         return new ExcelPackage();
     }
@@ -313,20 +280,18 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 创建工作表
     /// </summary>
-    protected override object CreateWorksheet(object workbook, string sheetName)
+    protected override ExcelWorksheet CreateWorksheet(ExcelPackage workbook, string sheetName)
     {
-        var package = (ExcelPackage)workbook;
-        return package.Workbook.Worksheets.Add(sheetName);
+        return workbook.Workbook.Worksheets.Add(sheetName);
     }
 
     /// <summary>
     /// 应用标题到工作表
     /// </summary>
-    protected override int ApplyTitle(object worksheet, string title, int columnCount)
+    protected override int ApplyTitle(ExcelWorksheet worksheet, string title, int columnCount)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
-        excelWorksheet.Cells[1, 1].Value = title;
-        var titleRange = excelWorksheet.Cells[1, 1, 1, columnCount];
+        worksheet.Cells[1, 1].Value = title;
+        var titleRange = worksheet.Cells[1, 1, 1, columnCount];
         titleRange.Merge = true;
         ApplyTitleRowFormatting(titleRange);
         return 1; // 标题占用1行
@@ -335,12 +300,11 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 创建标题行的核心方法 - 处理共通逻辑
     /// </summary>
-    protected override void CreateHeaderRowCore(object worksheet, string[] columnNames, int startRowIndex)
+    protected override void CreateHeaderRowCore(ExcelWorksheet worksheet, string[] columnNames, int startRowIndex)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
         for (int i = 0; i < columnNames.Length; i++)
         {
-            var cell = excelWorksheet.Cells[startRowIndex + 1, i + 1];
+            var cell = worksheet.Cells[startRowIndex + 1, i + 1];
             cell.Value = columnNames[i];
             ApplyHeaderRowFormatting(cell);
         }
@@ -349,9 +313,9 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 处理数据行
     /// </summary>
-    protected override void ProcessDataRows(object worksheet, DataTable dataTable, int startRowIndex)
+    protected override void ProcessDataRows(ExcelWorksheet worksheet, DataTable dataTable, int startRowIndex)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
+        var excelWorksheet = worksheet;
         bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
 
         if (useParallelProcessing)
@@ -406,9 +370,9 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 处理集合数据行
     /// </summary>
-    protected override void ProcessCollectionRows<T>(object worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
+    protected override void ProcessCollectionRows<T>(ExcelWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
+        var excelWorksheet = worksheet;
         
         // 获取有ExcelColumn特性的列，如果没有则使用所有列
         var columns = GetExcelColumns(properties);
@@ -472,20 +436,18 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 应用工作表格式化
     /// </summary>
-    protected override void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount)
+    protected override void ApplyWorksheetFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)
     {
-        var excelWorksheet = (ExcelWorksheet)worksheet;
-        ApplyBasicFormatting(excelWorksheet, rowCount, columnCount);
+        ApplyBasicFormatting(worksheet, rowCount, columnCount);
     }
 
     /// <summary>
     /// 保存工作簿到内存流
     /// </summary>
-    protected override MemoryStream SaveWorkbookToStream(object workbook)
+    protected override MemoryStream SaveWorkbookToStream(ExcelPackage workbook)
     {
-        var package = (ExcelPackage)workbook;
         var ms = new MemoryStream();
-        package.SaveAs(ms);
+        workbook.SaveAs(ms);
         ms.Position = 0;
         return ms;
     }

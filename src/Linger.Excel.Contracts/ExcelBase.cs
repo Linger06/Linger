@@ -2,7 +2,9 @@
 
 namespace Linger.Excel.Contracts;
 
-public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = null) : IExcel
+public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = null, ILogger? logger = null) : IExcel
+    where TWorkbook : class
+    where TWorksheet : class
 {
     /// <summary>
     /// Excel配置选项
@@ -161,7 +163,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     }
 
     // 添加新的辅助方法以创建数据表列
-    protected virtual void CreateDataTableColumns(object worksheet, DataTable dataTable, int headerRowIndex)
+    protected virtual void CreateDataTableColumns(TWorksheet worksheet, DataTable dataTable, int headerRowIndex)
     {
         if (headerRowIndex < 0)
         {
@@ -192,7 +194,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     }
 
     // 添加处理数据行的方法
-    protected virtual void ProcessDataTableRows(object worksheet, DataTable dataTable, int startRow, int endRow, bool addEmptyRow)
+    protected virtual void ProcessDataTableRows(TWorksheet worksheet, DataTable dataTable, int startRow, int endRow, bool addEmptyRow)
     {
         for (int rowNum = startRow; rowNum <= endRow; rowNum++)
         {
@@ -211,7 +213,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     }
 
     // 添加获取行值的方法
-    protected virtual bool GetRowValues(object worksheet, int rowNum, DataRow dataRow)
+    protected virtual bool GetRowValues(TWorksheet worksheet, int rowNum, DataRow dataRow)
     {
         // 这是默认实现，子类可以重写以提供更高效的实现
         bool hasData = false;
@@ -232,21 +234,21 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     }
 
     // 添加获取单元格值的方法
-    protected virtual object GetCellValue(object worksheet, int rowNum, int colIndex)
+    protected virtual object GetCellValue(TWorksheet worksheet, int rowNum, int colIndex)
     {
         // 这是一个简单的默认实现，子类应该重写以提供实际的单元格值获取逻辑
         return DBNull.Value;
     }
 
     // 添加估算列数的方法
-    protected virtual int EstimateColumnCount(object worksheet)
+    protected virtual int EstimateColumnCount(TWorksheet worksheet)
     {
         // 默认返回一个基本值，子类应该重写以提供准确的列计数
         return 10;
     }
 
     // 添加创建表头映射的方法
-    protected virtual Dictionary<int, string> CreateHeaderMappings(object worksheet, int headerRowIndex)
+    protected virtual Dictionary<int, string> CreateHeaderMappings(TWorksheet worksheet, int headerRowIndex)
     {
         // 默认返回空映射，子类应该重写以提供实际的表头映射
         return new Dictionary<int, string>();
@@ -281,75 +283,6 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
         return ExecuteSafely(() => dataTable.ToList<T>(Options.ParallelProcessingThreshold),
             nameof(ConvertStreamToList));
     }
-
-    ///// <summary>
-    ///// 流式读取Excel文件（内存优化方式）
-    ///// </summary>
-    ///// <typeparam name="T">要转换成的对象类型</typeparam>
-    ///// <param name="stream">Excel文件流</param>
-    ///// <param name="sheetName">工作表名称</param>
-    ///// <param name="headerRowIndex">表头行索引</param>
-    ///// <returns>对象序列</returns>
-    //public IEnumerable<T> StreamReadExcel<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0) where T : class, new()
-    //{
-    //    // 验证输入
-    //    if (stream == null || !stream.CanRead || stream.Length == 0)
-    //        yield break;
-
-    //    // 打开工作簿 - 不使用using，手动管理资源
-    //    var workbook = OpenWorkbook(stream);
-    //    if (workbook == null)
-    //    {
-    //        logger?.LogError("无法打开Excel工作簿");
-    //        yield break;
-    //    }
-
-    //    try
-    //    {
-    //        // 获取工作表
-    //        var worksheet = GetWorksheet(workbook, sheetName);
-    //        if (worksheet == null)
-    //        {
-    //            logger?.LogError("无法获取Excel工作表");
-    //            yield break;
-    //        }
-
-    //        // 验证工作表是否包含数据
-    //        if (!HasData(worksheet))
-    //        {
-    //            logger?.LogWarning("工作表 {SheetName} 不包含数据", GetSheetName(worksheet));
-    //            yield break;
-    //        }
-
-    //        // 读取表头并创建属性映射
-    //        var columnMappings = CreatePropertyMappings<T>(worksheet, headerRowIndex);
-
-    //        // 获取数据开始行 
-    //        int startRow = GetDataStartRow(worksheet, headerRowIndex);
-    //        int endRow = GetDataEndRow(worksheet);
-
-    //        // 流式读取数据行
-    //        for (int rowNum = startRow; rowNum <= endRow; rowNum++)
-    //        {
-    //            var item = new T();
-    //            bool hasData = false;
-
-    //            // 处理当前行
-    //            hasData = ProcessRow(worksheet, rowNum, columnMappings, item);
-
-    //            if (hasData)
-    //                yield return item;
-
-    //            // 内存优化
-    //            OptimizeMemory(rowNum);
-    //        }
-    //    }
-    //    finally
-    //    {
-    //        // 确保无论如何都释放工作簿资源
-    //        CloseWorkbook(workbook);
-    //    }
-    //}
 
     /// <summary>
     /// 优化内存使用
@@ -518,23 +451,23 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <summary>
     /// 创建空工作簿
     /// </summary>
-    protected abstract object CreateWorkbook();
+    protected abstract TWorkbook CreateWorkbook();
 
     /// <summary>
     /// 创建工作表
     /// </summary>
-    protected abstract object CreateWorksheet(object workbook, string sheetName);
+    protected abstract TWorksheet CreateWorksheet(TWorkbook workbook, string sheetName);
 
     /// <summary>
     /// 应用标题到工作表
     /// </summary>
     /// <returns>标题占用的行数</returns>
-    protected abstract int ApplyTitle(object worksheet, string title, int columnCount);
+    protected abstract int ApplyTitle(TWorksheet worksheet, string title, int columnCount);
 
     /// <summary>
     /// 创建标题行
     /// </summary>
-    protected virtual void CreateHeaderRow(object worksheet, DataColumnCollection columns, int startRowIndex)
+    protected virtual void CreateHeaderRow(TWorksheet worksheet, DataColumnCollection columns, int startRowIndex)
     {
         string[] columnNames = new string[columns.Count];
 
@@ -548,7 +481,7 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <summary>
     /// 创建集合标题行
     /// </summary>
-    protected virtual void CreateCollectionHeaderRow(object worksheet, PropertyInfo[] properties, int startRowIndex)
+    protected virtual void CreateCollectionHeaderRow(TWorksheet worksheet, PropertyInfo[] properties, int startRowIndex)
     {
         // 获取有ExcelColumn特性的列，如果没有则使用所有列
         var columns = GetExcelColumns(properties);
@@ -573,31 +506,27 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <param name="worksheet">工作表</param>
     /// <param name="columnNames">列名数组</param>
     /// <param name="startRowIndex">起始行索引</param>
-    protected virtual void CreateHeaderRowCore(object worksheet, string[] columnNames, int startRowIndex)
-    {
-        // 这是一个可选的默认实现，子类可以使用它来减少重复代码
-        // 基类不实现具体逻辑，因为每个Excel库的实现方式不同
-    }
+    protected abstract void CreateHeaderRowCore(TWorksheet worksheet, string[] columnNames, int startRowIndex);
 
     /// <summary>
     /// 处理数据行
     /// </summary>
-    protected abstract void ProcessDataRows(object worksheet, DataTable dataTable, int startRowIndex);
+    protected abstract void ProcessDataRows(TWorksheet worksheet, DataTable dataTable, int startRowIndex);
 
     /// <summary>
     /// 处理集合数据行
     /// </summary>
-    protected abstract void ProcessCollectionRows<T>(object worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex) where T : class;
+    protected abstract void ProcessCollectionRows<T>(TWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex) where T : class;
 
     /// <summary>
     /// 应用工作表格式化
     /// </summary>
-    protected abstract void ApplyWorksheetFormatting(object worksheet, int rowCount, int columnCount);
+    protected abstract void ApplyWorksheetFormatting(TWorksheet worksheet, int rowCount, int columnCount);
 
     /// <summary>
     /// 保存工作簿到内存流
     /// </summary>
-    protected abstract MemoryStream SaveWorkbookToStream(object workbook);
+    protected abstract MemoryStream SaveWorkbookToStream(TWorkbook workbook);
 
     #endregion
 
@@ -803,22 +732,12 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
 
         try
         {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            // 使用TaskCompletionSource将同步操作包装为异步任务
-            var tcs = new TaskCompletionSource<TResult>();
-            await Task.Run(() =>
+            // 在Task.Run内部创建和使用文件流，确保流在使用完毕后才关闭
+            return await Task.Run(() =>
             {
-                try
-                {
-                    var result = operation(fileStream);
-                    tcs.SetResult(result);
-                }
-                catch (Exception ex)
-                {
-                    tcs.SetException(ex);
-                }
+                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                return operation(fileStream);
             });
-            return await tcs.Task;
         }
         catch (Exception ex)
         {
@@ -866,135 +785,42 @@ public abstract class ExcelBase(ExcelOptions? options = null, ILogger? logger = 
     /// <summary>
     /// 打开Excel工作簿
     /// </summary>
-    protected abstract object OpenWorkbook(Stream stream);
+    protected abstract TWorkbook OpenWorkbook(Stream stream);
 
     /// <summary>
     /// 获取工作表
     /// </summary>
-    protected abstract object GetWorksheet(object workbook, string? sheetName);
+    protected abstract TWorksheet GetWorksheet(TWorkbook workbook, string? sheetName);
 
     /// <summary>
     /// 获取工作表名称
     /// </summary>
-    protected abstract string GetSheetName(object worksheet);
+    protected abstract string GetSheetName(TWorksheet worksheet);
 
     /// <summary>
     /// 检查工作表是否包含数据
     /// </summary>
-    protected abstract bool HasData(object worksheet);
+    protected abstract bool HasData(TWorksheet worksheet);
 
     /// <summary>
     /// 创建属性映射关系
     /// </summary>
-    protected abstract Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(object worksheet, int headerRowIndex) where T : class, new();
+    protected abstract Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(TWorksheet worksheet, int headerRowIndex) where T : class, new();
 
     /// <summary>
     /// 获取数据开始行
     /// </summary>
-    protected abstract int GetDataStartRow(object worksheet, int headerRowIndex);
+    protected abstract int GetDataStartRow(TWorksheet worksheet, int headerRowIndex);
 
     /// <summary>
     /// 获取数据结束行
     /// </summary>
-    protected abstract int GetDataEndRow(object worksheet);
-
-    /// <summary>
-    /// 处理单行数据
-    /// </summary>
-    //protected abstract bool ProcessRow<T>(object worksheet, int rowNum, Dictionary<int, PropertyInfo> columnMappings, T item) where T : class, new();
+    protected abstract int GetDataEndRow(TWorksheet worksheet);
 
     /// <summary>
     /// 关闭工作簿并释放资源
     /// </summary>
-    protected abstract void CloseWorkbook(object workbook);
+    protected abstract void CloseWorkbook(TWorkbook workbook);
 
     #endregion
-
-    ///// <summary>
-    ///// 安全设置对象属性值
-    ///// </summary>
-    ///// <typeparam name="T">对象类型</typeparam>
-    ///// <param name="obj">目标对象</param>
-    ///// <param name="property">属性信息</param>
-    ///// <param name="value">属性值</param>
-    //protected void SetPropertySafely<T>(T obj, PropertyInfo property, object? value) where T : class
-    //{
-    //    if (value == null || value is DBNull)
-    //        return;
-
-    //    try
-    //    {
-    //        // 处理Nullable类型
-    //        var propertyType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-
-    //        // 特殊类型处理
-    //        if (propertyType == typeof(string))
-    //        {
-    //            property.SetValue(obj, value.ToString());
-    //            return;
-    //        }
-
-    //        if (propertyType == typeof(DateTime))
-    //        {
-    //            if (value is DateTime dateTime)
-    //            {
-    //                property.SetValue(obj, dateTime);
-    //            }
-    //            else if (DateTime.TryParse(value.ToString(), out DateTime parsedDate))
-    //            {
-    //                property.SetValue(obj, parsedDate);
-    //            }
-    //            else if (value is double numericDate)
-    //            {
-    //                property.SetValue(obj, DateTime.FromOADate(numericDate));
-    //            }
-    //            return;
-    //        }
-
-    //        if (propertyType == typeof(bool))
-    //        {
-    //            if (value is bool boolValue)
-    //            {
-    //                property.SetValue(obj, boolValue);
-    //            }
-    //            else
-    //            {
-    //                string strValue = value.ToString()!.ToLower();
-    //                property.SetValue(obj, strValue == "true" || strValue == "yes" || strValue == "y" || strValue == "1");
-    //            }
-    //            return;
-    //        }
-
-    //        if (propertyType.IsEnum)
-    //        {
-    //            if (value is string strValue)
-    //            {
-    //                try
-    //                {
-    //                    var enumValue = Enum.Parse(propertyType, strValue, true);
-    //                    property.SetValue(obj, enumValue);
-    //                    return;
-    //                }
-    //                catch
-    //                {
-    //                    // Parsing failed, continue with other conversion attempts
-    //                }
-    //            }
-    //            if (int.TryParse(value.ToString(), out int intValue))
-    //            {
-    //                property.SetValue(obj, Enum.ToObject(propertyType, intValue));
-    //                return;
-    //            }
-    //        }
-
-    //        // 常规类型转换
-    //        property.SetValue(obj, Convert.ChangeType(value, propertyType));
-    //    }
-    //    catch (Exception ex)
-    //    {
-    //        // 转换失败记录日志
-    //        logger?.LogDebug(ex, "属性设置失败: {PropertyName}, 值: {Value}, 值类型: {ValueType}",
-    //            property.Name, value, value.GetType().Name);
-    //    }
-    //}
 }
