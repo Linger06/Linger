@@ -48,12 +48,30 @@ dotnet add package Linger.Excel.ClosedXML # 使用ClosedXML实现
 // 在Program.cs或Startup.cs中注册
 public void ConfigureServices(IServiceCollection services)
 {
-    // 注册Excel服务
-    services.AddExcel(options =>
-    {
-        options.EnablePerformanceMonitoring = true;
-        options.PerformanceThreshold = 500; // 记录超过500ms的操作
+    // 注册Excel服务 - 选择一种实现
+    
+    // 选项1: 注册NPOI实现
+    services.AddScoped<IExcelService, NpoiExcel>();
+    
+    // 选项2: 注册EPPlus实现
+    // services.AddScoped<IExcelService, EPPlusExcel>();
+    
+    // 选项3: 注册ClosedXML实现
+    // services.AddScoped<IExcelService, ClosedXmlExcel>();
+    
+    // 配置选项
+    services.AddSingleton(new ExcelOptions {
+        EnablePerformanceMonitoring = true,
+        PerformanceThreshold = 500, // 记录超过500ms的操作
+        ParallelProcessingThreshold = 10000,
+        UseBatchWrite = true,
+        BatchSize = 5000
     });
+    
+    // 如果需要使用泛型接口
+    services.AddScoped<IExcel<ISheet>, NpoiExcel>(); // NPOI
+    // services.AddScoped<IExcel<ExcelWorksheet>, EPPlusExcel>(); // EPPlus
+    // services.AddScoped<IExcel<IXLWorksheet>, ClosedXmlExcel>(); // ClosedXML
     
     // ... 其他服务注册
 }
@@ -318,20 +336,37 @@ public class DataStyle
 使用方式：
 
 ```csharp
-// 配置Excel样式
-services.AddExcel(options => {
-    options.EnablePerformanceMonitoring = true;
+// 配置Excel选项
+var excelOptions = new ExcelOptions 
+{
+    EnablePerformanceMonitoring = true,
+    ParallelProcessingThreshold = 10000,
     
     // 样式配置
-    options.StyleOptions.TitleStyle.Bold = true;
-    options.StyleOptions.TitleStyle.FontSize = 16;
-    options.StyleOptions.TitleStyle.BackgroundColor = "#4472C4";
-    
-    options.StyleOptions.HeaderStyle.Bold = true;
-    options.StyleOptions.HeaderStyle.BackgroundColor = "#D9E1F2";
-    
-    options.StyleOptions.DataStyle.DateFormat = "yyyy-MM-dd";
-});
+    StyleOptions = new ExcelStyleOptions 
+    {
+        TitleStyle = new TitleStyle 
+        {
+            Bold = true,
+            FontSize = 16,
+            BackgroundColor = "#4472C4"
+        },
+        
+        HeaderStyle = new HeaderStyle
+        {
+            Bold = true,
+            BackgroundColor = "#D9E1F2"
+        },
+        
+        DataStyle = new DataStyle
+        {
+            DateFormat = "yyyy-MM-dd"
+        }
+    }
+};
+
+// 使用选项创建服务
+var excelService = new ClosedXmlExcel(excelOptions);
 ```
 
 ## 常见问题
@@ -344,14 +379,18 @@ services.AddExcel(options => {
 
 ```csharp
 // 配置Excel选项以优化大文件处理
-services.AddExcel(options => {
+var options = new ExcelOptions
+{
     // 超过10000行启用并行处理
-    options.ParallelProcessingThreshold = 10000;
+    ParallelProcessingThreshold = 10000,
     
     // 启用批量写入
-    options.UseBatchWrite = true;
-    options.BatchSize = 5000;
-});
+    UseBatchWrite = true,
+    BatchSize = 5000
+};
+
+// 使用这些选项创建服务
+var excelService = new NpoiExcel(options);
 ```
 
 对于代码中的分批处理：
