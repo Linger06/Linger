@@ -187,7 +187,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     dateStyle = workbook.CreateCellStyle();
                     var format = workbook.CreateDataFormat();
-                    dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DefaultDateFormat); // 从StyleOptions中获取
+                    dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat); // 更新为新路径
                     styleCache[valueType] = dateStyle;
                 }
                 cell.CellStyle = dateStyle;
@@ -335,17 +335,17 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             titleStyle.VerticalAlignment = VerticalAlignment.Center;
 
             var titleFont = workbook.CreateFont();
-            titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleFontSize;
-            titleFont.IsBold = Options.StyleOptions.TitleBold;
-            titleFont.FontName = Options.StyleOptions.TitleFontName;
+            titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleStyle.FontSize; // 更新为新路径
+            titleFont.IsBold = Options.StyleOptions.TitleStyle.Bold; // 更新为新路径
+            titleFont.FontName = Options.StyleOptions.TitleStyle.FontName; // 更新为新路径
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor)) // 更新为新路径
             {
                 try
                 {
                     // 尝试解析HTML颜色代码
-                    var colorStr = Options.StyleOptions.TitleFontColor.TrimStart('#');
+                    var colorStr = Options.StyleOptions.TitleStyle.FontColor.TrimStart('#'); // 更新为新路径
                     if (colorStr.Length == 6) // 标准RGB格式
                     {
                         int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
@@ -385,7 +385,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             headerStyle.VerticalAlignment = VerticalAlignment.Center;
 
             // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor)) // 更新为新路径
             {
                 try
                 {
@@ -400,17 +400,17 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             }
 
             var headerFont = workbook.CreateFont();
-            headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderFontSize;
-            headerFont.IsBold = Options.StyleOptions.HeaderBold;
-            headerFont.FontName = Options.StyleOptions.HeaderFontName;
+            headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderStyle.FontSize; // 更新为新路径
+            headerFont.IsBold = Options.StyleOptions.HeaderStyle.Bold; // 更新为新路径
+            headerFont.FontName = Options.StyleOptions.HeaderStyle.FontName; // 更新为新路径
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor)) // 更新为新路径
             {
                 try
                 {
                     // 尝试解析HTML颜色代码
-                    var colorStr = Options.StyleOptions.HeaderFontColor.TrimStart('#');
+                    var colorStr = Options.StyleOptions.HeaderStyle.FontColor.TrimStart('#'); // 更新为新路径
                     if (colorStr.Length == 6) // 标准RGB格式
                     {
                         int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
@@ -520,8 +520,8 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     //}
 
     // 在类中添加这些属性来替换常量
-    private string INTEGER_FORMAT => Options.StyleOptions.IntegerFormat;
-    private string DECIMAL_FORMAT => Options.StyleOptions.DecimalFormat;
+    private string INTEGER_FORMAT => Options.StyleOptions.DataStyle.IntegerFormat; // 更新为新路径
+    private string DECIMAL_FORMAT => Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
 
     #endregion
 
@@ -587,7 +587,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         // 创建日期样式
         var dateStyle = workbook.CreateCellStyle();
         var format = workbook.CreateDataFormat();
-        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DefaultDateFormat);
+        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat);
         styleCache[typeof(DateTime)] = dateStyle;
 
         if (useParallelProcessing)
@@ -697,7 +697,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         // 创建日期样式
         var dateStyle = workbook.CreateCellStyle();
         var format = workbook.CreateDataFormat();
-        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DefaultDateFormat);
+        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat); // 更新为新路径
         styleCache[typeof(DateTime)] = dateStyle;
 
         // 获取有ExcelColumn特性的列，如果没有则使用所有列

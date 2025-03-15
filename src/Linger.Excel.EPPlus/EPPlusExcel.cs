@@ -162,26 +162,26 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         {
             case DateTime dateTime:
                 cell.Value = dateTime;
-                cell.Style.Numberformat.Format = Options.StyleOptions.DefaultDateFormat; // 从StyleOptions中获取
+                cell.Style.Numberformat.Format = Options.StyleOptions.DataStyle.DateFormat; // 更新为新路径
                 break;
             case bool boolean:
                 cell.Value = boolean;
                 break;
             case decimal decimalValue:
                 cell.Value = decimalValue;
-                cell.Style.Numberformat.Format = Options.StyleOptions.DecimalFormat; // 从StyleOptions中获取
+                cell.Style.Numberformat.Format = Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case double doubleValue:
                 cell.Value = doubleValue;
-                cell.Style.Numberformat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
+                cell.Style.Numberformat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case float floatValue:
                 cell.Value = floatValue;
-                cell.Style.Numberformat.Format = floatValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
+                cell.Style.Numberformat.Format = floatValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case int or long or short or byte or sbyte or ushort or uint or ulong:
                 cell.Value = Convert.ToInt64(value);
-                cell.Style.Numberformat.Format = Options.StyleOptions.IntegerFormat;
+                cell.Style.Numberformat.Format = Options.StyleOptions.DataStyle.IntegerFormat; // 更新为新路径
                 break;
             default:
                 cell.Value = value.ToString();
@@ -199,24 +199,24 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         try
         {
-            titleRange.Style.Font.Bold = Options.StyleOptions.TitleBold;
-            titleRange.Style.Font.Size = Options.StyleOptions.TitleFontSize;
-            titleRange.Style.Font.Name = Options.StyleOptions.TitleFontName;
+            titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold; // 更新为新路径
+            titleRange.Style.Font.Size = Options.StyleOptions.TitleStyle.FontSize; // 更新为新路径
+            titleRange.Style.Font.Name = Options.StyleOptions.TitleStyle.FontName; // 更新为新路径
             titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
 
             // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleBackgroundColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.BackgroundColor)) // 更新为新路径
             {
                 titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                var color = Color.Parse(Options.StyleOptions.TitleBackgroundColor);
+                var color = Color.Parse(Options.StyleOptions.TitleStyle.BackgroundColor); // 更新为新路径
                 titleRange.Style.Fill.BackgroundColor.SetColor(color);
             }
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor)) // 更新为新路径
             {
-                var fontColor = Color.Parse(Options.StyleOptions.TitleFontColor);
+                var fontColor = Color.Parse(Options.StyleOptions.TitleStyle.FontColor); // 更新为新路径
                 titleRange.Style.Font.Color.SetColor(fontColor);
             }
         }
@@ -233,24 +233,24 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         try
         {
-            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderBold;
-            headerCell.Style.Font.Size = Options.StyleOptions.HeaderFontSize;
-            headerCell.Style.Font.Name = Options.StyleOptions.HeaderFontName;
+            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold; // 更新为新路径
+            headerCell.Style.Font.Size = Options.StyleOptions.HeaderStyle.FontSize; // 更新为新路径
+            headerCell.Style.Font.Name = Options.StyleOptions.HeaderStyle.FontName; // 更新为新路径
             headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
             headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
 
             // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor)) // 更新为新路径
             {
                 headerCell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-                var color = Color.Parse(Options.StyleOptions.HeaderBackgroundColor);
+                var color = Color.Parse(Options.StyleOptions.HeaderStyle.BackgroundColor); // 更新为新路径
                 headerCell.Style.Fill.BackgroundColor.SetColor(color);
             }
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor)) // 更新为新路径
             {
-                var fontColor = Color.Parse(Options.StyleOptions.HeaderFontColor);
+                var fontColor = Color.Parse(Options.StyleOptions.HeaderStyle.FontColor); // 更新为新路径
                 headerCell.Style.Font.Color.SetColor(fontColor);
             }
 

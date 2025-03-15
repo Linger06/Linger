@@ -15,7 +15,7 @@ namespace Linger.Excel.Contracts;
 /// </summary>
 /// <typeparam name="TWorkbook">工作簿类型</typeparam>
 /// <typeparam name="TWorksheet">工作表类型</typeparam>
-public abstract class ExcelBaseService<TWorkbook, TWorksheet> : IExcelService, IExcel<TWorksheet>
+public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelService, IExcel<TWorksheet>
     where TWorkbook : class
     where TWorksheet : class
 {
@@ -34,7 +34,7 @@ public abstract class ExcelBaseService<TWorkbook, TWorksheet> : IExcelService, I
     /// </summary>
     /// <param name="options">Excel配置选项</param>
     /// <param name="logger">日志记录器</param>
-    protected ExcelBaseService(ExcelOptions? options = null, ILogger? logger = null)
+    protected AbstractExcelService(ExcelOptions? options = null, ILogger? logger = null)
     {
         Options = options ?? new ExcelOptions();
         Logger = logger;
@@ -145,7 +145,7 @@ public abstract class ExcelBaseService<TWorkbook, TWorksheet> : IExcelService, I
     /// <summary>
     /// 异步将Excel文件转换为DataTable
     /// </summary>
-    public async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public virtual async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
@@ -172,7 +172,7 @@ public abstract class ExcelBaseService<TWorkbook, TWorksheet> : IExcelService, I
     /// <summary>
     /// 异步将Excel文件转换为对象列表
     /// </summary>
-    public async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
+    public virtual async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {

@@ -28,16 +28,6 @@ public class ExcelOptions
     public int BatchSize { get; set; } = 5000;
 
     /// <summary>
-    /// 是否使用内存优化（处理大文件时）
-    /// </summary>
-    public bool UseMemoryOptimization { get; set; } = false;
-
-    /// <summary>
-    /// 内存优化缓冲区大小（行数）
-    /// </summary>
-    public int MemoryBufferSize { get; set; } = 1000;
-
-    /// <summary>
     /// 是否启用性能监控
     /// </summary>
     public bool EnablePerformanceMonitoring { get; set; } = false;

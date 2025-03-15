@@ -178,26 +178,26 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         {
             case DateTime dateTime:
                 cell.Value = dateTime;
-                cell.Style.DateFormat.Format = Options.StyleOptions.DefaultDateFormat; // 从StyleOptions中获取
+                cell.Style.DateFormat.Format = Options.StyleOptions.DataStyle.DateFormat; // 更新为新路径
                 break;
             case bool boolean:
                 cell.Value = boolean;
                 break;
             case decimal decimalValue:
                 cell.Value = decimalValue;
-                cell.Style.NumberFormat.Format = Options.StyleOptions.DecimalFormat;
+                cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case double doubleValue:
                 cell.Value = doubleValue;
-                cell.Style.NumberFormat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
+                cell.Style.NumberFormat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case float floatValue:
                 cell.Value = floatValue;
-                cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? Options.StyleOptions.IntegerFormat : Options.StyleOptions.DecimalFormat;
+                cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case int or long or short or byte or sbyte or ushort or uint or ulong:
                 cell.Value = Convert.ToInt64(value);
-                cell.Style.NumberFormat.Format = Options.StyleOptions.IntegerFormat;
+                cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.IntegerFormat; // 更新为新路径
                 break;
             default:
                 cell.Value = value.ToString();
@@ -215,18 +215,18 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     {
         try
         {
-            titleRange.Style.Font.Bold = Options.StyleOptions.TitleBold;
-            titleRange.Style.Font.FontSize = Options.StyleOptions.TitleFontSize;
-            titleRange.Style.Font.FontName = Options.StyleOptions.TitleFontName;
+            titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold; // 更新为新路径
+            titleRange.Style.Font.FontSize = Options.StyleOptions.TitleStyle.FontSize; // 更新为新路径
+            titleRange.Style.Font.FontName = Options.StyleOptions.TitleStyle.FontName; // 更新为新路径
             titleRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             titleRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
             // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleBackgroundColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.BackgroundColor)) // 更新为新路径
             {
                 try
                 {
-                    var color = XLColor.FromHtml(Options.StyleOptions.TitleBackgroundColor);
+                    var color = XLColor.FromHtml(Options.StyleOptions.TitleStyle.BackgroundColor); // 更新为新路径
                     titleRange.Style.Fill.BackgroundColor = color;
                 }
                 catch (Exception ex)
@@ -237,11 +237,11 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             }
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleFontColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor)) // 更新为新路径
             {
                 try
                 {
-                    var fontColor = XLColor.FromHtml(Options.StyleOptions.TitleFontColor);
+                    var fontColor = XLColor.FromHtml(Options.StyleOptions.TitleStyle.FontColor); // 更新为新路径
                     titleRange.Style.Font.FontColor = fontColor;
                 }
                 catch (Exception ex)
@@ -263,18 +263,18 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     {
         try
         {
-            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderBold;
-            headerCell.Style.Font.FontSize = Options.StyleOptions.HeaderFontSize;
-            headerCell.Style.Font.FontName = Options.StyleOptions.HeaderFontName;
+            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold; // 更新为新路径
+            headerCell.Style.Font.FontSize = Options.StyleOptions.HeaderStyle.FontSize; // 更新为新路径
+            headerCell.Style.Font.FontName = Options.StyleOptions.HeaderStyle.FontName; // 更新为新路径
             headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
             headerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
 
             // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderBackgroundColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor)) // 更新为新路径
             {
                 try
                 {
-                    var color = XLColor.FromHtml(Options.StyleOptions.HeaderBackgroundColor);
+                    var color = XLColor.FromHtml(Options.StyleOptions.HeaderStyle.BackgroundColor); // 更新为新路径
                     headerCell.Style.Fill.BackgroundColor = color;
                 }
                 catch (Exception ex)
@@ -285,11 +285,11 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             }
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderFontColor))
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor)) // 更新为新路径
             {
                 try
                 {
-                    var fontColor = XLColor.FromHtml(Options.StyleOptions.HeaderFontColor);
+                    var fontColor = XLColor.FromHtml(Options.StyleOptions.HeaderStyle.FontColor); // 更新为新路径
                     headerCell.Style.Font.FontColor = fontColor;
                 }
                 catch (Exception ex)

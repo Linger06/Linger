@@ -5,29 +5,116 @@ namespace Linger.Excel.Contracts;
 /// </summary>
 public class ExcelStyleOptions
 {
-    // 标题样式
-    public string TitleFontName { get; set; } = "Arial";
-    public int TitleFontSize { get; set; } = 14;
-    public bool TitleBold { get; set; } = true;
-    public string TitleBackgroundColor { get; set; } = "#D0D0D0";
-    public string TitleFontColor { get; set; } = "#000000";
+    /// <summary>
+    /// 标题样式配置
+    /// </summary>
+    public TitleStyle TitleStyle { get; set; } = new TitleStyle();
     
-    // 表头样式
-    public string HeaderFontName { get; set; } = "Arial";
-    public int HeaderFontSize { get; set; } = 11;
-    public bool HeaderBold { get; set; } = true;
-    public string HeaderBackgroundColor { get; set; } = "#E0E0E0";
-    public string HeaderFontColor { get; set; } = "#000000";
+    /// <summary>
+    /// 表头样式配置
+    /// </summary>
+    public HeaderStyle HeaderStyle { get; set; } = new HeaderStyle();
     
-    // 数据样式
-    public string DataFontName { get; set; } = "Arial";
-    public int DataFontSize { get; set; } = 10;
+    /// <summary>
+    /// 数据行样式配置
+    /// </summary>
+    public DataStyle DataStyle { get; set; } = new DataStyle();
+    
+    /// <summary>
+    /// 是否显示网格线
+    /// </summary>
     public bool ShowGridlines { get; set; } = true;
+}
+
+/// <summary>
+/// 标题样式配置
+/// </summary>
+public class TitleStyle
+{
+    /// <summary>
+    /// 字体名称
+    /// </summary>
+    public string FontName { get; set; } = "Arial";
     
-    // 数字格式
+    /// <summary>
+    /// 字体大小
+    /// </summary>
+    public int FontSize { get; set; } = 14;
+    
+    /// <summary>
+    /// 是否粗体
+    /// </summary>
+    public bool Bold { get; set; } = true;
+    
+    /// <summary>
+    /// 背景色 (Hex格式: #RRGGBB)
+    /// </summary>
+    public string BackgroundColor { get; set; } = "#D0D0D0";
+    
+    /// <summary>
+    /// 字体颜色 (Hex格式: #RRGGBB)
+    /// </summary>
+    public string FontColor { get; set; } = "#000000";
+}
+
+/// <summary>
+/// 表头样式配置
+/// </summary>
+public class HeaderStyle
+{
+    /// <summary>
+    /// 字体名称
+    /// </summary>
+    public string FontName { get; set; } = "Arial";
+    
+    /// <summary>
+    /// 字体大小
+    /// </summary>
+    public int FontSize { get; set; } = 11;
+    
+    /// <summary>
+    /// 是否粗体
+    /// </summary>
+    public bool Bold { get; set; } = true;
+    
+    /// <summary>
+    /// 背景色 (Hex格式: #RRGGBB)
+    /// </summary>
+    public string BackgroundColor { get; set; } = "#E0E0E0";
+    
+    /// <summary>
+    /// 字体颜色 (Hex格式: #RRGGBB)
+    /// </summary>
+    public string FontColor { get; set; } = "#000000";
+}
+
+/// <summary>
+/// 数据行样式配置
+/// </summary>
+public class DataStyle
+{
+    /// <summary>
+    /// 字体名称
+    /// </summary>
+    public string FontName { get; set; } = "Arial";
+    
+    /// <summary>
+    /// 字体大小
+    /// </summary>
+    public int FontSize { get; set; } = 10;
+    
+    /// <summary>
+    /// 数字格式 - 整数
+    /// </summary>
     public string IntegerFormat { get; set; } = "#,##0";
+    
+    /// <summary>
+    /// 数字格式 - 小数
+    /// </summary>
     public string DecimalFormat { get; set; } = "#,##0.00";
     
-    // 日期格式
-    public string DefaultDateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
+    /// <summary>
+    /// 日期格式
+    /// </summary>
+    public string DateFormat { get; set; } = "yyyy-MM-dd HH:mm:ss";
 }

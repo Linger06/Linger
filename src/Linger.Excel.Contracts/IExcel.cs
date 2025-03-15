@@ -35,6 +35,16 @@ public interface IExcel<TWorksheet> where TWorksheet : class
     /// </summary>
     List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
     
+    /// <summary>
+    /// 异步将Excel文件转换为DataTable
+    /// </summary>
+    Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    
+    /// <summary>
+    /// 异步将Excel文件转换为对象列表
+    /// </summary>
+    Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    
     #endregion
     
     #region Export

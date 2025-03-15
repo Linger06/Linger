@@ -15,7 +15,7 @@ namespace Linger.Excel.Contracts;
 /// <summary>
 /// Excel基础实现类
 /// </summary>
-public abstract class ExcelBase<TWorkbook, TWorksheet> : ExcelBaseService<TWorkbook, TWorksheet>
+public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TWorkbook, TWorksheet>
     where TWorkbook : class
     where TWorksheet : class
 {
