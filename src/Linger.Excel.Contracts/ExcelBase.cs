@@ -1,35 +1,40 @@
-﻿using Linger.Excel.Contracts.Attributes;
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Threading.Tasks;
+using Linger.Excel.Contracts.Attributes;
+using Linger.Excel.Contracts.Utils;
+using Linger.Extensions.Core;
+using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.Contracts;
 
-public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = null, ILogger? logger = null) : IExcel<TWorksheet>
+/// <summary>
+/// Excel基础实现类
+/// </summary>
+public abstract class ExcelBase<TWorkbook, TWorksheet> : ExcelBaseService<TWorkbook, TWorksheet>
     where TWorkbook : class
     where TWorksheet : class
 {
-    /// <summary>
-    /// Excel配置选项
-    /// </summary>
-    protected readonly ExcelOptions Options = options ?? new ExcelOptions();
+    // 构造函数
+    protected ExcelBase(ExcelOptions? options = null, ILogger? logger = null) 
+        : base(options, logger)
+    {
+    }
 
-    /// <summary>
-    /// Excel内容类型
-    /// </summary>
-    public static string ContentType => "application/vnd.ms-excel";
+    #region Excel操作实现
 
-     #region Import
     /// <summary>
     /// 将Excel文件转换为DataTable
     /// </summary>
-    /// <param name="filePath">Excel文件路径</param>
-    /// <param name="sheetName">工作表名称</param>
-    /// <param name="headerRowIndex">列名所在行号</param>
-    /// <param name="addEmptyRow">是否添加空行</param>
-    /// <returns>转换后的DataTable</returns>
-    public DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -40,7 +45,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "从Excel文件读取失败: {FilePath}", filePath);
+            Logger?.LogError(ex, "从Excel文件读取失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -48,17 +53,11 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 将Excel文件转换为对象列表
     /// </summary>
-    /// <typeparam name="T">要转换的类型</typeparam>
-    /// <param name="filePath">Excel文件路径</param>
-    /// <param name="sheetName">工作表名称</param>
-    /// <param name="headerRowIndex">列名所在行号</param>
-    /// <param name="addEmptyRow">是否添加空行</param>
-    /// <returns>转换后的对象列表</returns>
-    public List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
+    public override List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -69,702 +68,448 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "从Excel文件读取并转换为对象列表失败: {FilePath}", filePath);
+            Logger?.LogError(ex, "从Excel文件读取并转换为对象列表失败: {FilePath}", filePath);
             return null;
         }
+    }
+
+    /// <summary>
+    /// 数据表格转 Excel 文件
+    /// </summary>
+    public override string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", 
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+    {
+        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
+        if (ms == null)
+        {
+            Logger?.LogError("转换DataTable到MemoryStream失败");
+            throw new InvalidOperationException("转换DataTable到MemoryStream失败");
+        }
+
+        ms.ToFile(fullFileName);
+        return fullFileName;
+    }
+
+    /// <summary>
+    /// 列表转 Excel 文件
+    /// </summary>
+    public override string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", 
+        Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
+    {
+        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
+        if (ms == null)
+        {
+            Logger?.LogError("转换对象列表到MemoryStream失败");
+            throw new InvalidOperationException("转换对象列表到MemoryStream失败");
+        }
+
+        ms.ToFile(fullFileName);
+        return fullFileName;
     }
 
     /// <summary>
     /// 将Stream转换为DataTable
     /// </summary>
-    /// <param name="stream">要转换的Stream</param>
-    /// <param name="sheetName">工作表名称</param>
-    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
-    /// <param name="addEmptyRow">是否添加空行</param>
-    /// <returns>转换后的DataTable</returns>
-    public virtual DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        if (stream is not { CanRead: true } || stream.Length <= 0)
+        if (stream == null || stream.Length == 0)
         {
-            logger?.LogWarning("无效的Stream: 不可读或长度为0");
+            Logger?.LogWarning("Excel流为空");
             return null;
         }
 
-        return ExecuteSafely(() =>
+        DataTable? dataTable = null;
+        TWorkbook? workbook = null;
+
+        try
         {
-            // 打开工作簿 - 不使用using，手动管理资源
-            var workbook = OpenWorkbook(stream);
+            // 打开Excel工作簿
+            workbook = OpenWorkbook(stream);
             if (workbook == null)
             {
-                logger?.LogError("无法打开Excel工作簿");
+                Logger?.LogWarning("无法打开Excel工作簿");
                 return null;
             }
 
-            try
+            // 获取工作表
+            var worksheet = GetWorksheet(workbook, sheetName);
+            if (worksheet == null || !HasData(worksheet))
             {
-                // 获取工作表
-                var worksheet = GetWorksheet(workbook, sheetName);
-                if (worksheet == null)
-                {
-                    logger?.LogError("无法获取Excel工作表");
-                    return null;
-                }
-
-                // 验证工作表是否包含数据
-                if (!HasData(worksheet))
-                {
-                    logger?.LogWarning("工作表 {SheetName} 不包含数据", GetSheetName(worksheet));
-                    return new DataTable(GetSheetName(worksheet));
-                }
-
-                var dataTable = new DataTable(GetSheetName(worksheet));
-
-                // 获取表头行索引和数据行范围
-                int startRow = headerRowIndex < 0 ? 0 : headerRowIndex;
-                int endRow = GetDataEndRow(worksheet);
-
-                // 处理表头和列定义
-                CreateDataTableColumns(worksheet, dataTable, headerRowIndex);
-
-                // 处理数据行
-                //Npoi 的 startRow 从 0 开始
-                ProcessDataTableRows(worksheet, dataTable, startRow, endRow, addEmptyRow);
-
-                return dataTable;
-            }
-            finally
-            {
-                // 确保无论如何都释放工作簿资源
-                CloseWorkbook(workbook);
-            }
-        }, nameof(ConvertStreamToDataTable));
-    }
-
-    // 添加新的辅助方法以创建数据表列
-    protected virtual void CreateDataTableColumns(TWorksheet worksheet, DataTable dataTable, int headerRowIndex)
-    {
-        if (headerRowIndex < 0)
-        {
-            // 没有表头，使用默认列名
-            int columnCount = EstimateColumnCount(worksheet);
-            for (int i = 0; i < columnCount; i++)
-            {
-                dataTable.Columns.Add($"Column{i + 1}");
-            }
-        }
-        else
-        {
-            // 使用指定行作为表头
-            var headerMappings = CreateHeaderMappings(worksheet, headerRowIndex);
-            foreach (var mapping in headerMappings)
-            {
-                string columnName = mapping.Value;
-                if (string.IsNullOrEmpty(columnName))
-                    columnName = $"Column{mapping.Key + 1}";
-
-                // 处理重复的列名
-                if (dataTable.Columns.Contains(columnName))
-                    columnName = $"{columnName}_{mapping.Key}";
-
-                dataTable.Columns.Add(columnName);
-            }
-        }
-    }
-
-    // 添加处理数据行的方法
-    protected virtual void ProcessDataTableRows(TWorksheet worksheet, DataTable dataTable, int startRow, int endRow, bool addEmptyRow)
-    {
-        for (int rowNum = startRow; rowNum <= endRow; rowNum++)
-        {
-            var dataRow = dataTable.NewRow();
-            bool hasData = GetRowValues(worksheet, rowNum, dataRow);
-
-            // 只添加有数据的行或指定添加空行的情况
-            if (hasData || addEmptyRow)
-            {
-                dataTable.Rows.Add(dataRow);
+                Logger?.LogWarning("工作表为空或不存在: {SheetName}", sheetName ?? "默认");
+                return null;
             }
 
-            // 内存优化
-            OptimizeMemory(rowNum);
-        }
-    }
-
-    // 添加获取行值的方法
-    protected virtual bool GetRowValues(TWorksheet worksheet, int rowNum, DataRow dataRow)
-    {
-        // 这是默认实现，子类可以重写以提供更高效的实现
-        bool hasData = false;
-
-        // 根据行索引和DataRow的列来获取单元格值
-        for (int colIndex = 0; colIndex < dataRow.Table.Columns.Count; colIndex++)
-        {
-            object cellValue = GetCellValue(worksheet, rowNum, colIndex);
-
-            if (cellValue != DBNull.Value)
+            if (Options.EnablePerformanceMonitoring)
             {
-                dataRow[colIndex] = cellValue;
-                hasData = true;
-            }
-        }
+                var sw = System.Diagnostics.Stopwatch.StartNew();
 
-        return hasData;
-    }
-
-    // 添加获取单元格值的方法
-    protected virtual object GetCellValue(TWorksheet worksheet, int rowNum, int colIndex)
-    {
-        // 这是一个简单的默认实现，子类应该重写以提供实际的单元格值获取逻辑
-        return DBNull.Value;
-    }
-
-    // 添加估算列数的方法
-    protected virtual int EstimateColumnCount(TWorksheet worksheet)
-    {
-        // 默认返回一个基本值，子类应该重写以提供准确的列计数
-        return 10;
-    }
-
-    // 添加创建表头映射的方法
-    protected virtual Dictionary<int, string> CreateHeaderMappings(TWorksheet worksheet, int headerRowIndex)
-    {
-        // 默认返回空映射，子类应该重写以提供实际的表头映射
-        return new Dictionary<int, string>();
-    }
-
-    /// <summary>
-    /// 将Stream转换为对象列表 - 适用于中小型Excel文件
-    /// </summary>
-    /// <typeparam name="T">要转换的类型</typeparam>
-    /// <param name="stream">要转换的Stream</param>
-    /// <param name="sheetName">工作表名称</param>
-    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
-    /// <param name="addEmptyRow">是否添加空行</param>
-    /// <returns>转换后的对象列表</returns>
-    /// <remarks>此方法将Excel数据一次性全部加载到内存，如果处理大文件请考虑使用StreamReadExcel</remarks>
-    public List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
-    {
-        var dataTable = ExecuteSafely(() => ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow), "读取Excel到DataTable");
-
-        if (dataTable == null || dataTable.Columns.Count == 0)
-        {
-            logger?.LogWarning("无法从Stream转换为DataTable或结果为空表");
-            return new List<T>();
-        }
-
-        // 如果数据量过大，建议使用StreamReadExcel
-        if (dataTable.Rows.Count > 10000)
-        {
-            logger?.LogWarning("当前数据量较大({RowCount}行)，考虑使用StreamReadExcel方法以减少内存占用", dataTable.Rows.Count);
-        }
-
-        return ExecuteSafely(() => dataTable.ToList<T>(Options.ParallelProcessingThreshold),
-            nameof(ConvertStreamToList));
-    }
-
-    /// <summary>
-    /// 优化内存使用
-    /// </summary>
-    /// <param name="currentRowIndex">当前处理的行索引</param>
-    protected void OptimizeMemory(int currentRowIndex)
-    {
-        if (Options.UseMemoryOptimization && currentRowIndex % Options.MemoryBufferSize == 0)
-        {
-            GC.Collect(0, GCCollectionMode.Optimized);
-        }
-    }
-
-    #endregion
-
-    #region Export
-    /// <summary>
-    /// 将DataTable导出为Excel文件
-    /// </summary>
-    /// <param name="dataTable">数据表</param>
-    /// <param name="fullFileName">文件完整路径</param>
-    /// <param name="sheetsName">工作表名称</param>
-    /// <param name="title">标题</param>
-    /// <param name="action">自定义操作</param>
-    /// <returns>文件路径</returns>
-    public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
-    {
-        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
-        if (ms == null)
-        {
-            logger?.LogError("转换DataTable到MemoryStream失败");
-            throw new InvalidOperationException("转换DataTable到MemoryStream失败");
-        }
-
-        ms.ToFile(fullFileName);
-        return fullFileName;
-    }
-
-    /// <summary>
-    /// 将对象列表导出为Excel文件
-    /// </summary>
-    /// <typeparam name="T">对象类型</typeparam>
-    /// <param name="list">对象列表</param>
-    /// <param name="fullFileName">文件完整路径</param>
-    /// <param name="sheetsName">工作表名称</param>
-    /// <param name="title">标题</param>
-    /// <param name="action">自定义操作</param>
-    /// <returns>文件路径</returns>
-    public string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, PropertyInfo[]>? action = null,Action<TWorksheet>? styleAction = null) where T : class
-    {
-        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action,styleAction);
-        if (ms == null)
-        {
-            logger?.LogError("转换对象列表到MemoryStream失败");
-            throw new InvalidOperationException("转换对象列表到MemoryStream失败");
-        }
-
-        ms.ToFile(fullFileName);
-        return fullFileName;
-    }
-
-    /// <summary>
-    /// 将DataTable转换为MemoryStream
-    /// </summary>
-    /// <param name="dataTable">数据表</param>
-    /// <param name="sheetsName">工作表名称</param>
-    /// <param name="title">标题</param>
-    /// <param name="action">自定义操作</param>
-    /// <param name="styleAction">自定义样式操作</param>
-    /// <returns>内存流</returns>
-    public virtual MemoryStream? ConvertDataTableToMemoryStream(
-        DataTable dataTable,
-        string sheetsName = "Sheet1",
-        string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
-        Action<TWorksheet>? styleAction = null)  // 添加样式回调
-    {
-        if (dataTable == null || dataTable.Columns.Count == 0)
-        {
-            logger?.LogWarning("要转换的DataTable为空或没有列");
-            return null;
-        }
-
-        // 1. 创建工作簿和工作表
-        var workbook = CreateWorkbook();
-        var worksheet = CreateWorksheet(workbook, sheetsName);
-
-        // 2. 应用标题(如果有)
-        int titleRowsCount = 0;
-        if (!string.IsNullOrEmpty(title))
-        {
-            titleRowsCount = ApplyTitle(worksheet, title, dataTable.Columns.Count);
-        }
-
-        // 3. 创建标题行
-        CreateHeaderRow(worksheet, dataTable.Columns, titleRowsCount);
-
-        // 4. 处理数据行
-        ProcessDataRows(worksheet, dataTable, titleRowsCount);
-
-        // 5. 执行自定义操作
-        action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
-        
-        // 5.1 执行自定义样式操作
-        styleAction?.Invoke(worksheet);
-
-        // 6. 应用工作表格式化
-        if (Options.AutoFitColumns)
-        {
-            ApplyWorksheetFormatting(worksheet, titleRowsCount + dataTable.Rows.Count, dataTable.Columns.Count);
-        }
-
-        // 7. 保存并返回
-        return SaveWorkbookToStream(workbook);
-    }
-
-    /// <summary>
-    /// 将对象列表转换为MemoryStream
-    /// </summary>
-    /// <typeparam name="T">对象类型</typeparam>
-    /// <param name="list">对象列表</param>
-    /// <param name="sheetsName">工作表名称</param>
-    /// <param name="title">标题</param>
-    /// <param name="action">自定义操作</param>
-    /// <param name="styleAction">自定义样式操作</param>
-    /// <returns>内存流</returns>
-    public virtual MemoryStream? ConvertCollectionToMemoryStream<T>(
-        List<T> list,
-        string sheetsName = "Sheet1",
-        string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null,
-        Action<TWorksheet>? styleAction = null)  // 添加样式回调
-        where T : class
-    {
-        if (list == null || list.Count == 0)
-        {
-            logger?.LogWarning("要转换的集合为空");
-            return null;
-        }
-
-        // 1. 创建工作簿和工作表
-        var workbook = CreateWorkbook();
-        var worksheet = CreateWorksheet(workbook, sheetsName);
-
-        // 2. 获取属性信息
-        var properties = GetTypeProperties<T>();
-
-        // 3. 应用标题(如果有)
-        int titleRowsCount = 0;
-        if (!string.IsNullOrEmpty(title))
-        {
-            titleRowsCount = ApplyTitle(worksheet, title, properties.Length);
-        }
-
-        // 4. 创建标题行
-        CreateCollectionHeaderRow(worksheet, properties, titleRowsCount);
-
-        // 5. 处理数据行
-        ProcessCollectionRows(worksheet, list, properties, titleRowsCount);
-
-        // 6. 执行自定义操作
-        action?.Invoke(worksheet, properties);
-        
-        // 6.1 执行自定义样式操作
-        styleAction?.Invoke(worksheet);
-
-        // 7. 应用工作表格式化
-        if (Options.AutoFitColumns)
-        {
-            ApplyWorksheetFormatting(worksheet, titleRowsCount + list.Count + 1, properties.Length);
-        }
-
-        // 8. 保存并返回
-        return SaveWorkbookToStream(workbook);
-    }
-
-    /// <summary>
-    /// 创建空工作簿
-    /// </summary>
-    protected abstract TWorkbook CreateWorkbook();
-
-    /// <summary>
-    /// 创建工作表
-    /// </summary>
-    protected abstract TWorksheet CreateWorksheet(TWorkbook workbook, string sheetName);
-
-    /// <summary>
-    /// 应用标题到工作表
-    /// </summary>
-    /// <returns>标题占用的行数</returns>
-    protected abstract int ApplyTitle(TWorksheet worksheet, string title, int columnCount);
-
-    /// <summary>
-    /// 创建标题行
-    /// </summary>
-    protected virtual void CreateHeaderRow(TWorksheet worksheet, DataColumnCollection columns, int startRowIndex)
-    {
-        string[] columnNames = new string[columns.Count];
-
-        for (int i = 0; i < columns.Count; i++)
-        {
-            columnNames[i] = columns[i].ColumnName;
-        }
-        CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
-    }
-
-    /// <summary>
-    /// 创建集合标题行
-    /// </summary>
-    protected virtual void CreateCollectionHeaderRow(TWorksheet worksheet, PropertyInfo[] properties, int startRowIndex)
-    {
-        // 获取有ExcelColumn特性的列，如果没有则使用所有列
-        var columns = GetExcelColumns(properties);
-        if (columns.Count == 0)
-        {
-            string[] columnNames = properties.Select(p => p.Name).ToArray();
-            CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
-        }
-        else
-        {
-            // 使用特性标记的属性及其顺序
-            columns = columns.OrderBy(c => c.Item3).ToList();
-            string[] columnNames = columns.Select(c =>
-                string.IsNullOrEmpty(c.Item2) ? c.Item1 : c.Item2).ToArray();
-            CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
-        }
-    }
-
-    /// <summary>
-    /// 创建标题行的核心逻辑 - 供子类实现使用
-    /// </summary>
-    /// <param name="worksheet">工作表</param>
-    /// <param name="columnNames">列名数组</param>
-    /// <param name="startRowIndex">起始行索引</param>
-    protected abstract void CreateHeaderRowCore(TWorksheet worksheet, string[] columnNames, int startRowIndex);
-
-    /// <summary>
-    /// 处理数据行
-    /// </summary>
-    protected abstract void ProcessDataRows(TWorksheet worksheet, DataTable dataTable, int startRowIndex);
-
-    /// <summary>
-    /// 处理集合数据行
-    /// </summary>
-    protected abstract void ProcessCollectionRows<T>(TWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex) where T : class;
-
-    /// <summary>
-    /// 应用工作表格式化
-    /// </summary>
-    protected abstract void ApplyWorksheetFormatting(TWorksheet worksheet, int rowCount, int columnCount);
-
-    /// <summary>
-    /// 保存工作簿到内存流
-    /// </summary>
-    protected abstract MemoryStream SaveWorkbookToStream(TWorkbook workbook);
-
-    #endregion
-
-    /// <summary>
-    /// 执行操作并提供安全性和性能监控
-    /// </summary>
-    /// <typeparam name="T">返回类型</typeparam>
-    /// <param name="operation">要执行的操作</param>
-    /// <param name="operationName">操作名称（用于日志）</param>
-    /// <param name="defaultValue">出错时返回的默认值</param>
-    /// <returns>操作结果或默认值</returns>
-    protected T? ExecuteSafely<T>(Func<T> operation, string operationName, T? defaultValue = default)
-    {
-        System.Diagnostics.Stopwatch? sw = null;
-        if (Options.EnablePerformanceMonitoring)
-        {
-            sw = System.Diagnostics.Stopwatch.StartNew();
-        }
-
-        try
-        {
-            return operation();
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "Excel操作失败: {OperationName}", operationName);
-            return defaultValue;
-        }
-        finally
-        {
-            if (sw != null)
-            {
+                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+                
                 sw.Stop();
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
-                    logger?.LogInformation("{Operation} 耗时: {Time}ms", operationName, sw.ElapsedMilliseconds);
+                    Logger?.LogInformation(
+                        "从Excel流导入到DataTable[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                        dataTable?.Rows.Count ?? 0,
+                        dataTable?.Columns.Count ?? 0,
+                        sw.ElapsedMilliseconds);
                 }
+            }
+            else
+            {
+                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+            }
+
+            return dataTable;
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel流读取失败");
+            return null;
+        }
+        finally
+        {
+            // 确保释放资源
+            if (workbook != null)
+            {
+                CloseWorkbook(workbook);
             }
         }
     }
 
     /// <summary>
-    /// 获取类型的可读属性
+    /// 将Stream转换为对象列表
     /// </summary>
-    protected virtual PropertyInfo[] GetTypeProperties<T>() where T : class
+    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        return typeof(T).GetProperties()
-            .Where(p => p.CanRead)
-            .ToArray();
-    }
-
-    /// <summary>
-    /// 获取标记有ExcelColumn特性的属性信息
-    /// </summary>
-    protected List<(string Name, string ColumnName, int Index)> GetExcelColumns(IEnumerable<PropertyInfo> properties)
-    {
-        List<(string Name, string ColumnName, int Index)> columns = [];
-        Type excelColumnAttributeType = typeof(ExcelColumnAttribute);
-
-        foreach (var prop in properties)
+        // 首先转换为DataTable
+        var dataTable = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        if (dataTable == null)
         {
-            var attrs = prop.GetCustomAttributesData();
-            if (attrs.Any(a => a.AttributeType == excelColumnAttributeType))
-            {
-                var attr = prop.GetCustomAttributes(excelColumnAttributeType, true)
-                    .FirstOrDefault() as ExcelColumnAttribute;
+            return null;
+        }
 
-                if (attr != null)
+        // 然后将DataTable转换为对象列表
+        try
+        {
+            var result = new List<T>(dataTable.Rows.Count);
+            var properties = typeof(T).GetProperties().Where(p => p.CanWrite).ToArray();
+
+            // 创建属性映射
+            var propertyMapping = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prop in properties)
+            {
+                // 检查是否有ExcelColumn特性
+                var excelAttr = prop.GetCustomAttribute<ExcelColumnAttribute>();
+                if (excelAttr != null && !string.IsNullOrEmpty(excelAttr.ColumnName))
                 {
-                    columns.Add(new(
-                        prop.Name,
-                        attr.ColumnName.IsNullOrEmpty() ? prop.Name : attr.ColumnName,
-                        attr.Index == int.MaxValue ? columns.Count : attr.Index));
+                    propertyMapping[excelAttr.ColumnName] = prop;
                 }
+
+                // 同时添加属性名称映射
+                propertyMapping[prop.Name] = prop;
             }
-        }
 
-        return columns;
-    }
-
-    /// <summary>
-    /// 批量处理数据
-    /// </summary>
-    /// <typeparam name="TRow">行类型</typeparam>
-    /// <typeparam name="TValue">值类型</typeparam>
-    /// <param name="totalCount">数据总数</param>
-    /// <param name="createRowFunc">创建行的函数</param>
-    /// <param name="getValuesFunc">获取行值的函数</param>
-    /// <param name="processRowFunc">处理行的函数</param>
-    protected void ProcessInBatches<TRow, TValue>(
-        int totalCount,
-        Func<int, TRow> createRowFunc,
-        Func<int, TValue[]> getValuesFunc,
-        Action<TRow, int, TValue[], object?> processRowFunc,
-        object? additionalParam = null)
-    {
-        if (totalCount <= 0)
-            return;
-
-        bool useParallel = totalCount > Options.ParallelProcessingThreshold;
-        int batchSize = Options.UseBatchWrite ? Options.BatchSize : totalCount;
-
-        if (useParallel)
-        {
-            // 预计算所有值
-            var batchValues = new TValue[totalCount][];
-
-            Parallel.For(0, totalCount, i =>
+            // 创建列到属性的映射
+            var columnToProperty = new Dictionary<int, PropertyInfo>();
+            for (int i = 0; i < dataTable.Columns.Count; i++)
             {
-                batchValues[i] = getValuesFunc(i);
-            });
-
-            // 批量处理
-            for (int batchStart = 0; batchStart < totalCount; batchStart += batchSize)
-            {
-                int batchEnd = Math.Min(batchStart + batchSize, totalCount);
-
-                for (int i = batchStart; i < batchEnd; i++)
+                string columnName = dataTable.Columns[i].ColumnName;
+                if (propertyMapping.TryGetValue(columnName, out var property))
                 {
-                    var row = createRowFunc(i);
-                    var values = batchValues[i];
-                    processRowFunc(row, i, values, additionalParam);
+                    columnToProperty[i] = property;
                 }
             }
-        }
-        else
-        {
-            // 直接处理每一行
-            for (int i = 0; i < totalCount; i++)
+
+            // 转换每行数据
+            foreach (DataRow row in dataTable.Rows)
             {
-                var row = createRowFunc(i);
-                var values = getValuesFunc(i);
-                processRowFunc(row, i, values, additionalParam);
+                T item = Activator.CreateInstance<T>();
+
+                foreach (var kvp in columnToProperty)
+                {
+                    int columnIndex = kvp.Key;
+                    PropertyInfo property = kvp.Value;
+
+                    try
+                    {
+                        if (!row.IsNull(columnIndex))
+                        {
+                            object? value = row[columnIndex];
+                            var convertedValue = ExcelValueConverter.TryConvertValue(value, property.PropertyType);
+                            if (convertedValue != null)
+                            {
+                                property.SetValue(item, convertedValue);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger?.LogWarning(ex, "转换Excel单元格值到对象属性时出错: 列={Column}, 属性={Property}", dataTable.Columns[columnIndex].ColumnName, property.Name);
+                    }
+                }
+
+                result.Add(item);
             }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "将DataTable转换为对象列表时出错");
+            return null;
         }
     }
 
     /// <summary>
-    /// 创建Excel模板
+    /// 列表转 Excel 内存流
     /// </summary>
-    /// <typeparam name="T">数据类型</typeparam>
-    /// <param name="sheetName">工作表名称</param>
-    /// <returns>Excel模板内存流</returns>
-    public MemoryStream CreateExcelTemplate<T>() where T : class, new()
+    public override MemoryStream? ConvertCollectionToMemoryStream<T>(
+        List<T> list, 
+        string sheetsName = "sheet1", 
+        string title = "",
+        Action<TWorksheet, PropertyInfo[]>? action = null,
+        Action<TWorksheet>? styleAction = null)
     {
-        var type = typeof(T);
-        var properties = type.GetProperties().Where(p => p.CanRead).ToArray();
-
-        // 创建一个空的列表，只包含列名
-        var list = new List<T>(1);
-
-        // 使用现有方法创建模板
-        var result = ConvertCollectionToMemoryStream(list, type.Name, $"{type.Name} 模板");
-
-        if (result == null)
-            return new MemoryStream();
-
-        return result;
-    }
-
-    /// <summary>
-    /// 获取Excel单元格值的通用方法
-    /// </summary>
-    protected object GetExcelCellValue(object cellValue, bool isDateFormat = false)
-    {
-        return ExcelValueConverter.ConvertToDbValue(cellValue, isDateFormat);
-    }
-
-    #region 异步方法
-
-    /// <summary>
-    /// 异步将Excel文件转换为DataTable
-    /// </summary>
-    public async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
-    {
-        return await ProcessExcelFileAsync<DataTable?>(
-            filePath,
-            stream => ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow),
-            "从Excel文件异步读取");
-    }
-
-    /// <summary>
-    /// 异步将Excel文件转换为对象列表
-    /// </summary>
-    public async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
-    {
-        return await ProcessExcelFileAsync<List<T>?>(
-            filePath,
-            stream => ConvertStreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow),
-            "从Excel文件异步读取并转换为对象列表");
-    }
-
-    /// <summary>
-    /// 异步处理Excel文件
-    /// </summary>
-    private async Task<TResult> ProcessExcelFileAsync<TResult>(string filePath, Func<Stream, TResult> operation, string operationName)
-    {
-        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        if (list == null)
         {
-            logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return default!;
+            Logger?.LogWarning("要导出的列表为空");
+            list = new List<T>();
         }
 
         try
         {
-            // 在Task.Run内部创建和使用文件流，确保流在使用完毕后才关闭
-            return await Task.Run(() =>
+            if (Options.EnablePerformanceMonitoring)
             {
-                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                return operation(fileStream);
-            });
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var result = ExportCollection(list, sheetsName, title, action, styleAction);
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger?.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
+                        list.Count, sw.ElapsedMilliseconds);
+                }
+
+                return result;
+            }
+            else
+            {
+                return ExportCollection(list, sheetsName, title, action, styleAction);
+            }
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "{OperationName}失败: {FilePath}", operationName, filePath);
-            return default!;
+            Logger?.LogError(ex, "导出列表到Excel失败");
+            return null;
         }
     }
 
     /// <summary>
-    /// 异步将DataTable导出为Excel文件
+    /// 数据表格转 Excel 内存流
     /// </summary>
-    public async Task<string> DataTableToFileAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+    public override MemoryStream? ConvertDataTableToMemoryStream(
+        DataTable dataTable, 
+        string sheetsName = "sheet1", 
+        string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
+        Action<TWorksheet>? styleAction = null)
     {
-        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
-        if (ms == null)
+        if (dataTable == null)
         {
-            logger?.LogError("转换DataTable到MemoryStream失败");
-            throw new InvalidOperationException("转换DataTable到MemoryStream失败");
+            Logger?.LogWarning("要导出的DataTable为空");
+            dataTable = new DataTable();
         }
 
-        await ms.ToFileAsync(fullFileName);
-        return fullFileName;
+        try
+        {
+            if (Options.EnablePerformanceMonitoring)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger?.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                        dataTable.Rows.Count, dataTable.Columns.Count, sw.ElapsedMilliseconds);
+                }
+
+                return result;
+            }
+            else
+            {
+                return ExportDataTable(dataTable, sheetsName, title, action, styleAction);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "导出DataTable到Excel失败");
+            return null;
+        }
     }
 
     /// <summary>
-    /// 异步将对象列表导出为Excel文件
+    /// 导出集合到Excel
     /// </summary>
-    public async Task<string> ListToFileAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class
+    private MemoryStream ExportCollection<T>(
+        List<T> list, 
+        string sheetsName, 
+        string title,
+        Action<TWorksheet, PropertyInfo[]>? action,
+        Action<TWorksheet>? styleAction) where T : class
     {
-        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
-        if (ms == null)
+        // 获取所有属性
+        var properties = typeof(T).GetProperties().Where(p => p.CanRead).ToArray();
+        
+        // 创建Excel工作簿和工作表
+        var workbook = CreateWorkbook();
+        var worksheet = CreateWorksheet(workbook, sheetsName);
+        
+        // 获取所有列名
+        string[] columnNames;
+        var columns = GetExcelColumns(properties);
+        
+        if (columns.Count > 0)
         {
-            logger?.LogError("转换对象列表到MemoryStream失败");
-            throw new InvalidOperationException("转换对象列表到MemoryStream失败");
+            // 使用特性标记的列名
+            columns = columns.OrderBy(c => c.Index).ToList();
+            columnNames = columns.Select(c => c.ColumnName).ToArray();
         }
+        else
+        {
+            // 使用属性名作为列名
+            columnNames = properties.Select(p => p.Name).ToArray();
+        }
+        
+        // 应用标题
+        int startRowIndex = 0;
+        if (!string.IsNullOrEmpty(title))
+        {
+            startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
+        }
+        
+        // 创建表头行
+        CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
+        
+        // 填充数据行
+        ProcessCollectionRows(worksheet, list, properties, startRowIndex);
+        
+        // 应用自定义处理
+        action?.Invoke(worksheet, properties);
+        
+        // 应用样式
+        styleAction?.Invoke(worksheet);
+        
+        // 进行工作表格式化
+        ApplyWorksheetFormatting(worksheet, list.Count + startRowIndex + 1, columnNames.Length);
+        
+        // 保存到流
+        return SaveWorkbookToStream(workbook);
+    }
 
-        await ms.ToFileAsync(fullFileName);
-        return fullFileName;
+    /// <summary>
+    /// 导出DataTable到Excel
+    /// </summary>
+    private MemoryStream ExportDataTable(
+        DataTable dataTable, 
+        string sheetsName, 
+        string title,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        Action<TWorksheet>? styleAction)
+    {
+        // 创建Excel工作簿和工作表
+        var workbook = CreateWorkbook();
+        var worksheet = CreateWorksheet(workbook, sheetsName);
+        
+        // 获取所有列名
+        string[] columnNames = dataTable.Columns.Cast<DataColumn>()
+            .Select(col => col.ColumnName)
+            .ToArray();
+        
+        // 应用标题
+        int startRowIndex = 0;
+        if (!string.IsNullOrEmpty(title))
+        {
+            startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
+        }
+        
+        // 创建表头行
+        CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
+        
+        // 填充数据行
+        ProcessDataRows(worksheet, dataTable, startRowIndex);
+        
+        // 应用自定义处理
+        action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
+        
+        // 应用样式
+        styleAction?.Invoke(worksheet);
+        
+        // 进行工作表格式化
+        ApplyWorksheetFormatting(worksheet, dataTable.Rows.Count + startRowIndex + 1, columnNames.Length);
+        
+        // 保存到流
+        return SaveWorkbookToStream(workbook);
+    }
+
+    /// <summary>
+    /// 从工作表导入数据
+    /// </summary>
+    private DataTable ImportFromWorksheet(TWorksheet worksheet, int headerRowIndex, bool addEmptyRow)
+    {
+        DataTable dataTable = new DataTable(GetSheetName(worksheet));
+        
+        // 估计列数
+        int columnCount = EstimateColumnCount(worksheet);
+        if (columnCount <= 0)
+        {
+            Logger?.LogWarning("工作表为空或无法确定列数");
+            return dataTable;
+        }
+        
+        // 获取表头映射
+        var headerMappings = CreateHeaderMappings(worksheet, headerRowIndex);
+        
+        // 添加列
+        foreach (var mapping in headerMappings)
+        {
+            dataTable.Columns.Add(mapping.Value);
+        }
+        
+        // 获取数据行范围
+        int startRow = GetDataStartRow(worksheet, headerRowIndex);
+        int endRow = GetDataEndRow(worksheet);
+        
+        // 读取数据行
+        for (int rowNum = startRow; rowNum <= endRow; rowNum++)
+        {
+            DataRow row = dataTable.NewRow();
+            bool hasValue = false;
+            
+            foreach (var mapping in headerMappings)
+            {
+                int colIndex = mapping.Key;
+                
+                // 获取单元格值
+                object cellValue = GetCellValue(worksheet, rowNum, colIndex);
+                
+                // 设置行值
+                if (cellValue != DBNull.Value)
+                {
+                    row[mapping.Value] = cellValue;
+                    hasValue = true;
+                }
+            }
+            
+            // 只添加有数据的行，除非指定了添加空行
+            if (hasValue || addEmptyRow)
+            {
+                dataTable.Rows.Add(row);
+            }
+        }
+        
+        return dataTable;
     }
 
     #endregion
@@ -792,24 +537,79 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     protected abstract bool HasData(TWorksheet worksheet);
 
     /// <summary>
-    /// 创建属性映射关系
+    /// 创建工作簿
+    /// </summary>
+    protected abstract TWorkbook CreateWorkbook();
+
+    /// <summary>
+    /// 创建工作表
+    /// </summary>
+    protected abstract TWorksheet CreateWorksheet(TWorkbook workbook, string sheetName);
+
+    /// <summary>
+    /// 创建属性映射
     /// </summary>
     protected abstract Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(TWorksheet worksheet, int headerRowIndex) where T : class, new();
 
     /// <summary>
-    /// 获取数据开始行
+    /// 获取数据开始行索引
     /// </summary>
     protected abstract int GetDataStartRow(TWorksheet worksheet, int headerRowIndex);
 
     /// <summary>
-    /// 获取数据结束行
+    /// 获取数据结束行索引
     /// </summary>
     protected abstract int GetDataEndRow(TWorksheet worksheet);
 
     /// <summary>
-    /// 关闭工作簿并释放资源
+    /// 关闭工作簿
     /// </summary>
     protected abstract void CloseWorkbook(TWorkbook workbook);
+
+    /// <summary>
+    /// 估计列数
+    /// </summary>
+    protected abstract int EstimateColumnCount(TWorksheet worksheet);
+
+    /// <summary>
+    /// 创建表头映射
+    /// </summary>
+    protected abstract Dictionary<int, string> CreateHeaderMappings(TWorksheet worksheet, int headerRowIndex);
+
+    /// <summary>
+    /// 获取单元格值
+    /// </summary>
+    protected abstract object GetCellValue(TWorksheet worksheet, int rowNum, int colIndex);
+
+    /// <summary>
+    /// 应用标题
+    /// </summary>
+    protected abstract int ApplyTitle(TWorksheet worksheet, string title, int columnCount);
+
+    /// <summary>
+    /// 创建标题行的核心方法
+    /// </summary>
+    protected abstract void CreateHeaderRowCore(TWorksheet worksheet, string[] columnNames, int startRowIndex);
+
+    /// <summary>
+    /// 处理数据行
+    /// </summary>
+    protected abstract void ProcessDataRows(TWorksheet worksheet, DataTable dataTable, int startRowIndex);
+
+    /// <summary>
+    /// 处理集合数据行
+    /// </summary>
+    protected abstract void ProcessCollectionRows<T>(TWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex) where T : class;
+
+    /// <summary>
+    /// 应用工作表格式化
+    /// </summary>
+    protected abstract void ApplyWorksheetFormatting(TWorksheet worksheet, int rowCount, int columnCount);
+
+    /// <summary>
+    /// 保存工作簿到内存流
+    /// </summary>
+    protected abstract MemoryStream SaveWorkbookToStream(TWorkbook workbook);
 
     #endregion
 }

@@ -208,4 +208,24 @@ namespace ExcelExample
             return employees;
         }
     }
+    
+    // 非泛型接口使用示例
+    IExcelService excelService = new NpoiExcel();
+    var data = new List<Employee> { /* ... */ };
+    excelService.ListToFile(data, "employees.xlsx");
+
+    // 获取特定功能
+    if (excelService is IExcel<ISheet> npoiExcel)
+    {
+        // 使用NPOI特定的功能
+        npoiExcel.ListToFile(data, "employees.xlsx", styleAction: sheet => {
+            // 应用特定于NPOI的样式
+        });
+    }
+
+    // 类型匹配更简单的方法
+    var npoi = new NpoiExcel();
+    npoi.ListToFile(data, "employees.xlsx", styleAction: sheet => {
+        // 应用特定于NPOI的样式
+    });
 }
