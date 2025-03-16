@@ -456,6 +456,17 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     /// <summary>
     /// 从工作表导入数据
     /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataTable</returns>
+    /// <remarks>
+    /// headerRowIndex的约定：
+    /// 1. headerRowIndex传入为0-based索引（如同C#数组）
+    /// 2. 如果headerRowIndex为-1，表示Excel没有表头行，直接从第一行开始读取数据
+    /// 3. 各实现类需要根据自己的索引系统进行适当转换
+    /// 4. 如果有表头行，数据行从表头的下一行开始
+    /// </remarks>
     private DataTable ImportFromWorksheet(TWorksheet worksheet, int headerRowIndex, bool addEmptyRow)
     {
         DataTable dataTable = new DataTable(GetSheetName(worksheet));
@@ -471,13 +482,22 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
         // 获取表头映射
         var headerMappings = CreateHeaderMappings(worksheet, headerRowIndex);
         
+        // 如果headerRowIndex=-1且没有映射，自动生成列名(Column1, Column2...)
+        if (headerMappings.Count == 0 && headerRowIndex < 0)
+        {
+            for (int i = 0; i < columnCount; i++)
+            {
+                headerMappings[i] = $"Column{i+1}";
+            }
+        }
+        
         // 添加列
         foreach (var mapping in headerMappings)
         {
             dataTable.Columns.Add(mapping.Value);
         }
         
-        // 获取数据行范围
+        // 获取数据行范围 - 这里的startRow和endRow将使用各实现类的原生索引格式
         int startRow = GetDataStartRow(worksheet, headerRowIndex);
         int endRow = GetDataEndRow(worksheet);
         
@@ -491,7 +511,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
             {
                 int colIndex = mapping.Key;
                 
-                // 获取单元格值
+                // GetCellValue期望接收原生索引格式 - rowNum已由GetDataStartRow转换，colIndex无需转换
                 object cellValue = GetCellValue(worksheet, rowNum, colIndex);
                 
                 // 设置行值
@@ -554,6 +574,13 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     /// <summary>
     /// 获取数据开始行索引
     /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)</param>
+    /// <returns>数据起始行索引(按库的原生索引格式)</returns>
+    /// <remarks>
+    /// 此方法应该处理headerRowIndex为负值的情况，通常返回第一个有效的数据行索引。
+    /// 返回的索引需使用实现库的原生索引格式(NPOI为0-based，EPPlus/ClosedXML为1-based)。
+    /// </remarks>
     protected abstract int GetDataStartRow(TWorksheet worksheet, int headerRowIndex);
 
     /// <summary>

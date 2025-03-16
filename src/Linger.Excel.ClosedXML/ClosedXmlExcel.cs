@@ -70,11 +70,32 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return result;
     }
 
+    /// <summary>
+    /// 获取数据开始行索引
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
+    /// <returns>数据开始行索引(1-based)</returns>
+    /// <remarks>
+    /// ClosedXML使用1-based索引系统。
+    /// 如果headerRowIndex为-1(无表头)，则从第1行开始读取数据。
+    /// 否则从表头行的下一行(headerRowIndex+2，因为表头行已转换为1-based)开始读取数据。
+    /// </remarks>
     protected override int GetDataStartRow(IXLWorksheet worksheet, int headerRowIndex)
     {
+        // 如果headerRowIndex为负值(无表头)，则从第1行开始(ClosedXML从1开始计数)
         return headerRowIndex < 0 ? 1 : headerRowIndex + 2;
     }
 
+    /// <summary>
+    /// 获取数据结束行索引
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <returns>数据结束行索引(1-based)</returns>
+    /// <remarks>
+    /// ClosedXML使用1-based索引系统。
+    /// LastRow().RowNumber()返回的是工作表最后一行的行号(已是1-based)。
+    /// </remarks>
     protected override int GetDataEndRow(IXLWorksheet worksheet)
     {
         var usedRange = worksheet.RangeUsed();
@@ -99,10 +120,22 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return usedRange?.LastColumn()?.ColumnNumber() ?? 0;
     }
 
+    /// <summary>
+    /// 创建表头映射关系(列索引到列名的映射)
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
+    /// <returns>列索引到列名的字典(键为0-based索引)</returns>
+    /// <remarks>
+    /// ClosedXML使用1-based索引系统。
+    /// 如果headerRowIndex为-1(无表头)，则返回空字典。
+    /// 注意：虽然ClosedXML使用1-based列索引，但返回的字典键是0-based，以保持API一致性。
+    /// </remarks>
     protected override Dictionary<int, string> CreateHeaderMappings(IXLWorksheet worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, string>();
 
+        // 如果不存在表头行，返回空字典
         if (headerRowIndex < 0)
             return result;
 
@@ -112,17 +145,31 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         {
             int colIndex = cell.Address.ColumnNumber;
             string columnName = cell.Value.ToString() ?? $"Column{colIndex}";
-            result[colIndex] = columnName;
+            // 存储0-based索引作为键，确保在GetCellValue中能正确+1
+            result[colIndex - 1] = columnName;
         }
 
         return result;
     }
 
+    /// <summary>
+    /// 获取单元格的值
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="rowNum">行索引(1-based)</param>
+    /// <param name="colIndex">列索引(0-based)</param>
+    /// <returns>单元格值</returns>
+    /// <remarks>
+    /// ClosedXML使用1-based索引系统。
+    /// rowNum已经是ClosedXML的1-based行号(由GetDataStartRow方法确保)。
+    /// colIndex是基类传入的0-based索引，需要+1转换为ClosedXML需要的列号。
+    /// </remarks>
     protected override object GetCellValue(IXLWorksheet worksheet, int rowNum, int colIndex)
     {
-        // ClosedXML从1开始计数
+        // ClosedXML从1开始计数，rowNum应已经是1-based
+        // 但colIndex是0-based，需要+1
         var row = worksheet.Row(rowNum);
-        var cell = row.Cell(colIndex);
+        var cell = row.Cell(colIndex + 1);
 
         if (cell.IsEmpty())
             return DBNull.Value;
@@ -365,6 +412,16 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// <summary>
     /// 处理数据行
     /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="dataTable">数据表</param>
+    /// <param name="startRowIndex">起始行索引(0-based)</param>
+    /// <remarks>
+    /// ClosedXML使用1-based索引系统。
+    /// 行索引需要进行转换：startRowIndex+i+2，其中:
+    /// - startRowIndex是表头行索引(0-based)
+    /// - +2是因为要跳过表头行，且转换为1-based
+    /// 列索引也需要+1转换为ClosedXML的1-based索引。
+    /// </remarks>
     protected override void ProcessDataRows(IXLWorksheet worksheet, DataTable dataTable, int startRowIndex)
     {
         bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
@@ -420,6 +477,18 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// <summary>
     /// 处理集合数据行
     /// </summary>
+    /// <typeparam name="T">集合元素类型</typeparam>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="list">数据列表</param>
+    /// <param name="properties">属性数组</param>
+    /// <param name="startRowIndex">起始行索引(0-based)</param>
+    /// <remarks>
+    /// ClosedXML使用1-based索引系统。
+    /// 行索引需要进行转换：startRowIndex+i+2，其中:
+    /// - startRowIndex是表头行索引(0-based)
+    /// - +2是因为要跳过表头行，且转换为1-based
+    /// 列索引也需要+1转换为ClosedXML的1-based索引。
+    /// </remarks>
     protected override void ProcessCollectionRows<T>(IXLWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
         // 优先查找带有ExcelColumn特性的属性

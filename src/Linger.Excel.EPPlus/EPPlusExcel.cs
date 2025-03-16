@@ -68,11 +68,36 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return columnMappings;
     }
 
+    /// <summary>
+    /// 获取数据开始行索引
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
+    /// <returns>数据开始行索引(1-based)</returns>
+    /// <remarks>
+    /// EPPlus使用1-based索引系统。
+    /// 如果headerRowIndex为-1(无表头)，则从第1行开始读取数据。
+    /// 否则从表头行的下一行(headerRowIndex+2，因为表头行已转换为1-based)开始读取数据。
+    /// </remarks>
     protected override int GetDataStartRow(ExcelWorksheet worksheet, int headerRowIndex)
     {
-        return headerRowIndex + 2; // EPPlus从1开始计数，加2表示从表头下一行开始
+        // 如果headerRowIndex为负值(无表头)，则从第1行开始(EPPlus从1开始计数)
+        if (headerRowIndex < 0)
+            return 1;
+
+        // 否则从表头行下一行开始：headerRowIndex(0-based)+1(转为1-based)+1(下一行)
+        return headerRowIndex + 2;
     }
 
+    /// <summary>
+    /// 获取数据结束行索引
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <returns>数据结束行索引(1-based)</returns>
+    /// <remarks>
+    /// EPPlus使用1-based索引系统。
+    /// Dimension.End.Row返回的是工作表最后一行的行号(已是1-based)。
+    /// </remarks>
     protected override int GetDataEndRow(ExcelWorksheet worksheet)
     {
         return worksheet.Dimension.End.Row;
@@ -95,28 +120,65 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return worksheet.Dimension?.End.Column ?? 0;
     }
 
+    /// <summary>
+    /// 创建表头映射关系(列索引到列名的映射)
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
+    /// <returns>列索引到列名的字典(键为0-based索引)</returns>
+    /// <remarks>
+    /// EPPlus使用1-based索引系统。
+    /// 如果headerRowIndex为-1(无表头)或工作表为空，则返回空字典。
+    /// 注意：虽然EPPlus使用1-based列索引，但返回的字典键是0-based，以保持API一致性。
+    /// </remarks>
     protected override Dictionary<int, string> CreateHeaderMappings(ExcelWorksheet worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, string>();
 
+        // 如果不存在表头行或工作表为空，返回空字典
         if (headerRowIndex < 0 || worksheet.Dimension == null)
             return result;
 
         int colCount = worksheet.Dimension.End.Column;
 
+        // 重要: 这里i从1开始，因为EPPlus列索引从1开始
+        // 但保存到字典时直接使用i-1作为键，确保在GetCellValue中能正确+1
         for (int i = 1; i <= colCount; i++)
         {
-            var cell = worksheet.Cells[headerRowIndex + 1, i]; // EPPlus从1开始计数
-            string columnName = cell.Text?.Trim() ?? $"Column{i}";
-            result[i] = columnName;
+            var cell = worksheet.Cells[headerRowIndex + 1, i];
+            string columnName;
+            if (cell.Text.IsNotNullAndWhiteSpace())
+            {
+                columnName = cell.Text?.Trim() ?? $"Column{i}";
+            }
+            else
+            {
+                columnName = $"Column{i}";
+            }
+
+            result[i - 1] = columnName;  // 存储0-based索引作为键
         }
 
         return result;
     }
 
+    /// <summary>
+    /// 获取单元格的值
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="rowNum">行索引(1-based)</param>
+    /// <param name="colIndex">列索引(0-based)</param>
+    /// <returns>单元格值</returns>
+    /// <remarks>
+    /// EPPlus使用1-based索引系统。
+    /// rowNum已经是EPPlus的1-based行号(由GetDataStartRow方法确保)。
+    /// colIndex是基类传入的0-based索引，需要+1转换为EPPlus需要的列号。
+    /// </remarks>
     protected override object GetCellValue(ExcelWorksheet worksheet, int rowNum, int colIndex)
     {
-        var cell = worksheet.Cells[rowNum, colIndex + 1]; // EPPlus从1开始计数，需要+1
+        // EPPlus从1开始计数，rowNum应已经是1-based (通过GetDataStartRow调整)
+        // 但colIndex仍然是0-based，需要+1
+        var cell = worksheet.Cells[rowNum, colIndex + 1];
 
         if (cell?.Value == null)
             return DBNull.Value;
@@ -321,6 +383,16 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 处理数据行
     /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="dataTable">数据表</param>
+    /// <param name="startRowIndex">起始行索引(0-based)</param>
+    /// <remarks>
+    /// EPPlus使用1-based索引系统。
+    /// 行索引需要进行转换：startRowIndex+i+2，其中:
+    /// - startRowIndex是表头行索引(0-based)
+    /// - +2是因为要跳过表头行，且转换为1-based
+    /// 列索引也需要+1转换为EPPlus的1-based索引。
+    /// </remarks>
     protected override void ProcessDataRows(ExcelWorksheet worksheet, DataTable dataTable, int startRowIndex)
     {
         var excelWorksheet = worksheet;
@@ -378,6 +450,18 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 处理集合数据行
     /// </summary>
+    /// <typeparam name="T">集合元素类型</typeparam>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="list">数据列表</param>
+    /// <param name="properties">属性数组</param>
+    /// <param name="startRowIndex">起始行索引(0-based)</param>
+    /// <remarks>
+    /// EPPlus使用1-based索引系统。
+    /// 行索引需要进行转换：startRowIndex+i+2，其中:
+    /// - startRowIndex是表头行索引(0-based)
+    /// - +2是因为要跳过表头行，且转换为1-based
+    /// 列索引也需要+1转换为EPPlus的1-based索引。
+    /// </remarks>
     protected override void ProcessCollectionRows<T>(ExcelWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
         var excelWorksheet = worksheet;

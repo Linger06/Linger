@@ -77,11 +77,31 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         return propertyMap;
     }
 
+    /// <summary>
+    /// 获取数据开始行索引
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
+    /// <returns>数据开始行索引(0-based)</returns>
+    /// <remarks>
+    /// NPOI使用0-based索引系统。
+    /// 如果headerRowIndex为-1(无表头)，则从第0行开始读取数据。
+    /// 否则从表头行的下一行(headerRowIndex+1)开始读取数据。
+    /// </remarks>
     protected override int GetDataStartRow(ISheet worksheet, int headerRowIndex)
     {
-        return headerRowIndex + 1;
+        // 如果headerRowIndex为负值(无表头)，则从第0行开始
+        return Math.Max(0, headerRowIndex + 1);
     }
 
+    /// <summary>
+    /// 获取数据结束行索引
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <returns>数据结束行索引</returns>
+    /// <remarks>
+    /// NPOI使用0-based索引，LastRowNum属性返回最后一行的索引(而非行数)。
+    /// </remarks>
     protected override int GetDataEndRow(ISheet worksheet)
     {
         return worksheet.LastRowNum;
@@ -116,13 +136,29 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         return maxCellCount;
     }
 
+    /// <summary>
+    /// 创建表头映射关系(列索引到列名的映射)
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
+    /// <returns>列索引到列名的字典</returns>
+    /// <remarks>
+    /// NPOI使用0-based索引系统。
+    /// 如果headerRowIndex为-1(无表头)，则返回空字典。
+    /// 否则读取表头行，并将列名映射到列索引。
+    /// </remarks>
     protected override Dictionary<int, string> CreateHeaderMappings(ISheet worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, string>();
-        var headerRow = worksheet.GetRow(headerRowIndex);
 
+        // 如果不存在表头行，返回空字典
+        if (headerRowIndex < 0)
+            return result;
+
+        var headerRow = worksheet.GetRow(headerRowIndex);
         if (headerRow == null) return result;
 
+        // NPOI的列索引从0开始，与基类约定一致
         for (int i = headerRow.FirstCellNum; i < headerRow.LastCellNum; i++)
         {
             var cell = headerRow.GetCell(i);
@@ -133,8 +169,20 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         return result;
     }
 
+    /// <summary>
+    /// 获取单元格的值
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="rowNum">行索引</param>
+    /// <param name="colIndex">列索引</param>
+    /// <returns>单元格值</returns>
+    /// <remarks>
+    /// NPOI使用0-based索引系统，rowNum和colIndex是NPOI原生的行列索引。
+    /// 此方法直接使用传入的索引值，不需要进行转换。
+    /// </remarks>
     protected override object GetCellValue(ISheet worksheet, int rowNum, int colIndex)
     {
+        // NPOI从0开始计数，与基类约定一致，无需调整索引
         var row = worksheet.GetRow(rowNum);
 
         if (row == null) return DBNull.Value;
@@ -575,6 +623,14 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// <summary>
     /// 处理数据行
     /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="dataTable">数据表</param>
+    /// <param name="startRowIndex">起始行索引</param>
+    /// <remarks>
+    /// NPOI使用0-based索引系统。
+    /// 这里将数据写入从startRowIndex+1行开始的位置(跳过表头行)。
+    /// 列索引从0开始。
+    /// </remarks>
     protected override void ProcessDataRows(ISheet worksheet, DataTable dataTable, int startRowIndex)
     {
         var sheet = (ISheet)worksheet;
@@ -662,13 +718,13 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             }
         }
 
-        // 设置表格边框
-        if (rowCount > 1 && columnCount > 0)
-        {
-            var cellRangeAddress = new CellRangeAddress(1, rowCount, 1, columnCount);
-            //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
-            SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
-        }
+        //// 设置表格边框
+        //if (rowCount > 1 && columnCount > 0)
+        //{
+        //    var cellRangeAddress = new CellRangeAddress(0, rowCount, 0, columnCount);
+        //    //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
+        //    SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
+        //}
     }
 
     /// <summary>
@@ -685,6 +741,16 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// <summary>
     /// 处理集合数据行
     /// </summary>
+    /// <typeparam name="T">集合元素类型</typeparam>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="list">数据列表</param>
+    /// <param name="properties">属性数组</param>
+    /// <param name="startRowIndex">起始行索引</param>
+    /// <remarks>
+    /// NPOI使用0-based索引系统。
+    /// 数据从startRowIndex+1行开始写入(跳过表头行)。
+    /// 列索引从0开始。
+    /// </remarks>
     protected override void ProcessCollectionRows<T>(ISheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
         var sheet = (ISheet)worksheet;
