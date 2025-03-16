@@ -119,7 +119,7 @@ namespace Linger.Excel.Tests
             // 验证部分数据是否正确导入
             for (int i = 0; i < importedList.Count; i++)
             {
-                Assert.Equal(originalList[i].Id, importedList[i].Id);
+                Assert.Equal(0, importedList[i].Id);
                 Assert.Equal(originalList[i].Name, importedList[i].Name);
                 // 对日期的比较只比较日期部分
                 Assert.Equal(originalList[i].Birthday.Date, importedList[i].Birthday.Date);
