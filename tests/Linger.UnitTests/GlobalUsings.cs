@@ -6,7 +6,6 @@ global using Linger.Extensions;
 global using Linger.Extensions.Collection;
 global using Linger.Extensions.Core;
 global using Linger.Extensions.Data;
-global using Linger.Extensions.Exception;
 global using Linger.Extensions.IO;
 global using Linger.Helper;
 global using Linger.JsonConverter;

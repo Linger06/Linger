@@ -174,13 +174,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         if (cell.IsEmpty())
             return DBNull.Value;
 
-        return GetExcelCellValue(
-            cell.DataType == XLDataType.DateTime ? cell.GetDateTime() :
-            cell.DataType == XLDataType.Number ? cell.GetDouble() :
-            cell.DataType == XLDataType.Boolean ? cell.GetBoolean() :
-            cell.DataType == XLDataType.Text ? cell.GetString() :
-            cell.Value,
-            cell.DataType == XLDataType.DateTime);
+        return GetExcelCellValue(cell);
     }
 
     #region 私有辅助方法
@@ -190,23 +184,15 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </summary>
     private object GetExcelCellValue(IXLCell cell)
     {
-        switch (cell.DataType)
+        return cell.DataType switch
         {
-            case XLDataType.Text:
-                return GetExcelCellValue(cell.GetString());
-            case XLDataType.Number:
-                return GetExcelCellValue(cell.GetDouble());
-            case XLDataType.Boolean:
-                return GetExcelCellValue(cell.GetBoolean());
-            case XLDataType.DateTime:
-                return GetExcelCellValue(cell.GetDateTime(), true);
-            case XLDataType.TimeSpan:
-                return GetExcelCellValue(cell.GetTimeSpan(), true);
-            case XLDataType.Error:
-            case XLDataType.Blank:
-            default:
-                return cell.Value;
-        }
+            XLDataType.Text => GetExcelCellValue(cell.GetString()),
+            XLDataType.Number => GetExcelCellValue(cell.GetDouble()),
+            XLDataType.Boolean => GetExcelCellValue(cell.GetBoolean()),
+            XLDataType.DateTime => GetExcelCellValue(cell.GetDateTime(), true),
+            XLDataType.TimeSpan => GetExcelCellValue(cell.GetTimeSpan(), true),
+            _ => cell.Value,
+        };
     }
 
     /// <summary>
@@ -495,7 +481,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         var columns = GetExcelColumns(properties);
         if (columns.Count == 0)
         {
-            columns = properties.Select((p, i) => (Name: p.Name, ColumnName: p.Name, Index: i)).ToList();
+            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
         }
         columns = columns.OrderBy(c => c.Index).ToList();
 

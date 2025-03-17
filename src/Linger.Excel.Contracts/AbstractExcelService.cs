@@ -1,14 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
-using Linger.Extensions.Core;
-using Microsoft.Extensions.Logging;
-
-namespace Linger.Excel.Contracts;
+﻿namespace Linger.Excel.Contracts;
 
 /// <summary>
 /// Excel基础服务类，同时实现IExcelService和IExcel接口
@@ -23,7 +13,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     /// Excel配置选项
     /// </summary>
     protected readonly ExcelOptions Options;
-    
+
     /// <summary>
     /// 日志记录器
     /// </summary>
@@ -41,7 +31,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     }
 
     #region IExcelService简单实现 - 调用IExcel实现
-    
+
     /// <summary>
     /// 数据表格转 Excel 文件 - 简单版本
     /// </summary>
@@ -49,7 +39,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     {
         return DataTableToFile(dataTable, fullFileName, sheetsName, title);
     }
-    
+
     /// <summary>
     /// 列表转 Excel 文件 - 简单版本
     /// </summary>
@@ -57,23 +47,23 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     {
         return ListToFile(list, fullFileName, sheetsName, title);
     }
-    
+
     /// <summary>
     /// 列表转 Excel 内存流 - 简单版本
     /// </summary>
-    MemoryStream? IExcelService.ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName, string title)
+    MemoryStream IExcelService.ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName, string title)
     {
         return ConvertCollectionToMemoryStream(list, sheetsName, title);
     }
-    
+
     /// <summary>
     /// 数据表格转 Excel 内存流 - 简单版本
     /// </summary>
-    MemoryStream? IExcelService.ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName, string title)
+    MemoryStream IExcelService.ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName, string title)
     {
         return ConvertDataTableToMemoryStream(dataTable, sheetsName, title);
     }
-    
+
     /// <summary>
     /// 异步将DataTable导出为Excel文件 - 简单版本
     /// </summary>
@@ -81,7 +71,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     {
         return DataTableToFileAsync(dataTable, fullFileName, sheetsName, title);
     }
-    
+
     /// <summary>
     /// 异步将对象列表导出为Excel文件 - 简单版本
     /// </summary>
@@ -89,59 +79,59 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     {
         return ListToFileAsync<T>(list, fullFileName, sheetsName, title);
     }
-    
+
     #endregion
-    
+
     #region IExcel抽象方法 - 由具体实现类实现
-    
+
     /// <summary>
     /// 将Excel文件转换为DataTable
     /// </summary>
     public abstract DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    
+
     /// <summary>
     /// 将Excel文件转换为对象列表
     /// </summary>
     public abstract List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    
+
     /// <summary>
     /// 将Stream转换为DataTable
     /// </summary>
     public abstract DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    
+
     /// <summary>
     /// 将Stream转换为对象列表
     /// </summary>
     public abstract List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    
+
     /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
-    public abstract string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "sheet1", string title = "", 
+    public abstract string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
-    
+
     /// <summary>
     /// 列表转 Excel 文件
     /// </summary>
-    public abstract string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "sheet1", string title = "", 
+    public abstract string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
-    
+
     /// <summary>
     /// 列表转 Excel 内存流
     /// </summary>
-    public abstract MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "", 
+    public abstract MemoryStream ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
-    
+
     /// <summary>
     /// 数据表格转 Excel 内存流
     /// </summary>
-    public abstract MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", 
+    public abstract MemoryStream ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
-    
+
     #endregion
 
     #region 共享方法实现
-    
+
     /// <summary>
     /// 异步将Excel文件转换为DataTable
     /// </summary>
@@ -199,7 +189,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     /// <summary>
     /// 异步将DataTable导出为Excel文件
     /// </summary>
-    public virtual async Task<string> DataTableToFileAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", 
+    public virtual async Task<string> DataTableToFileAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
         using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
@@ -216,7 +206,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     /// <summary>
     /// 异步将对象列表导出为Excel文件
     /// </summary>
-    public virtual async Task<string> ListToFileAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", 
+    public virtual async Task<string> ListToFileAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class
     {
         using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
@@ -249,7 +239,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
 
         return result;
     }
-    
+
     #endregion
 
     /// <summary>
@@ -264,10 +254,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
             var excelColumnAttr = property.GetCustomAttribute<Attributes.ExcelColumnAttribute>();
             if (excelColumnAttr != null)
             {
-                columns.Add((
-                    Name: property.Name,
-                    ColumnName: excelColumnAttr.ColumnName ?? property.Name,
-                    Index: excelColumnAttr.Index
+                columns.Add((property.Name, ColumnName: excelColumnAttr.ColumnName ?? property.Name, excelColumnAttr.Index
                 ));
             }
         }
@@ -280,6 +267,6 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
     /// </summary>
     protected object GetExcelCellValue(object value, bool isDateFormat = false)
     {
-        return Utils.ExcelValueConverter.ConvertToDbValue(value, isDateFormat);
+        return ExcelValueConverter.ConvertToDbValue(value, isDateFormat);
     }
 }

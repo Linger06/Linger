@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
@@ -72,22 +72,22 @@ public interface IExcelService
     /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
-    string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "sheet1", string title = "");
+    string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
     
     /// <summary>
     /// 列表转 Excel 文件
     /// </summary>
-    string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "sheet1", string title = "") where T : class;
+    string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
     
     /// <summary>
     /// 列表转 Excel 内存流
     /// </summary>
-    MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "") where T : class;
+    MemoryStream ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "") where T : class;
     
     /// <summary>
     /// 数据表格转 Excel 内存流
     /// </summary>
-    MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "");
+    MemoryStream ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
     
     /// <summary>
     /// 异步将DataTable导出为Excel文件

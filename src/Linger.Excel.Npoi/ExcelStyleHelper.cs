@@ -1,4 +1,5 @@
-﻿using NPOI.SS.UserModel;
+﻿using Linger.Extensions.Core;
+using NPOI.SS.UserModel;
 
 namespace Linger.Excel.Npoi;
 
@@ -38,10 +39,10 @@ public static class ExcelStyleHelper
         if (fontSize.HasValue)
             font.FontHeightInPoints = fontSize.Value;
 
-        if (!string.IsNullOrEmpty(fontName))
+        if (fontName.IsNotNullAndWhiteSpace())
             font.FontName = fontName;
 
-        if (!string.IsNullOrEmpty(fontColor))
+        if (fontColor.IsNotNullAndWhiteSpace())
         {
             try
             {
@@ -65,7 +66,7 @@ public static class ExcelStyleHelper
 
         style.SetFont(font);
 
-        if (!string.IsNullOrEmpty(backgroundColor))
+        if (backgroundColor.IsNotNullAndWhiteSpace())
         {
             try
             {

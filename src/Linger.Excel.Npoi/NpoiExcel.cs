@@ -277,7 +277,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     intStyle = workbook.CreateCellStyle();
                     var format = workbook.CreateDataFormat();
-                    intStyle.DataFormat = format.GetFormat(INTEGER_FORMAT);
+                    intStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.IntegerFormat);
                     styleCache[typeof(int)] = intStyle;
                 }
                 cell.CellStyle = intStyle;
@@ -302,7 +302,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     doubleStyle = workbook.CreateCellStyle();
                     var format = workbook.CreateDataFormat();
-                    doubleStyle.DataFormat = format.GetFormat(DECIMAL_FORMAT);
+                    doubleStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DecimalFormat);
                     styleCache[typeof(double)] = doubleStyle;
                 }
                 cell.CellStyle = doubleStyle;
@@ -318,7 +318,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             cell.SetCellValue(value.ToString());
         }
 
-        // 应用边框 - 单元格样式应该已经由上面的代码设置，需要在这里修改它
+        // 应用边框
         DrawBorder(cell);
     }
 
@@ -350,9 +350,12 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     case CellType.Numeric:
                         if (DateUtil.IsCellDateFormatted(cell))
                         {
-                            return GetExcelCellValue(cell.DateCellValue, true);
+                            return GetExcelCellValue(cell.NumericCellValue, true);
                         }
-                        return GetExcelCellValue(cell.NumericCellValue);
+                        else
+                        {
+                            return GetExcelCellValue(cell.NumericCellValue);
+                        }
                     case CellType.Boolean:
                         return GetExcelCellValue(cell.BooleanCellValue);
                     case CellType.Error:
@@ -488,11 +491,18 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     }
 
     /// <summary>
-    /// 这个只能合并单元格使用吗？？？？？？？？？？？？？？？
+    /// 为Excel表格的区域设置边框样式
     /// </summary>
-    /// <param name="borderStyle"></param>
-    /// <param name="region"></param>
-    /// <param name="sheet"></param>
+    /// <param name="borderStyle">边框样式，如细线、粗线、虚线等</param>
+    /// <param name="region">要应用边框的单元格区域，由左上角和右下角坐标定义</param>
+    /// <param name="sheet">要操作的工作表对象</param>
+    /// <remarks>
+    /// 此方法利用NPOI的RegionUtil工具类为指定区域设置外边框样式。
+    /// 它会同时设置区域的上、下、左、右四个方向的边框。
+    /// 与DrawBorder方法不同，该方法适用于整个区域的外边框设置，
+    /// 而不是单个单元格的边框设置。
+    /// 常用于为表格整体或合并的单元格区域添加边框。
+    /// </remarks>
     private static void SetRegionBorderStyle(BorderStyle borderStyle, CellRangeAddress region, ISheet sheet)
     {
         RegionUtil.SetBorderBottom(borderStyle, region, sheet);
@@ -501,52 +511,35 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         RegionUtil.SetBorderTop(borderStyle, region, sheet);
     }
 
-    //返回指定范围单元格
-    private ICellRange<ICell> GetCellRange(ISheet ws, CellRangeAddress range)
-    {
-        int firstRow = range.FirstRow;
-        int firstColumn = range.FirstColumn;
-        int lastRow = range.LastRow;
-        int lastColumn = range.LastColumn;
-        int height = lastRow - firstRow + 1;
-        int width = lastColumn - firstColumn + 1;
-        List<ICell> temp = new List<ICell>(height * width);
-        for (int rowIn = firstRow; rowIn <= lastRow; rowIn++)
-        {
-            for (int colIn = firstColumn; colIn <= lastColumn; colIn++)
-            {
-                IRow row = ws.GetRow(rowIn);
-                if (row == null)
-                {
-                    row = ws.CreateRow(rowIn);
-                }
-                ICell cell = row.GetCell(colIn);
-                if (cell == null)
-                {
-                    cell = row.CreateCell(colIn);
-                }
-                temp.Add(cell);
-            }
-        }
-        return SSCellRange<ICell>.Create(firstRow, firstColumn, height, width, temp, typeof(HSSFCell));
-    }
-
     /// <summary>
     /// 为单元格添加边框
     /// </summary>
     private static void DrawBorder(ICell cell)
     {
-        // 如果单元格没有样式，创建一个新样式
-        ICellStyle style = cell.CellStyle ?? cell.Sheet.Workbook.CreateCellStyle();
+        // 创建新样式并复制原有样式属性
+        var workbook = cell.Sheet.Workbook;
+        ICellStyle newStyle = workbook.CreateCellStyle();
 
-        // 设置边框
-        style.BorderTop = BorderStyle.Thin;
-        style.BorderBottom = BorderStyle.Thin;
-        style.BorderLeft = BorderStyle.Thin;
-        style.BorderRight = BorderStyle.Thin;
+        // 复制原有样式的属性
+        if (cell.CellStyle != null)
+        {
+            newStyle.CloneStyleFrom(cell.CellStyle);
+        }
+
+        // 设置边框样式
+        newStyle.BorderTop = BorderStyle.Thin;
+        newStyle.BorderBottom = BorderStyle.Thin;
+        newStyle.BorderLeft = BorderStyle.Thin;
+        newStyle.BorderRight = BorderStyle.Thin;
+
+        // 设置边框颜色（黑色）
+        newStyle.TopBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
+        newStyle.BottomBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
+        newStyle.LeftBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
+        newStyle.RightBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
 
         // 应用样式到单元格
-        cell.CellStyle = style;
+        cell.CellStyle = newStyle;
     }
 
     ///// <summary>
@@ -566,10 +559,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     //    // 应用样式到单元格
     //    cell.CellStyle = style;
     //}
-
-    // 在类中添加这些属性来替换常量
-    private string INTEGER_FORMAT => Options.StyleOptions.DataStyle.IntegerFormat; // 更新为新路径
-    private string DECIMAL_FORMAT => Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
 
     #endregion
 
@@ -718,13 +707,13 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             }
         }
 
-        //// 设置表格边框
-        //if (rowCount > 1 && columnCount > 0)
-        //{
-        //    var cellRangeAddress = new CellRangeAddress(0, rowCount, 0, columnCount);
-        //    //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
-        //    SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
-        //}
+        // 设置表格边框
+        if (rowCount > 1 && columnCount > 0)
+        {
+            var cellRangeAddress = new CellRangeAddress(0, rowCount - 1, 0, columnCount - 1);
+            //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
+            SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
+        }
     }
 
     /// <summary>
@@ -770,7 +759,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         var columns = GetExcelColumns(properties);
         if (columns.Count == 0)
         {
-            columns = properties.Select((p, i) => (Name: p.Name, ColumnName: p.Name, Index: i)).ToList();
+            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
         }
         columns = columns.OrderBy(c => c.Index).ToList();
 

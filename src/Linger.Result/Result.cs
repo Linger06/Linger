@@ -1,6 +1,8 @@
 ﻿#if NETSTANDARD2_0 || NETSTANDARD2_1 || NETCOREAPP2_0_OR_GREATER || NET451_OR_GREATER
 using System.ComponentModel;
+#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace System.Runtime.CompilerServices
+#pragma warning restore IDE0130 // Namespace does not match folder structure
 {
     [EditorBrowsable(EditorBrowsableState.Never)]
     internal static class IsExternalInit { }
@@ -28,12 +30,12 @@ namespace Linger.Result
 {
     public class Result
     {
-        private static readonly Result _success = new(ResultStatus.Ok);
-        
+        private static readonly Result s_success = new(ResultStatus.Ok);
+
         protected Result()
         {
         }
-        
+
         protected Result(ResultStatus status)
         {
             Status = status;
@@ -44,8 +46,8 @@ namespace Linger.Result
         public bool IsSuccess => Status is ResultStatus.Ok;
         public bool IsFailure => !IsSuccess;
         public IEnumerable<Error> Errors { get; protected set; } = [];
-        
-        public static Result Success() => _success;
+
+        public static Result Success() => s_success;
         public static Result<TValue> Success<TValue>(TValue value) => new(value, ResultStatus.Ok);
 
         public static Result Failure() => new(ResultStatus.Error) { Errors = [Error.Default] };
@@ -71,7 +73,7 @@ namespace Linger.Result
         private readonly TValue? _value;
 
         protected internal Result(TValue? value, ResultStatus status) : base(status) => _value = value;
-        
+
         public TValue Value => IsSuccess
             ? _value!
             : throw new InvalidOperationException("The value of a failure result can not be accessed.");
@@ -87,13 +89,13 @@ namespace Linger.Result
         public new static Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
         public new static Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound) { Errors = [error] };
         public new static Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound) { Errors = errors };
-        
+
         public bool TryGetValue([System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TValue? value)
         {
             value = _value;
             return IsSuccess;
         }
-        
+
         /// <summary>
         /// 获取值，如果结果失败则返回默认值
         /// </summary>
@@ -104,9 +106,9 @@ namespace Linger.Result
         /// </summary>
         /// <param name="defaultValue">结果失败时返回的默认值</param>
         /// <returns>成功时返回结果值，失败时返回默认值</returns>
-        public TValue GetValueOrDefault(TValue defaultValue) => 
+        public TValue GetValueOrDefault(TValue defaultValue) =>
             IsSuccess ? _value! : defaultValue;
-            
+
         /// <summary>
         /// 根据结果状态映射到不同的返回值
         /// </summary>
@@ -138,7 +140,7 @@ namespace Linger.Result
                 onFailure(Errors);
         }
     }
-    
+
     public record Error(string Code, string Message)
     {
         public static readonly Error None = new(string.Empty, string.Empty);//None代表没有错误

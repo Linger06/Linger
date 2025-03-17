@@ -1,9 +1,9 @@
-﻿namespace Linger.Attribute;
+﻿namespace Linger.Attributes;
 /// <summary>
 /// This attribute can customize column name and order of converted DataTable.
 /// </summary>
 [AttributeUsage(AttributeTargets.Property)]
-public sealed class UserDefinedTableTypeColumnAttribute : System.Attribute
+public sealed class UserDefinedTableTypeColumnAttribute : Attribute
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="UserDefinedTableTypeColumnAttribute"/> class with the specified order.

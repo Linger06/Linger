@@ -1,5 +1,5 @@
 ﻿using System.Reflection;
-using Linger.Attribute;
+using Linger.Attributes;
 
 namespace Linger.Extensions.Core;
 

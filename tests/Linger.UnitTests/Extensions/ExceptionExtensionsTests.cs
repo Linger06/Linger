@@ -1,4 +1,6 @@
-﻿namespace Linger.UnitTests.Extensions;
+﻿using Linger.Extensions;
+
+namespace Linger.UnitTests.Extensions;
 
 public class ExceptionExtensionsTests
 {

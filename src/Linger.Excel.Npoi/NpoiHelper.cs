@@ -291,7 +291,7 @@ public static class NpoiHelper
     {
         using (excelFileStream)
         {
-            IWorkbook workBook = new HSSFWorkbook(excelFileStream);
+            var workBook = new HSSFWorkbook(excelFileStream);
             if (workBook.NumberOfSheets <= 0)
             {
                 return false;

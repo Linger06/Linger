@@ -1,6 +1,6 @@
 ﻿using Linger.Extensions.Core;
 
-namespace Linger.Extensions.Exception;
+namespace Linger.Extensions;
 
 /// <summary>
 /// Extensions for <see cref="Exception"/>.
@@ -8,10 +8,10 @@ namespace Linger.Extensions.Exception;
 public static class ExceptionExtensions
 {
     /// <summary>
-    /// Returns the innermost <see cref="System.Exception.InnerException"/> of the given <see cref="Exception"/>.
+    /// Returns the innermost <see cref="Exception.InnerException"/> of the given <see cref="Exception"/>.
     /// </summary>
     /// <param name="exception">The <see cref="Exception"/> object.</param>
-    /// <returns>The innermost <see cref="System.Exception.InnerException"/>.</returns>
+    /// <returns>The innermost <see cref="Exception.InnerException"/>.</returns>
     /// <example>
     /// <code>
     /// try
@@ -25,7 +25,7 @@ public static class ExceptionExtensions
     /// }
     /// </code>
     /// </example>
-    public static System.Exception? GetInnerException(this System.Exception? exception)
+    public static Exception? GetInnerException(this Exception? exception)
     {
         if (exception.IsNull())
         {
@@ -41,10 +41,10 @@ public static class ExceptionExtensions
     }
 
     /// <summary>
-    /// Returns the message of the innermost <see cref="System.Exception.InnerException"/>.
+    /// Returns the message of the innermost <see cref="Exception.InnerException"/>.
     /// </summary>
     /// <param name="exception">The <see cref="Exception"/> object.</param>
-    /// <returns>The message of the innermost <see cref="System.Exception.InnerException"/>.</returns>
+    /// <returns>The message of the innermost <see cref="Exception.InnerException"/>.</returns>
     /// <example>
     /// <code>
     /// try
@@ -58,7 +58,7 @@ public static class ExceptionExtensions
     /// }
     /// </code>
     /// </example>
-    public static string ExceptionMessage(this System.Exception? exception)
+    public static string ExceptionMessage(this Exception? exception)
     {
         if (exception.IsNull())
         {
@@ -93,9 +93,9 @@ public static class ExceptionExtensions
     /// }
     /// </code>
     /// </example>
-    public static string ExtractAllStackTrace(this System.Exception exception, string? lastStackTrace = null, int exCount = 1)
+    public static string ExtractAllStackTrace(this Exception exception, string? lastStackTrace = null, int exCount = 1)
     {
-        System.Exception? ex = exception;
+        Exception? ex = exception;
         const string EntryFormat = """
             #{0}: {1}
             {2}

@@ -4,7 +4,7 @@
 ///     Excel 自动导出时，指定属性的列名
 /// </summary>
 [AttributeUsage(AttributeTargets.Property, AllowMultiple = true)]
-public class ExcelColumnAttribute : System.Attribute
+public class ExcelColumnAttribute : Attribute
 {
     #region 公开属性
 

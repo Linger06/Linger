@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -52,25 +53,25 @@ public interface IExcel<TWorksheet> where TWorksheet : class
     /// <summary>
     /// 数据表格转 Excel 文件，支持自定义操作
     /// </summary>
-    string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "sheet1", string title = "", 
+    string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", 
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
     
     /// <summary>
     /// 列表转 Excel 文件，支持自定义操作
     /// </summary>
-    string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "sheet1", string title = "", 
+    string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", 
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
     
     /// <summary>
     /// 列表转 Excel 内存流，支持自定义操作
     /// </summary>
-    MemoryStream? ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "sheet1", string title = "", 
+    MemoryStream ConvertCollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "", 
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
     
     /// <summary>
     /// 数据表格转 Excel 内存流，支持自定义操作
     /// </summary>
-    MemoryStream? ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "sheet1", string title = "", 
+    MemoryStream ConvertDataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "", 
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
     
     /// <summary>

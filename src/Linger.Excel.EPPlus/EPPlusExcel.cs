@@ -470,7 +470,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         var columns = GetExcelColumns(properties);
         if (columns.Count == 0)
         {
-            columns = properties.Select((p, i) => (Name: p.Name, ColumnName: p.Name, Index: i)).ToList();
+            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
         }
         columns = columns.OrderBy(c => c.Index).ToList();
 

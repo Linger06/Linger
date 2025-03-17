@@ -25,7 +25,7 @@ public static class ExcelExtensions
         where TWorkbook : class
         where TWorksheet : class
     {
-        if (excel == null) throw new ArgumentNullException(nameof(excel));
+        ArgumentNullException.ThrowIfNull(excel);
 
         return await new RetryHelper().ExecuteAsync(async () =>
         {
@@ -71,7 +71,7 @@ public static class ExcelExtensions
         where TWorkbook : class
         where TWorksheet : class
     {
-        if (excel == null) throw new ArgumentNullException(nameof(excel));
+        ArgumentNullException.ThrowIfNull(excel);
 
         return await new RetryHelper().ExecuteAsync(async () =>
         {

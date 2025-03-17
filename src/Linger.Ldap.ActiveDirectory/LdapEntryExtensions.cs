@@ -23,19 +23,20 @@ public static class LdapEntryExtensions
 
         if (userPrincipal.GetUnderlyingObject() is not DirectoryEntry directoryEntry) return null;
 
-        var userInfo = new AdUserInfo();
+        var userInfo = new AdUserInfo
+        {
+            // 基本标识信息 - 优先使用 UserPrincipal 中的值
+            SamAccountName = userPrincipal.SamAccountName,
+            DisplayName = userPrincipal.DisplayName,
+            Upn = userPrincipal.UserPrincipalName,
+            Name = userPrincipal.Name,
+            Dn = userPrincipal.DistinguishedName,
 
-        // 基本标识信息 - 优先使用 UserPrincipal 中的值
-        userInfo.SamAccountName = userPrincipal.SamAccountName;
-        userInfo.DisplayName = userPrincipal.DisplayName;
-        userInfo.Upn = userPrincipal.UserPrincipalName;
-        userInfo.Name = userPrincipal.Name;
-        userInfo.Dn = userPrincipal.DistinguishedName;
-
-        // 个人信息 - 优先使用 UserPrincipal 中的值
-        userInfo.FirstName = userPrincipal.GivenName;
-        userInfo.LastName = userPrincipal.Surname;
-        userInfo.Description = userPrincipal.Description;
+            // 个人信息 - 优先使用 UserPrincipal 中的值
+            FirstName = userPrincipal.GivenName,
+            LastName = userPrincipal.Surname,
+            Description = userPrincipal.Description
+        };
 
         // 使用 DirectoryEntry 填充其余属性
         MapContactInfo(userInfo, directoryEntry);

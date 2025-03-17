@@ -1,4 +1,5 @@
 ﻿using ClosedXML.Excel;
+using Linger.Extensions.Core;
 
 namespace Linger.Excel.ClosedXML;
 
@@ -20,7 +21,7 @@ public static class ExcelStyleHelper
         XLAlignmentVerticalValues? verticalAlignment = null,
         bool applyBorder = false)
     {
-        if (!string.IsNullOrEmpty(backgroundColor))
+        if (backgroundColor.IsNotNullAndWhiteSpace())
         {
             try
             {
@@ -32,7 +33,7 @@ public static class ExcelStyleHelper
             }
         }
 
-        if (!string.IsNullOrEmpty(fontColor))
+        if (fontColor.IsNotNullAndWhiteSpace())
         {
             try
             {
@@ -50,7 +51,7 @@ public static class ExcelStyleHelper
         if (fontSize.HasValue)
             cell.Style.Font.FontSize = fontSize.Value;
 
-        if (!string.IsNullOrEmpty(fontName))
+        if (fontName.IsNotNullAndWhiteSpace())
             cell.Style.Font.FontName = fontName;
 
         if (horizontalAlignment.HasValue)
@@ -81,7 +82,7 @@ public static class ExcelStyleHelper
         XLAlignmentVerticalValues? verticalAlignment = null,
         bool applyBorder = false)
     {
-        if (!string.IsNullOrEmpty(backgroundColor))
+        if (backgroundColor.IsNotNullAndWhiteSpace())
         {
             try
             {
@@ -93,7 +94,7 @@ public static class ExcelStyleHelper
             }
         }
 
-        if (!string.IsNullOrEmpty(fontColor))
+        if (fontColor.IsNotNullAndWhiteSpace())
         {
             try
             {
@@ -111,7 +112,7 @@ public static class ExcelStyleHelper
         if (fontSize.HasValue)
             range.Style.Font.FontSize = fontSize.Value;
 
-        if (!string.IsNullOrEmpty(fontName))
+        if (fontName.IsNotNullAndWhiteSpace())
             range.Style.Font.FontName = fontName;
 
         if (horizontalAlignment.HasValue)

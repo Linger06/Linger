@@ -88,12 +88,12 @@ public static partial class FileInfoExtensions
             var versionInfo = FileVersionInfo.GetVersionInfo(fileInfo.FullName);
             return versionInfo.FileVersion;
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             throw new IOException($"Failed to get version for file: {fileInfo.FullName}", ex);
         }
     }
-    
+
     /// <summary>
     /// Returns the MD5 hash of the specified file.
     /// </summary>

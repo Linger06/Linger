@@ -1,14 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Data;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
+﻿using System.Diagnostics.CodeAnalysis;
 using Linger.Excel.Contracts.Attributes;
-using Linger.Excel.Contracts.Utils;
-using Linger.Extensions.Core;
-using Microsoft.Extensions.Logging;
 
 namespace Linger.Excel.Contracts;
 
@@ -20,7 +11,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     where TWorksheet : class
 {
     // 构造函数
-    protected ExcelBase(ExcelOptions? options = null, ILogger? logger = null) 
+    protected ExcelBase(ExcelOptions? options = null, ILogger? logger = null)
         : base(options, logger)
     {
     }
@@ -76,16 +67,10 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
-    public override string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", 
+    public override string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
         using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
-        if (ms == null)
-        {
-            Logger?.LogError("转换DataTable到MemoryStream失败");
-            throw new InvalidOperationException("转换DataTable到MemoryStream失败");
-        }
-
         ms.ToFile(fullFileName);
         return fullFileName;
     }
@@ -93,16 +78,10 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     /// <summary>
     /// 列表转 Excel 文件
     /// </summary>
-    public override string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", 
+    public override string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
     {
         using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
-        if (ms == null)
-        {
-            Logger?.LogError("转换对象列表到MemoryStream失败");
-            throw new InvalidOperationException("转换对象列表到MemoryStream失败");
-        }
-
         ms.ToFile(fullFileName);
         return fullFileName;
     }
@@ -118,7 +97,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
             return null;
         }
 
-        DataTable? dataTable = null;
         TWorkbook? workbook = null;
 
         try
@@ -139,12 +117,14 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
                 return null;
             }
 
+
+            DataTable? dataTable;
             if (Options.EnablePerformanceMonitoring)
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
 
                 dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
-                
+
                 sw.Stop();
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
@@ -201,7 +181,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
             {
                 // 检查是否有ExcelColumn特性
                 var excelAttr = prop.GetCustomAttribute<ExcelColumnAttribute>();
-                if (excelAttr != null && !string.IsNullOrEmpty(excelAttr.ColumnName))
+                if (excelAttr != null && excelAttr.ColumnName.IsNotNullAndWhiteSpace())
                 {
                     propertyMapping[excelAttr.ColumnName] = prop;
                 }
@@ -264,9 +244,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     /// <summary>
     /// 列表转 Excel 内存流
     /// </summary>
-    public override MemoryStream? ConvertCollectionToMemoryStream<T>(
-        List<T> list, 
-        string sheetsName = "sheet1", 
+    public override MemoryStream ConvertCollectionToMemoryStream<T>(
+        List<T> list,
+        string sheetsName = "Sheet1",
         string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null,
         Action<TWorksheet>? styleAction = null)
@@ -279,10 +259,11 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
 
         try
         {
+            MemoryStream result;
             if (Options.EnablePerformanceMonitoring)
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                var result = ExportCollection(list, sheetsName, title, action, styleAction);
+                result = ExportCollection(list, sheetsName, title, action, styleAction);
                 sw.Stop();
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
@@ -290,27 +271,33 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
                     Logger?.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
                         list.Count, sw.ElapsedMilliseconds);
                 }
-
-                return result;
             }
             else
             {
-                return ExportCollection(list, sheetsName, title, action, styleAction);
+                result = ExportCollection(list, sheetsName, title, action, styleAction);
             }
+
+            // ExportCollection方法不应该返回null，但为了健壮性仍进行检查
+            if (result == null)
+            {
+                throw new InvalidOperationException("转换对象列表到MemoryStream失败");
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "导出列表到Excel失败");
-            return null;
+            throw new InvalidOperationException("导出列表到Excel失败", ex);
         }
     }
 
     /// <summary>
     /// 数据表格转 Excel 内存流
     /// </summary>
-    public override MemoryStream? ConvertDataTableToMemoryStream(
-        DataTable dataTable, 
-        string sheetsName = "sheet1", 
+    public override MemoryStream ConvertDataTableToMemoryStream(
+        DataTable dataTable,
+        string sheetsName = "Sheet1",
         string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
         Action<TWorksheet>? styleAction = null)
@@ -323,10 +310,11 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
 
         try
         {
+            MemoryStream result;
             if (Options.EnablePerformanceMonitoring)
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-                var result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
+                result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
                 sw.Stop();
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
@@ -334,18 +322,24 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
                     Logger?.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
                         dataTable.Rows.Count, dataTable.Columns.Count, sw.ElapsedMilliseconds);
                 }
-
-                return result;
             }
             else
             {
-                return ExportDataTable(dataTable, sheetsName, title, action, styleAction);
+                result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
             }
+            
+            // ExportDataTable方法不应该返回null，但为了健壮性仍进行检查
+            if (result == null)
+            {
+                throw new InvalidOperationException("转换DataTable到MemoryStream失败");
+            }
+
+            return result;
         }
         catch (Exception ex)
         {
             Logger?.LogError(ex, "导出DataTable到Excel失败");
-            return null;
+            throw new InvalidOperationException("导出DataTable到Excel失败", ex);
         }
     }
 
@@ -353,23 +347,23 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     /// 导出集合到Excel
     /// </summary>
     private MemoryStream ExportCollection<T>(
-        List<T> list, 
-        string sheetsName, 
+        List<T> list,
+        string sheetsName,
         string title,
         Action<TWorksheet, PropertyInfo[]>? action,
         Action<TWorksheet>? styleAction) where T : class
     {
         // 获取所有属性
         var properties = typeof(T).GetProperties().Where(p => p.CanRead).ToArray();
-        
+
         // 创建Excel工作簿和工作表
         var workbook = CreateWorkbook();
         var worksheet = CreateWorksheet(workbook, sheetsName);
-        
+
         // 获取所有列名
         string[] columnNames;
         var columns = GetExcelColumns(properties);
-        
+
         if (columns.Count > 0)
         {
             // 使用特性标记的列名
@@ -381,29 +375,29 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
             // 使用属性名作为列名
             columnNames = properties.Select(p => p.Name).ToArray();
         }
-        
+
         // 应用标题
         int startRowIndex = 0;
-        if (!string.IsNullOrEmpty(title))
+        if (title.IsNotNullAndEmpty())
         {
             startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
         }
-        
+
         // 创建表头行
         CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
-        
+
         // 填充数据行
         ProcessCollectionRows(worksheet, list, properties, startRowIndex);
-        
+
         // 应用自定义处理
         action?.Invoke(worksheet, properties);
-        
+
         // 应用样式
         styleAction?.Invoke(worksheet);
-        
+
         // 进行工作表格式化
         ApplyWorksheetFormatting(worksheet, list.Count + startRowIndex + 1, columnNames.Length);
-        
+
         // 保存到流
         return SaveWorkbookToStream(workbook);
     }
@@ -412,8 +406,8 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     /// 导出DataTable到Excel
     /// </summary>
     private MemoryStream ExportDataTable(
-        DataTable dataTable, 
-        string sheetsName, 
+        DataTable dataTable,
+        string sheetsName,
         string title,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
         Action<TWorksheet>? styleAction)
@@ -421,34 +415,34 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
         // 创建Excel工作簿和工作表
         var workbook = CreateWorkbook();
         var worksheet = CreateWorksheet(workbook, sheetsName);
-        
+
         // 获取所有列名
         string[] columnNames = dataTable.Columns.Cast<DataColumn>()
             .Select(col => col.ColumnName)
             .ToArray();
-        
+
         // 应用标题
         int startRowIndex = 0;
-        if (!string.IsNullOrEmpty(title))
+        if (title.IsNotNullAndEmpty())
         {
             startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
         }
-        
+
         // 创建表头行
         CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
-        
+
         // 填充数据行
         ProcessDataRows(worksheet, dataTable, startRowIndex);
-        
+
         // 应用自定义处理
         action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
-        
+
         // 应用样式
         styleAction?.Invoke(worksheet);
-        
+
         // 进行工作表格式化
         ApplyWorksheetFormatting(worksheet, dataTable.Rows.Count + startRowIndex + 1, columnNames.Length);
-        
+
         // 保存到流
         return SaveWorkbookToStream(workbook);
     }
@@ -470,7 +464,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
     private DataTable ImportFromWorksheet(TWorksheet worksheet, int headerRowIndex, bool addEmptyRow)
     {
         DataTable dataTable = new DataTable(GetSheetName(worksheet));
-        
+
         // 估计列数
         int columnCount = EstimateColumnCount(worksheet);
         if (columnCount <= 0)
@@ -478,42 +472,42 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
             Logger?.LogWarning("工作表为空或无法确定列数");
             return dataTable;
         }
-        
+
         // 获取表头映射
         var headerMappings = CreateHeaderMappings(worksheet, headerRowIndex);
-        
+
         // 如果headerRowIndex=-1且没有映射，自动生成列名(Column1, Column2...)
         if (headerMappings.Count == 0 && headerRowIndex < 0)
         {
             for (int i = 0; i < columnCount; i++)
             {
-                headerMappings[i] = $"Column{i+1}";
+                headerMappings[i] = $"Column{i + 1}";
             }
         }
-        
+
         // 添加列
         foreach (var mapping in headerMappings)
         {
             dataTable.Columns.Add(mapping.Value);
         }
-        
+
         // 获取数据行范围 - 这里的startRow和endRow将使用各实现类的原生索引格式
         int startRow = GetDataStartRow(worksheet, headerRowIndex);
         int endRow = GetDataEndRow(worksheet);
-        
+
         // 读取数据行
         for (int rowNum = startRow; rowNum <= endRow; rowNum++)
         {
             DataRow row = dataTable.NewRow();
             bool hasValue = false;
-            
+
             foreach (var mapping in headerMappings)
             {
                 int colIndex = mapping.Key;
-                
+
                 // GetCellValue期望接收原生索引格式 - rowNum已由GetDataStartRow转换，colIndex无需转换
                 object cellValue = GetCellValue(worksheet, rowNum, colIndex);
-                
+
                 // 设置行值
                 if (cellValue != DBNull.Value)
                 {
@@ -521,14 +515,14 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
                     hasValue = true;
                 }
             }
-            
+
             // 只添加有数据的行，除非指定了添加空行
             if (hasValue || addEmptyRow)
             {
                 dataTable.Rows.Add(row);
             }
         }
-        
+
         return dataTable;
     }
 

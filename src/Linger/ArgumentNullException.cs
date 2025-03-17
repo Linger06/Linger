@@ -1,4 +1,5 @@
-﻿#if NETFRAMEWORK||NETSTANDARD2_0_OR_GREATER||NET6_0
+﻿#pragma warning disable
+#if NETFRAMEWORK||NETSTANDARD2_0_OR_GREATER||NET6_0
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Linger.Extensions.Core;
