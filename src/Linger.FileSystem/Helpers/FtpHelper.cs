@@ -1,6 +1,6 @@
 ﻿namespace Linger.FileSystem.Helpers;
 
-public class FtpHelper
+public static class FtpHelper
 {
     /// <summary>
     ///     string p1 = "/temp";
@@ -36,8 +36,16 @@ public class FtpHelper
         return $"/{rootDirectory}/{filePathOrName}";
     }
 
-    public static string ServerDetails(string host, string port, string? userName, string type = "Ftp")
+    /// <summary>
+    /// 生成服务器详情描述字符串
+    /// </summary>
+    /// <param name="host">主机地址</param>
+    /// <param name="port">端口</param>
+    /// <param name="userName">用户名</param>
+    /// <param name="type">连接类型</param>
+    /// <returns>服务器详情描述</returns>
+    public static string ServerDetails(string host, string port, string userName, string type)
     {
-        return $"Type: '{type}' Host:'{host}' Port:'{port}' User:'{userName}'";
+        return $"{type}://{userName}@{host}:{port}";
     }
 }

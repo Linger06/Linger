@@ -1,22 +1,14 @@
-﻿namespace Linger.FileSystem.Remote;
+﻿using System;
 
-public interface IRemoteFileSystemContext : IFileSystem, IDisposable
+namespace Linger.FileSystem.Remote;
+
+/// <summary>
+/// 定义远程文件系统上下文接口
+/// </summary>
+public interface IRemoteFileSystemContext : IDisposable
 {
     bool IsConnected();
-
     void Connect();
-
     void Disconnect();
-
-    void SetWorkingDirectory(string path);
-
-    void SetRootAsWorkingDirectory();
-
-    void UploadFile(string localFilePath, string remoteFilePath);
-
-    bool DownloadFile(string localFilePath, string remoteFilePath);
-
     string ServerDetails();
-
-    DateTime GetLastModifiedTime(string remotePath);
 }

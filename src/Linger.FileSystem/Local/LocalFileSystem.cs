@@ -473,6 +473,121 @@ public class LocalFileSystem : ILocalFileSystem
         DeleteFileIfExists(realPath);
         return Task.CompletedTask;
     }
+
+    public async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath, 
+                _options.DefaultNamingRule, overwrite, !overwrite);
+            
+            return FileOperationResult.CreateSuccess(
+                uploadedInfo.FilePath,
+                uploadedInfo.FullFilePath,
+                uploadedInfo.Length,
+                uploadedInfo.HashData);
+        }
+        catch (Exception ex)
+        {
+            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            if (!File.Exists(localFilePath))
+            {
+                return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
+            }
+
+            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
+            var fileName = Path.GetFileName(localFilePath);
+            return await UploadAsync(fileStream, destinationPath, fileName, overwrite, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var realPath = GetRealPath(filePath);
+            if (!File.Exists(realPath))
+            {
+                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+            }
+
+            using var fileStream = File.OpenRead(realPath);
+            await fileStream.CopyToAsync(outputStream, _options.DownloadBufferSize, cancellationToken);
+            
+            var fileInfo = new FileInfo(realPath);
+            return FileOperationResult.CreateSuccess(filePath, realPath, fileInfo.Length);
+        }
+        catch (Exception ex)
+        {
+            return FileOperationResult.CreateFailure($"下载文件到流失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var realPath = GetRealPath(filePath);
+            if (!File.Exists(realPath))
+            {
+                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+            }
+
+            // 确保目标目录存在
+            var destDir = Path.GetDirectoryName(localDestinationPath);
+            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            // 检查文件是否已存在
+            if (File.Exists(localDestinationPath) && !overwrite)
+            {
+                return FileOperationResult.CreateFailure($"目标文件已存在: {localDestinationPath}");
+            }
+
+            using var sourceStream = File.OpenRead(realPath);
+            using var destStream = new FileStream(localDestinationPath, overwrite ? FileMode.Create : FileMode.CreateNew);
+            await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize, cancellationToken);
+            
+            var fileInfo = new FileInfo(localDestinationPath);
+            return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
+        }
+        catch (Exception ex)
+        {
+            return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var realPath = GetRealPath(filePath);
+            if (!File.Exists(realPath))
+            {
+                return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
+            }
+
+            await Task.Run(() => File.Delete(realPath), cancellationToken);
+            return FileOperationResult.CreateSuccess(filePath);
+        }
+        catch (Exception ex)
+        {
+            return FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex);
+        }
+    }
 }
 
 public class UploadedInfo : CustomFileInfo

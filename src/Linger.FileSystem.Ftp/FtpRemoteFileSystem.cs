@@ -1,7 +1,9 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 using System.Text;
 using FluentFTP;
 using Linger.FileSystem.Helpers;
+using Linger.FileSystem.Remote;
 using Linger.Helper;
 
 namespace Linger.FileSystem.Ftp;

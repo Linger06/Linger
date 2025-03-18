@@ -2,10 +2,16 @@
 using FluentFTP.Exceptions;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Linger.FileSystem.Ftp;
 
-public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFileSystemContext
+public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFileSystemContext, IFileSystemOperations
 {
     private readonly RetryHelper _retryHelper = new(retryOptions ?? new RetryOptions());
     protected IFtpClient FtpClient { get; set; } = default!;
@@ -307,6 +313,270 @@ public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFil
         {
             HandleException("Download files", ex, localDic);
             return 0;
+        }
+    }
+
+    public async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        using var scope = CreateConnectionScope();
+        try
+        {
+            var remoteFilePath = string.IsNullOrEmpty(destinationPath) ? fileName : Path.Combine(destinationPath, fileName).Replace("\\", "/");
+            
+            // 确保目录存在
+            var remoteDirectory = Path.GetDirectoryName(remoteFilePath)?.Replace("\\", "/");
+            if (!string.IsNullOrEmpty(remoteDirectory))
+            {
+                CreateDirectoryIfNotExists(remoteDirectory);
+            }
+
+            // 检查是否支持异步方法（根据FluentFTP版本而定）
+            var ftpStatus = FtpStatus.Failed;
+            
+#if NET5_0_OR_GREATER
+            // 执行上传 - 异步版本
+            var result = await _retryHelper.ExecuteAsync(
+                async () =>
+                {
+                    inputStream.Position = 0;
+                    var status = await FtpClient.UploadStreamAsync(
+                        inputStream, 
+                        remoteFilePath, 
+                        overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
+                        createRemoteDir: true,
+                        token: cancellationToken);
+                    
+                    return status == FtpStatus.Success;
+                },
+                "Upload file");
+#else
+            // 执行上传 - 同步版本
+            var result = await _retryHelper.ExecuteAsync(
+                () => Task.Run(() => 
+                {
+                    inputStream.Position = 0;
+                    ftpStatus = FtpClient.UploadStream(
+                        inputStream,
+                        remoteFilePath,
+                        overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
+                        createRemoteDir: true);
+                    
+                    return ftpStatus == FtpStatus.Success;
+                }, cancellationToken),
+                "Upload file");
+#endif
+
+            if (!result)
+                return FileOperationResult.CreateFailure($"上传文件失败: {remoteFilePath}");
+
+            return FileOperationResult.CreateSuccess(remoteFilePath);
+        }
+        catch (Exception ex)
+        {
+            HandleException("Upload file", ex, $"Destination: {destinationPath}/{fileName}");
+            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(localFilePath))
+        {
+            return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
+        }
+
+        using var scope = CreateConnectionScope();
+        try
+        {
+            var fileName = Path.GetFileName(localFilePath);
+            var remoteFilePath = string.IsNullOrEmpty(destinationPath) ? fileName : Path.Combine(destinationPath, fileName).Replace("\\", "/");
+            
+            // 确保目录存在
+            var remoteDirectory = Path.GetDirectoryName(remoteFilePath)?.Replace("\\", "/");
+            if (!string.IsNullOrEmpty(remoteDirectory))
+            {
+                CreateDirectoryIfNotExists(remoteDirectory);
+            }
+
+#if NET5_0_OR_GREATER
+            // 执行上传 - 异步版本
+            var result = await _retryHelper.ExecuteAsync(
+                async () =>
+                {
+                    var status = await FtpClient.UploadFileAsync(
+                        localFilePath, 
+                        remoteFilePath, 
+                        overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
+                        createRemoteDir: true,
+                        token: cancellationToken);
+                    
+                    return status == FtpStatus.Success;
+                },
+                "Upload file");
+#else
+            // 执行上传 - 同步版本
+            var result = await _retryHelper.ExecuteAsync(
+                () => Task.Run(() => 
+                {
+                    var status = FtpClient.UploadFile(
+                        localFilePath,
+                        remoteFilePath,
+                        overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
+                        createRemoteDir: true);
+                    
+                    return status == FtpStatus.Success;
+                }, cancellationToken),
+                "Upload file");
+#endif
+
+            if (!result)
+                return FileOperationResult.CreateFailure($"上传文件失败: {remoteFilePath}");
+
+            var fileInfo = new FileInfo(localFilePath);
+            return FileOperationResult.CreateSuccess(remoteFilePath, null, fileInfo.Length);
+        }
+        catch (Exception ex)
+        {
+            HandleException("Upload file", ex, $"Local: {localFilePath}, Destination: {destinationPath}");
+            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
+    {
+        using var scope = CreateConnectionScope();
+        try
+        {
+            if (!FileExists(filePath))
+            {
+                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+            }
+
+#if NET5_0_OR_GREATER
+            // 异步版本
+            var result = await _retryHelper.ExecuteAsync(
+                async () =>
+                {
+                    var status = await FtpClient.DownloadStreamAsync(
+                        outputStream,
+                        filePath,
+                        token: cancellationToken);
+                    
+                    return status == FtpStatus.Success;
+                },
+                "Download to stream");
+#else
+            // 同步版本
+            var result = await _retryHelper.ExecuteAsync(
+                () => Task.Run(() => 
+                {
+                    var status = FtpClient.DownloadStream(
+                        outputStream, 
+                        filePath);
+                    
+                    return status == true;
+                }, cancellationToken),
+                "Download to stream");
+#endif
+
+            if (!result)
+                return FileOperationResult.CreateFailure($"下载文件到流失败: {filePath}");
+
+            // 获取文件大小
+            long fileSize = 0;
+            try { fileSize = FtpClient.GetFileSize(filePath); } catch { /* 忽略获取大小失败 */ }
+
+            return FileOperationResult.CreateSuccess(filePath, null, fileSize);
+        }
+        catch (Exception ex)
+        {
+            HandleException("Download to stream", ex, filePath);
+            return FileOperationResult.CreateFailure($"下载文件到流失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        using var scope = CreateConnectionScope();
+        try
+        {
+            if (!FileExists(filePath))
+            {
+                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+            }
+
+            // 确保目标目录存在
+            var destDir = Path.GetDirectoryName(localDestinationPath);
+            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
+            {
+                Directory.CreateDirectory(destDir);
+            }
+
+            // 检查文件是否已存在
+            if (File.Exists(localDestinationPath) && !overwrite)
+            {
+                return FileOperationResult.CreateFailure($"目标文件已存在: {localDestinationPath}");
+            }
+
+#if NET5_0_OR_GREATER
+            // 异步版本
+            var result = await _retryHelper.ExecuteAsync(
+                async () =>
+                {
+                    var status = await FtpClient.DownloadFileAsync(
+                        localDestinationPath,
+                        filePath,
+                        overwrite ? FtpLocalExists.Overwrite : FtpLocalExists.Skip,
+                        token: cancellationToken);
+                    
+                    return status == FtpStatus.Success;
+                },
+                "Download file");
+#else
+            // 同步版本
+            var result = await _retryHelper.ExecuteAsync(
+                () => Task.Run(() => 
+                {
+                    var status = FtpClient.DownloadFile(
+                        localDestinationPath, 
+                        filePath, 
+                        overwrite ? FtpLocalExists.Overwrite : FtpLocalExists.Skip);
+                    
+                    return status == FtpStatus.Success;
+                }, cancellationToken),
+                "Download file");
+#endif
+
+            if (!result)
+                return FileOperationResult.CreateFailure($"下载文件失败: {filePath}");
+
+            var fileInfo = new FileInfo(localDestinationPath);
+            return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
+        }
+        catch (Exception ex)
+        {
+            HandleException("Download file", ex, filePath);
+            return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
+        }
+    }
+
+    public async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        using var scope = CreateConnectionScope();
+        try
+        {
+            if (!FileExists(filePath))
+            {
+                return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
+            }
+
+            await Task.Run(() => FtpClient.DeleteFile(filePath), cancellationToken);
+            return FileOperationResult.CreateSuccess(filePath);
+        }
+        catch (Exception ex)
+        {
+            HandleException("Delete file", ex, filePath);
+            return FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex);
         }
     }
 
