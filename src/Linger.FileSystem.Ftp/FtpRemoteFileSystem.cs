@@ -17,7 +17,9 @@ public class FtpRemoteFileSystem : FtpContext
          : base(retryOptions)
     {
         ArgumentNullException.ThrowIfNull(setting);
-        ArgumentNullException.ThrowIfNullOrEmpty(setting.Host);
+        
+        if (string.IsNullOrEmpty(setting.Host))
+            throw new ArgumentException("Host cannot be null or empty", nameof(setting.Host));
 
         _setting = setting;
         _serverDetails = FtpHelper.ServerDetails(
@@ -31,15 +33,8 @@ public class FtpRemoteFileSystem : FtpContext
 
     private void InitializeFtpClient()
     {
-        var client = new FtpClient(_setting.Host)
-        {
-            Credentials = new NetworkCredential(_setting.UserName, _setting.Password),
-            Port = _setting.Port,
-            Encoding = _setting.Encoding ?? Encoding.Default
-        };
-
-#if NET5_0_OR_GREATER
-        client.Config = new FtpConfig
+        // 创建FTP客户端配置
+        FtpConfig config = new FtpConfig
         {
             RetryAttempts = 0, // 使用基类中的重试机制
             TimeConversion = FtpDate.LocalTime,
@@ -48,9 +43,16 @@ public class FtpRemoteFileSystem : FtpContext
             ConnectTimeout = 60000,
             StaleDataCheck = true
         };
-#endif
 
-        FtpClient = client;
+        // 仅创建AsyncFtpClient
+        var asyncClient = new AsyncFtpClient(_setting.Host, 
+            new NetworkCredential(_setting.UserName, _setting.Password),
+            _setting.Port);
+        
+        asyncClient.Config = config;
+        asyncClient.Encoding = _setting.Encoding ?? Encoding.Default;
+        
+        FtpClient = asyncClient;
     }
 
     public override string ServerDetails() => _serverDetails;

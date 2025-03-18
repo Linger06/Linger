@@ -21,7 +21,10 @@ public class SftpRemoteFileSystem : SftpContext
         : base(retryOptions)
     {
         ArgumentNullException.ThrowIfNull(setting);
-        ArgumentException.ThrowIfNullOrEmpty(setting.Host, nameof(setting.Host));
+        
+        // 修复: 替换 ArgumentNullException.ThrowIfNullOrEmpty 为手动检查
+        if (string.IsNullOrEmpty(setting.Host))
+            throw new ArgumentException("Host cannot be null or empty", nameof(setting.Host));
 
         _setting = setting;
         _serverDetails = FtpHelper.ServerDetails(

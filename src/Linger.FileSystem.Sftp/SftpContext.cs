@@ -9,6 +9,7 @@ using Linger.FileSystem.Remote;
 using Linger.Helper;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
+using Linger.FileSystem.Exceptions;
 
 namespace Linger.FileSystem.Sftp;
 
@@ -26,7 +27,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
     {
         // 统一的异常处理，可以在派生类中重写实现具体的日志记录
         string message = $"{operation} failed. {(path != null ? $"Path: {path}. " : string.Empty)}";
-        throw new Exception(message, ex);
+        throw new FileSystemException(operation, path, message, ex);
     }
 
     public class SftpConnectionScope : IDisposable
@@ -401,4 +402,25 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
     }
 
     public abstract string ServerDetails();
+
+    // 添加异步接口实现
+    public Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => FileExists(filePath), cancellationToken);
+    }
+    
+    public Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => DirectoryExists(directoryPath), cancellationToken);
+    }
+    
+    public Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => CreateDirectoryIfNotExists(directoryPath), cancellationToken);
+    }
+    
+    public Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => DeleteFileIfExists(filePath), cancellationToken);
+    }
 }

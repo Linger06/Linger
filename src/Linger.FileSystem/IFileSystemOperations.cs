@@ -8,7 +8,7 @@ namespace Linger.FileSystem;
 /// <summary>
 /// 定义统一的文件系统操作接口，适用于本地和远程文件系统
 /// </summary>
-public interface IFileSystemOperations : IFileSystem
+public interface IFileSystemOperations : IFileSystem, IAsyncFileSystem
 {
     /// <summary>
     /// 上传流到文件系统

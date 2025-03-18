@@ -62,6 +62,12 @@ public class LocalFileSystem : ILocalFileSystem
         FileHelper.DeleteFileIfExists(realPath);
     }
 
+    public void DeleteFileIfExistsAsync(string filePath)
+    {
+        var realPath = GetRealPath(filePath);
+        FileHelper.DeleteFileIfExists(realPath);
+    }
+
     public bool DirectoryExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
@@ -72,6 +78,28 @@ public class LocalFileSystem : ILocalFileSystem
     {
         var realPath = GetRealPath(filePath);
         return PathHelper.Exists(realPath, true);
+    }
+
+    public Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(FileExists(filePath));
+    }
+
+    public Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(DirectoryExists(directoryPath));
+    }
+
+    public Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        CreateDirectoryIfNotExists(directoryPath);
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        DeleteFileIfExists(filePath);
+        return Task.CompletedTask;
     }
 
     public async Task<UploadedInfo> UploadAsync(
@@ -470,7 +498,7 @@ public class LocalFileSystem : ILocalFileSystem
     public Task DeleteAsync(string filePath)
     {
         var realPath = GetRealPath(filePath);
-        DeleteFileIfExists(realPath);
+        DeleteFileIfExistsAsync(realPath);
         return Task.CompletedTask;
     }
 
