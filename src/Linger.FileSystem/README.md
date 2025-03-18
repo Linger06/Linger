@@ -1,99 +1,401 @@
-﻿# Linger.FileSystem
+﻿# Linger.FileSystem 文件系统库
 
-## Overview
+## 概述
 
-Linger.FileSystem is a feature-rich C# file system helper library that provides a set of tools to simplify file and directory operations. The library aims to make developers more efficient in handling file system related tasks, including file upload and download.
+Linger.FileSystem 是一个统一的文件系统抽象库，提供了对多种文件系统的一致访问接口，包括本地文件系统、FTP和SFTP。通过这个库，您可以使用相同的API操作不同类型的文件系统，简化开发过程，提高代码复用性。
 
-## Table of Contents
+## 架构设计
 
-- [Features](#features)
-- [Supported .NET Versions](#supported-net-versions)
-- [Installation](#installation)
-- [Usage Examples](#usage-examples)
-- [Contributing](#contributing)
-- [License](#license)
+### 核心接口层次
 
-## Features
+```
+IFileSystem                   IAsyncFileSystem
+    │                              │
+    └───────────────┬──────────────┘
+                    │
+          IFileSystemOperations
+           /            \
+ILocalFileSystem    IRemoteFileSystemContext
+```
 
-- Simplified file operation APIs
-- Secure file read/write functionality
-- Path processing utilities
-- Cross-platform compatibility
-- Asynchronous file operation support
-- File upload and download capabilities
+### 核心接口
 
-## Supported .NET Versions
+- **IFileSystem**: 定义基本同步文件操作接口
+- **IAsyncFileSystem**: 定义基本异步文件操作接口
+- **IFileSystemOperations**: 统一的文件系统操作接口，继承自上述两个接口
+- **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
+- **IRemoteFileSystemContext**: 远程文件系统连接管理接口
 
-This library supports the following .NET applications:
+### 实现类层次
+
+```
+                FileSystemBase
+                /           \
+   LocalFileSystem     RemoteFileSystemBase
+                         /         \
+               FtpFileSystem    SftpFileSystem
+```
+
+### 基础类
+
+- **FileSystemBase**: 所有文件系统的抽象基类，实现了IFileSystemOperations接口
+- **RemoteFileSystemBase**: 远程文件系统的抽象基类，继承自FileSystemBase，实现了IRemoteFileSystemContext
+- **LocalFileSystem**: 本地文件系统具体实现
+- **FtpFileSystem**: FTP文件系统实现，基于FluentFTP库
+- **SftpFileSystem**: SFTP文件系统实现，基于SSH.NET库
+
+### 设计模式
+
+该库使用了以下设计模式：
+
+- **抽象工厂**: 通过不同的构造函数和配置创建不同类型的文件系统
+- **模板方法**: 在基类中定义算法骨架，子类实现具体步骤
+- **策略模式**: 不同文件系统实现相同接口但有各自的实现策略
+- **装饰器**: 在基本功能上添加重试、验证等增强功能
+- **适配器**: 将不同文件系统API适配到同一接口
+
+### 关键流程
+
+1. **文件上传流程**:
+   - 客户端调用IFileSystemOperations.UploadAsync
+   - 根据实际文件系统类型执行不同实现 
+   - 应用配置的文件命名规则和验证措施
+   - 返回统一的FileOperationResult结果
+
+2. **远程系统连接管理**:
+   - 使用ConnectionScope确保连接的正确打开和关闭
+   - 自动连接、操作、关闭的生命周期管理
+
+## 主要特点
+
+- **统一接口**: 通过 `IFileSystemOperations` 接口提供的一致API操作不同类型的文件系统
+- **支持多种文件系统**: 包括本地文件系统、FTP和SFTP
+- **异步操作**: 所有操作都支持异步方法，适用于现代应用程序开发
+- **自动重试**: 内置重试机制，可以配置重试次数和延迟，提高操作可靠性
+- **连接管理**: 自动处理远程文件系统的连接和断开
+- **多种命名规则**: 支持MD5、UUID和普通命名规则
+
+## 支持的.NET版本
+
 - .NET Framework 4.6.2+
 - .NET Standard 2.0+
 - .NET Core 2.0+/.NET 5+
 
-## Installation
+## 安装
 
-Install via NuGet Package Manager:
+通过NuGet包管理器安装:
 
 ```
 Install-Package Linger.FileSystem
 ```
 
-Or using .NET CLI:
+或使用.NET CLI:
 
 ```
 dotnet add package Linger.FileSystem
 ```
 
-## Usage Examples
+## 快速入门
+
+### 使用本地文件系统
 
 ```csharp
-using Linger.FileSystem;
+// 创建本地文件系统实例
+var localFs = new LocalFileSystem("C:/Storage");
 
-// Basic file operations
-var fileHelper = new FileHelper();
-await fileHelper.WriteTextAsync("path/to/file.txt", "Hello World!");
-var content = await fileHelper.ReadTextAsync("path/to/file.txt");
+// 上传文件
+using var fileStream = File.OpenRead("test.txt");
+var result = await localFs.UploadAsync(fileStream, "uploads", "destination-file.txt", true);
 
-// Directory operations
-var dirHelper = new DirectoryHelper();
-dirHelper.CreateDirectory("path/to/directory");
-var files = dirHelper.GetFiles("path/to/directory", "*.txt");
-
-// LocalFileSystem operations
-var localFS = new LocalFileSystem();
-// Create and write to a file
-await localFS.WriteAllTextAsync("local/path/to/file.txt", "Content to write");
-// Check if file exists
-bool exists = await localFS.FileExistsAsync("local/path/to/file.txt");
-Console.WriteLine($"File exists: {exists}");
-// Read file content
-string fileContent = await localFS.ReadAllTextAsync("local/path/to/file.txt");
-Console.WriteLine(fileContent);
-// Copy file
-await localFS.CopyAsync("source/file.txt", "destination/file.txt", true);
-// Delete file
-await localFS.DeleteFileAsync("local/path/to/file.txt");
-
-// Upload and Download operations with LocalFileSystem
-// Upload a file to a remote server
-using (var fileStream = File.OpenRead("local/file/path.txt"))
+// 检查上传结果
+if (result.Success)
 {
-    await localFS.UploadAsync(fileStream, "remote/destination/path.txt");
-}
-
-// Download a file from a remote server
-await localFS.DownloadAsync("remote/source/file.txt", "local/destination/file.txt");
-
-// Stream-based download
-using (var destinationStream = File.Create("local/path/downloaded.file"))
-{
-    await localFS.DownloadToStreamAsync("remote/path/file", destinationStream);
+    Console.WriteLine($"文件上传成功: {result.FilePath}");
 }
 ```
 
-## Contributing
+### 使用FTP文件系统
 
-Pull requests and issues are welcome to help us improve this library.
+```csharp
+// 创建FTP连接设置
+var ftpSetting = new RemoteSystemSetting
+{
+    Host = "ftp.example.com",
+    Port = 21,
+    UserName = "username",
+    Password = "password",
+    Type = "FTP"
+};
 
-## License
+// 创建FTP文件系统实例
+var ftpFs = new FtpFileSystem(ftpSetting);
+
+// 上传文件
+using var fileStream = File.OpenRead("test.txt");
+var result = await ftpFs.UploadAsync(fileStream, "/public_html", "test.txt", true);
+```
+
+### 使用SFTP文件系统
+
+```csharp
+// 创建SFTP连接设置
+var sftpSetting = new RemoteSystemSetting
+{
+    Host = "sftp.example.com",
+    Port = 22,
+    UserName = "username",
+    Password = "password",
+    Type = "SFTP"
+};
+
+// 创建SFTP文件系统实例
+var sftpFs = new SftpFileSystem(sftpSetting);
+
+// 上传文件
+using var fileStream = File.OpenRead("test.txt");
+var result = await ftpFs.UploadAsync(fileStream, "/home/user", "test.txt", true);
+```
+
+## 常见操作
+
+### 文件上传
+
+```csharp
+// 上传流
+using var stream = File.OpenRead("local-file.txt");
+var result = await fileSystem.UploadAsync(stream, "uploads", "destination-file.txt", true);
+
+// 上传本地文件
+result = await fileSystem.UploadFileAsync("local-file.txt", "uploads", true);
+```
+
+### 文件下载
+
+```csharp
+// 下载到流
+using var outputStream = new MemoryStream();
+var result = await fileSystem.DownloadToStreamAsync("uploads/file.txt", outputStream);
+
+// 下载到本地文件
+result = await fileSystem.DownloadFileAsync("uploads/file.txt", "C:/Downloads/downloaded-file.txt", true);
+```
+
+### 文件删除
+
+```csharp
+var result = await fileSystem.DeleteAsync("uploads/file-to-delete.txt");
+```
+
+### 目录操作
+
+```csharp
+// 检查目录是否存在
+bool exists = await fileSystem.DirectoryExistsAsync("uploads/images");
+
+// 创建目录
+await fileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
+```
+
+## 配置选项
+
+### 本地文件系统选项
+
+```csharp
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",          // 根目录路径
+    DefaultNamingRule = NamingRule.Md5,        // 默认命名规则: Md5、Uuid、Normal
+    DefaultOverwrite = false,                  // 是否默认覆盖同名文件
+    DefaultUseSequencedName = true,            // 文件名冲突时是否使用序号命名
+    ValidateFileIntegrity = true,              // 是否验证文件完整性
+    ValidateFileMetadata = false,              // 是否验证文件元数据
+    CleanupOnValidationFailure = true,         // 验证失败时是否清理文件
+    UploadBufferSize = 81920,                  // 上传缓冲区大小
+    DownloadBufferSize = 81920,                // 下载缓冲区大小
+    RetryOptions = new RetryOptions 
+    { 
+        MaxRetryCount = 3, 
+        DelayMilliseconds = 1000 
+    }
+};
+
+var localFs = new LocalFileSystem(options);
+```
+
+### 远程文件系统设置
+
+```csharp
+var remoteSetting = new RemoteSystemSetting
+{
+    Host = "example.com",                      // 主机地址
+    Port = 21,                                 // 端口 (FTP默认21，SFTP默认22)
+    UserName = "username",                     // 用户名
+    Password = "password",                     // 密码
+    Type = "FTP",                              // 类型: "FTP" 或 "SFTP"
+    ConnectionTimeout = 30000,                 // 连接超时(毫秒)
+    OperationTimeout = 60000,                  // 操作超时(毫秒)
+    // SFTP特定设置
+    CertificatePath = "",                      // 证书路径
+    CertificatePassphrase = ""                 // 证书口令
+};
+```
+
+## 高级功能
+
+### FTP特有功能
+
+```csharp
+// 设置工作目录
+await ftpFs.SetWorkingDirectoryAsync("/public_html");
+
+// 列出目录
+var files = await ftpFs.ListDirectoryAsync("/public_html");
+
+// 批量上传文件
+string[] localFiles = { "file1.txt", "file2.txt" };
+var count = await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
+
+// 批量下载文件
+string[] remoteFiles = { "/remote/file1.txt", "/remote/file2.txt" };
+count = await ftpFs.DownloadFilesAsync("C:/Downloads", remoteFiles);
+```
+
+### SFTP特有功能
+
+```csharp
+// 设置工作目录
+sftpFs.SetWorkingDirectory("/home/user");
+
+// 设置根目录为工作目录
+sftpFs.SetRootAsWorkingDirectory();
+
+// 列出目录中的文件
+var files = await sftpFs.ListFilesAsync("/home/user");
+
+// 列出目录中的子目录
+var directories = await sftpFs.ListDirectoriesAsync("/home/user");
+
+// 获取文件最后修改时间
+var modTime = await sftpFs.GetLastModifiedTimeAsync("/home/user/file.txt");
+```
+
+### 本地文件系统高级功能
+
+```csharp
+// 使用高级上传功能
+var uploadedInfo = await localFs.UploadAsync(
+    stream,
+    "source-file.txt",  // 源文件名
+    "container1",       // 容器名
+    "images",           // 目标路径
+    NamingRule.Md5,     // 命名规则
+    false,              // 是否覆盖
+    true                // 是否使用序号命名
+);
+
+// 访问上传后的信息
+Console.WriteLine($"文件哈希: {uploadedInfo.HashData}");
+Console.WriteLine($"相对路径: {uploadedInfo.FilePath}");
+Console.WriteLine($"完整路径: {uploadedInfo.FullFilePath}");
+```
+
+## 连接管理
+
+```csharp
+// 方式1: 使用using语句自动管理连接
+using (var ftpFs = new FtpFileSystem(remoteSetting))
+{
+    // 操作自动处理连接和断开
+    await ftpFs.UploadFileAsync("local.txt", "/remote/path");
+}
+
+// 方式2: 手动管理连接
+try
+{
+    ftpFs.Connect();
+    // 执行多个操作...
+    await ftpFs.UploadFileAsync("file1.txt", "/remote");
+    await ftpFs.UploadFileAsync("file2.txt", "/remote");
+}
+finally
+{
+    ftpFs.Disconnect();
+}
+```
+
+## 异常处理
+
+```csharp
+try
+{
+    var result = await ftpFs.UploadFileAsync("local.txt", "/remote");
+    if (result.Success)
+    {
+        Console.WriteLine($"上传成功: {result.FilePath}");
+    }
+    else
+    {
+        Console.WriteLine($"上传失败: {result.ErrorMessage}");
+    }
+}
+catch (FileSystemException ex)
+{
+    Console.WriteLine($"文件系统操作异常: {ex.Message}");
+    Console.WriteLine($"操作: {ex.Operation}, 路径: {ex.Path}");
+    if (ex.InnerException != null)
+    {
+        Console.WriteLine($"内部异常: {ex.InnerException.Message}");
+    }
+}
+```
+
+## 重试机制
+
+```csharp
+var retryOptions = new RetryOptions
+{
+    MaxRetryCount = 5,                        // 最多重试5次
+    DelayMilliseconds = 1000,                 // 初始延迟1秒
+    MaxDelayMilliseconds = 30000,             // 最大延迟30秒
+    UseExponentialBackoff = true              // 使用指数退避算法
+};
+
+// 为远程文件系统配置重试选项
+var ftpFs = new FtpFileSystem(remoteSetting, retryOptions);
+```
+
+## 文件命名规则
+
+本地文件系统支持三种文件命名规则：
+
+- **Normal**: 保持原始文件名
+- **Md5**: 使用文件内容的MD5哈希值命名
+- **Uuid**: 使用UUID生成唯一文件名
+
+```csharp
+// 使用MD5命名规则
+var result = await localFs.UploadAsync(
+    fileStream, 
+    "source.txt", 
+    "container", 
+    "uploads", 
+    NamingRule.Md5
+);
+
+// 使用UUID命名规则
+result = await localFs.UploadAsync(
+    fileStream, 
+    "source.txt", 
+    "container", 
+    "uploads", 
+    NamingRule.Uuid
+);
+```
+
+## 贡献
+
+欢迎提交Pull Request和Issue帮助我们改进这个库。
+
+## 许可证
 
 MIT

@@ -1,86 +1,94 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Linger.FileSystem.Helpers;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
 using Renci.SshNet;
 using Renci.SshNet.Sftp;
-using Linger.FileSystem.Exceptions;
 
 namespace Linger.FileSystem.Sftp;
 
-public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemContext
+/// <summary>
+/// SFTP文件系统实现
+/// </summary>
+public class SftpFileSystem : RemoteFileSystemBase
 {
-    private readonly RetryHelper _retryHelper;
-    protected SftpClient SftpClient { get; set; } = default!;
+    /// <summary>
+    /// SFTP客户端
+    /// </summary>
+    protected SftpClient Client { get; }
 
-    protected SftpContext(RetryOptions? retryOptions = null)
+    // 确保正确初始化客户端
+    public SftpFileSystem(RemoteSystemSetting setting, RetryOptions? retryOptions = null)
+        : base(setting, retryOptions)
     {
-        _retryHelper = new RetryHelper(retryOptions ?? new RetryOptions());
+        Client = CreateClient();
     }
 
-    protected virtual void HandleException(string operation, Exception ex, string? path = null)
+    private SftpClient CreateClient()
     {
-        // 统一的异常处理，可以在派生类中重写实现具体的日志记录
-        string message = $"{operation} failed. {(path != null ? $"Path: {path}. " : string.Empty)}";
-        throw new FileSystemException(operation, path, message, ex);
-    }
-
-    public class SftpConnectionScope : IDisposable
-    {
-        private readonly SftpContext _context;
-        private readonly bool _wasConnected;
-
-        public SftpConnectionScope(SftpContext context)
+        // 创建连接信息，考虑证书认证选项
+        ConnectionInfo connectionInfo;
+        
+        if (!string.IsNullOrEmpty(Setting.CertificatePath))
         {
-            _context = context;
-            _wasConnected = _context.IsConnected();
-            if (!_wasConnected)
-                _context.Connect();
+            var privateKeyFile = new PrivateKeyFile(Setting.CertificatePath, Setting.CertificatePassphrase);
+            connectionInfo = new ConnectionInfo(
+                Setting.Host,
+                Setting.Port,
+                Setting.UserName,
+                new PrivateKeyAuthenticationMethod(Setting.UserName, privateKeyFile));
         }
-
-        public void Dispose()
+        else
         {
-            if (!_wasConnected)
-                _context.Disconnect();
+            connectionInfo = new ConnectionInfo(
+                Setting.Host,
+                Setting.Port,
+                Setting.UserName,
+                new PasswordAuthenticationMethod(Setting.UserName, Setting.Password));
         }
+        
+        // 设置超时
+        connectionInfo.Timeout = TimeSpan.FromMilliseconds(Setting.ConnectionTimeout);
+        
+        return new SftpClient(connectionInfo);
     }
 
-    protected SftpConnectionScope CreateConnectionScope()
+    #region 连接管理
+
+    public override bool IsConnected() => Client?.IsConnected ?? false;
+
+    public override void Connect()
     {
-        return new SftpConnectionScope(this);
+        if (Client != null && !Client.IsConnected)
+            Client.Connect();
     }
 
-    public bool IsConnected() => SftpClient?.IsConnected ?? false;
-
-    public void Connect()
+    public override void Disconnect()
     {
-        if (SftpClient != null && !SftpClient.IsConnected)
-            SftpClient.Connect();
+        if (Client?.IsConnected == true)
+            Client.Disconnect();
     }
 
-    public void Disconnect()
+    public override void Dispose()
     {
-        if (SftpClient?.IsConnected == true)
-            SftpClient.Disconnect();
-    }
-
-    public void Dispose()
-    {
-        SftpClient?.Dispose();
+        Client?.Dispose();
         GC.SuppressFinalize(this);
     }
 
-    public bool FileExists(string filePath)
+    #endregion
+
+    #region 文件操作基本方法
+
+    public override bool FileExists(string filePath)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            return SftpClient!.Exists(filePath) && SftpClient.GetAttributes(filePath).IsRegularFile;
+            return Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile;
         }
         catch (Exception ex)
         {
@@ -89,12 +97,12 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public bool DirectoryExists(string directoryPath)
+    public override bool DirectoryExists(string directoryPath)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            return SftpClient!.Exists(directoryPath) && SftpClient.GetAttributes(directoryPath).IsDirectory;
+            return Client.Exists(directoryPath) && Client.GetAttributes(directoryPath).IsDirectory;
         }
         catch (Exception ex)
         {
@@ -103,7 +111,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public void CreateDirectoryIfNotExists(string directoryPath)
+    public override void CreateDirectoryIfNotExists(string directoryPath)
     {
         using var scope = CreateConnectionScope();
         try
@@ -118,7 +126,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
                 {
                     currentPath += "/" + path;
                     if (!DirectoryExists(currentPath))
-                        SftpClient!.CreateDirectory(currentPath);
+                        Client.CreateDirectory(currentPath);
                 }
             }
         }
@@ -128,13 +136,13 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public void DeleteFileIfExists(string filePath)
+    public override void DeleteFileIfExists(string filePath)
     {
         using var scope = CreateConnectionScope();
         try
         {
             if (FileExists(filePath))
-                SftpClient!.DeleteFile(filePath);
+                Client.DeleteFile(filePath);
         }
         catch (Exception ex)
         {
@@ -142,7 +150,31 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => FileExists(filePath), cancellationToken);
+    }
+
+    public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => DirectoryExists(directoryPath), cancellationToken);
+    }
+
+    public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => CreateDirectoryIfNotExists(directoryPath), cancellationToken);
+    }
+
+    public override Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => DeleteFileIfExists(filePath), cancellationToken);
+    }
+
+    #endregion
+
+    #region 文件传输操作
+
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
@@ -150,7 +182,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
             var remoteFilePath = NormalizePath(destinationPath, fileName);
             
             // 确保目录存在
-            var remoteDirectory = Path.GetDirectoryName(remoteFilePath)?.Replace("\\", "/");
+            var remoteDirectory = GetDirectoryPath(remoteFilePath);
             if (!string.IsNullOrEmpty(remoteDirectory))
                 CreateDirectoryIfNotExists(remoteDirectory);
             
@@ -159,7 +191,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
                 return FileOperationResult.CreateFailure($"远程文件已存在: {remoteFilePath}");
 
             // 执行上传
-            await _retryHelper.ExecuteAsync(
+            await RetryHelper.ExecuteAsync(
                 async () => 
                 {
                     await Task.Run(() =>
@@ -170,9 +202,9 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
                         ms.Position = 0;
                         
                         if (FileExists(remoteFilePath) && overwrite)
-                            SftpClient!.DeleteFile(remoteFilePath);
+                            Client.DeleteFile(remoteFilePath);
                             
-                        SftpClient!.UploadFile(ms, remoteFilePath);
+                        Client.UploadFile(ms, remoteFilePath);
                         return true;
                     }, cancellationToken);
                     return true;
@@ -180,7 +212,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
                 "Upload file");
 
             // 获取文件大小
-            var fileSize = SftpClient!.GetAttributes(remoteFilePath).Size;
+            var fileSize = Client.GetAttributes(remoteFilePath).Size;
             
             return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
         }
@@ -191,7 +223,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(localFilePath))
             return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
@@ -209,7 +241,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
@@ -217,12 +249,12 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
             if (!FileExists(filePath))
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
 
-            await _retryHelper.ExecuteAsync(
+            await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     await Task.Run(() =>
                     {
-                        SftpClient!.DownloadFile(filePath, outputStream);
+                        Client.DownloadFile(filePath, outputStream);
                         return true;
                     }, cancellationToken);
                     return true;
@@ -230,7 +262,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
                 "Download to stream");
 
             // 获取文件大小
-            var fileSize = SftpClient!.GetAttributes(filePath).Size;
+            var fileSize = Client.GetAttributes(filePath).Size;
             
             return FileOperationResult.CreateSuccess(filePath, null, fileSize);
         }
@@ -241,7 +273,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
@@ -258,7 +290,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
             if (File.Exists(localDestinationPath) && !overwrite)
                 return FileOperationResult.CreateFailure($"目标文件已存在: {localDestinationPath}");
 
-            await _retryHelper.ExecuteAsync(
+            await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     await Task.Run(() =>
@@ -267,7 +299,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
                             File.Delete(localDestinationPath);
                             
                         using var fileStream = File.Create(localDestinationPath);
-                        SftpClient!.DownloadFile(filePath, fileStream);
+                        Client.DownloadFile(filePath, fileStream);
                         return true;
                     }, cancellationToken);
                     return true;
@@ -284,7 +316,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
-    public async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
@@ -292,7 +324,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
             if (!FileExists(filePath))
                 return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
 
-            await Task.Run(() => SftpClient!.DeleteFile(filePath), cancellationToken);
+            await Task.Run(() => Client.DeleteFile(filePath), cancellationToken);
             return FileOperationResult.CreateSuccess(filePath);
         }
         catch (Exception ex)
@@ -302,23 +334,13 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
     
-    // 辅助方法：标准化路径，将Windows路径转换为Unix路径
-    protected string NormalizePath(string directoryPath, string fileName)
-    {
-        if (string.IsNullOrEmpty(directoryPath))
-            return fileName;
-            
-        // 替换Windows路径分隔符为Unix路径分隔符
-        directoryPath = directoryPath.Replace("\\", "/");
-        
-        // 确保路径以/结尾
-        if (!directoryPath.EndsWith("/"))
-            directoryPath += "/";
-            
-        return directoryPath + fileName;
-    }
+    #endregion
     
-    // 列出目录中的文件
+    #region SFTP特有功能
+    
+    /// <summary>
+    /// 列出目录中的文件
+    /// </summary>
     public List<string> ListFiles(string directoryPath)
     {
         using var scope = CreateConnectionScope();
@@ -327,7 +349,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
             if (!DirectoryExists(directoryPath))
                 return new List<string>();
                 
-            var files = SftpClient!.ListDirectory(directoryPath)
+            var files = Client.ListDirectory(directoryPath)
                 .Where(file => !file.IsDirectory && !file.Name.StartsWith("."))
                 .Select(file => file.Name)
                 .ToList();
@@ -341,7 +363,9 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
     
-    // 列出目录中的子目录
+    /// <summary>
+    /// 列出目录中的子目录
+    /// </summary>
     public List<string> ListDirectories(string directoryPath)
     {
         using var scope = CreateConnectionScope();
@@ -350,7 +374,7 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
             if (!DirectoryExists(directoryPath))
                 return new List<string>();
                 
-            var directories = SftpClient!.ListDirectory(directoryPath)
+            var directories = Client.ListDirectory(directoryPath)
                 .Where(file => file.IsDirectory && !file.Name.StartsWith(".") && file.Name != "." && file.Name != "..")
                 .Select(file => file.Name)
                 .ToList();
@@ -364,12 +388,15 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
+    /// <summary>
+    /// 设置工作目录
+    /// </summary>
     public void SetWorkingDirectory(string directoryPath)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            SftpClient!.ChangeDirectory(directoryPath);
+            Client.ChangeDirectory(directoryPath);
         }
         catch (Exception ex)
         {
@@ -377,22 +404,25 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
         }
     }
 
+    /// <summary>
+    /// 设置根目录为工作目录
+    /// </summary>
     public void SetRootAsWorkingDirectory()
     {
         SetWorkingDirectory("/");
     }
 
     /// <summary>
-    ///     获取文件最后修改时间
+    /// 获取文件最后修改时间
     /// </summary>
     /// <param name="remotePath">远程路径("/test/abc.txt")</param>
-    /// <returns></returns>
+    /// <returns>最后修改时间</returns>
     public DateTime GetLastModifiedTime(string remotePath)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            return SftpClient!.GetLastWriteTime(remotePath);
+            return Client.GetLastWriteTime(remotePath);
         }
         catch (Exception ex)
         {
@@ -400,27 +430,30 @@ public abstract class SftpContext : IFileSystemOperations, IRemoteFileSystemCont
             return DateTime.MinValue;
         }
     }
-
-    public abstract string ServerDetails();
-
-    // 添加异步接口实现
-    public Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    
+    /// <summary>
+    /// 异步获取文件修改时间
+    /// </summary>
+    public Task<DateTime> GetLastModifiedTimeAsync(string remotePath, CancellationToken cancellationToken = default)
     {
-        return Task.Run(() => FileExists(filePath), cancellationToken);
+        return Task.Run(() => GetLastModifiedTime(remotePath), cancellationToken);
     }
     
-    public Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 异步获取目录列表
+    /// </summary>
+    public Task<List<string>> ListFilesAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        return Task.Run(() => DirectoryExists(directoryPath), cancellationToken);
+        return Task.Run(() => ListFiles(directoryPath), cancellationToken);
     }
     
-    public Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 异步获取子目录列表
+    /// </summary>
+    public Task<List<string>> ListDirectoriesAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        return Task.Run(() => CreateDirectoryIfNotExists(directoryPath), cancellationToken);
+        return Task.Run(() => ListDirectories(directoryPath), cancellationToken);
     }
     
-    public Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
-    {
-        return Task.Run(() => DeleteFileIfExists(filePath), cancellationToken);
-    }
+    #endregion
 }

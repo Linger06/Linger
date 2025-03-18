@@ -5,32 +5,23 @@ using Linger.Helper;
 
 namespace Linger.FileSystem.Local;
 
-public class LocalFileSystem : ILocalFileSystem
+// 添加继承自FileSystemBase
+public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 {
-    private readonly RetryHelper _retryHelper;
     private readonly LocalFileSystemOptions _options;
 
     public string RootDirectoryPath { get; }
 
-    /// <summary>
-    /// 使用配置选项初始化本地文件系统
-    /// </summary>
-    /// <param name="options">文件系统配置选项</param>
     public LocalFileSystem(LocalFileSystemOptions options)
+        : base(options.RetryOptions)
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         RootDirectoryPath = options.RootDirectoryPath;
-        _retryHelper = new RetryHelper(options.RetryOptions);
 
         // 确保根目录存在
         Directory.CreateDirectory(RootDirectoryPath);
     }
 
-    /// <summary>
-    /// 使用根目录路径和可选的重试选项初始化本地文件系统
-    /// </summary>
-    /// <param name="rootDirectoryPath">根目录路径</param>
-    /// <param name="retryOptions">重试选项</param>
     public LocalFileSystem(string rootDirectoryPath, RetryOptions? retryOptions = null)
         : this(new LocalFileSystemOptions
         {
@@ -39,6 +30,8 @@ public class LocalFileSystem : ILocalFileSystem
         })
     {
     }
+
+    // 这是本地文件系统，所以IsRemoteFileSystem保持为false (默认)
 
     public bool Exists()
     {
@@ -50,13 +43,13 @@ public class LocalFileSystem : ILocalFileSystem
         CreateDirectoryIfNotExists(RootDirectoryPath);
     }
 
-    public void CreateDirectoryIfNotExists(string directoryPath)
+    public override void CreateDirectoryIfNotExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
         Directory.CreateDirectory(realPath);
     }
 
-    public void DeleteFileIfExists(string filePath)
+    public override void DeleteFileIfExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
         FileHelper.DeleteFileIfExists(realPath);
@@ -68,35 +61,35 @@ public class LocalFileSystem : ILocalFileSystem
         FileHelper.DeleteFileIfExists(realPath);
     }
 
-    public bool DirectoryExists(string directoryPath)
+    public override bool DirectoryExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
         return PathHelper.Exists(realPath, false);
     }
 
-    public bool FileExists(string filePath)
+    public override bool FileExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
         return PathHelper.Exists(realPath, true);
     }
 
-    public Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(FileExists(filePath));
     }
 
-    public Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(DirectoryExists(directoryPath));
     }
 
-    public Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
+    public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
         CreateDirectoryIfNotExists(directoryPath);
         return Task.CompletedTask;
     }
 
-    public Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
+    public override Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
         DeleteFileIfExists(filePath);
         return Task.CompletedTask;
@@ -120,7 +113,7 @@ public class LocalFileSystem : ILocalFileSystem
         var effectiveUseSequencedName = useSequencedName ?? _options.DefaultUseSequencedName;
 
 
-        return await _retryHelper.ExecuteAsync(
+        return await RetryHelper.ExecuteAsync(
             async () => await UploadInternalAsync(
                 inputStream,
                 sourceFileName,
@@ -399,7 +392,7 @@ public class LocalFileSystem : ILocalFileSystem
         ArgumentNullException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNullOrEmpty(destFileName);
 
-        return await _retryHelper.ExecuteAsync(
+        return await RetryHelper.ExecuteAsync(
             async () =>
             {
                 var sourceFilePath = GetRealPath(filePath);
@@ -502,7 +495,7 @@ public class LocalFileSystem : ILocalFileSystem
         return Task.CompletedTask;
     }
 
-    public async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -521,7 +514,7 @@ public class LocalFileSystem : ILocalFileSystem
         }
     }
 
-    public async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -540,7 +533,7 @@ public class LocalFileSystem : ILocalFileSystem
         }
     }
 
-    public async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -562,7 +555,7 @@ public class LocalFileSystem : ILocalFileSystem
         }
     }
 
-    public async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -598,7 +591,7 @@ public class LocalFileSystem : ILocalFileSystem
         }
     }
 
-    public async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
         try
         {

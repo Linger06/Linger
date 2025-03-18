@@ -2,73 +2,102 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Linger.FileSystem.Exceptions;
 using Linger.Helper;
 
 namespace Linger.FileSystem.Remote;
 
 /// <summary>
-/// 远程文件系统的通用基类，提供共享功能和实现
-/// 注意：此类是为了未来的扩展设计的，现有FtpContext和SftpContext暂不需要修改为继承此类
+/// 远程文件系统基类，实现连接管理和通用功能
 /// </summary>
-public abstract class RemoteFileSystemBase : IRemoteFileSystemContext, IFileSystemOperations
+public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemContext
 {
-    protected readonly RetryHelper RetryHelper;
+    /// <summary>
+    /// 服务器连接信息
+    /// </summary>
+    protected readonly RemoteSystemSetting Setting;
     
-    protected RemoteFileSystemBase(RetryOptions? retryOptions = null)
+    /// <summary>
+    /// 服务器详情描述
+    /// </summary>
+    protected readonly string ServerDetailsString;
+    
+    protected RemoteFileSystemBase(RemoteSystemSetting setting, RetryOptions? retryOptions = null)
+        : base(retryOptions)
     {
-        RetryHelper = new RetryHelper(retryOptions ?? new RetryOptions());
+        Setting = setting ?? throw new ArgumentNullException(nameof(setting));
+        if (string.IsNullOrEmpty(setting.Host))
+            throw new ArgumentException("Host cannot be null or empty", nameof(setting.Host));
+        
+        ServerDetailsString = FormatServerDetails();
     }
-
+    
+    /// <summary>
+    /// 远程文件系统标识
+    /// </summary>
+    public override bool IsRemoteFileSystem => true;
+    
+    protected virtual string FormatServerDetails()
+    {
+        return $"{Setting.Type}://{Setting.UserName}@{Setting.Host}:{Setting.Port}";
+    }
+    
     #region IRemoteFileSystemContext 实现
     public abstract bool IsConnected();
     public abstract void Connect();
     public abstract void Disconnect();
     public abstract void Dispose();
-    public abstract string ServerDetails();
-    #endregion
-
-    #region IFileSystem 实现
-    public abstract bool FileExists(string filePath);
-    public abstract bool DirectoryExists(string directoryPath);
-    public abstract void CreateDirectoryIfNotExists(string directoryPath);
-    public abstract void DeleteFileIfExists(string filePath);
-    #endregion
-    
-    #region IAsyncFileSystem 实现
-    public abstract Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default);
-    public abstract Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default);
-    public abstract Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default);
-    public abstract Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default);
-    #endregion
-    
-    #region IFileSystemOperations 实现
-    public abstract Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default);
-    public abstract Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
-    public abstract Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default);
-    public abstract Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
-    public abstract Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default);
+    public virtual string ServerDetails() => ServerDetailsString;
     #endregion
     
     /// <summary>
-    /// 标准化路径，确保使用正确的路径分隔符
+    /// 连接作用域，用于自动连接和释放连接
     /// </summary>
-    protected virtual string NormalizePath(string directoryPath, string fileName)
+    protected class ConnectionScope : IDisposable
     {
-        if (string.IsNullOrEmpty(directoryPath))
-            return fileName;
+        private readonly RemoteFileSystemBase _fileSystem;
+        private readonly bool _wasConnected;
+        private bool _disposed;
+
+        public ConnectionScope(RemoteFileSystemBase fileSystem)
+        {
+            _fileSystem = fileSystem;
+            _wasConnected = _fileSystem.IsConnected();
             
-        // 替换Windows路径分隔符为Unix路径分隔符
-        directoryPath = directoryPath.Replace("\\", "/");
-        
-        // 确保路径以/结尾
-        if (!directoryPath.EndsWith("/"))
-            directoryPath += "/";
-            
-        return directoryPath + fileName;
+            if (!_wasConnected)
+                _fileSystem.Connect();
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) 
+                return;
+                
+            if (!_wasConnected)
+                _fileSystem.Disconnect();
+                
+            _disposed = true;
+        }
     }
     
     /// <summary>
-    /// 统一的异常处理方法
+    /// 创建连接作用域
     /// </summary>
-    protected abstract void HandleException(string operation, Exception ex, string? path = null);
+    protected virtual IDisposable CreateConnectionScope()
+    {
+        return new ConnectionScope(this);
+    }
+    
+    /// <summary>
+    /// 增强异常处理，添加服务器信息
+    /// </summary>
+    protected override void HandleException(string operation, Exception ex, string? path = null)
+    {
+        // 添加服务器详情到异常信息
+        string message = $"{operation} failed on {Setting.Host}:{Setting.Port}. " +
+                        $"{(path != null ? $"Path: {path}. " : string.Empty)}" +
+                        $"Type: {Setting.Type}";
+                        
+        throw new FileSystemException(operation, path, ServerDetails(), message, ex);
+    }
 }
