@@ -6,14 +6,17 @@ namespace Linger.Helper;
 
 public static class PathHelper
 {
+#if NET8_0_OR_GREATER
+    private static readonly System.Buffers.SearchValues<char> s_windowsInvalidChars = System.Buffers.SearchValues.Create("*?\"<>|");
+#else
+    private static readonly char[] s_windowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
+#endif
     private static readonly HashSet<string> s_windowsReservedNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "CON", "PRN", "AUX", "NUL",
         "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
     };
-
-    private static readonly char[] s_windowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
 
     /// <summary>
     /// 解析并生成绝对路径
@@ -252,7 +255,7 @@ public static class PathHelper
         {
             // Windows 特定的检查
             // 检查Windows保留字符
-            if (path.IndexOfAny(s_windowsInvalidChars) != -1)
+            if (path.AsSpan().IndexOfAny(s_windowsInvalidChars) != -1)
                 return true;
 
             // 检查每个路径段

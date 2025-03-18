@@ -33,12 +33,7 @@ public static class IQueryableExtensions
     {
         var command = isOrderByAsc ? "OrderBy" : "OrderByDescending";
         Type type = typeof(T);
-        PropertyInfo? property = type.GetProperty(orderByPropertyName);
-        if (property == null)
-        {
-            throw new ArgumentException($"Cannot find Property:{nameof(orderByPropertyName)} in {nameof(T)}");
-        }
-
+        PropertyInfo? property = type.GetProperty(orderByPropertyName) ?? throw new ArgumentException($"Cannot find Property:{nameof(orderByPropertyName)} in {nameof(T)}");
         ParameterExpression parameter = Expression.Parameter(type, "p");
         MemberExpression propertyAccess = Expression.MakeMemberAccess(parameter, property);
         LambdaExpression orderByExpression = Expression.Lambda(propertyAccess, parameter);

@@ -1,20 +1,14 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using Linger.Excel.Contracts.Attributes;
+﻿using Linger.Excel.Contracts.Attributes;
 
 namespace Linger.Excel.Contracts;
 
 /// <summary>
 /// Excel基础实现类
 /// </summary>
-public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TWorkbook, TWorksheet>
+public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = null, ILogger? logger = null) : AbstractExcelService<TWorkbook, TWorksheet>(options, logger)
     where TWorkbook : class
     where TWorksheet : class
 {
-    // 构造函数
-    protected ExcelBase(ExcelOptions? options = null, ILogger? logger = null)
-        : base(options, logger)
-    {
-    }
 
     #region Excel操作实现
 
@@ -254,7 +248,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
         if (list == null)
         {
             Logger?.LogWarning("要导出的列表为空");
-            list = new List<T>();
+            list = [];
         }
 
         try
@@ -327,7 +321,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet> : AbstractExcelService<TW
             {
                 result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
             }
-            
+
             // ExportDataTable方法不应该返回null，但为了健壮性仍进行检查
             if (result == null)
             {

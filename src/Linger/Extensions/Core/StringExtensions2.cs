@@ -7,21 +7,6 @@ namespace Linger.Extensions.Core;
 public static partial class StringExtensions
 {
     /// <summary>
-    /// Removes leading and trailing white spaces from the specified string.
-    /// </summary>
-    /// <param name="value">The specified string.</param>
-    /// <returns>The string without leading and trailing white spaces.</returns>
-    public static string ToNotSpaceString(this string? value)
-    {
-        if (value == null)
-        {
-            return string.Empty;
-        }
-
-        return value.Trim();
-    }
-
-    /// <summary>
     /// Removes all white spaces from the specified string.
     /// </summary>
     /// <param name="value">The specified string.</param>
@@ -86,7 +71,7 @@ public static partial class StringExtensions
     public static string[] GetAllBracketsContents(this string? value)
     {
         if (value.IsNullOrEmpty())
-            return Array.Empty<string>();
+            return [];
 
         // 替换中文括号为英文括号
         var normalized = value.Replace("（", "(").Replace("）", ")");
@@ -135,23 +120,23 @@ public static partial class StringExtensions
     /// <summary>
     /// Safely truncates a string to the specified maximum length.
     /// </summary>
-    /// <param name="str">The string to truncate.</param>
+    /// <param name="input">The string to truncate.</param>
     /// <param name="maxLength">The maximum length.</param>
     /// <param name="suffix">Optional suffix to append when truncated.</param>
     /// <returns>The truncated string.</returns>
-    public static string Truncate(this string str, int maxLength, string suffix = "...")
+    public static string Truncate(this string input, int maxLength, string suffix = "...")
     {
-        if (string.IsNullOrEmpty(str) || maxLength <= 0)
+        if (string.IsNullOrEmpty(input) || maxLength <= 0)
             return string.Empty;
 
-        if (str.Length <= maxLength)
-            return str;
+        if (input.Length <= maxLength)
+            return input;
 
         int actualMaxLength = maxLength - suffix.Length;
         if (actualMaxLength <= 0)
             return suffix;
 
-        return str.Substring(0, actualMaxLength) + suffix;
+        return $"{input.Substring(0, actualMaxLength)}{suffix}";
     }
 
     /// <summary>
@@ -162,7 +147,7 @@ public static partial class StringExtensions
     public static byte[] ToMd5HashByte(this string input)
     {
         if (string.IsNullOrEmpty(input))
-            return Array.Empty<byte>();
+            return [];
 
         var inputBytes = Encoding.UTF8.GetBytes(input);
 #if NET5_0_OR_GREATER
@@ -217,6 +202,10 @@ public static partial class StringExtensions
             return string.Empty;
 
         var hashBytes = input.ToSha256HashByte();
+#if NET9_0_OR_GREATER
+        return Convert.ToHexStringLower(hashBytes);
+#else
         return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+#endif
     }
 }

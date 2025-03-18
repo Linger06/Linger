@@ -30,11 +30,6 @@ public static class ExcelExtensions
         return await new RetryHelper().ExecuteAsync(async () =>
         {
             using var ms = excel.ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
-            if (ms == null)
-            {
-                throw new InvalidOperationException("无法将数据表转换为Excel流");
-            }
-
             var directoryName = Path.GetDirectoryName(fullFileName);
             if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
             {
@@ -76,11 +71,6 @@ public static class ExcelExtensions
         return await new RetryHelper().ExecuteAsync(async () =>
         {
             using var ms = excel.ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
-            if (ms == null)
-            {
-                throw new InvalidOperationException("无法将对象集合转换为Excel流");
-            }
-
             var directoryName = Path.GetDirectoryName(fullFileName);
             if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
             {

@@ -212,12 +212,11 @@ public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFil
         catch (Exception ex)
         {
             HandleException("List directory", ex, remoteDic);
-            return new List<string>();
+            return [];
         }
     }
 
-    public int UploadFiles(IEnumerable<string> localFiles, string remoteDic,
-        FtpRemoteExists remoteExistsMode = FtpRemoteExists.Overwrite)
+    public int UploadFiles(IEnumerable<string> localFiles, string remoteDic, FtpRemoteExists remoteExistsMode = FtpRemoteExists.Overwrite)
     {
         using var scope = CreateConnectionScope();
         try
@@ -232,7 +231,6 @@ public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFil
                     if (listFiles.Count == 0)
                         return 0;
 
-                    remoteDic = NormalizePath(remoteDic);
                     List<FtpResult>? results = FtpClient.UploadFiles(listFiles, remoteDic, remoteExistsMode);
                     return results.Count;
                 }),
@@ -310,15 +308,6 @@ public abstract class FtpContext(RetryOptions? retryOptions = null) : IRemoteFil
             HandleException("Download files", ex, localDic);
             return 0;
         }
-    }
-
-    private static string NormalizePath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return "/";
-
-        path = path.StartsWith("/") ? path : "/" + path;
-        return path.EndsWith("/") ? path : path + "/";
     }
 
     public abstract string ServerDetails();

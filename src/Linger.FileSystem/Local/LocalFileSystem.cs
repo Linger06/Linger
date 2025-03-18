@@ -1,7 +1,6 @@
 ﻿using Linger.Extensions.Core;
 using Linger.Extensions.IO;
 using Linger.FileSystem.Exceptions;
-using Linger.FileSystem.Helpers;
 using Linger.Helper;
 
 namespace Linger.FileSystem.Local;
@@ -135,7 +134,7 @@ public class LocalFileSystem : ILocalFileSystem
         var relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
 
         // 确保目录存在
-        InitDirectory(relativeFilePath);
+        FileHelper.EnsureDirectoryExists(relativeFilePath);
 
         // 写入文件
         memoryStream.Position = 0;
@@ -303,7 +302,7 @@ public class LocalFileSystem : ILocalFileSystem
     /// <summary>
     /// 生成基于文件哈希值的文件路径
     /// </summary>
-    private string GenerateHashBasedPath(Stream inputStream, string sourceFileName, string containerName, string destPath)
+    private static string GenerateHashBasedPath(Stream inputStream, string sourceFileName, string containerName, string destPath)
     {
         var hashData = inputStream.ComputeHashMd5();
         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
@@ -317,7 +316,7 @@ public class LocalFileSystem : ILocalFileSystem
     /// <summary>
     /// 获取文件路径（支持序号命名）
     /// </summary>
-    private string GetDestFilePath(string destPath, string destFileName, bool overwrite, bool useSequencedName, string destRootPath = "")
+    private static string GetDestFilePath(string destPath, string destFileName, bool overwrite, bool useSequencedName, string destRootPath = "")
     {
         if (overwrite)
         {

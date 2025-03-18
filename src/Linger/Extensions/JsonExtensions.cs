@@ -5,7 +5,6 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
 
 namespace Linger.Extensions;
@@ -343,7 +342,7 @@ public static class JsonExtensions
         /// </summary>
         /// <param name="element">The JsonElement to obtain the value from.</param>
         /// <returns>The corresponding value.</returns>
-        private object? Obtain(in JsonElement element)
+        private static object? Obtain(in JsonElement element)
         {
             return element.ValueKind switch
             {

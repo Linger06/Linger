@@ -95,65 +95,6 @@ public static partial class FileInfoExtensions
     }
 
     /// <summary>
-    /// Returns the MD5 hash of the specified file.
-    /// </summary>
-    /// <param name="fileInfo">The file.</param>
-    /// <returns>The MD5 hash.</returns>
-    public static string ToMd5Hash(this FileInfo fileInfo)
-    {
-        return fileInfo.ToMemoryStream().ToMd5Hash();
-    }
-
-    /// <summary>
-    /// Returns the MD5 hash as a byte array of the specified file.
-    /// </summary>
-    /// <param name="fileInfo">The file.</param>
-    /// <returns>The MD5 hash as a byte array.</returns>
-    public static byte[] ToMd5HashByte(this FileInfo fileInfo)
-    {
-        return fileInfo.ToMemoryStream().ToMd5HashByte();
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <param name="deleteFile">Whether to delete the file after conversion.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    [Obsolete("This method is obsolete, use ToMemoryStream3 instead.")]
-    public static MemoryStream ToMemoryStream(this FileInfo fileInfo, bool deleteFile = false)
-    {
-        var memoryStream = new MemoryStream();
-        FileStream fileStream = fileInfo.OpenRead();
-        var bytes = new byte[fileStream.Length];
-        _ = fileStream.Read(bytes, 0, (int)fileStream.Length);
-        memoryStream.Write(bytes, 0, (int)fileStream.Length);
-        fileStream.Close();
-        if (deleteFile)
-        {
-            fileInfo.Delete();
-        }
-        _ = memoryStream.Seek(0, SeekOrigin.Begin);
-        return memoryStream;
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object. This method sets the position to 0.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    [Obsolete("This method is obsolete, use ToMemoryStream3 instead.")]
-    public static MemoryStream ToMemoryStream2(this FileInfo fileInfo)
-    {
-        FileStream fileStream = fileInfo.OpenRead();
-        var bytes = new byte[fileStream.Length];
-        _ = fileStream.Read(bytes, 0, bytes.Length);
-        fileStream.Close();
-        var stream = new MemoryStream(bytes);
-        return stream;
-    }
-
-    /// <summary>
     /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
     /// </summary>
     /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>

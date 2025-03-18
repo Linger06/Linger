@@ -5,30 +5,24 @@
 /// </summary>
 /// <typeparam name="TWorkbook">工作簿类型</typeparam>
 /// <typeparam name="TWorksheet">工作表类型</typeparam>
-public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelService, IExcel<TWorksheet>
+/// <remarks>
+/// 构造函数
+/// </remarks>
+/// <param name="options">Excel配置选项</param>
+/// <param name="logger">日志记录器</param>
+public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? options = null, ILogger? logger = null) : IExcelService, IExcel<TWorksheet>
     where TWorkbook : class
     where TWorksheet : class
 {
     /// <summary>
     /// Excel配置选项
     /// </summary>
-    protected readonly ExcelOptions Options;
+    protected readonly ExcelOptions Options = options ?? new ExcelOptions();
 
     /// <summary>
     /// 日志记录器
     /// </summary>
-    protected readonly ILogger? Logger;
-
-    /// <summary>
-    /// 构造函数
-    /// </summary>
-    /// <param name="options">Excel配置选项</param>
-    /// <param name="logger">日志记录器</param>
-    protected AbstractExcelService(ExcelOptions? options = null, ILogger? logger = null)
-    {
-        Options = options ?? new ExcelOptions();
-        Logger = logger;
-    }
+    protected readonly ILogger? Logger = logger;
 
     #region IExcelService简单实现 - 调用IExcel实现
 
@@ -254,8 +248,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet> : IExcelServic
             var excelColumnAttr = property.GetCustomAttribute<Attributes.ExcelColumnAttribute>();
             if (excelColumnAttr != null)
             {
-                columns.Add((property.Name, ColumnName: excelColumnAttr.ColumnName ?? property.Name, excelColumnAttr.Index
-                ));
+                columns.Add((property.Name, ColumnName: excelColumnAttr.ColumnName ?? property.Name, excelColumnAttr.Index));
             }
         }
 
