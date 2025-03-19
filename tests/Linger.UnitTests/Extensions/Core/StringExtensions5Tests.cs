@@ -21,32 +21,6 @@ public class StringExtensions5Tests
     }
 
     [Theory]
-    [InlineData("test(123)", "test")]
-    [InlineData("test（123）", "test")]
-    public void DeleteBrackets_ShouldReturnExpectedResult(string value, string expected)
-    {
-        var result = value.DeleteBrackets();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("Example (content) here", "content")]
-    [InlineData("(content) at the start", "content")]
-    [InlineData("No parentheses here", "No parentheses here")]
-    [InlineData("Multiple (content) pairs (ignored)", "content")]
-    [InlineData("Empty () parentheses", "")]
-    [InlineData("", "")]
-    [InlineData(null, null)]
-    public void GetBracketsContent_ShouldReturnExpectedResult(string? input, string? expected)
-    {
-        // Act
-        var result = input.GetBracketsContent();
-
-        // Assert
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
     [InlineData("test", 't', "es")]
     [InlineData("test", 'e', "test")]
     public void DelPrefixAndSuffix_Char_ShouldReturnExpectedResult(string value, char character, string expected)
@@ -194,14 +168,6 @@ public class StringExtensions5Tests
     {
         var input = "invalid";
         Assert.Throws<FormatException>(() => input.ToDecimalForScientificNotation());
-    }
-
-    [Fact]
-    public void DeleteBrackets_RemovesBracketsAndContent()
-    {
-        var input = "hello(world)";
-        var result = input.DeleteBrackets();
-        Assert.Equal("hello", result);
     }
 
     [Fact]

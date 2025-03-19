@@ -244,7 +244,7 @@ public static class JsonExtensions
             case JsonValueKind.Object:
                 return typeof(object);
             case JsonValueKind.Array:
-                return typeof(System.Array);
+                return typeof(Array);
             case JsonValueKind.Null:
                 throw new NotSupportedException();
             default:

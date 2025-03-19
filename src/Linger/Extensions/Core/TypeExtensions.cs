@@ -142,7 +142,7 @@ public static partial class TypeExtension
     /// <typeparam name="T">The type of the attribute.</typeparam>
     /// <param name="field">The type to get the attribute from.</param>
     /// <returns>The attribute if found, otherwise null.</returns>
-    public static T? GetDescriptionValue<T>(this Type field) where T : System.Attribute
+    public static T? GetDescriptionValue<T>(this Type field) where T : Attribute
     {
         var customAttributes = field.GetCustomAttributes(typeof(T), false);
         return customAttributes.Length > 0 ? (T)customAttributes[0] : null;
@@ -154,7 +154,7 @@ public static partial class TypeExtension
     /// <typeparam name="T">The type of the attribute.</typeparam>
     /// <param name="field">The field to get the attribute from.</param>
     /// <returns>The attribute if found, otherwise null.</returns>
-    public static T? GetDescriptionValue<T>(this FieldInfo field) where T : System.Attribute
+    public static T? GetDescriptionValue<T>(this FieldInfo field) where T : Attribute
     {
         var customAttributes = field.GetCustomAttributes(typeof(T), false);
         return customAttributes.Length > 0 ? (T)customAttributes[0] : null;
@@ -212,7 +212,7 @@ public static partial class TypeExtension
     /// <param name="type">The type to check.</param>
     /// <param name="predicate">The predicate to apply to the attribute.</param>
     /// <returns>True if the type has a matching attribute, otherwise false.</returns>
-    public static bool HasAttribute<TAttr>(this Type type, Func<TAttr, bool> predicate) where TAttr : System.Attribute
+    public static bool HasAttribute<TAttr>(this Type type, Func<TAttr, bool> predicate) where TAttr : Attribute
     {
         return ((TAttr[])type.GetCustomAttributes(typeof(TAttr), true)).Any(predicate);
     }
@@ -236,7 +236,7 @@ public static partial class TypeExtension
     /// <typeparam name="E">The type of the attribute.</typeparam>
     /// <param name="type">The type to check.</param>
     /// <returns>The properties that have the specified attribute.</returns>
-    public static IEnumerable<PropertyInfo> AttrProps<E>(this Type type) where E : System.Attribute
+    public static IEnumerable<PropertyInfo> AttrProps<E>(this Type type) where E : Attribute
     {
         return type.AttrProps(typeof(E));
     }
@@ -281,7 +281,7 @@ public static partial class TypeExtension
     /// <param name="type">The type to check.</param>
     /// <returns>A dictionary of properties and their attribute values.</returns>
 #if NET5_0_OR_GREATER
-    public static Dictionary<PropertyInfo, E?> AttrValues<E>(this Type type) where E : System.Attribute
+    public static Dictionary<PropertyInfo, E?> AttrValues<E>(this Type type) where E : Attribute
 #else
     public static Dictionary<PropertyInfo, E> AttrValues<E>(this Type type) where E : System.Attribute
 #endif
@@ -296,7 +296,7 @@ public static partial class TypeExtension
     /// <param name="type">The type to check.</param>
     /// <returns>A dictionary of properties and their attribute values.</returns>
 #if NET5_0_OR_GREATER
-    public static Dictionary<PropertyInfo, E?> AttrPropValues<E>(this Type type) where E : System.Attribute
+    public static Dictionary<PropertyInfo, E?> AttrPropValues<E>(this Type type) where E : Attribute
 #else
     public static Dictionary<PropertyInfo, E> AttrPropValues<E>(this Type type) where E : System.Attribute
 #endif

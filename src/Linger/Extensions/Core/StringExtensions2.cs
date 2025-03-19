@@ -1,87 +1,10 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
-using System.Text.RegularExpressions;
 
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
 {
-    /// <summary>
-    /// Removes all white spaces from the specified string.
-    /// </summary>
-    /// <param name="value">The specified string.</param>
-    /// <returns>The string without any white spaces.</returns>
-    public static string RemoveAllSpaces(this string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-            return string.Empty;
-
-        return Regex.Replace(value, @"\s+", "");
-    }
-
-    /// <summary>
-    /// Removes parentheses (round brackets) and their contents from the string.
-    /// Handles nested brackets correctly.
-    /// </summary>
-    /// <param name="value">The input string.</param>
-    /// <returns>The string without parentheses and their contents.</returns>
-    public static string DeleteBrackets(this string value)
-    {
-        if (value.IsNullOrEmpty())
-            return value;
-
-        // 替换中文括号为英文括号
-        var str = value.Replace("（", "(").Replace("）", ")");
-
-        // 使用平衡组处理可能的嵌套括号
-        return Regex.Replace(str, @"\((?:[^()]+|(?<open>\()|(?<-open>\)))*(?(open)(?!))\)", "");
-    }
-
-    /// <summary>
-    /// Extracts the content within the first pair of parentheses in the string.
-    /// </summary>
-    /// <param name="value">The input string.</param>
-    /// <param name="includeBrackets">Whether to include the brackets in the result.</param>
-    /// <returns>The content within the first pair of parentheses, or the original string if no complete brackets are found.</returns>
-    public static string? GetBracketsContent(this string? value, bool includeBrackets = false)
-    {
-        if (value.IsNullOrEmpty())
-            return value;
-
-        // 替换中文括号为英文括号
-        var normalized = value.Replace("（", "(").Replace("）", ")");
-
-        int startIndex = normalized.IndexOf('(');
-        int endIndex = normalized.IndexOf(')', startIndex + 1);
-
-        if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex)
-            return value;
-
-        if (includeBrackets)
-            return normalized.Substring(startIndex, endIndex - startIndex + 1);
-
-        return normalized.Substring(startIndex + 1, endIndex - startIndex - 1);
-    }
-
-    /// <summary>
-    /// Extracts all contents within parentheses in the string.
-    /// </summary>
-    /// <param name="value">The input string.</param>
-    /// <returns>Array of contents found within parentheses.</returns>
-    public static string[] GetAllBracketsContents(this string? value)
-    {
-        if (value.IsNullOrEmpty())
-            return [];
-
-        // 替换中文括号为英文括号
-        var normalized = value.Replace("（", "(").Replace("）", ")");
-
-        var matches = Regex.Matches(normalized, @"\(([^()]*)\)");
-        return matches.Cast<Match>()
-                     .Select(m => m.Groups[1].Value)
-                     .ToArray();
-    }
-
     /// <summary>
     /// Removes the specified prefix and suffix (single character) from the string.
     /// </summary>

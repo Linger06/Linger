@@ -45,7 +45,7 @@ public static partial class FileInfoExtensions
         {
             return new FileInfo(filePath).Length;
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             throw new IOException($"Failed to get size for file: {filePath}", ex);
         }

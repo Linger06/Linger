@@ -1,9 +1,4 @@
-﻿using Linger.Extensions.Core;
-using Linger.Extensions.IO;
-using Linger.FileSystem.Exceptions;
-using Linger.Helper;
-
-namespace Linger.FileSystem.Local;
+﻿namespace Linger.FileSystem.Local;
 
 // 添加继承自FileSystemBase
 public class LocalFileSystem : FileSystemBase, ILocalFileSystem
@@ -50,12 +45,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     }
 
     public override void DeleteFileIfExists(string filePath)
-    {
-        var realPath = GetRealPath(filePath);
-        FileHelper.DeleteFileIfExists(realPath);
-    }
-
-    public void DeleteFileIfExistsAsync(string filePath)
     {
         var realPath = GetRealPath(filePath);
         FileHelper.DeleteFileIfExists(realPath);
@@ -243,15 +232,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
     }
 
-    private void InitDirectory(string createFilePath)
-    {
-        var directory = Path.GetDirectoryName(createFilePath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            CreateDirectoryIfNotExists(directory);
-        }
-    }
-
     public Task<UploadedInfo> UploadAsync(string sourceFilePathName, string containerName, string destPath = "", NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         var fileInfo = new FileInfo(sourceFilePathName);
@@ -371,7 +351,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
     }
 
-
     /// <summary>
     /// 下载文件到指定的目标文件
     /// </summary>
@@ -383,11 +362,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <exception cref="ArgumentNullException">文件路径或目标文件名为空时抛出</exception>
     /// <exception cref="FileNotFoundException">源文件不存在时抛出</exception>
     /// <exception cref="DuplicateFileException">目标文件已存在且不允许覆盖或序号命名时抛出</exception>
-    public async Task<string> DownloadAsync(
-        string filePath,
-        string destFileName,
-        bool overwrite = false,
-        bool useSequencedName = true)
+    public async Task<string> DownloadAsync(string filePath, string destFileName, bool overwrite = false, bool useSequencedName = true)
     {
         ArgumentNullException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNullOrEmpty(destFileName);
@@ -414,6 +389,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 await
 #endif
                 using var destStream = File.Create(destFilePath);
+                //using var destStream = new FileStream(localDestinationPath, overwrite ? FileMode.Create : FileMode.CreateNew);
 
                 await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize);
                 return destFilePath;
@@ -455,10 +431,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <summary>
     /// 获取唯一的目标文件路径
     /// </summary>
-    private async Task<string> GetUniqueDestFilePathAsync(
-        string destFileName,
-        bool overwrite,
-        bool useSequencedName)
+    private async Task<string> GetUniqueDestFilePathAsync(string destFileName, bool overwrite, bool useSequencedName)
     {
         var destFilePath = GetDestFilePath(string.Empty, destFileName, overwrite, useSequencedName);
 
@@ -466,7 +439,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         var directory = Path.GetDirectoryName(destFilePath);
         if (!string.IsNullOrEmpty(directory))
         {
-            await Task.Run(() => CreateDirectoryIfNotExists(directory));
+            await CreateDirectoryIfNotExistsAsync(directory);
         }
 
         return destFilePath;
@@ -485,23 +458,21 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
         filePath = Path.Combine(RootDirectoryPath, filePath);
         return filePath;
-        //return PathHelper.ProcessPath(RootDirectoryPath, filePath);
     }
 
-    public Task DeleteAsync(string filePath)
+    public async Task DeleteAsync(string filePath)
     {
         var realPath = GetRealPath(filePath);
-        DeleteFileIfExistsAsync(realPath);
-        return Task.CompletedTask;
+        await DeleteFileIfExistsAsync(realPath);
     }
 
     public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
-            var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath, 
+            var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath,
                 _options.DefaultNamingRule, overwrite, !overwrite);
-            
+
             return FileOperationResult.CreateSuccess(
                 uploadedInfo.FilePath,
                 uploadedInfo.FullFilePath,
@@ -537,17 +508,8 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     {
         try
         {
-            var realPath = GetRealPath(filePath);
-            if (!File.Exists(realPath))
-            {
-                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
-            }
-
-            using var fileStream = File.OpenRead(realPath);
-            await fileStream.CopyToAsync(outputStream, _options.DownloadBufferSize, cancellationToken);
-            
-            var fileInfo = new FileInfo(realPath);
-            return FileOperationResult.CreateSuccess(filePath, realPath, fileInfo.Length);
+            await DownloadToStreamAsync(filePath, outputStream);
+            return FileOperationResult.CreateSuccess();
         }
         catch (Exception ex)
         {
@@ -559,29 +521,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     {
         try
         {
-            var realPath = GetRealPath(filePath);
-            if (!File.Exists(realPath))
-            {
-                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
-            }
-
-            // 确保目标目录存在
-            var destDir = Path.GetDirectoryName(localDestinationPath);
-            if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
-            {
-                Directory.CreateDirectory(destDir);
-            }
-
-            // 检查文件是否已存在
-            if (File.Exists(localDestinationPath) && !overwrite)
-            {
-                return FileOperationResult.CreateFailure($"目标文件已存在: {localDestinationPath}");
-            }
-
-            using var sourceStream = File.OpenRead(realPath);
-            using var destStream = new FileStream(localDestinationPath, overwrite ? FileMode.Create : FileMode.CreateNew);
-            await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize, cancellationToken);
-            
+            localDestinationPath = await DownloadAsync(filePath, localDestinationPath, overwrite, false);
             var fileInfo = new FileInfo(localDestinationPath);
             return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
         }

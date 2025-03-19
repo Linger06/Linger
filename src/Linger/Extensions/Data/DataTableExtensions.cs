@@ -236,7 +236,7 @@ public static partial class DataTableExtensions
     /// DataTable joinedTable = table1.Join(table2, new DataColumn[] { table1.Columns["Id"] }, new DataColumn[] { table2.Columns["Id"] }, true, false);
     /// </code>
     /// </example>
-    /// <exception cref="System.Exception">Thrown when the specified columns are not found in the respective tables.</exception>
+    /// <exception cref="Exception">Thrown when the specified columns are not found in the respective tables.</exception>
     public static DataTable Join(this DataTable left, DataTable right, DataColumn[] leftCols, DataColumn[] rightCols,
         bool includeLeftJoin, bool includeRightJoin)
     {
@@ -244,7 +244,7 @@ public static partial class DataTableExtensions
         {
             if (!left.ContainAllColumns(x.ColumnName))
             {
-                throw new System.Exception($"{nameof(leftCols)} have columns not in {nameof(left)}");
+                throw new Exception($"{nameof(leftCols)} have columns not in {nameof(left)}");
             }
         });
 
@@ -252,7 +252,7 @@ public static partial class DataTableExtensions
         {
             if (!right.ContainAllColumns(x.ColumnName))
             {
-                throw new System.Exception($"{nameof(rightCols)} have columns not in {nameof(right)}");
+                throw new Exception($"{nameof(rightCols)} have columns not in {nameof(right)}");
             }
         });
 

@@ -4,6 +4,40 @@
 
 Linger.FileSystem 是一个统一的文件系统抽象库，提供了对多种文件系统的一致访问接口，包括本地文件系统、FTP和SFTP。通过这个库，您可以使用相同的API操作不同类型的文件系统，简化开发过程，提高代码复用性。
 
+## 项目结构
+
+Linger.FileSystem解决方案包含以下NuGet包：
+
+- **Linger.FileSystem**: 核心库，提供统一接口和本地文件系统实现
+- **Linger.FileSystem.Ftp**: FTP文件系统实现，基于FluentFTP
+- **Linger.FileSystem.Sftp**: SFTP文件系统实现，基于SSH.NET
+
+### 安装方式
+
+```
+# 安装核心库
+Install-Package Linger.FileSystem
+
+# 安装FTP支持
+Install-Package Linger.FileSystem.Ftp
+
+# 安装SFTP支持
+Install-Package Linger.FileSystem.Sftp
+```
+
+使用.NET CLI:
+
+```
+# 安装核心库
+dotnet add package Linger.FileSystem
+
+# 安装FTP支持
+dotnet add package Linger.FileSystem.Ftp
+
+# 安装SFTP支持
+dotnet add package Linger.FileSystem.Sftp
+```
+
 ## 架构设计
 
 ### 核心接口层次
@@ -48,11 +82,13 @@ ILocalFileSystem    IRemoteFileSystemContext
 
 该库使用了以下设计模式：
 
-- **抽象工厂**: 通过不同的构造函数和配置创建不同类型的文件系统
-- **模板方法**: 在基类中定义算法骨架，子类实现具体步骤
-- **策略模式**: 不同文件系统实现相同接口但有各自的实现策略
-- **装饰器**: 在基本功能上添加重试、验证等增强功能
-- **适配器**: 将不同文件系统API适配到同一接口
+- **策略模式**: 不同文件系统实现相同接口(IFileSystemOperations)但有各自的实现策略
+- **模板方法**: 在FileSystemBase基类中定义算法骨架，子类实现具体步骤
+- **适配器模式**: 将FluentFTP和SSH.NET等不同的文件系统API适配到统一接口
+- **简单工厂**: 各个文件系统类内部的CreateClient()方法用于创建具体的客户端实例
+- **命令模式**: 通过FileOperationResult封装操作结果，统一处理执行状态
+- **组合模式**: 通过接口组合(IFileSystem和IAsyncFileSystem)构建更复杂的IFileSystemOperations
+- **代理模式**: 远程文件系统的连接管理使用ConnectionScope作为代理，控制资源访问
 
 ### 关键流程
 
@@ -116,7 +152,17 @@ if (result.Success)
 
 ### 使用FTP文件系统
 
+需要先安装Linger.FileSystem.Ftp包:
+
+```
+Install-Package Linger.FileSystem.Ftp
+```
+
+然后使用:
+
 ```csharp
+using Linger.FileSystem.Ftp;
+
 // 创建FTP连接设置
 var ftpSetting = new RemoteSystemSetting
 {
@@ -137,7 +183,17 @@ var result = await ftpFs.UploadAsync(fileStream, "/public_html", "test.txt", tru
 
 ### 使用SFTP文件系统
 
+需要先安装Linger.FileSystem.Sftp包:
+
+```
+Install-Package Linger.FileSystem.Sftp
+```
+
+然后使用:
+
 ```csharp
+using Linger.FileSystem.Sftp;
+
 // 创建SFTP连接设置
 var sftpSetting = new RemoteSystemSetting
 {
@@ -242,9 +298,11 @@ var remoteSetting = new RemoteSystemSetting
 
 ## 高级功能
 
-### FTP特有功能
+### FTP特有功能 (需要Linger.FileSystem.Ftp包)
 
 ```csharp
+using Linger.FileSystem.Ftp;
+
 // 设置工作目录
 await ftpFs.SetWorkingDirectoryAsync("/public_html");
 
@@ -260,9 +318,11 @@ string[] remoteFiles = { "/remote/file1.txt", "/remote/file2.txt" };
 count = await ftpFs.DownloadFilesAsync("C:/Downloads", remoteFiles);
 ```
 
-### SFTP特有功能
+### SFTP特有功能 (需要Linger.FileSystem.Sftp包)
 
 ```csharp
+using Linger.FileSystem.Sftp;
+
 // 设置工作目录
 sftpFs.SetWorkingDirectory("/home/user");
 
@@ -390,6 +450,43 @@ result = await localFs.UploadAsync(
     "uploads", 
     NamingRule.Uuid
 );
+```
+
+## 高级优化建议
+
+### 缓冲区与内存管理
+
+为提高大文件处理性能，可以考虑以下优化：
+
+```csharp
+// 配置更高效的缓冲区大小
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",          // 根目录路径
+    DefaultNamingRule = NamingRule.Md5,        // 默认命名规则: Md5、Uuid、Normal
+    DefaultOverwrite = false,                  // 是否默认覆盖同名文件
+    DefaultUseSequencedName = true,            // 文件名冲突时是否使用序号命名
+    ValidateFileIntegrity = true,              // 是否验证文件完整性
+    ValidateFileMetadata = false,              // 是否验证文件元数据
+    CleanupOnValidationFailure = true,         // 验证失败时是否清理文件
+    UploadBufferSize = 262144,                 // 增加到256KB以提升大文件上传性能
+    DownloadBufferSize = 262144,               // 增加到256KB以提升大文件下载性能
+    RetryOptions = new RetryOptions 
+    { 
+        MaxRetryCount = 3, 
+        DelayMilliseconds = 1000 
+    }
+};
+```
+
+### 批量操作优化
+
+对于需要处理大量文件的场景，可以使用批处理API减少连接开销：
+
+```csharp
+// FTP系统批量操作示例 - 比单个操作更高效
+string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
+await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
 ```
 
 ## 贡献

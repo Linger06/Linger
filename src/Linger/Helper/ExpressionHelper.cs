@@ -149,7 +149,7 @@ public static partial class ExpressionHelper
         var orderBy = genericMethod.Invoke(null, [query, expr.Compile()]);
         if (orderBy == null)
         {
-            throw new Exception("Unable to find the corresponding sorting property.");
+            throw new NullReferenceException("Unable to find the corresponding sorting property.");
         }
         return (IEnumerable<T>)orderBy;
     }

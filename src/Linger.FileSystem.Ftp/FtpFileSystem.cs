@@ -1,12 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
+﻿using System.Net;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using FluentFTP;
+using Linger.Extensions.Core;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
 
@@ -77,7 +72,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     {
         if (!Client.IsDisposed)
             Client.Dispose();
-        
+
         GC.SuppressFinalize(this);
     }
 
@@ -170,14 +165,11 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            var remoteFilePath = NormalizePath(destinationPath, fileName);
+            var remoteDirectory = PathHelper.NormalizePath(destinationPath);
+            var remoteFilePath = Path.Combine(remoteDirectory, fileName);
 
             // 确保目录存在
-            var remoteDirectory = GetDirectoryPath(remoteFilePath);
-            if (!string.IsNullOrEmpty(remoteDirectory))
-            {
-                await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
-            }
+            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
 
             // 执行上传
             bool result = await RetryHelper.ExecuteAsync(
@@ -193,13 +185,13 @@ public class FtpFileSystem : RemoteFileSystemBase
 
                     return status == FtpStatus.Success;
                 },
-                "Upload file");
+                "Upload file", cancellationToken: cancellationToken);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"上传文件失败: {remoteFilePath}");
 
             long fileSize = 0;
-            try { fileSize = await Client.GetFileSize(remoteFilePath, token:cancellationToken); } catch { /* 忽略 */ }
+            try { fileSize = await Client.GetFileSize(remoteFilePath, token: cancellationToken); } catch { /* 忽略 */ }
 
             return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
         }
@@ -221,14 +213,11 @@ public class FtpFileSystem : RemoteFileSystemBase
         try
         {
             var fileName = Path.GetFileName(localFilePath);
-            var remoteFilePath = NormalizePath(destinationPath, fileName);
+            var remoteDirectory = PathHelper.NormalizePath(destinationPath);
+            var remoteFilePath = Path.Combine(destinationPath, fileName);
 
             // 确保目录存在
-            var remoteDirectory = GetDirectoryPath(remoteFilePath);
-            if (!string.IsNullOrEmpty(remoteDirectory))
-            {
-                await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
-            }
+            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
 
             // 执行上传
             bool result = await RetryHelper.ExecuteAsync(
@@ -243,7 +232,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
                     return status == FtpStatus.Success;
                 },
-                "Upload file");
+                "Upload file", cancellationToken: cancellationToken);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"上传文件失败: {remoteFilePath}");
@@ -279,7 +268,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
                     return status == true;
                 },
-                "Download to stream");
+                "Download to stream", cancellationToken: cancellationToken);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件到流失败: {filePath}");
@@ -332,7 +321,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
                     return status == FtpStatus.Success;
                 },
-                "Download file");
+                "Download file", cancellationToken: cancellationToken);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件失败: {filePath}");
@@ -364,7 +353,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                     await Client.DeleteFile(filePath, cancellationToken);
                     return true;
                 },
-                "Delete file");
+                "Delete file", cancellationToken: cancellationToken);
 
             return FileOperationResult.CreateSuccess(filePath);
         }
@@ -374,11 +363,11 @@ public class FtpFileSystem : RemoteFileSystemBase
             return FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex);
         }
     }
-    
+
     #endregion
-    
+
     #region 其他FTP特定功能
-    
+
     /// <summary>
     /// 获取文件最后修改时间
     /// </summary>
@@ -395,7 +384,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             return DateTime.MinValue;
         }
     }
-    
+
     /// <summary>
     /// 列出目录内容
     /// </summary>
@@ -418,7 +407,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             return [];
         }
     }
-    
+
     /// <summary>
     /// 设置工作目录
     /// </summary>
@@ -435,7 +424,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             HandleException("Set working directory", ex, directoryPath);
         }
     }
-    
+
     /// <summary>
     /// 批量上传文件
     /// </summary>
@@ -460,7 +449,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             return 0;
         }
     }
-    
+
     /// <summary>
     /// 批量下载文件
     /// </summary>
@@ -481,6 +470,6 @@ public class FtpFileSystem : RemoteFileSystemBase
             return 0;
         }
     }
-    
+
     #endregion
 }

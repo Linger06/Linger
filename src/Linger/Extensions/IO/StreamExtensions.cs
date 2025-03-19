@@ -148,9 +148,9 @@ public static class StreamExtensions
             stream.CopyTo(fs);
             fs.Flush();
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            throw new System.Exception($"保存Excel到文件失败:{fullFileName}", ex);
+            throw new Exception($"保存Excel到文件失败:{fullFileName}", ex);
         }
     }
 
@@ -167,9 +167,9 @@ public static class StreamExtensions
             await stream.CopyToAsync(fs);
             await fs.FlushAsync();
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
-            throw new System.Exception($"异步保存Excel到文件失败: {fullFileName}", ex);
+            throw new Exception($"异步保存Excel到文件失败: {fullFileName}", ex);
         }
     }
 }

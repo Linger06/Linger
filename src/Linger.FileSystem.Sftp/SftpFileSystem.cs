@@ -1,13 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using Linger.Extensions.Core;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
 using Renci.SshNet;
-using Renci.SshNet.Sftp;
 
 namespace Linger.FileSystem.Sftp;
 
@@ -20,6 +14,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// SFTP客户端
     /// </summary>
     protected SftpClient Client { get; }
+    private static readonly char[] s_separator = ['/', '\\'];
 
     // 确保正确初始化客户端
     public SftpFileSystem(RemoteSystemSetting setting, RetryOptions? retryOptions = null)
@@ -32,8 +27,8 @@ public class SftpFileSystem : RemoteFileSystemBase
     {
         // 创建连接信息，考虑证书认证选项
         ConnectionInfo connectionInfo;
-        
-        if (!string.IsNullOrEmpty(Setting.CertificatePath))
+
+        if (Setting.CertificatePath.IsNotNullAndEmpty())
         {
             var privateKeyFile = new PrivateKeyFile(Setting.CertificatePath, Setting.CertificatePassphrase);
             connectionInfo = new ConnectionInfo(
@@ -50,10 +45,10 @@ public class SftpFileSystem : RemoteFileSystemBase
                 Setting.UserName,
                 new PasswordAuthenticationMethod(Setting.UserName, Setting.Password));
         }
-        
+
         // 设置超时
         connectionInfo.Timeout = TimeSpan.FromMilliseconds(Setting.ConnectionTimeout);
-        
+
         return new SftpClient(connectionInfo);
     }
 
@@ -119,7 +114,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             if (!DirectoryExists(directoryPath))
             {
                 // SFTP可能需要递归创建目录
-                string[] paths = directoryPath.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+                string[] paths = directoryPath.Split(s_separator, StringSplitOptions.RemoveEmptyEntries);
                 string currentPath = string.Empty;
 
                 foreach (var path in paths)
@@ -179,20 +174,19 @@ public class SftpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            var remoteFilePath = NormalizePath(destinationPath, fileName);
-            
+            var remoteDirectory = PathHelper.NormalizePath(destinationPath);
+            var remoteFilePath = Path.Combine(destinationPath, fileName);
+
             // 确保目录存在
-            var remoteDirectory = GetDirectoryPath(remoteFilePath);
-            if (!string.IsNullOrEmpty(remoteDirectory))
-                CreateDirectoryIfNotExists(remoteDirectory);
-            
+            CreateDirectoryIfNotExists(remoteDirectory);
+
             // 检查文件是否存在
             if (FileExists(remoteFilePath) && !overwrite)
                 return FileOperationResult.CreateFailure($"远程文件已存在: {remoteFilePath}");
 
             // 执行上传
             await RetryHelper.ExecuteAsync(
-                async () => 
+                async () =>
                 {
                     await Task.Run(() =>
                     {
@@ -200,20 +194,20 @@ public class SftpFileSystem : RemoteFileSystemBase
                         inputStream.Position = 0;
                         inputStream.CopyTo(ms);
                         ms.Position = 0;
-                        
+
                         if (FileExists(remoteFilePath) && overwrite)
                             Client.DeleteFile(remoteFilePath);
-                            
+
                         Client.UploadFile(ms, remoteFilePath);
                         return true;
                     }, cancellationToken);
                     return true;
                 },
-                "Upload file");
+                "Upload file", cancellationToken: cancellationToken);
 
             // 获取文件大小
             var fileSize = Client.GetAttributes(remoteFilePath).Size;
-            
+
             return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
         }
         catch (Exception ex)
@@ -259,11 +253,11 @@ public class SftpFileSystem : RemoteFileSystemBase
                     }, cancellationToken);
                     return true;
                 },
-                "Download to stream");
+                "Download to stream", cancellationToken: cancellationToken);
 
             // 获取文件大小
             var fileSize = Client.GetAttributes(filePath).Size;
-            
+
             return FileOperationResult.CreateSuccess(filePath, null, fileSize);
         }
         catch (Exception ex)
@@ -280,12 +274,12 @@ public class SftpFileSystem : RemoteFileSystemBase
         {
             if (!FileExists(filePath))
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
-                
+
             // 确保目标目录存在
             var destDir = Path.GetDirectoryName(localDestinationPath);
             if (!string.IsNullOrEmpty(destDir) && !Directory.Exists(destDir))
                 Directory.CreateDirectory(destDir);
-                
+
             // 检查文件是否已存在
             if (File.Exists(localDestinationPath) && !overwrite)
                 return FileOperationResult.CreateFailure($"目标文件已存在: {localDestinationPath}");
@@ -297,15 +291,15 @@ public class SftpFileSystem : RemoteFileSystemBase
                     {
                         if (File.Exists(localDestinationPath) && overwrite)
                             File.Delete(localDestinationPath);
-                            
+
                         using var fileStream = File.Create(localDestinationPath);
                         Client.DownloadFile(filePath, fileStream);
                         return true;
                     }, cancellationToken);
                     return true;
                 },
-                "Download file");
-                
+                "Download file", cancellationToken: cancellationToken);
+
             var fileInfo = new FileInfo(localDestinationPath);
             return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
         }
@@ -333,11 +327,11 @@ public class SftpFileSystem : RemoteFileSystemBase
             return FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex);
         }
     }
-    
+
     #endregion
-    
+
     #region SFTP特有功能
-    
+
     /// <summary>
     /// 列出目录中的文件
     /// </summary>
@@ -348,12 +342,12 @@ public class SftpFileSystem : RemoteFileSystemBase
         {
             if (!DirectoryExists(directoryPath))
                 return new List<string>();
-                
+
             var files = Client.ListDirectory(directoryPath)
-                .Where(file => !file.IsDirectory && !file.Name.StartsWith("."))
+                .Where(file => !file.IsDirectory && !file.Name.StartsWith('.'))
                 .Select(file => file.Name)
                 .ToList();
-                
+
             return files;
         }
         catch (Exception ex)
@@ -362,7 +356,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             return new List<string>();
         }
     }
-    
+
     /// <summary>
     /// 列出目录中的子目录
     /// </summary>
@@ -373,12 +367,12 @@ public class SftpFileSystem : RemoteFileSystemBase
         {
             if (!DirectoryExists(directoryPath))
                 return new List<string>();
-                
+
             var directories = Client.ListDirectory(directoryPath)
-                .Where(file => file.IsDirectory && !file.Name.StartsWith(".") && file.Name != "." && file.Name != "..")
+                .Where(file => file.IsDirectory && !file.Name.StartsWith('.') && file.Name != "." && file.Name != "..")
                 .Select(file => file.Name)
                 .ToList();
-                
+
             return directories;
         }
         catch (Exception ex)
@@ -430,7 +424,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             return DateTime.MinValue;
         }
     }
-    
+
     /// <summary>
     /// 异步获取文件修改时间
     /// </summary>
@@ -438,7 +432,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     {
         return Task.Run(() => GetLastModifiedTime(remotePath), cancellationToken);
     }
-    
+
     /// <summary>
     /// 异步获取目录列表
     /// </summary>
@@ -446,7 +440,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     {
         return Task.Run(() => ListFiles(directoryPath), cancellationToken);
     }
-    
+
     /// <summary>
     /// 异步获取子目录列表
     /// </summary>
@@ -454,6 +448,6 @@ public class SftpFileSystem : RemoteFileSystemBase
     {
         return Task.Run(() => ListDirectories(directoryPath), cancellationToken);
     }
-    
+
     #endregion
 }

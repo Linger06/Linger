@@ -72,14 +72,14 @@ public static partial class FileInfoExtensions
     /// </param>
     public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions = true)
     {
-        var exceptions = new List<System.Exception>();
+        var exceptions = new List<Exception>();
         foreach (FileInfo file in files)
         {
             try
             {
                 file.Delete();
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 if (consolidateExceptions)
                 {
@@ -123,7 +123,7 @@ public static partial class FileInfoExtensions
     public static FileInfo[] CopyTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
         var copiedFiles = new List<FileInfo>();
-        List<System.Exception>? exceptions = null;
+        List<Exception>? exceptions = null;
 
         foreach (FileInfo file in files)
         {
@@ -132,7 +132,7 @@ public static partial class FileInfoExtensions
                 var fileName = Path.Combine(targetPath, file.Name);
                 copiedFiles.Add(file.CopyTo(fileName));
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 if (consolidateExceptions)
                 {
@@ -178,7 +178,7 @@ public static partial class FileInfoExtensions
     /// <returns>The moved files.</returns>
     public static FileInfo[] MoveTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
-        List<System.Exception>? exceptions = null;
+        List<Exception>? exceptions = null;
 
         foreach (FileInfo file in files)
         {
@@ -187,7 +187,7 @@ public static partial class FileInfoExtensions
                 var fileName = Path.Combine(targetPath, file.Name);
                 file.MoveTo(fileName);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 if (consolidateExceptions)
                 {

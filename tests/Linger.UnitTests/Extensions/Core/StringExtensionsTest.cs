@@ -161,13 +161,6 @@ public class StringExtensionsTest
     }
 
     [Theory]
-    [MemberData(nameof(BracketsData))]
-    public void DeleteBracketsTest(string value, string value2)
-    {
-        Assert.Equal(value.DeleteBrackets(), value2);
-    }
-
-    [Theory]
     [MemberData(nameof(Substring2Data))]
     public void Substring2Test(string value, int value2, string value3)
     {

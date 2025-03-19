@@ -136,6 +136,12 @@ public static partial class StringExtensions
 
 #if !NETFRAMEWORK || NET462_OR_GREATER
 
+    private static readonly JsonSerializerOptions s_readOptions = new()
+    {
+        WriteIndented = true,
+        Converters = { new DataTableJsonConverter() }
+    };
+
     /// <summary>
     /// Converts the specified JSON string to a DataTable.
     /// </summary>
@@ -144,14 +150,21 @@ public static partial class StringExtensions
     public static DataTable? ToDataTable(this string json)
     {
         if (json.IsNullOrEmpty()) return null;
-        var serializeOptions = new JsonSerializerOptions 
-        { 
-            WriteIndented = true, 
-            Converters = { new DataTableJsonConverter() } 
-        };
-        return JsonSerializer.Deserialize<System.Data.DataTable>(json, serializeOptions);
+        return JsonSerializer.Deserialize<DataTable>(json, s_readOptions);
     }
 
+#endif
+
+#if !NET8_0_OR_GREATER
+    public static bool StartsWith(this string value, char prefix)
+    {
+        return value.StartsWith(prefix.ToString());
+    }
+
+    public static bool EndsWith(this string value, char suffix)
+    {
+        return value.EndsWith(suffix.ToString());
+    }
 #endif
 
     /// <summary>

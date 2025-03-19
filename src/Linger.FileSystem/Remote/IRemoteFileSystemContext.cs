@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Linger.FileSystem.Remote;
+﻿namespace Linger.FileSystem.Remote;
 
 /// <summary>
 /// 定义远程文件系统上下文接口

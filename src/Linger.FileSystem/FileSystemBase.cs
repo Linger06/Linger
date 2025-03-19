@@ -1,19 +1,11 @@
-﻿using Linger.FileSystem.Exceptions;
-using Linger.Helper;
-
-namespace Linger.FileSystem;
+﻿namespace Linger.FileSystem;
 
 /// <summary>
 /// 所有文件系统的抽象基类，统一实现公共功能
 /// </summary>
-public abstract class FileSystemBase : IFileSystemOperations
+public abstract class FileSystemBase(RetryOptions? retryOptions = null) : IFileSystemOperations
 {
-    protected readonly RetryHelper RetryHelper;
-
-    protected FileSystemBase(RetryOptions? retryOptions = null)
-    {
-        RetryHelper = new RetryHelper(retryOptions ?? new RetryOptions());
-    }
+    protected readonly RetryHelper RetryHelper = new(retryOptions ?? new RetryOptions());
 
     /// <summary>
     /// 是否为远程文件系统
@@ -21,36 +13,6 @@ public abstract class FileSystemBase : IFileSystemOperations
     public virtual bool IsRemoteFileSystem => false;
 
     #region 基础路径操作
-
-    /// <summary>
-    /// 标准化路径，确保使用正确的路径分隔符
-    /// </summary>
-    protected virtual string NormalizePath(string directoryPath, string fileName)
-    {
-        if (string.IsNullOrEmpty(directoryPath))
-            return fileName;
-
-        char separator = IsRemoteFileSystem ? '/' : Path.DirectorySeparatorChar;
-
-        // 替换分隔符
-        directoryPath = directoryPath.Replace('\\', separator).Replace('/', separator);
-
-        // 确保路径以分隔符结尾
-        if (!directoryPath.EndsWith(separator.ToString()))
-            directoryPath += separator;
-
-        return directoryPath + (fileName ?? string.Empty)
-            .Replace('\\', separator)
-            .Replace('/', separator);
-    }
-
-    /// <summary>
-    /// 获取目录路径
-    /// </summary>
-    protected virtual string? GetDirectoryPath(string filePath)
-    {
-        return Path.GetDirectoryName(filePath)?.Replace('\\', IsRemoteFileSystem ? '/' : Path.DirectorySeparatorChar);
-    }
 
     /// <summary>
     /// 异常处理

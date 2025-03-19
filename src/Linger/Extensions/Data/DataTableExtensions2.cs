@@ -294,7 +294,7 @@ public static partial class DataTableExtensions
             // 常规类型转换
             property.SetValue(obj, Convert.ChangeType(value, propertyType));
         }
-        catch (System.Exception)
+        catch (Exception)
         {
             // 转换失败记录日志
             //Logger?.LogDebug(ex, "属性设置失败: {PropertyName}, 值: {Value}, 值类型: {ValueType}", property.Name, value, value.GetType().Name);

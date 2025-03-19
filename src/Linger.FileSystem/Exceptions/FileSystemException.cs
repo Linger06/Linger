@@ -1,6 +1,4 @@
-using System;
-
-namespace Linger.FileSystem.Exceptions;
+﻿namespace Linger.FileSystem.Exceptions;
 
 /// <summary>
 /// 文件系统操作的基础异常类型
@@ -11,12 +9,12 @@ public class FileSystemException : Exception
     /// 操作类型
     /// </summary>
     public string Operation { get; }
-    
+
     /// <summary>
     /// 相关文件路径
     /// </summary>
     public string? FilePath { get; }
-    
+
     /// <summary>
     /// 服务器信息（如适用）
     /// </summary>
@@ -26,24 +24,24 @@ public class FileSystemException : Exception
     {
         Operation = "Unknown";
     }
-    
+
     public FileSystemException(string operation, string message) : base(message)
     {
         Operation = operation;
     }
-    
+
     public FileSystemException(string operation, string message, Exception innerException) : base(message, innerException)
     {
         Operation = operation;
     }
-    
+
     public FileSystemException(string operation, string? filePath, string message, Exception? innerException = null)
         : base(message, innerException)
     {
         Operation = operation;
         FilePath = filePath;
     }
-    
+
     public FileSystemException(string operation, string? filePath, string? serverInfo, string message, Exception? innerException = null)
         : base(message, innerException)
     {
