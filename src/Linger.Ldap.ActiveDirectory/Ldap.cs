@@ -194,4 +194,13 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             return new DirectoryEntry(ldapPath, $@"{domain}\{userId}", password);
         }
     }
+
+    /// <summary>
+    /// Checks if user exists in LDAP directory
+    /// </summary>
+    /// <param name="userName">Username to check</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if user exists; otherwise, false</returns>
+    public async Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default) => await FindUserAsync(userName) != null;
+
 }

@@ -29,4 +29,12 @@ public interface ILdap
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <returns>Collection of matching users; null if none found</returns>
     Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null);
+
+        /// <summary>
+    /// Checks if user exists in LDAP directory
+    /// </summary>
+    /// <param name="userName">Username to check</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>True if user exists; otherwise, false</returns>
+    Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default);
 }
