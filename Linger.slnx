@@ -25,7 +25,6 @@
     <Project Path="src/Linger.FileSystem.Sftp/Linger.FileSystem.Sftp.csproj" />
     <Project Path="src/Linger.FileSystem/Linger.FileSystem.csproj" />
     <Project Path="src/Linger.Ldap.ActiveDirectory/Linger.Ldap.ActiveDirectory.csproj" />
-    <Project Path="src/Linger.Ldap.AspNetCore/Linger.Ldap.AspNetCore.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />
     <Project Path="src/Linger.Result/Linger.Result.csproj" />

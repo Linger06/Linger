@@ -202,5 +202,4 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user exists; otherwise, false</returns>
     public async Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default) => await FindUserAsync(userName) != null;
-
 }

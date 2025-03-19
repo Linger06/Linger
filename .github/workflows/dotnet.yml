@@ -33,6 +33,6 @@ jobs:
         #NUGET_KEY: ${{secrets.NUGET_API_KEY}}
     - name: Publish to Nuget
       run: |
-        dotnet build --configuration Release src/Linger
-        dotnet pack src/Linger -c Release -o ./nupkg
+        dotnet build --configuration Release Linger.slnx
+        dotnet pack Linger.slnx -c Release -o ./nupkg
         dotnet nuget push nupkg\*.nupkg -s https://api.nuget.org/v3/index.json -k ${{secrets.NUGET_API_KEY}} --skip-duplicate
