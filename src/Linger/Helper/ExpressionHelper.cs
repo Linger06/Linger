@@ -142,16 +142,26 @@ public static partial class ExpressionHelper
     /// </example>
     public static IEnumerable<T> OrderBy<T>(this IEnumerable<T> query, string propertyName, string sort)
     {
-        LambdaExpression expr = GetOrderExpression<T>(propertyName);
-        PropertyInfo propInfo = typeof(T).GetPropertyInfo(propertyName);
-        MethodInfo method = typeof(Enumerable).GetMethods().First(m => m.Name == sort && m.GetParameters().Length == 2);
-        MethodInfo genericMethod = method.MakeGenericMethod(typeof(T), propInfo.PropertyType);
-        var orderBy = genericMethod.Invoke(null, [query, expr.Compile()]);
-        if (orderBy == null)
+        ArgumentNullException.ThrowIfNull(query);
+        if (string.IsNullOrEmpty(propertyName)) throw new ArgumentException("Property name cannot be null or empty", nameof(propertyName));
+        if (string.IsNullOrEmpty(sort)) throw new ArgumentException("Sort direction cannot be null or empty", nameof(sort));
+
+        try
         {
-            throw new NullReferenceException("Unable to find the corresponding sorting property.");
+            LambdaExpression expr = GetOrderExpression<T>(propertyName);
+            PropertyInfo propInfo = typeof(T).GetPropertyInfo(propertyName);
+            MethodInfo method = typeof(Enumerable).GetMethods().First(m => m.Name == sort && m.GetParameters().Length == 2);
+            MethodInfo genericMethod = method.MakeGenericMethod(typeof(T), propInfo.PropertyType);
+            var orderBy = genericMethod.Invoke(null, [query, expr.Compile()]);
+
+            return orderBy as IEnumerable<T> ?? throw new InvalidOperationException(
+                $"Failed to sort by property '{propertyName}' using direction '{sort}'.");
         }
-        return (IEnumerable<T>)orderBy;
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            throw new InvalidOperationException(
+                $"Failed to perform ordering operation on property '{propertyName}'.", ex);
+        }
     }
 
     /// <summary>

@@ -82,7 +82,7 @@ public static partial class ExpressionHelper
                 PropertyInfo? pi = type.GetProperty(prop, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
                 if (pi == null)
                 {
-                    throw new NullReferenceException(nameof(pi));
+                    throw new InvalidOperationException(nameof(pi));
                 }
 
                 expr = Expression.Property(expr, pi);

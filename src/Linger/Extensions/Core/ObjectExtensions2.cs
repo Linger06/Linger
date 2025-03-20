@@ -53,10 +53,9 @@ public static partial class ObjectExtensions
     public static PropertyInfo GetPropertyInfo(this object obj, string propertyName)
     {
         var matchedProperty = obj.GetType().GetProperty(propertyName);
-        if (matchedProperty == null)
-            throw new ArgumentException(null, nameof(propertyName));
-
-        return matchedProperty;
+        return matchedProperty == null
+            ? throw new InvalidOperationException($"{nameof(propertyName)} has not been initialized")
+            : matchedProperty;
     }
 
     /// <summary>

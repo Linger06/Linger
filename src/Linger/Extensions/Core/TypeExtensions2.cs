@@ -96,10 +96,9 @@ public static partial class TypeExtension
         ArgumentNullException.ThrowIfNull(name);
 
         PropertyInfo? matchedProperty = objType.GetProperties().FirstOrDefault(p => p.Name == name);
-        if (matchedProperty == null)
-            throw new NullReferenceException($"Property '{name}' not found on type '{objType.FullName}'.");
-
-        return matchedProperty;
+        return matchedProperty == null
+            ? throw new InvalidOperationException($"Property '{name}' not found on type '{objType.FullName}'.")
+            : matchedProperty;
     }
 
     /// <summary>
