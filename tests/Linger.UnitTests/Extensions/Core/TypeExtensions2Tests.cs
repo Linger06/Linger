@@ -155,7 +155,7 @@
             var propertyName = "NonExistentProperty";
 
             // Act & Assert
-            Assert.Throws<NullReferenceException>(() => type.GetPropertyInfo(propertyName));
+            Assert.Throws<InvalidOperationException>(() => type.GetPropertyInfo(propertyName));
         }
 
         [Fact]

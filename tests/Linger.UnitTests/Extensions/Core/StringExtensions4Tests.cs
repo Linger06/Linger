@@ -29,7 +29,7 @@ public class StringExtensions4Tests
     [InlineData("invalid-email", "")]
     public void EmailPrefix_ShouldReturnExpectedResult(string? value, string expected)
     {
-        var result = value.EmailPrefix();
+        var result = value.GetEmailPrefix();
         Assert.Equal(expected, result);
     }
 

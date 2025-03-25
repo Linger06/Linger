@@ -41,7 +41,7 @@
         {
             var obj = new { Name = "John" };
 
-            Assert.Throws<ArgumentException>(() => obj.GetPropertyInfo("Age"));
+            Assert.Throws<InvalidOperationException>(() => obj.GetPropertyInfo("Age"));
         }
 
         [Fact]
@@ -58,7 +58,7 @@
         {
             var obj = new { Name = "John" };
 
-            Assert.Throws<ArgumentException>(() => obj.GetPropertyValue("Age"));
+            Assert.Throws<InvalidOperationException>(() => obj.GetPropertyValue("Age"));
         }
 
         [Fact]
