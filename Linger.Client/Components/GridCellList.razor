@@ -1,0 +1,61 @@
+@typeparam TItem
+@using MudBlazor
+
+<div class="grid-container" style="display: grid; grid-template-columns: repeat(@ColumnsCount, @(CellWidth)px); gap: 4px;">
+    @if (Items != null)
+    {
+        @foreach (var item in Items)
+        {
+            var backgroundColor = ColorSelector?.Invoke(item) ?? "#ffffff";
+            
+            <div class="grid-cell" 
+                 style="width: @(CellWidth)px; height: @(CellHeight)px; background-color: @backgroundColor; 
+                        display: flex; justify-content: center; align-items: center; cursor: pointer;
+                        border-radius: 4px; overflow: hidden;"
+                 @onclick="() => OnCellClicked(item)">
+                @if (CellTemplate != null)
+                {
+                    @CellTemplate(item)
+                }
+                else
+                {
+                    @item?.ToString()
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<TItem>? Items { get; set; }
+
+    [Parameter]
+    public int CellWidth { get; set; } = 100;
+
+    [Parameter]
+    public int CellHeight { get; set; } = 100;
+
+    /// <summary>
+    /// 网格列数，没有最大值限制，可以根据需要设置任意值
+    /// </summary>
+    [Parameter]
+    public int ColumnsCount { get; set; } = 3;
+
+    [Parameter]
+    public Func<TItem, string>? ColorSelector { get; set; }
+
+    [Parameter]
+    public EventCallback<TItem> OnCellClick { get; set; }
+
+    [Parameter]
+    public RenderFragment<TItem>? CellTemplate { get; set; }
+
+    private async Task OnCellClicked(TItem item)
+    {
+        if (OnCellClick.HasDelegate)
+        {
+            await OnCellClick.InvokeAsync(item);
+        }
+    }
+}

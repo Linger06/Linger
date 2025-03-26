@@ -1,0 +1,111 @@
+@page "/grid-cell-demo"
+@using MudBlazor
+@using Linger.Client.Components
+@implements IDisposable
+
+<h3>网格单元格列表示例</h3>
+
+<MudPaper Class="pa-4 my-4">
+    <MudText Class="mb-4">调整网格设置:</MudText>
+    <div class="d-flex gap-4 mb-4">
+        <MudNumericField @bind-Value="cellWidth" Label="单元格宽度" Min="30" Max="300" />
+        <MudNumericField @bind-Value="cellHeight" Label="单元格高度" Min="30" Max="300" />
+        <MudNumericField @bind-Value="columnsCount" Label="列数" Min="1" Max="100" />
+    </div>
+    
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+        说明：列数没有实际限制，可以根据需要设置任意大小的值
+    </MudText>
+    
+    <GridCellList TItem="DemoItem" 
+                 Items="demoItems" 
+                 CellWidth="cellWidth" 
+                 CellHeight="cellHeight" 
+                 ColumnsCount="columnsCount" 
+                 ColorSelector="@(item => item.Color)"
+                 OnCellClick="HandleCellClick">
+        <CellTemplate>
+            <div class="d-flex flex-column align-center justify-center text-center pa-2">
+                <MudText Typo="Typo.subtitle2">@context.Name</MudText>
+                <MudText Typo="Typo.caption">值: @context.Value</MudText>
+            </div>
+        </CellTemplate>
+    </GridCellList>
+
+</MudPaper>
+
+<MudPaper Class="pa-4 mt-4">
+    <MudText>点击的项目: @selectedItem</MudText>
+</MudPaper>
+
+@code {
+    private List<DemoItem> demoItems = new List<DemoItem>();
+    private int cellWidth = 100;
+    private int cellHeight = 100;
+    private int columnsCount = 3;
+    private string selectedItem = "无";
+    
+    private static readonly Random random = new Random();
+
+    protected override void OnInitialized()
+    {
+        // 初始化演示数据
+        for (int i = 1; i <= 300; i++)
+        {
+            demoItems.Add(new DemoItem
+            {
+                Id = i,
+                Name = $"项目 {i}",
+                Value = i * 10,
+                // 根据Value值确定颜色
+                Color = GetColorByValue(i * 10)
+            });
+        }
+    }
+
+    private void HandleCellClick(DemoItem item)
+    {
+        selectedItem = $"{item.Name} (ID: {item.Id}, 值: {item.Value})";
+        StateHasChanged();
+    }
+
+    // 根据数值大小返回不同的颜色
+    private string GetColorByValue(int value)
+    {
+        if (value < 50) return "#90CAF9"; // 浅蓝色
+        if (value < 100) return "#81C784"; // 浅绿色
+        if (value < 150) return "#FFD54F"; // 黄色
+        return "#FF8A65"; // 橙色
+    }
+
+    // 或者随机生成颜色
+    private string GetRandomColor()
+    {
+        var colors = new[] { "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", 
+                            "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50", 
+                            "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800" };
+        
+        return colors[random.Next(0, colors.Length)];
+    }
+
+    // 添加一个方法允许通过代码设置任意列数
+    private void SetCustomColumnCount(int count)
+    {
+        columnsCount = count;
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        // 清理资源
+    }
+
+    // 定义一个带属性的实体类用于演示
+    public class DemoItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int Value { get; set; }
+        public string Color { get; set; } = "#ffffff";
+    }
+}
