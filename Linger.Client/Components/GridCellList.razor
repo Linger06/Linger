@@ -1,28 +1,25 @@
 @typeparam TItem
 @using MudBlazor
 
-<div class="grid-container" style="display: grid; grid-template-columns: repeat(@ColumnsCount, @(CellWidth)px); gap: 4px;">
+<div class="grid-container @Class" style="display: grid; grid-template-columns: repeat(@ColumnsCount, @(CellWidth)px); gap: @GapSize; @Style">
     @if (Items != null)
     {
         @foreach (var item in Items)
         {
-            var backgroundColor = ColorSelector?.Invoke(item) ?? "#ffffff";
-            
-            <div class="grid-cell" 
-                 style="width: @(CellWidth)px; height: @(CellHeight)px; background-color: @backgroundColor; 
-                        display: flex; justify-content: center; align-items: center; cursor: pointer;
-                        border-radius: 4px; overflow: hidden;"
-                 @onclick="() => OnCellClicked(item)">
-                @if (CellTemplate != null)
-                {
-                    @CellTemplate(item)
-                }
-                else
-                {
-                    @item?.ToString()
-                }
-            </div>
+            @RenderGridCell(item)
         }
+    }
+    else if (LoadingTemplate != null)
+    {
+        <div class="grid-loading">
+            @LoadingTemplate
+        </div>
+    }
+    else if (EmptyTemplate != null && (Items == null || Items.Count == 0))
+    {
+        <div class="grid-empty">
+            @EmptyTemplate
+        </div>
     }
 </div>
 
@@ -46,10 +43,34 @@
     public Func<TItem, string>? ColorSelector { get; set; }
 
     [Parameter]
+    public Func<TItem, bool>? IsSelectedSelector { get; set; }
+
+    [Parameter]
     public EventCallback<TItem> OnCellClick { get; set; }
 
     [Parameter]
     public RenderFragment<TItem>? CellTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? LoadingTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? EmptyTemplate { get; set; }
+
+    [Parameter]
+    public string GapSize { get; set; } = "4px";
+
+    [Parameter]
+    public string Class { get; set; } = "";
+
+    [Parameter]
+    public string Style { get; set; } = "";
+
+    [Parameter]
+    public string CellClass { get; set; } = "";
+
+    [Parameter]
+    public bool EnableHoverEffect { get; set; } = true;
 
     private async Task OnCellClicked(TItem item)
     {
@@ -58,4 +79,34 @@
             await OnCellClick.InvokeAsync(item);
         }
     }
+
+    private RenderFragment RenderGridCell(TItem item) => builder =>
+    {
+        var backgroundColor = ColorSelector?.Invoke(item) ?? "#ffffff";
+        var isSelected = IsSelectedSelector?.Invoke(item) ?? false;
+        var selectedClass = isSelected ? "grid-cell-selected" : "";
+        var hoverClass = EnableHoverEffect ? "grid-cell-hover" : "";
+        
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", $"grid-cell {selectedClass} {hoverClass} {CellClass}");
+        builder.AddAttribute(2, "style", $"width: {CellWidth}px; height: {CellHeight}px; background-color: {backgroundColor}; " +
+                                       "display: flex; justify-content: center; align-items: center; cursor: pointer; " + 
+                                       "border-radius: 4px; overflow: hidden;");
+        builder.AddAttribute(3, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, () => OnCellClicked(item)));
+        
+        builder.OpenElement(4, "div");
+        builder.AddAttribute(5, "class", "grid-cell-content");
+        
+        if (CellTemplate != null)
+        {
+            builder.AddContent(6, CellTemplate(item));
+        }
+        else
+        {
+            builder.AddContent(6, item?.ToString());
+        }
+        
+        builder.CloseElement();
+        builder.CloseElement();
+    };
 }
