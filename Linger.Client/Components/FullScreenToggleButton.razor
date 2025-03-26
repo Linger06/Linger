@@ -1,0 +1,76 @@
+﻿@inject IJSRuntime JS
+
+<MudTooltip Text="@tooltip">
+    <MudIconButton Icon="@currentIcon"
+                   OnClick="@ToggleFullScreen"
+                   Size="Size.Medium"
+                   Color="Color.Primary"
+                   Class="@(animate ? "fullscreen-icon animate" : "fullscreen-icon")" />
+</MudTooltip>
+
+@code {
+    private string currentIcon = Icons.Material.Filled.Fullscreen;
+    private string tooltip = "Enter Fullscreen";
+    private bool animate;
+
+    [Parameter]
+    public EventCallback<bool> OnFullScreenChanged { get; set; }
+
+    [JSInvokable("UpdateFullScreenState")]
+    public static Task UpdateFullScreenState(bool isFullScreen)
+    {
+        Instance?.SetFullScreenState(isFullScreen);
+        return Task.CompletedTask;
+    }
+
+    private void SetFullScreenState(bool isFullScreen)
+    {
+        currentIcon = isFullScreen ? Icons.Material.Filled.FullscreenExit : Icons.Material.Filled.Fullscreen;
+        tooltip = isFullScreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen (F11)";
+        animate = true;
+
+        _ = OnFullScreenChanged.InvokeAsync(isFullScreen);
+
+        InvokeAsync(StateHasChanged);
+        Task.Delay(300).ContinueWith(_ =>
+        {
+            animate = false;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private static FullScreenToggleButton? Instance;
+
+    protected override void OnInitialized()
+    {
+        Instance = this;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Listen to full-screen change event
+            await JS.InvokeVoidAsync("eval", $@"
+                window.addEventListener('fullScreenChanged', function (e) {{
+                    DotNet.invokeMethodAsync('{typeof(FullScreenToggleButton).Assembly.GetName().Name}', 'UpdateFullScreenState', e.detail);
+                }});
+            ");
+
+            // Fetch current fullscreen state on startup
+            var isFull = await JS.InvokeAsync<bool>("getFullScreenState");
+            SetFullScreenState(isFull);
+        }
+    }
+
+    private async Task ToggleFullScreen()
+    {
+        await JS.InvokeVoidAsync("toggleFullScreenWinForm");
+    }
+
+    public void Dispose()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+}

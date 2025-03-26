@@ -9,12 +9,12 @@
         <MudText Typo="Typo.h4" Class="mb-4 text-center">Linger 系统登录</MudText>
         <MudDivider Class="mb-4" />
         <MudForm @ref="form" @bind-IsValid="@success">
-            <MudTextField T="string" Label="用户名" Required="true" RequiredError="请输入用户名" 
+            <MudTextField T="string" Label="用户名" Required="true" RequiredError="请输入用户名"
                           @bind-Value="loginModel.Username" Class="mb-3" />
-            <MudTextField T="string" Label="密码" Required="true" RequiredError="请输入密码" 
+            <MudTextField T="string" Label="密码" Required="true" RequiredError="请输入密码"
                           @bind-Value="loginModel.Password" InputType="InputType.Password" Class="mb-5" />
-            
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" 
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        Disabled="@(!success)" OnClick="HandleLogin" FullWidth="true" Size="Size.Large">
                 @if (loading)
                 {
@@ -31,7 +31,7 @@
 </MudContainer>
 
 @code {
-    private LoginRequest loginModel = new();
+    private LoginRequest loginModel = new() { Username = "admin", Password = "password" };
     private bool success;
     private bool loading = false;
     private MudForm form;
