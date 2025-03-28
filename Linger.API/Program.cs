@@ -9,7 +9,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.ConfigureJwt(builder.Configuration);
-builder.Services.AddSingleton<IJwtService, Linger.API.Services.JwtService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
 //// 注册JWT服务
 //builder.Services.AddSingleton<JwtService>();
 

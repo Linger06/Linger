@@ -1,6 +1,5 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 using Linger.AspNetCore.Jwt.Contracts;
 using Microsoft.Extensions.Logging;
@@ -8,13 +7,16 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace Linger.AspNetCore.Jwt;
 
-public abstract class JwtService : IJwtService
+/// <summary>
+/// JWT服务基础实现，仅提供创建访问令牌的功能
+/// </summary>
+public class JwtService : IJwtService
 {
-    private readonly JwtOption _jwtOptions;
-    private readonly ILogger? _logger;
-    private readonly TokenValidationParameters _validationParameters;
+    protected readonly JwtOption _jwtOptions;
+    protected readonly ILogger? _logger;
+    protected readonly TokenValidationParameters _validationParameters;
 
-    protected JwtService(JwtOption jwtOptions, ILogger? logger = null)
+    public JwtService(JwtOption jwtOptions, ILogger? logger = null)
     {
         _jwtOptions = jwtOptions;
         _logger = logger;
@@ -36,7 +38,7 @@ public abstract class JwtService : IJwtService
         };
     }
 
-    public async Task<Token> CreateTokenAsync(string userId)
+    public virtual async Task<Token> CreateTokenAsync(string userId)
     {
         try
         {
@@ -46,9 +48,9 @@ public abstract class JwtService : IJwtService
             JwtSecurityToken tokenOptions = GenerateTokenOptions(signingCredentials, claims);
             var token = new JwtSecurityTokenHandler().WriteToken(tokenOptions);
             _logger?.LogDebug($"令牌生成成功: {token[..10]}...");
-            JwtRefreshToken refreshToken = GenerateRefreshToken();
-            await HandleRefreshToken(userId, refreshToken);
-            return await Task.FromResult(new Token(token, refreshToken.RefreshToken));
+
+            // 基础实现只返回访问令牌
+            return await Task.FromResult(new Token(token));
         }
         catch (Exception ex)
         {
@@ -56,8 +58,6 @@ public abstract class JwtService : IJwtService
             throw;
         }
     }
-
-    protected abstract Task HandleRefreshToken(string userId, JwtRefreshToken refreshToken);
 
     private SigningCredentials GetSigningCredentials()
     {
@@ -92,40 +92,7 @@ public abstract class JwtService : IJwtService
         return tokenOptions;
     }
 
-    private JwtRefreshToken GenerateRefreshToken()
-    {
-        // 创建一个随机的Token用做Refresh Token
-        var randomNumber = new byte[32];
-
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-
-        var refreshToken = Convert.ToBase64String(randomNumber);
-        DateTime refreshTokenExpires = DateTime.Now.AddMinutes(_jwtOptions.RefreshTokenExpires);
-        return new JwtRefreshToken { RefreshToken = refreshToken, ExpiryTime = refreshTokenExpires };
-    }
-
-    public async Task<Token?> RefreshTokenAsync(Token token)
-    {
-        ClaimsPrincipal principal = GetPrincipalFromExpiredToken(token.AccessToken);
-        var userId = principal.Identity?.Name!;
-        JwtRefreshToken refreshToken = await GetExistRefreshTokenAsync(userId);
-        //ApplicationUser? user = await _userManager.FindByNameAsync(principal.Identity?.Name!);
-        //if (user == null || user.RefreshToken != token.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.Now)
-        //{
-        //    throw new BadHttpRequestException("provided token has some invalid value");
-        //}
-        if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.Now)
-        {
-            throw new Exception("provided token has some invalid value");
-        }
-
-        return await CreateTokenAsync(userId);
-    }
-
-    protected abstract Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId);
-
-    private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
+    protected ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
     {
         // 根据已过期的Token获取用户相关的Principal数据，用来生成新的Token
 
