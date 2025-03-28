@@ -10,6 +10,8 @@
   </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
+    <Project Path="src/Linger.AspNetCore.Jwt.Contracts/Linger.AspNetCore.Jwt.Contracts.csproj" />
+    <Project Path="src/Linger.AspNetCore.Jwt/Linger.AspNetCore.Jwt.csproj" />
     <Project Path="src/Linger.Audit/Linger.Audit.csproj" />
     <Project Path="src/Linger.Background/Linger.Background.csproj" />
     <Project Path="src/Linger.Configuration/Linger.Configuration.csproj" />
@@ -24,6 +26,9 @@
     <Project Path="src/Linger.FileSystem.Ftp/Linger.FileSystem.Ftp.csproj" />
     <Project Path="src/Linger.FileSystem.Sftp/Linger.FileSystem.Sftp.csproj" />
     <Project Path="src/Linger.FileSystem/Linger.FileSystem.csproj" />
+    <Project Path="src/Linger.HttpClient.Contracts/Linger.HttpClient.Contracts.csproj" />
+    <Project Path="src/Linger.HttpClient.Flurl/Linger.HttpClient.Flurl.csproj" />
+    <Project Path="src/Linger.HttpClient/Linger.HttpClient.csproj" />
     <Project Path="src/Linger.Ldap.ActiveDirectory/Linger.Ldap.ActiveDirectory.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />

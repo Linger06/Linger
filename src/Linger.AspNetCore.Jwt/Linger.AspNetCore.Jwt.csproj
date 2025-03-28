@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
+        <VersionPrefix>0.3.3</VersionPrefix>
+        <VersionSuffix>alpha</VersionSuffix>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+    <ItemGroup  Condition="'$(TargetFramework)' == 'net9.0'">
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.3" />
+    </ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.14"/>
+	</ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Linger.AspNetCore.Jwt.Contracts\Linger.AspNetCore.Jwt.Contracts.csproj" />
+      <ProjectReference Include="..\Linger.Configuration\Linger.Configuration.csproj" />
+    </ItemGroup>
+
+</Project>
