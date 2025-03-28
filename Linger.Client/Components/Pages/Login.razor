@@ -41,7 +41,7 @@
         loading = true;
         try
         {
-            var result = await AuthService.Login(loginModel);
+            var result = await AuthService.LoginAsync(loginModel);
             if (result)
             {
                 NavigationManager.NavigateTo("/", true);

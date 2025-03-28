@@ -1,7 +1,8 @@
 @page "/data"
+@using Linger.HttpClient.Contracts
 @using Microsoft.AspNetCore.Authorization
 @attribute [Authorize]
-@inject ApiService ApiService
+@inject IHttpClient httpClient
 @inject ISnackbar Snackbar
 
 <MudText Typo="Typo.h3" Class="mb-4">数据列表</MudText>
@@ -34,7 +35,8 @@ else
     {
         try
         {
-            items = await ApiService.GetDataAsync<List<DataItem>>("api/data");
+            var result  = await httpClient.GetAsync<List<DataItem>>("api/data");
+            items = result.Data;
         }
         catch (Exception ex)
         {

@@ -1,4 +1,6 @@
 ﻿using Linger.Client.Services;
+using Linger.HttpClient;
+using Linger.HttpClient.Contracts;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,16 +34,51 @@ namespace Linger.Client
             services.AddWindowsFormsBlazorWebView();
             services.AddMudServices();
 
-            // 添加HTTP客户端
-            services.AddHttpClient("LingerAPI", client =>
+            //// 添加HTTP客户端
+            //services.AddHttpClient("LingerAPI", client =>
+            //{
+            //    // 确保这里的URL与API实际运行的端口一致
+            //    client.BaseAddress = new Uri("http://localhost:5258/");
+            //});
+
+            // 注册AppState
+            services.AddSingleton<AppState>();
+
+            // 注册IHttpClient
+            services.AddSingleton<IHttpClient>(provider =>
             {
-                // 确保这里的URL与API实际运行的端口一致
-                client.BaseAddress = new Uri("http://localhost:5258/");
+                var httpClient = new BaseHttpClient("http://localhost:5258/");
+
+                // 配置httpClient的选项
+                httpClient.Options.EnableRetry = true;
+                httpClient.Options.MaxRetryCount = 3;
+                httpClient.Options.RetryInterval = 1000; // 1秒
+
+                // 添加默认请求头
+                httpClient.AddHeader("Accept", "application/json");
+                httpClient.AddHeader("User-Agent", "Linger.Client");
+
+                // 获取AppState用于设置令牌
+                var appState = provider.GetRequiredService<AppState>();
+                if (!string.IsNullOrEmpty(appState.Token))
+                {
+                    httpClient.SetToken(appState.Token);
+
+                    // 订阅Token变化事件
+                    appState.OnChange += () =>
+                    {
+                        if (!string.IsNullOrEmpty(appState.Token))
+                        {
+                            httpClient.SetToken(appState.Token);
+                        }
+                    };
+                }
+
+                return httpClient;
             });
 
             // 添加服务
             services.AddScoped<AuthService>();
-            services.AddScoped<ApiService>();
 
             // 添加状态管理
             services.AddSingleton<AppState>();

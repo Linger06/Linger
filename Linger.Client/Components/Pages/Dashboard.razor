@@ -1,6 +1,7 @@
 @page "/Dashboard"
+@using Linger.HttpClient.Contracts
 @attribute [Authorize]
-@inject ApiService ApiService
+@inject IHttpClient httpClient
 @inject ISnackbar Snackbar
 <MudText Typo="Typo.h3" Class="mb-4">仪表盘</MudText>
 
@@ -35,8 +36,8 @@
         try
         {
             // 直接反序列化为int，而不是object
-            var data = await ApiService.GetDataAsync<int>("api/data/count");
-            dataCount = data;
+            var data = await httpClient.GetAsync<int>("api/data/count");
+            dataCount = data.Data;
         }
         catch (Exception ex)
         {
