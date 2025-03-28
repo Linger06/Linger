@@ -7,17 +7,29 @@ public class ApiResult<T>
     public HttpStatusCode? StatusCode { get; set; }
     public ErrorObj? Errors { get; set; }
     public string? ErrorMsg { get; set; }
+
+    /// <summary>
+    /// 请求是否成功 (2xx 状态码)
+    /// </summary>
+    public bool IsSuccess => StatusCode.HasValue && (int)StatusCode.Value >= 200 && (int)StatusCode.Value < 300;
+    
+    /// <summary>
+    /// 是否为未授权状态 (401)
+    /// </summary>
+    public bool IsUnauthorized => StatusCode == HttpStatusCode.Unauthorized;
 }
 
 public class ErrorObj
 {
     public ErrorObj()
     {
+        Form = new Dictionary<string, string>();
+        Message = new List<string>();
     }
 
-    public ErrorObj(string errorMsg)
+    public ErrorObj(string errorMsg) : this()
     {
-        Message = [errorMsg];
+        Message.Add(errorMsg);
     }
 
     public Dictionary<string, string> Form { get; set; } = default!;

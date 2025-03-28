@@ -11,6 +11,8 @@ namespace Linger.HttpClient.Contracts;
 
 public abstract class BaseClient : IHttpClient
 {
+    protected readonly List<IHttpClientInterceptor> Interceptors = new();
+    public HttpClientOptions Options { get; } = new HttpClientOptions();
 
     /// <summary>
     ///     使用Get方法调用api
@@ -120,6 +122,58 @@ public abstract class BaseClient : IHttpClient
 
     public abstract Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default); //where T : class;
     public abstract void SetToken(string token);
+    public void AddHeader(string name, string value)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            throw new ArgumentNullException(nameof(name));
+        }
+        
+        Options.DefaultHeaders[name] = value;
+    }
+
+    public void AddInterceptor(IHttpClientInterceptor interceptor)
+    {
+        if (interceptor == null)
+        {
+            throw new ArgumentNullException(nameof(interceptor));
+        }
+        
+        Interceptors.Add(interceptor);
+    }
+
+    protected async Task<HttpRequestMessage> ApplyInterceptorsToRequestAsync(HttpRequestMessage request)
+    {
+        if (Interceptors.Count == 0)
+        {
+            return request;
+        }
+
+        var currentRequest = request;
+        foreach (var interceptor in Interceptors)
+        {
+            currentRequest = await interceptor.OnRequestAsync(currentRequest);
+        }
+        
+        return currentRequest;
+    }
+
+    protected async Task<HttpResponseMessage> ApplyInterceptorsToResponseAsync(HttpResponseMessage response)
+    {
+        if (Interceptors.Count == 0)
+        {
+            return response;
+        }
+
+        var currentResponse = response;
+        foreach (var interceptor in Interceptors)
+        {
+            currentResponse = await interceptor.OnResponseAsync(currentResponse);
+        }
+        
+        return currentResponse;
+    }
+
     protected static async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res) //where T : class
     {
         var rv = new ApiResult<T> { StatusCode = res.StatusCode };

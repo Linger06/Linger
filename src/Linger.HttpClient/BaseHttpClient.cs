@@ -17,11 +17,18 @@ public class BaseHttpClient : BaseClient
     public BaseHttpClient(string baseUrl)
     {
         _httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(baseUrl) };
+        SetDefaultOptions();
     }
 
     public BaseHttpClient(System.Net.Http.HttpClient httpClient)
     {
         _httpClient = httpClient;
+        SetDefaultOptions();
+    }
+    
+    private void SetDefaultOptions()
+    {
+        _httpClient.Timeout = TimeSpan.FromSeconds(Options.DefaultTimeout);
     }
 
     public override void SetToken(string token)
@@ -42,15 +49,13 @@ public class BaseHttpClient : BaseClient
             }
 
             url = url.AppendQuery("culture=" + Thread.CurrentThread.CurrentUICulture.Name);
-            //如果配置了代理，则使用代理
+            
             //设置超时
+            var originalTimeout = _httpClient.Timeout;
             if (timeout.HasValue)
             {
-                _httpClient.Timeout = new TimeSpan(0, 0, 0, timeout.Value, 0);
+                _httpClient.Timeout = TimeSpan.FromSeconds(timeout.Value);
             }
-
-            //LogHelper.Info("Http BaseAddress:" + Client.BaseAddress.ToString());
-            //LogHelper.Info("Url:" + url);
 
             HttpMethod httpMethod = method switch
             {
@@ -68,30 +73,35 @@ public class BaseHttpClient : BaseClient
             }
 #endif
 
-            //var requestUri = new Uri(url);
-
-            //var request = new HttpRequestMessage
-            //{
-            //    Method = httpMethod,
-            //    RequestUri = requestUri,
-            //    Content = content
-            //};
-
             var request = new HttpRequestMessage(httpMethod, url)
             {
                 Content = content
             };
-            ConfiguredTaskAwaitable<HttpResponseMessage> response = _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            HttpResponseMessage res = response.GetAwaiter().GetResult();
-
-            //HttpResponseMessage res = method switch
-            //{
-            //    HttpMethodEnum.Get => await _httpClient.GetAsync(url),
-            //    HttpMethodEnum.Post => await _httpClient.PostAsync(url, content),
-            //    HttpMethodEnum.Put => await _httpClient.PutAsync(url, content),
-            //    HttpMethodEnum.Delete => await _httpClient.DeleteAsync(url),
-            //    _ => throw new ArgumentOutOfRangeException(nameof(method), method, null)
-            //};
+            
+            // 添加默认请求头
+            foreach (var header in Options.DefaultHeaders)
+            {
+                request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            }
+            
+            // 应用请求拦截器
+            request = await ApplyInterceptorsToRequestAsync(request);
+            
+            // 执行请求（带重试）
+            var getResponseTask = ProcessRequestWithRetriesAsync(
+                async () => await _httpClient.SendAsync(request, cancellationToken), 
+                cancellationToken);
+            
+            var res = await getResponseTask;
+            
+            // 应用响应拦截器
+            res = await ApplyInterceptorsToResponseAsync(res);
+            
+            // 恢复原始超时设置
+            if (timeout.HasValue)
+            {
+                _httpClient.Timeout = originalTimeout;
+            }
 
             rv = await HandleResponseMessage<T>(res);
 
@@ -99,9 +109,36 @@ public class BaseHttpClient : BaseClient
         }
         catch (Exception ex)
         {
-            //ex.WriteLog();
             rv.ErrorMsg = ex.ToString();
             return rv;
+        }
+    }
+
+    private async Task<HttpResponseMessage> ProcessRequestWithRetriesAsync(
+        Func<Task<HttpResponseMessage>> requestFunc, 
+        CancellationToken cancellationToken)
+    {
+        int retryCount = 0;
+        
+        while (true)
+        {
+            try
+            {
+                return await requestFunc();
+            }
+            catch (Exception ex) when (
+                (ex is HttpRequestException || ex is TaskCanceledException) && 
+                Options.EnableRetry && 
+                retryCount < Options.MaxRetryCount)
+            {
+                retryCount++;
+                
+                // 如果已经取消，直接抛出异常
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                // 延迟一段时间后重试
+                await Task.Delay(Options.RetryInterval, cancellationToken);
+            }
         }
     }
 }

@@ -14,16 +14,35 @@ public class FlurlHttpClient : BaseClient
     public FlurlHttpClient(string baseUrl)
     {
         _flurlClient = new FlurlClient(baseUrl);
+        ConfigureFlurlClient();
     }
 
     public FlurlHttpClient(System.Net.Http.HttpClient httpClient)
     {
         _flurlClient = new FlurlClient(httpClient);
+        ConfigureFlurlClient();
     }
 
     public FlurlHttpClient(IFlurlClient flurlClient)
     {
         _flurlClient = flurlClient ?? throw new ArgumentNullException(nameof(flurlClient));
+        ConfigureFlurlClient();
+    }
+
+    private void ConfigureFlurlClient()
+    {
+        _flurlClient.Settings.Timeout = TimeSpan.FromSeconds(Options.DefaultTimeout);
+        
+        // 设置默认请求头
+        foreach (var header in Options.DefaultHeaders)
+        {
+            _flurlClient.Headers.Add(header.Key, header.Value);
+        }
+        
+        if (Options.EnableRetry)
+        {
+            _flurlClient.Settings.Redirects.MaxAutoRedirects = Options.MaxRetryCount;
+        }
     }
 
     public override void SetToken(string token)
