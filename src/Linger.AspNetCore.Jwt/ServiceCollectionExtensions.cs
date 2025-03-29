@@ -1,4 +1,5 @@
-﻿using System.Security.Claims;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
 using Linger.AspNetCore.Jwt.Contracts;
 using Linger.Configuration;
@@ -24,6 +25,9 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(config);
 
         services.AddSingleton(config);
+
+        // 添加令牌黑名单服务
+        services.AddSingleton<JwtTokenBlacklist>();
 
         services.AddAuthentication(opt =>
         {
@@ -55,6 +59,7 @@ public static class ServiceCollectionExtensions
                 ClockSkew = TimeSpan.FromMinutes(5)
             };
 
+            // 增强JWT验证
             options.Events = new JwtBearerEvents
             {
                 OnAuthenticationFailed = context =>
@@ -62,10 +67,22 @@ public static class ServiceCollectionExtensions
                     Console.WriteLine($"认证失败: {context.Exception.Message}");
                     return Task.CompletedTask;
                 },
-                OnTokenValidated = context =>
+                OnTokenValidated = async context =>
                 {
+                    // 检查令牌是否在黑名单中
+                    var tokenId = context.Principal?.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+                    if (!string.IsNullOrEmpty(tokenId))
+                    {
+                        var blacklist = context.HttpContext.RequestServices.GetService<JwtTokenBlacklist>();
+                        if (blacklist?.Contains(tokenId) == true)
+                        {
+                            context.Fail("令牌已被撤销");
+                            return;
+                        }
+                    }
+
                     Console.WriteLine($"令牌验证成功: {context.SecurityToken}");
-                    return Task.CompletedTask;
+                    await Task.CompletedTask;
                 },
                 OnChallenge = context =>
                 {

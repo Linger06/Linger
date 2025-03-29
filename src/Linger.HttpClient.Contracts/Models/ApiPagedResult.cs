@@ -1,5 +1,8 @@
-﻿namespace Linger.HttpClient.Contracts;
+namespace Linger.HttpClient.Contracts.Models;
 
+/// <summary>
+/// 分页结果
+/// </summary>
 public class ApiPagedResult<T>
 {
     public List<T> Data { get; set; } = default!;

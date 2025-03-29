@@ -1,9 +1,9 @@
 ﻿using System.Net.Http.Headers;
-using System.Runtime.CompilerServices;
-using Linger.Extensions.Core;
-using Linger.HttpClient.Contracts;
-using Linger.Helper;
 using Linger.Exceptions;
+using Linger.Extensions.Core;
+using Linger.Helper;
+using Linger.HttpClient.Contracts.Core;
+using Linger.HttpClient.Contracts.Models;
 
 
 #if NETFRAMEWORK
@@ -28,7 +28,7 @@ public class BaseHttpClient : BaseClient
         _httpClient = httpClient;
         SetDefaultOptions();
     }
-    
+
     private void SetDefaultOptions()
     {
         _httpClient.Timeout = TimeSpan.FromSeconds(Options.DefaultTimeout);
@@ -52,13 +52,10 @@ public class BaseHttpClient : BaseClient
             }
 
             url = url.AppendQuery("culture=" + Thread.CurrentThread.CurrentUICulture.Name);
-            
-            //设置超时
-            var originalTimeout = _httpClient.Timeout;
-            if (timeout.HasValue)
-            {
-                _httpClient.Timeout = TimeSpan.FromSeconds(timeout.Value);
-            }
+
+            // 使用超时令牌源替代直接修改 _httpClient.Timeout
+            using var timeoutSource = CreateTimeoutTokenSource(timeout, cancellationToken);
+            var combinedToken = timeoutSource.Token;
 
             HttpMethod httpMethod = method switch
             {
@@ -80,34 +77,44 @@ public class BaseHttpClient : BaseClient
             {
                 Content = content
             };
-            
+
             // 添加默认请求头
             foreach (var header in Options.DefaultHeaders)
             {
                 request.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
-            
+
             // 应用请求拦截器
             request = await ApplyInterceptorsToRequestAsync(request);
-            
+
+            // 处理查询参数
+            if (queryParams != null)
+            {
+                string queryString = BuildQueryString(queryParams);
+                if (!string.IsNullOrEmpty(queryString))
+                {
+                    url = url.Contains('?') ? $"{url}&{queryString}" : $"{url}?{queryString}";
+                }
+            }
+
             // 执行请求（带重试）
             var getResponseTask = ProcessRequestWithRetriesAsync(
-                async () => await _httpClient.SendAsync(request, cancellationToken), 
-                cancellationToken);
-            
+                async () => await _httpClient.SendAsync(request, combinedToken),
+                combinedToken);
+
             var res = await getResponseTask;
-            
+
             // 应用响应拦截器
             res = await ApplyInterceptorsToResponseAsync(res);
-            
-            // 恢复原始超时设置
-            if (timeout.HasValue)
-            {
-                _httpClient.Timeout = originalTimeout;
-            }
 
             rv = await HandleResponseMessage<T>(res);
 
+            return rv;
+        }
+        catch (OperationCanceledException) when (timeout.HasValue && !cancellationToken.IsCancellationRequested)
+        {
+            // 处理超时异常（与用户取消区分开）
+            rv.ErrorMsg = $"请求超时，超时设置: {timeout}秒";
             return rv;
         }
         catch (Exception ex)
@@ -118,7 +125,7 @@ public class BaseHttpClient : BaseClient
     }
 
     private async Task<HttpResponseMessage> ProcessRequestWithRetriesAsync(
-        Func<Task<HttpResponseMessage>> requestFunc, 
+        Func<Task<HttpResponseMessage>> requestFunc,
         CancellationToken cancellationToken)
     {
         // 只有当启用重试时才创建RetryHelper
@@ -126,7 +133,7 @@ public class BaseHttpClient : BaseClient
         {
             return await requestFunc();
         }
-        
+
         // 创建RetryOptions并配置
         var retryOptions = new RetryOptions
         {
@@ -135,15 +142,15 @@ public class BaseHttpClient : BaseClient
             UseExponentialBackoff = true, // 使用指数退避策略
             JitterFactor = 0.2 // 添加20%的随机抖动
         };
-        
+
         var retryHelper = new RetryHelper(retryOptions);
-        
+
         // 定义哪些异常类型需要重试
         bool ShouldRetry(Exception ex)
         {
             return ex is HttpRequestException || ex is TaskCanceledException;
         }
-        
+
         try
         {
             // 使用RetryHelper执行HTTP请求

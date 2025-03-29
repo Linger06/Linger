@@ -2,7 +2,7 @@
 using System.Net.Http;
 #endif
 
-namespace Linger.HttpClient.Contracts;
+namespace Linger.HttpClient.Contracts.Core;
 
 /// <summary>
 /// HTTP客户端拦截器接口

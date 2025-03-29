@@ -1,16 +1,17 @@
-using System.Collections.Concurrent;
-using Linger.HttpClient.Contracts;
+﻿using System.Collections.Concurrent;
+using Linger.HttpClient.Contracts.Core;
+using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.HttpClient.Flurl;
 
 /// <summary>
 /// Flurl HTTP客户端工厂
 /// </summary>
-public class FlurlHttpClientFactory : Contracts.IHttpClientFactory
+public class FlurlHttpClientFactory : IHttpClientFactory
 {
     private readonly ConcurrentDictionary<string, Lazy<IHttpClient>> _clients = new();
     private readonly ConcurrentDictionary<string, (string BaseUrl, Action<HttpClientOptions>? ConfigureOptions)> _registrations = new();
-    
+
     /// <summary>
     /// 创建一个新的Flurl HTTP客户端
     /// </summary>
@@ -20,7 +21,7 @@ public class FlurlHttpClientFactory : Contracts.IHttpClientFactory
     {
         return CreateClient(baseUrl, null);
     }
-    
+
     /// <summary>
     /// 创建一个新的Flurl HTTP客户端并应用选项
     /// </summary>
@@ -31,23 +32,23 @@ public class FlurlHttpClientFactory : Contracts.IHttpClientFactory
     {
         var options = new HttpClientOptions();
         configureOptions?.Invoke(options);
-        
+
         var client = new FlurlHttpClient(baseUrl);
-        
+
         // 复制选项
         foreach (var header in options.DefaultHeaders)
         {
             client.AddHeader(header.Key, header.Value);
         }
-        
+
         client.Options.DefaultTimeout = options.DefaultTimeout;
         client.Options.EnableRetry = options.EnableRetry;
         client.Options.MaxRetryCount = options.MaxRetryCount;
         client.Options.RetryInterval = options.RetryInterval;
-        
+
         return client;
     }
-    
+
     /// <summary>
     /// 获取或创建一个命名的HTTP客户端
     /// </summary>
@@ -61,11 +62,11 @@ public class FlurlHttpClientFactory : Contracts.IHttpClientFactory
             {
                 throw new InvalidOperationException($"未找到名为 '{clientName}' 的HTTP客户端注册");
             }
-            
+
             return new Lazy<IHttpClient>(() => CreateClient(registration.BaseUrl, registration.ConfigureOptions));
         }).Value;
     }
-    
+
     /// <summary>
     /// 注册一个命名的HTTP客户端
     /// </summary>

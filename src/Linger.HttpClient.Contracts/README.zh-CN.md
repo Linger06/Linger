@@ -440,6 +440,99 @@ public async Task<T> ExecuteApiCall<T>(string endpoint)
 }
 ```
 
+## 内置拦截器
+
+Linger.HttpClient.Contracts提供了一系列内置拦截器，用于增强HTTP客户端的功能:
+
+### 重试拦截器
+
+自动重试因瞬时故障而失败的请求(例如：503 Service Unavailable, 504 Gateway Timeout, 429 Too Many Requests)：
+
+```csharp
+// 创建并配置重试拦截器
+var retryInterceptor = new RetryInterceptor(
+    maxRetries: 3, // 最大重试次数
+    shouldRetry: response => response.StatusCode == HttpStatusCode.ServiceUnavailable, // 自定义重试条件
+    delayFunc: async retryCount => await Task.Delay((int)Math.Pow(2, retryCount) * 100) // 指数退避策略
+);
+
+// 添加到HTTP客户端
+client.AddInterceptor(retryInterceptor);
+```
+
+### 缓存拦截器
+
+缓存GET请求的响应，减少对服务器的请求：
+
+```csharp
+// 创建并配置缓存拦截器
+var cachingInterceptor = new CachingInterceptor(
+    defaultCacheDuration: TimeSpan.FromMinutes(10) // 默认缓存10分钟
+);
+
+// 添加到HTTP客户端
+client.AddInterceptor(cachingInterceptor);
+```
+
+### 日志拦截器
+
+记录请求和响应的详细信息：
+
+```csharp
+// 创建日志拦截器
+var loggingInterceptor = new LoggingInterceptor(
+    log => _logger.LogInformation(log) // 使用您的日志系统
+);
+
+// 添加到HTTP客户端
+client.AddInterceptor(loggingInterceptor);
+```
+
+## HTTP性能监控
+
+Linger.HttpClient现在支持性能监控，帮助识别和解决性能问题：
+
+```csharp
+// 在发送请求前记录开始
+var requestId = HttpClientMetrics.Instance.StartRequest(url);
+
+try
+{
+    // 执行HTTP请求
+    var result = await _httpClient.CallApi<UserData>(url);
+    
+    // 记录请求成功完成
+    HttpClientMetrics.Instance.EndRequest(url, requestId, result.IsSuccess);
+    
+    return result.Data;
+}
+catch
+{
+    // 记录请求失败
+    HttpClientMetrics.Instance.EndRequest(url, requestId, false);
+    throw;
+}
+
+// 获取特定端点的性能统计数据
+var stats = HttpClientMetrics.Instance.GetEndpointStats("api/users");
+Console.WriteLine($"平均响应时间: {stats.AverageResponseTime}ms");
+Console.WriteLine($"成功率: {stats.SuccessRate * 100}%");
+
+// 获取所有端点的性能统计
+var allStats = HttpClientMetrics.Instance.GetAllStats();
+foreach (var entry in allStats)
+{
+    Console.WriteLine($"端点: {entry.Key}, 请求数: {entry.Value.TotalRequests}");
+}
+```
+
+性能指标包括：
+- 总请求数
+- 成功/失败请求数
+- 成功率
+- 平均/最小/最大响应时间
+- 当前活跃请求数
+
 ## 性能优化与最佳实践
 
 ### HttpClient实例管理

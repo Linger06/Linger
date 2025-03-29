@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Linger.HttpClient.Contracts;
+namespace Linger.HttpClient.Contracts.Models;
 
 /// <summary>
 /// HTTP客户端配置选项

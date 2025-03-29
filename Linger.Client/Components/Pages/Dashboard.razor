@@ -1,5 +1,6 @@
 @page "/Dashboard"
-@using Linger.HttpClient.Contracts
+@using Linger.HttpClient.Contracts.Core
+@using Linger.HttpClient.Contracts.Extensions
 @attribute [Authorize]
 @inject IHttpClient httpClient
 @inject ISnackbar Snackbar

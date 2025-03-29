@@ -1,6 +1,10 @@
-﻿using System.Net;
+using System.Net;
 
-namespace Linger.HttpClient.Contracts;
+namespace Linger.HttpClient.Contracts.Models;
+
+/// <summary>
+/// API调用结果
+/// </summary>
 public class ApiResult<T>
 {
     public T Data { get; set; } = default!;
@@ -19,6 +23,9 @@ public class ApiResult<T>
     public bool IsUnauthorized => StatusCode == HttpStatusCode.Unauthorized;
 }
 
+/// <summary>
+/// 错误对象
+/// </summary>
 public class ErrorObj
 {
     public ErrorObj()

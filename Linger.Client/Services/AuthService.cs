@@ -1,5 +1,5 @@
 ﻿using Linger.Client.Models;
-using Linger.HttpClient.Contracts;
+using Linger.HttpClient.Contracts.Core;
 using Microsoft.Extensions.Logging;
 
 namespace Linger.Client.Services

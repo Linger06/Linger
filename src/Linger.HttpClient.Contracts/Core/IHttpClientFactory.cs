@@ -1,4 +1,6 @@
-namespace Linger.HttpClient.Contracts;
+using Linger.HttpClient.Contracts.Models;
+
+namespace Linger.HttpClient.Contracts.Core;
 
 /// <summary>
 /// HTTP客户端工厂接口

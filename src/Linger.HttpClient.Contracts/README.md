@@ -439,6 +439,99 @@ public async Task<T> ExecuteApiCall<T>(string endpoint)
 }
 ```
 
+## Built-in Interceptors
+
+Linger.HttpClient.Contracts provides a set of built-in interceptors to enhance HTTP client functionality:
+
+### Retry Interceptor
+
+Automatically retries requests that fail due to transient errors (e.g., 503 Service Unavailable, 504 Gateway Timeout, 429 Too Many Requests):
+
+```csharp
+// Create and configure retry interceptor
+var retryInterceptor = new RetryInterceptor(
+    maxRetries: 3, // Maximum retry attempts
+    shouldRetry: response => response.StatusCode == HttpStatusCode.ServiceUnavailable, // Custom retry condition
+    delayFunc: async retryCount => await Task.Delay((int)Math.Pow(2, retryCount) * 100) // Exponential backoff
+);
+
+// Add to HTTP client
+client.AddInterceptor(retryInterceptor);
+```
+
+### Caching Interceptor
+
+Caches GET responses to reduce server requests:
+
+```csharp
+// Create and configure caching interceptor
+var cachingInterceptor = new CachingInterceptor(
+    defaultCacheDuration: TimeSpan.FromMinutes(10) // Default cache for 10 minutes
+);
+
+// Add to HTTP client
+client.AddInterceptor(cachingInterceptor);
+```
+
+### Logging Interceptor
+
+Records detailed information about requests and responses:
+
+```csharp
+// Create logging interceptor
+var loggingInterceptor = new LoggingInterceptor(
+    log => _logger.LogInformation(log) // Use your logging system
+);
+
+// Add to HTTP client
+client.AddInterceptor(loggingInterceptor);
+```
+
+## HTTP Performance Monitoring
+
+Linger.HttpClient now supports performance monitoring to help identify and resolve performance issues:
+
+```csharp
+// Record start before sending request
+var requestId = HttpClientMetrics.Instance.StartRequest(url);
+
+try
+{
+    // Execute HTTP request
+    var result = await _httpClient.CallApi<UserData>(url);
+    
+    // Record successful completion
+    HttpClientMetrics.Instance.EndRequest(url, requestId, result.IsSuccess);
+    
+    return result.Data;
+}
+catch
+{
+    // Record failure
+    HttpClientMetrics.Instance.EndRequest(url, requestId, false);
+    throw;
+}
+
+// Get performance stats for a specific endpoint
+var stats = HttpClientMetrics.Instance.GetEndpointStats("api/users");
+Console.WriteLine($"Average response time: {stats.AverageResponseTime}ms");
+Console.WriteLine($"Success rate: {stats.SuccessRate * 100}%");
+
+// Get stats for all endpoints
+var allStats = HttpClientMetrics.Instance.GetAllStats();
+foreach (var entry in allStats)
+{
+    Console.WriteLine($"Endpoint: {entry.Key}, Requests: {entry.Value.TotalRequests}");
+}
+```
+
+Performance metrics include:
+- Total request count
+- Successful/failed request count
+- Success rate
+- Average/min/max response time
+- Currently active requests
+
 ## Performance Tips & Best Practices
 
 ### HttpClient Instance Management

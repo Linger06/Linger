@@ -1,8 +1,8 @@
-#if NETFRAMEWORK
+﻿#if NETFRAMEWORK
 using System.Net.Http;
 #endif
 
-namespace Linger.HttpClient.Contracts;
+using Linger.HttpClient.Contracts.Core;
 
 /// <summary>
 /// 用于记录HTTP请求和响应的拦截器

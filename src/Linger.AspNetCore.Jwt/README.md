@@ -663,3 +663,82 @@ Every time the app sends a request to the server it sends the access token in th
 If something goes wrong, the refresh token can be revoked which means that when the app tries to use it to get a new access token, that request will be rejected and the user will have to enter credentials once again and authenticate.
 
 Thus, refresh tokens help in a smooth authentication workflow without the need for users to submit their credentials frequently, and at the same time, without compromising the security of the app.
+
+## Advanced Features
+
+### Token Blacklist and Revocation
+
+This library supports revoking issued but not yet expired tokens through a blacklist mechanism, providing additional security:
+
+```csharp
+// Register token blacklist service (already added automatically in the ConfigureJwt method)
+services.AddSingleton<JwtTokenBlacklist>();
+
+// Implement revocation in a JWT service
+public class CustomJwtService : JwtService 
+{
+    public CustomJwtService(JwtOption jwtOptions, JwtTokenBlacklist tokenBlacklist, ILogger<CustomJwtService>? logger = null)
+        : base(jwtOptions, logger, tokenBlacklist)
+    {
+    }
+    
+    // Revoke a specific token by calling this method
+    public async Task RevokeUserTokenAsync(string userId) 
+    {
+        // Find the user's token ID and revoke it
+        var tokenId = GetUserTokenId(userId);
+        if (!string.IsNullOrEmpty(tokenId))
+        {
+            // Revoke the token until its original expiration time
+            await RevokeTokenAsync(tokenId, DateTime.UtcNow.AddMinutes(_jwtOptions.Expires));
+        }
+    }
+}
+```
+
+The blacklist service periodically cleans up expired token entries, no manual maintenance required.
+
+### Enhanced Token Security
+
+The following claims have been added to tokens to enhance security:
+
+1. **Unique Identifier (jti)**: Each token has a unique ID for tracking and revocation
+2. **Issued At Time (iat)**: Records when the token was issued, for validation and auditing
+
+These enhancements can be used without modifying existing code and provide the following benefits:
+
+- Prevention of replay attacks
+- Support for precise token revocation
+- Improved logging and auditing capabilities
+- Compliance with security best practices
+
+### Using Token Revocation
+
+```csharp
+[Authorize]
+[HttpPost("logout")]
+public async Task<IActionResult> Logout()
+{
+    // Get the current user's token ID
+    var tokenId = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+    
+    if (!string.IsNullOrEmpty(tokenId))
+    {
+        // Calculate the token's original expiration time
+        var issuedAt = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Iat)?.Value;
+        var expiryTime = DateTime.UtcNow.AddMinutes(_jwtOptions.Expires);
+        
+        if (long.TryParse(issuedAt, out var issuedAtTimestamp))
+        {
+            var issuedAtDateTime = DateTimeOffset.FromUnixTimeSeconds(issuedAtTimestamp).UtcDateTime;
+            expiryTime = issuedAtDateTime.AddMinutes(_jwtOptions.Expires);
+        }
+        
+        // Revoke the token
+        await _jwtService.RevokeTokenAsync(tokenId, expiryTime);
+        return Ok(new { message = "Logout successful" });
+    }
+    
+    return BadRequest(new { message = "Invalid token ID" });
+}
+```

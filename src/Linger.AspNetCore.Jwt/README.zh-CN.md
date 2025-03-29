@@ -663,3 +663,82 @@ services.AddScoped<IHttpClient>(provider =>
 如果出现问题，刷新令牌可以被撤销，这意味着当应用尝试使用它来获取新的访问令牌时，该请求将被拒绝，用户必须再次输入凭据并进行身份验证。
 
 因此，刷新令牌有助于顺利进行身份验证工作流，而无需用户频繁提交其凭据，同时又不会影响应用程序的安全性。
+
+## 高级功能
+
+### 令牌黑名单与撤销
+
+本库支持通过黑名单机制撤销已颁发但尚未过期的令牌，提供额外的安全保障：
+
+```csharp
+// 注册令牌黑名单服务（在ConfigureJwt方法中已自动添加）
+services.AddSingleton<JwtTokenBlacklist>();
+
+// 在JWT服务中实现撤销功能
+public class CustomJwtService : JwtService 
+{
+    public CustomJwtService(JwtOption jwtOptions, JwtTokenBlacklist tokenBlacklist, ILogger<CustomJwtService>? logger = null)
+        : base(jwtOptions, logger, tokenBlacklist)
+    {
+    }
+    
+    // 通过调用此方法撤销特定令牌
+    public async Task RevokeUserTokenAsync(string userId) 
+    {
+        // 查找用户的令牌ID并撤销
+        var tokenId = GetUserTokenId(userId);
+        if (!string.IsNullOrEmpty(tokenId))
+        {
+            // 撤销令牌，直到其原本的过期时间
+            await RevokeTokenAsync(tokenId, DateTime.UtcNow.AddMinutes(_jwtOptions.Expires));
+        }
+    }
+}
+```
+
+黑名单服务会定期清理过期的令牌条目，无需手动维护。
+
+### 增强的令牌安全性
+
+令牌中添加了以下声明以增强安全性：
+
+1. **唯一标识符(jti)**：每个令牌都有唯一的ID，便于跟踪和撤销
+2. **颁发时间(iat)**：记录令牌的颁发时间，用于验证和审计
+
+这些增强措施可在不修改现有代码的情况下使用，并提供以下优势：
+
+- 防止重放攻击
+- 支持精确的令牌撤销
+- 改进日志记录和审计功能
+- 符合安全最佳实践
+
+### 使用令牌撤销功能
+
+```csharp
+[Authorize]
+[HttpPost("logout")]
+public async Task<IActionResult> Logout()
+{
+    // 获取当前用户的令牌ID
+    var tokenId = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
+    
+    if (!string.IsNullOrEmpty(tokenId))
+    {
+        // 计算令牌的原始过期时间
+        var issuedAt = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Iat)?.Value;
+        var expiryTime = DateTime.UtcNow.AddMinutes(_jwtOptions.Expires);
+        
+        if (long.TryParse(issuedAt, out var issuedAtTimestamp))
+        {
+            var issuedAtDateTime = DateTimeOffset.FromUnixTimeSeconds(issuedAtTimestamp).UtcDateTime;
+            expiryTime = issuedAtDateTime.AddMinutes(_jwtOptions.Expires);
+        }
+        
+        // 撤销令牌
+        await _jwtService.RevokeTokenAsync(tokenId, expiryTime);
+        return Ok(new { message = "注销成功" });
+    }
+    
+    return BadRequest(new { message = "令牌ID无效" });
+}
+```

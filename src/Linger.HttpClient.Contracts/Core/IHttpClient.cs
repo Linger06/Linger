@@ -1,9 +1,13 @@
-﻿#if NETFRAMEWORK
+#if NETFRAMEWORK
 using System.Net.Http;
 #endif
+using Linger.HttpClient.Contracts.Models;
 
-namespace Linger.HttpClient.Contracts;
+namespace Linger.HttpClient.Contracts.Core;
 
+/// <summary>
+/// HTTP客户端接口
+/// </summary>
 public interface IHttpClient
 {
     Task<ApiResult<T>> CallApi<T>(string url, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default);

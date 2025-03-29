@@ -1,13 +1,15 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Linger.Extensions;
 using Linger.Extensions.Core;
+using Linger.HttpClient.Contracts.Models;
+using Linger.HttpClient.Contracts.Metrics;
 #if NETFRAMEWORK
 using System.Net.Http;
 #endif
 
-namespace Linger.HttpClient.Contracts;
+namespace Linger.HttpClient.Contracts.Core;
 
 public abstract class BaseClient : IHttpClient
 {
@@ -25,7 +27,24 @@ public abstract class BaseClient : IHttpClient
     /// <returns></returns>
     public virtual async Task<ApiResult<T>> CallApi<T>(string url, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default) // where T : class
     {
-        return await CallApi<T>(url, HttpMethodEnum.Get, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        // 启动性能监控
+        var requestId = HttpClientMetrics.Instance.StartRequest(url);
+        
+        try
+        {
+            var result = await CallApi<T>(url, HttpMethodEnum.Get, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+            
+            // 记录请求完成
+            HttpClientMetrics.Instance.EndRequest(url, requestId, result.IsSuccess);
+            
+            return result;
+        }
+        catch
+        {
+            // 记录请求失败
+            HttpClientMetrics.Instance.EndRequest(url, requestId, false);
+            throw;
+        }
     }
 
     /// <summary>
@@ -174,73 +193,123 @@ public abstract class BaseClient : IHttpClient
         return currentResponse;
     }
 
-    protected static async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res) //where T : class
+    // 改进1: 优化HandleResponseMessage方法的内存管理
+    protected static async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res)
     {
-        var rv = new ApiResult<T> { StatusCode = res.StatusCode };
-
-        if (res.IsSuccessStatusCode)
+        try
         {
-            Type type = typeof(T);
-            if (type == typeof(byte[]))
-            {
-                var responseBytes = await res.Content.ReadAsByteArrayAsync();
+            var rv = new ApiResult<T> { StatusCode = res.StatusCode };
 
-                if (responseBytes is not T bytes)
-                {
-                    throw new NullReferenceException(nameof(bytes));
-                }
-
-                rv.Data = bytes;
-            }
-            else
+            if (res.IsSuccessStatusCode)
             {
-                var responseTxt = await res.Content.ReadAsStringAsync();
-                if (type == typeof(string))
+                Type type = typeof(T);
+                if (type == typeof(byte[]))
                 {
-                    if (responseTxt is not T txt)
+                    var responseBytes = await res.Content.ReadAsByteArrayAsync();
+
+                    if (responseBytes is not T bytes)
                     {
-                        throw new NullReferenceException(nameof(txt));
+                        throw new NullReferenceException(nameof(bytes));
                     }
 
-                    rv.Data = txt;
+                    rv.Data = bytes;
                 }
                 else
                 {
-                    if (responseTxt.IsNull())
+                    var responseTxt = await res.Content.ReadAsStringAsync();
+                    if (type == typeof(string))
                     {
-                        rv.Data = default!;
+                        if (responseTxt is not T txt)
+                        {
+                            throw new NullReferenceException(nameof(txt));
+                        }
+
+                        rv.Data = txt;
                     }
                     else
                     {
-                        T? response = responseTxt.Deserialize<T>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
-                        if (response.IsNull())
+                        if (responseTxt.IsNull())
                         {
                             rv.Data = default!;
                         }
                         else
                         {
-                            rv.Data = response;
+                            T? response = responseTxt.Deserialize<T>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                            if (response.IsNull())
+                            {
+                                rv.Data = default!;
+                            }
+                            else
+                            {
+                                rv.Data = response;
+                            }
                         }
                     }
                 }
             }
+            else
+            {
+                // 优化特定状态码的处理方式
+                switch (res.StatusCode)
+                {
+                    case HttpStatusCode.Unauthorized:
+                        rv.ErrorMsg = "需要身份验证";
+                        break;
+                    case HttpStatusCode.NotFound:
+                        rv.ErrorMsg = "资源不存在";
+                        break;
+                    case (HttpStatusCode)429: // TooManyRequests
+                        rv.ErrorMsg = "请求过于频繁，请稍后再试";
+                        break;
+                    default:
+                        // 原有的错误提取逻辑
+                        var responseTxt = await res.Content.ReadAsStringAsync();
+                        try
+                        {
+                            rv.Errors = responseTxt.Deserialize<ErrorObj>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                        }
+                        catch { rv.ErrorMsg = responseTxt; }
+                        break;
+                }
+            }
+
+            return rv;
         }
-        else
+        finally
         {
-            if (res.StatusCode == HttpStatusCode.Unauthorized)
+            // 改进2: 确保响应资源被释放(避免当T是HttpResponseMessage时释放它)
+            if (typeof(T) != typeof(HttpResponseMessage))
             {
-                return rv;
+                res.Dispose();
             }
-
-            var responseTxt = await res.Content.ReadAsStringAsync();
-
-            try
-            {
-                rv.Errors = responseTxt.Deserialize<ErrorObj>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
-            }
-            catch { rv.ErrorMsg = responseTxt; }
         }
+    }
 
-        return rv;
+    // 改进3: 添加请求超时监控
+    protected CancellationTokenSource CreateTimeoutTokenSource(int? timeout, CancellationToken userToken)
+    {
+        CancellationTokenSource timeoutSource = new();
+        
+        if (timeout.HasValue)
+        {
+            timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(userToken);
+            timeoutSource.CancelAfter(TimeSpan.FromSeconds(timeout.Value));
+        }
+        
+        return timeoutSource;
+    }
+    
+    // 改进4: 提供空安全的查询参数构建方法
+    protected string BuildQueryString(object? queryParams)
+    {
+        if (queryParams == null)
+            return string.Empty;
+            
+        // 将对象转换为键值对序列
+        var properties = queryParams.GetType().GetProperties()
+            .Where(p => p.GetValue(queryParams) != null)
+            .Select(p => $"{Uri.EscapeDataString(p.Name)}={Uri.EscapeDataString(p.GetValue(queryParams)?.ToString() ?? string.Empty)}");
+            
+        return string.Join("&", properties);
     }
 }

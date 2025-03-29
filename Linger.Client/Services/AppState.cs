@@ -1,6 +1,4 @@
-using System;
-
-namespace Linger.Client.Services
+﻿namespace Linger.Client.Services
 {
     /// <summary>
     /// 应用状态管理类，用于存储跨组件的应用状态
@@ -14,39 +12,39 @@ namespace Linger.Client.Services
         /// <summary>
         /// 用户的JWT认证令牌
         /// </summary>
-        public string? Token 
-        { 
-            get => _token; 
-            set 
-            { 
-                _token = value; 
-                NotifyStateChanged(); 
-            } 
+        public string? Token
+        {
+            get => _token;
+            set
+            {
+                _token = value ?? string.Empty;
+                NotifyStateChanged();
+            }
         }
-        
+
         /// <summary>
         /// 用户是否已登录
         /// </summary>
         public bool IsAuthenticated => !string.IsNullOrEmpty(Token);
 
-        public bool IsLoggedIn 
-        { 
-            get => _isLoggedIn; 
-            set 
-            { 
-                _isLoggedIn = value; 
-                NotifyStateChanged(); 
-            } 
+        public bool IsLoggedIn
+        {
+            get => _isLoggedIn;
+            set
+            {
+                _isLoggedIn = value;
+                NotifyStateChanged();
+            }
         }
-        
-        public string Username 
-        { 
-            get => _username; 
-            set 
-            { 
-                _username = value; 
-                NotifyStateChanged(); 
-            } 
+
+        public string Username
+        {
+            get => _username;
+            set
+            {
+                _username = value;
+                NotifyStateChanged();
+            }
         }
 
         public event Action? OnChange;

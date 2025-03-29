@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Linger.HttpClient.Contracts.Core;
+using Linger.HttpClient.Contracts.Models;
 
-namespace Linger.HttpClient.Contracts;
+namespace Linger.HttpClient.Contracts.Extensions;
 
 /// <summary>
 /// HttpClient扩展方法
@@ -34,6 +36,23 @@ public static class HttpClientExtensions
         CancellationToken cancellationToken = default)
     {
         return await client.CallApi<T>(url, queryParams, timeout, cancellationToken);
+    }
+
+    /// <summary>
+    /// 使用查询参数发送GET请求并自动处理超时
+    /// </summary>
+    public static async Task<ApiResult<T>> GetWithTimeoutAsync<T>(
+        this IHttpClient client,
+        string url,
+        object? queryParams = null,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        // 将TimeSpan转换为秒数
+        int? timeoutSeconds = timeout.HasValue ? (int)timeout.Value.TotalSeconds : null;
+        
+        // 使用基础方法发送请求
+        return await client.CallApi<T>(url, queryParams, timeoutSeconds, cancellationToken);
     }
 
     /// <summary>

@@ -15,11 +15,13 @@ public class JwtService : IJwtService
     protected readonly JwtOption _jwtOptions;
     protected readonly ILogger? _logger;
     protected readonly TokenValidationParameters _validationParameters;
+    private readonly JwtTokenBlacklist? _tokenBlacklist;
 
-    public JwtService(JwtOption jwtOptions, ILogger? logger = null)
+    public JwtService(JwtOption jwtOptions, ILogger? logger = null, JwtTokenBlacklist? tokenBlacklist = null)
     {
         _jwtOptions = jwtOptions;
         _logger = logger;
+        _tokenBlacklist = tokenBlacklist;
         var issuer = _jwtOptions.Issuer;
         var audience = _jwtOptions.Audience;
         //实际环境中，最好是需要从环境变量中进行获取，而不应该写在代码中
@@ -45,6 +47,12 @@ public class JwtService : IJwtService
             _logger?.LogDebug($"正在为用户 {userId} 生成令牌，密钥长度: {_validationParameters.IssuerSigningKey.KeySize}");
             SigningCredentials signingCredentials = GetSigningCredentials();
             List<Claim> claims = await GetClaimsAsync(userId);
+            
+            // 添加唯一标识符和颁发时间，增强安全性
+            var tokenId = Guid.NewGuid().ToString();
+            claims.Add(new Claim(JwtRegisteredClaimNames.Jti, tokenId));
+            claims.Add(new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()));
+            
             JwtSecurityToken tokenOptions = GenerateTokenOptions(signingCredentials, claims);
             var token = new JwtSecurityTokenHandler().WriteToken(tokenOptions);
             _logger?.LogDebug($"令牌生成成功: {token[..10]}...");
@@ -57,6 +65,25 @@ public class JwtService : IJwtService
             _logger?.LogError($"生成令牌时出错: {ex.Message}");
             throw;
         }
+    }
+
+    // 添加撤销令牌的功能
+    public virtual Task RevokeTokenAsync(string tokenId, DateTime expiryTime)
+    {
+        if (_tokenBlacklist == null)
+        {
+            _logger?.LogWarning("无法撤销令牌，黑名单服务未注册");
+            return Task.CompletedTask;
+        }
+        
+        _tokenBlacklist.Add(tokenId, expiryTime);
+        return Task.CompletedTask;
+    }
+    
+    // 验证令牌是否已被撤销
+    protected bool IsTokenRevoked(string tokenId)
+    {
+        return _tokenBlacklist?.Contains(tokenId) ?? false;
     }
 
     private SigningCredentials GetSigningCredentials()

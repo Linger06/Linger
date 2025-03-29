@@ -1,6 +1,6 @@
 ﻿using Linger.Client.Services;
 using Linger.HttpClient;
-using Linger.HttpClient.Contracts;
+using Linger.HttpClient.Contracts.Core;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 using Microsoft.Extensions.DependencyInjection;
