@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 namespace Linger.Client.Services
 {
     /// <summary>
-    /// 认证服务，使用IHttpClient处理登录、注销和令牌刷新
+    /// 认证服务，使用IHttpClient处理登录、注销
     /// </summary>
     public class AuthService
     {
@@ -23,8 +23,8 @@ namespace Linger.Client.Services
         /// <summary>
         /// 登录方法
         /// </summary>
-        /// <param name="username">用户名</param>
-        /// <param name="password">密码</param>
+        /// <param name="loginRequest">登录请求</param>
+        /// <param name="cancellationToken">取消令牌</param>
         /// <returns>登录成功返回true，否则返回false</returns>
         public async Task<bool> LoginAsync(LoginRequest loginRequest, CancellationToken cancellationToken = default)
         {
@@ -82,54 +82,6 @@ namespace Linger.Client.Services
         }
 
         /// <summary>
-        /// 刷新令牌
-        /// </summary>
-        /// <returns>刷新成功返回true，否则返回false</returns>
-        public async Task<bool> RefreshTokenAsync(CancellationToken cancellationToken = default)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(_appState.Token))
-                {
-                    _logger?.LogWarning("无法刷新令牌，当前没有有效的令牌");
-                    return false;
-                }
-
-                _logger?.LogInformation("尝试刷新令牌");
-
-                // 创建刷新令牌请求数据
-                var refreshData = new { Token = _appState.Token };
-
-                // 发送刷新令牌请求
-                var result = await _httpClient.CallApi<LoginResponse>(
-                    "api/auth/refresh",
-                    HttpMethodEnum.Post,
-                    postData: refreshData,
-                    cancellationToken: cancellationToken);
-
-                if (!result.IsSuccess)
-                {
-                    _logger?.LogWarning($"刷新令牌失败: {result.ErrorMsg}");
-                    return false;
-                }
-
-                // 更新令牌
-                _appState.Token = result.Data.Token;
-
-                // 设置新令牌到HttpClient
-                _httpClient.SetToken(result.Data.Token);
-
-                _logger?.LogInformation("令牌刷新成功");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, $"刷新令牌过程中发生异常: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
         /// 检查当前是否已认证
         /// </summary>
         public bool IsAuthenticated => _appState.IsAuthenticated;
@@ -140,8 +92,8 @@ namespace Linger.Client.Services
     /// </summary>
     public class LoginResponse
     {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
         public string Token { get; set; } = string.Empty;
-        public string? RefreshToken { get; set; }
-        public DateTime Expiration { get; set; }
     }
 }

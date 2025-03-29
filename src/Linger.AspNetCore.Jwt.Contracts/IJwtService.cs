@@ -14,9 +14,10 @@ public interface IJwtService
 }
 
 /// <summary>
-/// 标记接口，表示JWT服务支持刷新令牌功能
+/// 支持刷新令牌功能的JWT服务接口
+/// 继承自IJwtService，确保实现此接口的服务同时具备基本JWT功能
 /// </summary>
-public interface ISupportsRefreshToken
+public interface IRefreshableJwtService : IJwtService
 {
     /// <summary>
     /// 刷新令牌

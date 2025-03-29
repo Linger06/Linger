@@ -4,6 +4,7 @@
 - [Introduction](#introduction)
 - [Features](#features)
 - [Supported .NET Versions](#supported-net-versions)
+- [Installation](#installation)
 - [Basic Usage](#basic-usage)
 - [Dependency Injection Usage](#dependency-injection-usage)
 - [Advanced Usage](#advanced-usage)
@@ -24,6 +25,52 @@ Linger.HttpClient.Contracts is a .NET library that provides contract interfaces 
 
 ## Supported .NET Versions
 This library supports .NET applications that utilize .NET Framework 4.6.2+ or .NET Standard 2.0+.
+
+## Installation
+
+### Via NuGet
+
+To use IHttpClient and its implementations, you need to install one of the following NuGet packages:
+
+#### Option 1: Install Basic HTTP Client
+
+```bash
+# Install interfaces and contracts
+dotnet add package Linger.HttpClient.Contracts
+
+# Install implementation based on standard HttpClient
+dotnet add package Linger.HttpClient
+```
+
+#### Option 2: Install Flurl-based HTTP Client
+
+```bash
+# Install interfaces and contracts
+dotnet add package Linger.HttpClient.Contracts
+
+# Install Flurl-based implementation
+dotnet add package Linger.HttpClient.Flurl
+```
+
+#### Option 3: Install Both Implementations (use as needed)
+
+```bash
+dotnet add package Linger.HttpClient.Contracts
+dotnet add package Linger.HttpClient
+dotnet add package Linger.HttpClient.Flurl
+```
+
+### Using Package Manager Console
+
+```powershell
+# Install interfaces and contracts
+Install-Package Linger.HttpClient.Contracts
+
+# Install implementation
+Install-Package Linger.HttpClient
+# or
+Install-Package Linger.HttpClient.Flurl
+```
 
 ## Basic Usage
 This is a contracts library that defines interfaces and abstract classes. For implementation, use `Linger.HttpClient` or `Linger.HttpClient.Flurl`.
@@ -124,6 +171,187 @@ services.AddKeyedScoped<IHttpClient>("api2", (provider, key) =>
 
 // Access through IServiceProvider when using
 var api2Client = serviceProvider.GetKeyedService<IHttpClient>("api2");
+```
+
+## Using HttpClientFactory
+
+`IHttpClientFactory` provides a unified way to manage HTTP clients with several advantages over creating client instances directly:
+
+- Centralized configuration and management of HTTP clients
+- Support for named clients for different scenarios
+- Automatic client lifecycle management to prevent resource leaks
+- Simplified configuration and interceptor setup
+
+### Registering HttpClientFactory
+
+```csharp
+// In your Startup.cs or Program.cs
+
+// Register the default HTTP client factory
+services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
+
+// Or register the Flurl HTTP client factory
+services.AddSingleton<IHttpClientFactory, FlurlHttpClientFactory>();
+
+// Pre-register some commonly used named clients
+var serviceProvider = services.BuildServiceProvider();
+var factory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+
+// Register clients for different APIs
+factory.RegisterClient("api1", "https://api1.example.com", options => {
+    options.DefaultTimeout = 30;
+    options.EnableRetry = true;
+    options.MaxRetryCount = 3;
+});
+
+factory.RegisterClient("api2", "https://api2.example.com", options => {
+    options.DefaultTimeout = 60;
+    options.EnableRetry = false;
+});
+```
+
+### Creating Clients Using Factory
+
+```csharp
+// Method 1: Using the factory to create temporary clients
+public class ApiService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    
+    public ApiService(IHttpClientFactory httpClientFactory)
+    {
+        _httpClientFactory = httpClientFactory;
+    }
+    
+    public async Task<UserData> GetUserDataAsync(int userId)
+    {
+        // Create a basic client
+        var client = _httpClientFactory.CreateClient("https://api.example.com");
+        
+        // Or create a client with configuration
+        var configuredClient = _httpClientFactory.CreateClient("https://api.example.com", options => {
+            options.DefaultTimeout = 15;
+            options.EnableRetry = true;
+        });
+        
+        var result = await client.CallApi<UserData>($"users/{userId}");
+        return result.Data;
+    }
+}
+
+// Method 2: Using pre-registered named clients
+public class NamedApiService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    
+    public NamedApiService(IHttpClientFactory httpClientFactory)
+    {
+        _httpClientFactory = httpClientFactory;
+    }
+    
+    public async Task<UserData> GetUserFromApi1Async(int userId)
+    {
+        // Get a pre-registered named client
+        var client = _httpClientFactory.GetOrCreateClient("api1");
+        var result = await client.CallApi<UserData>($"users/{userId}");
+        return result.Data;
+    }
+    
+    public async Task<UserData> GetUserFromApi2Async(int userId)
+    {
+        var client = _httpClientFactory.GetOrCreateClient("api2");
+        var result = await client.CallApi<UserData>($"users/{userId}");
+        return result.Data;
+    }
+}
+```
+
+### Registering Named Clients in DI Container
+
+```csharp
+// In your Startup.cs or Program.cs
+
+// Register the factory
+services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
+
+// Register a named client as a service
+services.AddScoped(provider => {
+    var factory = provider.GetRequiredService<IHttpClientFactory>();
+    return factory.GetOrCreateClient("api1");
+});
+
+// Using keyed injections
+services.AddScoped<IHttpClient, IHttpClient>(serviceProvider => {
+    var factory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+    return factory.GetOrCreateClient("api2");
+}, "api2");
+
+// Using in a service
+public class UserService
+{
+    private readonly IHttpClient _defaultClient; // api1
+    private readonly IHttpClient _api2Client;
+    
+    public UserService(
+        IHttpClient defaultClient, 
+        [FromKeyedServices("api2")] IHttpClient api2Client)
+    {
+        _defaultClient = defaultClient;
+        _api2Client = api2Client;
+    }
+    
+    // Methods using different clients...
+}
+```
+
+### Adding Interceptors with Factory
+
+```csharp
+// During application startup
+var factory = app.Services.GetRequiredService<IHttpClientFactory>();
+
+// Register a client with interceptors
+factory.RegisterClient("api-with-logging", "https://api.example.com", options => {
+    options.DefaultTimeout = 30;
+});
+
+// Get the client and add interceptors
+var client = factory.GetOrCreateClient("api-with-logging");
+client.AddInterceptor(new LoggingInterceptor(logger));
+client.AddInterceptor(new TokenRefreshInterceptor(tokenService, client));
+
+// Register the configured client in the DI container
+services.AddSingleton("api-with-logging", client);
+```
+
+### Adding Clients Dynamically
+
+```csharp
+public class DynamicApiService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ConcurrentDictionary<string, IHttpClient> _clientCache = new();
+    
+    public DynamicApiService(IHttpClientFactory httpClientFactory)
+    {
+        _httpClientFactory = httpClientFactory;
+    }
+    
+    public async Task<T> CallExternalApiAsync<T>(string apiEndpoint, string baseUrl)
+    {
+        // Use base URL as cache key
+        var client = _clientCache.GetOrAdd(baseUrl, url => {
+            // Create new client if not in cache
+            return _httpClientFactory.CreateClient(url, options => {
+                options.DefaultTimeout = 30;
+                options.EnableRetry = true;
+            });
+        });
+        
+        var result = await client.CallApi<T>(apiEndpoint);
+        return result.Data;
+    }
+}
 ```
 
 ## Advanced Usage
