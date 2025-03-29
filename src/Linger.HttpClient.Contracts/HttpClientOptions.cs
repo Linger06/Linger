@@ -25,7 +25,7 @@ public class HttpClientOptions
     /// <summary>
     /// 重试间隔（毫秒）
     /// </summary>
-    public int RetryInterval { get; set; } = 500;
+    public int RetryInterval { get; set; } = 1000;
     
     /// <summary>
     /// 默认请求头

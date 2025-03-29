@@ -1,6 +1,8 @@
 ﻿using Flurl;
 using Flurl.Http;
 using Linger.HttpClient.Contracts;
+using Linger.Helper;
+using Linger.Exceptions;
 #if NETFRAMEWORK
 using System.Net.Http;
 #endif
@@ -74,14 +76,6 @@ public class FlurlHttpClient : BaseClient
 
         IFlurlRequest? flurlRequest = _flurlClient.Request();
 
-        //flurlClient.Configure(settings =>
-        //{
-        //    // keeps logging & error handling out of SimpleCastClient
-        //    settings.BeforeCall = call => LogHelper.Warning($"Calling {call.Request.Url}");
-        //    settings.AfterCall = call => LogHelper.Warning($"Calling Finished {call.Request.Url}");
-        //    settings.OnError = call => LogHelper.Error($"Call to SimpleCast failed: {call.Exception}");
-        //});
-
         if (timeout.HasValue)
         {
             flurlRequest = flurlRequest.WithTimeout(timeout.Value);
@@ -110,19 +104,77 @@ public class FlurlHttpClient : BaseClient
             flurlRequest = flurlRequest.SetQueryParams(queryParams);
         }
 
-        IFlurlResponse? flurlResponse = method switch
-        {
-            HttpMethodEnum.Get => await flurlRequest.GetAsync(cancellationToken: cancellationToken),
-            HttpMethodEnum.Post => await flurlRequest.PostAsync(content, cancellationToken: cancellationToken),
-            HttpMethodEnum.Put => await flurlRequest.PutAsync(content, cancellationToken: cancellationToken),
-            HttpMethodEnum.Delete => await flurlRequest.DeleteAsync(cancellationToken: cancellationToken),
-            _ => throw new ArgumentOutOfRangeException(nameof(method), method, null)
-        };
+        // 使用提取的方法执行请求（带重试）
+        var flurlResponse = await ProcessRequestWithRetriesAsync(
+            async () => await ExecuteFlurlRequest(flurlRequest, method, content, cancellationToken),
+            cancellationToken);
 
         HttpResponseMessage? res = flurlResponse.ResponseMessage;
-
         rv = await HandleResponseMessage<T>(res);
 
         return rv;
+    }
+    
+    private async Task<IFlurlResponse> ExecuteFlurlRequest(
+        IFlurlRequest request, 
+        HttpMethodEnum method, 
+        HttpContent? content, 
+        CancellationToken cancellationToken)
+    {
+        return method switch
+        {
+            HttpMethodEnum.Get => await request.GetAsync(cancellationToken: cancellationToken),
+            HttpMethodEnum.Post => await request.PostAsync(content, cancellationToken: cancellationToken),
+            HttpMethodEnum.Put => await request.PutAsync(content, cancellationToken: cancellationToken),
+            HttpMethodEnum.Delete => await request.DeleteAsync(cancellationToken: cancellationToken),
+            _ => throw new ArgumentOutOfRangeException(nameof(method), method, null)
+        };
+    }
+
+    private async Task<IFlurlResponse> ProcessRequestWithRetriesAsync(
+        Func<Task<IFlurlResponse>> requestFunc,
+        CancellationToken cancellationToken)
+    {
+        // 只有当启用重试时才创建RetryHelper
+        if (!Options.EnableRetry)
+        {
+            return await requestFunc();
+        }
+        
+        // 创建RetryOptions并配置
+        var retryOptions = new RetryOptions
+        {
+            MaxRetries = Options.MaxRetryCount,
+            BaseDelayMs = Options.RetryInterval,
+            UseExponentialBackoff = true, // 使用指数退避策略
+            JitterFactor = 0.2 // 添加20%的随机抖动
+        };
+        
+        var retryHelper = new RetryHelper(retryOptions);
+        
+        // 定义哪些异常类型需要重试
+        bool ShouldRetry(Exception ex)
+        {
+            return ex is FlurlHttpException;
+        }
+        
+        try
+        {
+            // 使用RetryHelper执行HTTP请求
+            return await retryHelper.ExecuteAsync(
+                requestFunc,
+                "Flurl HTTP Request",
+                ShouldRetry,
+                cancellationToken);
+        }
+        catch (OutOfReTryCountException retryEx)
+        {
+            // 保持与原始实现一致，将原始异常抛出
+            if (retryEx.InnerException != null)
+            {
+                throw retryEx.InnerException;
+            }
+            throw;
+        }
     }
 }
