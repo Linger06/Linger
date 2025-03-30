@@ -1,48 +1,179 @@
 ﻿# Linger.HttpClient.Flurl
 
-### Introduction
-Linger.HttpClient.Flurl is an implementation of the Linger.HttpClient.Contracts interfaces using the popular Flurl.Http library. It combines the power of Flurl with the standardized interfaces of Linger.
+## Introduction
+Linger.HttpClient.Flurl is built on the popular Flurl.Http library, providing a fluent chaining API and powerful URL building capabilities. As an implementation of the Linger.HttpClient.Contracts interfaces, it combines Flurl's intuitiveness with Linger's standardized interfaces.
 
-### Features
-- All features of Linger.HttpClient.Contracts
-- Leverages Flurl.Http for simplified URL building and manipulation
-- Fluent API for modern C# development
-- Enhanced error handling
-- Automatic handling of query parameters
+> 🔗 This project is part of the [Linger HTTP Client Ecosystem](../Linger.HttpClient.Contracts/README.md).
 
-### Supported .NET versions
-This library supports .NET applications that utilize .NET Framework 4.6.2+ or .NET Standard 2.0+.
+## Core Advantages
 
-### Usage Example
+- **Fluent Chaining API**: Expressive code style
+- **Dynamic URL Building**: Built-in methods for URL manipulation
+- **Template Support**: Template interpolation in URL path segments
+- **Powerful Request Customization**: Rich options and extensions
+- **Friendly Error Handling**: Detailed and readable error information
+
+## Installation
+
+```bash
+dotnet add package Linger.HttpClient.Flurl
+```
+
+## Quick Start
 
 ```csharp
-// Create a client
+// Create client
 var client = new FlurlHttpClient("https://api.example.com");
 
-// Add an authorization token
-client.SetToken("your-auth-token");
+// Send request
+var response = await client.GetAsync<UserData>("api/users/1");
+```
 
-// Configure options
-client.Options.EnableRetry = true;
-client.Options.MaxRetryCount = 3;
+## Flurl-Specific Features
 
-// Make a GET request
-var response = await client.GetAsync<YourResponseType>("api/resources");
+### 1. Fluent URL Building
 
-// Make a POST request with query parameters
-var postResponse = await client.PostAsync<YourResponseType>(
-    "api/resources", 
-    new { Name = "New Resource" }, 
-    new { category = "important" }
-);
+```csharp
+// Get the underlying Flurl client
+var flurlClient = client.GetFlurlClient();
 
-// Upload a file
-var fileBytes = File.ReadAllBytes("example.pdf");
-var uploadResponse = await client.CallApi<UploadResult>(
-    "api/upload",
-    HttpMethodEnum.Post,
-    new Dictionary<string, string> { { "description", "Example file" } },
-    fileBytes,
-    "example.pdf"
+// Use fluent API to build URL
+var url = flurlClient.BaseUrl
+    .AppendPathSegment("api")
+    .AppendPathSegment("users")
+    .AppendPathSegment(userId)
+    .SetQueryParam("include", "profile,orders")
+    .SetQueryParam("fields", new[] {"id", "name", "email"})
+    .ToString();
+
+// Output: https://api.example.com/api/users/123?include=profile,orders&fields=id&fields=name&fields=email
+```
+
+### 2. URL Templates and Interpolation
+
+```csharp
+// Use path templates
+var productUrl = "products/{id}/variants/{variantId}"
+    .SetQueryParam("lang", "en-US");
+
+// Path replacement
+var finalUrl = productUrl
+    .SetRouteParameter("id", 42)
+    .SetRouteParameter("variantId", 101);
+    
+// Output: products/42/variants/101?lang=en-US
+```
+
+### 3. Advanced HTTP Operations
+
+```csharp
+// Access Flurl's advanced features
+var flurlClient = client.GetFlurlClient();
+
+// Configure specific request
+var response = await flurlClient
+    .Request("api/special-endpoint")
+    .WithHeader("X-API-Version", "2.0")
+    .WithTimeout(TimeSpan.FromSeconds(60))
+    .WithAutoRedirect(false)
+    .AllowHttpStatus(HttpStatusCode.NotFound)
+    .PostJsonAsync(new { data = "value" });
+```
+
+## Use Cases
+
+FlurlHttpClient is particularly well-suited for:
+
+- **RESTful API clients**: Especially those requiring dynamic URL construction
+- **Projects needing expressive code**: Self-documenting API calls
+- **Modern web applications**: Flexible handling of various API responses
+- **Rapid prototyping**: Fluent API speeds up development
+
+## Comparison with StandardHttpClient
+
+| Scenario | FlurlHttpClient | StandardHttpClient |
+|----------|----------------|------------------|
+| URL building capability | ★★★★★ | ★★☆☆☆ |
+| API fluency | ★★★★★ | ★★★☆☆ |
+| Code conciseness | ★★★★★ | ★★★☆☆ |
+| Performance requirements | ★★★☆☆ | ★★★★★ |
+| Low resource usage | ★★★☆☆ | ★★★★★ |
+| Learning curve | Moderate | Gentle |
+| Suitable projects | Modern web apps, complex API integrations | Enterprise apps, resource-constrained environments |
+
+## Real-World Examples
+
+### Building Complex Queries
+
+```csharp
+// Define query parameters
+var filters = new
+{
+    category = "electronics",
+    priceRange = new[] { "100-500", "500-1000" },
+    brand = new[] { "apple", "samsung" },
+    inStock = true
+};
+
+// Use FlurlHttpClient for querying
+var response = await client.GetAsync<List<Product>>(
+    "api/products", 
+    filters
 );
 ```
+
+### JWT Authentication with Flurl Features
+
+```csharp
+// Get the Flurl client
+var flurlClient = client.GetFlurlClient();
+
+// Configure authentication interceptor
+flurlClient.BeforeCall(call => 
+{
+    if (_tokenService.IsTokenValid())
+    {
+        call.Request.WithOAuthBearerToken(_tokenService.GetToken());
+    }
+});
+
+// Handle 401 responses
+flurlClient.OnError(async call => 
+{
+    if (call.HttpResponseMessage.StatusCode == HttpStatusCode.Unauthorized)
+    {
+        if (await _tokenService.RefreshTokenAsync())
+        {
+            await call.Request
+                .WithOAuthBearerToken(_tokenService.GetToken())
+                .SendAsync(call.HttpRequestMessage.Method, call.CancellationToken);
+        }
+    }
+});
+```
+
+## Best Practices
+
+1. **Separate URL building from HTTP calls**
+   ```csharp
+   // Build URL first, then send request
+   var url = flurlClient.BaseUrl
+       .AppendPathSegments("api", "users")
+       .SetQueryParams(new { page = 1, size = 10 });
+       
+   var response = await client.GetAsync<List<User>>(url.ToString());
+   ```
+
+2. **Use factory to create named clients**
+   ```csharp
+   services.AddSingleton<IHttpClientFactory, FlurlHttpClientFactory>();
+   ```
+
+3. **Organize API calls by functional area**
+   ```csharp
+   // User-related APIs
+   var usersApi = factory.GetOrCreateClient("users");
+   
+   // Product-related APIs
+   var productsApi = factory.GetOrCreateClient("products");
+   ```

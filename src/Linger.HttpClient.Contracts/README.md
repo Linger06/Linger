@@ -1,5 +1,13 @@
 ﻿# Linger.HttpClient.Contracts
 
+## Linger HTTP Client Ecosystem
+
+The Linger HTTP client ecosystem consists of three main components:
+
+- **Linger.HttpClient.Contracts**: Interfaces and abstract classes defining standard contracts for HTTP operations (this project)
+- **[Linger.HttpClient.Standard](../Linger.HttpClient.Standard/README.md)**: Implementation based on .NET standard HttpClient
+- **[Linger.HttpClient.Flurl](../Linger.HttpClient.Flurl/README.md)**: Fluent API implementation based on Flurl.Http
+
 ## Table of Contents
 - [Introduction](#introduction)
 - [Features](#features)
@@ -11,7 +19,8 @@
 - [Performance Tips & Best Practices](#performance-tips--best-practices)
 
 ## Introduction
-Linger.HttpClient.Contracts is a .NET library that provides contract interfaces and base implementations for HTTP client operations. It serves as the foundation for HTTP client implementations in the Linger framework.
+
+Linger.HttpClient.Contracts defines standard interfaces and contracts for HTTP client operations and serves as the foundation for Linger HTTP client implementations. By using unified contracts, you can easily switch between different HTTP client implementations without modifying your business code.
 
 ## Features
 - Strongly typed HTTP client interfaces
@@ -24,7 +33,10 @@ Linger.HttpClient.Contracts is a .NET library that provides contract interfaces 
 - User-friendly error handling
 
 ## Supported .NET Versions
-This library supports .NET applications that utilize .NET Framework 4.6.2+ or .NET Standard 2.0+.
+
+- .NET Standard 2.0+
+- .NET Framework 4.6.2+
+- .NET 6.0+
 
 ## Installation
 
@@ -71,6 +83,310 @@ Install-Package Linger.HttpClient
 # or
 Install-Package Linger.HttpClient.Flurl
 ```
+
+## Core Interfaces and Models
+
+### Core Interfaces
+
+#### IHttpClient
+
+The core HTTP client interface that defines standard methods for all HTTP operations:
+
+```csharp
+public interface IHttpClient
+{
+    // Basic HTTP methods
+    Task<ApiResult<T>> CallApi<T>(string url, object? queryParams = null, int? timeout = null, 
+        CancellationToken cancellationToken = default);
+    
+    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, object? postData = null, 
+        object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default);
+    
+    // File upload and form submission
+    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, 
+        byte[] fileData, string filename, int? timeout = null, CancellationToken cancellationToken = default);
+    
+    // Configuration and extension
+    void SetToken(string token);
+    void AddHeader(string name, string value);
+    void AddInterceptor(IHttpClientInterceptor interceptor);
+    HttpClientOptions Options { get; }
+}
+```
+
+#### IHttpClientInterceptor
+
+Request/response interceptor interface that allows adding custom logic before and after requests:
+
+```csharp
+public interface IHttpClientInterceptor
+{
+    Task<HttpRequestMessage> OnRequestAsync(HttpRequestMessage request);
+    Task<HttpResponseMessage> OnResponseAsync(HttpResponseMessage response);
+}
+```
+
+#### IHttpClientFactory
+
+HTTP client factory interface for creating and managing HTTP client instances:
+
+```csharp
+public interface IHttpClientFactory
+{
+    IHttpClient CreateClient(string baseUrl);
+    IHttpClient CreateClient(string baseUrl, Action<HttpClientOptions> configureOptions);
+    IHttpClient GetOrCreateClient(string name);
+    void RegisterClient(string name, string baseUrl, Action<HttpClientOptions>? configureOptions = null);
+}
+```
+
+### Core Models
+
+#### ApiResult&lt;T&gt;
+
+Unified result wrapper for API calls:
+
+```csharp
+public class ApiResult<T>
+{
+    // Response data
+    public T Data { get; set; } = default!;
+    
+    // HTTP status code
+    public HttpStatusCode? StatusCode { get; set; }
+    
+    // Error information
+    public ErrorObj? Errors { get; set; }
+    public string? ErrorMsg { get; set; }
+    
+    // Helper properties
+    public bool IsSuccess => StatusCode.HasValue && (int)StatusCode.Value >= 200 && (int)StatusCode.Value < 300;
+    public bool IsUnauthorized => StatusCode == HttpStatusCode.Unauthorized;
+}
+```
+
+#### ApiPagedResult&lt;T&gt;
+
+Paged API result wrapper:
+
+```csharp
+public class ApiPagedResult<T>
+{
+    // Current page data
+    public List<T> Data { get; set; } = default!;
+    
+    // Pagination information
+    public int TotalCount { get; set; }
+    public int Page { get; set; }
+    public int PageCount { get; set; }
+    
+    // Helper properties
+    public bool HasData => Data != null && Data.Count > 0;
+    public bool HasNextPage => Page < PageCount;
+}
+```
+
+#### HttpClientOptions
+
+HTTP client configuration options:
+
+```csharp
+public class HttpClientOptions
+{
+    // Timeout settings
+    public int DefaultTimeout { get; set; } = 30;
+    
+    // Retry settings
+    public bool EnableRetry { get; set; } = false;
+    public int MaxRetryCount { get; set; } = 3;
+    public int RetryInterval { get; set; } = 1000;
+    
+    // Headers
+    public Dictionary<string, string> DefaultHeaders { get; set; } = new();
+}
+```
+
+## Design Philosophy
+
+### Interface Segregation Principle
+
+Linger.HttpClient.Contracts follows the interface segregation principle, separating interfaces with different responsibilities:
+
+- **IHttpClient**: Defines basic HTTP request operations
+- **IHttpClientInterceptor**: Focuses on intercepting and modifying requests/responses
+- **IHttpClientFactory**: Responsible for client instance creation and management
+
+### Extensibility
+
+The interceptor mechanism is a core extension point, allowing for features such as:
+
+- Request/response logging
+- Authentication token automatic refresh
+- Request retry and error handling
+- Response caching
+- Performance monitoring
+
+### Unified Response Handling
+
+All HTTP responses are wrapped in an `ApiResult<T>`, providing a consistent handling pattern:
+
+- Unified success/failure determination
+- Type-safe data access
+- Structured error information
+
+## Basic Usage Patterns
+
+### Basic Request Handling
+
+```csharp
+// Create client
+var client = new StandardHttpClient("https://api.example.com");
+
+// Send GET request
+var response = await client.CallApi<UserData>("api/users/1");
+
+// Handle response
+if (response.IsSuccess)
+{
+    var user = response.Data;
+    Console.WriteLine($"User: {user.Name}");
+}
+else
+{
+    Console.WriteLine($"Error: {response.ErrorMsg}");
+}
+```
+
+### Interceptor Usage Pattern
+
+```csharp
+// Define interceptor
+public class LoggingInterceptor : IHttpClientInterceptor
+{
+    public Task<HttpRequestMessage> OnRequestAsync(HttpRequestMessage request)
+    {
+        Console.WriteLine($"Sending request: {request.Method} {request.RequestUri}");
+        return Task.FromResult(request);
+    }
+    
+    public Task<HttpResponseMessage> OnResponseAsync(HttpResponseMessage response)
+    {
+        Console.WriteLine($"Received response: {(int)response.StatusCode}");
+        return Task.FromResult(response);
+    }
+}
+
+// Add interceptor
+client.AddInterceptor(new LoggingInterceptor());
+```
+
+### Factory Usage Pattern
+
+```csharp
+// Create factory
+var factory = new DefaultHttpClientFactory();
+
+// Register named client
+factory.RegisterClient("users-api", "https://users.example.com", options => {
+    options.DefaultTimeout = 20;
+    options.EnableRetry = true;
+});
+
+// Get named client
+var client = factory.GetOrCreateClient("users-api");
+```
+
+## Extension Features
+
+The library also provides some extension methods for a more convenient API experience:
+
+```csharp
+// GET request
+var user = await client.GetAsync<UserData>("api/users/1");
+
+// POST request
+var newUser = await client.PostAsync<UserData>("api/users", new { Name = "John Doe" });
+
+// Paged request
+var pagedUsers = await client.GetPagedAsync<UserData>("api/users", new { page = 1, pageSize = 20 });
+```
+
+## Built-in Interceptors
+
+Linger.HttpClient.Contracts provides a set of built-in interceptors to enhance HTTP client functionality:
+
+### Retry Interceptor
+
+Automatically retries requests that fail due to transient errors (e.g., 503 Service Unavailable, 504 Gateway Timeout, 429 Too Many Requests):
+
+```csharp
+// Create and configure retry interceptor
+var retryInterceptor = new RetryInterceptor(
+    maxRetries: 3, // Maximum retry attempts
+    shouldRetry: response => response.StatusCode == HttpStatusCode.ServiceUnavailable, // Custom retry condition
+    delayFunc: async retryCount => await Task.Delay((int)Math.Pow(2, retryCount) * 100) // Exponential backoff
+);
+
+// Add to HTTP client
+client.AddInterceptor(retryInterceptor);
+```
+
+### Caching Interceptor
+
+Caches GET responses to reduce server requests:
+
+```csharp
+// Create and configure caching interceptor
+var cachingInterceptor = new CachingInterceptor(
+    defaultCacheDuration: TimeSpan.FromMinutes(10) // Default cache for 10 minutes
+);
+
+// Add to HTTP client
+client.AddInterceptor(cachingInterceptor);
+```
+
+## Performance Monitoring
+
+Built-in performance monitoring helps identify and resolve performance issues:
+
+```csharp
+// Get API endpoint performance statistics
+var stats = HttpClientMetrics.Instance.GetEndpointStats("api/users");
+Console.WriteLine($"Average response time: {stats.AverageResponseTime}ms");
+Console.WriteLine($"Success rate: {stats.SuccessRate * 100}%");
+```
+
+## Dependency Injection Integration
+
+IHttpClient can be easily integrated with dependency injection containers:
+
+```csharp
+// Register service
+services.AddScoped<IHttpClient>(provider => 
+    new StandardHttpClient("https://api.example.com"));
+
+// Configure options
+services.AddScoped<IHttpClient>(provider => 
+{
+    var client = new StandardHttpClient("https://api.example.com");
+    
+    // Configure options
+    client.Options.DefaultTimeout = 30;
+    client.Options.EnableRetry = true;
+    
+    // Add interceptors
+    client.AddInterceptor(new LoggingInterceptor());
+    
+    return client;
+});
+```
+
+## Implementation Projects
+
+For detailed usage and examples, refer to the documentation of specific implementation projects:
+
+- [StandardHttpClient Documentation](../Linger.HttpClient.Standard/README.md)
+- [FlurlHttpClient Documentation](../Linger.HttpClient.Flurl/README.md)
 
 ## Basic Usage
 This is a contracts library that defines interfaces and abstract classes. For implementation, use `Linger.HttpClient` or `Linger.HttpClient.Flurl`.

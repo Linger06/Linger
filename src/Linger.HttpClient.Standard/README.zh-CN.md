@@ -1,48 +1,123 @@
-# Linger.HttpClient
+# Linger.HttpClient.Standard
 
-### 简介
-Linger.HttpClient 是标准.NET HttpClient的轻量级封装，提供了额外的功能和更友好的API。
+## 简介
+Linger.HttpClient.Standard 是基于标准 .NET HttpClient 的实现，提供了符合 Linger.HttpClient.Contracts 接口的轻量级封装。本项目专注于提供稳定、高效、符合.NET风格的 HTTP 通信解决方案。
 
-### 特性
-- 简单、流畅的HTTP操作API
-- 自动重试支持
-- 请求/响应拦截
-- 便捷的身份验证处理
-- 可自定义超时设置
-- 支持文化感知请求
+> 🔗 此项目是 [Linger HTTP客户端生态系统](../Linger.HttpClient.Contracts/README.zh-CN.md) 的一部分。
 
-### 支持的.NET版本
-该库支持使用.NET Framework 4.6.2+或.NET Standard 2.0+的.NET应用程序。
+## 核心优势
 
-### 使用示例
+- **轻量级设计**：最小依赖，运行时开销低
+- **符合.NET约定**：自然融入.NET项目，符合平台设计理念
+- **高性能**：针对性能优化，适合高并发场景
+- **易于排错**：透明的实现方式，错误信息明确
+- **低内存占用**：优化的内存管理，适合资源受限环境
+
+## 安装
+
+```bash
+dotnet add package Linger.HttpClient.Standard
+```
+
+## 快速入门
 
 ```csharp
 // 创建客户端
-var client = new BaseHttpClient("https://api.example.com");
+var client = new StandardHttpClient("https://api.example.com");
 
-// 添加授权令牌
-client.SetToken("your-auth-token");
-
-// 配置选项
-client.Options.EnableRetry = true;
-client.Options.MaxRetryCount = 3;
-
-// 添加请求头
-client.AddHeader("User-Agent", "Linger HttpClient");
-
-// 发送GET请求
-var response = await client.GetAsync<YourResponseType>("api/resources");
-
-// 发送POST请求
-var postResponse = await client.PostAsync<YourResponseType>(
-    "api/resources", 
-    new { Name = "新资源", Description = "一些描述" }
-);
-
-// 处理响应
-if (response.StatusCode == System.Net.HttpStatusCode.OK)
-{
-    var data = response.Data;
-    // 处理数据
-}
+// 发送请求
+var response = await client.GetAsync<UserData>("api/users/1");
 ```
+
+## 高级特性
+
+### 1. 自定义 HttpMessageHandler
+
+可以完全控制底层 HttpClient 的行为：
+
+```csharp
+// 自定义处理程序
+var handler = new HttpClientHandler
+{
+    AllowAutoRedirect = false,
+    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+    UseCookies = false,
+    MaxConnectionsPerServer = 20
+};
+
+// 使用自定义处理程序创建客户端
+var client = new StandardHttpClient(new System.Net.Http.HttpClient(handler));
+```
+
+### 2. 集成HTTP压缩
+
+使用内置的压缩辅助类降低带宽消耗：
+
+```csharp
+// 创建支持压缩的处理程序
+var handler = CompressionHelper.CreateCompressionHandler();
+
+// 创建客户端
+var client = new StandardHttpClient(new System.Net.Http.HttpClient(handler));
+```
+
+### 3. 高效的并行请求
+
+```csharp
+// 并行发起多个请求
+var task1 = client.GetAsync<Data1>("api/endpoint1");
+var task2 = client.GetAsync<Data2>("api/endpoint2");
+var task3 = client.GetAsync<Data3>("api/endpoint3");
+
+// 等待所有请求完成
+await Task.WhenAll(task1, task2, task3);
+
+// 处理所有结果
+var result1 = task1.Result.Data;
+var result2 = task2.Result.Data;
+var result3 = task3.Result.Data;
+```
+
+## 应用场景
+
+StandardHttpClient 特别适合以下场景：
+
+- **对性能和资源消耗敏感的应用**：如移动应用、低配置设备上运行的应用
+- **需要精细控制HTTP通信的项目**：如安全要求高的企业系统
+- **从现有.NET HttpClient迁移的项目**：平滑过渡，学习成本低
+- **需要使用.NET特有功能的应用**：如WinForms、WPF或需要与.NET特定API集成的系统
+
+## 与 FlurlHttpClient 对比
+
+| 场景 | StandardHttpClient | FlurlHttpClient |
+|------|-------------------|-----------------|
+| 性能要求高 | ★★★★★ | ★★★☆☆ |
+| 资源占用少 | ★★★★★ | ★★★☆☆ |
+| URL构建能力 | ★★☆☆☆ | ★★★★★ |
+| API流畅度 | ★★★☆☆ | ★★★★★ |
+| 学习曲线 | 平缓 | 中等 |
+| 适合项目 | 企业级应用、资源受限环境 | 现代Web应用、复杂API集成 |
+
+## 最佳实践
+
+1. **使用HttpClientFactory管理实例**
+   ```csharp
+   services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
+   ```
+
+2. **根据API分组创建命名客户端**
+   ```csharp
+   factory.RegisterClient("users-api", "https://users.example.com");
+   factory.RegisterClient("products-api", "https://products.example.com");
+   ```
+
+3. **针对性能优化的配置**
+   ```csharp
+   client.Options.DefaultTimeout = 15; // 较短的超时时间
+   ```
+
+4. **结合CancellationToken使用**
+   ```csharp
+   using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+   await client.GetAsync<Data>("api/data", cancellationToken: cts.Token);
+   ```
