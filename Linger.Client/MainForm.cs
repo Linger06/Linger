@@ -1,6 +1,6 @@
 ﻿using Linger.Client.Services;
-using Linger.HttpClient;
 using Linger.HttpClient.Contracts.Core;
+using Linger.HttpClient.Standard;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,7 +47,7 @@ namespace Linger.Client
             // 注册IHttpClient
             services.AddSingleton<IHttpClient>(provider =>
             {
-                var httpClient = new BaseHttpClient("http://localhost:5258/");
+                var httpClient = new StandardHttpClient("http://localhost:5258/");
 
                 // 配置httpClient的选项
                 httpClient.Options.EnableRetry = true;

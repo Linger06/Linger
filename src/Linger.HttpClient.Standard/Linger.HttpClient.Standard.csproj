@@ -5,6 +5,8 @@
         <VersionPrefix>0.3.3</VersionPrefix>
         <VersionSuffix>alpha</VersionSuffix>
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RootNamespace>Linger.HttpClient.Standard</RootNamespace>
+        <AssemblyName>Linger.HttpClient.Standard</AssemblyName>
     </PropertyGroup>
 
     <ItemGroup>

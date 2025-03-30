@@ -39,7 +39,7 @@ To use IHttpClient and its implementations, you need to install one of the follo
 dotnet add package Linger.HttpClient.Contracts
 
 # Install implementation based on standard HttpClient
-dotnet add package Linger.HttpClient
+dotnet add package Linger.HttpClient.Standard
 ```
 
 #### Option 2: Install Flurl-based HTTP Client
@@ -79,7 +79,7 @@ This is a contracts library that defines interfaces and abstract classes. For im
 
 ```csharp
 // Create HTTP client
-var client = new BaseHttpClient("https://api.example.com");
+var client = new Linger.HttpClient.Standard.StandardHttpClient("https://api.example.com");
 
 // GET request
 var result = await client.CallApi<UserData>("users/1");
@@ -99,9 +99,9 @@ The IHttpClient interface is designed to support dependency injection and can be
 ### Registering the Service
 
 ```csharp
-// Using Linger.HttpClient implementation
+// Using Linger.HttpClient.Standard implementation
 services.AddScoped<IHttpClient>(provider => 
-    new BaseHttpClient("https://api.example.com"));
+    new StandardHttpClient("https://api.example.com"));
 
 // Or using Linger.HttpClient.Flurl implementation
 services.AddScoped<IHttpClient>(provider => 
@@ -113,7 +113,7 @@ services.AddScoped<IHttpClient>(provider =>
 ```csharp
 services.AddScoped<IHttpClient>(provider => 
 {
-    var client = new BaseHttpClient("https://api.example.com");
+    var client = new StandardHttpClient("https://api.example.com");
     
     // Configure options
     client.Options.DefaultTimeout = 30; // Set default timeout to 30 seconds
@@ -164,10 +164,10 @@ If you need to use multiple HTTP clients with different configurations, you can 
 
 ```csharp
 services.AddScoped<IHttpClient>(provider => 
-    new BaseHttpClient("https://api1.example.com"));
+    new StandardHttpClient("https://api1.example.com"));
     
 services.AddKeyedScoped<IHttpClient>("api2", (provider, key) => 
-    new BaseHttpClient("https://api2.example.com"));
+    new StandardHttpClient("https://api2.example.com"));
 
 // Access through IServiceProvider when using
 var api2Client = serviceProvider.GetKeyedService<IHttpClient>("api2");

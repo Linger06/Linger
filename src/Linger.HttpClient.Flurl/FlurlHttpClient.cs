@@ -10,7 +10,7 @@ using System.Net.Http;
 
 namespace Linger.HttpClient.Flurl;
 
-public class FlurlHttpClient : BaseClient
+public class FlurlHttpClient : HttpClientBase
 {
     private readonly IFlurlClient _flurlClient;
 

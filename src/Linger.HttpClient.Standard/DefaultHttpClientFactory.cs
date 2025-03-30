@@ -3,7 +3,7 @@ using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Helpers;
 using Linger.HttpClient.Contracts.Models;
 
-namespace Linger.HttpClient;
+namespace Linger.HttpClient.Standard;
 
 /// <summary>
 /// 默认HTTP客户端工厂实现
@@ -37,7 +37,7 @@ public class DefaultHttpClientFactory : IHttpClientFactory
         var handler = CompressionHelper.CreateCompressionHandler();
         var httpClient = new System.Net.Http.HttpClient(handler) { BaseAddress = new Uri(baseUrl) };
 
-        var client = new BaseHttpClient(httpClient);
+        var client = new StandardHttpClient(httpClient);
 
         // 复制选项
         foreach (var header in options.DefaultHeaders)

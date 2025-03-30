@@ -28,7 +28,7 @@
     <Project Path="src/Linger.FileSystem/Linger.FileSystem.csproj" />
     <Project Path="src/Linger.HttpClient.Contracts/Linger.HttpClient.Contracts.csproj" />
     <Project Path="src/Linger.HttpClient.Flurl/Linger.HttpClient.Flurl.csproj" />
-    <Project Path="src/Linger.HttpClient/Linger.HttpClient.csproj" />
+    <Project Path="src/Linger.HttpClient.Standard/Linger.HttpClient.Standard.csproj" />
     <Project Path="src/Linger.Ldap.ActiveDirectory/Linger.Ldap.ActiveDirectory.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />

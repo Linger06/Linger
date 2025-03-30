@@ -5,25 +5,27 @@ using Linger.Helper;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Models;
 
-
 #if NETFRAMEWORK
 using System.Net;
 using System.Net.Http;
 #endif
 
-namespace Linger.HttpClient;
+namespace Linger.HttpClient.Standard;
 
-public class BaseHttpClient : BaseClient
+/// <summary>
+/// 基于标准 System.Net.Http.HttpClient 的 HTTP 客户端实现
+/// </summary>
+public class StandardHttpClient : HttpClientBase
 {
     private readonly System.Net.Http.HttpClient _httpClient;
 
-    public BaseHttpClient(string baseUrl)
+    public StandardHttpClient(string baseUrl)
     {
         _httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(baseUrl) };
         SetDefaultOptions();
     }
 
-    public BaseHttpClient(System.Net.Http.HttpClient httpClient)
+    public StandardHttpClient(System.Net.Http.HttpClient httpClient)
     {
         _httpClient = httpClient;
         SetDefaultOptions();

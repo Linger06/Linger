@@ -11,7 +11,10 @@ using System.Net.Http;
 
 namespace Linger.HttpClient.Contracts.Core;
 
-public abstract class BaseClient : IHttpClient
+/// <summary>
+/// HTTP客户端基类，提供所有HTTP客户端实现的共享基础功能
+/// </summary>
+public abstract class HttpClientBase : IHttpClient
 {
     protected readonly List<IHttpClientInterceptor> Interceptors = new();
     public HttpClientOptions Options { get; } = new HttpClientOptions();

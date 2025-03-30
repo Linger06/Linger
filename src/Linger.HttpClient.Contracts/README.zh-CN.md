@@ -40,7 +40,7 @@ Linger.HttpClient.Contracts 是一个.NET库，提供了HTTP客户端操作的�
 dotnet add package Linger.HttpClient.Contracts
 
 # 安装基于标准HttpClient的实现
-dotnet add package Linger.HttpClient
+dotnet add package Linger.HttpClient.Standard
 ```
 
 #### 选项2：安装基于Flurl的HTTP客户端
@@ -80,7 +80,7 @@ Install-Package Linger.HttpClient.Flurl
 
 ```csharp
 // 创建HTTP客户端
-var client = new BaseHttpClient("https://api.example.com");
+var client = new Linger.HttpClient.Standard.StandardHttpClient("https://api.example.com");
 
 // GET请求
 var result = await client.CallApi<UserData>("users/1");
@@ -100,9 +100,9 @@ IHttpClient 接口设计支持依赖注入，可以在应用程序中轻松集�
 ### 注册服务
 
 ```csharp
-// 使用 Linger.HttpClient 实现
+// 使用 Linger.HttpClient.Standard 实现
 services.AddScoped<IHttpClient>(provider => 
-    new BaseHttpClient("https://api.example.com"));
+    new StandardHttpClient("https://api.example.com"));
 
 // 或使用 Linger.HttpClient.Flurl 实现
 services.AddScoped<IHttpClient>(provider => 
@@ -114,7 +114,7 @@ services.AddScoped<IHttpClient>(provider =>
 ```csharp
 services.AddScoped<IHttpClient>(provider => 
 {
-    var client = new BaseHttpClient("https://api.example.com");
+    var client = new StandardHttpClient("https://api.example.com");
     
     // 配置选项
     client.Options.DefaultTimeout = 30; // 设置默认超时时间为30秒
@@ -165,10 +165,10 @@ public class MyService
 
 ```csharp
 services.AddScoped<IHttpClient>(provider => 
-    new BaseHttpClient("https://api1.example.com"));
+    new StandardHttpClient("https://api1.example.com"));
     
 services.AddKeyedScoped<IHttpClient>("api2", (provider, key) => 
-    new BaseHttpClient("https://api2.example.com"));
+    new StandardHttpClient("https://api2.example.com"));
 
 // 使用时通过IServiceProvider获取
 var api2Client = serviceProvider.GetKeyedService<IHttpClient>("api2");
