@@ -1,6 +1,7 @@
 ﻿using Flurl;
 using Flurl.Http;
 using Linger.Exceptions;
+using Linger.Extensions.Core;
 using Linger.Helper;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Models;
@@ -42,15 +43,34 @@ public class FlurlHttpClient : HttpClientBase
             _flurlClient.Headers.Add(header.Key, header.Value);
         }
 
+        // 修正：不要将重试与重定向关联
         if (Options.EnableRetry)
         {
-            _flurlClient.Settings.Redirects.MaxAutoRedirects = Options.MaxRetryCount;
+            // 重试设置由拦截器处理，这里不需要额外配置
+            // 移除: _flurlClient.Settings.Redirects.MaxAutoRedirects = Options.MaxRetryCount;
         }
     }
 
     public override void SetToken(string token)
     {
-        _ = _flurlClient.WithOAuthBearerToken(token);
+        // 修正：不使用忽略结果的语法，确保令牌正确应用
+        if (string.IsNullOrEmpty(token))
+        {
+            _flurlClient.Headers.Remove("Authorization");
+        }
+        else
+        {
+            _flurlClient.WithOAuthBearerToken(token);
+        }
+    }
+
+    /// <summary>
+    /// 获取底层Flurl客户端用于高级操作
+    /// </summary>
+    /// <returns>Flurl客户端实例</returns>
+    public IFlurlClient GetFlurlClient()
+    {
+        return _flurlClient;
     }
 
     /// <summary>
@@ -102,6 +122,9 @@ public class FlurlHttpClient : HttpClientBase
 
             url = url.Replace($"?{query}", string.Empty);
 
+            // 统一添加文化信息 - 将位置调整为与StandardHttpClient相同
+            url = url.AppendQuery("culture=" + Thread.CurrentThread.CurrentUICulture.Name);
+
             flurlRequest = flurlRequest.AppendPathSegment(url).AllowAnyHttpStatus();
 
             // 使用BuildQueryString替代直接设置查询参数
@@ -114,20 +137,48 @@ public class FlurlHttpClient : HttpClientBase
                 }
             }
 
-            // 设置语言环境
-            flurlRequest = flurlRequest.SetQueryParam("culture", Thread.CurrentThread.CurrentUICulture.Name);
+            // 构建HttpRequestMessage用于应用拦截器
+            var httpMethod = method switch
+            {
+                HttpMethodEnum.Get => HttpMethod.Get,
+                HttpMethodEnum.Post => HttpMethod.Post,
+                HttpMethodEnum.Put => HttpMethod.Put,
+                HttpMethodEnum.Delete => HttpMethod.Delete,
+                _ => throw new ArgumentOutOfRangeException(nameof(method), method, null)
+            };
 
-            // 使用合并后的取消令牌
-            //var flurlResponse = await ExecuteFlurlRequest(flurlRequest, method, content, combinedToken);
+            var requestUri = new Uri(flurlRequest.Url);
+            var request = new HttpRequestMessage(httpMethod, requestUri)
+            {
+                Content = content
+            };
 
-            // 执行请求（带重试）
-            var getResponseTask = ProcessRequestWithRetriesAsync(
-                async () => await ExecuteFlurlRequest(flurlRequest, method, content, combinedToken),
-                combinedToken);
+            // 应用请求拦截器
+            request = await ApplyInterceptorsToRequestAsync(request);
 
-            var res = await getResponseTask;
-            //HttpResponseMessage? res = flurlResponse.ResponseMessage;
-            rv = await HandleResponseMessage<T>(res.ResponseMessage);
+            // 执行请求 - 使用修改后的URI (如果拦截器改变了URI)
+            if (request.RequestUri != requestUri)
+            {
+                flurlRequest = new FlurlRequest(request.RequestUri);
+            }
+
+            // 从拦截器处理过的请求中复制头部到Flurl请求
+            foreach (var header in request.Headers)
+            {
+                flurlRequest.WithHeader(header.Key, header.Value);
+            }
+
+            // 使用合并后的取消令牌，直接执行请求，移除重试逻辑
+            var flurlResponse = await ExecuteFlurlRequest(flurlRequest, method, request.Content ?? content, combinedToken);
+
+            // 应用响应拦截器
+            var res = flurlResponse.ResponseMessage;
+            if (res != null)
+            {
+                res = await ApplyInterceptorsToResponseAsync(res);
+            }
+
+            rv = await HandleResponseMessage<T>(res);
 
             return rv;
         }
@@ -157,52 +208,5 @@ public class FlurlHttpClient : HttpClientBase
             HttpMethodEnum.Delete => await request.DeleteAsync(cancellationToken: cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(method), method, null)
         };
-    }
-
-    private async Task<IFlurlResponse> ProcessRequestWithRetriesAsync(
-        Func<Task<IFlurlResponse>> requestFunc,
-        CancellationToken cancellationToken)
-    {
-        // 只有当启用重试时才创建RetryHelper
-        if (!Options.EnableRetry)
-        {
-            return await requestFunc();
-        }
-
-        // 创建RetryOptions并配置
-        var retryOptions = new RetryOptions
-        {
-            MaxRetries = Options.MaxRetryCount,
-            BaseDelayMs = Options.RetryInterval,
-            UseExponentialBackoff = true, // 使用指数退避策略
-            JitterFactor = 0.2 // 添加20%的随机抖动
-        };
-
-        var retryHelper = new RetryHelper(retryOptions);
-
-        // 定义哪些异常类型需要重试
-        bool ShouldRetry(Exception ex)
-        {
-            return ex is FlurlHttpException;
-        }
-
-        try
-        {
-            // 使用RetryHelper执行HTTP请求
-            return await retryHelper.ExecuteAsync(
-                requestFunc,
-                "Flurl HTTP Request",
-                ShouldRetry,
-                cancellationToken);
-        }
-        catch (OutOfReTryCountException retryEx)
-        {
-            // 保持与原始实现一致，将原始异常抛出
-            if (retryEx.InnerException != null)
-            {
-                throw retryEx.InnerException;
-            }
-            throw;
-        }
     }
 }

@@ -3,16 +3,45 @@ using Linger.Extensions;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Metrics;
 using Linger.HttpClient.Contracts.Models;
+using Linger.HttpClient.Contracts.Helpers;
+using System.Collections.Concurrent;
+using System.Net;
+using System.Text;
 
 namespace Linger.HttpClient.Contracts.Core;
 
 /// <summary>
-/// HTTP客户端基类，提供所有HTTP客户端实现的共享基础功能
+/// HTTP客户端抽象基类
 /// </summary>
 public abstract class HttpClientBase : IHttpClient
 {
-    protected readonly List<IHttpClientInterceptor> Interceptors = new();
+    private readonly ConcurrentBag<IHttpClientInterceptor> _interceptors = new();
+
+    /// <summary>
+    /// HTTP客户端选项
+    /// </summary>
     public HttpClientOptions Options { get; } = new HttpClientOptions();
+
+    /// <summary>
+    /// 设置授权令牌
+    /// </summary>
+    public abstract void SetToken(string token);
+
+    /// <summary>
+    /// 添加请求头
+    /// </summary>
+    public virtual void AddHeader(string name, string value)
+    {
+        Options.DefaultHeaders[name] = value;
+    }
+
+    /// <summary>
+    /// 添加拦截器
+    /// </summary>
+    public virtual void AddInterceptor(IHttpClientInterceptor interceptor)
+    {
+        _interceptors.Add(interceptor);
+    }
 
     /// <summary>
     ///     使用Get方法调用api
@@ -87,105 +116,43 @@ public abstract class HttpClientBase : IHttpClient
         return await CallApi<T>(url, method, content, queryParams, timeout, cancellationToken);
     }
 
-    public virtual async Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, int? timeout = null, CancellationToken cancellationToken = default) //where T : class
+    /// <summary>
+    /// 使用表单数据发送请求
+    /// </summary>
+    public virtual Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, int? timeout = null, CancellationToken cancellationToken = default)
     {
-        HttpContent? content = null;
-        //填充表单数据
-        if (postData == null || postData.Count == 0)
-        {
-            return await CallApi<T>(url, method, content, null, timeout, cancellationToken);
-        }
-
-        var paras = postData.Select(data => new KeyValuePair<string, string>(data.Key, data.Value)).ToList();
-
-        if (paras.Count != 0)
-        {
-            url = url.AppendQuery(paras);
-        }
-
-        content = new FormUrlEncodedContent(paras);
-
-        return await CallApi<T>(url, method, content, null, timeout, cancellationToken);
+        var content = new FormUrlEncodedContent(postData ?? new Dictionary<string, string>());
+        return CallApi<T>(url, method, content, null, timeout, cancellationToken);
     }
 
     /// <summary>
-    ///     提交表单
+    /// 上传文件
     /// </summary>
-    /// <typeparam name="T"></typeparam>
-    /// <param name="url"></param>
-    /// <param name="method"></param>
-    /// <param name="postData"></param>
-    /// <param name="fileData"></param>
-    /// <param name="filename"></param>
-    /// <param name="timeout"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    public virtual async Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, byte[] fileData, string filename, int? timeout = null, CancellationToken cancellationToken = default) //where T : class
+    public virtual Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, byte[] fileData, string filename, int? timeout = null, CancellationToken cancellationToken = default)
     {
-        var content = new MultipartFormDataContent();
-        //填充表单数据
-        if (!(postData == null || postData.Count == 0))
-        {
-            foreach (var key in postData.Keys)
-            {
-                content.Add(new StringContent(postData[key]), key);
-            }
-        }
-
-        content.Add(new ByteArrayContent(fileData), "File", filename);
-
-        return await CallApi<T>(url, method, content, null, timeout, cancellationToken).ConfigureAwait(false);
+        // 使用统一的辅助方法创建MultipartFormDataContent
+        var content = MultipartHelper.CreateMultipartContent(postData, fileData, filename);
+        return CallApi<T>(url, method, content, null, timeout, cancellationToken);
     }
 
     public abstract Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default); //where T : class;
-    public abstract void SetToken(string token);
-    public void AddHeader(string name, string value)
-    {
-        if (string.IsNullOrEmpty(name))
-        {
-            throw new ArgumentNullException(nameof(name));
-        }
-
-        Options.DefaultHeaders[name] = value;
-    }
-
-    public void AddInterceptor(IHttpClientInterceptor interceptor)
-    {
-        ArgumentNullException.ThrowIfNull(interceptor);
-
-        Interceptors.Add(interceptor);
-    }
 
     protected async Task<HttpRequestMessage> ApplyInterceptorsToRequestAsync(HttpRequestMessage request)
     {
-        if (Interceptors.Count == 0)
+        foreach (var interceptor in _interceptors)
         {
-            return request;
+            request = await interceptor.OnRequestAsync(request);
         }
-
-        var currentRequest = request;
-        foreach (var interceptor in Interceptors)
-        {
-            currentRequest = await interceptor.OnRequestAsync(currentRequest);
-        }
-
-        return currentRequest;
+        return request;
     }
 
     protected async Task<HttpResponseMessage> ApplyInterceptorsToResponseAsync(HttpResponseMessage response)
     {
-        if (Interceptors.Count == 0)
+        foreach (var interceptor in _interceptors)
         {
-            return response;
+            response = await interceptor.OnResponseAsync(response);
         }
-
-        var currentResponse = response;
-        foreach (var interceptor in Interceptors)
-        {
-            currentResponse = await interceptor.OnResponseAsync(currentResponse);
-        }
-
-        return currentResponse;
+        return response;
     }
 
     // 改进1: 优化HandleResponseMessage方法的内存管理

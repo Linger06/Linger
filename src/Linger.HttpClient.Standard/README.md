@@ -13,6 +13,52 @@ Linger.HttpClient.Standard is an implementation based on the standard .NET HttpC
 - **Easy Troubleshooting**: Transparent implementation, clear error information
 - **Low Memory Footprint**: Optimized memory management, suitable for resource-constrained environments
 
+## Recent Improvements
+
+### 1. Fully Integrated Interceptors
+
+The interceptor system is now fully integrated into StandardHttpClient, ensuring consistent handling of requests and responses:
+
+```csharp
+// Apply request interceptors
+request = await ApplyInterceptorsToRequestAsync(request);
+
+// Execute request
+var res = await _httpClient.SendAsync(request, combinedToken);
+
+// Apply response interceptors
+res = await ApplyInterceptorsToResponseAsync(res);
+```
+
+### 2. Optimized Retry Logic
+
+Retry logic has been moved to interceptors to avoid duplicate retries:
+
+```csharp
+// Previous retry code has been removed
+// var res = await ProcessRequestWithRetriesAsync(...);
+
+// Now retries are handled uniformly by interceptors
+var client = new StandardHttpClient("https://api.example.com");
+client.Options.EnableRetry = true;
+client.Options.MaxRetryCount = 3;
+```
+
+### 3. Automatic Benefits from StandardHttpClientFactory
+
+When using the factory, you automatically get the benefits of interceptors and configuration:
+
+```csharp
+// Create client with factory
+var factory = new StandardHttpClientFactory();
+var client = factory.CreateClient("https://api.example.com", options => {
+    options.EnableRetry = true;
+    options.DefaultTimeout = 15;
+});
+
+// Compression support and retry functionality are automatically included
+```
+
 ## Installation
 
 ```bash
@@ -102,7 +148,7 @@ StandardHttpClient is particularly well-suited for:
 
 1. **Use HttpClientFactory to manage instances**
    ```csharp
-   services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
+   services.AddSingleton<IHttpClientFactory, StandardHttpClientFactory>();
    ```
 
 2. **Create named clients grouped by API**
@@ -120,4 +166,16 @@ StandardHttpClient is particularly well-suited for:
    ```csharp
    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
    await client.GetAsync<Data>("api/data", cancellationToken: cts.Token);
+   ```
+
+5. **File Upload Best Practices**
+   ```csharp
+   // File uploads are now simpler, handled by MultipartHelper
+   var response = await client.CallApi<UploadResult>(
+       "api/upload",
+       HttpMethodEnum.Post,
+       formData,
+       fileBytes,
+       "document.pdf"
+   );
    ```

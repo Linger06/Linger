@@ -13,6 +13,78 @@ Linger.HttpClient.Flurl 基于流行的 Flurl.Http 库实现，提供了流畅�
 - **强大的请求定制**：丰富的选项和扩展
 - **友好的异常处理**：详细且可读性强的错误信息
 
+## 最新改进
+
+### 1. 拦截器全面集成
+
+FlurlHttpClient现在与StandardHttpClient一样，完全支持请求和响应拦截器：
+
+```csharp
+// 创建HttpRequestMessage用于应用拦截器
+var request = new HttpRequestMessage(httpMethod, requestUri);
+
+// 应用请求拦截器
+request = await ApplyInterceptorsToRequestAsync(request);
+
+// 从拦截器处理过的请求更新Flurl请求
+if (request.RequestUri != requestUri)
+{
+    flurlRequest = new FlurlRequest(request.RequestUri);
+}
+
+// 执行Flurl请求
+var flurlResponse = await ExecuteFlurlRequest(flurlRequest, method, content, token);
+
+// 应用响应拦截器
+var res = flurlResponse.ResponseMessage;
+if (res != null)
+{
+    res = await ApplyInterceptorsToResponseAsync(res);
+}
+```
+
+### 2. 令牌处理改进
+
+SetToken方法已增强，确保令牌正确应用：
+
+```csharp
+public override void SetToken(string token)
+{
+    // 修正：不使用忽略结果的语法，确保令牌正确应用
+    if (string.IsNullOrEmpty(token))
+    {
+        _flurlClient.Headers.Remove("Authorization");
+    }
+    else
+    {
+        _flurlClient.WithOAuthBearerToken(token);
+    }
+}
+```
+
+### 3. 与StandardHttpClient行为一致性
+
+文化信息处理位置与StandardHttpClient相同：
+
+```csharp
+// 统一添加文化信息 - 将位置调整为与StandardHttpClient相同
+url = url.AppendQuery("culture=" + Thread.CurrentThread.CurrentUICulture.Name);
+```
+
+### 4. 底层客户端访问支持
+
+添加了GetFlurlClient方法，便于访问底层Flurl功能：
+
+```csharp
+/// <summary>
+/// 获取底层Flurl客户端用于高级操作
+/// </summary>
+public IFlurlClient GetFlurlClient()
+{
+    return _flurlClient;
+}
+```
+
 ## 安装
 
 ```bash
@@ -166,7 +238,11 @@ flurlClient.OnError(async call =>
 
 2. **使用工厂创建命名客户端**
    ```csharp
+   // 使用工厂获取所有标准功能（包括拦截器）
    services.AddSingleton<IHttpClientFactory, FlurlHttpClientFactory>();
+   var client = factory.CreateClient("https://api.example.com", options => {
+       options.EnableRetry = true;
+   });
    ```
 
 3. **按功能区域组织API调用**
@@ -176,4 +252,25 @@ flurlClient.OnError(async call =>
    
    // 产品相关API
    var productsApi = factory.GetOrCreateClient("products");
+   ```
+
+4. **确保令牌正确应用**
+   ```csharp
+   // 设置token（现在实现已修复）
+   client.SetToken(jwtToken);
+   
+   // 清除token
+   client.SetToken(string.Empty);
+   ```
+
+5. **结合拦截器和Flurl特性**
+   ```csharp
+   // 添加标准拦截器
+   client.AddInterceptor(new LoggingInterceptor());
+   
+   // 同时利用Flurl特性
+   var flurlClient = client.GetFlurlClient();
+   flurlClient.BeforeCall(call => {
+       // Flurl特定的前置处理
+   });
    ```

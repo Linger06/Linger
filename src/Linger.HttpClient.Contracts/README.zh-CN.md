@@ -29,17 +29,20 @@ Linger.HttpClient.Contracts 定义了HTTP客户端操作的标准接口和契约
 ## 特性
 - 强类型HTTP客户端接口
 - 支持各种HTTP方法（GET, POST, PUT, DELETE）
-- 文件上传功能
-- 请求/响应拦截
+- 文件上传功能（通过统一的MultipartHelper简化处理）
+- 请求/响应拦截器系统
 - 可自定义HTTP选项
 - 分页结果支持
 - 自动重试机制
 - 友好的错误处理
+- 内置压缩支持
+- 性能监控与统计
 
 ## 支持的.NET版本
 - .NET Standard 2.0+
 - .NET Framework 4.6.2+
 - .NET 6.0+
+- .NET 8.0/9.0
 
 ## 安装
 

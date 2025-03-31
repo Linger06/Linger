@@ -13,6 +13,52 @@ Linger.HttpClient.Standard 是基于标准 .NET HttpClient 的实现，提供了
 - **易于排错**：透明的实现方式，错误信息明确
 - **低内存占用**：优化的内存管理，适合资源受限环境
 
+## 最新改进
+
+### 1. 拦截器全面集成
+
+拦截器系统已完全集成到StandardHttpClient中，确保请求和响应的一致处理：
+
+```csharp
+// 应用请求拦截器
+request = await ApplyInterceptorsToRequestAsync(request);
+
+// 执行请求
+var res = await _httpClient.SendAsync(request, combinedToken);
+
+// 应用响应拦截器
+res = await ApplyInterceptorsToResponseAsync(res);
+```
+
+### 2. 重试逻辑优化
+
+重试逻辑移至拦截器中，避免重复重试：
+
+```csharp
+// 之前的重试代码已移除
+// var res = await ProcessRequestWithRetriesAsync(...);
+
+// 现在使用拦截器统一处理重试
+var client = new StandardHttpClient("https://api.example.com");
+client.Options.EnableRetry = true;
+client.Options.MaxRetryCount = 3;
+```
+
+### 3. 自动利用StandardHttpClientFactory
+
+使用工厂时自动获得拦截器和配置的好处：
+
+```csharp
+// 使用工厂创建客户端
+var factory = new StandardHttpClientFactory();
+var client = factory.CreateClient("https://api.example.com", options => {
+    options.EnableRetry = true;
+    options.DefaultTimeout = 15;
+});
+
+// 自动包含压缩支持和重试功能
+```
+
 ## 安装
 
 ```bash
@@ -102,7 +148,7 @@ StandardHttpClient 特别适合以下场景：
 
 1. **使用HttpClientFactory管理实例**
    ```csharp
-   services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
+   services.AddSingleton<IHttpClientFactory, StandardHttpClientFactory>();
    ```
 
 2. **根据API分组创建命名客户端**
@@ -120,4 +166,16 @@ StandardHttpClient 特别适合以下场景：
    ```csharp
    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
    await client.GetAsync<Data>("api/data", cancellationToken: cts.Token);
+   ```
+
+5. **文件上传最佳实践**
+   ```csharp
+   // 现在文件上传更简单，由MultipartHelper处理
+   var response = await client.CallApi<UploadResult>(
+       "api/upload",
+       HttpMethodEnum.Post,
+       formData,
+       fileBytes,
+       "document.pdf"
+   );
    ```

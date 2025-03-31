@@ -99,12 +99,8 @@ public class StandardHttpClient : HttpClientBase
                 }
             }
 
-            // 执行请求（带重试）
-            var getResponseTask = ProcessRequestWithRetriesAsync(
-                async () => await _httpClient.SendAsync(request, combinedToken),
-                combinedToken);
-
-            var res = await getResponseTask;
+            // 执行请求 - 移除重试逻辑
+            var res = await _httpClient.SendAsync(request, combinedToken);
 
             // 应用响应拦截器
             res = await ApplyInterceptorsToResponseAsync(res);
@@ -123,53 +119,6 @@ public class StandardHttpClient : HttpClientBase
         {
             rv.ErrorMsg = ex.ToString();
             return rv;
-        }
-    }
-
-    private async Task<HttpResponseMessage> ProcessRequestWithRetriesAsync(
-        Func<Task<HttpResponseMessage>> requestFunc,
-        CancellationToken cancellationToken)
-    {
-        // 只有当启用重试时才创建RetryHelper
-        if (!Options.EnableRetry)
-        {
-            return await requestFunc();
-        }
-
-        // 创建RetryOptions并配置
-        var retryOptions = new RetryOptions
-        {
-            MaxRetries = Options.MaxRetryCount,
-            BaseDelayMs = Options.RetryInterval,
-            UseExponentialBackoff = true, // 使用指数退避策略
-            JitterFactor = 0.2 // 添加20%的随机抖动
-        };
-
-        var retryHelper = new RetryHelper(retryOptions);
-
-        // 定义哪些异常类型需要重试
-        bool ShouldRetry(Exception ex)
-        {
-            return ex is HttpRequestException || ex is TaskCanceledException;
-        }
-
-        try
-        {
-            // 使用RetryHelper执行HTTP请求
-            return await retryHelper.ExecuteAsync(
-                requestFunc,
-                "HTTP Request",
-                ShouldRetry,
-                cancellationToken);
-        }
-        catch (OutOfReTryCountException retryEx)
-        {
-            // 保持与原始实现一致，将原始异常抛出
-            if (retryEx.InnerException != null)
-            {
-                throw retryEx.InnerException;
-            }
-            throw;
         }
     }
 }

@@ -23,20 +23,107 @@ The Linger HTTP client ecosystem consists of three main components:
 Linger.HttpClient.Contracts defines standard interfaces and contracts for HTTP client operations and serves as the foundation for Linger HTTP client implementations. By using unified contracts, you can easily switch between different HTTP client implementations without modifying your business code.
 
 ## Features
+
 - Strongly typed HTTP client interfaces
 - Support for various HTTP methods (GET, POST, PUT, DELETE)
-- File upload capabilities
-- Request/response interception
+- File upload capabilities (simplified with unified MultipartHelper)
+- Request/response interception system
 - Customizable HTTP options
 - Paged result support
 - Automatic retry mechanism
 - User-friendly error handling
+- Built-in compression support
+- Performance monitoring and statistics
 
 ## Supported .NET Versions
 
 - .NET Standard 2.0+
 - .NET Framework 4.6.2+
 - .NET 6.0+
+- .NET 8.0/9.0
+
+## Recent Improvements
+
+### 1. Enhanced Interceptor System
+
+The newly designed interceptor system is consistently applied across all client implementations:
+
+```csharp
+// Define an interceptor
+public class LoggingInterceptor : IHttpClientInterceptor
+{
+    public async Task<HttpRequestMessage> OnRequestAsync(HttpRequestMessage request)
+    {
+        Console.WriteLine($"Sending request: {request.Method} {request.RequestUri}");
+        return request;
+    }
+    
+    public async Task<HttpResponseMessage> OnResponseAsync(HttpResponseMessage response)
+    {
+        Console.WriteLine($"Received response: {(int)response.StatusCode}");
+        return response;
+    }
+}
+
+// Add the interceptor
+client.AddInterceptor(new LoggingInterceptor());
+```
+
+### 2. Default Interceptor Factory
+
+The new `DefaultInterceptorFactory` automatically creates appropriate interceptors based on configuration:
+
+```csharp
+// Factory creates interceptors based on HttpClientOptions configuration
+var interceptors = DefaultInterceptorFactory.CreateStandardInterceptors(options);
+foreach (var interceptor in interceptors)
+{
+    client.AddInterceptor(interceptor);
+}
+```
+
+### 3. Built-in Compression Support
+
+HTTP compression is supported automatically without additional configuration:
+
+```csharp
+// CompressionInterceptor is automatically applied to all clients
+var client = factory.CreateClient("https://api.example.com");
+
+// Requests automatically include Accept-Encoding header with gzip and deflate
+var response = await client.GetAsync<UserData>("api/users/1");
+```
+
+### 4. Unified File Upload Handling
+
+File uploads are simplified using MultipartHelper:
+
+```csharp
+// File upload example
+byte[] fileData = File.ReadAllBytes("document.pdf");
+var formData = new Dictionary<string, string> { { "description", "Test document" } };
+
+// All client implementations handle file uploads in a unified way
+var response = await client.CallApi<UploadResult>(
+    "api/files/upload",
+    HttpMethodEnum.Post,
+    formData,
+    fileData,
+    "document.pdf"
+);
+```
+
+### 5. Advanced Performance Monitoring
+
+Built-in performance monitoring provides detailed HTTP request statistics:
+
+```csharp
+// Get performance stats for a specific endpoint
+var stats = HttpClientMetrics.Instance.GetEndpointStats("api/users");
+Console.WriteLine($"Average response time: {stats.AverageResponseTime}ms");
+Console.WriteLine($"Success rate: {stats.SuccessRate * 100}%");
+Console.WriteLine($"Active requests: {stats.ActiveRequests}");
+```
 
 ## Installation
 
@@ -313,22 +400,34 @@ var pagedUsers = await client.GetPagedAsync<UserData>("api/users", new { page = 
 
 ## Built-in Interceptors
 
-Linger.HttpClient.Contracts provides a set of built-in interceptors to enhance HTTP client functionality:
+Linger.HttpClient.Contracts provides several built-in interceptors to enhance HTTP client functionality:
 
 ### Retry Interceptor
 
-Automatically retries requests that fail due to transient errors (e.g., 503 Service Unavailable, 504 Gateway Timeout, 429 Too Many Requests):
+Automatically retries requests that fail due to transient errors, now implemented using the unified RetryHelper:
 
 ```csharp
-// Create and configure retry interceptor
-var retryInterceptor = new RetryInterceptor(
-    maxRetries: 3, // Maximum retry attempts
-    shouldRetry: response => response.StatusCode == HttpStatusCode.ServiceUnavailable, // Custom retry condition
-    delayFunc: async retryCount => await Task.Delay((int)Math.Pow(2, retryCount) * 100) // Exponential backoff
-);
+// Enable retry with simple configuration
+client.Options.EnableRetry = true;
+client.Options.MaxRetryCount = 3;
+client.Options.RetryInterval = 1000; // milliseconds
 
-// Add to HTTP client
+// Or manually add a custom retry interceptor
+var retryInterceptor = new RetryInterceptor(
+    options,
+    response => response.StatusCode == HttpStatusCode.ServiceUnavailable
+);
 client.AddInterceptor(retryInterceptor);
+```
+
+### Compression Interceptor
+
+Automatically adds compression support to requests:
+
+```csharp
+// Compression interceptor is automatically added by DefaultInterceptorFactory
+// Or add it manually
+client.AddInterceptor(new CompressionInterceptor());
 ```
 
 ### Caching Interceptor
@@ -338,10 +437,8 @@ Caches GET responses to reduce server requests:
 ```csharp
 // Create and configure caching interceptor
 var cachingInterceptor = new CachingInterceptor(
-    defaultCacheDuration: TimeSpan.FromMinutes(10) // Default cache for 10 minutes
+    defaultCacheDuration: TimeSpan.FromMinutes(10)
 );
-
-// Add to HTTP client
 client.AddInterceptor(cachingInterceptor);
 ```
 
@@ -389,7 +486,7 @@ For detailed usage and examples, refer to the documentation of specific implemen
 - [FlurlHttpClient Documentation](../Linger.HttpClient.Flurl/README.md)
 
 ## Basic Usage
-This is a contracts library that defines interfaces and abstract classes. For implementation, use `Linger.HttpClient` or `Linger.HttpClient.Flurl`.
+This is a contracts library that defines interfaces and abstract classes. For implementation, use `Linger.HttpClient.Standard` or `Linger.HttpClient.Flurl`.
 
 ### Simple Call Examples
 

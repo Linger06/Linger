@@ -1,20 +1,20 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Factories;
 using Linger.HttpClient.Contracts.Models;
 
-namespace Linger.HttpClient.Flurl;
+namespace Linger.HttpClient.Standard;
 
 /// <summary>
-/// Flurl HTTP客户端工厂
+/// Standard HTTP客户端工厂
 /// </summary>
-public class FlurlHttpClientFactory : IHttpClientFactory
+public class StandardHttpClientFactory : IHttpClientFactory
 {
     private readonly ConcurrentDictionary<string, Lazy<IHttpClient>> _clients = new();
     private readonly ConcurrentDictionary<string, (string BaseUrl, Action<HttpClientOptions>? ConfigureOptions)> _registrations = new();
 
     /// <summary>
-    /// 创建一个新的Flurl HTTP客户端
+    /// 创建一个新的Standard HTTP客户端
     /// </summary>
     /// <param name="baseUrl">基础URL</param>
     /// <returns>HTTP客户端</returns>
@@ -24,7 +24,7 @@ public class FlurlHttpClientFactory : IHttpClientFactory
     }
 
     /// <summary>
-    /// 创建一个新的Flurl HTTP客户端并应用选项
+    /// 创建一个新的Standard HTTP客户端并应用选项
     /// </summary>
     /// <param name="baseUrl">基础URL</param>
     /// <param name="configureOptions">配置选项的操作</param>
@@ -34,7 +34,7 @@ public class FlurlHttpClientFactory : IHttpClientFactory
         var options = new HttpClientOptions();
         configureOptions?.Invoke(options);
 
-        var client = new FlurlHttpClient(baseUrl);
+        var client = new StandardHttpClient(baseUrl);
 
         // 复制选项
         foreach (var header in options.DefaultHeaders)
