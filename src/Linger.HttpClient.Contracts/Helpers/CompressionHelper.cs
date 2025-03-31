@@ -1,9 +1,4 @@
-using System.IO;
-using System.IO.Compression;
-using System.Net.Http;
-using System.Net.Http.Headers;
-
-namespace Linger.HttpClient.Contracts.Helpers;
+﻿namespace Linger.HttpClient.Contracts.Helpers;
 
 /// <summary>
 /// HTTP压缩辅助类
@@ -18,16 +13,16 @@ public static class CompressionHelper
     public static HttpClientHandler CreateCompressionHandler(HttpMessageHandler? innerHandler = null)
     {
         var handler = innerHandler as HttpClientHandler ?? new HttpClientHandler();
-        
+
         if (handler.SupportsAutomaticDecompression)
         {
-            handler.AutomaticDecompression = System.Net.DecompressionMethods.GZip | 
+            handler.AutomaticDecompression = System.Net.DecompressionMethods.GZip |
                                             System.Net.DecompressionMethods.Deflate;
         }
-        
+
         return handler;
     }
-    
+
     /// <summary>
     /// 为请求添加压缩支持
     /// </summary>
@@ -40,7 +35,7 @@ public static class CompressionHelper
             request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
             request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("deflate"));
         }
-        
+
         return request;
     }
 }

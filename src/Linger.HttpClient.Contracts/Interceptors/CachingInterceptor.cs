@@ -1,6 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Security.Cryptography;
-using System.Text;
+﻿using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Core;
 
 namespace Linger.HttpClient.Contracts.Interceptors;
@@ -54,7 +52,7 @@ public class CachingInterceptor : IHttpClientInterceptor
         // 检查是否有缓存
         if (_cache.TryGetValue(cacheKey, out var cachedResponse) && !cachedResponse.IsExpired())
         {
-#if NETSTANDARD2_0
+#if NETFRAMEWORK || NETSTANDARD2_0
             // 设置这是一个缓存命中，但不需要发送请求
             request.Properties["SkipRequest"] = true;
             request.Properties["CachedResponse"] = cachedResponse.Response;
@@ -64,7 +62,7 @@ public class CachingInterceptor : IHttpClientInterceptor
             request.Options.Set(new HttpRequestOptionsKey<HttpResponseMessage>("CachedResponse"), cachedResponse.Response);
 #endif
         }
-#if NETSTANDARD2_0
+#if NETFRAMEWORK || NETSTANDARD2_0
         // 在请求中保存缓存键，便于响应时使用
         request.Properties["CacheKey"] = cacheKey;
 #else
@@ -82,7 +80,7 @@ public class CachingInterceptor : IHttpClientInterceptor
             return response;
         }
 
-#if NETSTANDARD2_0
+#if NETFRAMEWORK || NETSTANDARD2_0
         // 检查是否应该跳过请求并直接返回缓存
         if (request.Properties.TryGetValue("SkipRequest", out var skipObj) &&
             skipObj is bool skip && skip &&
@@ -108,7 +106,7 @@ public class CachingInterceptor : IHttpClientInterceptor
             {
                 return response;
             }
-#if NETSTANDARD2_0
+#if NETFRAMEWORK || NETSTANDARD2_0
             if (request.Properties.TryGetValue("CacheKey", out var cacheKeyObj) && cacheKeyObj is string cacheKey)
 #else
             if (request.Options.TryGetValue(new HttpRequestOptionsKey<string>("CacheKey"), out var cacheKey))
@@ -158,9 +156,7 @@ public class CachingInterceptor : IHttpClientInterceptor
         }
 
         var keyInput = $"{uri}|{headerValues}";
-
-        using var md5 = MD5.Create();
-        var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(keyInput));
+        var hash = keyInput.ToMd5HashByte();
         return Convert.ToBase64String(hash);
     }
 
@@ -201,7 +197,7 @@ public class CachingInterceptor : IHttpClientInterceptor
     /// <summary>
     /// 检查请求是否指定了不使用缓存
     /// </summary>
-    private bool HasNoCacheHeader(HttpRequestMessage request)
+    private static bool HasNoCacheHeader(HttpRequestMessage request)
     {
         if (request.Headers.CacheControl != null)
         {
@@ -212,7 +208,7 @@ public class CachingInterceptor : IHttpClientInterceptor
         return request.Headers.Pragma.Any(p => p.Name.Equals("no-cache", StringComparison.OrdinalIgnoreCase));
     }
 
-    private TimeSpan? GetCacheDuration(HttpResponseMessage response)
+    private static TimeSpan? GetCacheDuration(HttpResponseMessage response)
     {
         // 从Cache-Control头部获取max-age值
         if (response.Headers.CacheControl?.MaxAge != null)

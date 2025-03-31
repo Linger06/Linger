@@ -71,7 +71,7 @@ dotnet add package Linger.HttpClient.Flurl
 
 ```bash
 dotnet add package Linger.HttpClient.Contracts
-dotnet add package Linger.HttpClient
+dotnet add package Linger.HttpClient.Standard
 dotnet add package Linger.HttpClient.Flurl
 ```
 
@@ -82,7 +82,7 @@ dotnet add package Linger.HttpClient.Flurl
 Install-Package Linger.HttpClient.Contracts
 
 # 安装实现
-Install-Package Linger.HttpClient
+Install-Package Linger.HttpClient.Standard
 # 或
 Install-Package Linger.HttpClient.Flurl
 ```
@@ -239,7 +239,7 @@ Linger.HttpClient.Contracts 遵循接口隔离原则，将不同责任的接口�
 
 ## 基本使用
 
-这是一个契约库，定义了接口和抽象类。对于具体实现，请使用`Linger.HttpClient`或`Linger.HttpClient.Flurl`。
+这是一个契约库，定义了接口和抽象类。对于具体实现，请使用`Linger.HttpClient.Standard`或`Linger.HttpClient.Flurl`。
 
 ### 简单调用示例
 

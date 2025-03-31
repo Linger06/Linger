@@ -118,10 +118,16 @@ public class FlurlHttpClient : HttpClientBase
             flurlRequest = flurlRequest.SetQueryParam("culture", Thread.CurrentThread.CurrentUICulture.Name);
 
             // 使用合并后的取消令牌
-            var flurlResponse = await ExecuteFlurlRequest(flurlRequest, method, content, combinedToken);
+            //var flurlResponse = await ExecuteFlurlRequest(flurlRequest, method, content, combinedToken);
 
-            HttpResponseMessage? res = flurlResponse.ResponseMessage;
-            rv = await HandleResponseMessage<T>(res);
+            // 执行请求（带重试）
+            var getResponseTask = ProcessRequestWithRetriesAsync(
+                async () => await ExecuteFlurlRequest(flurlRequest, method, content, combinedToken),
+                combinedToken);
+
+            var res = await getResponseTask;
+            //HttpResponseMessage? res = flurlResponse.ResponseMessage;
+            rv = await HandleResponseMessage<T>(res.ResponseMessage);
 
             return rv;
         }

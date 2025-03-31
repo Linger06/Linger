@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using System.Security.Cryptography;
 using Linger.AspNetCore.Jwt.Contracts;
 using Microsoft.Extensions.Logging;
@@ -8,30 +8,25 @@ namespace Linger.AspNetCore.Jwt;
 /// <summary>
 /// 支持刷新令牌功能的JWT服务实现
 /// </summary>
-public abstract class JwtServiceWithRefresh : JwtService, IRefreshableJwtService
+public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger? logger = null) : JwtService(jwtOptions, logger), IRefreshableJwtService
 {
-    protected JwtServiceWithRefresh(JwtOption jwtOptions, ILogger? logger = null) 
-        : base(jwtOptions, logger)
-    {
-    }
-
     public override async Task<Token> CreateTokenAsync(string userId)
     {
         try
         {
             // 首先获取基本访问令牌
             Token baseToken = await base.CreateTokenAsync(userId);
-            
+
             // 生成刷新令牌并处理存储
             JwtRefreshToken refreshToken = GenerateRefreshToken();
             await HandleRefreshToken(userId, refreshToken);
-            
+
             // 返回包含刷新令牌的完整Token
             return new Token(baseToken.AccessToken, refreshToken.RefreshToken);
         }
         catch (Exception ex)
         {
-            _logger?.LogError($"生成带刷新令牌的Token时出错: {ex.Message}");
+            Logger?.LogError("生成带刷新令牌的Token时出错: {Message}", ex.Message);
             throw;
         }
     }
@@ -64,7 +59,7 @@ public abstract class JwtServiceWithRefresh : JwtService, IRefreshableJwtService
         rng.GetBytes(randomNumber);
 
         var refreshToken = Convert.ToBase64String(randomNumber);
-        DateTime refreshTokenExpires = DateTime.Now.AddMinutes(_jwtOptions.RefreshTokenExpires);
+        DateTime refreshTokenExpires = DateTime.Now.AddMinutes(JwtOptions.RefreshTokenExpires);
         return new JwtRefreshToken { RefreshToken = refreshToken, ExpiryTime = refreshTokenExpires };
     }
 

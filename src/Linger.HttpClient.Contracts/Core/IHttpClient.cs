@@ -1,7 +1,4 @@
-#if NETFRAMEWORK
-using System.Net.Http;
-#endif
-using Linger.HttpClient.Contracts.Models;
+﻿using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.HttpClient.Contracts.Core;
 
@@ -16,7 +13,7 @@ public interface IHttpClient
     Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, byte[] fileData, string filename, int? timeout = null, CancellationToken cancellationToken = default);
     Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default);
     void SetToken(string token);
-    
+
     // 新增的方法
     void AddHeader(string name, string value);
     void AddInterceptor(IHttpClientInterceptor interceptor);

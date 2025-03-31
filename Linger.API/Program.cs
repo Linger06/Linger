@@ -1,12 +1,13 @@
 ﻿using Linger.AspNetCore.Jwt;
 using Linger.AspNetCore.Jwt.Contracts;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // 添加服务
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddOpenApi();
 
 // 使用ConfigureJwt扩展方法配置JWT认证
 builder.Services.ConfigureJwt(builder.Configuration);
@@ -29,8 +30,8 @@ var app = builder.Build();
 // 配置HTTP请求管道
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.MapScalarApiReference();
+    app.MapOpenApi();
 }
 
 app.UseHttpsRedirection();

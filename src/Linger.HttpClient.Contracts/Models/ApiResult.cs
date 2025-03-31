@@ -1,6 +1,4 @@
-using System.Net;
-
-namespace Linger.HttpClient.Contracts.Models;
+﻿namespace Linger.HttpClient.Contracts.Models;
 
 /// <summary>
 /// API调用结果
@@ -16,7 +14,7 @@ public class ApiResult<T>
     /// 请求是否成功 (2xx 状态码)
     /// </summary>
     public bool IsSuccess => StatusCode.HasValue && (int)StatusCode.Value >= 200 && (int)StatusCode.Value < 300;
-    
+
     /// <summary>
     /// 是否为未授权状态 (401)
     /// </summary>

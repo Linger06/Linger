@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using Linger.HttpClient.Contracts.Core;
+﻿using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.HttpClient.Contracts.Extensions;
@@ -50,7 +46,7 @@ public static class HttpClientExtensions
     {
         // 将TimeSpan转换为秒数
         int? timeoutSeconds = timeout.HasValue ? (int)timeout.Value.TotalSeconds : null;
-        
+
         // 使用基础方法发送请求
         return await client.CallApi<T>(url, queryParams, timeoutSeconds, cancellationToken);
     }

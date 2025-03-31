@@ -1,13 +1,8 @@
-using System.Net;
-using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using Linger.Extensions;
 using Linger.Extensions.Core;
-using Linger.HttpClient.Contracts.Models;
 using Linger.HttpClient.Contracts.Metrics;
-#if NETFRAMEWORK
-using System.Net.Http;
-#endif
+using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.HttpClient.Contracts.Core;
 
@@ -32,14 +27,14 @@ public abstract class HttpClientBase : IHttpClient
     {
         // 启动性能监控
         var requestId = HttpClientMetrics.Instance.StartRequest(url);
-        
+
         try
         {
             var result = await CallApi<T>(url, HttpMethodEnum.Get, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-            
+
             // 记录请求完成
             HttpClientMetrics.Instance.EndRequest(url, requestId, result.IsSuccess);
-            
+
             return result;
         }
         catch
@@ -150,17 +145,14 @@ public abstract class HttpClientBase : IHttpClient
         {
             throw new ArgumentNullException(nameof(name));
         }
-        
+
         Options.DefaultHeaders[name] = value;
     }
 
     public void AddInterceptor(IHttpClientInterceptor interceptor)
     {
-        if (interceptor == null)
-        {
-            throw new ArgumentNullException(nameof(interceptor));
-        }
-        
+        ArgumentNullException.ThrowIfNull(interceptor);
+
         Interceptors.Add(interceptor);
     }
 
@@ -176,7 +168,7 @@ public abstract class HttpClientBase : IHttpClient
         {
             currentRequest = await interceptor.OnRequestAsync(currentRequest);
         }
-        
+
         return currentRequest;
     }
 
@@ -192,7 +184,7 @@ public abstract class HttpClientBase : IHttpClient
         {
             currentResponse = await interceptor.OnResponseAsync(currentResponse);
         }
-        
+
         return currentResponse;
     }
 
@@ -292,27 +284,27 @@ public abstract class HttpClientBase : IHttpClient
     protected CancellationTokenSource CreateTimeoutTokenSource(int? timeout, CancellationToken userToken)
     {
         CancellationTokenSource timeoutSource = new();
-        
+
         if (timeout.HasValue)
         {
             timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(userToken);
             timeoutSource.CancelAfter(TimeSpan.FromSeconds(timeout.Value));
         }
-        
+
         return timeoutSource;
     }
-    
+
     // 改进4: 提供空安全的查询参数构建方法
     protected string BuildQueryString(object? queryParams)
     {
         if (queryParams == null)
             return string.Empty;
-            
+
         // 将对象转换为键值对序列
         var properties = queryParams.GetType().GetProperties()
             .Where(p => p.GetValue(queryParams) != null)
             .Select(p => $"{Uri.EscapeDataString(p.Name)}={Uri.EscapeDataString(p.GetValue(queryParams)?.ToString() ?? string.Empty)}");
-            
+
         return string.Join("&", properties);
     }
 }

@@ -1,8 +1,4 @@
-#if NETFRAMEWORK
-using System.Net.Http;
-#endif
-
-namespace Linger.HttpClient.Contracts.Core;
+﻿namespace Linger.HttpClient.Contracts.Core;
 
 /// <summary>
 /// HTTP客户端拦截器接口
@@ -15,7 +11,7 @@ public interface IHttpClientInterceptor
     /// <param name="request">HTTP请求消息</param>
     /// <returns>处理后的HTTP请求消息</returns>
     Task<HttpRequestMessage> OnRequestAsync(HttpRequestMessage request);
-    
+
     /// <summary>
     /// 响应后拦截
     /// </summary>

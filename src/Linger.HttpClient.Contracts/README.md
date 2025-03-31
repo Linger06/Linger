@@ -1,4 +1,4 @@
-﻿# Linger.HttpClient.Contracts
+# Linger.HttpClient.Contracts
 
 ## Linger HTTP Client Ecosystem
 
@@ -68,7 +68,7 @@ dotnet add package Linger.HttpClient.Flurl
 
 ```bash
 dotnet add package Linger.HttpClient.Contracts
-dotnet add package Linger.HttpClient
+dotnet add package Linger.HttpClient.Standard
 dotnet add package Linger.HttpClient.Flurl
 ```
 
@@ -79,7 +79,7 @@ dotnet add package Linger.HttpClient.Flurl
 Install-Package Linger.HttpClient.Contracts
 
 # Install implementation
-Install-Package Linger.HttpClient
+Install-Package Linger.HttpClient.Standard
 # or
 Install-Package Linger.HttpClient.Flurl
 ```
