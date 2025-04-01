@@ -1,6 +1,43 @@
 # Linger.HttpClient.Contracts
 
-## Linger HTTP Client Ecosystem
+## Table of Contents
+- [Overview](#overview)
+  - [Linger HTTP Client Ecosystem](#linger-http-client-ecosystem)
+  - [Features](#features)
+  - [Supported .NET Versions](#supported-net-versions)
+  - [Recent Improvements](#recent-improvements)
+- [Installation](#installation)
+  - [Via NuGet](#via-nuget)
+  - [Using Package Manager Console](#using-package-manager-console)
+- [Core Components](#core-components)
+  - [Core Interfaces](#core-interfaces)
+  - [Core Models](#core-models)
+  - [Design Philosophy](#design-philosophy)
+- [Usage Guide](#usage-guide)
+  - [Basic Usage](#basic-usage)
+  - [Extension Features](#extension-features)
+  - [Interceptor System](#interceptor-system)
+- [Dependency Injection Integration](#dependency-injection-integration)
+  - [Basic Registration](#basic-registration)
+  - [Using Microsoft's HttpClientFactory](#using-microsofts-httpclientfactory)
+  - [Multiple Instance Configuration](#multiple-instance-configuration)
+- [Polly Policies Integration](#polly-policies-integration)
+  - [Common Policy Types](#common-policy-types)
+  - [Configuration Examples](#configuration-examples)
+  - [Combining with Linger Interceptors](#combining-with-linger-interceptors)
+- [Advanced Features](#advanced-features)
+  - [Custom Interceptors](#custom-interceptors)
+  - [Error Handling](#error-handling)
+  - [Performance Monitoring](#performance-monitoring)
+- [Best Practices](#best-practices)
+  - [Instance Management](#instance-management)
+  - [Request Optimization](#request-optimization)
+  - [Exception Handling](#exception-handling)
+- [Implementation Projects](#implementation-projects)
+
+## Overview
+
+### Linger HTTP Client Ecosystem
 
 The Linger HTTP client ecosystem consists of three main components:
 
@@ -8,21 +45,9 @@ The Linger HTTP client ecosystem consists of three main components:
 - **[Linger.HttpClient.Standard](../Linger.HttpClient.Standard/README.md)**: Implementation based on .NET standard HttpClient
 - **[Linger.HttpClient.Flurl](../Linger.HttpClient.Flurl/README.md)**: Fluent API implementation based on Flurl.Http
 
-## Table of Contents
-- [Introduction](#introduction)
-- [Features](#features)
-- [Supported .NET Versions](#supported-net-versions)
-- [Installation](#installation)
-- [Basic Usage](#basic-usage)
-- [Dependency Injection Usage](#dependency-injection-usage)
-- [Advanced Usage](#advanced-usage)
-- [Performance Tips & Best Practices](#performance-tips--best-practices)
-
-## Introduction
-
 Linger.HttpClient.Contracts defines standard interfaces and contracts for HTTP client operations and serves as the foundation for Linger HTTP client implementations. By using unified contracts, you can easily switch between different HTTP client implementations without modifying your business code.
 
-## Features
+### Features
 
 - Strongly typed HTTP client interfaces
 - Support for various HTTP methods (GET, POST, PUT, DELETE)
@@ -35,16 +60,16 @@ Linger.HttpClient.Contracts defines standard interfaces and contracts for HTTP c
 - Built-in compression support
 - Performance monitoring and statistics
 
-## Supported .NET Versions
+### Supported .NET Versions
 
 - .NET Standard 2.0+
 - .NET Framework 4.6.2+
 - .NET 6.0+
 - .NET 8.0/9.0
 
-## Recent Improvements
+### Recent Improvements
 
-### 1. Enhanced Interceptor System
+#### 1. Enhanced Interceptor System
 
 The newly designed interceptor system is consistently applied across all client implementations:
 
@@ -69,20 +94,20 @@ public class LoggingInterceptor : IHttpClientInterceptor
 client.AddInterceptor(new LoggingInterceptor());
 ```
 
-### 2. Default Interceptor Factory
+#### 2. Default Interceptor Factory
 
 The new `DefaultInterceptorFactory` automatically creates appropriate interceptors based on configuration:
 
 ```csharp
 // Factory creates interceptors based on HttpClientOptions configuration
 var interceptors = DefaultInterceptorFactory.CreateStandardInterceptors(options);
-foreach (var interceptor in interceptors)
+foreach (var interceptor in the interceptors)
 {
     client.AddInterceptor(interceptor);
 }
 ```
 
-### 3. Built-in Compression Support
+#### 3. Built-in Compression Support
 
 HTTP compression is supported automatically without additional configuration:
 
@@ -94,7 +119,7 @@ var client = factory.CreateClient("https://api.example.com");
 var response = await client.GetAsync<UserData>("api/users/1");
 ```
 
-### 4. Unified File Upload Handling
+#### 4. Unified File Upload Handling
 
 File uploads are simplified using MultipartHelper:
 
@@ -113,7 +138,7 @@ var response = await client.CallApi<UploadResult>(
 );
 ```
 
-### 5. Advanced Performance Monitoring
+#### 5. Advanced Performance Monitoring
 
 Built-in performance monitoring provides detailed HTTP request statistics:
 
@@ -171,7 +196,7 @@ Install-Package Linger.HttpClient.Standard
 Install-Package Linger.HttpClient.Flurl
 ```
 
-## Core Interfaces and Models
+## Core Components
 
 ### Core Interfaces
 
@@ -293,9 +318,9 @@ public class HttpClientOptions
 }
 ```
 
-## Design Philosophy
+### Design Philosophy
 
-### Interface Segregation Principle
+#### Interface Segregation Principle
 
 Linger.HttpClient.Contracts follows the interface segregation principle, separating interfaces with different responsibilities:
 
@@ -303,7 +328,7 @@ Linger.HttpClient.Contracts follows the interface segregation principle, separat
 - **IHttpClientInterceptor**: Focuses on intercepting and modifying requests/responses
 - **IHttpClientFactory**: Responsible for client instance creation and management
 
-### Extensibility
+#### Extensibility
 
 The interceptor mechanism is a core extension point, allowing for features such as:
 
@@ -313,7 +338,7 @@ The interceptor mechanism is a core extension point, allowing for features such 
 - Response caching
 - Performance monitoring
 
-### Unified Response Handling
+#### Unified Response Handling
 
 All HTTP responses are wrapped in an `ApiResult<T>`, providing a consistent handling pattern:
 
@@ -321,30 +346,93 @@ All HTTP responses are wrapped in an `ApiResult<T>`, providing a consistent hand
 - Type-safe data access
 - Structured error information
 
-## Basic Usage Patterns
+## Usage Guide
 
-### Basic Request Handling
+### Basic Usage
+
+This is a contracts library that defines interfaces and abstract classes. For implementation, use `Linger.HttpClient.Standard` or `Linger.HttpClient.Flurl`.
+
+#### Creating a Client
 
 ```csharp
-// Create client
-var client = new StandardHttpClient("https://api.example.com");
+// Create HTTP client
+var client = new Linger.HttpClient.Standard.StandardHttpClient("https://api.example.com");
+```
 
-// Send GET request
-var response = await client.CallApi<UserData>("api/users/1");
+#### Sending GET Requests
+
+```csharp
+// GET request
+var result = await client.CallApi<UserData>("users/1");
 
 // Handle response
-if (response.IsSuccess)
+if (result.IsSuccess)
 {
-    var user = response.Data;
+    var user = result.Data;
     Console.WriteLine($"User: {user.Name}");
 }
 else
 {
-    Console.WriteLine($"Error: {response.ErrorMsg}");
+    Console.WriteLine($"Error: {result.ErrorMsg}");
 }
 ```
 
-### Interceptor Usage Pattern
+#### Sending POST Requests
+
+```csharp
+// POST request
+var postResult = await client.CallApi<UserData>("users", HttpMethodEnum.Post, 
+    new { Name = "John", Email = "john@example.com" });
+```
+
+#### Requests with Query Parameters
+
+```csharp
+// GET request with query parameters
+var queryResult = await client.CallApi<List<UserData>>("users", 
+    new { page = 1, pageSize = 10 });
+```
+
+### Extension Features
+
+The library also provides some extension methods for a more convenient API experience:
+
+```csharp
+// GET request simplification
+var user = await client.GetAsync<UserData>("api/users/1");
+
+// POST request simplification
+var newUser = await client.PostAsync<UserData>("api/users", new { Name = "John Doe" });
+
+// Paged request simplification
+var pagedUsers = await client.GetPagedAsync<UserData>("api/users", new { page = 1, pageSize = 20 });
+```
+
+#### File Upload
+
+```csharp
+// File upload
+byte[] fileData = File.ReadAllBytes("document.pdf");
+var formData = new Dictionary<string, string>
+{
+    { "description", "Sample document" },
+    { "category", "reports" }
+};
+
+var uploadResult = await client.CallApi<UploadResponse>(
+    "files/upload", 
+    HttpMethodEnum.Post, 
+    formData, 
+    fileData, 
+    "document.pdf"
+);
+```
+
+### Interceptor System
+
+Linger.HttpClient.Contracts provides several built-in interceptors to enhance HTTP client functionality:
+
+#### Interceptor Usage Pattern
 
 ```csharp
 // Define interceptor
@@ -367,44 +455,9 @@ public class LoggingInterceptor : IHttpClientInterceptor
 client.AddInterceptor(new LoggingInterceptor());
 ```
 
-### Factory Usage Pattern
+#### Built-in Interceptors
 
-```csharp
-// Create factory
-var factory = new DefaultHttpClientFactory();
-
-// Register named client
-factory.RegisterClient("users-api", "https://users.example.com", options => {
-    options.DefaultTimeout = 20;
-    options.EnableRetry = true;
-});
-
-// Get named client
-var client = factory.GetOrCreateClient("users-api");
-```
-
-## Extension Features
-
-The library also provides some extension methods for a more convenient API experience:
-
-```csharp
-// GET request
-var user = await client.GetAsync<UserData>("api/users/1");
-
-// POST request
-var newUser = await client.PostAsync<UserData>("api/users", new { Name = "John Doe" });
-
-// Paged request
-var pagedUsers = await client.GetPagedAsync<UserData>("api/users", new { page = 1, pageSize = 20 });
-```
-
-## Built-in Interceptors
-
-Linger.HttpClient.Contracts provides several built-in interceptors to enhance HTTP client functionality:
-
-### Retry Interceptor
-
-Automatically retries requests that fail due to transient errors, now implemented using the unified RetryHelper:
+##### Retry Interceptor
 
 ```csharp
 // Enable retry with simple configuration
@@ -420,9 +473,7 @@ var retryInterceptor = new RetryInterceptor(
 client.AddInterceptor(retryInterceptor);
 ```
 
-### Compression Interceptor
-
-Automatically adds compression support to requests:
+##### Compression Interceptor
 
 ```csharp
 // Compression interceptor is automatically added by DefaultInterceptorFactory
@@ -430,9 +481,7 @@ Automatically adds compression support to requests:
 client.AddInterceptor(new CompressionInterceptor());
 ```
 
-### Caching Interceptor
-
-Caches GET responses to reduce server requests:
+##### Caching Interceptor
 
 ```csharp
 // Create and configure caching interceptor
@@ -442,74 +491,27 @@ var cachingInterceptor = new CachingInterceptor(
 client.AddInterceptor(cachingInterceptor);
 ```
 
-## Performance Monitoring
-
-Built-in performance monitoring helps identify and resolve performance issues:
+#### Factory Usage Pattern
 
 ```csharp
-// Get API endpoint performance statistics
-var stats = HttpClientMetrics.Instance.GetEndpointStats("api/users");
-Console.WriteLine($"Average response time: {stats.AverageResponseTime}ms");
-Console.WriteLine($"Success rate: {stats.SuccessRate * 100}%");
+// Create factory
+var factory = new DefaultHttpClientFactory();
+
+// Register named client
+factory.RegisterClient("users-api", "https://users.example.com", options => {
+    options.DefaultTimeout = 20;
+    options.EnableRetry = true;
+});
+
+// Get named client
+var client = factory.GetOrCreateClient("users-api");
 ```
 
 ## Dependency Injection Integration
 
-IHttpClient can be easily integrated with dependency injection containers:
+IHttpClient can be easily integrated with dependency injection containers.
 
-```csharp
-// Register service
-services.AddScoped<IHttpClient>(provider => 
-    new StandardHttpClient("https://api.example.com"));
-
-// Configure options
-services.AddScoped<IHttpClient>(provider => 
-{
-    var client = new StandardHttpClient("https://api.example.com");
-    
-    // Configure options
-    client.Options.DefaultTimeout = 30;
-    client.Options.EnableRetry = true;
-    
-    // Add interceptors
-    client.AddInterceptor(new LoggingInterceptor());
-    
-    return client;
-});
-```
-
-## Implementation Projects
-
-For detailed usage and examples, refer to the documentation of specific implementation projects:
-
-- [StandardHttpClient Documentation](../Linger.HttpClient.Standard/README.md)
-- [FlurlHttpClient Documentation](../Linger.HttpClient.Flurl/README.md)
-
-## Basic Usage
-This is a contracts library that defines interfaces and abstract classes. For implementation, use `Linger.HttpClient.Standard` or `Linger.HttpClient.Flurl`.
-
-### Simple Call Examples
-
-```csharp
-// Create HTTP client
-var client = new Linger.HttpClient.Standard.StandardHttpClient("https://api.example.com");
-
-// GET request
-var result = await client.CallApi<UserData>("users/1");
-
-// POST request
-var postResult = await client.CallApi<UserData>("users", HttpMethodEnum.Post, 
-    new { Name = "John", Email = "john@example.com" });
-
-// GET request with query parameters
-var queryResult = await client.CallApi<List<UserData>>("users", 
-    new { page = 1, pageSize = 10 });
-```
-
-## Dependency Injection Usage
-The IHttpClient interface is designed to support dependency injection and can be easily integrated into your applications. Here's how to use it:
-
-### Registering the Service
+### Basic Registration
 
 ```csharp
 // Using Linger.HttpClient.Standard implementation
@@ -521,7 +523,7 @@ services.AddScoped<IHttpClient>(provider =>
     new FlurlHttpClient("https://api.example.com"));
 ```
 
-### Configuring Options
+#### Configuring Options
 
 ```csharp
 services.AddScoped<IHttpClient>(provider => 
@@ -532,7 +534,6 @@ services.AddScoped<IHttpClient>(provider =>
     client.Options.DefaultTimeout = 30; // Set default timeout to 30 seconds
     client.Options.EnableRetry = true;  // Enable retry
     client.Options.MaxRetryCount = 3;   // Maximum retry count
-    client.Options.RetryInterval = 1000; // Retry interval in milliseconds
     
     // Add default headers
     client.AddHeader("User-Agent", "Linger HttpClient");
@@ -545,7 +546,7 @@ services.AddScoped<IHttpClient>(provider =>
 });
 ```
 
-### Using in Services
+#### Using in Services
 
 ```csharp
 public class MyService
@@ -571,6 +572,90 @@ public class MyService
 }
 ```
 
+### Using Microsoft's HttpClientFactory
+
+In addition to the methods above, you can also use Microsoft's HttpClientFactory to manage HTTP client lifecycle, avoiding common pitfalls such as DNS changes issues and socket exhaustion:
+
+```csharp
+// 1. Basic registration
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "Linger HttpClient");
+});
+
+// 2. Using named clients with options and interceptors
+services.AddHttpClient("MyApi", client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
+{
+    // Create client instance
+    var client = new StandardHttpClient(httpClient);
+    
+    // Configure options
+    client.Options.DefaultTimeout = 30;
+    client.Options.EnableRetry = true;
+    client.Options.MaxRetryCount = 3;
+    
+    // Add interceptors
+    var logger = serviceProvider.GetRequiredService<ILogger<IHttpClient>>();
+    client.AddInterceptor(new LoggingInterceptor(log => logger.LogInformation(log)));
+    client.AddInterceptor(new RetryInterceptor(client.Options));
+    
+    return client;
+});
+
+// 3. Adding message handlers and policies
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy()) // Add Polly retry policy
+.AddHttpMessageHandler(() => new CustomMessageHandler()); // Add custom handler
+
+// Helper method to get Polly policy
+private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        .WaitAndRetryAsync(3, retryAttempt => 
+            TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+}
+```
+
+### Using HttpClientFactory in Services
+
+```csharp
+public class ApiService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IHttpClient _client;
+    
+    public ApiService(
+        IHttpClientFactory httpClientFactory,
+        IHttpClient client) // Default injected client
+    {
+        _httpClientFactory = httpClientFactory;
+        _client = client;
+    }
+    
+    public async Task<UserData> GetNamedClientUserAsync(int userId)
+    {
+        // Get typed named client
+        var apiClient = _httpClientFactory.CreateClient("MyApi")
+            .GetTypedClient<IHttpClient>();
+            
+        var result = await apiClient.CallApi<UserData>($"users/{userId}");
+        return result.Data;
+    }
+}
+```
+
 ### Multiple Instance Configuration
 
 If you need to use multiple HTTP clients with different configurations, you can use named injection:
@@ -586,190 +671,147 @@ services.AddKeyedScoped<IHttpClient>("api2", (provider, key) =>
 var api2Client = serviceProvider.GetKeyedService<IHttpClient>("api2");
 ```
 
-## Using HttpClientFactory
+## Polly Policies Integration
 
-`IHttpClientFactory` provides a unified way to manage HTTP clients with several advantages over creating client instances directly:
+[Polly](https://github.com/App-vNext/Polly) is a powerful .NET resilience and transient-fault-handling library that can be seamlessly integrated with both Linger.HttpClient and Microsoft's HttpClientFactory.
 
-- Centralized configuration and management of HTTP clients
-- Support for named clients for different scenarios
-- Automatic client lifecycle management to prevent resource leaks
-- Simplified configuration and interceptor setup
+### Common Policy Types
 
-### Registering HttpClientFactory
+1. **Retry Policies** - Automatically retry failed requests
+2. **Circuit Breaker Policies** - Temporarily stop attempts when the system detects multiple failures
+3. **Timeout Policies** - Set timeout limits for requests
+4. **Fallback Policies** - Provide alternative responses when requests fail
+5. **Policy Wraps** - Combine multiple policies together
 
-```csharp
-// In your Startup.cs or Program.cs
+### Configuration Examples
 
-// Register the default HTTP client factory
-services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
+#### Adding Polly Support
 
-// Or register the Flurl HTTP client factory
-services.AddSingleton<IHttpClientFactory, FlurlHttpClientFactory>();
-
-// Pre-register some commonly used named clients
-var serviceProvider = services.BuildServiceProvider();
-var factory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-
-// Register clients for different APIs
-factory.RegisterClient("api1", "https://api1.example.com", options => {
-    options.DefaultTimeout = 30;
-    options.EnableRetry = true;
-    options.MaxRetryCount = 3;
-});
-
-factory.RegisterClient("api2", "https://api2.example.com", options => {
-    options.DefaultTimeout = 60;
-    options.EnableRetry = false;
-});
+```bash
+# Install Polly integration package for HttpClientFactory
+dotnet add package Microsoft.Extensions.Http.Polly
 ```
 
-### Creating Clients Using Factory
+#### Retry Policy Example
 
 ```csharp
-// Method 1: Using the factory to create temporary clients
-public class ApiService
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    
-    public ApiService(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory;
-    }
-    
-    public async Task<UserData> GetUserDataAsync(int userId)
-    {
-        // Create a basic client
-        var client = _httpClientFactory.CreateClient("https://api.example.com");
-        
-        // Or create a client with configuration
-        var configuredClient = _httpClientFactory.CreateClient("https://api.example.com", options => {
-            options.DefaultTimeout = 15;
-            options.EnableRetry = true;
-        });
-        
-        var result = await client.CallApi<UserData>($"users/{userId}");
-        return result.Data;
-    }
-}
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy());
 
-// Method 2: Using pre-registered named clients
-public class NamedApiService
+// Define retry policy
+private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    
-    public NamedApiService(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory;
-    }
-    
-    public async Task<UserData> GetUserFromApi1Async(int userId)
-    {
-        // Get a pre-registered named client
-        var client = _httpClientFactory.GetOrCreateClient("api1");
-        var result = await client.CallApi<UserData>($"users/{userId}");
-        return result.Data;
-    }
-    
-    public async Task<UserData> GetUserFromApi2Async(int userId)
-    {
-        var client = _httpClientFactory.GetOrCreateClient("api2");
-        var result = await client.CallApi<UserData>($"users/{userId}");
-        return result.Data;
-    }
-}
-```
-
-### Registering Named Clients in DI Container
-
-```csharp
-// In your Startup.cs or Program.cs
-
-// Register the factory
-services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
-
-// Register a named client as a service
-services.AddScoped(provider => {
-    var factory = provider.GetRequiredService<IHttpClientFactory>();
-    return factory.GetOrCreateClient("api1");
-});
-
-// Using keyed injections
-services.AddScoped<IHttpClient, IHttpClient>(serviceProvider => {
-    var factory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-    return factory.GetOrCreateClient("api2");
-}, "api2");
-
-// Using in a service
-public class UserService
-{
-    private readonly IHttpClient _defaultClient; // api1
-    private readonly IHttpClient _api2Client;
-    
-    public UserService(
-        IHttpClient defaultClient, 
-        [FromKeyedServices("api2")] IHttpClient api2Client)
-    {
-        _defaultClient = defaultClient;
-        _api2Client = api2Client;
-    }
-    
-    // Methods using different clients...
-}
-```
-
-### Adding Interceptors with Factory
-
-```csharp
-// During application startup
-var factory = app.Services.GetRequiredService<IHttpClientFactory>();
-
-// Register a client with interceptors
-factory.RegisterClient("api-with-logging", "https://api.example.com", options => {
-    options.DefaultTimeout = 30;
-});
-
-// Get the client and add interceptors
-var client = factory.GetOrCreateClient("api-with-logging");
-client.AddInterceptor(new LoggingInterceptor(logger));
-client.AddInterceptor(new TokenRefreshInterceptor(tokenService, client));
-
-// Register the configured client in the DI container
-services.AddSingleton("api-with-logging", client);
-```
-
-### Adding Clients Dynamically
-
-```csharp
-public class DynamicApiService
-{
-    private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ConcurrentDictionary<string, IHttpClient> _clientCache = new();
-    
-    public DynamicApiService(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory;
-    }
-    
-    public async Task<T> CallExternalApiAsync<T>(string apiEndpoint, string baseUrl)
-    {
-        // Use base URL as cache key
-        var client = _clientCache.GetOrAdd(baseUrl, url => {
-            // Create new client if not in cache
-            return _httpClientFactory.CreateClient(url, options => {
-                options.DefaultTimeout = 30;
-                options.EnableRetry = true;
+    return HttpPolicyExtensions
+        .HandleTransientHttpError() // Handles network errors and 5xx, 408 responses
+        .OrResult(msg => msg.StatusCode == HttpStatusCode.TooManyRequests) // Also handle 429 responses
+        .WaitAndRetryAsync(
+            retryCount: 3, // Retry 3 times
+            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // Exponential backoff: 2, 4, 8 seconds
+            onRetry: (outcome, timespan, retryCount, context) =>
+            {
+                // Log retry information
+                Console.WriteLine($"Attempting retry {retryCount}, waiting {timespan.TotalSeconds} seconds");
             });
-        });
-        
-        var result = await client.CallApi<T>(apiEndpoint);
-        return result.Data;
-    }
 }
 ```
 
-## Advanced Usage
+#### Circuit Breaker Policy Example
 
-### Implementing Custom Interceptors
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetCircuitBreakerPolicy());
+
+// Define circuit breaker policy
+private static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .CircuitBreakerAsync(
+            handledEventsAllowedBeforeBreaking: 5, // Break after 5 failures
+            durationOfBreak: TimeSpan.FromSeconds(30), // Stay open for 30 seconds
+            onBreak: (ex, breakDelay) => 
+            {
+                // Circuit is now open
+                Console.WriteLine($"Circuit breaker opened, will attempt to reset after {breakDelay.TotalSeconds} seconds");
+            },
+            onReset: () => 
+            {
+                // Circuit is now closed again
+                Console.WriteLine("Circuit breaker reset, service recovered");
+            });
+}
+```
+
+#### Combining Multiple Policies
+
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy()) // Apply retry policy first
+.AddPolicyHandler(GetCircuitBreakerPolicy()); // Then circuit breaker policy
+
+// Alternatively, explicitly combine using PolicyWrap
+private static IAsyncPolicy<HttpResponseMessage> GetCombinedPolicy()
+{
+    return Policy.WrapAsync(GetRetryPolicy(), GetCircuitBreakerPolicy());
+}
+```
+
+### Combining with Linger Interceptors
+
+Linger's interceptor system and Polly policies can be combined for greater functionality:
+
+```csharp
+// 1. First configure Polly policies
+services.AddHttpClient("resilient-api", client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy())
+.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
+{
+    // 2. Create client instance
+    var client = new StandardHttpClient(httpClient);
+    
+    // 3. Add Linger interceptors for scenarios Polly can't handle
+    client.AddInterceptor(new LoggingInterceptor(
+        log => serviceProvider.GetRequiredService<ILogger<IHttpClient>>().LogInformation(log)
+    ));
+    client.AddInterceptor(new TokenRefreshInterceptor(
+        serviceProvider.GetRequiredService<ITokenService>()
+    ));
+    
+    return client;
+});
+```
+
+#### Differences Between Polly Policies and Linger Retry Mechanism
+
+1. **Different Levels of Operation**:
+   - Polly policies operate at the underlying HttpClient level, handling retries at the network request level
+   - Linger's RetryInterceptor operates at the application layer, with access to the complete response content
+
+2. **Feature Range**:
+   - Polly provides a more comprehensive set of resilience policies (retry, circuit breaker, timeout, etc.)
+   - Linger interceptors focus more on business logic handling (e.g., token refreshing)
+
+3. **Usage Recommendations**:
+   - Use Polly for handling network-level and basic HTTP errors (timeouts, 5xx errors, etc.)
+   - Use Linger interceptors for handling business-level errors and application-specific logic
+   
+Using both in combination can build more robust HTTP client applications.
+
+## Advanced Features
+
+### Custom Interceptors
 
 ```csharp
 public class LoggingInterceptor : IHttpClientInterceptor
@@ -793,26 +835,6 @@ public class LoggingInterceptor : IHttpClientInterceptor
         return response;
     }
 }
-```
-
-### File Upload Example
-
-```csharp
-// File upload
-byte[] fileData = File.ReadAllBytes("document.pdf");
-var formData = new Dictionary<string, string>
-{
-    { "description", "Sample document" },
-    { "category", "reports" }
-};
-
-var uploadResult = await client.CallApi<UploadResponse>(
-    "files/upload", 
-    HttpMethodEnum.Post, 
-    formData, 
-    fileData, 
-    "document.pdf"
-);
 ```
 
 ### Error Handling
@@ -852,57 +874,9 @@ public async Task<T> ExecuteApiCall<T>(string endpoint)
 }
 ```
 
-## Built-in Interceptors
+### Performance Monitoring
 
-Linger.HttpClient.Contracts provides a set of built-in interceptors to enhance HTTP client functionality:
-
-### Retry Interceptor
-
-Automatically retries requests that fail due to transient errors (e.g., 503 Service Unavailable, 504 Gateway Timeout, 429 Too Many Requests):
-
-```csharp
-// Create and configure retry interceptor
-var retryInterceptor = new RetryInterceptor(
-    maxRetries: 3, // Maximum retry attempts
-    shouldRetry: response => response.StatusCode == HttpStatusCode.ServiceUnavailable, // Custom retry condition
-    delayFunc: async retryCount => await Task.Delay((int)Math.Pow(2, retryCount) * 100) // Exponential backoff
-);
-
-// Add to HTTP client
-client.AddInterceptor(retryInterceptor);
-```
-
-### Caching Interceptor
-
-Caches GET responses to reduce server requests:
-
-```csharp
-// Create and configure caching interceptor
-var cachingInterceptor = new CachingInterceptor(
-    defaultCacheDuration: TimeSpan.FromMinutes(10) // Default cache for 10 minutes
-);
-
-// Add to HTTP client
-client.AddInterceptor(cachingInterceptor);
-```
-
-### Logging Interceptor
-
-Records detailed information about requests and responses:
-
-```csharp
-// Create logging interceptor
-var loggingInterceptor = new LoggingInterceptor(
-    log => _logger.LogInformation(log) // Use your logging system
-);
-
-// Add to HTTP client
-client.AddInterceptor(loggingInterceptor);
-```
-
-## HTTP Performance Monitoring
-
-Linger.HttpClient now supports performance monitoring to help identify and resolve performance issues:
+Built-in performance monitoring helps identify and resolve performance issues:
 
 ```csharp
 // Record start before sending request
@@ -945,9 +919,9 @@ Performance metrics include:
 - Average/min/max response time
 - Currently active requests
 
-## Performance Tips & Best Practices
+## Best Practices
 
-### HttpClient Instance Management
+### Instance Management
 - **Recommended**: Use dependency injection container to manage HttpClient lifecycle
 - Avoid creating new instances for each request which can lead to port exhaustion
 - Use `HttpClientFactory` or dependency injection framework
@@ -957,12 +931,14 @@ Performance metrics include:
 - Use streaming for large responses instead of loading them entirely into memory
 - Use compression to reduce network load
 
-### Connection Management
-- Keep connections alive for frequently accessed APIs
-- Use retry strategies for important requests, but avoid infinite retries
-- Set appropriate retry intervals to avoid DOS-ing your target server
-
 ### Exception Handling
 - Always catch and handle HTTP request exceptions
 - Implement backoff strategies for server overload situations
 - Use circuit breaker pattern to prevent cascading failures
+
+## Implementation Projects
+
+For detailed usage and examples, refer to the documentation of specific implementation projects:
+
+- [StandardHttpClient Documentation](../Linger.HttpClient.Standard/README.md)
+- [FlurlHttpClient Documentation](../Linger.HttpClient.Flurl/README.md)

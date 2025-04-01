@@ -10,9 +10,9 @@ public class CultureInfoTest(ITestOutputHelper output)
     public void CompareZhCNFirstDayOfWeekAcrossFrameworks(string cultureName)
     {
         // 获取平台信息
-        var isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-        var isLinux = RuntimeInformation.IsOSPlatform(OSPlatform.Linux);
-        var isMacOS = RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+        var isWindows = OSPlatformHelper.IsWindows;
+        var isLinux = OSPlatformHelper.IsLinux;
+        var isMacOS = OSPlatformHelper.IsMacOSX;
 
         output.WriteLine("\n=== 框架信息 ===");
         output.WriteLine($"运行时版本: {Environment.Version}");

@@ -1,21 +1,42 @@
 # Linger.HttpClient.Contracts
 
 ## 目录
-- [简介](#简介)
-- [特性](#特性)
-- [支持的.NET版本](#支持的net版本)
-- [安装](#安装)
-- [核心接口和模型](#核心接口和模型)
-- [基本使用](#基本使用)
-- [扩展功能](#扩展功能)
-- [内置拦截器](#内置拦截器)
-- [依赖注入使用](#依赖注入使用)
-- [使用HttpClientFactory](#使用httpclientfactory)
-- [高级用法](#高级用法)
-- [性能监控](#性能监控)
-- [性能优化与最佳实践](#性能优化与最佳实践)
+- [概述](#概述)
+  - [Linger HTTP客户端生态系统](#linger-http客户端生态系统)
+  - [特性](#特性)
+  - [支持的.NET版本](#支持的net版本)
+- [安装指南](#安装指南)
+  - [通过NuGet安装](#通过nuget安装)
+  - [使用Package Manager Console](#使用package-manager-console安装)
+- [核心组件](#核心组件)
+  - [核心接口](#核心接口)
+  - [核心模型](#核心模型)
+  - [设计理念](#设计理念)
+- [使用指南](#使用指南)
+  - [基本用法](#基本用法)
+  - [扩展功能](#扩展功能)
+  - [拦截器系统](#拦截器系统)
+- [依赖注入集成](#依赖注入集成)
+  - [基本注册方式](#基本注册方式)
+  - [使用Microsoft的HttpClientFactory](#使用microsofts-httpclientfactory)
+  - [多实例配置](#多实例配置)
+- [Polly策略集成](#polly策略集成)
+  - [常用策略类型](#常用策略类型)
+  - [配置示例](#配置示例)
+  - [与Linger拦截器结合](#与linger拦截器结合)
+- [高级功能](#高级功能)
+  - [自定义拦截器](#自定义拦截器)
+  - [错误处理机制](#错误处理机制)
+  - [性能监控](#性能监控)
+- [最佳实践](#最佳实践)
+  - [实例管理](#实例管理)
+  - [请求优化](#请求优化)
+  - [异常处理](#异常处理)
+- [实现项目](#实现项目)
 
-## Linger HTTP客户端生态系统
+## 概述
+
+### Linger HTTP客户端生态系统
 
 Linger HTTP客户端生态系统由以下三个主要组件组成：
 
@@ -23,10 +44,9 @@ Linger HTTP客户端生态系统由以下三个主要组件组成：
 - **[Linger.HttpClient.Standard](../Linger.HttpClient.Standard/README.zh-CN.md)**：基于.NET标准HttpClient的实现
 - **[Linger.HttpClient.Flurl](../Linger.HttpClient.Flurl/README.zh-CN.md)**：基于Flurl.Http的流畅API实现
 
-## 简介
 Linger.HttpClient.Contracts 定义了HTTP客户端操作的标准接口和契约，是Linger HTTP客户端实现的基础。通过使用统一的契约，您可以轻松切换不同的HTTP客户端实现，而无需修改业务代码。
 
-## 特性
+### 特性
 - 强类型HTTP客户端接口
 - 支持各种HTTP方法（GET, POST, PUT, DELETE）
 - 文件上传功能（通过统一的MultipartHelper简化处理）
@@ -38,13 +58,13 @@ Linger.HttpClient.Contracts 定义了HTTP客户端操作的标准接口和契约
 - 内置压缩支持
 - 性能监控与统计
 
-## 支持的.NET版本
+### 支持的.NET版本
 - .NET Standard 2.0+
 - .NET Framework 4.6.2+
 - .NET 6.0+
 - .NET 8.0/9.0
 
-## 安装
+## 安装指南
 
 ### 通过NuGet安装
 
@@ -90,7 +110,7 @@ Install-Package Linger.HttpClient.Standard
 Install-Package Linger.HttpClient.Flurl
 ```
 
-## 核心接口和模型
+## 核心组件
 
 ### 核心接口
 
@@ -212,9 +232,9 @@ public class HttpClientOptions
 }
 ```
 
-## 设计理念
+### 设计理念
 
-### 接口隔离原则
+#### 接口隔离原则
 
 Linger.HttpClient.Contracts 遵循接口隔离原则，将不同责任的接口分开：
 
@@ -222,7 +242,7 @@ Linger.HttpClient.Contracts 遵循接口隔离原则，将不同责任的接口�
 - **IHttpClientInterceptor**：专注于请求/响应的拦截和修改
 - **IHttpClientFactory**：负责客户端实例的创建和管理
 
-### 可扩展性
+#### 可扩展性
 
 拦截器机制是核心的可扩展点，允许添加如下功能：
 
@@ -232,7 +252,7 @@ Linger.HttpClient.Contracts 遵循接口隔离原则，将不同责任的接口�
 - 响应缓存
 - 性能监控
 
-### 统一响应处理
+#### 统一响应处理
 
 所有HTTP响应都被封装为 `ApiResult<T>`，提供一致的处理模式：
 
@@ -240,50 +260,93 @@ Linger.HttpClient.Contracts 遵循接口隔离原则，将不同责任的接口�
 - 类型安全的数据访问
 - 结构化的错误信息
 
-## 基本使用
+## 使用指南
+
+### 基本用法
 
 这是一个契约库，定义了接口和抽象类。对于具体实现，请使用`Linger.HttpClient.Standard`或`Linger.HttpClient.Flurl`。
 
-### 简单调用示例
+#### 创建客户端
 
 ```csharp
 // 创建HTTP客户端
 var client = new Linger.HttpClient.Standard.StandardHttpClient("https://api.example.com");
+```
 
+#### 发送GET请求
+
+```csharp
 // GET请求
 var result = await client.CallApi<UserData>("users/1");
 
+// 处理响应
+if (result.IsSuccess)
+{
+    var user = result.Data;
+    Console.WriteLine($"用户: {user.Name}");
+}
+else
+{
+    Console.WriteLine($"错误: {result.ErrorMsg}");
+}
+```
+
+#### 发送POST请求
+
+```csharp
 // POST请求
 var postResult = await client.CallApi<UserData>("users", HttpMethodEnum.Post, 
     new { Name = "John", Email = "john@example.com" });
+```
 
+#### 带查询参数的请求
+
+```csharp
 // 带查询参数的GET请求
 var queryResult = await client.CallApi<List<UserData>>("users", 
     new { page = 1, pageSize = 10 });
 ```
 
-### 基础请求处理
+### 扩展功能
+
+本库还提供了一些扩展方法以提供更便捷的API使用体验：
 
 ```csharp
-// 创建客户端
-var client = new StandardHttpClient("https://api.example.com");
+// GET请求简化
+var user = await client.GetAsync<UserData>("api/users/1");
 
-// 发送GET请求
-var response = await client.CallApi<UserData>("api/users/1");
+// POST请求简化
+var newUser = await client.PostAsync<UserData>("api/users", new { Name = "张三" });
 
-// 处理响应
-if (response.IsSuccess)
-{
-    var user = response.Data;
-    Console.WriteLine($"用户: {user.Name}");
-}
-else
-{
-    Console.WriteLine($"错误: {response.ErrorMsg}");
-}
+// 分页请求简化
+var pagedUsers = await client.GetPagedAsync<UserData>("api/users", new { page = 1, pageSize = 20 });
 ```
 
-### 拦截器使用模式
+#### 文件上传
+
+```csharp
+// 文件上传
+byte[] fileData = File.ReadAllBytes("document.pdf");
+var formData = new Dictionary<string, string>
+{
+    { "description", "Sample document" },
+    { "category", "reports" }
+};
+
+var uploadResult = await client.CallApi<UploadResponse>(
+    "files/upload", 
+    HttpMethodEnum.Post, 
+    formData, 
+    fileData, 
+    "document.pdf"
+);
+```
+
+### 拦截器系统
+
+Linger.HttpClient.Contracts提供了一组内置拦截器，增强HTTP客户端功能：
+
+#### 拦截器使用模式
 
 ```csharp
 // 定义拦截器
@@ -306,7 +369,52 @@ public class LoggingInterceptor : IHttpClientInterceptor
 client.AddInterceptor(new LoggingInterceptor());
 ```
 
-### 工厂使用模式
+#### 内置拦截器
+
+##### 重试拦截器
+
+自动重试因暂时性错误而失败的请求：
+
+```csharp
+// 创建并配置重试拦截器
+var retryInterceptor = new RetryInterceptor(
+    options,  // HttpClientOptions实例
+    response => response.StatusCode == HttpStatusCode.ServiceUnavailable // 自定义重试条件
+);
+
+// 添加到HTTP客户端
+client.AddInterceptor(retryInterceptor);
+```
+
+##### 缓存拦截器
+
+缓存GET响应以减少服务器请求：
+
+```csharp
+// 创建并配置缓存拦截器
+var cachingInterceptor = new CachingInterceptor(
+    defaultCacheDuration: TimeSpan.FromMinutes(10) // 默认缓存10分钟
+);
+
+// 添加到HTTP客户端
+client.AddInterceptor(cachingInterceptor);
+```
+
+##### 日志拦截器
+
+记录请求和响应的详细信息：
+
+```csharp
+// 创建日志拦截器
+var loggingInterceptor = new LoggingInterceptor(
+    log => _logger.LogInformation(log) // 使用您的日志系统
+);
+
+// 添加到HTTP客户端
+client.AddInterceptor(loggingInterceptor);
+```
+
+#### 工厂使用模式
 
 ```csharp
 // 创建工厂
@@ -322,94 +430,11 @@ factory.RegisterClient("users-api", "https://users.example.com", options => {
 var client = factory.GetOrCreateClient("users-api");
 ```
 
-## 扩展功能
+## 依赖注入集成
 
-本库还提供了一些扩展方法以提供更便捷的API使用体验：
+IHttpClient 接口设计支持依赖注入，可以在应用程序中轻松集成。
 
-```csharp
-// GET请求
-var user = await client.GetAsync<UserData>("api/users/1");
-
-// POST请求
-var newUser = await client.PostAsync<UserData>("api/users", new { Name = "张三" });
-
-// 分页请求
-var pagedUsers = await client.GetPagedAsync<UserData>("api/users", new { page = 1, pageSize = 20 });
-```
-
-### 文件上传示例
-
-```csharp
-// 文件上传
-byte[] fileData = File.ReadAllBytes("document.pdf");
-var formData = new Dictionary<string, string>
-{
-    { "description", "Sample document" },
-    { "category", "reports" }
-};
-
-var uploadResult = await client.CallApi<UploadResponse>(
-    "files/upload", 
-    HttpMethodEnum.Post, 
-    formData, 
-    fileData, 
-    "document.pdf"
-);
-```
-
-## 内置拦截器
-
-Linger.HttpClient.Contracts提供了一组内置拦截器，增强HTTP客户端功能：
-
-### 重试拦截器
-
-自动重试因暂时性错误而失败的请求（如503服务不可用、504网关超时、429请求过多）：
-
-```csharp
-// 创建并配置重试拦截器
-var retryInterceptor = new RetryInterceptor(
-    maxRetries: 3, // 最大重试次数
-    shouldRetry: response => response.StatusCode == HttpStatusCode.ServiceUnavailable, // 自定义重试条件
-    delayFunc: async retryCount => await Task.Delay((int)Math.Pow(2, retryCount) * 100) // 指数退避
-);
-
-// 添加到HTTP客户端
-client.AddInterceptor(retryInterceptor);
-```
-
-### 缓存拦截器
-
-缓存GET响应以减少服务器请求：
-
-```csharp
-// 创建并配置缓存拦截器
-var cachingInterceptor = new CachingInterceptor(
-    defaultCacheDuration: TimeSpan.FromMinutes(10) // 默认缓存10分钟
-);
-
-// 添加到HTTP客户端
-client.AddInterceptor(cachingInterceptor);
-```
-
-### 日志拦截器
-
-记录请求和响应的详细信息：
-
-```csharp
-// 创建日志拦截器
-var loggingInterceptor = new LoggingInterceptor(
-    log => _logger.LogInformation(log) // 使用您的日志系统
-);
-
-// 添加到HTTP客户端
-client.AddInterceptor(loggingInterceptor);
-```
-
-## 依赖注入使用
-
-IHttpClient 接口设计支持依赖注入，可以在应用程序中轻松集成。以下是使用示例：
-
-### 注册服务
+### 基本注册方式
 
 ```csharp
 // 使用 Linger.HttpClient.Standard 实现
@@ -421,7 +446,7 @@ services.AddScoped<IHttpClient>(provider =>
     new FlurlHttpClient("https://api.example.com"));
 ```
 
-### 配置选项
+#### 配置选项
 
 ```csharp
 services.AddScoped<IHttpClient>(provider => 
@@ -432,7 +457,6 @@ services.AddScoped<IHttpClient>(provider =>
     client.Options.DefaultTimeout = 30; // 设置默认超时为30秒
     client.Options.EnableRetry = true;  // 启用重试
     client.Options.MaxRetryCount = 3;   // 最大重试次数
-    client.Options.RetryInterval = 1000; // 重试间隔（毫秒）
     
     // 添加默认请求头
     client.AddHeader("User-Agent", "Linger HttpClient");
@@ -445,7 +469,7 @@ services.AddScoped<IHttpClient>(provider =>
 });
 ```
 
-### 在服务中使用
+#### 在服务中使用
 
 ```csharp
 public class MyService
@@ -471,6 +495,90 @@ public class MyService
 }
 ```
 
+### 使用Microsoft的HttpClientFactory
+
+除了上述方法外，您还可以使用Microsoft的HttpClientFactory来管理HTTP客户端生命周期，这样可以避免DNS变更问题和socket耗尽等常见陷阱：
+
+```csharp
+// 1. 基本注册方式
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "Linger HttpClient");
+});
+
+// 2. 使用命名客户端并配置选项和拦截器
+services.AddHttpClient("MyApi", client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
+{
+    // 创建客户端实例
+    var client = new StandardHttpClient(httpClient);
+    
+    // 配置选项
+    client.Options.DefaultTimeout = 30;
+    client.Options.EnableRetry = true;
+    client.Options.MaxRetryCount = 3;
+    
+    // 添加拦截器
+    var logger = serviceProvider.GetRequiredService<ILogger<IHttpClient>>();
+    client.AddInterceptor(new LoggingInterceptor(log => logger.LogInformation(log)));
+    client.AddInterceptor(new RetryInterceptor(client.Options));
+    
+    return client;
+});
+
+// 3. 添加消息处理器和策略
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy()) // 添加Polly重试策略
+.AddHttpMessageHandler(() => new CustomMessageHandler()); // 添加自定义处理程序
+
+// 获取Polly策略的辅助方法
+private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .OrResult(msg => msg.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        .WaitAndRetryAsync(3, retryAttempt => 
+            TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)));
+}
+```
+
+#### 在服务中使用HttpClientFactory
+
+```csharp
+public class ApiService
+{
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IHttpClient _client;
+    
+    public ApiService(
+        IHttpClientFactory httpClientFactory,
+        IHttpClient client) // 默认注入
+    {
+        _httpClientFactory = httpClientFactory;
+        _client = client;
+    }
+    
+    public async Task<UserData> GetNamedClientUserAsync(int userId)
+    {
+        // 获取类型化的命名客户端
+        var apiClient = _httpClientFactory.CreateClient("MyApi")
+            .GetTypedClient<IHttpClient>();
+            
+        var result = await apiClient.CallApi<UserData>($"users/{userId}");
+        return result.Data;
+    }
+}
+```
+
 ### 多实例配置
 
 如果需要使用多个不同配置的HTTP客户端，可以使用命名注入：
@@ -486,102 +594,145 @@ services.AddKeyedScoped<IHttpClient>("api2", (provider, key) =>
 var api2Client = serviceProvider.GetKeyedService<IHttpClient>("api2");
 ```
 
-## 使用HttpClientFactory
+## Polly策略集成
 
-`IHttpClientFactory`提供了一种统一管理HTTP客户端的方式，相比直接创建客户端实例有以下优势：
+[Polly](https://github.com/App-vNext/Polly)是一个强大的.NET弹性和瞬态故障处理库，可以与Linger.HttpClient和Microsoft的HttpClientFactory无缝集成。
 
-- 集中配置和管理HTTP客户端
-- 支持命名客户端，方便在不同场景使用不同配置
-- 自动管理客户端生命周期，避免资源泄漏
-- 简化客户端配置和拦截器添加过程
+### 常用策略类型
 
-### 注册HttpClientFactory
+1. **重试策略** - 自动重试失败的请求
+2. **断路器策略** - 当系统检测到多次失败时临时停止尝试，防止级联故障
+3. **超时策略** - 为请求设置超时限制
+4. **回退策略** - 请求失败时提供备选响应
+5. **策略组合** - 将多种策略组合使用
 
-```csharp
-// 在Startup.cs或Program.cs中
+### 配置示例
 
-// 注册默认HTTP客户端工厂
-services.AddSingleton<IHttpClientFactory, DefaultHttpClientFactory>();
+#### 添加Polly支持
 
-// 或注册Flurl HTTP客户端工厂
-services.AddSingleton<IHttpClientFactory, FlurlHttpClientFactory>();
-
-// 预注册一些常用的命名客户端
-var serviceProvider = services.BuildServiceProvider();
-var factory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-
-// 注册不同API的客户端
-factory.RegisterClient("api1", "https://api1.example.com", options => {
-    options.DefaultTimeout = 30;
-    options.EnableRetry = true;
-    options.MaxRetryCount = 3;
-});
-
-factory.RegisterClient("api2", "https://api2.example.com", options => {
-    options.DefaultTimeout = 60;
-    options.EnableRetry = false;
-});
+```bash
+# 安装Polly与HttpClientFactory集成包
+dotnet add package Microsoft.Extensions.Http.Polly
 ```
 
-### 使用工厂创建客户端
+#### 重试策略
 
 ```csharp
-// 方式1：使用工厂创建临时客户端
-public class ApiService
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    
-    public ApiService(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory;
-    }
-    
-    public async Task<UserData> GetUserDataAsync(int userId)
-    {
-        // 创建基本客户端
-        var client = _httpClientFactory.CreateClient("https://api.example.com");
-        
-        // 或创建带配置的客户端
-        var configuredClient = _httpClientFactory.CreateClient("https://api.example.com", options => {
-            options.DefaultTimeout = 15;
-            options.EnableRetry = true;
-        });
-        
-        var result = await client.CallApi<UserData>($"users/{userId}");
-        return result.Data;
-    }
-}
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy());
 
-// 方式2：使用预注册的命名客户端
-public class NamedApiService
+// 定义重试策略
+private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
 {
-    private readonly IHttpClientFactory _httpClientFactory;
-    
-    public NamedApiService(IHttpClientFactory httpClientFactory)
-    {
-        _httpClientFactory = httpClientFactory;
-    }
-    
-    public async Task<UserData> GetUserFromApi1Async(int userId)
-    {
-        // 获取预注册的命名客户端
-        var client = _httpClientFactory.GetOrCreateClient("api1");
-        var result = await client.CallApi<UserData>($"users/{userId}");
-        return result.Data;
-    }
-    
-    public async Task<UserData> GetUserFromApi2Async(int userId)
-    {
-        var client = _httpClientFactory.GetOrCreateClient("api2");
-        var result = await client.CallApi<UserData>($"users/{userId}");
-        return result.Data;
-    }
+    return HttpPolicyExtensions
+        .HandleTransientHttpError() // 处理网络错误和5xx、408响应
+        .OrResult(msg => msg.StatusCode == HttpStatusCode.TooManyRequests) // 也处理429响应
+        .WaitAndRetryAsync(
+            retryCount: 3, // 重试3次
+            sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // 指数退避
+            onRetry: (outcome, timespan, retryCount, context) =>
+            {
+                // 记录重试信息
+                Console.WriteLine($"正在进行第{retryCount}次重试，延迟{timespan.TotalSeconds}秒");
+            });
 }
 ```
 
-## 高级用法
+#### 断路器策略
 
-### 实现自定义拦截器
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetCircuitBreakerPolicy());
+
+// 定义断路器策略
+private static IAsyncPolicy<HttpResponseMessage> GetCircuitBreakerPolicy()
+{
+    return HttpPolicyExtensions
+        .HandleTransientHttpError()
+        .CircuitBreakerAsync(
+            handledEventsAllowedBeforeBreaking: 5, // 5次失败后断开电路
+            durationOfBreak: TimeSpan.FromSeconds(30), // 断开30秒
+            onBreak: (ex, breakDelay) => 
+            {
+                // 断路器打开时触发
+                Console.WriteLine($"断路器已打开，将在{breakDelay.TotalSeconds}秒后尝试恢复");
+            },
+            onReset: () => 
+            {
+                // 断路器重置时触发
+                Console.WriteLine("断路器已重置，服务恢复正常");
+            });
+}
+```
+
+#### 组合策略
+
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy()) // 首先应用重试策略
+.AddPolicyHandler(GetCircuitBreakerPolicy()); // 然后应用断路器策略
+
+// 也可以使用PolicyWrap显式组合策略
+private static IAsyncPolicy<HttpResponseMessage> GetCombinedPolicy()
+{
+    return Policy.WrapAsync(GetRetryPolicy(), GetCircuitBreakerPolicy());
+}
+```
+
+### 与Linger拦截器结合
+
+Linger的拦截器系统和Polly策略可以结合使用，提供更强大的功能：
+
+```csharp
+// 1. 先配置Polly策略
+services.AddHttpClient("resilient-api", client => 
+{
+    client.BaseAddress = new Uri("https://api.example.com");
+})
+.AddPolicyHandler(GetRetryPolicy())
+.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
+{
+    // 2. 创建客户端实例
+    var client = new StandardHttpClient(httpClient);
+    
+    // 3. 添加Linger拦截器处理Polly无法处理的场景
+    client.AddInterceptor(new LoggingInterceptor(
+        log => serviceProvider.GetRequiredService<ILogger<IHttpClient>>().LogInformation(log)
+    ));
+    client.AddInterceptor(new TokenRefreshInterceptor(
+        serviceProvider.GetRequiredService<ITokenService>()
+    ));
+    
+    return client;
+});
+```
+
+#### Polly策略与Linger内置重试的区别
+
+1. **作用层次不同**：
+   - Polly策略作用于底层HttpClient实例，在网络请求级别处理重试
+   - Linger的RetryInterceptor作用于应用层，可以访问完整的响应内容
+
+2. **功能范围不同**：
+   - Polly提供了更全面的弹性策略组合（重试、断路器、超时等）
+   - Linger的拦截器更专注于业务逻辑处理（如令牌刷新）
+
+3. **使用场景建议**：
+   - 使用Polly处理网络级别和基础HTTP错误（超时、5xx错误等）
+   - 使用Linger拦截器处理业务级错误和应用特定逻辑
+
+## 高级功能
+
+### 自定义拦截器
 
 ```csharp
 public class LoggingInterceptor : IHttpClientInterceptor
@@ -607,7 +758,7 @@ public class LoggingInterceptor : IHttpClientInterceptor
 }
 ```
 
-### 错误处理
+### 错误处理机制
 
 ```csharp
 public async Task<T> ExecuteApiCall<T>(string endpoint)
@@ -644,7 +795,7 @@ public async Task<T> ExecuteApiCall<T>(string endpoint)
 }
 ```
 
-## 性能监控
+### 性能监控
 
 Linger.HttpClient支持性能监控，帮助识别和解决性能问题：
 
@@ -689,9 +840,9 @@ foreach (var entry in allStats)
 - 平均/最小/最大响应时间
 - 当前活跃请求数
 
-## 性能优化与最佳实践
+## 最佳实践
 
-### HttpClient实例管理
+### 实例管理
 - **推荐**：使用依赖注入容器管理HttpClient生命周期
 - 避免为每个请求创建新实例，这可能导致端口耗尽
 - 使用`HttpClientFactory`或依赖注入框架
@@ -700,11 +851,6 @@ foreach (var entry in allStats)
 - 设置合理的超时值，避免请求无限期挂起
 - 对大型响应使用流式处理而非完全加载到内存
 - 使用压缩减少网络负载
-
-### 连接管理
-- 对频繁访问的API保持连接alive
-- 对重要请求使用重试策略，但避免无限重试
-- 设置适当的重试间隔，避免对目标服务器造成DOS攻击
 
 ### 异常处理
 - 始终捕获并处理HTTP请求异常

@@ -1,9 +1,8 @@
 ﻿using Flurl;
 using Flurl.Http;
-using Linger.Exceptions;
 using Linger.Extensions.Core;
-using Linger.Helper;
 using Linger.HttpClient.Contracts.Core;
+using Linger.HttpClient.Contracts.Factories;
 using Linger.HttpClient.Contracts.Models;
 #if NETFRAMEWORK
 using System.Net.Http;
@@ -11,26 +10,115 @@ using System.Net.Http;
 
 namespace Linger.HttpClient.Flurl;
 
+/// <summary>
+/// 基于Flurl的HTTP客户端实现
+/// </summary>
 public class FlurlHttpClient : HttpClientBase
 {
     private readonly IFlurlClient _flurlClient;
 
+    /// <summary>
+    /// 创建一个新的Flurl HTTP客户端
+    /// </summary>
+    /// <param name="baseUrl">基础URL</param>
     public FlurlHttpClient(string baseUrl)
     {
         _flurlClient = new FlurlClient(baseUrl);
         ConfigureFlurlClient();
     }
 
+    /// <summary>
+    /// 创建一个新的Flurl HTTP客户端
+    /// </summary>
+    /// <param name="httpClient">现有的HttpClient实例</param>
     public FlurlHttpClient(System.Net.Http.HttpClient httpClient)
     {
         _flurlClient = new FlurlClient(httpClient);
         ConfigureFlurlClient();
     }
 
+    /// <summary>
+    /// 创建一个新的Flurl HTTP客户端
+    /// </summary>
+    /// <param name="flurlClient">现有的FlurlClient实例</param>
     public FlurlHttpClient(IFlurlClient flurlClient)
     {
         _flurlClient = flurlClient ?? throw new ArgumentNullException(nameof(flurlClient));
         ConfigureFlurlClient();
+    }
+
+    /// <summary>
+    /// 创建一个新的Flurl HTTP客户端并应用选项
+    /// </summary>
+    /// <param name="baseUrl">基础URL</param>
+    /// <param name="options">客户端选项</param>
+    public FlurlHttpClient(string baseUrl, HttpClientOptions options)
+    {
+        _flurlClient = new FlurlClient(baseUrl);
+        
+        // 复制选项
+        CopyOptions(options);
+        ConfigureFlurlClient();
+    }
+
+    /// <summary>
+    /// 创建一个新的Flurl HTTP客户端并应用选项
+    /// </summary>
+    /// <param name="httpClient">现有的HttpClient实例</param>
+    /// <param name="options">客户端选项</param>
+    public FlurlHttpClient(System.Net.Http.HttpClient httpClient, HttpClientOptions options)
+    {
+        _flurlClient = new FlurlClient(httpClient);
+        
+        // 复制选项
+        CopyOptions(options);
+        
+        // 同时设置到HttpClient的默认头部
+        foreach (var header in options.DefaultHeaders)
+        {
+            if (!httpClient.DefaultRequestHeaders.Contains(header.Key))
+            {
+                httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
+            }
+        }
+        
+        ConfigureFlurlClient();
+    }
+
+    /// <summary>
+    /// 创建一个预配置的Flurl HTTP客户端
+    /// </summary>
+    /// <param name="baseUrl">基础URL</param>
+    /// <param name="configureOptions">配置选项的操作</param>
+    /// <returns>配置好的HTTP客户端</returns>
+    public static FlurlHttpClient Create(string baseUrl, Action<HttpClientOptions>? configureOptions = null)
+    {
+        var options = new HttpClientOptions();
+        configureOptions?.Invoke(options);
+
+        var client = new FlurlHttpClient(baseUrl, options);
+
+        // 添加基于配置的标准拦截器
+        foreach (var interceptor in DefaultInterceptorFactory.CreateStandardInterceptors(client.Options))
+        {
+            client.AddInterceptor(interceptor);
+        }
+
+        return client;
+    }
+
+    private void CopyOptions(HttpClientOptions options)
+    {
+        // 复制选项到当前实例
+        foreach (var header in options.DefaultHeaders)
+        {
+            Options.DefaultHeaders[header.Key] = header.Value;
+        }
+
+        Options.DefaultTimeout = options.DefaultTimeout;
+        Options.EnableRetry = options.EnableRetry;
+        Options.MaxRetryCount = options.MaxRetryCount;
+        Options.RetryInterval = options.RetryInterval;
     }
 
     private void ConfigureFlurlClient()
@@ -41,13 +129,6 @@ public class FlurlHttpClient : HttpClientBase
         foreach (var header in Options.DefaultHeaders)
         {
             _flurlClient.Headers.Add(header.Key, header.Value);
-        }
-
-        // 修正：不要将重试与重定向关联
-        if (Options.EnableRetry)
-        {
-            // 重试设置由拦截器处理，这里不需要额外配置
-            // 移除: _flurlClient.Settings.Redirects.MaxAutoRedirects = Options.MaxRetryCount;
         }
     }
 
@@ -122,7 +203,7 @@ public class FlurlHttpClient : HttpClientBase
 
             url = url.Replace($"?{query}", string.Empty);
 
-            // 统一添加文化信息 - 将位置调整为与StandardHttpClient相同
+            // 添加文化信息
             url = url.AppendQuery("culture=" + Thread.CurrentThread.CurrentUICulture.Name);
 
             flurlRequest = flurlRequest.AppendPathSegment(url).AllowAnyHttpStatus();
@@ -168,7 +249,7 @@ public class FlurlHttpClient : HttpClientBase
                 flurlRequest.WithHeader(header.Key, header.Value);
             }
 
-            // 使用合并后的取消令牌，直接执行请求，移除重试逻辑
+            // 使用合并后的取消令牌，直接执行请求
             var flurlResponse = await ExecuteFlurlRequest(flurlRequest, method, request.Content ?? content, combinedToken);
 
             // 应用响应拦截器
