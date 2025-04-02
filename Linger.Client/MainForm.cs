@@ -5,6 +5,9 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor.Services;
+using Polly;
+using Polly.Extensions.Http;
+using System.Net;
 
 namespace Linger.Client;
 
@@ -34,54 +37,44 @@ public partial class MainForm : Form
         services.AddWindowsFormsBlazorWebView();
         services.AddMudServices();
 
-        //// 添加HTTP客户端
-        //services.AddHttpClient("LingerAPI", client =>
-        //{
-        //    // 确保这里的URL与API实际运行的端口一致
-        //    client.BaseAddress = new Uri("http://localhost:5258/");
-        //});
-
         // 注册AppState
         services.AddSingleton<AppState>();
 
-        // 注册IHttpClient
-        services.AddSingleton<IHttpClient>(provider =>
+        // 使用HttpClientFactory注册IHttpClient，并结合Polly策略
+        services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
         {
-            var httpClient = new StandardHttpClient("http://localhost:5258/");
-
-            // 配置httpClient的选项
-            httpClient.Options.EnableRetry = true;
-            httpClient.Options.MaxRetryCount = 3;
-            httpClient.Options.RetryInterval = 1000; // 1秒
-
-            // 添加默认请求头
-            httpClient.AddHeader("Accept", "application/json");
-            httpClient.AddHeader("User-Agent", "Linger.Client");
+            client.BaseAddress = new Uri("http://localhost:5258/");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+            client.DefaultRequestHeaders.Add("User-Agent", "Linger.Client");
+            client.Timeout = TimeSpan.FromSeconds(30); // 设置超时时间
+        })
+        .AddPolicyHandler(GetRetryPolicy()) // 添加 Polly 重试策略
+        .AddTypedClient<IHttpClient>((httpClient, serviceProvider) =>
+        {
+            var standardClient = new StandardHttpClient(httpClient);
 
             // 获取AppState用于设置令牌
-            var appState = provider.GetRequiredService<AppState>();
+            var appState = serviceProvider.GetRequiredService<AppState>();
             if (!string.IsNullOrEmpty(appState.Token))
             {
-                httpClient.SetToken(appState.Token);
-
-                // 订阅Token变化事件
-                appState.OnChange += () =>
-                {
-                    if (!string.IsNullOrEmpty(appState.Token))
-                    {
-                        httpClient.SetToken(appState.Token);
-                    }
-                };
+                standardClient.SetToken(appState.Token);
             }
 
-            return httpClient;
+            // 订阅Token变化事件
+            appState.OnChange += () =>
+            {
+                if (!string.IsNullOrEmpty(appState.Token))
+                {
+                    standardClient.SetToken(appState.Token);
+                }
+            };
+
+            return standardClient;
         });
 
         // 添加服务
         services.AddScoped<AuthService>();
-
-        // 添加状态管理
-        services.AddSingleton<AppState>();
+        services.AddScoped<UserService>(); // 注册UserService
 
         // 添加认证相关服务
         services.AddAuthorizationCore();
@@ -97,6 +90,21 @@ public partial class MainForm : Form
         Controls.Add(blazorWebView);
 
         RegisterHotKey();
+    }
+
+    // 创建 Polly 重试策略
+    private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
+    {
+        return HttpPolicyExtensions
+            .HandleTransientHttpError() // 自动处理网络错误和服务器错误 (5xx)
+            .OrResult(msg => msg.StatusCode == HttpStatusCode.TooManyRequests) // 也处理 429 响应
+            .WaitAndRetryAsync(
+                retryCount: 3, // 重试 3 次
+                sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // 指数退避：1s, 2s, 4s
+                onRetry: (outcome, timespan, retryCount, context) =>
+                {
+                    Console.WriteLine($"正在进行第 {retryCount} 次重试，等待 {timespan.TotalSeconds} 秒");
+                });
     }
 
     private void RegisterHotKey()

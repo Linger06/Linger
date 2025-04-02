@@ -1,7 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Core;
-using Linger.HttpClient.Contracts.Factories;
 using Linger.HttpClient.Contracts.Models;
 
 #if NETFRAMEWORK
@@ -46,7 +45,7 @@ public class StandardHttpClient : HttpClientBase
     public StandardHttpClient(string baseUrl, HttpClientOptions options)
     {
         _httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(baseUrl) };
-        
+
         // 复制选项
         CopyOptions(options);
         SetDefaultOptions();
@@ -60,10 +59,10 @@ public class StandardHttpClient : HttpClientBase
     public StandardHttpClient(System.Net.Http.HttpClient httpClient, HttpClientOptions options)
     {
         _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-        
+
         // 复制选项
         CopyOptions(options);
-        
+
         // 同时设置到HttpClient的默认头部
         foreach (var header in options.DefaultHeaders)
         {
@@ -72,7 +71,7 @@ public class StandardHttpClient : HttpClientBase
                 httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
             }
         }
-        
+
         SetDefaultOptions();
     }
 
@@ -88,13 +87,6 @@ public class StandardHttpClient : HttpClientBase
         configureOptions?.Invoke(options);
 
         var client = new StandardHttpClient(baseUrl, options);
-
-        // 添加基于配置的标准拦截器
-        foreach (var interceptor in DefaultInterceptorFactory.CreateStandardInterceptors(client.Options))
-        {
-            client.AddInterceptor(interceptor);
-        }
-
         return client;
     }
 
@@ -107,9 +99,6 @@ public class StandardHttpClient : HttpClientBase
         }
 
         Options.DefaultTimeout = options.DefaultTimeout;
-        Options.EnableRetry = options.EnableRetry;
-        Options.MaxRetryCount = options.MaxRetryCount;
-        Options.RetryInterval = options.RetryInterval;
     }
 
     private void SetDefaultOptions()
@@ -167,9 +156,6 @@ public class StandardHttpClient : HttpClientBase
                 request.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
 
-            // 应用请求拦截器
-            request = await ApplyInterceptorsToRequestAsync(request);
-
             // 处理查询参数
             if (queryParams != null)
             {
@@ -182,9 +168,6 @@ public class StandardHttpClient : HttpClientBase
 
             // 执行请求
             var res = await _httpClient.SendAsync(request, combinedToken);
-
-            // 应用响应拦截器
-            res = await ApplyInterceptorsToResponseAsync(res);
 
             rv = await HandleResponseMessage<T>(res);
 

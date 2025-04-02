@@ -1,63 +1,15 @@
 ﻿# Linger.HttpClient.Standard
 
 ## Introduction
-Linger.HttpClient.Standard is an implementation based on the standard .NET HttpClient, providing a lightweight wrapper that conforms to the Linger.HttpClient.Contracts interfaces. This project focuses on delivering a stable, efficient, and .NET-style HTTP communication solution.
 
-> 🔗 This project is part of the [Linger HTTP Client Ecosystem](../Linger.HttpClient.Contracts/README.md).
+Linger.HttpClient.Standard is an implementation based on the standard .NET HttpClient, providing a lightweight wrapper that conforms to the Linger.HttpClient.Contracts interfaces. This project focuses on delivering a stable, efficient, and .NET-style HTTP communication solution.
 
 ## Core Advantages
 
 - **Lightweight Design**: Minimal dependencies, low runtime overhead
-- **.NET Conventions**: Naturally integrates with .NET projects, follows platform design principles
-- **High Performance**: Optimized for performance, suitable for high-concurrency scenarios
-- **Easy Troubleshooting**: Transparent implementation, clear error information
-- **Low Memory Footprint**: Optimized memory management, suitable for resource-constrained environments
-
-## Recent Improvements
-
-### 1. Fully Integrated Interceptors
-
-The interceptor system is now fully integrated into StandardHttpClient, ensuring consistent handling of requests and responses:
-
-```csharp
-// Apply request interceptors
-request = await ApplyInterceptorsToRequestAsync(request);
-
-// Execute request
-var res = await _httpClient.SendAsync(request, combinedToken);
-
-// Apply response interceptors
-res = await ApplyInterceptorsToResponseAsync(res);
-```
-
-### 2. Optimized Retry Logic
-
-Retry logic has been moved to interceptors to avoid duplicate retries:
-
-```csharp
-// Previous retry code has been removed
-// var res = await ProcessRequestWithRetriesAsync(...);
-
-// Now retries are handled uniformly by interceptors
-var client = new StandardHttpClient("https://api.example.com");
-client.Options.EnableRetry = true;
-client.Options.MaxRetryCount = 3;
-```
-
-### 3. Automatic Benefits from StandardHttpClientFactory
-
-When using the factory, you automatically get the benefits of interceptors and configuration:
-
-```csharp
-// Create client with factory
-var factory = new StandardHttpClientFactory();
-var client = factory.CreateClient("https://api.example.com", options => {
-    options.EnableRetry = true;
-    options.DefaultTimeout = 15;
-});
-
-// Compression support and retry functionality are automatically included
-```
+- **.NET Integration**: Seamlessly works with HttpClientFactory and DI
+- **High Performance**: Optimized for performance in .NET environments
+- **Easy Configuration**: Simple setup with familiar .NET patterns
 
 ## Installation
 
@@ -67,115 +19,136 @@ dotnet add package Linger.HttpClient.Standard
 
 ## Quick Start
 
+### Basic Creation
+
 ```csharp
-// Create client
+// Create client directly
 var client = new StandardHttpClient("https://api.example.com");
 
-// Send request
-var response = await client.GetAsync<UserData>("api/users/1");
+// Configure options
+client.Options.DefaultTimeout = 30;
+client.Options.EnableRetry = true;
+client.AddHeader("User-Agent", "Linger.Client");
 ```
 
-## Advanced Features
-
-### 1. Custom HttpMessageHandler
-
-Full control over the underlying HttpClient behavior:
+### With HttpClientFactory
 
 ```csharp
-// Custom handler
-var handler = new HttpClientHandler
+// In your startup configuration
+services.AddHttpClient<StandardHttpClient>(client =>
 {
-    AllowAutoRedirect = false,
-    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-    UseCookies = false,
-    MaxConnectionsPerServer = 20
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+})
+.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
+{
+    var standardClient = new StandardHttpClient(httpClient);
+    
+    // Configure options
+    standardClient.Options.EnableRetry = true;
+    standardClient.Options.MaxRetryCount = 3;
+    
+    return standardClient;
+});
+```
+
+## Usage Examples
+
+### Simple GET Request
+
+```csharp
+// Send GET request
+var response = await client.CallApi<UserData>("api/users/1");
+
+// Process response
+if (response.IsSuccess)
+{
+    Console.WriteLine($"User: {response.Data.Name}");
+}
+```
+
+### POST Request with JSON
+
+```csharp
+// Create user data
+var userData = new UserCreateModel { Name = "John", Email = "john@example.com" };
+
+// Send POST request
+var response = await client.CallApi<UserData>(
+    "api/users",
+    HttpMethodEnum.Post,
+    userData
+);
+```
+
+### File Upload
+
+```csharp
+// Read file
+byte[] fileData = File.ReadAllBytes("document.pdf");
+
+// Create form data
+var formData = new Dictionary<string, string>
+{
+    { "description", "Sample document" }
 };
 
-// Create client with custom handler
-var client = new StandardHttpClient(new System.Net.Http.HttpClient(handler));
+// Upload file
+var response = await client.CallApi<FileResponse>(
+    "api/files",
+    HttpMethodEnum.Post,
+    formData,
+    fileData,
+    "document.pdf"
+);
 ```
-
-### 2. Integrated HTTP Compression
-
-Use the built-in compression helper class to reduce bandwidth consumption:
-
-```csharp
-// Create compression-enabled handler
-var handler = CompressionHelper.CreateCompressionHandler();
-
-// Create client
-var client = new StandardHttpClient(new System.Net.Http.HttpClient(handler));
-```
-
-### 3. Efficient Parallel Requests
-
-```csharp
-// Send multiple requests in parallel
-var task1 = client.GetAsync<Data1>("api/endpoint1");
-var task2 = client.GetAsync<Data2>("api/endpoint2");
-var task3 = client.GetAsync<Data3>("api/endpoint3");
-
-// Wait for all requests to complete
-await Task.WhenAll(task1, task2, task3);
-
-// Process all results
-var result1 = task1.Result.Data;
-var result2 = task2.Result.Data;
-var result3 = task3.Result.Data;
-```
-
-## Use Cases
-
-StandardHttpClient is particularly well-suited for:
-
-- **Performance and resource-sensitive applications**: Mobile apps, applications running on low-spec devices
-- **Projects requiring fine-grained HTTP communication control**: Security-sensitive enterprise systems
-- **Projects migrating from existing .NET HttpClient**: Smooth transition, low learning curve
-- **Applications requiring .NET-specific features**: WinForms, WPF, or systems that need integration with .NET-specific APIs
-
-## Comparison with FlurlHttpClient
-
-| Scenario | StandardHttpClient | FlurlHttpClient |
-|----------|-------------------|-----------------|
-| Performance requirements | ★★★★★ | ★★★☆☆ |
-| Low resource usage | ★★★★★ | ★★★☆☆ |
-| URL building capability | ★★☆☆☆ | ★★★★★ |
-| API fluency | ★★★☆☆ | ★★★★★ |
-| Learning curve | Gentle | Moderate |
-| Suitable projects | Enterprise applications, resource-constrained environments | Modern web applications, complex API integrations |
 
 ## Best Practices
 
-1. **Use HttpClientFactory to manage instances**
-   ```csharp
-   services.AddSingleton<IHttpClientFactory, StandardHttpClientFactory>();
-   ```
+### Configuration
 
-2. **Create named clients grouped by API**
-   ```csharp
-   factory.RegisterClient("users-api", "https://users.example.com");
-   factory.RegisterClient("products-api", "https://products.example.com");
-   ```
+```csharp
+// Recommended settings for production
+client.Options.DefaultTimeout = 15; // 15 seconds timeout
+client.Options.EnableRetry = true;
+client.Options.MaxRetryCount = 3;
+client.Options.RetryInterval = 1000; // 1 second between retries
+```
 
-3. **Performance-oriented configuration**
-   ```csharp
-   client.Options.DefaultTimeout = 15; // Shorter timeout
-   ```
+### Error Handling
 
-4. **Use with CancellationToken**
-   ```csharp
-   using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-   await client.GetAsync<Data>("api/data", cancellationToken: cts.Token);
-   ```
+```csharp
+try
+{
+    var response = await client.CallApi<UserData>("api/users/1");
+    
+    if (response.IsSuccess)
+    {
+        // Process data
+    }
+    else
+    {
+        // Handle API error
+        Console.WriteLine($"API Error: {response.ErrorMsg}");
+    }
+}
+catch (Exception ex)
+{
+    // Handle network or other exceptions
+    Console.WriteLine($"Request failed: {ex.Message}");
+}
+```
 
-5. **File Upload Best Practices**
-   ```csharp
-   // File uploads are now simpler, handled by MultipartHelper
-   var response = await client.CallApi<UploadResult>(
-       "api/upload",
-       HttpMethodEnum.Post,
-       formData,
-       fileBytes,
-       "document.pdf"
-   );
-   ```
+### Resource Management
+
+When using StandardHttpClient directly (not via HttpClientFactory), dispose it properly when finished:
+
+```csharp
+using (var httpClient = new System.Net.Http.HttpClient())
+{
+    var client = new StandardHttpClient(httpClient);
+    // Use client...
+}
+```
+
+When using HttpClientFactory, disposal is handled automatically.

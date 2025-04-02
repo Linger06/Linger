@@ -1,63 +1,15 @@
 # Linger.HttpClient.Standard
 
 ## 简介
-Linger.HttpClient.Standard 是基于标准 .NET HttpClient 的实现，提供了符合 Linger.HttpClient.Contracts 接口的轻量级封装。本项目专注于提供稳定、高效、符合.NET风格的 HTTP 通信解决方案。
 
-> 🔗 此项目是 [Linger HTTP客户端生态系统](../Linger.HttpClient.Contracts/README.zh-CN.md) 的一部分。
+Linger.HttpClient.Standard 是基于标准 .NET HttpClient 的实现，提供了符合 Linger.HttpClient.Contracts 接口的轻量级封装。本项目专注于提供稳定、高效、符合.NET风格的 HTTP 通信解决方案。
 
 ## 核心优势
 
 - **轻量级设计**：最小依赖，运行时开销低
-- **符合.NET约定**：自然融入.NET项目，符合平台设计理念
-- **高性能**：针对性能优化，适合高并发场景
-- **易于排错**：透明的实现方式，错误信息明确
-- **低内存占用**：优化的内存管理，适合资源受限环境
-
-## 最新改进
-
-### 1. 拦截器全面集成
-
-拦截器系统已完全集成到StandardHttpClient中，确保请求和响应的一致处理：
-
-```csharp
-// 应用请求拦截器
-request = await ApplyInterceptorsToRequestAsync(request);
-
-// 执行请求
-var res = await _httpClient.SendAsync(request, combinedToken);
-
-// 应用响应拦截器
-res = await ApplyInterceptorsToResponseAsync(res);
-```
-
-### 2. 重试逻辑优化
-
-重试逻辑移至拦截器中，避免重复重试：
-
-```csharp
-// 之前的重试代码已移除
-// var res = await ProcessRequestWithRetriesAsync(...);
-
-// 现在使用拦截器统一处理重试
-var client = new StandardHttpClient("https://api.example.com");
-client.Options.EnableRetry = true;
-client.Options.MaxRetryCount = 3;
-```
-
-### 3. 自动利用StandardHttpClientFactory
-
-使用工厂时自动获得拦截器和配置的好处：
-
-```csharp
-// 使用工厂创建客户端
-var factory = new StandardHttpClientFactory();
-var client = factory.CreateClient("https://api.example.com", options => {
-    options.EnableRetry = true;
-    options.DefaultTimeout = 15;
-});
-
-// 自动包含压缩支持和重试功能
-```
+- **.NET集成**：与HttpClientFactory和依赖注入无缝协作
+- **高性能**：针对.NET环境性能优化
+- **简易配置**：使用熟悉的.NET模式简单设置
 
 ## 安装
 
@@ -67,115 +19,136 @@ dotnet add package Linger.HttpClient.Standard
 
 ## 快速入门
 
+### 基础创建
+
 ```csharp
-// 创建客户端
+// 直接创建客户端
 var client = new StandardHttpClient("https://api.example.com");
 
-// 发送请求
-var response = await client.GetAsync<UserData>("api/users/1");
+// 配置选项
+client.Options.DefaultTimeout = 30;
+client.Options.EnableRetry = true;
+client.AddHeader("User-Agent", "Linger.Client");
 ```
 
-## 高级特性
-
-### 1. 自定义 HttpMessageHandler
-
-可以完全控制底层 HttpClient 的行为：
+### 使用HttpClientFactory
 
 ```csharp
-// 自定义处理程序
-var handler = new HttpClientHandler
+// 在启动配置中
+services.AddHttpClient<StandardHttpClient>(client =>
 {
-    AllowAutoRedirect = false,
-    AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-    UseCookies = false,
-    MaxConnectionsPerServer = 20
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.DefaultRequestHeaders.Add("Accept", "application/json");
+})
+.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
+{
+    var standardClient = new StandardHttpClient(httpClient);
+    
+    // 配置选项
+    standardClient.Options.EnableRetry = true;
+    standardClient.Options.MaxRetryCount = 3;
+    
+    return standardClient;
+});
+```
+
+## 使用示例
+
+### 简单GET请求
+
+```csharp
+// 发送GET请求
+var response = await client.CallApi<UserData>("api/users/1");
+
+// 处理响应
+if (response.IsSuccess)
+{
+    Console.WriteLine($"用户: {response.Data.Name}");
+}
+```
+
+### 带JSON的POST请求
+
+```csharp
+// 创建用户数据
+var userData = new UserCreateModel { Name = "张三", Email = "zhangsan@example.com" };
+
+// 发送POST请求
+var response = await client.CallApi<UserData>(
+    "api/users",
+    HttpMethodEnum.Post,
+    userData
+);
+```
+
+### 文件上传
+
+```csharp
+// 读取文件
+byte[] fileData = File.ReadAllBytes("document.pdf");
+
+// 创建表单数据
+var formData = new Dictionary<string, string>
+{
+    { "description", "示例文档" }
 };
 
-// 使用自定义处理程序创建客户端
-var client = new StandardHttpClient(new System.Net.Http.HttpClient(handler));
+// 上传文件
+var response = await client.CallApi<FileResponse>(
+    "api/files",
+    HttpMethodEnum.Post,
+    formData,
+    fileData,
+    "document.pdf"
+);
 ```
-
-### 2. 集成HTTP压缩
-
-使用内置的压缩辅助类降低带宽消耗：
-
-```csharp
-// 创建支持压缩的处理程序
-var handler = CompressionHelper.CreateCompressionHandler();
-
-// 创建客户端
-var client = new StandardHttpClient(new System.Net.Http.HttpClient(handler));
-```
-
-### 3. 高效的并行请求
-
-```csharp
-// 并行发起多个请求
-var task1 = client.GetAsync<Data1>("api/endpoint1");
-var task2 = client.GetAsync<Data2>("api/endpoint2");
-var task3 = client.GetAsync<Data3>("api/endpoint3");
-
-// 等待所有请求完成
-await Task.WhenAll(task1, task2, task3);
-
-// 处理所有结果
-var result1 = task1.Result.Data;
-var result2 = task2.Result.Data;
-var result3 = task3.Result.Data;
-```
-
-## 应用场景
-
-StandardHttpClient 特别适合以下场景：
-
-- **对性能和资源消耗敏感的应用**：如移动应用、低配置设备上运行的应用
-- **需要精细控制HTTP通信的项目**：如安全要求高的企业系统
-- **从现有.NET HttpClient迁移的项目**：平滑过渡，学习成本低
-- **需要使用.NET特有功能的应用**：如WinForms、WPF或需要与.NET特定API集成的系统
-
-## 与 FlurlHttpClient 对比
-
-| 场景 | StandardHttpClient | FlurlHttpClient |
-|------|-------------------|-----------------|
-| 性能要求高 | ★★★★★ | ★★★☆☆ |
-| 资源占用少 | ★★★★★ | ★★★☆☆ |
-| URL构建能力 | ★★☆☆☆ | ★★★★★ |
-| API流畅度 | ★★★☆☆ | ★★★★★ |
-| 学习曲线 | 平缓 | 中等 |
-| 适合项目 | 企业级应用、资源受限环境 | 现代Web应用、复杂API集成 |
 
 ## 最佳实践
 
-1. **使用HttpClientFactory管理实例**
-   ```csharp
-   services.AddSingleton<IHttpClientFactory, StandardHttpClientFactory>();
-   ```
+### 配置
 
-2. **根据API分组创建命名客户端**
-   ```csharp
-   factory.RegisterClient("users-api", "https://users.example.com");
-   factory.RegisterClient("products-api", "https://products.example.com");
-   ```
+```csharp
+// 生产环境推荐设置
+client.Options.DefaultTimeout = 15; // 15秒超时
+client.Options.EnableRetry = true;
+client.Options.MaxRetryCount = 3;
+client.Options.RetryInterval = 1000; // 重试间隔1秒
+```
 
-3. **针对性能优化的配置**
-   ```csharp
-   client.Options.DefaultTimeout = 15; // 较短的超时时间
-   ```
+### 错误处理
 
-4. **结合CancellationToken使用**
-   ```csharp
-   using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-   await client.GetAsync<Data>("api/data", cancellationToken: cts.Token);
-   ```
+```csharp
+try
+{
+    var response = await client.CallApi<UserData>("api/users/1");
+    
+    if (response.IsSuccess)
+    {
+        // 处理数据
+    }
+    else
+    {
+        // 处理API错误
+        Console.WriteLine($"API错误: {response.ErrorMsg}");
+    }
+}
+catch (Exception ex)
+{
+    // 处理网络或其他异常
+    Console.WriteLine($"请求失败: {ex.Message}");
+}
+```
 
-5. **文件上传最佳实践**
-   ```csharp
-   // 现在文件上传更简单，由MultipartHelper处理
-   var response = await client.CallApi<UploadResult>(
-       "api/upload",
-       HttpMethodEnum.Post,
-       formData,
-       fileBytes,
-       "document.pdf"
-   );
-   ```
+### 资源管理
+
+当直接使用StandardHttpClient（不通过HttpClientFactory）时，完成后正确处理它：
+
+```csharp
+using (var httpClient = new System.Net.Http.HttpClient())
+{
+    var client = new StandardHttpClient(httpClient);
+    // 使用客户端...
+}
+```
+
+当使用HttpClientFactory时，处理会自动完成。

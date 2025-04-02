@@ -16,6 +16,5 @@ public interface IHttpClient
 
     // 新增的方法
     void AddHeader(string name, string value);
-    void AddInterceptor(IHttpClientInterceptor interceptor);
     HttpClientOptions Options { get; }
 }

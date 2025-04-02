@@ -1,12 +1,8 @@
 ﻿using System.Text.Json;
 using Linger.Extensions;
 using Linger.Extensions.Core;
-using Linger.HttpClient.Contracts.Metrics;
-using Linger.HttpClient.Contracts.Models;
 using Linger.HttpClient.Contracts.Helpers;
-using System.Collections.Concurrent;
-using System.Net;
-using System.Text;
+using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.HttpClient.Contracts.Core;
 
@@ -15,8 +11,6 @@ namespace Linger.HttpClient.Contracts.Core;
 /// </summary>
 public abstract class HttpClientBase : IHttpClient
 {
-    private readonly ConcurrentBag<IHttpClientInterceptor> _interceptors = new();
-
     /// <summary>
     /// HTTP客户端选项
     /// </summary>
@@ -36,14 +30,6 @@ public abstract class HttpClientBase : IHttpClient
     }
 
     /// <summary>
-    /// 添加拦截器
-    /// </summary>
-    public virtual void AddInterceptor(IHttpClientInterceptor interceptor)
-    {
-        _interceptors.Add(interceptor);
-    }
-
-    /// <summary>
     ///     使用Get方法调用api
     /// </summary>
     /// <param name="url">调用地址</param>
@@ -54,22 +40,14 @@ public abstract class HttpClientBase : IHttpClient
     /// <returns></returns>
     public virtual async Task<ApiResult<T>> CallApi<T>(string url, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default) // where T : class
     {
-        // 启动性能监控
-        var requestId = HttpClientMetrics.Instance.StartRequest(url);
-
         try
         {
             var result = await CallApi<T>(url, HttpMethodEnum.Get, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-
-            // 记录请求完成
-            HttpClientMetrics.Instance.EndRequest(url, requestId, result.IsSuccess);
 
             return result;
         }
         catch
         {
-            // 记录请求失败
-            HttpClientMetrics.Instance.EndRequest(url, requestId, false);
             throw;
         }
     }
@@ -136,24 +114,6 @@ public abstract class HttpClientBase : IHttpClient
     }
 
     public abstract Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default); //where T : class;
-
-    protected async Task<HttpRequestMessage> ApplyInterceptorsToRequestAsync(HttpRequestMessage request)
-    {
-        foreach (var interceptor in _interceptors)
-        {
-            request = await interceptor.OnRequestAsync(request);
-        }
-        return request;
-    }
-
-    protected async Task<HttpResponseMessage> ApplyInterceptorsToResponseAsync(HttpResponseMessage response)
-    {
-        foreach (var interceptor in _interceptors)
-        {
-            response = await interceptor.OnResponseAsync(response);
-        }
-        return response;
-    }
 
     // 改进1: 优化HandleResponseMessage方法的内存管理
     protected static async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res)

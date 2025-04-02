@@ -1,4 +1,5 @@
-﻿using Linger.AspNetCore.Jwt;
+﻿using Linger.API.Services;
+using Linger.AspNetCore.Jwt;
 using Linger.AspNetCore.Jwt.Contracts;
 using Scalar.AspNetCore;
 
@@ -24,7 +25,8 @@ builder.Services.AddCors(options =>
                .AllowAnyHeader();
     });
 });
-
+// 注册UserService
+builder.Services.AddSingleton<UserService>();
 var app = builder.Build();
 
 // 配置HTTP请求管道
