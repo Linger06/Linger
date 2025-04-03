@@ -1,13 +1,13 @@
-﻿using Linger.Client.Services;
+﻿using System.Net;
+using Linger.Client.Services;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Standard;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.WebView.WindowsForms;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http.Resilience;
 using MudBlazor.Services;
 using Polly;
-using Polly.Extensions.Http;
-using System.Net;
 
 namespace Linger.Client;
 
@@ -40,7 +40,7 @@ public partial class MainForm : Form
         // 注册AppState
         services.AddSingleton<AppState>();
 
-        // 使用HttpClientFactory注册IHttpClient，并结合Polly策略
+        // 使用HttpClientFactory注册IHttpClient，并结合弹性策略
         services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
         {
             client.BaseAddress = new Uri("http://localhost:5258/");
@@ -48,7 +48,6 @@ public partial class MainForm : Form
             client.DefaultRequestHeaders.Add("User-Agent", "Linger.Client");
             client.Timeout = TimeSpan.FromSeconds(30); // 设置超时时间
         })
-        .AddPolicyHandler(GetRetryPolicy()) // 添加 Polly 重试策略
         .AddTypedClient<IHttpClient>((httpClient, serviceProvider) =>
         {
             var standardClient = new StandardHttpClient(httpClient);
@@ -70,7 +69,31 @@ public partial class MainForm : Form
             };
 
             return standardClient;
-        });
+        })
+        .AddResilienceHandler("Default", builder =>
+        {
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {
+                MaxRetryAttempts = 3,
+                Delay = TimeSpan.FromSeconds(2),
+                ShouldHandle = args =>
+                {
+                    if (args.Outcome.Result != null && args.Outcome.Result.StatusCode == HttpStatusCode.TooManyRequests)
+                    {
+                        // 修复错误：更改为 ValueTask.FromResult(true)
+                        return ValueTask.FromResult(true);
+                    }
+
+                    // 使用默认的重试条件
+                    return ValueTask.FromResult(args.Outcome.Result?.StatusCode is
+                        HttpStatusCode.RequestTimeout or        // 408
+                        HttpStatusCode.BadGateway or           // 502
+                        HttpStatusCode.ServiceUnavailable or    // 503
+                        HttpStatusCode.GatewayTimeout);        // 504
+                }
+            });
+        })
+        ;
 
         // 添加服务
         services.AddScoped<AuthService>();
@@ -88,23 +111,7 @@ public partial class MainForm : Form
         };
 
         Controls.Add(blazorWebView);
-
         RegisterHotKey();
-    }
-
-    // 创建 Polly 重试策略
-    private static IAsyncPolicy<HttpResponseMessage> GetRetryPolicy()
-    {
-        return HttpPolicyExtensions
-            .HandleTransientHttpError() // 自动处理网络错误和服务器错误 (5xx)
-            .OrResult(msg => msg.StatusCode == HttpStatusCode.TooManyRequests) // 也处理 429 响应
-            .WaitAndRetryAsync(
-                retryCount: 3, // 重试 3 次
-                sleepDurationProvider: retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)), // 指数退避：1s, 2s, 4s
-                onRetry: (outcome, timespan, retryCount, context) =>
-                {
-                    Console.WriteLine($"正在进行第 {retryCount} 次重试，等待 {timespan.TotalSeconds} 秒");
-                });
     }
 
     private void RegisterHotKey()
@@ -128,7 +135,6 @@ public partial class MainForm : Form
             _previousBorderStyle = FormBorderStyle;
             _previousBounds = Bounds;
             _wasMaximized = WindowState == FormWindowState.Maximized;
-
             FormBorderStyle = FormBorderStyle.None;
             WindowState = FormWindowState.Maximized;
         }
