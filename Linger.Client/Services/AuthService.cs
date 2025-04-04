@@ -85,6 +85,47 @@ public class AuthService
     /// 检查当前是否已认证
     /// </summary>
     public bool IsAuthenticated => _appState.IsAuthenticated;
+
+    /// <summary>
+    /// 刷新令牌
+    /// </summary>
+    public async Task<(bool success, string newToken)> RefreshTokenAsync(string accessToken, string refreshToken)
+    {
+        try
+        {
+            // 创建刷新令牌请求的数据
+            var refreshRequest = new
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken
+            };
+            
+            // 调用刷新令牌API
+            var response = await _httpClient.CallApi<TokenResponse>(
+                "api/auth/refresh", 
+                HttpMethodEnum.Post, 
+                refreshRequest);
+                
+            if (response.IsSuccess && response.Data != null)
+            {
+                return (true, response.Data.AccessToken);
+            }
+            
+            return (false, string.Empty);
+        }
+        catch
+        {
+            return (false, string.Empty);
+        }
+    }
+    
+    // 令牌响应模型
+    private class TokenResponse
+    {
+        public string AccessToken { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
+        public int ExpiresIn { get; set; }
+    }
 }
 
 /// <summary>

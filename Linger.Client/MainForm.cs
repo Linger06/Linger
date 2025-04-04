@@ -40,6 +40,9 @@ public partial class MainForm : Form
         // 注册AppState
         services.AddSingleton<AppState>();
 
+        // 注册令牌刷新处理器
+        services.AddSingleton<TokenRefreshHandler>();
+
         // 使用HttpClientFactory注册IHttpClient，并结合弹性策略
         services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
         {
@@ -70,7 +73,7 @@ public partial class MainForm : Form
 
             return standardClient;
         })
-        .AddResilienceHandler("Default", builder =>
+        .AddResilienceHandler("Default", (builder, context) =>
         {
             builder.AddRetry(new HttpRetryStrategyOptions
             {
@@ -92,6 +95,10 @@ public partial class MainForm : Form
                         HttpStatusCode.GatewayTimeout);        // 504
                 }
             });
+
+            // 获取令牌刷新处理器并配置令牌刷新策略
+            var tokenRefreshHandler = context.ServiceProvider.GetRequiredService<TokenRefreshHandler>();
+            tokenRefreshHandler.ConfigureTokenRefreshResiliencePipeline(builder);
         })
         ;
 

@@ -12,6 +12,7 @@
   - [POST Requests](#post-requests)
   - [File Upload](#file-upload)
 - [Error Handling](#error-handling)
+- [Automatic Token Refresh](#automatic-token-refresh)
 - [Best Practices](#best-practices)
 
 ## Overview
@@ -28,9 +29,9 @@ Linger.HttpClient.Contracts defines standard interfaces and contracts for HTTP c
 - Strongly typed HTTP client interfaces
 - Support for various HTTP methods (GET, POST, PUT, DELETE)
 - File upload capabilities
-- Request/response interception
-- Automatic retry mechanism
+- Request/response handling
 - User-friendly error handling
+- Timeout management
 
 ## Installation
 
@@ -40,37 +41,43 @@ dotnet add package Linger.HttpClient.Contracts
 
 # Install implementation based on standard HttpClient
 dotnet add package Linger.HttpClient.Standard
+
+# For resilience features (automatic retries, circuit breaker, etc.)
+dotnet add package Microsoft.Extensions.Http.Resilience
 ```
 
 ## Dependency Injection Integration
 
 ### Using HttpClientFactory
 
-The recommended way to use Linger HTTP clients is with Microsoft's HttpClientFactory:
+The recommended way to use Linger HTTP clients is with Microsoft's HttpClientFactory and HTTP Resilience:
 
 ```csharp
 // In your startup configuration
-services.AddHttpClient<StandardHttpClient>(client =>
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.example.com/");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
+    client.Timeout = TimeSpan.FromSeconds(30);
 })
-.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
+.AddResilienceHandler("Default", builder =>
 {
-    var standardClient = new StandardHttpClient(httpClient);
-    
-    // Configure options
-    standardClient.Options.EnableRetry = true;
-    standardClient.Options.MaxRetryCount = 3;
-    
-    // Access other services
-    var appState = serviceProvider.GetRequiredService<AppState>();
-    if (!string.IsNullOrEmpty(appState.Token))
+    // Configure retry behavior
+    builder.AddRetry(new HttpRetryStrategyOptions
     {
-        standardClient.SetToken(appState.Token);
-    }
-    
-    return standardClient;
+        MaxRetryAttempts = 3,
+        Delay = TimeSpan.FromSeconds(2),
+        ShouldHandle = args =>
+        {
+            // Retry on server errors and rate limiting
+            return ValueTask.FromResult(args.Outcome.Result?.StatusCode is
+                HttpStatusCode.RequestTimeout or      // 408
+                HttpStatusCode.TooManyRequests or     // 429
+                HttpStatusCode.BadGateway or          // 502
+                HttpStatusCode.ServiceUnavailable or  // 503
+                HttpStatusCode.GatewayTimeout);       // 504
+        }
+    });
 });
 ```
 
@@ -165,11 +172,76 @@ else
 }
 ```
 
+## Automatic Token Refresh
+
+You can implement automatic token refresh using Microsoft.Extensions.Http.Resilience:
+
+```csharp
+// Create a token refresh handler
+public class TokenRefreshHandler
+{
+    private readonly AppState _appState;
+    private readonly IServiceProvider _serviceProvider;
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+
+    public TokenRefreshHandler(AppState appState, IServiceProvider serviceProvider)
+    {
+        _appState = appState;
+        _serviceProvider = serviceProvider;
+    }
+
+    public void ConfigureTokenRefreshResiliencePipeline(ResiliencePipelineBuilder<HttpResponseMessage> builder)
+    {
+        builder.AddRetry(new HttpRetryStrategyOptions
+        {
+            MaxRetryAttempts = 1, // Only try refreshing once
+            ShouldHandle = args => 
+            {
+                bool shouldRetry = args.Outcome.Result?.StatusCode == HttpStatusCode.Unauthorized;
+                return ValueTask.FromResult(shouldRetry);
+            },
+            OnRetry = async context =>
+            {
+                // Thread-safe token refresh
+                await _semaphore.WaitAsync();
+                try
+                {
+                    await RefreshTokenAsync();
+                }
+                finally
+                {
+                    _semaphore.Release();
+                }
+            },
+            BackoffType = DelayBackoffType.Constant,
+            Delay = TimeSpan.Zero // Retry immediately after token refresh
+        });
+    }
+
+    private async Task RefreshTokenAsync()
+    {
+        // Implementation of token refresh logic
+        // ...
+    }
+}
+
+// Register and use in your application
+services.AddSingleton<TokenRefreshHandler>();
+services.AddHttpClient<IHttpClient, StandardHttpClient>(/* ... */)
+    .AddResilienceHandler("TokenRefresh", (builder, context) =>
+    {
+        var tokenRefreshHandler = context.ServiceProvider.GetRequiredService<TokenRefreshHandler>();
+        tokenRefreshHandler.ConfigureTokenRefreshResiliencePipeline(builder);
+    });
+```
+
 ## Best Practices
 
 1. **Use HttpClientFactory for lifecycle management**
 2. **Set reasonable timeout values**
 3. **Implement proper error handling**
 4. **Use strongly typed models for API responses**
+5. **Enable automatic token refresh for better user experience**
+6. **Use Microsoft.Extensions.Http.Resilience for retry logic**
 
 For more information, see the [Linger.HttpClient.Standard documentation](../Linger.HttpClient.Standard/README.md).

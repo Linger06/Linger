@@ -22,6 +22,9 @@ public class AppState
         }
     }
 
+    // 添加刷新令牌属性
+    public string RefreshToken { get; set; } = string.Empty;
+
     /// <summary>
     /// 用户是否已登录
     /// </summary>
@@ -49,5 +52,13 @@ public class AppState
 
     public event Action? OnChange;
 
+    // 可选：添加需要重新登录的事件
+    public event Action? RequireRelogin;
+
     private void NotifyStateChanged() => OnChange?.Invoke();
+
+    public void RaiseRequireReloginEvent()
+    {
+        RequireRelogin?.Invoke();
+    }
 }
