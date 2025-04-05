@@ -1,4 +1,6 @@
-﻿namespace Linger.FileSystem.Remote;
+﻿using System.Runtime.CompilerServices;
+
+namespace Linger.FileSystem.Remote;
 
 /// <summary>
 /// 远程文件系统基类，实现连接管理和通用功能
@@ -84,12 +86,14 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemCo
     /// <summary>
     /// 增强异常处理，添加服务器信息
     /// </summary>
-    protected override void HandleException(string operation, Exception ex, string? path = null)
+    protected override void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
         // 添加服务器详情到异常信息
-        string message = $"{operation} failed on {Setting.Host}:{Setting.Port}. " +
-                        $"{(path != null ? $"Path: {path}. " : string.Empty)}" +
-                        $"Type: {Setting.Type}";
+        string message = $"""
+                          {operation} failed on {Setting.Host}:{Setting.Port}. 
+                          {(path != null ? $"Path: {path}. " : string.Empty)}.
+                          Type: {Setting.Type}, Method: {callerMethod}
+                          """;
 
         throw new FileSystemException(operation, path, ServerDetails(), message, ex);
     }

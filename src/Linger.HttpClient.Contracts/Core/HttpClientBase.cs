@@ -188,7 +188,7 @@ public abstract class HttpClientBase : IHttpClient
                         var responseTxt = await res.Content.ReadAsStringAsync();
                         try
                         {
-                            rv.Errors = responseTxt.Deserialize<ErrorObj>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                            rv.Errors = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
                         }
                         catch { rv.ErrorMsg = responseTxt; }
                         break;

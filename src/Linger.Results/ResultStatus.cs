@@ -1,4 +1,4 @@
-﻿namespace Linger.Result;
+﻿namespace Linger.Results;
 
 public enum ResultStatus
 {

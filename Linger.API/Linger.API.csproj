@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\Linger.AspNetCore.Jwt\Linger.AspNetCore.Jwt.csproj" />
+    <ProjectReference Include="..\src\Linger.Results.AspNetCore\Linger.Results.AspNetCore.csproj" />
+    <ProjectReference Include="..\src\Linger.Results\Linger.Results.csproj" />
   </ItemGroup>
 
 </Project>

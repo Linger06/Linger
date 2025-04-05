@@ -1,4 +1,6 @@
-﻿namespace Linger.FileSystem;
+﻿using System.Runtime.CompilerServices;
+
+namespace Linger.FileSystem;
 
 /// <summary>
 /// 所有文件系统的抽象基类，统一实现公共功能
@@ -17,9 +19,9 @@ public abstract class FileSystemBase(RetryOptions? retryOptions = null) : IFileS
     /// <summary>
     /// 异常处理
     /// </summary>
-    protected virtual void HandleException(string operation, Exception ex, string? path = null)
+    protected virtual void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
-        string message = $"{operation} failed. {(path != null ? $"Path: {path}" : string.Empty)}";
+        string message = $"{operation} failed. {(path != null ? $"Path: {path}" : string.Empty)}, Method: {callerMethod}";
         throw new FileSystemException(operation, path, message, ex);
     }
 

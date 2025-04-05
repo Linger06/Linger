@@ -4,6 +4,7 @@
 - [概述](#概述)
 - [特性](#特性)
 - [安装](#安装)
+- [ApiResult与Linger.Results的关联](#apiresult与lingerresults的关联)
 - [依赖注入集成](#依赖注入集成)
   - [使用HttpClientFactory](#使用httpclientfactory)
   - [在服务类中使用](#在服务类中使用)
@@ -45,6 +46,60 @@ dotnet add package Linger.HttpClient.Standard
 # 弹性功能包（自动重试、断路器等）
 dotnet add package Microsoft.Extensions.Http.Resilience
 ```
+
+## ApiResult与Linger.Results的关联
+
+`ApiResult`类型专门设计为与`Linger.Results`项目无缝协作，特别是与其ASP.NET Core集成部分。`ApiResult`中的`Errors`属性专门用于承接`Linger.Results.AspNetCore`项目中`ToActionResult()`方法转换后的错误信息。
+
+### 错误信息格式对应关系
+
+当API服务端使用`Linger.Results`返回结果并通过`ToActionResult()`方法转换时：
+
+```csharp
+// 服务端代码
+public Result<UserDto> GetUser(int id)
+{
+    if (userNotFound)
+        return Result<UserDto>.NotFound("用户不存在");
+        
+    return Result.Success(userDto);
+}
+
+// 控制器
+[HttpGet("{id}")]
+public ActionResult<UserDto> GetUser(int id)
+{
+    var result = _userService.GetUser(id);
+    return result.ToActionResult(); // 失败时转换为包含errors的JSON响应
+}
+```
+
+客户端通过`ApiResult`可以直接接收并处理这些错误信息：
+
+```csharp
+// 客户端代码
+var apiResult = await _httpClient.CallApi<UserDto>($"api/users/{id}");
+
+if (!apiResult.IsSuccess)
+{
+    // apiResult.Errors将包含服务端Result对象通过ToActionResult()转换后的错误信息
+    foreach (var error in apiResult.Errors)
+    {
+        Console.WriteLine($"错误代码：{error.Code}, 消息：{error.Message}");
+    }
+}
+```
+
+### 错误结构映射
+
+`Linger.Results`中的`Error`记录类型会被映射到`ApiResult.Errors`集合中：
+
+| Linger.Results (服务端) | ApiResult (客户端) |
+|---------------------|-------------------|
+| Error.Code          | ApiError.Code     |
+| Error.Message       | ApiError.Message  |
+
+这种设计确保了从服务端到客户端的错误信息传递一致且完整，使客户端能够精确理解和处理服务端返回的业务错误。
 
 ## 依赖注入集成
 

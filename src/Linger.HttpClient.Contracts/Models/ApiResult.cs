@@ -7,7 +7,7 @@ public class ApiResult<T>
 {
     public T Data { get; set; } = default!;
     public HttpStatusCode? StatusCode { get; set; }
-    public ErrorObj? Errors { get; set; }
+    public IEnumerable<Error> Errors { get; set; } = [];
     public string? ErrorMsg { get; set; }
 
     /// <summary>
@@ -20,23 +20,8 @@ public class ApiResult<T>
     /// </summary>
     public bool IsUnauthorized => StatusCode == HttpStatusCode.Unauthorized;
 }
-
-/// <summary>
-/// 错误对象
-/// </summary>
-public class ErrorObj
+public class Error(string code, string message)
 {
-    public ErrorObj()
-    {
-        Form = new Dictionary<string, string>();
-        Message = new List<string>();
-    }
-
-    public ErrorObj(string errorMsg) : this()
-    {
-        Message.Add(errorMsg);
-    }
-
-    public Dictionary<string, string> Form { get; set; } = default!;
-    public List<string> Message { get; set; } = default!;
+    public string Code { get; set; } = code;
+    public string Message { get; set; } = message;
 }

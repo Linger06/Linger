@@ -1,11 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
+        <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
         <VersionPrefix>0.4.0</VersionPrefix>
         <VersionSuffix>alpha</VersionSuffix>
-        <PackageReadmeFile>README.md</PackageReadmeFile>  
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Linger.Results\Linger.Results.csproj" />
+  </ItemGroup>
 
     <ItemGroup>
         <None Include="README.md">

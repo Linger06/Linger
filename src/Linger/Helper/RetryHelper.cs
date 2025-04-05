@@ -30,33 +30,6 @@ public sealed class RetryHelper(RetryOptions? options = null)
         ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNullOrEmpty(operationName);
 
-        //Exception? lastException = null;
-        //for (int retry = 0; retry < _options.MaxRetries; retry++)
-        //{
-        //    try
-        //    {
-        //        return await operation();
-        //    }
-        //    catch (DuplicateFileException)
-        //    {
-        //        throw;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        lastException = ex;
-        //        if (retry == _options.MaxRetries - 1)
-        //        {
-        //            throw new OutOfReTryCountException("已达到最大重试次数", lastException);
-        //        }
-        //        // 计算延迟时间
-        //        var delayMs = CalculateDelayWithJitter(retry);
-        //        // 等待后继续重试
-        //        await Task.Delay(delayMs);
-        //    }
-        //}
-        //throw new OutOfReTryCountException("已达到最大重试次数", lastException);
-
-
         Exception? lastException = null;
         shouldRetry ??= _ => true;
 
@@ -65,6 +38,57 @@ public sealed class RetryHelper(RetryOptions? options = null)
             try
             {
                 return await operation();
+            }
+            catch (Exception ex)
+            {
+                lastException = ex;
+                if (shouldRetry(ex) && retry == _options.MaxRetries - 1)
+                {
+                    throw new OutOfReTryCountException("已达到最大重试次数", lastException);
+                }
+                else if (!shouldRetry(ex))
+                {
+                    // 保留原始异常的堆栈信息
+                    ExceptionDispatchInfo.Capture(ex).Throw();
+                    throw; // 这行代码不会执行，但是需要它来满足编译器
+                }
+
+                // 计算延迟时间
+                var delayMs = CalculateDelayWithJitter(retry);
+                await Task.Delay(delayMs, cancellationToken);
+            }
+        }
+
+        throw new OutOfReTryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetries}", lastException);
+    }
+
+    /// <summary>
+    /// 执行可重试的异步操作（无返回值版本）
+    /// </summary>
+    /// <param name="operation">要执行的操作</param>
+    /// <param name="operationName">操作名称（用于异常信息）</param>
+    /// <param name="shouldRetry">判断是否应该重试的函数</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>表示操作完成的任务</returns>
+    /// <exception cref="OutOfReTryCountException">超过重试次数时抛出</exception>
+    public async Task ExecuteAsync(
+        Func<Task> operation,
+        string operationName,
+        Func<Exception, bool>? shouldRetry = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNullOrEmpty(operationName);
+
+        Exception? lastException = null;
+        shouldRetry ??= _ => true;
+
+        for (var retry = 0; retry < _options.MaxRetries; retry++)
+        {
+            try
+            {
+                await operation();
+                return; // 操作成功完成，直接返回
             }
             catch (Exception ex)
             {

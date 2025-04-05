@@ -1,4 +1,6 @@
 ﻿using Linger.API.Models;
+using Linger.Results;
+using Linger.Results.AspNetCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -26,28 +28,28 @@ public class DataController : ControllerBase
     }
 
     [HttpGet]
-    public IActionResult GetAll()
+    public ActionResult<List<DataItem>> GetAll()
     {
         var username = User.Identity?.Name;
         _logger.LogInformation($"用户 {username} 请求获取所有数据");
-        return Ok(s_data);
+        return Result.Success(s_data).ToActionResult();
     }
 
     [HttpGet("{id}")]
-    public IActionResult GetById(int id)
+    public ActionResult<DataItem> GetById(int id)
     {
         var item = s_data.FirstOrDefault(d => d.Id == id);
         if (item == null)
-            return NotFound();
+            return Result.NotFound($"找不到ID为{id}的数据项").ToActionResult();
 
-        return Ok(item);
+        return Result.Success(item).ToActionResult();
     }
 
     [HttpGet("count")]
-    public IActionResult GetCount()
+    public ActionResult<int> GetCount()
     {
         // 确保返回一个原始的整数值，而不是包装对象
         _logger.LogInformation($"请求数据项数量: {s_data.Count}");
-        return Ok(s_data.Count);
+        return Result.Success(s_data.Count).ToActionResult();
     }
 }

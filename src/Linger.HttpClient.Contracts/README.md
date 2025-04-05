@@ -4,6 +4,7 @@
 - [Overview](#overview)
 - [Features](#features)
 - [Installation](#installation)
+- [ApiResult and Linger.Results Integration](#apiresult-and-lingerresults-integration)
 - [Dependency Injection Integration](#dependency-injection-integration)
   - [Using HttpClientFactory](#using-httpclientfactory)
   - [In Service Classes](#in-service-classes)
@@ -45,6 +46,60 @@ dotnet add package Linger.HttpClient.Standard
 # For resilience features (automatic retries, circuit breaker, etc.)
 dotnet add package Microsoft.Extensions.Http.Resilience
 ```
+
+## ApiResult and Linger.Results Integration
+
+The `ApiResult` type is specifically designed to work seamlessly with the `Linger.Results` project, especially with its ASP.NET Core integration. The `Errors` property in `ApiResult` is specifically intended to receive error information converted by the `ToActionResult()` method from the `Linger.Results.AspNetCore` project.
+
+### Error Information Format Mapping
+
+When an API server uses `Linger.Results` to return results and converts them using the `ToActionResult()` method:
+
+```csharp
+// Server code
+public Result<UserDto> GetUser(int id)
+{
+    if (userNotFound)
+        return Result<UserDto>.NotFound("User not found");
+        
+    return Result.Success(userDto);
+}
+
+// Controller
+[HttpGet("{id}")]
+public ActionResult<UserDto> GetUser(int id)
+{
+    var result = _userService.GetUser(id);
+    return result.ToActionResult(); // Converts to JSON response with errors on failure
+}
+```
+
+The client can receive and process these error messages directly through `ApiResult`:
+
+```csharp
+// Client code
+var apiResult = await _httpClient.CallApi<UserDto>($"api/users/{id}");
+
+if (!apiResult.IsSuccess)
+{
+    // apiResult.Errors will contain error information converted by ToActionResult()
+    foreach (var error in apiResult.Errors)
+    {
+        Console.WriteLine($"Error code: {error.Code}, Message: {error.Message}");
+    }
+}
+```
+
+### Error Structure Mapping
+
+The `Error` record type in `Linger.Results` is mapped to the `ApiResult.Errors` collection:
+
+| Linger.Results (Server) | ApiResult (Client) |
+|---------------------|-------------------|
+| Error.Code          | ApiError.Code     |
+| Error.Message       | ApiError.Message  |
+
+This design ensures consistent and complete transfer of error information from server to client, allowing the client to precisely understand and handle business errors returned by the server.
 
 ## Dependency Injection Integration
 

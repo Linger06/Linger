@@ -15,6 +15,16 @@ public class TokenRefreshHandler
     private readonly IServiceProvider _serviceProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
+    /// <summary>
+    /// 当令牌刷新成功时触发
+    /// </summary>
+    public event EventHandler<string>? TokenRefreshed;
+    
+    /// <summary>
+    /// 当令牌刷新失败时触发
+    /// </summary>
+    public event EventHandler? TokenRefreshFailed;
+
     public TokenRefreshHandler(AppState appState, IServiceProvider serviceProvider)
     {
         _appState = appState;
@@ -74,14 +84,14 @@ public class TokenRefreshHandler
 
             if (success && !string.IsNullOrEmpty(newToken))
             {
-                // 更新AppState中的令牌
-                _appState.Token = newToken;
-                // Token属性setter会自动通知变更
+                // 通知令牌已刷新成功
+                TokenRefreshed?.Invoke(this, newToken);
             }
             else
             {
-                // 如果刷新失败，清除令牌
-                _appState.Token = string.Empty;
+                // 通知令牌刷新失败
+                TokenRefreshFailed?.Invoke(this, EventArgs.Empty);
+                
                 // 触发需要重新登录的事件
                 _appState.RaiseRequireReloginEvent();
             }
@@ -90,8 +100,8 @@ public class TokenRefreshHandler
         {
             Console.WriteLine($"令牌刷新失败: {ex.Message}");
             
-            // 清除无效令牌
-            _appState.Token = string.Empty;
+            // 通知令牌刷新失败
+            TokenRefreshFailed?.Invoke(this, EventArgs.Empty);
             
             // 触发重新登录事件
             _appState.RaiseRequireReloginEvent();

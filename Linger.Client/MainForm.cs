@@ -17,6 +17,8 @@ public partial class MainForm : Form
     private FormBorderStyle _previousBorderStyle;
     private Rectangle _previousBounds;
     private bool _wasMaximized;
+    private AppState _appState;
+    private TokenRefreshHandler _tokenRefreshHandler;
 
     public bool IsFullScreen => FormBorderStyle == FormBorderStyle.None;
 
@@ -119,6 +121,21 @@ public partial class MainForm : Form
 
         Controls.Add(blazorWebView);
         RegisterHotKey();
+
+        // 获取AppState和TokenRefreshHandler的引用
+        _appState = blazorWebView.Services.GetRequiredService<AppState>();
+        _tokenRefreshHandler = blazorWebView.Services.GetRequiredService<TokenRefreshHandler>();
+
+        // 订阅令牌刷新事件
+        _tokenRefreshHandler.TokenRefreshed += (sender, newToken) =>
+        {
+            _appState.Token = newToken;
+        };
+
+        _tokenRefreshHandler.TokenRefreshFailed += (sender, args) =>
+        {
+            // 令牌刷新失败，无需额外操作，TokenRefreshHandler中会自动触发RequireRelogin
+        };
     }
 
     private void RegisterHotKey()

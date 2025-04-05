@@ -26,8 +26,11 @@ namespace System.Diagnostics.CodeAnalysis
 
 #endif
 
-namespace Linger.Result
+namespace Linger.Results
 {
+    /// <summary>
+    /// 表示操作结果的基类
+    /// </summary>
     public class Result
     {
         private static readonly Result s_success = new(ResultStatus.Ok);
@@ -44,7 +47,9 @@ namespace Linger.Result
         public ResultStatus Status { get; protected set; } = ResultStatus.Ok;
 
         public bool IsSuccess => Status is ResultStatus.Ok;
+
         public bool IsFailure => !IsSuccess;
+
         public IEnumerable<Error> Errors { get; protected set; } = [];
 
         public static Result Success() => s_success;
@@ -68,6 +73,10 @@ namespace Linger.Result
         public static Result NotFound(IEnumerable<Error> errors) => new(ResultStatus.NotFound) { Errors = errors };
     }
 
+    /// <summary>
+    /// 表示包含值的操作结果
+    /// </summary>
+    /// <typeparam name="TValue">结果包含的值的类型</typeparam>
     public class Result<TValue> : Result
     {
         private readonly TValue? _value;

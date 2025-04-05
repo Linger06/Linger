@@ -116,4 +116,89 @@ public class RemoteSystemSetting
             Type = "SFTP"
         };
     }
+
+    /// <summary>
+    /// 初始化SFTP设置（使用私钥文件）
+    /// </summary>
+    public static RemoteSystemSetting CreateSftpWithCertificate(string host, int port, string userName, string certificatePath, string? certificatePassphrase = null)
+    {
+        return new RemoteSystemSetting
+        {
+            Host = host,
+            Port = port,
+            UserName = userName,
+            CertificatePath = certificatePath,
+            CertificatePassphrase = certificatePassphrase,
+            Type = "SFTP"
+        };
+    }
+
+    /// <summary>
+    /// 创建连接设置的克隆
+    /// </summary>
+    public RemoteSystemSetting Clone()
+    {
+        var clone = new RemoteSystemSetting
+        {
+            Host = this.Host,
+            Port = this.Port,
+            UserName = this.UserName,
+            Password = this.Password,
+            Type = this.Type,
+            CertificatePath = this.CertificatePath,
+            CertificatePassphrase = this.CertificatePassphrase,
+            ConnectionTimeout = this.ConnectionTimeout,
+            OperationTimeout = this.OperationTimeout,
+            Encoding = this.Encoding
+        };
+
+        // 克隆 SecurePassword
+        if (_securePassword != null)
+        {
+            var newSecurePassword = new SecureString();
+            IntPtr bstr = System.Runtime.InteropServices.Marshal.SecureStringToBSTR(_securePassword);
+            try
+            {
+                string password = System.Runtime.InteropServices.Marshal.PtrToStringBSTR(bstr);
+                if (password != null)
+                {
+                    foreach (char c in password)
+                    {
+                        newSecurePassword.AppendChar(c);
+                    }
+                    newSecurePassword.MakeReadOnly();
+                    clone._securePassword = newSecurePassword;
+                }
+            }
+            finally
+            {
+                System.Runtime.InteropServices.Marshal.ZeroFreeBSTR(bstr);
+            }
+        }
+
+        return clone;
+    }
+
+    /// <summary>
+    /// 检查连接设置是否有效
+    /// </summary>
+    public bool IsValid()
+    {
+        if (string.IsNullOrEmpty(Host) || Port <= 0 || string.IsNullOrEmpty(UserName))
+            return false;
+
+        // 检查认证方式：必须有密码或者证书路径
+        bool hasPassword = !string.IsNullOrEmpty(Password) || (_securePassword != null && _securePassword.Length > 0);
+        bool hasCertificate = !string.IsNullOrEmpty(CertificatePath);
+
+        return hasPassword || hasCertificate;
+    }
+
+    /// <summary>
+    /// 获取不包含敏感信息的连接字符串（用于日志记录）
+    /// </summary>
+    public string ToSafeString()
+    {
+        return $"{Type}://{UserName}@{Host}:{Port}";
+    }
 }

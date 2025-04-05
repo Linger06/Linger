@@ -31,7 +31,8 @@
     <Project Path="src/Linger.Ldap.ActiveDirectory/Linger.Ldap.ActiveDirectory.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />
-    <Project Path="src/Linger.Result/Linger.Result.csproj" />
+    <Project Path="src/Linger.Results.AspNetCore/Linger.Results.AspNetCore.csproj" />
+    <Project Path="src/Linger.Results/Linger.Results.csproj" />
     <Project Path="src/Linger.SharedKernel/Linger.SharedKernel.csproj" />
     <Project Path="src/Linger/Linger.csproj" />
   </Folder>
