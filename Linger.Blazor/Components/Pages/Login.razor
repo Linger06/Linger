@@ -1,0 +1,63 @@
+@page "/login"
+@inject Linger.Blazor.Services.AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@layout EmptyLayout
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="d-flex justify-center align-center" Style="height: 100vh;">
+    <MudPaper Elevation="3" Class="pa-8" Style="width: 500px;">
+        <MudText Typo="Typo.h4" Class="mb-4 text-center">系统登录</MudText>
+        <MudDivider Class="mb-4" />
+        <MudForm @ref="form" @bind-IsValid="@success">
+            <MudTextField T="string" Label="用户名" Required="true" RequiredError="请输入用户名"
+                          @bind-Value="loginModel.Username" Class="mb-3" />
+            <MudTextField T="string" Label="密码" Required="true" RequiredError="请输入密码"
+                          @bind-Value="loginModel.Password" InputType="InputType.Password" Class="mb-5" />
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       Disabled="@(!success)" OnClick="HandleLogin" FullWidth="true" Size="Size.Large">
+                @if (loading)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">登录中</MudText>
+                }
+                else
+                {
+                    <MudText>登录</MudText>
+                }
+            </MudButton>
+        </MudForm>
+    </MudPaper>
+</MudContainer>
+
+@code {
+    private Linger.Blazor.Models.LoginRequest loginModel = new() { Username = "admin", Password = "password" };
+    private bool success;
+    private bool loading = false;
+    private MudForm form;
+
+    private async Task HandleLogin()
+    {
+        loading = true;
+        try
+        {
+            var result = await AuthService.LoginAsync(loginModel);
+            if (result)
+            {
+                NavigationManager.NavigateTo("/", true);
+            }
+            else
+            {
+                Snackbar.Add("登录失败，请检查用户名和密码", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"发生错误: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

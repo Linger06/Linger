@@ -1,0 +1,52 @@
+@inject Linger.Blazor.Services.IFullScreenService FullScreenService
+
+<MudTooltip Text="@tooltip">
+    <MudIconButton Icon="@currentIcon"
+                   OnClick="@ToggleFullScreen"
+                   Size="Size.Medium"
+                   Color="Color.Primary"
+                   Class="@(animate ? "fullscreen-icon animate" : "fullscreen-icon")" />
+</MudTooltip>
+
+@code {
+    private string currentIcon = Icons.Material.Filled.Fullscreen;
+    private string tooltip = "Enter Fullscreen";
+    private bool animate;
+
+    [Parameter]
+    public EventCallback<bool> OnFullScreenChanged { get; set; }
+
+    private void SetFullScreenState(bool isFullScreen)
+    {
+        currentIcon = isFullScreen ? Icons.Material.Filled.FullscreenExit : Icons.Material.Filled.Fullscreen;
+        tooltip = isFullScreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen (F11)";
+        animate = true;
+
+        _ = OnFullScreenChanged.InvokeAsync(isFullScreen);
+
+        InvokeAsync(StateHasChanged);
+        Task.Delay(300).ContinueWith(_ =>
+        {
+            animate = false;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // 初始化全屏状态监听
+            await FullScreenService.InitializeFullScreenListenerAsync(SetFullScreenState);
+            
+            // 获取当前全屏状态
+            var isFullScreen = await FullScreenService.IsFullScreenAsync();
+            SetFullScreenState(isFullScreen);
+        }
+    }
+
+    private async Task ToggleFullScreen()
+    {
+        await FullScreenService.ToggleFullScreenAsync();
+    }
+}

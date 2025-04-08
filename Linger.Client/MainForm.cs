@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using Linger.Blazor.Services;
 using Linger.Client.Services;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Standard;
@@ -44,6 +45,9 @@ public partial class MainForm : Form
 
         // 注册令牌刷新处理器
         services.AddSingleton<TokenRefreshHandler>();
+
+        // 注册 WinForms 全屏服务实现
+        services.AddScoped<IFullScreenService, WinFormFullScreenService>();
 
         // 使用HttpClientFactory注册IHttpClient，并结合弹性策略
         services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
@@ -113,7 +117,7 @@ public partial class MainForm : Form
         services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 
         blazorWebView.Services = services.BuildServiceProvider();
-        blazorWebView.RootComponents.Add<App>("#app");
+        blazorWebView.RootComponents.Add<Blazor.App>("#app");
         blazorWebView.WebView.CoreWebView2InitializationCompleted += (s, e) =>
         {
             blazorWebView.WebView.CoreWebView2.AddHostObjectToScript("winFormHost", new WinFormInterop(this));

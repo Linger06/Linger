@@ -44,5 +44,6 @@
     <Project Path="tests/Linger.UnitTests/Linger.UnitTests.csproj" />
   </Folder>
   <Project Path="Linger.API/Linger.API.csproj" />
+  <Project Path="Linger.Blazor/Linger.Blazor.csproj" />
   <Project Path="Linger.Client/Linger.Client.csproj" />
 </Solution>

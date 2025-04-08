@@ -1,23 +1,24 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
-    <TargetFramework>net9.0-windows</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="9.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="9.0.3" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.WindowsForms" Version="9.0.50" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.3" />
     <PackageReference Include="MudBlazor" Version="8.5.1" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.3.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Linger.Blazor\Linger.Blazor.csproj" />
     <ProjectReference Include="..\src\Linger.HttpClient.Standard\Linger.HttpClient.Standard.csproj" />
   </ItemGroup>
 

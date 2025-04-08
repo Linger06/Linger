@@ -1,0 +1,220 @@
+@page "/grid-cell-demo"
+@using MudBlazor
+@using Linger.Blazor.Components
+@implements IDisposable
+@inject IJSRuntime JSRuntime
+
+<h3>网格单元格列表示例</h3>
+
+<MudPaper Class="pa-4 my-4">
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudText Class="mb-4">调整网格设置:</MudText>
+            <div class="d-flex flex-wrap gap-4 mb-4">
+                <MudNumericField @bind-Value="cellWidth" Label="单元格宽度" Min="30" Max="300" />
+                <MudNumericField @bind-Value="cellHeight" Label="单元格高度" Min="30" Max="300" />
+                <MudNumericField @bind-Value="columnsCount" Label="列数" Min="1" Max="100" />
+            </div>
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                说明：列数没有实际限制，可以根据需要设置任意大小的值
+            </MudText>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudText Class="mb-4">功能选项:</MudText>
+            <div class="d-flex flex-wrap gap-2 align-center">
+                <MudCheckBox @bind-Value="enableHoverEffect" Label="启用悬停效果" Color="Color.Primary" />
+                <MudRadioGroup @bind-Value="selectionMode" Class="ml-4">
+                    <MudRadio Value="@("single")" Color="Color.Primary">单选</MudRadio>
+                    <MudRadio Value="@("multiple")" Color="Color.Primary">多选</MudRadio>
+                </MudRadioGroup>
+            </div>
+            <div class="mt-2">
+                <MudButton OnClick="ToggleLoadingState" Color="Color.Primary" Variant="Variant.Outlined">
+                    @(isLoading ? "显示内容" : "显示加载状态")
+                </MudButton>
+                <MudButton OnClick="ClearItems" Color="Color.Error" Variant="Variant.Outlined" Class="ml-2">
+                    清空内容
+                </MudButton>
+                <MudButton OnClick="ClearSelection" Color="Color.Secondary" Variant="Variant.Outlined" Class="ml-2">
+                    清除选择
+                </MudButton>
+            </div>
+        </MudItem>
+    </MudGrid>
+    
+    <MudDivider Class="my-3" />
+    
+    <div class="position-relative">
+        @if (isLoading)
+        {
+            <GridCellList TItem="DemoItem"
+                        CellWidth="cellWidth"
+                        CellHeight="cellHeight"
+                        ColumnsCount="columnsCount"
+                        EnableHoverEffect="enableHoverEffect">
+                <LoadingTemplate>
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                    <MudText Class="ml-3">加载中...</MudText>
+                </LoadingTemplate>
+            </GridCellList>
+        }
+        else if (demoItems.Count == 0)
+        {
+            <GridCellList TItem="DemoItem"
+                        Items="demoItems"
+                        CellWidth="cellWidth"
+                        CellHeight="cellHeight"
+                        ColumnsCount="columnsCount">
+                <EmptyTemplate>
+                    <MudIcon Icon="@Icons.Material.Filled.SentimentDissatisfied" Color="Color.Default" Size="Size.Large" />
+                    <MudText Class="mt-2">没有数据</MudText>
+                </EmptyTemplate>
+            </GridCellList>
+        }
+        else
+        {
+            <GridCellList TItem="DemoItem"
+                        Items="demoItems"
+                        CellWidth="cellWidth"
+                        CellHeight="cellHeight"
+                        ColumnsCount="columnsCount"
+                        ColorSelector="@(item => item.Color)"
+                        IsSelectedSelector="@(item => selectedItems.Contains(item.Id))"
+                        OnCellClick="HandleCellClick"
+                        EnableHoverEffect="enableHoverEffect">
+                <CellTemplate>
+                    <MudText Typo="Typo.subtitle2">@context.Name</MudText>
+                    <MudText Typo="Typo.caption">值: @context.Value</MudText>
+                </CellTemplate>
+            </GridCellList>
+        }
+    </div>
+</MudPaper>
+
+<MudPaper Class="pa-4 mt-4">
+    <MudText>选择模式: @(selectionMode == "single" ? "单选" : "多选")</MudText>
+    <MudText>已选择: @(selectedItems.Count) 项</MudText>
+    <MudText Class="mt-2">最后点击: @selectedItem</MudText>
+</MudPaper>
+
+@code {
+    private List<DemoItem> demoItems = new List<DemoItem>();
+    private int cellWidth = 100;
+    private int cellHeight = 100;
+    private int columnsCount = 8;
+    private string selectedItem = "无";
+    
+    private static readonly Random random = new Random();
+    private bool enableHoverEffect = true;
+    private bool isLoading = false;
+    private HashSet<int> selectedItems = new HashSet<int>();
+    private string selectionMode = "multiple"; // "single" 或 "multiple"
+
+    private void HandleCellClick(DemoItem item)
+    {
+        selectedItem = $"{item.Name} (ID: {item.Id}, 值: {item.Value})";
+        
+        if (selectionMode == "single")
+        {
+            // 单选模式
+            selectedItems.Clear();
+            selectedItems.Add(item.Id);
+        }
+        else
+        {
+            // 多选模式
+            if (selectedItems.Contains(item.Id))
+                selectedItems.Remove(item.Id);
+            else
+                selectedItems.Add(item.Id);
+        }
+            
+        StateHasChanged();
+    }
+
+    private void ToggleLoadingState()
+    {
+        isLoading = !isLoading;
+        
+        if (!isLoading && demoItems.Count == 0)
+        {
+            // 如果从加载状态切换回来且没有数据，添加示例数据
+            InitializeData();
+        }
+    }
+    
+    private void ClearItems()
+    {
+        demoItems.Clear();
+        selectedItems.Clear();
+        selectedItem = "无";
+    }
+    
+    private void InitializeData()
+    {
+        demoItems.Clear();
+        // 减少示例数据量，因为没有虚拟化支持
+        for (int i = 1; i <= 30; i++)
+        {
+            demoItems.Add(new DemoItem
+            {
+                Id = i,
+                Name = $"项目 {i}",
+                Value = i * 10,
+                Color = GetRandomColor()
+            });
+        }
+    }
+    
+    protected override void OnInitialized()
+    {
+        InitializeData();
+    }
+
+    // 根据数值大小返回不同的颜色
+    private string GetColorByValue(int value)
+    {
+        if (value < 50) return "#90CAF9"; // 浅蓝色
+        if (value < 100) return "#81C784"; // 浅绿色
+        if (value < 150) return "#FFD54F"; // 黄色
+        return "#FF8A65"; // 橙色
+    }
+
+    // 或者随机生成颜色
+    private string GetRandomColor()
+    {
+        var colors = new[] { "#f44336", "#e91e63", "#9c27b0", "#673ab7", "#3f51b5", 
+                            "#2196f3", "#03a9f4", "#00bcd4", "#009688", "#4caf50", 
+                            "#8bc34a", "#cddc39", "#ffeb3b", "#ffc107", "#ff9800" };
+        
+        return colors[random.Next(0, colors.Length)];
+    }
+
+    // 添加一个方法允许通过代码设置任意列数
+    private void SetCustomColumnCount(int count)
+    {
+        columnsCount = count;
+        StateHasChanged();
+    }
+
+    private void ClearSelection()
+    {
+        selectedItems.Clear();
+        selectedItem = "无";
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        // 清理资源
+    }
+
+    // 定义一个带属性的实体类用于演示
+    public class DemoItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public int Value { get; set; }
+        public string Color { get; set; } = "#ffffff";
+    }
+}
