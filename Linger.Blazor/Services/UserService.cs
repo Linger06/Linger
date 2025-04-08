@@ -1,3 +1,5 @@
+﻿using System.Text;
+using System.Text.Json;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Models;
 
@@ -19,7 +21,7 @@ public class UserService(IHttpClient httpClient)
     }
 
     // 上传用户头像
-    public async Task<ApiResult<string>> UploadAvatarAsync(string userId, byte[] imageData)
+    public async Task<ApiResult<string>> UploadAvatarAsync(string userId, string fileName, byte[] imageData)
     {
         var formData = new Dictionary<string, string>
         {
@@ -31,17 +33,38 @@ public class UserService(IHttpClient httpClient)
             HttpMethodEnum.Post,
             formData,
             imageData,
-            "avatar.jpg");
+            fileName);
     }
+
+    // 更新用户信息
+    public async Task<ApiResult<UserInfo>> UpdateUserInfoAsync(UserUpdateRequest request)
+    {
+
+        var jsonContent = new StringContent(
+            JsonSerializer.Serialize(request),
+            Encoding.UTF8,
+            "application/json");
+
+        return await httpClient.CallApi<UserInfo>("api/users", HttpMethodEnum.Put, content: jsonContent);
+    }
+
 }
 
 // 用户信息模型
 public class UserInfo
 {
-    public string Id { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string AvatarUrl { get; set; } = string.Empty;
+    public required string Id { get; set; }
+    public required string Name { get; set; }
+    public required string Email { get; set; }
+    public required string AvatarUrl { get; set; }
+}
+
+// 用户更新请求
+public class UserUpdateRequest
+{
+    public required string Id { get; set; }
+    public required string Name { get; set; }
+    public required string Email { get; set; }
 }
 
 // 创建用户模型

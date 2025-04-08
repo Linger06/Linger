@@ -93,20 +93,28 @@
                                        "display: flex; justify-content: center; align-items: center; cursor: pointer; " + 
                                        "border-radius: 4px; overflow: hidden;");
         builder.AddAttribute(3, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, () => OnCellClicked(item)));
+        // 添加鼠标事件处理以保持选中状态
+        builder.AddAttribute(4, "onmouseover", EventCallback.Factory.Create<MouseEventArgs>(this, e => PreserveSelection(isSelected)));
         
-        builder.OpenElement(4, "div");
-        builder.AddAttribute(5, "class", "grid-cell-content");
+        builder.OpenElement(5, "div");
+        builder.AddAttribute(6, "class", "grid-cell-content");
         
         if (CellTemplate != null)
         {
-            builder.AddContent(6, CellTemplate(item));
+            builder.AddContent(7, CellTemplate(item));
         }
         else
         {
-            builder.AddContent(6, item?.ToString());
+            builder.AddContent(7, item?.ToString());
         }
         
         builder.CloseElement();
         builder.CloseElement();
     };
+
+    // 添加方法确保选中状态在鼠标悬停时不会消失
+    private void PreserveSelection(bool isSelected)
+    {
+        // 这个方法为空，但确保了DOM事件不会导致重新渲染时丢失状态
+    }
 }

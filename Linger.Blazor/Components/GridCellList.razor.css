@@ -8,7 +8,7 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-::deep .grid-cell-hover:hover {
+::deep .grid-cell-hover:hover:not(.grid-cell-selected) {
     transform: scale(1.02);
     box-shadow: 0 3px 6px rgba(0,0,0,0.15);
     z-index: 1;
@@ -16,6 +16,13 @@
 
 ::deep .grid-cell-selected {
     box-shadow: 0 0 0 2px #1976d2, 0 3px 6px rgba(0,0,0,0.15);
+    z-index: 2;
+}
+
+/* 确保选中状态在悬停时仍然保持样式 */
+::deep .grid-cell-selected.grid-cell-hover:hover {
+    box-shadow: 0 0 0 2px #1976d2, 0 3px 6px rgba(0,0,0,0.15);
+    transform: scale(1.02);
     z-index: 2;
 }
 

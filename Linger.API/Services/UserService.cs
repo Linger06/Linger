@@ -51,4 +51,18 @@ public class UserService
 
         return avatarUrl;
     }
+
+    // 更新用户信息
+    public UserInfo? UpdateUserInfo(UserUpdateRequest request)
+    {
+        var user = s_users.FirstOrDefault(u => u.Id == request.Id);
+        if (user == null)
+            return null;
+            
+        // 更新用户信息
+        user.Name = request.Name;
+        user.Email = request.Email;
+        
+        return user;
+    }
 }

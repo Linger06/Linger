@@ -91,4 +91,26 @@ public class UsersController(
             return Result.Failure("上传头像时发生服务器错误").ToActionResult(failureStatusCode: StatusCodes.Status500InternalServerError);
         }
     }
+
+    // PUT: api/users
+    [HttpPut]
+    public ActionResult<UserInfo> UpdateUser(UserUpdateRequest request)
+    {
+        if (!ModelState.IsValid)
+            return Result.Failure("无效的用户数据").ToActionResult();
+
+        try
+        {
+            var updatedUser = userService.UpdateUserInfo(request);
+            if (updatedUser == null)
+                return Result.NotFound("用户不存在").ToActionResult();
+                
+            return Result.Success(updatedUser).ToActionResult();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "更新用户时出错");
+            return Result.Failure("更新用户时发生服务器错误").ToActionResult(failureStatusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
 }

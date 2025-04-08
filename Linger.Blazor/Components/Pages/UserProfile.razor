@@ -1,6 +1,9 @@
 @page "/profile/{UserId}"
+@using System.ComponentModel.DataAnnotations
 @inject Linger.Blazor.Services.UserService UserService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
 
 <MudContainer Class="mt-4">
     @if (_isLoading)
@@ -12,15 +15,60 @@
         <MudCard>
             <MudCardHeader>
                 <CardHeaderAvatar>
-                    <MudAvatar>
-                        <MudImage Src="@_user.AvatarUrl"></MudImage>
-                    </MudAvatar>
+                    @if (_isEditing)
+                    {
+                        <MudAvatar Size="Size.Large" Style="cursor:pointer;" @onclick="OpenFileSelector">
+                            <MudImage Src="@_user.AvatarUrl"></MudImage>
+                            <MudOverlay Visible="true" Absolute="true" Opacity="0.4">
+                                <MudIcon Icon="@Icons.Material.Filled.Edit" Color="Color.Default" />
+                            </MudOverlay>
+                        </MudAvatar>
+                        <InputFile id="fileInput" OnChange="UploadAvatar" hidden accept=".jpg,.jpeg,.png" />
+                    }
+                    else
+                    {
+                        <MudAvatar Size="Size.Large">
+                            <MudImage Src="@_user.AvatarUrl"></MudImage>
+                        </MudAvatar>
+                    }
                 </CardHeaderAvatar>
                 <CardHeaderContent>
-                    <MudText Typo="Typo.h6">@_user.Name</MudText>
-                    <MudText Typo="Typo.body2">@_user.Email</MudText>
+                    @if (!_isEditing)
+                    {
+                        <MudText Typo="Typo.h6">@_user.Name</MudText>
+                        <MudText Typo="Typo.body2">@_user.Email</MudText>
+                    }
                 </CardHeaderContent>
+                <CardHeaderActions>
+                    @if (_isEditing)
+                    {
+                        <MudButton Variant="Variant.Text" Color="Color.Error" OnClick="CancelEditing">取消</MudButton>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" OnClick="SaveUserInfo">保存</MudButton>
+                    }
+                    else
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Default" OnClick="StartEditing" />
+                    }
+                </CardHeaderActions>
             </MudCardHeader>
+            
+            @if (_isEditing)
+            {
+                <MudCardContent>
+                    <MudForm @ref="_form" Model="@_editUserModel">
+                        <MudTextField @bind-Value="_editUserModel.Name" 
+                                     Label="名称" 
+                                     Required="true" 
+                                     RequiredError="用户名不能为空" />
+                        
+                        <MudTextField @bind-Value="_editUserModel.Email" 
+                                     Label="邮箱" 
+                                     Required="true" 
+                                     RequiredError="邮箱不能为空"
+                                     Validation="@(new EmailAddressAttribute() {ErrorMessage = "邮箱格式不正确"})" />
+                    </MudForm>
+                </MudCardContent>
+            }
         </MudCard>
     }
 </MudContainer>
@@ -30,6 +78,19 @@
     
     private Linger.Blazor.Services.UserInfo? _user;
     private bool _isLoading = true;
+    private bool _isEditing = false;
+    private MudForm _form = null!;
+    private EditUserModel _editUserModel = new();
+    
+    private class EditUserModel
+    {
+        [Required(ErrorMessage = "用户名不能为空")]
+        public string Name { get; set; } = string.Empty;
+        
+        [Required(ErrorMessage = "邮箱不能为空")]
+        [EmailAddress(ErrorMessage = "邮箱格式不正确")]
+        public string Email { get; set; } = string.Empty;
+    }
     
     protected override async Task OnInitializedAsync()
     {
@@ -42,6 +103,7 @@
             if (result.IsSuccess)
             {
                 _user = result.Data;
+                InitializeEditModel();
             }
             else
             {
@@ -55,6 +117,111 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+    
+    private void InitializeEditModel()
+    {
+        if (_user != null)
+        {
+            _editUserModel.Name = _user.Name;
+            _editUserModel.Email = _user.Email;
+        }
+    }
+    
+    private void StartEditing()
+    {
+        _isEditing = true;
+        InitializeEditModel();
+    }
+    
+    private void CancelEditing()
+    {
+        _isEditing = false;
+    }
+    
+    private async Task SaveUserInfo()
+    {
+        await _form.Validate();
+        
+        if (_form.IsValid && _user != null)
+        {
+            _isLoading = true;
+            
+            try
+            {
+                var updateRequest = new Linger.Blazor.Services.UserUpdateRequest
+                {
+                    Id = _user.Id,
+                    Name = _editUserModel.Name,
+                    Email = _editUserModel.Email
+                };
+                
+                var result = await UserService.UpdateUserInfoAsync(updateRequest);
+                
+                if (result.IsSuccess)
+                {
+                    _user.Name = _editUserModel.Name;
+                    _user.Email = _editUserModel.Email;
+                    _isEditing = false;
+                    Snackbar.Add("用户信息已更新", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add($"更新用户信息失败: {result.ErrorMsg}", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"发生错误: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                _isLoading = false;
+            }
+        }
+    }
+    
+    private async Task OpenFileSelector()
+    {
+        await JSRuntime.InvokeVoidAsync("document.getElementById('fileInput').click");
+    }
+    
+    private async Task UploadAvatar(InputFileChangeEventArgs e)
+    {
+        if (e.File != null && _user != null)
+        {
+            _isLoading = true;
+            
+            try
+            {
+                var format = "image/jpeg";
+                var resizedFile = await e.File.RequestImageFileAsync(format, 300, 300);
+                
+                using var stream = resizedFile.OpenReadStream(maxAllowedSize: 2_000_000); // 2MB
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                
+                var result = await UserService.UploadAvatarAsync(_user.Id, resizedFile.Name, ms.ToArray());
+                
+                if (result.IsSuccess)
+                {
+                    _user.AvatarUrl = result.Data;
+                    Snackbar.Add("头像已更新", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add($"上传头像失败: {result.ErrorMsg}", Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"上传头像时发生错误: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                _isLoading = false;
+            }
         }
     }
 }
