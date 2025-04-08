@@ -83,10 +83,10 @@
                         OnCellClick="HandleCellClick"
                         EnableHoverEffect="enableHoverEffect">
                 <CellTemplate>
-                    <div class="d-flex flex-column align-center justify-center text-center">
+                    @* <div class="d-flex flex-column align-center justify-center text-center"> *@
                         <MudText Typo="Typo.subtitle2">@context.Name</MudText>
                         <MudText Typo="Typo.caption">值: @context.Value</MudText>
-                    </div>
+                    @* </div> *@
                 </CellTemplate>
             </GridCellList>
         }
@@ -103,7 +103,7 @@
     private List<DemoItem> demoItems = new List<DemoItem>();
     private int cellWidth = 100;
     private int cellHeight = 100;
-    private int columnsCount = 3;
+    private int columnsCount = 8;
     private string selectedItem = "无";
     
     private static readonly Random random = new Random();
@@ -163,7 +163,7 @@
                 Id = i,
                 Name = $"项目 {i}",
                 Value = i * 10,
-                Color = GetColorByValue(i * 10)
+                Color = GetRandomColor()
             });
         }
     }

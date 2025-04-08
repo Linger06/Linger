@@ -9,7 +9,7 @@ namespace Linger.API.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class DataController : ControllerBase
+public class DataController(ILogger<DataController> logger) : ControllerBase
 {
     private static readonly List<DataItem> s_data = new()
     {
@@ -20,18 +20,11 @@ public class DataController : ControllerBase
         new DataItem { Id = 5, Name = "项目五", Description = "示例项目描述5" }
     };
 
-    private readonly ILogger<DataController> _logger;
-
-    public DataController(ILogger<DataController> logger)
-    {
-        _logger = logger;
-    }
-
     [HttpGet]
     public ActionResult<List<DataItem>> GetAll()
     {
         var username = User.Identity?.Name;
-        _logger.LogInformation($"用户 {username} 请求获取所有数据");
+        logger.LogInformation($"用户 {username} 请求获取所有数据");
         return Result.Success(s_data).ToActionResult();
     }
 
@@ -49,7 +42,7 @@ public class DataController : ControllerBase
     public ActionResult<int> GetCount()
     {
         // 确保返回一个原始的整数值，而不是包装对象
-        _logger.LogInformation($"请求数据项数量: {s_data.Count}");
+        logger.LogInformation($"请求数据项数量: {s_data.Count}");
         return Result.Success(s_data.Count).ToActionResult();
     }
 }

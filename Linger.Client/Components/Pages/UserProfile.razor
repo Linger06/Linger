@@ -12,7 +12,9 @@
         <MudCard>
             <MudCardHeader>
                 <CardHeaderAvatar>
-                    <MudAvatar Image="@_user.AvatarUrl" />
+                    <MudAvatar>
+                        <MudImage Src="@_user.AvatarUrl"></MudImage>
+                    </MudAvatar>
                 </CardHeaderAvatar>
                 <CardHeaderContent>
                     <MudText Typo="Typo.h6">@_user.Name</MudText>
@@ -24,9 +26,9 @@
 </MudContainer>
 
 @code {
-    [Parameter] public string UserId { get; set; }
+    [Parameter] public required string UserId { get; set; }
     
-    private UserInfo _user;
+    private UserInfo? _user;
     private bool _isLoading = true;
     
     protected override async Task OnInitializedAsync()

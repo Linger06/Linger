@@ -8,27 +8,17 @@ namespace Linger.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController : ControllerBase
+public class UsersController(
+    UserService userService,
+    IWebHostEnvironment environment,
+    ILogger<UsersController> logger) : ControllerBase
 {
-    private readonly UserService _userService;
-    private readonly IWebHostEnvironment _environment;
-    private readonly ILogger<UsersController> _logger;
-
-    public UsersController(
-        UserService userService,
-        IWebHostEnvironment environment,
-        ILogger<UsersController> logger)
-    {
-        _userService = userService;
-        _environment = environment;
-        _logger = logger;
-    }
 
     // GET: api/users/{id}
     [HttpGet("{id}")]
     public ActionResult<UserInfo> GetUser(string id)
     {
-        var user = _userService.GetUser(id);
+        var user = userService.GetUser(id);
         if (user == null)
             return Result.NotFound("用户不存在").ToActionResult();
 
@@ -44,12 +34,12 @@ public class UsersController : ControllerBase
 
         try
         {
-            var newUser = _userService.CreateUser(request);
+            var newUser = userService.CreateUser(request);
             return Result.Success(newUser).ToActionResult();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "创建用户时出错");
+            logger.LogError(ex, "创建用户时出错");
             return Result.Failure("创建用户时发生服务器错误").ToActionResult(failureStatusCode: StatusCodes.Status500InternalServerError);
         }
     }
@@ -67,17 +57,17 @@ public class UsersController : ControllerBase
             string userId = userIdValues.ToString();
 
             // 检查用户是否存在
-            var user = _userService.GetUser(userId);
+            var user = userService.GetUser(userId);
             if (user == null)
                 return Result.NotFound("用户不存在").ToActionResult();
 
             // 获取上传的文件
-            var file = Request.Form.Files.FirstOrDefault();
+            var file = Request.Form.Files[0];
             if (file == null)
                 return Result.Failure("没有上传文件").ToActionResult();
 
             // 创建用户头像目录
-            string avatarDirectory = Path.Combine(_environment.WebRootPath, "images", "avatars", userId);
+            string avatarDirectory = Path.Combine(environment.WebRootPath, "images", "avatars", userId);
             if (!Directory.Exists(avatarDirectory))
                 Directory.CreateDirectory(avatarDirectory);
 
@@ -91,13 +81,13 @@ public class UsersController : ControllerBase
             }
 
             // 更新用户头像URL
-            string avatarUrl = _userService.UpdateAvatar(userId, uniqueFileName);
+            string avatarUrl = userService.UpdateAvatar(userId, uniqueFileName);
 
             return Result.Success(avatarUrl).ToActionResult();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "上传头像时出错");
+            logger.LogError(ex, "上传头像时出错");
             return Result.Failure("上传头像时发生服务器错误").ToActionResult(failureStatusCode: StatusCodes.Status500InternalServerError);
         }
     }

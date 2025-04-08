@@ -101,6 +101,8 @@ if (!apiResult.IsSuccess)
 
 这种设计确保了从服务端到客户端的错误信息传递一致且完整，使客户端能够精确理解和处理服务端返回的业务错误。
 
+你也可以重写GetErrorMessageAsync方法,接收从WebApi回传的其他类型的Error。
+
 ## 依赖注入集成
 
 ### 使用HttpClientFactory

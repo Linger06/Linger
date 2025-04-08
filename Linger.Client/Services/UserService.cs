@@ -3,26 +3,19 @@ using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.Client.Services;
 
-public class UserService
+public class UserService(IHttpClient httpClient)
 {
-    private readonly IHttpClient _httpClient;
-
-    // 通过依赖注入获取IHttpClient
-    public UserService(IHttpClient httpClient)
-    {
-        _httpClient = httpClient;
-    }
 
     // 获取用户信息
     public async Task<ApiResult<UserInfo>> GetUserInfoAsync(string userId)
     {
-        return await _httpClient.CallApi<UserInfo>($"api/users/{userId}");
+        return await httpClient.CallApi<UserInfo>($"api/users/{userId}");
     }
 
     // 创建新用户
     public async Task<ApiResult<UserInfo>> CreateUserAsync(UserCreateModel model)
     {
-        return await _httpClient.CallApi<UserInfo>("api/users", HttpMethodEnum.Post, model);
+        return await httpClient.CallApi<UserInfo>("api/users", HttpMethodEnum.Post, model);
     }
 
     // 上传用户头像
@@ -33,7 +26,7 @@ public class UserService
             { "userId", userId }
         };
 
-        return await _httpClient.CallApi<string>(
+        return await httpClient.CallApi<string>(
             "api/users/avatar",
             HttpMethodEnum.Post,
             formData,

@@ -1,7 +1,6 @@
-using System.Net;
+﻿using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Resilience;
-using Microsoft.Extensions.Resilience;
 using Polly;
 
 namespace Linger.Client.Services;
@@ -9,27 +8,19 @@ namespace Linger.Client.Services;
 /// <summary>
 /// 令牌刷新处理器 - 配合Microsoft.Extensions.Http.Resilience使用
 /// </summary>
-public class TokenRefreshHandler
+public class TokenRefreshHandler(AppState appState, IServiceProvider serviceProvider)
 {
-    private readonly AppState _appState;
-    private readonly IServiceProvider _serviceProvider;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     /// <summary>
     /// 当令牌刷新成功时触发
     /// </summary>
     public event EventHandler<string>? TokenRefreshed;
-    
+
     /// <summary>
     /// 当令牌刷新失败时触发
     /// </summary>
     public event EventHandler? TokenRefreshFailed;
-
-    public TokenRefreshHandler(AppState appState, IServiceProvider serviceProvider)
-    {
-        _appState = appState;
-        _serviceProvider = serviceProvider;
-    }
 
     /// <summary>
     /// 配置令牌刷新弹性管道
@@ -42,7 +33,7 @@ public class TokenRefreshHandler
             // 设置最大重试次数为1（只尝试刷新令牌一次）
             MaxRetryAttempts = 1,
             // 只有401错误才触发令牌刷新
-            ShouldHandle = args => 
+            ShouldHandle = args =>
             {
                 bool shouldRetry = args.Outcome.Result?.StatusCode == HttpStatusCode.Unauthorized;
                 return ValueTask.FromResult(shouldRetry);
@@ -76,11 +67,11 @@ public class TokenRefreshHandler
         try
         {
             // 获取认证服务来刷新令牌
-            using var scope = _serviceProvider.CreateScope();
+            using var scope = serviceProvider.CreateScope();
             var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
 
             // 使用当前令牌获取新的令牌
-            var (success, newToken) = await authService.RefreshTokenAsync(_appState.Token, string.Empty);
+            var (success, newToken) = await authService.RefreshTokenAsync(appState.Token, string.Empty);
 
             if (success && !string.IsNullOrEmpty(newToken))
             {
@@ -91,20 +82,20 @@ public class TokenRefreshHandler
             {
                 // 通知令牌刷新失败
                 TokenRefreshFailed?.Invoke(this, EventArgs.Empty);
-                
+
                 // 触发需要重新登录的事件
-                _appState.RaiseRequireReloginEvent();
+                appState.RaiseRequireReloginEvent();
             }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"令牌刷新失败: {ex.Message}");
-            
+
             // 通知令牌刷新失败
             TokenRefreshFailed?.Invoke(this, EventArgs.Empty);
-            
+
             // 触发重新登录事件
-            _appState.RaiseRequireReloginEvent();
+            appState.RaiseRequireReloginEvent();
         }
     }
 }

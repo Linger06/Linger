@@ -7,18 +7,8 @@ namespace Linger.Client.Services;
 /// <summary>
 /// 认证服务，使用IHttpClient处理登录、注销
 /// </summary>
-public class AuthService
+public class AuthService(IHttpClient httpClient, AppState appState, ILogger<AuthService>? logger = null)
 {
-    private readonly IHttpClient _httpClient;
-    private readonly AppState _appState;
-    private readonly ILogger<AuthService>? _logger;
-
-    public AuthService(IHttpClient httpClient, AppState appState, ILogger<AuthService>? logger = null)
-    {
-        _httpClient = httpClient;
-        _appState = appState;
-        _logger = logger;
-    }
 
     /// <summary>
     /// 登录方法
@@ -30,10 +20,10 @@ public class AuthService
     {
         try
         {
-            _logger?.LogInformation($"尝试登录用户: {loginRequest.Username}");
+            logger?.LogInformation($"尝试登录用户: {loginRequest.Username}");
 
             // 直接使用IHttpClient发送POST请求
-            var result = await _httpClient.CallApi<LoginResponse>(
+            var result = await httpClient.CallApi<LoginResponse>(
                 "api/auth/login",
                 HttpMethodEnum.Post,
                 postData: loginRequest,
@@ -41,24 +31,24 @@ public class AuthService
 
             if (!result.IsSuccess)
             {
-                _logger?.LogWarning($"登录失败: {result.ErrorMsg}");
+                logger?.LogWarning($"登录失败: {result.ErrorMsg}");
                 return false;
             }
 
             // 保存令牌和用户信息到应用状态
-            _appState.Token = result.Data.Token;
-            _appState.Username = loginRequest.Username;
-            _appState.IsLoggedIn = true;
+            appState.Token = result.Data.Token;
+            appState.Username = loginRequest.Username;
+            appState.IsLoggedIn = true;
 
             // 设置令牌到HttpClient
-            _httpClient.SetToken(result.Data.Token);
+            httpClient.SetToken(result.Data.Token);
 
-            _logger?.LogInformation($"用户 {loginRequest.Username} 登录成功");
+            logger?.LogInformation($"用户 {loginRequest.Username} 登录成功");
             return true;
         }
         catch (Exception ex)
         {
-            _logger?.LogError(ex, $"登录过程中发生异常: {ex.Message}");
+            logger?.LogError(ex, $"登录过程中发生异常: {ex.Message}");
             return false;
         }
     }
@@ -68,15 +58,15 @@ public class AuthService
     /// </summary>
     public Task<bool> Logout()
     {
-        _logger?.LogInformation($"用户 {_appState.Username} 注销");
+        logger?.LogInformation($"用户 {appState.Username} 注销");
 
         // 清除令牌和用户信息
-        _appState.Token = null;
-        _appState.Username = string.Empty;
-        _appState.IsLoggedIn = false;
+        appState.Token = string.Empty;
+        appState.Username = string.Empty;
+        appState.IsLoggedIn = false;
 
         // 从HttpClient中移除令牌
-        _httpClient.SetToken(string.Empty);
+        httpClient.SetToken(string.Empty);
 
         return Task.FromResult(true);
     }
@@ -84,7 +74,7 @@ public class AuthService
     /// <summary>
     /// 检查当前是否已认证
     /// </summary>
-    public bool IsAuthenticated => _appState.IsAuthenticated;
+    public bool IsAuthenticated => appState.IsAuthenticated;
 
     /// <summary>
     /// 刷新令牌
@@ -99,18 +89,18 @@ public class AuthService
                 AccessToken = accessToken,
                 RefreshToken = refreshToken
             };
-            
+
             // 调用刷新令牌API
-            var response = await _httpClient.CallApi<TokenResponse>(
-                "api/auth/refresh", 
-                HttpMethodEnum.Post, 
+            var response = await httpClient.CallApi<TokenResponse>(
+                "api/auth/refresh",
+                HttpMethodEnum.Post,
                 refreshRequest);
-                
+
             if (response.IsSuccess && response.Data != null)
             {
                 return (true, response.Data.AccessToken);
             }
-            
+
             return (false, string.Empty);
         }
         catch
@@ -118,7 +108,7 @@ public class AuthService
             return (false, string.Empty);
         }
     }
-    
+
     // 令牌响应模型
     private class TokenResponse
     {

@@ -8,29 +8,20 @@ namespace Linger.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ControllerBase
+public class AuthController(IJwtService jwtService, ILogger<AuthController> logger) : ControllerBase
 {
-    private readonly IJwtService _jwtService;
-    private readonly ILogger<AuthController> _logger;
-
-    public AuthController(IJwtService jwtService, ILogger<AuthController> logger)
-    {
-        _jwtService = jwtService;
-        _logger = logger;
-    }
-
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
-        _logger.LogInformation($"尝试登录用户: {request.Username}");
+        logger.LogInformation($"尝试登录用户: {request.Username}");
 
         // 简单的示例验证，实际应用中应该查询数据库验证用户
         if (request.Username == "admin" && request.Password == "password")
         {
             try
             {
-                var token = await _jwtService.CreateTokenAsync(request.Username);
-                _logger.LogInformation($"用户 {request.Username} 登录成功");
+                var token = await jwtService.CreateTokenAsync(request.Username);
+                logger.LogInformation($"用户 {request.Username} 登录成功");
 
                 var response = new LoginResponse
                 {
@@ -43,7 +34,7 @@ public class AuthController : ControllerBase
             }
             catch (Exception ex)
             {
-                _logger.LogError($"生成令牌失败: {ex.Message}");
+                logger.LogError($"生成令牌失败: {ex.Message}");
 
                 var errorResponse = new LoginResponse
                 {
@@ -56,7 +47,7 @@ public class AuthController : ControllerBase
             }
         }
 
-        _logger.LogWarning($"用户 {request.Username} 登录失败：凭据无效");
+        logger.LogWarning($"用户 {request.Username} 登录失败：凭据无效");
 
         var unauthorizedResponse = new LoginResponse
         {

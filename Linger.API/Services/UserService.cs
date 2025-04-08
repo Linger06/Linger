@@ -1,11 +1,11 @@
-using Linger.API.Models;
+﻿using Linger.API.Models;
 
 namespace Linger.API.Services;
 
 public class UserService
 {
     // 模拟数据库中的用户集合
-    private static readonly List<UserInfo> _users = new()
+    private static readonly List<UserInfo> s_users = new()
     {
         new UserInfo
         {
@@ -19,7 +19,7 @@ public class UserService
     // 获取单个用户
     public UserInfo? GetUser(string id)
     {
-        return _users.FirstOrDefault(u => u.Id == id);
+        return s_users.FirstOrDefault(u => u.Id == id);
     }
 
     // 创建新用户
@@ -34,21 +34,21 @@ public class UserService
             AvatarUrl = "/images/avatars/default.png"
         };
 
-        _users.Add(newUser);
+        s_users.Add(newUser);
         return newUser;
     }
 
     // 更新用户头像
     public string UpdateAvatar(string userId, string filename)
     {
-        var user = _users.FirstOrDefault(u => u.Id == userId);
+        var user = s_users.FirstOrDefault(u => u.Id == userId);
         if (user == null)
             return string.Empty;
 
         // 构建头像URL (在实际应用中，这应该是服务器上存储的路径)
         string avatarUrl = $"/images/avatars/{userId}/{filename}";
         user.AvatarUrl = avatarUrl;
-        
+
         return avatarUrl;
     }
 }

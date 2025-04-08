@@ -116,7 +116,7 @@ public abstract class HttpClientBase : IHttpClient
     public abstract Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default); //where T : class;
 
     // 改进1: 优化HandleResponseMessage方法的内存管理
-    protected static async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res)
+    protected virtual async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res)
     {
         try
         {
@@ -171,28 +171,9 @@ public abstract class HttpClientBase : IHttpClient
             }
             else
             {
-                // 优化特定状态码的处理方式
-                switch (res.StatusCode)
-                {
-                    case HttpStatusCode.Unauthorized:
-                        rv.ErrorMsg = "需要身份验证";
-                        break;
-                    case HttpStatusCode.NotFound:
-                        rv.ErrorMsg = "资源不存在";
-                        break;
-                    case (HttpStatusCode)429: // TooManyRequests
-                        rv.ErrorMsg = "请求过于频繁，请稍后再试";
-                        break;
-                    default:
-                        // 原有的错误提取逻辑
-                        var responseTxt = await res.Content.ReadAsStringAsync();
-                        try
-                        {
-                            rv.Errors = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
-                        }
-                        catch { rv.ErrorMsg = responseTxt; }
-                        break;
-                }
+                var (errorMsg, errors) = await GetErrorMessageAsync(res);
+                rv.ErrorMsg = errorMsg;
+                rv.Errors = errors;
             }
 
             return rv;
@@ -204,6 +185,36 @@ public abstract class HttpClientBase : IHttpClient
             {
                 res.Dispose();
             }
+        }
+    }
+
+    protected virtual async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage res)
+    {
+        // 优化特定状态码的处理方式
+        switch (res.StatusCode)
+        {
+            case HttpStatusCode.Unauthorized:
+                return ("需要身份验证", []);
+            case HttpStatusCode.NotFound:
+                return ("资源不存在", []);
+            case (HttpStatusCode)429: // TooManyRequests
+                return ("请求过于频繁，请稍后再试", []);
+            default:
+                // 原有的错误提取逻辑
+                var responseTxt = await res.Content.ReadAsStringAsync();
+                try
+                {
+                    var errors = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                    if (errors.IsNotNull())
+                    {
+                        return ("", errors);
+                    }
+                    else
+                    {
+                        return (responseTxt, []);
+                    }
+                }
+                catch { return (responseTxt, []); }
         }
     }
 

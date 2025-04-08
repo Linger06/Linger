@@ -81,7 +81,7 @@ public static class ResultFunctionalExtensions
     {
         var failedResults = results.Where(r => r.IsFailure).ToArray();
 
-        if (!failedResults.Any())
+        if (failedResults.Length == 0)
             return Result.Success();
 
         var errors = failedResults.SelectMany(r => r.Errors).ToArray();
@@ -98,7 +98,7 @@ public static class ResultFunctionalExtensions
     {
         var failedResults = results.Where(r => r.IsFailure).ToArray();
 
-        if (!failedResults.Any())
+        if (failedResults.Length == 0)
             return Result.Success();
 
         var errors = failedResults.SelectMany(r => r.Errors).ToArray();

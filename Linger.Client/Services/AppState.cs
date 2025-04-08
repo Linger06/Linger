@@ -12,7 +12,7 @@ public class AppState
     /// <summary>
     /// 用户的JWT认证令牌
     /// </summary>
-    public string? Token
+    public string Token
     {
         get => _token;
         set
