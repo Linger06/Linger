@@ -4,16 +4,18 @@
 @inject Linger.Blazor.Services.AuthService AuthService
 @inject NavigationManager NavigationManager
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
 
 <MudLayout>
     <AuthorizeView>
         <Authorized>
             <MudAppBar Elevation="1">
-                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                    OnClick="@((e) => DrawerToggle())" />
                 <MudText Typo="Typo.h6" Class="ml-3">Linger</MudText>
                 <MudSpacer />
                 <FullScreenToggleButton OnFullScreenChanged="OnFullScreenChanged" />
-                <DarkModeToggleButton IsDarkMode="_isDarkMode" OnToggle="DarkModeToggle" />
+                <DarkModeToggleButton Mode="_themeMode" ModeChanged="OnThemeModeChanged" />
 
                 <MudText Typo="Typo.body1" Class="mr-4">欢迎, @context.User.Identity?.Name</MudText>
                 <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="Logout">注销</MudButton>
@@ -37,7 +39,7 @@
     </MudMainContent>
 </MudLayout>
 
-<MudThemeProvider Theme="@_theme" IsDarkMode="_isDarkMode" />
+<MudThemeProvider @ref="_mudThemeProvider" @bind-IsDarkMode="_isDarkMode" Theme="@_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -52,15 +54,56 @@
     private bool _drawerOpen = false;
     private bool _isDarkMode = false;
     private MudTheme? _theme = null;
+    // 将初始主题模式设置为System
+    private DarkModeToggleButton.ThemeMode _themeMode = DarkModeToggleButton.ThemeMode.System;
+    private MudThemeProvider _mudThemeProvider;
 
     private void DrawerToggle()
     {
         _drawerOpen = !_drawerOpen;
     }
 
-    private void DarkModeToggle()
+    private async Task OnThemeModeChanged(DarkModeToggleButton.ThemeMode mode)
     {
-        _isDarkMode = !_isDarkMode;
+        _themeMode = mode;
+
+        if (mode == DarkModeToggleButton.ThemeMode.System)
+        {
+            // 使用系统偏好
+            _isDarkMode = await _mudThemeProvider.GetSystemPreference();
+        }
+        else
+        {
+            // 如果不是系统模式，直接设置
+            _isDarkMode = mode == DarkModeToggleButton.ThemeMode.Dark;
+        }
+
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // 设置系统主题变化的监听
+            await _mudThemeProvider.WatchSystemPreference(OnSystemPreferenceChanged);
+
+            // 首次加载时，由于默认是System模式，调用OnThemeModeChanged来设置当前主题
+            await OnThemeModeChanged(_themeMode);
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private Task OnSystemPreferenceChanged(bool isDarkMode)
+    {
+        // 只有在系统模式下才响应系统主题变化
+        if (_themeMode == DarkModeToggleButton.ThemeMode.System)
+        {
+            _isDarkMode = isDarkMode;
+            InvokeAsync(StateHasChanged);
+        }
+        return Task.CompletedTask;
     }
 
     private readonly PaletteLight _lightPalette = new()
@@ -102,12 +145,6 @@
         OverlayLight = "#1e1e2d80",
     };
 
-    public string DarkLightModeButtonIcon => _isDarkMode switch
-    {
-        true => Icons.Material.Rounded.AutoMode,
-        false => Icons.Material.Outlined.DarkMode,
-    };
-
     private void OnFullScreenChanged(bool isFullScreen)
     {
         // Do layout adjustment or logging here
@@ -119,7 +156,7 @@
         NavigationManager.NavigateTo("/login", true);
     }
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         AppState.OnChange += StateHasChanged;
         _theme = new()
@@ -128,6 +165,8 @@
             PaletteDark = _darkPalette,
             LayoutProperties = new LayoutProperties()
         };
+
+        await base.OnInitializedAsync();
     }
 
     public void Dispose()

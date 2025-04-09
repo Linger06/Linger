@@ -1,4 +1,3 @@
-@inject IJSRuntime JS
 <MudTooltip Text="@tooltip">
     <MudIconButton Icon="@currentIcon"
                    OnClick="ToggleTheme"
@@ -8,28 +7,52 @@
 </MudTooltip>
 
 @code {
-    [Parameter] public bool IsDarkMode { get; set; }
-    [Parameter] public EventCallback<bool> OnToggle { get; set; }
-
-    private bool _isDarkModeInternal;
-
-    private string currentIcon => _isDarkModeInternal ? Icons.Material.Rounded.LightMode : Icons.Material.Outlined.DarkMode;
-    private string tooltip => _isDarkModeInternal ? "Set Light Mode" : "Set Dark Mode";
+    public enum ThemeMode
+    {
+        Light,
+        Dark,
+        System
+    }
+    
+    [Parameter] public ThemeMode Mode { get; set; }
+    [Parameter] public EventCallback<ThemeMode> ModeChanged { get; set; }
+    
     private bool animate;
+
+    private string currentIcon => Mode switch
+    {
+        ThemeMode.Light => Icons.Material.Outlined.DarkMode,
+        ThemeMode.Dark => Icons.Material.Rounded.LightMode,
+        ThemeMode.System => Icons.Material.Rounded.AutoMode,
+        _ => Icons.Material.Outlined.DarkMode
+    };
+    
+    private string tooltip => Mode switch
+    {
+        ThemeMode.Light => "切换到暗色模式",
+        ThemeMode.Dark => "切换到系统模式",
+        ThemeMode.System => "切换到亮色模式",
+        _ => "切换主题模式"
+    };
 
     private async Task ToggleTheme()
     {
         animate = true;
-        _isDarkModeInternal = !_isDarkModeInternal;
-        await OnToggle.InvokeAsync(!_isDarkModeInternal);
+        
+        // 循环切换模式：Light -> Dark -> System -> Light
+        ThemeMode newMode = Mode switch
+        {
+            ThemeMode.Light => ThemeMode.Dark,
+            ThemeMode.Dark => ThemeMode.System,
+            ThemeMode.System => ThemeMode.Light,
+            _ => ThemeMode.Light
+        };
+        
+        // 通知模式改变
+        await ModeChanged.InvokeAsync(newMode);
 
         await Task.Delay(300); // reset animation
         animate = false;
         StateHasChanged();
-    }
-
-    protected override void OnParametersSet()
-    {
-        _isDarkModeInternal = IsDarkMode;
     }
 }
