@@ -1,4 +1,4 @@
-using Linger.Blazor.Services;
+﻿using Linger.Blazor.Services;
 using Microsoft.JSInterop;
 
 namespace Linger.Client.Services;
@@ -13,12 +13,12 @@ public class WinFormFullScreenService : IFullScreenService, IDisposable
     private DotNetObjectReference<WinFormFullScreenService>? _objRef;
 
     // 静态实例用于JSInvokable方法访问
-    private static WinFormFullScreenService? _instance;
+    private static WinFormFullScreenService? s_instance;
 
     public WinFormFullScreenService(IJSRuntime jsRuntime)
     {
         _jsRuntime = jsRuntime;
-        _instance = this;
+        s_instance = this;
     }
 
     /// <summary>
@@ -44,7 +44,7 @@ public class WinFormFullScreenService : IFullScreenService, IDisposable
     {
         _fullScreenCallback = callback;
         _objRef = DotNetObjectReference.Create(this);
-        
+
         await _jsRuntime.InvokeVoidAsync("eval", $@"
             window.addEventListener('fullScreenChanged', function (e) {{
                 DotNet.invokeMethodAsync('{typeof(WinFormFullScreenService).Assembly.GetName().Name}', 
@@ -60,16 +60,16 @@ public class WinFormFullScreenService : IFullScreenService, IDisposable
     [JSInvokable]
     public static Task ReceiveFullScreenState(bool isFullScreen)
     {
-        _instance?._fullScreenCallback?.Invoke(isFullScreen);
+        s_instance?._fullScreenCallback?.Invoke(isFullScreen);
         return Task.CompletedTask;
     }
 
     public void Dispose()
     {
         _objRef?.Dispose();
-        if (_instance == this)
+        if (s_instance == this)
         {
-            _instance = null;
+            s_instance = null;
         }
     }
 }

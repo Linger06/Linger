@@ -10,7 +10,6 @@ namespace Linger.API.Controllers;
 [Route("api/[controller]")]
 public class UsersController(
     UserService userService,
-    IWebHostEnvironment environment,
     ILogger<UsersController> logger) : ControllerBase
 {
 
@@ -67,7 +66,7 @@ public class UsersController(
                 return Result.Failure("没有上传文件").ToActionResult();
 
             // 创建用户头像目录
-            string avatarDirectory = Path.Combine(environment.WebRootPath, "images", "avatars", userId);
+            string avatarDirectory = Path.Combine("images", "avatars", userId);
             if (!Directory.Exists(avatarDirectory))
                 Directory.CreateDirectory(avatarDirectory);
 
@@ -104,7 +103,7 @@ public class UsersController(
             var updatedUser = userService.UpdateUserInfo(request);
             if (updatedUser == null)
                 return Result.NotFound("用户不存在").ToActionResult();
-                
+
             return Result.Success(updatedUser).ToActionResult();
         }
         catch (Exception ex)

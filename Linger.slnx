@@ -21,7 +21,6 @@
     <Project Path="src/Linger.Email/Linger.Email.csproj" />
     <Project Path="src/Linger.Excel.ClosedXML/Linger.Excel.ClosedXML.csproj" />
     <Project Path="src/Linger.Excel.Contracts/Linger.Excel.Contracts.csproj" />
-    <Project Path="src/Linger.Excel.EPPlus/Linger.Excel.EPPlus.csproj" />
     <Project Path="src/Linger.Excel.Npoi/Linger.Excel.Npoi.csproj" />
     <Project Path="src/Linger.FileSystem.Ftp/Linger.FileSystem.Ftp.csproj" />
     <Project Path="src/Linger.FileSystem.Sftp/Linger.FileSystem.Sftp.csproj" />

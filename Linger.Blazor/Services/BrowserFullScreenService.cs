@@ -1,4 +1,4 @@
-using Microsoft.JSInterop;
+﻿using Microsoft.JSInterop;
 
 namespace Linger.Blazor.Services;
 
@@ -19,11 +19,7 @@ public class BrowserFullScreenService : IFullScreenService, IAsyncDisposable
 
     private async Task<IJSObjectReference> GetJsModuleAsync()
     {
-        if (_jsModule == null)
-        {
-            _jsModule = await _jsRuntime.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/Linger.Blazor/js/fullScreenService.js");
-        }
+        _jsModule ??= await _jsRuntime.InvokeAsync<IJSObjectReference>("import", "./_content/Linger.Blazor/js/fullScreenService.js");
         return _jsModule;
     }
 
@@ -68,10 +64,7 @@ public class BrowserFullScreenService : IFullScreenService, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_objRef != null)
-        {
-            _objRef.Dispose();
-        }
+        _objRef?.Dispose();
 
         if (_jsModule != null)
         {

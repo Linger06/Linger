@@ -17,9 +17,20 @@
                 <CardHeaderAvatar>
                     @if (_isEditing)
                     {
+                        <MudFileUpload T="IBrowserFile" Accept="image/*" OnFilesChanged="UploadAvatar">
+                            <ActivatorContent>
+                                <MudAvatar Size="Size.Large" Style="cursor:pointer;">
+                                    <MudImage Src="@_user.AvatarUrl"></MudImage>
+                                    <MudOverlay Visible="true" Absolute="true">
+                                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Default" />
+                                    </MudOverlay>
+                                </MudAvatar>
+                            </ActivatorContent>
+                        </MudFileUpload>
+
                         <MudAvatar Size="Size.Large" Style="cursor:pointer;" @onclick="OpenFileSelector">
                             <MudImage Src="@_user.AvatarUrl"></MudImage>
-                            <MudOverlay Visible="true" Absolute="true" Opacity="0.4">
+                            <MudOverlay Visible="true" Absolute="true" OnClick="OpenFileSelector">
                                 <MudIcon Icon="@Icons.Material.Filled.Edit" Color="Color.Default" />
                             </MudOverlay>
                         </MudAvatar>
@@ -75,31 +86,31 @@
 
 @code {
     [Parameter] public required string UserId { get; set; }
-    
+
     private Linger.Blazor.Services.UserInfo? _user;
     private bool _isLoading = true;
     private bool _isEditing = false;
     private MudForm _form = null!;
     private EditUserModel _editUserModel = new();
-    
+
     private class EditUserModel
     {
         [Required(ErrorMessage = "用户名不能为空")]
         public string Name { get; set; } = string.Empty;
-        
+
         [Required(ErrorMessage = "邮箱不能为空")]
         [EmailAddress(ErrorMessage = "邮箱格式不正确")]
         public string Email { get; set; } = string.Empty;
     }
-    
+
     protected override async Task OnInitializedAsync()
     {
         _isLoading = true;
-        
+
         try
         {
             var result = await UserService.GetUserInfoAsync(UserId);
-            
+
             if (result.IsSuccess)
             {
                 _user = result.Data;
@@ -119,7 +130,7 @@
             _isLoading = false;
         }
     }
-    
+
     private void InitializeEditModel()
     {
         if (_user != null)
@@ -128,26 +139,26 @@
             _editUserModel.Email = _user.Email;
         }
     }
-    
+
     private void StartEditing()
     {
         _isEditing = true;
         InitializeEditModel();
     }
-    
+
     private void CancelEditing()
     {
         _isEditing = false;
     }
-    
+
     private async Task SaveUserInfo()
     {
         await _form.Validate();
-        
+
         if (_form.IsValid && _user != null)
         {
             _isLoading = true;
-            
+
             try
             {
                 var updateRequest = new Linger.Blazor.Services.UserUpdateRequest
@@ -156,9 +167,9 @@
                     Name = _editUserModel.Name,
                     Email = _editUserModel.Email
                 };
-                
+
                 var result = await UserService.UpdateUserInfoAsync(updateRequest);
-                
+
                 if (result.IsSuccess)
                 {
                     _user.Name = _editUserModel.Name;
@@ -181,28 +192,30 @@
             }
         }
     }
-    
+
     private async Task OpenFileSelector()
     {
         await JSRuntime.InvokeVoidAsync("document.getElementById('fileInput').click");
     }
-    
+
     private async Task UploadAvatar(InputFileChangeEventArgs e)
     {
         if (e.File != null && _user != null)
         {
             _isLoading = true;
-            
+
             try
             {
-                var format = "image/jpeg";
-                var resizedFile = await e.File.RequestImageFileAsync(format, 300, 300);
+                var file = e.File;
+                var resizedFile = await file.RequestImageFileAsync(file.ContentType, 300, 300);
                 
-                using var stream = resizedFile.OpenReadStream(maxAllowedSize: 2_000_000); // 2MB
-                using var ms = new MemoryStream();
-                await stream.CopyToAsync(ms);
+                var buf = new byte[resizedFile.Size]; // allocate a buffer to fill with the file's data
+                using (var stream = resizedFile.OpenReadStream())
+                {
+                    await stream.ReadAsync(buf); // copy the stream to the buffer
+                }
                 
-                var result = await UserService.UploadAvatarAsync(_user.Id, resizedFile.Name, ms.ToArray());
+                var result = await UserService.UploadAvatarAsync(_user.Id, file.Name, buf);
                 
                 if (result.IsSuccess)
                 {
