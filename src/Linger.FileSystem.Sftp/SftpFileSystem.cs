@@ -169,20 +169,21 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     #region 文件传输操作
 
-    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            var remoteDirectory = PathHelper.NormalizePath(destinationPath);
-            var remoteFilePath = Path.Combine(destinationPath, fileName);
+            // 分离路径和文件名
+            var remoteDirectory = Path.GetDirectoryName(filePath) ?? string.Empty;
+            var fileName = Path.GetFileName(filePath);
 
             // 确保目录存在
             CreateDirectoryIfNotExists(remoteDirectory);
 
             // 检查文件是否存在
-            if (FileExists(remoteFilePath) && !overwrite)
-                return FileOperationResult.CreateFailure($"远程文件已存在: {remoteFilePath}");
+            if (FileExists(filePath) && !overwrite)
+                return FileOperationResult.CreateFailure($"远程文件已存在: {filePath}");
 
             // 执行上传
             await RetryHelper.ExecuteAsync(
@@ -195,10 +196,10 @@ public class SftpFileSystem : RemoteFileSystemBase
                         inputStream.CopyTo(ms);
                         ms.Position = 0;
 
-                        if (FileExists(remoteFilePath) && overwrite)
-                            Client.DeleteFile(remoteFilePath);
+                        if (FileExists(filePath) && overwrite)
+                            Client.DeleteFile(filePath);
 
-                        Client.UploadFile(ms, remoteFilePath);
+                        Client.UploadFile(ms, filePath);
                         return true;
                     }, cancellationToken);
                     return true;
@@ -206,13 +207,13 @@ public class SftpFileSystem : RemoteFileSystemBase
                 "Upload file", cancellationToken: cancellationToken);
 
             // 获取文件大小
-            var fileSize = Client.GetAttributes(remoteFilePath).Size;
+            var fileSize = Client.GetAttributes(filePath).Size;
 
-            return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
+            return FileOperationResult.CreateSuccess(filePath, null, fileSize);
         }
         catch (Exception ex)
         {
-            HandleException("Upload file", ex, $"Destination: {destinationPath}/{fileName}");
+            HandleException("Upload file", ex, $"Destination: {filePath}");
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
         }
     }
@@ -226,7 +227,13 @@ public class SftpFileSystem : RemoteFileSystemBase
         {
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
             var fileName = Path.GetFileName(localFilePath);
-            return await UploadAsync(fileStream, destinationPath, fileName, overwrite, cancellationToken);
+            // 使用正斜杠（/）确保与SFTP服务器路径格式一致
+            var filePath = destinationPath.EndsWith("/") 
+                ? $"{destinationPath}{fileName}" 
+                : $"{destinationPath}/{fileName}";
+                
+            // 使用新的合并参数格式调用UploadAsync
+            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -57,7 +57,7 @@ public abstract class FileSystemBase(RetryOptions? retryOptions = null) : IFileS
 
     #region IFileSystemOperations 实现
 
-    public abstract Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default);
+    public abstract Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default);
 
     public abstract Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
 

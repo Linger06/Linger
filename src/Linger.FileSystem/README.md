@@ -141,7 +141,7 @@ var localFs = new LocalFileSystem("C:/Storage");
 
 // 上传文件
 using var fileStream = File.OpenRead("test.txt");
-var result = await localFs.UploadAsync(fileStream, "uploads", "destination-file.txt", true);
+var result = await localFs.UploadAsync(fileStream, "uploads/destination-file.txt", true);
 
 // 检查上传结果
 if (result.Success)
@@ -178,7 +178,7 @@ var ftpFs = new FtpFileSystem(ftpSetting);
 
 // 上传文件
 using var fileStream = File.OpenRead("test.txt");
-var result = await ftpFs.UploadAsync(fileStream, "/public_html", "test.txt", true);
+var result = await ftpFs.UploadAsync(fileStream, "/public_html/test.txt", true);
 ```
 
 ### 使用SFTP文件系统
@@ -209,7 +209,7 @@ var sftpFs = new SftpFileSystem(sftpSetting);
 
 // 上传文件
 using var fileStream = File.OpenRead("test.txt");
-var result = await ftpFs.UploadAsync(fileStream, "/home/user", "test.txt", true);
+var result = await ftpFs.UploadAsync(fileStream, "/home/user/test.txt", true);
 ```
 
 ## 常见操作
@@ -219,7 +219,7 @@ var result = await ftpFs.UploadAsync(fileStream, "/home/user", "test.txt", true)
 ```csharp
 // 上传流
 using var stream = File.OpenRead("local-file.txt");
-var result = await fileSystem.UploadAsync(stream, "uploads", "destination-file.txt", true);
+var result = await fileSystem.UploadAsync(stream, "uploads/destination-file.txt", true);
 
 // 上传本地文件
 result = await fileSystem.UploadFileAsync("local-file.txt", "uploads", true);

@@ -466,10 +466,14 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         await DeleteFileIfExistsAsync(realPath);
     }
 
-    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
+            // 分离路径和文件名
+            var destinationPath = Path.GetDirectoryName(filePath) ?? string.Empty;
+            var fileName = Path.GetFileName(filePath);
+            
             var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath,
                 _options.DefaultNamingRule, overwrite, !overwrite);
 
@@ -496,7 +500,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
             var fileName = Path.GetFileName(localFilePath);
-            return await UploadAsync(fileStream, destinationPath, fileName, overwrite, cancellationToken);
+            // 构建完整的文件路径并调用更新后的UploadAsync
+            var filePath = Path.Combine(destinationPath, fileName);
+            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken);
         }
         catch (Exception ex)
         {

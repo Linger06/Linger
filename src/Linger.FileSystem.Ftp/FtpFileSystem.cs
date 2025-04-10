@@ -160,14 +160,29 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     #region 文件传输操作
 
-    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationPath, string fileName, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            var remoteDirectory = PathHelper.NormalizePath(destinationPath);
-            var remoteFilePath = Path.Combine(remoteDirectory, fileName);
-
+            // 使用适合FTP的路径分隔逻辑
+            string remoteDirectory;
+            string fileName;
+            
+            // FTP路径始终使用正斜杠
+            if (filePath.Contains('/'))
+            {
+                int lastSlashIndex = filePath.LastIndexOf('/');
+                remoteDirectory = filePath.Substring(0, lastSlashIndex);
+                fileName = filePath.Substring(lastSlashIndex + 1);
+            }
+            else
+            {
+                // 没有找到斜杠，整个路径被视为文件名，目录为空
+                remoteDirectory = string.Empty;
+                fileName = filePath;
+            }
+            
             // 确保目录存在
             await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
 
@@ -178,7 +193,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                     inputStream.Position = 0;
                     var status = await Client.UploadStream(
                         inputStream,
-                        remoteFilePath,
+                        filePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
                         token: cancellationToken);
@@ -188,16 +203,16 @@ public class FtpFileSystem : RemoteFileSystemBase
                 "Upload file", cancellationToken: cancellationToken);
 
             if (!result)
-                return FileOperationResult.CreateFailure($"上传文件失败: {remoteFilePath}");
+                return FileOperationResult.CreateFailure($"上传文件失败: {filePath}");
 
             long fileSize = 0;
-            try { fileSize = await Client.GetFileSize(remoteFilePath, token: cancellationToken); } catch { /* 忽略 */ }
+            try { fileSize = await Client.GetFileSize(filePath, token: cancellationToken); } catch { /* 忽略 */ }
 
-            return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
+            return FileOperationResult.CreateSuccess(filePath, null, fileSize);
         }
         catch (Exception ex)
         {
-            HandleException("Upload file", ex, $"Destination: {destinationPath}/{fileName}");
+            HandleException("Upload file", ex, $"Destination: {filePath}");
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
         }
     }
@@ -213,11 +228,10 @@ public class FtpFileSystem : RemoteFileSystemBase
         try
         {
             var fileName = Path.GetFileName(localFilePath);
-            var remoteDirectory = PathHelper.NormalizePath(destinationPath);
-            var remoteFilePath = Path.Combine(destinationPath, fileName);
-
-            // 确保目录存在
-            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
+            // 使用正斜杠（/）确保与FTP服务器路径格式一致
+            var filePath = destinationPath.EndsWith("/") 
+                ? $"{destinationPath}{fileName}" 
+                : $"{destinationPath}/{fileName}";
 
             // 执行上传
             bool result = await RetryHelper.ExecuteAsync(
@@ -225,7 +239,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 {
                     var status = await Client.UploadFile(
                         localFilePath,
-                        remoteFilePath,
+                        filePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
                         token: cancellationToken);
@@ -235,10 +249,10 @@ public class FtpFileSystem : RemoteFileSystemBase
                 "Upload file", cancellationToken: cancellationToken);
 
             if (!result)
-                return FileOperationResult.CreateFailure($"上传文件失败: {remoteFilePath}");
+                return FileOperationResult.CreateFailure($"上传文件失败: {filePath}");
 
             var fileInfo = new FileInfo(localFilePath);
-            return FileOperationResult.CreateSuccess(remoteFilePath, null, fileInfo.Length);
+            return FileOperationResult.CreateSuccess(filePath, null, fileInfo.Length);
         }
         catch (Exception ex)
         {
