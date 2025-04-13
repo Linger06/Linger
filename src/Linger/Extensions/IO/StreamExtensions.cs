@@ -108,10 +108,10 @@ public static class StreamExtensions
     }
 
     /// <summary>
-    /// Writes the current Stream to a file.
+    /// 将流写入到文件
     /// </summary>
-    /// <param name="stream">The input stream.</param>
-    /// <param name="filePath">The file path to write to.</param>
+    /// <param name="stream">要写入的流</param>
+    /// <param name="filePath">文件路径</param>
     /// <example>
     /// <code>
     /// using (var stream = File.OpenRead("example.txt"))
@@ -122,55 +122,50 @@ public static class StreamExtensions
     /// </example>
     public static void ToFile(this Stream stream, string filePath)
     {
-        // Convert Stream to byte[]
-        var bytes = new byte[stream.Length];
-        _ = stream.Read(bytes, 0, bytes.Length);
-        // Set the current position of the stream to the beginning
-        _ = stream.Seek(0, SeekOrigin.Begin);
-        // Write byte[] to file
-        var fs = new FileStream(filePath, FileMode.Create);
-        var bw = new BinaryWriter(fs);
-        bw.Write(bytes);
-        bw.Close();
-        fs.Close();
+        FileHelper.EnsureDirectoryExists(filePath);
+        
+        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+        
+        // 对于可查找的流，尝试将位置重置到开始
+        if (stream.CanSeek)
+        {
+            stream.Position = 0;
+        }
+        
+        // 使用CopyTo方法进行流复制，适用于所有类型的流
+        stream.CopyTo(fs);
+        fs.Flush();
     }
 
     /// <summary>
-    /// 将内存流保存到文件
+    /// 异步将流写入到文件
     /// </summary>
-    public static void ToFile(this MemoryStream stream, string fullFileName)
+    /// <param name="stream">要写入的流</param>
+    /// <param name="filePath">文件路径</param>
+    /// <returns>表示异步操作的任务</returns>
+    /// <example>
+    /// <code>
+    /// using (var stream = File.OpenRead("example.txt"))
+    /// {
+    ///     await stream.ToFileAsync("output.txt");
+    /// }
+    /// </code>
+    /// </example>
+    public static async Task ToFileAsync(this Stream stream, string filePath)
     {
-        try
+        FileHelper.EnsureDirectoryExists(filePath);
+        
+        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+        
+        // 对于可查找的流，尝试将位置重置到开始
+        if (stream.CanSeek)
         {
-            FileHelper.EnsureDirectoryExists(fullFileName);
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            stream.Position = 0; // 确保内存流位置在开头
-            stream.CopyTo(fs);
-            fs.Flush();
+            stream.Position = 0;
         }
-        catch (Exception ex)
-        {
-            throw new Exception($"保存Excel到文件失败:{fullFileName}", ex);
-        }
-    }
-
-    /// <summary>
-    /// 异步将内存流保存到文件
-    /// </summary>
-    public static async Task ToFileAsync(this MemoryStream stream, string fullFileName)
-    {
-        try
-        {
-            FileHelper.EnsureDirectoryExists(fullFileName);
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            stream.Position = 0; // 确保内存流位置在开头
-            await stream.CopyToAsync(fs);
-            await fs.FlushAsync();
-        }
-        catch (Exception ex)
-        {
-            throw new Exception($"异步保存Excel到文件失败: {fullFileName}", ex);
-        }
+        
+        // 使用CopyToAsync方法进行异步流复制
+        await stream.CopyToAsync(fs);
+        await fs.FlushAsync();
     }
 }
 

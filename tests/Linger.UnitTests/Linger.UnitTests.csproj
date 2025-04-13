@@ -27,6 +27,10 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Linger\Linger.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="Extensions\IO\" />
     </ItemGroup>        
     
 </Project>

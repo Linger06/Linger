@@ -6,9 +6,9 @@ using Linger.Extensions.Core;
 namespace Linger;
 public class ArgumentNullException : System.ArgumentNullException
 {
-    public ArgumentNullException(string paramName) : base(paramName)
-    {
-    }
+    public ArgumentNullException(string paramName) : base(paramName) { }
+
+    public ArgumentNullException(string? paramName, string? message) : base(paramName, message) { }
 
 #if NETFRAMEWORK || NETSTANDARD2_0_OR_GREATER
     public static void ThrowIfNull([NotNull] object? argument, [CallerArgumentExpression("argument")] string? paramName = null)

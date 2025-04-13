@@ -107,12 +107,12 @@ public static class GuardExtensions
     /// <param name="max">The maximum acceptable value (inclusive).</param>
     /// <param name="paramName">The name of the parameter.</param>
     /// <param name="message">The message to include in the exception if the value is out of range.</param>
-    public static void EnsureIsInRange<T>(this T value, T min, T max, string? paramName = null, string? message = null) 
+    public static void EnsureIsInRange<T>(this T value, T min, T max, string? paramName = null, string? message = null)
         where T : IComparable<T>
     {
         if (value.CompareTo(min) < 0 || value.CompareTo(max) > 0)
             throw new ArgumentOutOfRangeException(
-                paramName ?? nameof(value), 
+                paramName ?? nameof(value),
                 message ?? $"Value must be between {min} and {max} (inclusive)");
     }
 
@@ -151,13 +151,13 @@ public static class GuardExtensions
     public static void EnsureDirectoryExist(this string? directory, string? paramName = null, string? message = null)
     {
         EnsureIsNotNull(directory);
-        
+
         if (directory.IsEmpty())
         {
             throw new ArgumentException("Directory path cannot be empty", paramName ?? nameof(directory));
         }
-        
-        if (!PathHelper.Exists(directory))
+
+        if (!PathHelper.Exists(directory, false))
         {
             throw new DirectoryNotFoundException(message ?? $"Directory not found: {directory}");
         }

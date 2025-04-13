@@ -246,6 +246,8 @@ public static partial class StringExtensions
     /// <returns>True if the string is a positive integer; otherwise, false.</returns>
     public static bool IsPositiveInteger(this string s)
     {
+        if (s.IsNullOrWhiteSpace()) return false;
+
         var pattern = @"^\d*$";
         return Regex.IsMatch(s, pattern);
     }
@@ -425,7 +427,7 @@ public static partial class StringExtensions
             return [];
         }
 
-        return Regex.Split(value, symbol, RegexOptions.IgnoreCase).ToList();
+        return value.Split(new[] { symbol }, StringSplitOptions.None).ToList();
     }
 
     /// <summary>

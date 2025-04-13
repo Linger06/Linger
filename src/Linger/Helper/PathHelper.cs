@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Security;
+using System.Text;
 using Linger.Extensions.Core;
 
 namespace Linger.Helper;
@@ -37,6 +38,11 @@ public static class PathHelper
             // 如果是特殊路径（如网络路径、FTP路径等），直接标准化处理
             if (IsSpecialPath(relativePath))
                 return NormalizePath(relativePath, preserveEndingSeparator);
+
+            if (ContainsInvalidPathChars(relativePath))
+            {
+                throw new IOException($"Invalid path: {relativePath}");
+            }
 
             // 如果是绝对路径，直接标准化
             if (Path.IsPathRooted(relativePath))
@@ -130,22 +136,62 @@ public static class PathHelper
     /// </summary>
     /// <param name="relativeTo">The source path the output should be relative to. This path is always considered to be a directory.</param>
     /// <param name="path">The destination path.</param>
+    /// <returns>返回从relativeTo到path的相对路径，如果无法创建相对路径则返回原始path。当两个路径相同时返回"."</returns>
+    /// <exception cref="ArgumentException">当路径无效时抛出</exception>
     public static string GetRelativePath(string relativeTo, string path)
     {
+        // 参数验证
+        if (relativeTo.IsNullOrWhiteSpace())
+            throw new ArgumentException("Base path cannot be null or empty", nameof(relativeTo));
+        
+        if (path.IsNullOrWhiteSpace())
+            return path ?? string.Empty;
+
         // 标准化两个路径
         path = NormalizePath(path);
         relativeTo = NormalizePath(relativeTo, true);
 
+        // 检查两个路径是否相同（忽略大小写和末尾分隔符）
+        if (PathEquals(path, relativeTo))
+            return ".";
+
         try
         {
 #if NETCOREAPP
+            // .NET Core 已内置此功能
             return Path.GetRelativePath(relativeTo, path);
 #else
-            var pathUri = new Uri(path);
-            var baseUri = new Uri(relativeTo);
-            var relativeUri = baseUri.MakeRelativeUri(pathUri);
-            return Uri.UnescapeDataString(relativeUri.ToString())
-                     .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            // 确保路径是绝对路径
+            if (!Path.IsPathRooted(path))
+                path = Path.GetFullPath(path);
+            
+            if (!Path.IsPathRooted(relativeTo))
+                relativeTo = Path.GetFullPath(relativeTo);
+            
+            // 再次检查转换为绝对路径后是否相同
+            if (PathEquals(path, relativeTo))
+                return ".";
+                
+            // 检查是否在相同的驱动器或根路径上
+            if (Path.GetPathRoot(path) != Path.GetPathRoot(relativeTo))
+                return path; // 不同驱动器，无法创建相对路径
+            
+            try
+            {
+                var pathUri = new Uri(path);
+                var baseUri = new Uri(relativeTo);
+                var relativeUri = baseUri.MakeRelativeUri(pathUri);
+                var result = Uri.UnescapeDataString(relativeUri.ToString())
+                         .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                
+                // 处理Uri方法返回空字符串的情况
+                return string.IsNullOrEmpty(result) ? "." : result;
+            }
+            catch (UriFormatException)
+            {
+                // 备用方法：手动计算相对路径
+                return ComputeRelativePath(relativeTo, path);
+            }
 #endif
         }
         catch (Exception ex) when (IsPathException(ex))
@@ -153,6 +199,44 @@ public static class PathHelper
             throw new ArgumentException($"Invalid path. Path: {path}, Base: {relativeTo}", ex);
         }
     }
+
+#if !NETCOREAPP
+    // 在非.NET Core环境下使用的备用相对路径计算方法
+    private static string ComputeRelativePath(string relativeTo, string path)
+    {
+        var fromParts = relativeTo.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        var toParts = path.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+
+        // 找到共同的路径部分
+        int commonLength = 0;
+        int minLength = Math.Min(fromParts.Length, toParts.Length);
+        
+        for (int i = 0; i < minLength; i++)
+        {
+            if (string.Equals(fromParts[i], toParts[i], StringComparison.OrdinalIgnoreCase))
+                commonLength++;
+            else
+                break;
+        }
+
+        // 构建相对路径
+        var result = new StringBuilder();
+        
+        // 添加向上导航的部分 ".."
+        for (int i = commonLength; i < fromParts.Length; i++)
+            result.Append(".." + Path.DirectorySeparatorChar);
+        
+        // 添加目标路径的非共享部分
+        for (int i = commonLength; i < toParts.Length; i++)
+        {
+            if (i > commonLength)
+                result.Append(Path.DirectorySeparatorChar);
+            result.Append(toParts[i]);
+        }
+
+        return result.Length > 0 ? result.ToString() : ".";
+    }
+#endif
 
     /// <summary>
     /// 统一的文件/目录存在性检查

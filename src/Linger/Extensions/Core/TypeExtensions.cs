@@ -411,41 +411,33 @@ public static partial class TypeExtension
     /// </example>
     public static List<ColumnInfo> GetColumnsInfo(this Type type)
     {
+        ArgumentNullException.ThrowIfNull(type);
+        
         var columns = new List<ColumnInfo>();
-        var counter = 1;
-        foreach (PropertyInfo propertyInfo in type.GetProperties())
+        var counter = 0;
+        
+        // 获取所有属性
+        foreach (var propertyInfo in type.GetProperties())
         {
-            UserDefinedTableTypeColumnAttribute? attribute = GetAttribute<UserDefinedTableTypeColumnAttribute>(propertyInfo);
-            var propertyName = attribute?.Name ?? propertyInfo.Name;
-
+            counter++;
+            
+            // 使用GetCustomAttribute<T>方法直接获取特性，避免使用反射
+            var attribute = propertyInfo.GetCustomAttribute<UserDefinedTableTypeColumnAttribute>(true);
+            
+            // 创建并添加列信息
             var column = new ColumnInfo
             {
-                PropertyName = propertyName,
-                PropertyOrder = attribute?.Order ?? counter,
-                Property = propertyInfo
+                PropertyName = attribute?.Name ?? propertyInfo.Name,
+                PropertyOrder = attribute?.Order > 0 ? attribute.Order : counter,
+                Property = propertyInfo,
+                PropertyType = propertyInfo.PropertyType
             };
+            
             columns.Add(column);
-            counter++;
         }
-
+        
+        // 按照PropertyOrder排序
         return columns.OrderBy(info => info.PropertyOrder).ToList();
-    }
-
-    /// <summary>
-    /// Gets the specified attribute from the property.
-    /// </summary>
-    /// <typeparam name="T">The type of the attribute.</typeparam>
-    /// <param name="propertyInfo">The property to get the attribute from.</param>
-    /// <returns>The attribute if found; otherwise, <c>null</c>.</returns>
-    /// <example>
-    /// <code>
-    /// var attribute = GetAttribute&lt;MyAttribute&gt;(typeof(Person).GetProperty("Id"));
-    /// // Output: MyAttribute object or null
-    /// </code>
-    /// </example>
-    private static T? GetAttribute<T>(PropertyInfo propertyInfo) where T : Attribute
-    {
-        return propertyInfo.GetCustomAttributes(typeof(T), false).OfType<T>().FirstOrDefault();
     }
 }
 
@@ -471,4 +463,10 @@ public class ColumnInfo
     /// </summary>
     /// <value>The property information.</value>
     public PropertyInfo Property { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the type of the property.
+    /// </summary>
+    /// <value>The type of the property.</value>
+    public Type PropertyType { get; set; } = null!;
 }

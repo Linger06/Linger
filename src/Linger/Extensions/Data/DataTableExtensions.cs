@@ -363,51 +363,169 @@ public static partial class DataTableExtensions
         ArgumentNullException.ThrowIfNull(source, nameof(source));
         ArgumentNullException.ThrowIfNull(groupColumns, nameof(groupColumns));
         ArgumentNullException.ThrowIfNull(captionColumns, nameof(captionColumns));
+        ArgumentNullException.ThrowIfNull(valueColumn, nameof(valueColumn));
 
-        var dt = new DataTable();
-        foreach (DataColumn item in groupColumns)
+        // 验证所有列都属于源表
+        foreach (var column in groupColumns.Concat(captionColumns).Append(valueColumn))
         {
-            dt.Columns.Add(item.ColumnName, item.DataType);
-        }
-
-        IEnumerable<string> newColumnNames = source.AsEnumerable()
-            .Select(p => string.Join("_", captionColumns.Select(q => p[q])))
-            .Distinct();
-
-        foreach (var item in newColumnNames)
-        {
-            if (!dt.Columns.Contains(item))
+            if (!source.Columns.Contains(column.ColumnName))
             {
-                dt.Columns.Add(item);
+                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中", nameof(column));
             }
         }
 
-        var groupData = source.AsEnumerable()
-            .GroupBy(p => string.Join(string.Empty, groupColumns.Select(q => p[q])))
-            .ToList();
+        // 创建结果表
+        var resultTable = new DataTable();
 
-        var groupColNames = new HashSet<string>(groupColumns.Select(p => p.ColumnName));
-        foreach (IGrouping<string, DataRow>? x in groupData)
+        // 添加分组列作为结果表的列
+        foreach (DataColumn groupColumn in groupColumns)
         {
-            DataRow newRow = dt.NewRow();
-            foreach (DataColumn col in dt.Columns)
+            resultTable.Columns.Add(groupColumn.ColumnName, groupColumn.DataType);
+        }
+
+        // 如果源表没有数据，直接返回只包含列定义的空表
+        if (source.Rows.Count == 0)
+        {
+            return resultTable;
+        }
+
+        // 获取不同的列标题
+        var distinctCaptionValues = new HashSet<string>();
+        foreach (DataRow row in source.Rows)
+        {
+            string captionValue = FormatCaptionValue(row, captionColumns);
+            distinctCaptionValues.Add(captionValue);
+        }
+
+        // 添加列标题作为新列
+        foreach (string captionValue in distinctCaptionValues)
+        {
+            if (!resultTable.Columns.Contains(captionValue) && 
+                !string.IsNullOrEmpty(captionValue))
             {
-                if (groupColNames.Contains(col.ColumnName))
+                var newColumn = resultTable.Columns.Add(captionValue, typeof(decimal));
+                newColumn.AllowDBNull = true;
+            }
+        }
+
+        // 使用字典存储分组键与其对应的数据行
+        var groupedRows = new Dictionary<string, DataRow>();
+
+        // 分组处理数据
+        foreach (DataRow sourceRow in source.Rows)
+        {
+            // 使用分隔符生成分组键，避免歧义
+            string groupKey = GenerateGroupKey(sourceRow, groupColumns);
+            
+            // 获取或创建分组对应的结果行
+            if (!groupedRows.TryGetValue(groupKey, out DataRow resultRow))
+            {
+                resultRow = resultTable.NewRow();
+                
+                // 设置分组列的值
+                foreach (DataColumn groupColumn in groupColumns)
                 {
-                    newRow[col.ColumnName] = x.FirstOrDefault()![col.ColumnName];
+                    resultRow[groupColumn.ColumnName] = sourceRow[groupColumn.ColumnName];
                 }
-                else
+                
+                resultTable.Rows.Add(resultRow);
+                groupedRows[groupKey] = resultRow;
+            }
+            
+            // 获取列标题和值
+            string captionValue = FormatCaptionValue(sourceRow, captionColumns);
+            
+            if (resultTable.Columns.Contains(captionValue))
+            {
+                try
                 {
-                    IEnumerable<DataRow> data = x.Where(p => string.Join("_", captionColumns.Select(q => p[q])) == col.ColumnName);
-                    if (data.Any())
+                    // 获取值并设置到对应单元格
+                    object cellValue = sourceRow[valueColumn];
+                    if (cellValue != DBNull.Value)
                     {
-                        newRow[col.ColumnName] = data.Sum(p => p[valueColumn].ToDecimal());
+                        decimal currentValue = 0;
+                        
+                        // 如果单元格已有值，则获取现有值
+                        if (resultRow[captionValue] != DBNull.Value)
+                        {
+                            currentValue = Convert.ToDecimal(resultRow[captionValue]);
+                        }
+                        
+                        // 将新值添加到现有值
+                        decimal newValue = 0;
+                        try
+                        {
+                            newValue = Convert.ToDecimal(cellValue);
+                        }
+                        catch (InvalidCastException)
+                        {
+                            // 如果无法转换为decimal，尝试使用ToDecimal扩展方法
+                            newValue = cellValue.ToDecimal();
+                        }
+                        
+                        resultRow[captionValue] = currentValue + newValue;
                     }
                 }
+                catch (Exception ex)
+                {
+                    // 记录异常但继续处理其他行
+                    Console.WriteLine($"处理值时出错: {ex.Message}");
+                }
             }
-            dt.Rows.Add(newRow);
         }
-        return dt;
+
+        return resultTable;
+    }
+
+    // 生成唯一的分组键，使用特殊分隔符避免歧义
+    private static string GenerateGroupKey(DataRow row, DataColumn[] groupColumns)
+    {
+        var keyParts = new List<string>();
+        foreach (DataColumn column in groupColumns)
+        {
+            object value = row[column];
+            // 确保null和DBNull值也能生成唯一键
+            string stringValue = value == DBNull.Value ? "<NULL>" : value?.ToString() ?? "<NULL>";
+            keyParts.Add(stringValue);
+        }
+        
+        // 使用不太可能出现在数据中的分隔符
+        return string.Join("||:||", keyParts);
+    }
+
+    // 格式化列标题值
+    private static string FormatCaptionValue(DataRow row, DataColumn[] captionColumns)
+    {
+        var captionParts = new List<string>();
+        foreach (DataColumn column in captionColumns)
+        {
+            object value = row[column];
+            // 确保null和DBNull值也能生成有效的列名
+            string stringValue = value == DBNull.Value ? "NULL" : value?.ToString() ?? "NULL";
+            
+            // 替换可能导致列名无效的字符
+            stringValue = SanitizeColumnName(stringValue);
+            captionParts.Add(stringValue);
+        }
+        
+        return string.Join("_", captionParts);
+    }
+
+    // 净化列名，替换无效字符
+    private static string SanitizeColumnName(string columnName)
+    {
+        // 替换常见的无效列名字符
+        return columnName
+            .Replace("/", "_")
+            .Replace("\\", "_")
+            .Replace(":", "_")
+            .Replace("*", "_")
+            .Replace("?", "_")
+            .Replace("\"", "_")
+            .Replace("<", "_")
+            .Replace(">", "_")
+            .Replace("|", "_")
+            .Replace(" ", "_");
     }
 
     /// <summary>

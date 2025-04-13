@@ -245,14 +245,8 @@ public static partial class FileInfoExtensions
     {
         ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
         GuardExtensions.EnsureFileExist(filePath);
-        try
-        {
-            return new FileInfo(filePath).Length;
-        }
-        catch (Exception ex)
-        {
-            throw new IOException($"Failed to get size for file: {filePath}", ex);
-        }
+
+        return new FileInfo(filePath).Length;
     }
 
     /// <summary>
@@ -287,15 +281,8 @@ public static partial class FileInfoExtensions
         if (!fileInfo.Exists)
             throw new FileNotFoundException("File not found", fileInfo.FullName);
 
-        try
-        {
-            var versionInfo = FileVersionInfo.GetVersionInfo(fileInfo.FullName);
-            return versionInfo.FileVersion;
-        }
-        catch (Exception ex)
-        {
-            throw new IOException($"Failed to get version for file: {fileInfo.FullName}", ex);
-        }
+        var versionInfo = FileVersionInfo.GetVersionInfo(fileInfo.FullName);
+        return versionInfo.FileVersion;
     }
 
     /// <summary>

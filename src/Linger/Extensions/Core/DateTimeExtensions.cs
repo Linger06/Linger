@@ -20,21 +20,22 @@ public static partial class DateTimeExtensions
         var date2 = dateTime2 ?? DateTime.Now;
         var dateDiff = unit switch
         {
-            TimeUnit.Days => (date2 - dateTime1).TotalDays,
-            TimeUnit.Hours => (date2 - dateTime1).TotalHours,
-            TimeUnit.Minutes => (date2 - dateTime1).TotalMinutes,
-            TimeUnit.Seconds => (date2 - dateTime1).TotalSeconds,
-            TimeUnit.Milliseconds => (date2 - dateTime1).TotalMilliseconds,
-            TimeUnit.Months => (date2.Year - dateTime1.Year) * 12 + date2.Month - dateTime1.Month +
-                             (date2.Day >= dateTime1.Day ? 0 : -1),
-            TimeUnit.Years => date2.Year - dateTime1.Year +
-                            ((date2.Month > dateTime1.Month ||
-                             (date2.Month == dateTime1.Month && date2.Day >= dateTime1.Day)) ? 0 : -1),
+            TimeUnit.Days => (dateTime1 - date2).TotalDays,
+            TimeUnit.Hours => (dateTime1 - date2).TotalHours,
+            TimeUnit.Minutes => (dateTime1 - date2).TotalMinutes,
+            TimeUnit.Seconds => (dateTime1 - date2).TotalSeconds,
+            TimeUnit.Milliseconds => (dateTime1 - date2).TotalMilliseconds,
+            TimeUnit.Months => (dateTime1.Year - date2.Year) * 12 + dateTime1.Month - date2.Month +
+                             (dateTime1.Day >= date2.Day ? 0 : -1),
+            TimeUnit.Years => dateTime1.Year - date2.Year +
+                            ((dateTime1.Month > date2.Month ||
+                             (dateTime1.Month == date2.Month && dateTime1.Day >= date2.Day)) ? 0 : -1),
             _ => 0
         };
         return abs ? Math.Abs(dateDiff) : dateDiff;
     }
 
+    [Obsolete("Use GetDateDifference with TimeUnit instead.")]
     public static double GetDateDifference(this DateTime dateTime1, DateTime? dateTime2, string unit, bool abs = false)
     {
         var timeUnit = unit?.ToUpperInvariant() switch
@@ -404,8 +405,11 @@ public static partial class DateTimeExtensions
     public static DateTimeOffset ToDateTimeOffset(this DateTime value)
     {
         if (value.Kind == DateTimeKind.Unspecified)
-            value = DateTime.SpecifyKind(value, DateTimeKind.Local);
-        return value;
+        {
+            var localDateTime = DateTime.SpecifyKind(value, DateTimeKind.Local);
+            return new DateTimeOffset(localDateTime);
+        }
+        return new DateTimeOffset(value);
     }
 
     [return: NotNullIfNotNull(nameof(input))]
@@ -416,10 +420,13 @@ public static partial class DateTimeExtensions
             return null;
         }
 
-        var value = (DateTime)input;
+        var value = input.Value;
         if (value.Kind == DateTimeKind.Unspecified)
-            value = DateTime.SpecifyKind(value, DateTimeKind.Local);
-        return value;
+        {
+            var localDateTime = DateTime.SpecifyKind(value, DateTimeKind.Local);
+            return new DateTimeOffset(localDateTime);
+        }
+        return new DateTimeOffset(value);
     }
 
 

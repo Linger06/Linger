@@ -1,11 +1,11 @@
 ﻿namespace Linger.UnitTests.Extensions.Data;
 
-public class DataTableExtensionsTest
+public partial class DataTableExtensionsTests
 {
     private readonly DataTable _dataTable;
     private readonly DataTable _dataTable2;
 
-    public DataTableExtensionsTest()
+    public DataTableExtensionsTests()
     {
         _dataTable = new DataTable();
         _ = _dataTable.Columns.Add("column0", typeof(string));

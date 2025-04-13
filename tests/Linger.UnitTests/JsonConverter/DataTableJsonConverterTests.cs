@@ -1,4 +1,9 @@
-﻿namespace Linger.UnitTests.JsonConverter;
+﻿using System.Data;
+using System.Text.Json;
+using Linger.JsonConverter;
+using Xunit.v3;
+
+namespace Linger.UnitTests.JsonConverter;
 
 public class DataTableJsonConverterTests
 {
@@ -8,7 +13,8 @@ public class DataTableJsonConverterTests
     {
         _options = new JsonSerializerOptions
         {
-            Converters = { new DataTableJsonConverter() }
+            Converters = { new DataTableJsonConverter() },
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping // 禁用 Unicode 转义
         };
     }
 
@@ -48,23 +54,6 @@ public class DataTableJsonConverterTests
 
         table.Rows.Add(row);
 
-        //var row2 = table.NewRow();
-        //row2["Int"] = 2;
-        //row2["NullableInt"] = DBNull.Value;
-        //row2["String"] = "Test2";
-        //row2["Guid"] = Guid.NewGuid();
-        //row2["NullableGuid"] = DBNull.Value;
-        //row2["DateTime"] = DateTime.Now;
-        //row2["NullableDateTime"] = DBNull.Value;
-        //row2["Boolean"] = true;
-        //row2["Int16"] = (short)2;
-        //row2["Int64"] = 3L;
-        //row2["Decimal"] = 4.5m;
-        //row2["Single"] = 5.6f;
-        //row2["Double"] = 7.8;
-
-        //table.Rows.Add(row2);
-
         return table;
     }
 
@@ -95,7 +84,6 @@ public class DataTableJsonConverterTests
         DataTable? dataTable = CreateTestDataTable();
 #if NETCOREAPP3_0_OR_GREATER
 #else
-        //WriteNumberValue writes the Single/Double value using the default StandardFormat (that is, 'G') on .NET Core 3.0 or later versions. Uses 'G9' on any other framework.
         dataTable.Columns.Remove("Single");
         dataTable.Columns.Remove("Double");
 #endif
@@ -117,7 +105,6 @@ public class DataTableJsonConverterTests
 
 #if NETCOREAPP3_0_OR_GREATER
 #else
-        //WriteNumberValue writes the Single/Double value using the default StandardFormat (that is, 'G') on .NET Core 3.0 or later versions. Uses 'G9' on any other framework.
         dataTable.Columns.Remove("Single");
         dataTable.Columns.Remove("Double");
 #endif
@@ -216,5 +203,95 @@ public class DataTableJsonConverterTests
         var expectedJson = "[{\"Column1\":\"Value1\",\"Column2\":123}]";
 
         Assert.Equal(expectedJson, json);
+    }
+
+    [Fact]
+    public void Serialize_DataTable_WritesJsonArray()
+    {
+        var dataTable = new DataTable();
+        dataTable.Columns.Add("Name", typeof(string));
+        dataTable.Columns.Add("Age", typeof(int));
+
+        dataTable.Rows.Add("John Doe", 30);
+        dataTable.Rows.Add("Linger", 25);
+
+        var json = JsonSerializer.Serialize(dataTable, _options);
+
+        Assert.StartsWith("[", json);
+        Assert.EndsWith("]", json);
+        Assert.Contains("\"Name\":\"John Doe\"", json);
+        Assert.Contains("\"Age\":30", json);
+        Assert.Contains("\"Name\":\"Linger\"", json);
+        Assert.Contains("\"Age\":25", json);
+    }
+
+    [Fact]
+    public void Serialize_EmptyDataTable_WritesEmptyJsonArray()
+    {
+        var dataTable = new DataTable();
+        dataTable.Columns.Add("Name", typeof(string));
+        dataTable.Columns.Add("Age", typeof(int));
+
+        var json = JsonSerializer.Serialize(dataTable, _options);
+
+        Assert.Equal("[]", json);
+    }
+
+    [Fact]
+    public void Serialize_WithVariousDataTypes_HandlesTypesCorrectly()
+    {
+        var dataTable = new DataTable();
+        dataTable.Columns.Add("StringValue", typeof(string));
+        dataTable.Columns.Add("IntValue", typeof(int));
+        dataTable.Columns.Add("BoolValue", typeof(bool));
+        dataTable.Columns.Add("DoubleValue", typeof(double));
+        dataTable.Columns.Add("DateTimeValue", typeof(DateTime));
+        dataTable.Columns.Add("GuidValue", typeof(Guid));
+
+        var guid = Guid.NewGuid();
+        var dateTime = new DateTime(2025, 4, 11, 14, 30, 0);
+
+        dataTable.Rows.Add("John Doe", 30, true, 12.34, dateTime, guid);
+
+        var json = JsonSerializer.Serialize(dataTable, _options);
+
+        Assert.Contains("\"StringValue\":\"John Doe\"", json);
+        Assert.Contains("\"IntValue\":30", json);
+        Assert.Contains("\"BoolValue\":true", json);
+        Assert.Contains("\"DoubleValue\":12.34", json);
+        Assert.Contains("\"DateTimeValue\":\"" + dateTime.ToString("o").Substring(0, 19), json);
+        Assert.Contains("\"GuidValue\":\"" + guid.ToString(), json);
+    }
+
+    [Fact]
+    public void Deserialize_JsonArray_CreatesDataTable()
+    {
+        var json = "[{\"Name\":\"John Doe\",\"Age\":30},{\"Name\":\"Linger\",\"Age\":25}]";
+
+        var dataTable = JsonSerializer.Deserialize<DataTable>(json, _options);
+
+        Assert.NotNull(dataTable);
+        Assert.Equal(2, dataTable.Columns.Count);
+        Assert.Equal(2, dataTable.Rows.Count);
+
+        Assert.Equal("Name", dataTable.Columns[0].ColumnName);
+        Assert.Equal("Age", dataTable.Columns[1].ColumnName);
+
+        Assert.Equal("John Doe", dataTable.Rows[0]["Name"]);
+        Assert.Equal(30L, dataTable.Rows[0]["Age"]);
+        Assert.Equal("Linger", dataTable.Rows[1]["Name"]);
+        Assert.Equal(25L, dataTable.Rows[1]["Age"]);
+    }
+
+    [Fact]
+    public void Deserialize_EmptyJsonArray_CreatesEmptyDataTable()
+    {
+        var json = "[]";
+
+        var dataTable = JsonSerializer.Deserialize<DataTable>(json, _options);
+
+        Assert.NotNull(dataTable);
+        Assert.Equal(0, dataTable.Columns.Count);
+        Assert.Equal(0, dataTable.Rows.Count);
     }
 }

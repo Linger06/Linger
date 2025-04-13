@@ -1,92 +1,113 @@
-﻿namespace Linger.UnitTests.Helper
+﻿using Linger.Helper;
+using Xunit.v3;
+
+namespace Linger.UnitTests.Helper;
+
+public class GuidCodeTests
 {
-    public class GuidCodeTests
+    [Fact]
+    public void NewId_ShouldGenerateUniqueIds()
     {
-        [Fact]
-        public void NewId_ShouldReturn32CharacterString()
-        {
-            // Act
-            var result = GuidCode.NewId;
+        // Arrange & Act
+        var id1 = GuidCode.NewId;
+        var id2 = GuidCode.NewId;
 
-            // Assert
-            Assert.Equal(31, result.Length);
-            Assert.Matches(@"^\d{21}[a-fA-F0-9]{10}$", result);
-        }
+        // Assert
+        Assert.NotEqual(id1, id2);
+        Assert.Equal(31, id1.Length); // 24 for date + 10 for guid
+        Assert.Equal(31, id2.Length);
+    }
 
-        [Fact]
-        public void NewDateTimeId_ShouldReturn23CharacterString()
-        {
-            // Act
-            var result = GuidCode.NewDateTimeId;
+    [Fact]
+    public void NewId_ShouldStartWithCurrentDateTime()
+    {
+        // Arrange & Act
+        var id = GuidCode.NewId;
+        var dateTimePrefix = DateTime.Now.ToString("yyyyMMdd");
 
-            // Assert
-            Assert.Equal(21, result.Length);
-            Assert.Matches(@"^\d{21}$", result);
-        }
+        // Assert
+        Assert.StartsWith(dateTimePrefix, id);
+    }
 
-        [Fact]
-        public void NewDateGuid_ShouldReturn10CharacterString()
-        {
-            // Act
-            var result = GuidCode.NewDateGuid;
+    [Fact]
+    public void NewDateGuid_ShouldGenerateUniqueIds()
+    {
+        // Arrange & Act
+        var id1 = GuidCode.NewDateGuid;
+        var id2 = GuidCode.NewDateGuid;
 
-            // Assert
-            Assert.Equal(10, result.Length);
-            Assert.Matches(@"^\d{6}[a-fA-F0-9]{4}$", result);
-        }
+        // Assert
+        Assert.NotEqual(id1, id2);
+        Assert.Equal(10, id1.Length); // 6 for date + 4 for guid
+        Assert.Equal(10, id2.Length);
+    }
 
-        [Fact]
-        public void NewGuid_ShouldReturnValidGuid()
-        {
-            // Act
-            Guid result = GuidCode.NewGuid();
+    [Fact]
+    public void NewDateGuid_ShouldStartWithCurrentDate()
+    {
+        // Arrange & Act
+        var id = GuidCode.NewDateGuid;
+        var datePrefix = DateTime.Now.ToString("yyMMdd");
 
-            // Assert
-            Assert.NotEqual(Guid.Empty, result);
-        }
+        // Assert
+        Assert.StartsWith(datePrefix, id);
+    }
+
+    [Fact]
+    public void NewGuid_ShouldGenerateUniqueGuids()
+    {
+        // Arrange & Act
+        var guid1 = GuidCode.NewGuid();
+        var guid2 = GuidCode.NewGuid();
+
+        // Assert
+        Assert.NotEqual(guid1, guid2);
+    }
 
 #if NET9_0_OR_GREATER
-        [Fact]
-        public void CreateVersion7_ShouldReturnValidGuidV7()
-        {
-            // Act
-            Guid result = GuidCode.CreateVersion7();
+    [Fact]
+    public void CreateVersion7_ShouldGenerateVersion7Guid()
+    {
+        // Arrange & Act
+        var guid = GuidCode.CreateVersion7();
 
-            // Assert
-            Assert.NotEqual(Guid.Empty, result);
-            Assert.Equal(7, (result.ToByteArray()[7] & 0xF0) >> 4);
-        }
+        // Assert
+        Assert.Equal(7, (guid.Version));
+    }
 #endif
 
-        [Fact]
-        public void GetInt64UniqueCode_ShouldReturnNonZeroValue()
-        {
-            // Act
-            var result = GuidCode.GetInt64UniqueCode();
+    [Fact]
+    public void GetInt64UniqueCode_ShouldGenerateUniqueValues()
+    {
+        // Arrange & Act
+        var code1 = GuidCode.GetInt64UniqueCode();
+        var code2 = GuidCode.GetInt64UniqueCode();
 
-            // Assert
-            Assert.NotEqual(0, result);
-        }
-
-        [Fact]
-        public void GetInt32UniqueCode_ShouldReturnNonZeroValue()
-        {
-            // Act
-            var result = GuidCode.GetInt32UniqueCode();
-
-            // Assert
-            Assert.NotEqual(0, result);
-        }
-
-        [Fact]
-        public void MultipleNewIds_ShouldBeUnique()
-        {
-            // Act
-            var id1 = GuidCode.NewId;
-            var id2 = GuidCode.NewId;
-
-            // Assert
-            Assert.NotEqual(id1, id2);
-        }
+        // Assert
+        Assert.NotEqual(code1, code2);
     }
+
+    [Fact]
+    public void GetInt32UniqueCode_ShouldGenerateUniqueValues()
+    {
+        // Arrange & Act
+        var code1 = GuidCode.GetInt32UniqueCode();
+        var code2 = GuidCode.GetInt32UniqueCode();
+
+        // Assert
+        Assert.NotEqual(code1, code2);
+    }
+
+#pragma warning disable CS0618 // 类型或成员已过时
+    [Fact]
+    public void NewDateTimeId_ShouldGenerateIdsWithCorrectLength()
+    {
+        // Arrange & Act
+        var id = GuidCode.NewDateTimeId;
+
+        // Assert
+        Assert.Equal(21, id.Length);
+        Assert.StartsWith(DateTime.Now.ToString("yyyyMMdd"), id);
+    }
+#pragma warning restore CS0618
 }

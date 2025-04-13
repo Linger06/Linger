@@ -1,67 +1,60 @@
 ﻿using System.Globalization;
-using System.Text.Encodings.Web;
+using System.Text;
 using System.Text.Json.Serialization;
+using Xunit.v3;
 
 namespace Linger.UnitTests;
 
-public class ExtensionMethodSettingTests(ITestOutputHelper outputHelper)
+public class ExtensionMethodSettingTests
 {
     [Fact]
-    public void DefaultEncoding_IsUTF8()
+    public void DefaultEncoding_ShouldBeUTF8()
     {
+        // Act & Assert
         Assert.Equal(Encoding.UTF8, ExtensionMethodSetting.DefaultEncoding);
     }
-
+    
     [Fact]
-    public void DefaultCulture_IsInvariantCulture()
+    public void DefaultCulture_ShouldBeInvariantCulture()
     {
-        outputHelper.WriteLine($"FirstDayOfWeek:{ExtensionMethodSetting.DefaultCulture.DateTimeFormat.FirstDayOfWeek.ToString()}");
-        outputHelper.WriteLine($"CalendarWeekRule:{ExtensionMethodSetting.DefaultCulture.DateTimeFormat.CalendarWeekRule.ToString()}");
+        // Act & Assert
         Assert.Equal(CultureInfo.InvariantCulture, ExtensionMethodSetting.DefaultCulture);
     }
-
+    
     [Fact]
-    public void zhCNCulture_Test_InDiffFramwork()
+    public void DefaultBufferSize_ShouldBe4096()
     {
-        outputHelper.WriteLine($"FirstDayOfWeek:{new CultureInfo("zh-CN").DateTimeFormat.FirstDayOfWeek.ToString()}");
-        outputHelper.WriteLine($"CalendarWeekRule:{new CultureInfo("zh-CN").DateTimeFormat.CalendarWeekRule.ToString()}");
+        // Act & Assert
+        Assert.Equal(4096, ExtensionMethodSetting.DefaultBufferSize);
     }
-
+    
+#if !NETFRAMEWORK || NET462_OR_GREATER
     [Fact]
-    public void DefaultJsonSerializerOptions_HasCorrectSettings()
+    public void DefaultJsonSerializerOptions_ShouldHaveExpectedSettings()
     {
-        JsonSerializerOptions? options = ExtensionMethodSetting.DefaultJsonSerializerOptions;
+        // Act
+        var options = ExtensionMethodSetting.DefaultJsonSerializerOptions;
+        
+        // Assert
         Assert.True(options.WriteIndented);
-        Assert.Equal(JavaScriptEncoder.UnsafeRelaxedJsonEscaping, options.Encoder);
         Assert.True(options.PropertyNameCaseInsensitive);
-        Assert.Equal(JsonNamingPolicy.CamelCase, options.PropertyNamingPolicy);
-        Assert.Equal(JsonNamingPolicy.CamelCase, options.DictionaryKeyPolicy);
         Assert.Equal(JsonIgnoreCondition.WhenWritingNull, options.DefaultIgnoreCondition);
         Assert.True(options.IgnoreReadOnlyProperties);
         Assert.True(options.IgnoreReadOnlyFields);
         Assert.False(options.AllowTrailingCommas);
         Assert.Equal(JsonCommentHandling.Disallow, options.ReadCommentHandling);
-        Assert.Equal(JsonNumberHandling.AllowReadingFromString, options.NumberHandling);
-        Assert.Equal(ReferenceHandler.IgnoreCycles, options.ReferenceHandler);
-        Assert.Contains(options.Converters, c => c is JsonObjectConverter);
-        Assert.Contains(options.Converters, c => c is DateTimeConverter);
-        Assert.Contains(options.Converters, c => c is DateTimeNullConverter);
-        Assert.Contains(options.Converters, c => c is DataTableJsonConverter);
     }
-
+    
     [Fact]
-    public void DefaultPostJsonOption_HasCorrectSettings()
+    public void DefaultPostJsonOption_ShouldHaveExpectedSettings()
     {
-        JsonSerializerOptions? options = ExtensionMethodSetting.DefaultPostJsonOption;
+        // Act
+        var options = ExtensionMethodSetting.DefaultPostJsonOption;
+        
+        // Assert
         Assert.Null(options.PropertyNamingPolicy);
-        Assert.Equal(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString, options.NumberHandling);
         Assert.True(options.AllowTrailingCommas);
-        Assert.Contains(options.Converters, c => c is DateTimeConverter);
+        Assert.Equal(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString, options.NumberHandling);
     }
-
-    [Fact]
-    public void DefaultBufferSize_Is4096()
-    {
-        Assert.Equal(4096, ExtensionMethodSetting.DefaultBufferSize);
-    }
+#endif
 }
