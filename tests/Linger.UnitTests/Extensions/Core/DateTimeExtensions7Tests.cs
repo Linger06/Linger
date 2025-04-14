@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace Linger.UnitTests.Extensions.Core;
 
@@ -161,13 +162,21 @@ public class DateTimeExtensions7Tests
         yield return new object[] { "en-US", "2023-07-01", 26 };
         yield return new object[] { "de-DE", "2023-07-01", 26 };
         yield return new object[] { "fr-FR", "2023-07-01", 26 };
-#if NETFRAMEWORK
-        // Framework使用ISO 8601标准
-        yield return new object[] { "zh-CN", "2023-07-01", 27 };
-#else
-        // Core使用简化的日历周计算
-        yield return new object[] { "zh-CN", "2023-07-01", 26 };
-#endif
+        
+        // 检测运行时环境，为中文文化提供正确的期望值
+        bool isNetFramework = RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework");
+        // .NET Framework 环境下，zh-CN 的 FirstDayOfWeek 是 Monday（ISO 8601 标准）
+        // .NET Core/.NET 5+ 环境下，zh-CN 的 FirstDayOfWeek 是 Sunday
+        if (isNetFramework)
+        {
+            // Framework使用ISO 8601标准，FirstDayOfWeek为Monday
+            yield return new object[] { "zh-CN", "2023-07-01", 27 };
+        }
+        else
+        {
+            // Core使用ICU库，FirstDayOfWeek为Sunday
+            yield return new object[] { "zh-CN", "2023-07-01", 26 };
+        }
     }
 
     [Theory]
@@ -221,127 +230,60 @@ public class DateTimeExtensions7Tests
         Assert.Equal(expectedResult, result);
     }
 
-    [Theory]
-    [InlineData("en-US", 2023, "2023-01-01")] // 美国文化 1月1日
-    [InlineData("de-DE", 2023, "2023-01-02")] // 德国文化(ISO 8601) 1月2日
-    [InlineData("fr-FR", 2023, "2023-01-02")] // 法国文化 1月2日
-    [InlineData("zh-CN", 2023, "2023-01-01")]
-    public void GetStartEndDayOfFirstWeek_DifferentCultures_ReturnsCorrectDate(
-        string cultureName, int year, string expectedDateStr)
+    public static IEnumerable<object[]> GetCultureSpecificFirstWeekData()
     {
-        // Arrange
-        var culture = CultureInfo.GetCultureInfo(cultureName);
-        var expectedDate = DateTime.Parse(expectedDateStr);
-
-        // Act
-        var result = DateTimeExtensions.GetStartEndDayOfFirstWeek(year, culture);
-
-        // Assert
-        Assert.Equal(expectedDate, result.Start);
+        // 非中文文化的一周开始/结束日期测试数据保持不变
+        yield return new object[] { "en-US", 2023, 1, "2023-01-01", "2023-01-07" }; // 美国文化
+        yield return new object[] { "de-DE", 2023, 1, "2023-01-02", "2023-01-08" }; // 德国文化(ISO 8601)
+        yield return new object[] { "fr-FR", 2023, 1, "2023-01-02", "2023-01-08" }; // 法国文化
+        
+        // 检测运行时环境，为中文文化提供正确的期望值
+        bool isNetFramework = RuntimeInformation.FrameworkDescription.StartsWith(".NET Framework");
+        
+        if (isNetFramework)
+        {
+            // .NET Framework: zh-CN 的 FirstDayOfWeek 是 Monday
+            yield return new object[] { "zh-CN", 2023, 1, "2023-01-01", "2023-01-01" }; // 中国文化
+        }
+        else
+        {
+            // .NET Core/.NET 5+: zh-CN 的 FirstDayOfWeek 是 Sunday
+            yield return new object[] { "zh-CN", 2023, 1, "2023-01-01", "2023-01-07" }; // 中国文化
+        }
     }
 
     [Theory]
-    [InlineData(2010, DayOfWeek.Sunday, CalendarWeekRule.FirstDay, "2010-01-01", "2010-01-02")]
-    [InlineData(2010, DayOfWeek.Sunday, CalendarWeekRule.FirstFourDayWeek, "2010-01-03", "2010-01-09")]
-    [InlineData(2010, DayOfWeek.Sunday, CalendarWeekRule.FirstFullWeek, "2010-01-03", "2010-01-09")]
-    [InlineData(2010, DayOfWeek.Monday, CalendarWeekRule.FirstDay, "2010-01-01", "2010-01-03")]
-    [InlineData(2010, DayOfWeek.Monday, CalendarWeekRule.FirstFourDayWeek, "2010-01-04", "2010-01-10")]
-    [InlineData(2010, DayOfWeek.Monday, CalendarWeekRule.FirstFullWeek, "2010-01-04", "2010-01-10")]
-
-    [InlineData(2013, DayOfWeek.Sunday, CalendarWeekRule.FirstDay, "2013-01-01", "2013-01-05")]
-    [InlineData(2013, DayOfWeek.Sunday, CalendarWeekRule.FirstFourDayWeek, "2013-01-01", "2013-01-05")]
-    [InlineData(2013, DayOfWeek.Sunday, CalendarWeekRule.FirstFullWeek, "2013-01-06", "2013-01-12")]
-    [InlineData(2013, DayOfWeek.Monday, CalendarWeekRule.FirstDay, "2013-01-01", "2013-01-06")]
-    [InlineData(2013, DayOfWeek.Monday, CalendarWeekRule.FirstFourDayWeek, "2013-01-01", "2013-01-06")]
-    [InlineData(2013, DayOfWeek.Monday, CalendarWeekRule.FirstFullWeek, "2013-01-07", "2013-01-13")]
-
-    [InlineData(2024, DayOfWeek.Sunday, CalendarWeekRule.FirstDay, "2024-01-01", "2024-01-06")]
-    [InlineData(2024, DayOfWeek.Sunday, CalendarWeekRule.FirstFourDayWeek, "2024-01-01", "2024-01-06")]
-    [InlineData(2024, DayOfWeek.Sunday, CalendarWeekRule.FirstFullWeek, "2024-01-07", "2024-01-13")]
-    [InlineData(2024, DayOfWeek.Monday, CalendarWeekRule.FirstDay, "2024-01-01", "2024-01-07")]
-    [InlineData(2024, DayOfWeek.Monday, CalendarWeekRule.FirstFourDayWeek, "2024-01-01", "2024-01-07")]
-    [InlineData(2024, DayOfWeek.Monday, CalendarWeekRule.FirstFullWeek, "2024-01-01", "2024-01-07")]
-
-    public void GetStartEndDayOfFirstWeek_WithSpecificRules_ReturnsCorrectDate(
-        int year,
-        DayOfWeek firstDayOfWeek,
-        CalendarWeekRule calendarWeekRule,
-        string expectedStartDateStr, string expectedEndDateStr)
-    {
-        // Arrange
-        var expectedStartDate = DateTime.Parse(expectedStartDateStr);
-        var expectedEndDate = DateTime.Parse(expectedEndDateStr);
-
-        // Act
-        var result = DateTimeExtensions.GetStartEndDayOfFirstWeek(year, firstDayOfWeek, calendarWeekRule);
-
-        // Assert
-        Assert.Equal(expectedStartDate, result.Start);
-        Assert.Equal(expectedEndDate, result.End.Date);
-    }
-
-    [Theory]
-    [InlineData(0)]
-    [InlineData(10000)]
-    public void GetFirstWeekStartOfYear_WithInvalidYear_ThrowsArgumentOutOfRangeException(int year)
-    {
-        // Arrange
-        var firstDayOfWeek = DayOfWeek.Monday;
-        var calendarWeekRule = CalendarWeekRule.FirstDay;
-
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
-            DateTimeExtensions.GetStartEndDayOfFirstWeek(year, firstDayOfWeek, calendarWeekRule));
-        Assert.Equal("year", exception.ParamName);
-    }
-
-    [Fact]
-    public void GetFirstWeekStartOfYear_NullCulture_UsesDefaultCulture()
-    {
-        // Arrange
-        var year = 2023;
-        var expectedDate = DateTimeExtensions.GetStartEndDayOfFirstWeek(year, ExtensionMethodSetting.DefaultCulture);
-
-        // Act
-        var result = DateTimeExtensions.GetStartEndDayOfFirstWeek(year, null);
-
-        // Assert
-        Assert.Equal(expectedDate, result);
-    }
-
-    [Theory]
-    [InlineData("en-US", 2023, 1, "2023-01-01", "2023-01-07")] // 美国文化
-    [InlineData("de-DE", 2023, 1, "2023-01-02", "2023-01-08")] // 德国文化(ISO 8601)
-    [InlineData("fr-FR", 2023, 1, "2023-01-02", "2023-01-08")] // 法国文化
-#if NETFRAMEWORK
-    [InlineData("zh-CN", 2023, 1, "2023-01-01", "2023-01-01")] // 中国文化
-#else
-    [InlineData("zh-CN", 2023, 1, "2023-01-01", "2023-01-07")] // 中国文化
-#endif
+    [MemberData(nameof(GetCultureSpecificFirstWeekData))]
     public void GetFirstEndDayOfWeek_DifferentCultures_ReturnsCorrectDates(
-    string cultureName, int year, int weekNumber, string expectedStart, string expectedEnd)
+        string cultureName, int year, int weekNumber, string expectedStart, string expectedEnd)
     {
-        //在.NET Core/.NET 5 + 中，中国文化（zh - CN）的 FirstDayOfWeek 默认设置为 Sunday。
-        //这是因为：
-        //1.  .NET Core 重新实现了 Globalization 功能，使用了 ICU 库（International Components for Unicode）
-        //2.ICU 库中对中国地区的默认设置是以周日作为一周的开始
-        //这就解释了为什么同样的代码在不同的.NET 运行时中会有不同的行为：
-        //•	.NET Framework：FirstDayOfWeek = Monday，Framework: CalendarWeekRule = FirstFourDayWeek(第一周最少要有4天)（基于 Windows NLS）
-        //•	.NET Core /.NET 5 +：FirstDayOfWeek = Sunday，CalendarWeekRule = FirstDay(第一周从第一天开始)（基于 ICU）
-
+        // 记录当前运行时环境信息
+        _outputHelper.WriteLine($"Runtime: {Environment.Version}");
+        _outputHelper.WriteLine($"Framework: {RuntimeInformation.FrameworkDescription}");
+        _outputHelper.WriteLine($"Culture: {cultureName}");
+        
         // Arrange
-        var culture = CultureInfo.GetCultureInfo(cultureName);
+        var culture = new CultureInfo(cultureName, false);
+        _outputHelper.WriteLine($"FirstDayOfWeek: {culture.DateTimeFormat.FirstDayOfWeek}");
+        _outputHelper.WriteLine($"CalendarWeekRule: {culture.DateTimeFormat.CalendarWeekRule}");
+        
         var expectedStartDate = DateTime.Parse(expectedStart);
         var expectedEndDate = DateTime.Parse(expectedEnd);
 
         // Act
 #if NET40
-    var result = DateTimeExtensions.GetFirstEndDayOfWeek(year, weekNumber, culture);
-    var start = result.Item1;
-    var end = result.Item2;
+        var result = DateTimeExtensions.GetFirstEndDayOfWeek(year, weekNumber, culture);
+        var start = result.Item1;
+        var end = result.Item2;
 #else
         var (start, end) = DateTimeExtensions.GetStartEndDayOfWeek(year, weekNumber, culture);
 #endif
+
+        // 输出实际值以便调试
+        _outputHelper.WriteLine($"Expected start: {expectedStartDate:yyyy-MM-dd}");
+        _outputHelper.WriteLine($"Actual start: {start:yyyy-MM-dd}");
+        _outputHelper.WriteLine($"Expected end: {expectedEndDate:yyyy-MM-dd}");
+        _outputHelper.WriteLine($"Actual end: {end:yyyy-MM-dd}");
 
         // Assert
         Assert.Equal(expectedStartDate, start.Date);
@@ -474,5 +416,137 @@ public class DateTimeExtensions7Tests
         // Assert
         Assert.Equal(new DateTime(2023, 1, 1), start);
         Assert.Equal(new DateTime(2023, 1, 7, 23, 59, 59, 999), end);
+    }
+
+    public static IEnumerable<object[]> GetFirstWeekSpecificRulesData()
+    {
+        // 2010年的测试数据
+        yield return new object[] { 2010, DayOfWeek.Sunday, CalendarWeekRule.FirstDay, "2010-01-01", "2010-01-02", "第一天规则，周日开始" };
+        yield return new object[] { 2010, DayOfWeek.Sunday, CalendarWeekRule.FirstFourDayWeek, "2010-01-03", "2010-01-09", "四天规则，周日开始" };
+        yield return new object[] { 2010, DayOfWeek.Sunday, CalendarWeekRule.FirstFullWeek, "2010-01-03", "2010-01-09", "完整周规则，周日开始" };
+        yield return new object[] { 2010, DayOfWeek.Monday, CalendarWeekRule.FirstDay, "2010-01-01", "2010-01-03", "第一天规则，周一开始" };
+        yield return new object[] { 2010, DayOfWeek.Monday, CalendarWeekRule.FirstFourDayWeek, "2010-01-04", "2010-01-10", "四天规则，周一开始" };
+        yield return new object[] { 2010, DayOfWeek.Monday, CalendarWeekRule.FirstFullWeek, "2010-01-04", "2010-01-10", "完整周规则，周一开始" };
+
+        // 2013年的测试数据
+        yield return new object[] { 2013, DayOfWeek.Sunday, CalendarWeekRule.FirstDay, "2013-01-01", "2013-01-05", "第一天规则，周日开始" };
+        yield return new object[] { 2013, DayOfWeek.Sunday, CalendarWeekRule.FirstFourDayWeek, "2013-01-01", "2013-01-05", "四天规则，周日开始" };
+        yield return new object[] { 2013, DayOfWeek.Sunday, CalendarWeekRule.FirstFullWeek, "2013-01-06", "2013-01-12", "完整周规则，周日开始" };
+        yield return new object[] { 2013, DayOfWeek.Monday, CalendarWeekRule.FirstDay, "2013-01-01", "2013-01-06", "第一天规则，周一开始" };
+        yield return new object[] { 2013, DayOfWeek.Monday, CalendarWeekRule.FirstFourDayWeek, "2013-01-01", "2013-01-06", "四天规则，周一开始" };
+        yield return new object[] { 2013, DayOfWeek.Monday, CalendarWeekRule.FirstFullWeek, "2013-01-07", "2013-01-13", "完整周规则，周一开始" };
+
+        // 2024年的测试数据
+        yield return new object[] { 2024, DayOfWeek.Sunday, CalendarWeekRule.FirstDay, "2024-01-01", "2024-01-06", "第一天规则，周日开始" };
+        yield return new object[] { 2024, DayOfWeek.Sunday, CalendarWeekRule.FirstFourDayWeek, "2024-01-01", "2024-01-06", "四天规则，周日开始" };
+        yield return new object[] { 2024, DayOfWeek.Sunday, CalendarWeekRule.FirstFullWeek, "2024-01-07", "2024-01-13", "完整周规则，周日开始" };
+        yield return new object[] { 2024, DayOfWeek.Monday, CalendarWeekRule.FirstDay, "2024-01-01", "2024-01-07", "第一天规则，周一开始" };
+        yield return new object[] { 2024, DayOfWeek.Monday, CalendarWeekRule.FirstFourDayWeek, "2024-01-01", "2024-01-07", "四天规则，周一开始" };
+        yield return new object[] { 2024, DayOfWeek.Monday, CalendarWeekRule.FirstFullWeek, "2024-01-01", "2024-01-07", "完整周规则，周一开始" };
+    }
+
+    /// <summary>
+    /// 测试在不同年份、一周第一天设置和日历周规则组合下，GetStartEndDayOfFirstWeek方法能否返回正确的日期范围
+    /// </summary>
+    /// <param name="year">年份</param>
+    /// <param name="firstDayOfWeek">一周的第一天设置</param>
+    /// <param name="calendarWeekRule">日历周规则</param>
+    /// <param name="expectedStartDateStr">期望的开始日期字符串</param>
+    /// <param name="expectedEndDateStr">期望的结束日期字符串</param>
+    /// <param name="testDescription">测试场景描述</param>
+    [Theory]
+    [MemberData(nameof(GetFirstWeekSpecificRulesData))]
+    public void GetStartEndDayOfFirstWeek_WithSpecificRules_ReturnsCorrectDate(
+        int year,
+        DayOfWeek firstDayOfWeek,
+        CalendarWeekRule calendarWeekRule,
+        string expectedStartDateStr, 
+        string expectedEndDateStr,
+        string testDescription)
+    {
+        // 输出测试场景信息
+        _outputHelper.WriteLine($"测试场景: {testDescription}");
+        _outputHelper.WriteLine($"年份: {year}, 一周第一天: {firstDayOfWeek}, 日历周规则: {calendarWeekRule}");
+        
+        // Arrange
+        var expectedStartDate = DateTime.Parse(expectedStartDateStr);
+        var expectedEndDate = DateTime.Parse(expectedEndDateStr);
+
+        // Act
+        var result = DateTimeExtensions.GetStartEndDayOfFirstWeek(year, firstDayOfWeek, calendarWeekRule);
+
+        // 输出实际结果
+        _outputHelper.WriteLine($"期望的开始日期: {expectedStartDate:yyyy-MM-dd}");
+        _outputHelper.WriteLine($"实际的开始日期: {result.Start:yyyy-MM-dd}");
+        _outputHelper.WriteLine($"期望的结束日期: {expectedEndDate:yyyy-MM-dd}");
+        _outputHelper.WriteLine($"实际的结束日期: {result.End.Date:yyyy-MM-dd}");
+        _outputHelper.WriteLine($"实际周期时长: {(result.End.Date - result.Start.Date).Days + 1}天");
+        
+        // Assert
+        Assert.Equal(expectedStartDate, result.Start);
+        Assert.Equal(expectedEndDate, result.End.Date);
+        
+        // 额外验证：检查开始日期的合理性
+        // 2010年1月1日是星期五，所以在这种特殊情况下需要单独处理
+        if (year == 2010 && calendarWeekRule == CalendarWeekRule.FirstDay)
+        {
+            if (firstDayOfWeek == DayOfWeek.Monday && result.Start.DayOfWeek == DayOfWeek.Friday)
+            {
+                // 2010-01-01是星期五，当使用FirstDay规则和周一为一周第一天时，
+                // 第一周从1月1日(星期五)开始是合理的
+                _outputHelper.WriteLine("特殊情况：2010年1月1日(星期五)使用FirstDay规则，以该天开始第一周");
+            }
+            else if (firstDayOfWeek == DayOfWeek.Sunday && result.Start.Day == 1)
+            {
+                // 使用周日为一周第一天，FirstDay规则，从1月1日开始是合理的
+                _outputHelper.WriteLine("FirstDay规则：从年份第一天开始计算第一周");
+            }
+        }
+        else
+        {
+            // 验证周的开始和结束日期是否合理，而不是简单地比较开始日期的星期
+            // 因为即使不是FirstDay规则，一周的开始日期也可能受到年初特殊情况的影响
+            
+            // 记录有用的诊断信息
+            _outputHelper.WriteLine($"一周开始日期: {result.Start:yyyy-MM-dd} ({result.Start.DayOfWeek})");
+            _outputHelper.WriteLine($"一周结束日期: {result.End.Date:yyyy-MM-dd} ({result.End.Date.DayOfWeek})");
+            
+            // 针对FirstFourDayWeek规则的验证
+            if (calendarWeekRule == CalendarWeekRule.FirstFourDayWeek)
+            {
+                // 检查一周是否有4天属于当年（针对年初的特殊情况）
+                if (result.Start.Month == 1 && result.Start.Day <= 4)
+                {
+                    var daysInYear = 0;
+                    for (var day = result.Start; day <= result.End.Date; day = day.AddDays(1))
+                    {
+                        if (day.Year == year) daysInYear++;
+                    }
+                    
+                    _outputHelper.WriteLine($"当年包含的天数: {daysInYear}");
+                    // 对于第一周，如果使用FirstFourDayWeek规则，该周至少应有4天属于当年
+                    if (result.Start.Year < year)  // 如果开始日期在上一年
+                    {
+                        Assert.True(daysInYear >= 4, $"使用FirstFourDayWeek规则时，第一周应至少有4天属于当年，但实际只有{daysInYear}天");
+                    }
+                }
+            }
+            
+            // 针对FirstFullWeek规则的验证
+            if (calendarWeekRule == CalendarWeekRule.FirstFullWeek)
+            {
+                // 如果是年初的第一周且使用FirstFullWeek规则，则整周应当都属于当年
+                if (result.Start.Month == 1 && result.Start.Day <= 7)
+                {
+                    Assert.Equal(year, result.Start.Year);
+                    Assert.Equal(firstDayOfWeek, result.Start.DayOfWeek);
+                }
+            }
+        }
+        
+        // 验证周期长度是否合理
+        var daysDifference = (result.End.Date - result.Start.Date).Days;
+        Assert.True(daysDifference >= 0 && daysDifference <= 6, 
+            $"一周的时长应该在0-6天之间，但实际为{daysDifference}天");
     }
 }

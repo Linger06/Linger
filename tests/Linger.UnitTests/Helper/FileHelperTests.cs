@@ -525,4 +525,275 @@ public class FileHelperTests : IDisposable
         // Assert
         Assert.True(Directory.Exists(subDir));
     }
+
+    [Fact]
+    public void GetCustomFileInfo_WithExistingFile_ReturnsFileInfo()
+    {
+        // Arrange
+        var content = "test content for hash";
+        var fileName = "fileForInfo.txt";
+        var filePath = CreateTestFile(fileName, content);
+        
+        // Act
+        var fileInfo = FileHelper.GetCustomFileInfo(filePath);
+        
+        // Assert
+        Assert.NotNull(fileInfo);
+        Assert.Equal(fileName, fileInfo.FileName);
+        Assert.Equal(filePath, fileInfo.FullFilePath);
+        Assert.Equal(content.Length, fileInfo.Length);
+        Assert.NotNull(fileInfo.HashData); // MD5哈希值应该存在
+        Assert.NotNull(fileInfo.FileSize);  // 文件大小格式化字符串应该存在
+    }
+
+    [Fact]
+    public void GetCustomFileInfo_WithNonExistentFile_ReturnsNull()
+    {
+        // Arrange
+        var nonExistentPath = Path.Combine(_testDirectory, "nonExistentFile.txt");
+        
+        // Act
+        var fileInfo = FileHelper.GetCustomFileInfo(nonExistentPath);
+        
+        // Assert
+        Assert.Null(fileInfo);
+    }
+
+    [Fact]
+    public void GetCustomFileInfo_WithNullPath_ReturnsNull()
+    {
+        // Act
+        var fileInfo = FileHelper.GetCustomFileInfo(null);
+        
+        // Assert
+        Assert.Null(fileInfo);
+    }
+
+    [Fact]
+    public void ReadText_WithNonExistentFile_ThrowsFileNotFoundException()
+    {
+        // Arrange
+        var nonExistentPath = Path.Combine(_testDirectory, "nonExistent.txt");
+        
+        // Act & Assert
+        Assert.Throws<FileNotFoundException>(() => FileHelper.ReadText(nonExistentPath));
+    }
+
+    [Fact]
+    public void WriteText_WithNullPath_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.WriteText(null, "content", Encoding.UTF8));
+    }
+
+    [Fact]
+    public void WriteText_WithNullEncoding_ThrowsArgumentNullException()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDirectory, "test.txt");
+        
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.WriteText(filePath, "content", null));
+    }
+
+    [Fact]
+    public void AppendText_WithNullPath_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.AppendText(null, "content"));
+    }
+
+    [Fact]
+    public void MoveFile_WithNonExistentSourceFile_ThrowsFileNotFoundException()
+    {
+        // Arrange
+        var nonExistentSource = Path.Combine(_testDirectory, "nonExistent.txt");
+        var destDir = CreateTestDirectory("destForMove");
+        
+        // Act & Assert
+        Assert.Throws<FileNotFoundException>(() => FileHelper.MoveFile(nonExistentSource, destDir));
+    }
+
+    [Fact]
+    public void CopyFile_WithNonExistentSourceFile_ThrowsFileNotFoundException()
+    {
+        // Arrange
+        var nonExistentSource = Path.Combine(_testDirectory, "nonExistent.txt");
+        var destFile = Path.Combine(_testDirectory, "dest.txt");
+        
+        // Act & Assert
+        Assert.Throws<FileNotFoundException>(() => FileHelper.CopyFile(nonExistentSource, destFile));
+    }
+
+    [Fact]
+    public void ClearFile_WithNullPath_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.ClearFile(null));
+    }
+
+    [Fact]
+    public void CreateFile_WithNullPath_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.CreateFile(null));
+    }
+
+    [Fact]
+    public void Contains_WithNullDirectoryPath_ReturnsFalse()
+    {
+        // Act
+        var result = FileHelper.Contains(null, "*.txt");
+        
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Contains_WithNullSearchPattern_ReturnsFalse()
+    {
+        // Act
+        var result = FileHelper.Contains(_testDirectory, null);
+        
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void Contains_WithUnauthorizedAccess_ReturnsFalse()
+    {
+        // Arrange - 创建一个模拟的受限目录（这在普通测试环境可能无法真正测试）
+        var mockPath = Path.Combine(_testDirectory, "restrictedFolder");
+        Directory.CreateDirectory(mockPath);
+        _createdDirectories.Add(mockPath);
+        
+        // Act - 我们假设使用一个不存在的模式可以避免实际访问
+        var result = FileHelper.Contains(mockPath, "*.xyz");
+        
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void GetDirectories_WithNullDirectoryPath_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.GetDirectories(null));
+    }
+
+    [Fact]
+    public void GetDirectories_WithRecursiveSearch_FindsAllSubdirectories()
+    {
+        // Arrange
+        var dir1 = CreateTestDirectory("parentDir");
+        var subDir1 = CreateTestDirectory(Path.Combine("parentDir", "subDir1"));
+        var subDir2 = CreateTestDirectory(Path.Combine("parentDir", "subDir2"));
+        
+        // Act
+        var result = FileHelper.GetDirectories(dir1, searchOption: SearchOption.AllDirectories);
+        
+        // Assert
+        Assert.Equal(2, result.Length);
+        Assert.Contains(subDir1, result);
+        Assert.Contains(subDir2, result);
+    }
+
+    [Fact]
+    public void GetFileNames_WithNullDirectoryPath_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.GetFileNames(null));
+    }
+
+    [Fact]
+    public void GetFileNames_WithNonExistentDirectory_ThrowsDirectoryNotFoundException()
+    {
+        // Arrange
+        var nonExistentDir = Path.Combine(_testDirectory, "nonExistentDir");
+        
+        // Act & Assert
+        Assert.Throws<DirectoryNotFoundException>(() => FileHelper.GetFileNames(nonExistentDir));
+    }
+
+    [Fact]
+    public void GetFileNames_WithSearchOptionAllDirectories_FindsAllFiles()
+    {
+        // Arrange
+        CreateTestFile("rootFile.txt", "content");
+        var subDir = CreateTestDirectory("subDirForFiles");
+        CreateTestFile(Path.Combine("subDirForFiles", "subFile.txt"), "content");
+        
+        // Act
+        var result = FileHelper.GetFileNames(_testDirectory, searchOption: SearchOption.AllDirectories);
+        
+        // Assert
+        Assert.Equal(2, result.Count);
+    }
+
+    [Fact]
+    public void IsEmptyDirectory_WithNonExistentDirectory_ThrowsDirectoryNotFoundException()
+    {
+        // Arrange
+        var nonExistentDir = Path.Combine(_testDirectory, "nonExistentDir");
+        
+        // Act & Assert
+        Assert.Throws<DirectoryNotFoundException>(() => FileHelper.IsEmptyDirectory(nonExistentDir));
+    }
+
+    [Fact]
+    public void CopyDir_WithNullSourceDirectory_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.CopyDir(null, "dest"));
+    }
+
+    [Fact]
+    public void CopyDir_WithNullDestinationDirectory_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.CopyDir("source", null));
+    }
+
+    [Fact]
+    public void CopyDir_WithNonExistentSourceDirectory_ThrowsDirectoryNotFoundException()
+    {
+        // Arrange
+        var nonExistentDir = Path.Combine(_testDirectory, "nonExistentDir");
+        var destDir = Path.Combine(_testDirectory, "destForNonExistent");
+        
+        // Act & Assert
+        Assert.Throws<DirectoryNotFoundException>(() => FileHelper.CopyDir(nonExistentDir, destDir));
+    }
+
+    [Fact]
+    public void ClearDirectory_WithNullDirectoryPath_ThrowsArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => FileHelper.ClearDirectory(null));
+    }
+
+    [Fact]
+    public void ClearDirectory_WithNonExistentDirectory_DoesNotThrow()
+    {
+        // Arrange
+        var nonExistentDir = Path.Combine(_testDirectory, "nonExistentDir");
+        
+        // Act & Assert (不应抛出异常)
+        FileHelper.ClearDirectory(nonExistentDir);
+    }
+
+    [Fact]
+    public void EnsureDirectoryExists_WithExistingDirectory_DoesNotCreateNewDirectory()
+    {
+        // Arrange
+        var dir = CreateTestDirectory("existingDir");
+        var filePath = Path.Combine(dir, "file.txt");
+        var directoryCount = Directory.GetDirectories(_testDirectory).Length;
+        
+        // Act
+        FileHelper.EnsureDirectoryExists(filePath);
+        
+        // Assert
+        Assert.Equal(directoryCount, Directory.GetDirectories(_testDirectory).Length);
+    }
 }
