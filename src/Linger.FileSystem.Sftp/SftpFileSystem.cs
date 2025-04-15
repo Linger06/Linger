@@ -228,10 +228,10 @@ public class SftpFileSystem : RemoteFileSystemBase
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
             var fileName = Path.GetFileName(localFilePath);
             // 使用正斜杠（/）确保与SFTP服务器路径格式一致
-            var filePath = destinationPath.EndsWith("/") 
-                ? $"{destinationPath}{fileName}" 
+            var filePath = destinationPath.EndsWith('/')
+                ? $"{destinationPath}{fileName}"
                 : $"{destinationPath}/{fileName}";
-                
+
             // 使用新的合并参数格式调用UploadAsync
             return await UploadAsync(fileStream, filePath, overwrite, cancellationToken);
         }

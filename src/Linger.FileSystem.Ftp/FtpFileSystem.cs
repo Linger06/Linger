@@ -168,7 +168,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             // 使用适合FTP的路径分隔逻辑
             string remoteDirectory;
             string fileName;
-            
+
             // FTP路径始终使用正斜杠
             if (filePath.Contains('/'))
             {
@@ -182,7 +182,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 remoteDirectory = string.Empty;
                 fileName = filePath;
             }
-            
+
             // 确保目录存在
             await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
 
@@ -229,8 +229,8 @@ public class FtpFileSystem : RemoteFileSystemBase
         {
             var fileName = Path.GetFileName(localFilePath);
             // 使用正斜杠（/）确保与FTP服务器路径格式一致
-            var filePath = destinationPath.EndsWith("/") 
-                ? $"{destinationPath}{fileName}" 
+            var filePath = destinationPath.EndsWith('/')
+                ? $"{destinationPath}{fileName}"
                 : $"{destinationPath}/{fileName}";
 
             // 执行上传

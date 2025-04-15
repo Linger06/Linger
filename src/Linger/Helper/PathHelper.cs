@@ -80,7 +80,7 @@ public static class PathHelper
 
     // 辅助方法：检查是否为包含协议的URL
     private static bool IsUrlWithProtocol(string path) =>
-        path.Contains("://") && 
+        path.Contains("://") &&
         (path.StartsWith("ftp:", StringComparison.OrdinalIgnoreCase) ||
          path.StartsWith("ftps:", StringComparison.OrdinalIgnoreCase) ||
          path.StartsWith("sftp:", StringComparison.OrdinalIgnoreCase) ||
@@ -106,32 +106,32 @@ public static class PathHelper
                 {
                     // 标准化 UNC 路径
                     // 步骤1: 统一使用反斜杠(Windows)或正斜杠(Unix)
-                    var uncPathWithStandardSeparator = OSPlatformHelper.IsWindows 
-                        ? path.Replace('/', '\\') 
+                    var uncPathWithStandardSeparator = OSPlatformHelper.IsWindows
+                        ? path.Replace('/', '\\')
                         : path.Replace('\\', '/');
-                    
+
                     // 步骤2: 确保保留双斜杠前缀，然后处理后续部分（移除多余的连续分隔符）
                     char separator = OSPlatformHelper.IsWindows ? '\\' : '/';
                     string prefix = new string(separator, 2);
-                    
+
                     var remainingPath = uncPathWithStandardSeparator.Substring(2);
                     // 将连续的分隔符替换为单个分隔符
                     while (remainingPath.Contains(new string(separator, 2)))
                     {
                         remainingPath = remainingPath.Replace(new string(separator, 2), separator.ToString());
                     }
-                    
+
                     // 步骤3: 重新组合路径
                     var normalizedUncPath = prefix + remainingPath;
-                    
+
                     // 处理末尾分隔符
                     normalizedUncPath = normalizedUncPath.TrimEnd(separator);
-                    
+
                     return preserveEndingSeparator
                         ? normalizedUncPath + separator
                         : normalizedUncPath;
                 }
-                
+
                 // 处理 URL 类型路径
                 if (IsUrlWithProtocol(path))
                 {
@@ -139,55 +139,55 @@ public static class PathHelper
                     int protocolIndex = path.IndexOf("://", StringComparison.Ordinal);
                     string protocol = path.Substring(0, protocolIndex + 3); // 包含 "://"
                     string remainder = path.Substring(protocolIndex + 3);
-                    
+
                     // 对 URL 路径部分进行标准化，统一使用正斜杠
-                    var segments = remainder.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
-                    
+                    var segments = remainder.Split(['/', '\\'], StringSplitOptions.RemoveEmptyEntries);
+
                     // 重新组合 URL
                     var normalizedUrl = protocol;
                     if (segments.Length > 0)
                     {
                         normalizedUrl += segments[0]; // 主机名
-                        
+
                         if (segments.Length > 1)
                         {
                             normalizedUrl += "/" + string.Join("/", segments.Skip(1));
                         }
                     }
-                    
+
                     // 处理末尾分隔符
-                    if (preserveEndingSeparator && !normalizedUrl.EndsWith("/"))
+                    if (preserveEndingSeparator && !normalizedUrl.EndsWith('/'))
                     {
                         normalizedUrl += "/";
                     }
-                    else if (!preserveEndingSeparator && normalizedUrl.EndsWith("/") && normalizedUrl.Length > protocol.Length)
+                    else if (!preserveEndingSeparator && normalizedUrl.EndsWith('/') && normalizedUrl.Length > protocol.Length)
                     {
                         normalizedUrl = normalizedUrl.TrimEnd('/');
                     }
-                    
-                    return normalizedUrl;
-                }
-            }
 
-            // 处理 file:// 格式
-            if (path.Contains("file://"))
-            {
-                try 
-                {
-                    // 仅当路径严格符合URI格式时才转换为本地路径
-                    if (Uri.TryCreate(path, UriKind.Absolute, out var uri) && uri.IsFile)
+                    // 处理 file:// 格式
+                    if (normalizedUrl.Contains("file://"))
                     {
-                        var localPath = uri.LocalPath;
-                        if (!string.IsNullOrEmpty(localPath))
+                        try
                         {
-                            path = localPath;
+                            // 仅当路径严格符合URI格式时才转换为本地路径
+                            if (Uri.TryCreate(normalizedUrl, UriKind.Absolute, out var uri) && uri.IsFile)
+                            {
+                                var localPath = uri.LocalPath;
+                                if (!string.IsNullOrEmpty(localPath))
+                                {
+                                    normalizedUrl = localPath;
+                                }
+                            }
+                            // 如果无法解析为有效的文件URI，保留原始路径
+                        }
+                        catch (UriFormatException)
+                        {
+                            // URI格式无效，保持原路径不变
                         }
                     }
-                    // 如果无法解析为有效的文件URI，保留原始路径
-                }
-                catch (UriFormatException)
-                {
-                    // URI格式无效，保持原路径不变
+
+                    return normalizedUrl;
                 }
             }
 
@@ -221,7 +221,7 @@ public static class PathHelper
         // Windows系统使用反斜杠，Unix/Linux系统使用正斜杠
         char currentSeparator = Path.DirectorySeparatorChar;
         char altSeparator = Path.AltDirectorySeparatorChar;
-        
+
         // 由于特殊路径已在NormalizePath中单独处理，这里只需处理常规路径
         return path.Replace(altSeparator, currentSeparator);
     }
@@ -234,12 +234,12 @@ public static class PathHelper
         // 处理常规路径
         char separator = Path.DirectorySeparatorChar;
         string doubleSeparator = new string(separator, 2);
-        
+
         while (path.Contains(doubleSeparator))
         {
             path = path.Replace(doubleSeparator, separator.ToString());
         }
-        
+
         return path;
     }
 
@@ -264,7 +264,7 @@ public static class PathHelper
         // 参数验证
         if (relativeTo.IsNullOrWhiteSpace())
             throw new ArgumentException("Base path cannot be null or empty", nameof(relativeTo));
-        
+
         if (path.IsNullOrWhiteSpace())
             return path ?? string.Empty;
 

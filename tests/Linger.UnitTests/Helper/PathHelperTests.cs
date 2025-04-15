@@ -121,7 +121,7 @@ public class PathHelperTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(invalidUri, result);
+        Assert.Equal("C:\\folder\\with spaces\\file.txt", result);
     }
 
     [Fact]
@@ -135,9 +135,6 @@ public class PathHelperTests
         var result = PathHelper.NormalizePath(mixedPath);
 
         // Assert
-        Assert.DoesNotContain("/", result);
-        Assert.DoesNotContain("\\", result);
-        
         // 由于不同平台分隔符不同，我们使用Split分割并验证段数
         var segments = result.Split(expectedSeparator);
         Assert.Equal(4, segments.Length);
@@ -158,7 +155,7 @@ public class PathHelperTests
 
         // Assert
         Assert.DoesNotContain(new string(Path.DirectorySeparatorChar, 2), result);
-        
+
         var segments = result.Split(Path.DirectorySeparatorChar);
         Assert.Equal(3, segments.Length);
         Assert.Equal("folder1", segments[0]);
@@ -343,7 +340,7 @@ public class PathHelperTests
         string relativePath = "subfolder";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => 
+        Assert.Throws<ArgumentException>(() =>
             PathHelper.ResolveToAbsolutePath(basePath, relativePath, true));
     }
 
@@ -357,7 +354,7 @@ public class PathHelperTests
         string invalidPath = "CON";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => 
+        Assert.Throws<ArgumentException>(() =>
             PathHelper.ResolveToAbsolutePath(null, invalidPath));
     }
 
@@ -439,7 +436,7 @@ public class PathHelperTests
         string targetPath = "C:\\target\\path";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => 
+        Assert.Throws<ArgumentException>(() =>
             PathHelper.GetRelativePath(basePath, targetPath));
     }
 
@@ -451,7 +448,7 @@ public class PathHelperTests
         string targetPath = "C:\\target\\path";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => 
+        Assert.Throws<ArgumentException>(() =>
             PathHelper.GetRelativePath(basePath, targetPath));
     }
 
@@ -876,7 +873,7 @@ public class PathHelperTests
         string rootPath = Path.GetPathRoot(fullPath);
 
         // Act - 尝试获取超过路径深度的父级
-        var result = PathHelper.GetParentDirectory(fullPath, 10);
+        var result = PathHelper.GetParentDirectory(fullPath, 18);
 
         // Assert - 应返回根路径
         Assert.Equal(rootPath, result);

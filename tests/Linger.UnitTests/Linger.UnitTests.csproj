@@ -25,12 +25,14 @@
         <PackageReference Include="xunit.v3" Version="2.0.1" />
     </ItemGroup>
 
+    <PropertyGroup>
+        <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS</DefineConstants>
+        <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(DefineConstants);LINUX</DefineConstants>
+        <DefineConstants Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(DefineConstants);OSX</DefineConstants>
+    </PropertyGroup>
+
     <ItemGroup>
       <ProjectReference Include="..\..\src\Linger\Linger.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Folder Include="Extensions\IO\" />
-    </ItemGroup>        
-    
 </Project>

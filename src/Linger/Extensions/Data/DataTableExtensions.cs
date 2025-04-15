@@ -370,7 +370,7 @@ public static partial class DataTableExtensions
         {
             if (!source.Columns.Contains(column.ColumnName))
             {
-                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中", nameof(column));
+                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
             }
         }
 
@@ -400,7 +400,7 @@ public static partial class DataTableExtensions
         // 添加列标题作为新列
         foreach (string captionValue in distinctCaptionValues)
         {
-            if (!resultTable.Columns.Contains(captionValue) && 
+            if (!resultTable.Columns.Contains(captionValue) &&
                 !string.IsNullOrEmpty(captionValue))
             {
                 var newColumn = resultTable.Columns.Add(captionValue, typeof(decimal));
@@ -416,25 +416,25 @@ public static partial class DataTableExtensions
         {
             // 使用分隔符生成分组键，避免歧义
             string groupKey = GenerateGroupKey(sourceRow, groupColumns);
-            
+
             // 获取或创建分组对应的结果行
-            if (!groupedRows.TryGetValue(groupKey, out DataRow resultRow))
+            if (!groupedRows.TryGetValue(groupKey, out DataRow? resultRow))
             {
                 resultRow = resultTable.NewRow();
-                
+
                 // 设置分组列的值
                 foreach (DataColumn groupColumn in groupColumns)
                 {
                     resultRow[groupColumn.ColumnName] = sourceRow[groupColumn.ColumnName];
                 }
-                
+
                 resultTable.Rows.Add(resultRow);
                 groupedRows[groupKey] = resultRow;
             }
-            
+
             // 获取列标题和值
             string captionValue = FormatCaptionValue(sourceRow, captionColumns);
-            
+
             if (resultTable.Columns.Contains(captionValue))
             {
                 try
@@ -444,13 +444,13 @@ public static partial class DataTableExtensions
                     if (cellValue != DBNull.Value)
                     {
                         decimal currentValue = 0;
-                        
+
                         // 如果单元格已有值，则获取现有值
                         if (resultRow[captionValue] != DBNull.Value)
                         {
                             currentValue = Convert.ToDecimal(resultRow[captionValue]);
                         }
-                        
+
                         // 将新值添加到现有值
                         decimal newValue = 0;
                         try
@@ -462,7 +462,7 @@ public static partial class DataTableExtensions
                             // 如果无法转换为decimal，尝试使用ToDecimal扩展方法
                             newValue = cellValue.ToDecimal();
                         }
-                        
+
                         resultRow[captionValue] = currentValue + newValue;
                     }
                 }
@@ -488,7 +488,7 @@ public static partial class DataTableExtensions
             string stringValue = value == DBNull.Value ? "<NULL>" : value?.ToString() ?? "<NULL>";
             keyParts.Add(stringValue);
         }
-        
+
         // 使用不太可能出现在数据中的分隔符
         return string.Join("||:||", keyParts);
     }
@@ -502,12 +502,12 @@ public static partial class DataTableExtensions
             object value = row[column];
             // 确保null和DBNull值也能生成有效的列名
             string stringValue = value == DBNull.Value ? "NULL" : value?.ToString() ?? "NULL";
-            
+
             // 替换可能导致列名无效的字符
             stringValue = SanitizeColumnName(stringValue);
             captionParts.Add(stringValue);
         }
-        
+
         return string.Join("_", captionParts);
     }
 
