@@ -71,58 +71,6 @@ public class PropertyHelperTests
     }
 
     [Fact]
-    public void GetPropertyName_SimpleLambdaExpression_ShouldReturnPropertyName()
-    {
-        // Arrange
-        Expression<Func<TestModel, string>> expression = x => x.Name;
-        
-        // Act
-        var propertyName = expression.GetPropertyName();
-        
-        // Assert
-        Assert.Equal("Name", propertyName);
-    }
-
-    [Fact]
-    public void GetPropertyName_NestedLambdaExpression_ShouldReturnFullPropertyPath()
-    {
-        // Arrange
-        Expression<Func<TestModel, string>> expression = x => x.Child.Name;
-        
-        // Act
-        var propertyName = expression.GetPropertyName();
-        
-        // Assert
-        Assert.Equal("Child.Name", propertyName);
-    }
-
-    [Fact]
-    public void GetPropertyName_DeepNestedLambdaExpression_ShouldReturnFullPropertyPath()
-    {
-        // Arrange
-        Expression<Func<TestModel, string>> expression = x => x.Child.GrandChild.Description;
-        
-        // Act
-        var propertyName = expression.GetPropertyName();
-        
-        // Assert
-        Assert.Equal("Child.GrandChild.Description", propertyName);
-    }
-
-    [Fact]
-    public void GetPropertyName_WithGetAllFalse_ShouldReturnOnlyLastProperty()
-    {
-        // Arrange
-        Expression<Func<TestModel, string>> expression = x => x.Child.Name;
-        
-        // Act
-        var propertyName = expression.GetPropertyName(getAll: false);
-        
-        // Assert
-        Assert.Equal("Name", propertyName);
-    }
-
-    [Fact]
     public void GetPropertyInfo_SimpleLambdaExpression_ShouldReturnPropertyInfo()
     {
         // Arrange

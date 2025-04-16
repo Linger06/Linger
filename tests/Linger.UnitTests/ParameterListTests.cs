@@ -4,40 +4,185 @@ namespace Linger.UnitTests;
 
 public class ParameterListTests
 {
-    [Fact]
-    public void DefaultConstructor_ShouldCreateEmptyParameterList()
+    #region 参数化测试
+    
+    [Theory]
+    [InlineData(true, "value1", null, "value1")]  // 存在的键, 返回实际值
+    [InlineData(false, null, "default", "default")]  // 不存在的键, 返回默认值
+    [InlineData(false, null, null, null)]  // 不存在的键, 无默认值, 返回null
+    public void GetOrDefault_ShouldReturnCorrectValue(bool addKey, string keyValue, string defaultValue, string expected)
     {
-        // Arrange & Act
+        // Arrange
         var parameterList = new ParameterList();
+        if (addKey)
+        {
+            parameterList.Add("key1", keyValue);
+        }
+        
+        // Act
+        var value = parameterList.GetOrDefault("key1", defaultValue);
         
         // Assert
-        Assert.Empty(parameterList.Parameters);
+        Assert.Equal(expected, value);
     }
     
-    [Fact]
-    public void Constructor_WithKeyAndData_ShouldAddParameter()
+    [Theory]
+    [InlineData(true, 42, 0, 42)]  // 存在的键, 返回实际值
+    [InlineData(false, 0, 99, 99)]  // 不存在的键, 返回默认值
+    [InlineData(false, 0, 0, 0)]  // 不存在的键, 返回类型默认值
+    public void GetValueOrDefault_ShouldReturnCorrectValue(bool addKey, int keyValue, int defaultValue, int expected)
     {
-        // Arrange & Act
-        var parameterList = new ParameterList("key1", "value1");
+        // Arrange
+        var parameterList = new ParameterList();
+        if (addKey)
+        {
+            parameterList.Add("key1", keyValue);
+        }
+        
+        // Act
+        var value = parameterList.GetValueOrDefault("key1", defaultValue);
         
         // Assert
-        Assert.Single(parameterList.Parameters);
-        Assert.Equal("value1", parameterList.Parameters["key1"]);
+        Assert.Equal(expected, value);
     }
     
-    [Fact]
-    public void Constructor_WithArrays_ShouldAddParameters()
+    [Theory]
+    [InlineData(true, "value1", true, "value1")]  // 存在的键, 返回true和正确的值
+    [InlineData(false, null, false, null)]  // 不存在的键, 返回false和null
+    public void TryGet_ShouldReturnCorrectResult(bool addKey, string keyValue, bool expectedResult, string expectedValue)
+    {
+        // Arrange
+        var parameterList = new ParameterList();
+        if (addKey)
+        {
+            parameterList.Add("key1", keyValue);
+        }
+        
+        // Act
+        var result = parameterList.TryGet("key1", out string? value);
+        
+        // Assert
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, value);
+    }
+    
+    [Theory]
+    [InlineData(true, 42, true, 42)]  // 存在的键, 返回true和正确的值
+    [InlineData(false, 0, false, 0)]  // 不存在的键, 返回false和默认值0
+    public void TryGetValue_ShouldReturnCorrectResult(bool addKey, int keyValue, bool expectedResult, int expectedValue)
+    {
+        // Arrange
+        var parameterList = new ParameterList();
+        if (addKey)
+        {
+            parameterList.Add("key1", keyValue);
+        }
+        
+        // Act
+        var result = parameterList.TryGetValue("key1", out int value);
+        
+        // Assert
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedValue, value);
+    }
+    
+    [Theory]
+    [InlineData("key1", "value1", true)]  // 存在的键
+    [InlineData("key2", "value2", false)]  // 不存在的键
+    public void ContainsKey_ShouldReturnCorrectResult(string addKey, string value, bool expectedResult)
+    {
+        // Arrange
+        var parameterList = new ParameterList(addKey, value);
+        
+        // Act
+        var result = parameterList.ContainsKey("key1");
+        
+        // Assert
+        Assert.Equal(expectedResult, result);
+    }
+    
+    [Theory]
+    [InlineData("key1", "value1", "key1", true, 0)]  // 移除存在的键
+    [InlineData("key1", "value1", "key2", false, 1)]  // 移除不存在的键
+    public void Remove_ShouldReturnCorrectResult(string addKey, string value, string removeKey, 
+        bool expectedResult, int expectedCount)
+    {
+        // Arrange
+        var parameterList = new ParameterList(addKey, value);
+        
+        // Act
+        var result = parameterList.Remove(removeKey);
+        
+        // Assert
+        Assert.Equal(expectedResult, result);
+        Assert.Equal(expectedCount, parameterList.Parameters.Count);
+    }
+    
+    [Theory]
+    [InlineData("key1", "initial", "updated")]  // 更新现有键
+    [InlineData("key2", "initial", "updated")]  // 添加新键
+    public void SetValue_ShouldUpdateOrAddParameter(string initialKey, string initialValue, string newValue)
+    {
+        // Arrange
+        var parameterList = new ParameterList(initialKey, initialValue);
+        
+        // Act
+        parameterList.SetValue(initialKey, newValue);
+        
+        // Assert
+        Assert.Equal(newValue, parameterList.Parameters[initialKey]);
+    }
+    
+    [Theory]
+    [InlineData(0)]  // 空参数列表
+    [InlineData(1)]  // 1个参数
+    [InlineData(3)]  // 多个参数
+    public void GetEnumerator_ShouldEnumerateCorrectNumberOfParameters(int parameterCount)
+    {
+        // Arrange
+        var parameterList = new ParameterList();
+        for (int i = 0; i < parameterCount; i++)
+        {
+            parameterList.Add($"key{i}", $"value{i}");
+        }
+        
+        // Act
+        var count = 0;
+        foreach (var parameter in parameterList)
+        {
+            count++;
+        }
+        
+        // Assert
+        Assert.Equal(parameterCount, count);
+    }
+    
+    [Theory]
+    [InlineData(new[] {"key1"}, new object[] {"value1"})]
+    [InlineData(new[] {"key1", "key2", "key3"}, new object[] {"value1", 42, true})]
+    public void Constructor_WithArrays_ShouldAddParametersCorrectly(string[] keys, object[] values)
     {
         // Arrange & Act
-        var keys = new[] { "key1", "key2", "key3" };
-        var values = new object[] { "value1", 42, true };
         var parameterList = new ParameterList(keys, values);
         
         // Assert
-        Assert.Equal(3, parameterList.Parameters.Count);
-        Assert.Equal("value1", parameterList.Parameters["key1"]);
-        Assert.Equal(42, parameterList.Parameters["key2"]);
-        Assert.Equal(true, parameterList.Parameters["key3"]);
+        Assert.Equal(keys.Length, parameterList.Parameters.Count);
+        for (int i = 0; i < keys.Length; i++)
+        {
+            Assert.Equal(values[i], parameterList.Parameters[keys[i]]);
+        }
+    }
+    
+    [Theory]
+    [InlineData("key1", "value1")]
+    public void Constructor_WithKeyAndData_ShouldAddParameter(string key, string value)
+    {
+        // Arrange & Act
+        var parameterList = new ParameterList(key, value);
+        
+        // Assert
+        Assert.Single(parameterList.Parameters);
+        Assert.Equal(value, parameterList.Parameters[key]);
     }
     
     [Fact]
@@ -52,20 +197,6 @@ public class ParameterListTests
     }
     
     [Fact]
-    public void Add_WithNewKey_ShouldAddParameter()
-    {
-        // Arrange
-        var parameterList = new ParameterList();
-        
-        // Act
-        parameterList.Add("key1", "value1");
-        
-        // Assert
-        Assert.Single(parameterList.Parameters);
-        Assert.Equal("value1", parameterList.Parameters["key1"]);
-    }
-    
-    [Fact]
     public void Add_WithExistingKey_ShouldThrowArgumentException()
     {
         // Arrange
@@ -73,19 +204,6 @@ public class ParameterListTests
         
         // Act & Assert
         Assert.Throws<ArgumentException>(() => parameterList.Add("key1", "value2"));
-    }
-    
-    [Fact]
-    public void Get_WithExistingKey_ShouldReturnValue()
-    {
-        // Arrange
-        var parameterList = new ParameterList("key1", "value1");
-        
-        // Act
-        var value = parameterList.Get<string>("key1");
-        
-        // Assert
-        Assert.Equal("value1", value);
     }
     
     [Fact]
@@ -98,40 +216,40 @@ public class ParameterListTests
         Assert.Throws<KeyNotFoundException>(() => parameterList.Get<string>("key1"));
     }
     
-    [Fact]
-    public void Remove_WithExistingKey_ShouldRemoveParameterAndReturnTrue()
+    [Theory]
+    [InlineData("key1", "value1", "key1", "value1")]
+    public void Get_WithExistingKey_ShouldReturnValue(string key, string value, string getKey, string expected)
     {
         // Arrange
-        var parameterList = new ParameterList("key1", "value1");
+        var parameterList = new ParameterList(key, value);
         
         // Act
-        var result = parameterList.Remove("key1");
+        var result = parameterList.Get<string>(getKey);
         
         // Assert
-        Assert.True(result);
+        Assert.Equal(expected, result);
+    }
+    
+    [Fact]
+    public void DefaultConstructor_ShouldCreateEmptyParameterList()
+    {
+        // Arrange & Act
+        var parameterList = new ParameterList();
+        
+        // Assert
         Assert.Empty(parameterList.Parameters);
     }
     
-    [Fact]
-    public void Remove_WithNonExistingKey_ShouldReturnFalse()
+    [Theory]
+    [InlineData(2)]
+    public void Clear_ShouldRemoveAllParameters(int parameterCount)
     {
         // Arrange
         var parameterList = new ParameterList();
-        
-        // Act
-        var result = parameterList.Remove("key1");
-        
-        // Assert
-        Assert.False(result);
-    }
-    
-    [Fact]
-    public void Clear_ShouldRemoveAllParameters()
-    {
-        // Arrange
-        var parameterList = new ParameterList();
-        parameterList.Add("key1", "value1");
-        parameterList.Add("key2", "value2");
+        for (int i = 0; i < parameterCount; i++)
+        {
+            parameterList.Add($"key{i}", $"value{i}");
+        }
         
         // Act
         parameterList.Clear();
@@ -140,74 +258,5 @@ public class ParameterListTests
         Assert.Empty(parameterList.Parameters);
     }
     
-    [Fact]
-    public void ContainsKey_WithExistingKey_ShouldReturnTrue()
-    {
-        // Arrange
-        var parameterList = new ParameterList("key1", "value1");
-        
-        // Act
-        var result = parameterList.ContainsKey("key1");
-        
-        // Assert
-        Assert.True(result);
-    }
-    
-    [Fact]
-    public void ContainsKey_WithNonExistingKey_ShouldReturnFalse()
-    {
-        // Arrange
-        var parameterList = new ParameterList();
-        
-        // Act
-        var result = parameterList.ContainsKey("key1");
-        
-        // Assert
-        Assert.False(result);
-    }
-    
-    [Fact]
-    public void SetValue_WithExistingKey_ShouldUpdateValue()
-    {
-        // Arrange
-        var parameterList = new ParameterList("key1", "value1");
-        
-        // Act
-        parameterList.SetValue("key1", "updated");
-        
-        // Assert
-        Assert.Equal("updated", parameterList.Parameters["key1"]);
-    }
-    
-    [Fact]
-    public void SetValue_WithNonExistingKey_ShouldAddParameter()
-    {
-        // Arrange
-        var parameterList = new ParameterList();
-        
-        // Act
-        parameterList.SetValue("key1", "value1");
-        
-        // Assert
-        Assert.Equal("value1", parameterList.Parameters["key1"]);
-    }
-    
-    [Fact]
-    public void GetEnumerator_ShouldEnumerateParameters()
-    {
-        // Arrange
-        var parameterList = new ParameterList();
-        parameterList.Add("key1", "value1");
-        parameterList.Add("key2", "value2");
-        
-        // Act
-        var count = 0;
-        foreach (var parameter in parameterList)
-        {
-            count++;
-        }
-        
-        // Assert
-        Assert.Equal(2, count);
-    }
+    #endregion
 }

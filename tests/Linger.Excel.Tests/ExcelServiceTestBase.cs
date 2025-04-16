@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using Linger.Excel.Contracts;
 using Linger.Excel.Contracts.Attributes;
+using Linger.Helper;
 using Microsoft.Extensions.Logging;
 using Xunit;
 
@@ -23,7 +24,7 @@ namespace Linger.Excel.Tests
         protected ExcelServiceTestBase()
         {
             // 确保测试目录存在
-            TestFilesDir = Path.Combine(Path.GetTempPath(), "LingerExcelTests");
+            TestFilesDir = Path.Combine(Path.GetTempPath(), "LingerExcelTests", GuidCode.NewGuid().ToString());
             if (!Directory.Exists(TestFilesDir))
             {
                 Directory.CreateDirectory(TestFilesDir);

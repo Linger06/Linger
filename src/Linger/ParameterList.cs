@@ -49,6 +49,17 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     public Dictionary<string, object> Parameters { get; set; }
 
     /// <summary>
+    /// Gets or sets the value associated with the specified key.
+    /// </summary>
+    /// <param name="key">The key of the parameter.</param>
+    /// <returns>The value associated with the specified key.</returns>
+    public object this[string key]
+    {
+        get => Parameters[key];
+        set => Parameters[key] = value;
+    }
+
+    /// <summary>
     /// Returns an enumerator that iterates through the parameters.
     /// </summary>
     /// <returns>An enumerator for the parameters.</returns>
@@ -93,6 +104,68 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
         }
 
         return (T)value;
+    }
+
+    /// <summary>
+    /// Gets the value of the specified key or a default value if the key does not exist.
+    /// </summary>
+    /// <typeparam name="T">The type of the value, must be a reference type.</typeparam>
+    /// <param name="key">The key of the parameter.</param>
+    /// <param name="defaultValue">The default value to return if the key does not exist.</param>
+    /// <returns>The value of the parameter or the default value.</returns>
+    public T? GetOrDefault<T>(string key, T? defaultValue = default) where T : class
+    {
+        return TryGet(key, out T? value) ? value : defaultValue;
+    }
+
+    /// <summary>
+    /// Gets the value of the specified key or a default value if the key does not exist.
+    /// </summary>
+    /// <typeparam name="T">The type of the value, must be a value type.</typeparam>
+    /// <param name="key">The key of the parameter.</param>
+    /// <param name="defaultValue">The default value to return if the key does not exist.</param>
+    /// <returns>The value of the parameter or the default value.</returns>
+    public T GetValueOrDefault<T>(string key, T defaultValue = default) where T : struct
+    {
+        return TryGetValue(key, out T value) ? value : defaultValue;
+    }
+
+    /// <summary>
+    /// Tries to get the value of the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the value, must be a reference type.</typeparam>
+    /// <param name="key">The key of the parameter.</param>
+    /// <param name="value">When this method returns, contains the value associated with the specified key, if found; otherwise, null.</param>
+    /// <returns>true if the key was found; otherwise, false.</returns>
+    public bool TryGet<T>(string key, out T? value) where T : class
+    {
+        if (Parameters.TryGetValue(key, out var obj) && obj is T typedValue)
+        {
+            value = typedValue;
+            return true;
+        }
+
+        value = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to get the value of the specified key.
+    /// </summary>
+    /// <typeparam name="T">The type of the value, must be a value type.</typeparam>
+    /// <param name="key">The key of the parameter.</param>
+    /// <param name="value">When this method returns, contains the value associated with the specified key, if found; otherwise, the default value for the type.</param>
+    /// <returns>true if the key was found; otherwise, false.</returns>
+    public bool TryGetValue<T>(string key, out T value) where T : struct
+    {
+        if (Parameters.TryGetValue(key, out var obj) && obj is T typedValue)
+        {
+            value = typedValue;
+            return true;
+        }
+
+        value = default;
+        return false;
     }
 
     /// <summary>

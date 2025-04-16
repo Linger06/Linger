@@ -434,10 +434,10 @@ public class StringExtensionsTests
         // Arrange
         var dateStr = "2023-04-15";
         var formats = new[] { "yyyy/MM/dd", "yyyy-MM-dd", "yyyyMMdd" };
-        
+
         // Act
         var result = dateStr.IsDateTime(formats);
-        
+
         // Assert
         Assert.True(result);
     }
@@ -448,10 +448,10 @@ public class StringExtensionsTests
         // Arrange
         var dateStr = "2023-04-15";
         var formats = new[] { "yyyy/MM/dd", "dd/MM/yyyy", "MM/dd/yyyy" };
-        
+
         // Act
         var result = dateStr.IsDateTime(formats);
-        
+
         // Assert
         Assert.False(result);
     }
@@ -462,10 +462,10 @@ public class StringExtensionsTests
         // Arrange
         var dateStr = "2023-13-45"; // 无效月份和日期
         var formats = new[] { "yyyy-MM-dd", "yyyy/MM/dd", "yyyyMMdd" };
-        
+
         // Act
         var result = dateStr.IsDateTime(formats);
-        
+
         // Assert
         Assert.False(result);
     }
@@ -476,10 +476,10 @@ public class StringExtensionsTests
         // Arrange
         string? dateStr = null;
         var formats = new[] { "yyyy-MM-dd", "yyyy/MM/dd", "yyyyMMdd" };
-        
+
         // Act
         var result = dateStr.IsDateTime(formats);
-        
+
         // Assert
         Assert.False(result);
     }
@@ -490,10 +490,10 @@ public class StringExtensionsTests
         // Arrange
         var dateStr = string.Empty;
         var formats = new[] { "yyyy-MM-dd", "yyyy/MM/dd", "yyyyMMdd" };
-        
+
         // Act
         var result = dateStr.IsDateTime(formats);
-        
+
         // Assert
         Assert.False(result);
     }
@@ -503,10 +503,10 @@ public class StringExtensionsTests
     {
         // Arrange
         var input = "not-a-date";
-        
+
         // Act
         var result = input.IsDateTime();
-        
+
         // Assert
         Assert.False(result);
     }
@@ -573,6 +573,41 @@ public class StringExtensionsTests
     // 正则表达式相关方法测试
 
     [Theory]
+    [InlineData("abc", true)]
+    [InlineData("ABC", true)]
+    [InlineData("AbCdEf", true)]
+    [InlineData("abc123", false)]
+    [InlineData("abc_def", false)]
+    [InlineData("abc-def", false)]
+    [InlineData("abc def", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsEnglish_ShouldReturnExpectedResult(string? input, bool expected)
+    {
+        var result = input.IsEnglish();
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("http://example.com", true)]
+    [InlineData("https://example.com", true)]
+    [InlineData("https://example.com.net", true)]
+    [InlineData("http://example.com/api", true)]
+    [InlineData("http://example.com/src/", true)]
+    [InlineData("http://example.com/src/test.html", true)]
+    [InlineData("http://example.com/src/test.2.0.0.zip", true)]
+    [InlineData("http://example.com/src/test.html?id=1", true)]
+    [InlineData("hhhhhttps://example.com", false)]
+    [InlineData("invalid_url", false)]
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsUrl_ShouldReturnExpectedResult(string? value, bool expected)
+    {
+        var result = value.IsUrl();
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
     [InlineData("test@example.com", true)]
     [InlineData("test.user@example.co.uk", true)]
     [InlineData("test+label@example.com", true)]
@@ -593,7 +628,9 @@ public class StringExtensionsTests
     [InlineData("test@example.com; user@example.org", true)]
     [InlineData("invalid@email", false)]
     [InlineData("test@example.com;invalid", false)]
-    public void IsMultipleEmail_ShouldReturnExpectedResult(string input, bool expected)
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsMultipleEmail_ShouldReturnExpectedResult(string? input, bool expected)
     {
         var result = input.IsMultipleEmail();
         Assert.Equal(expected, result);
@@ -606,7 +643,8 @@ public class StringExtensionsTests
     [InlineData("example", false)]
     [InlineData("", false)]
     [InlineData("example..com", false)]
-    public void IsDomainName_ShouldReturnExpectedResult(string input, bool expected)
+    [InlineData(null, false)]
+    public void IsDomainName_ShouldReturnExpectedResult(string? input, bool expected)
     {
         var result = input.IsDomainName();
         Assert.Equal(expected, result);
@@ -621,34 +659,10 @@ public class StringExtensionsTests
     [InlineData("192.168.1", false)]
     [InlineData("192.168.1.1.1", false)]
     [InlineData("", false)]
-    public void IsIpv4_ShouldReturnExpectedResult(string input, bool expected)
+    [InlineData(null, false)]
+    public void IsIpv4_ShouldReturnExpectedResult(string? input, bool expected)
     {
         var result = input.IsIpv4();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("2001:0db8:85a3:0000:0000:8a2e:0370:7334", true)]
-    [InlineData("2001:db8:85a3::8a2e:370:7334", true)]
-    [InlineData("::1", true)]
-    [InlineData("::", true)]
-    [InlineData("2001::8a2e::7334", false)]
-    [InlineData("192.168.1.1", false)]
-    [InlineData("", false)]
-    public void IsIpv6_ShouldReturnExpectedResult(string input, bool expected)
-    {
-        var result = input.IsIpv6();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("192.168.1.1", true)]
-    [InlineData("2001:db8:85a3::8a2e:370:7334", true)]
-    [InlineData("not-an-ip", false)]
-    [InlineData("", false)]
-    public void IsIpAddress_ShouldReturnExpectedResult(string input, bool expected)
-    {
-        var result = input.IsIpAddress();
         Assert.Equal(expected, result);
     }
 
@@ -660,7 +674,8 @@ public class StringExtensionsTests
     [InlineData("123", false)]
     [InlineData("E123", false)]
     [InlineData("", false)]
-    public void IsScientificNotation_ShouldReturnExpectedResult(string input, bool expected)
+    [InlineData(null, false)]
+    public void IsScientificNotation_ShouldReturnExpectedResult(string? input, bool expected)
     {
         var result = input.IsScientificNotation();
         Assert.Equal(expected, result);

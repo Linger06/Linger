@@ -30,6 +30,9 @@ public sealed class RetryHelper(RetryOptions? options = null)
         ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNullOrEmpty(operationName);
 
+        // 添加检查，如果令牌已取消，立即抛出异常
+        cancellationToken.ThrowIfCancellationRequested();
+
         Exception? lastException = null;
         shouldRetry ??= _ => true;
 
@@ -41,6 +44,12 @@ public sealed class RetryHelper(RetryOptions? options = null)
             }
             catch (Exception ex)
             {
+                // 如果是取消异常，直接重新抛出
+                if (ex is OperationCanceledException)
+                {
+                    throw;
+                }
+                
                 lastException = ex;
                 if (shouldRetry(ex) && retry == _options.MaxRetries - 1)
                 {
@@ -52,6 +61,9 @@ public sealed class RetryHelper(RetryOptions? options = null)
                     ExceptionDispatchInfo.Capture(ex).Throw();
                     throw; // 这行代码不会执行，但是需要它来满足编译器
                 }
+
+                // 每次重试前再次检查取消状态
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // 计算延迟时间
                 var delayMs = CalculateDelayWithJitter(retry);
@@ -80,6 +92,9 @@ public sealed class RetryHelper(RetryOptions? options = null)
         ArgumentNullException.ThrowIfNull(operation);
         ArgumentNullException.ThrowIfNullOrEmpty(operationName);
 
+        // 添加检查，如果令牌已取消，立即抛出异常
+        cancellationToken.ThrowIfCancellationRequested();
+
         Exception? lastException = null;
         shouldRetry ??= _ => true;
 
@@ -92,6 +107,12 @@ public sealed class RetryHelper(RetryOptions? options = null)
             }
             catch (Exception ex)
             {
+                // 如果是取消异常，直接重新抛出
+                if (ex is OperationCanceledException)
+                {
+                    throw;
+                }
+                
                 lastException = ex;
                 if (shouldRetry(ex) && retry == _options.MaxRetries - 1)
                 {
@@ -103,6 +124,9 @@ public sealed class RetryHelper(RetryOptions? options = null)
                     ExceptionDispatchInfo.Capture(ex).Throw();
                     throw; // 这行代码不会执行，但是需要它来满足编译器
                 }
+
+                // 每次重试前再次检查取消状态
+                cancellationToken.ThrowIfCancellationRequested();
 
                 // 计算延迟时间
                 var delayMs = CalculateDelayWithJitter(retry);
