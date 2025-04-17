@@ -91,9 +91,9 @@ public class DataTableJsonConverterTests
         var json = JsonSerializer.Serialize(dataTable, _options);
 
 #if NETCOREAPP3_0_OR_GREATER
-        var expectedJson = "[{\"Int\":1,\"NullableInt\":\"\",\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":\"\",\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":\"\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
+        var expectedJson = "[{\"Int\":1,\"NullableInt\":null,\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":null,\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":null,\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
 #else
-        var expectedJson = "[{\"Int\":1,\"NullableInt\":\"\",\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":\"\",\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":\"\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
+        var expectedJson = "[{\"Int\":1,\"NullableInt\":null,\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":null,\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":null,\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
 #endif
         Assert.Equal(expectedJson, json);
     }
@@ -116,9 +116,9 @@ public class DataTableJsonConverterTests
         var json = Encoding.UTF8.GetString(stream.ToArray());
 
 #if NETCOREAPP3_0_OR_GREATER
-        var expectedJson = "[{\"Int\":1,\"NullableInt\":\"\",\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":\"\",\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":\"\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
+        var expectedJson = "[{\"Int\":1,\"NullableInt\":null,\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":null,\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":null,\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"Single\":5.6,\"Double\":7.8,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
 #else
-        var expectedJson = "[{\"Int\":1,\"NullableInt\":\"\",\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":\"\",\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":\"\",\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
+        var expectedJson = "[{\"Int\":1,\"NullableInt\":null,\"String\":\"Test\",\"Guid\":\"" + dataTable.Rows[0]["Guid"] + "\",\"NullableGuid\":null,\"DateTime\":\"" + "2019-08-01T00:00:00" + "\",\"NullableDateTime\":null,\"Boolean\":true,\"Int16\":2,\"Int64\":3,\"Decimal\":4.5,\"TimeSpanCol\":\"10.22:10:15.1000000\"}]";
 #endif
         Assert.Equal(expectedJson, json);
     }

@@ -115,14 +115,14 @@ public class ExpressionExtensionsTests
     }
     
     [Fact]
-    public void Compose_WithAndAlso_CombinesExpressions()
+    public void CombineExpressions_WithAndAlso_CombinesExpressions()
     {
         // Arrange
         Expression<Func<TestEntity, bool>> expr1 = e => e.Id > 0;
         Expression<Func<TestEntity, bool>> expr2 = e => e.Name == "测试";
         
         // Act
-        var combined = expr1.Compose(expr2, Expression.AndAlso);
+        var combined = expr1.CombineExpressions(expr2, Expression.AndAlso);
         var func = combined.Compile();
         
         // Assert
@@ -132,14 +132,14 @@ public class ExpressionExtensionsTests
     }
     
     [Fact]
-    public void Compose_WithOrElse_CombinesExpressions()
+    public void CombineExpressions_WithOrElse_CombinesExpressions()
     {
         // Arrange
         Expression<Func<TestEntity, bool>> expr1 = e => e.Id > 0;
         Expression<Func<TestEntity, bool>> expr2 = e => e.Name == "测试";
         
         // Act
-        var combined = expr1.Compose(expr2, Expression.OrElse);
+        var combined = expr1.CombineExpressions(expr2, Expression.OrElse);
         var func = combined.Compile();
         
         // Assert
