@@ -1,4 +1,6 @@
-﻿namespace Linger.FileSystem.Local;
+﻿using Linger.Helper.PathHelpers;
+
+namespace Linger.FileSystem.Local;
 
 // 添加继承自FileSystemBase
 public class LocalFileSystem : FileSystemBase, ILocalFileSystem
@@ -53,13 +55,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     public override bool DirectoryExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
-        return PathHelper.Exists(realPath, false);
+        return StandardPathHelper.Exists(realPath, false);
     }
 
     public override bool FileExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
-        return PathHelper.Exists(realPath, true);
+        return StandardPathHelper.Exists(realPath, true);
     }
 
     public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
@@ -473,7 +475,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             // 分离路径和文件名
             var destinationPath = Path.GetDirectoryName(filePath) ?? string.Empty;
             var fileName = Path.GetFileName(filePath);
-            
+
             var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath,
                 _options.DefaultNamingRule, overwrite, !overwrite);
 

@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using Linger.Extensions.Core;
 using Linger.Extensions.IO;
+using Linger.Helper.PathHelpers;
 
 namespace Linger.Helper;
 
@@ -86,7 +87,7 @@ public static class FileHelper
     {
         sourceFile.EnsureFileExist();
 
-        var normalizedDest = PathHelper.NormalizePath(destFile);
+        var normalizedDest = StandardPathHelper.NormalizePath(destFile);
         var directory = Path.GetDirectoryName(normalizedDest);
 
         if (!string.IsNullOrEmpty(directory))
@@ -174,7 +175,7 @@ public static class FileHelper
         if (string.IsNullOrEmpty(fullFileName))
             return null;
 
-        var absolutePath = PathHelper.ResolveToAbsolutePath(null, fullFileName);
+        var absolutePath = StandardPathHelper.ResolveToAbsolutePath(null, fullFileName);
         var file = new FileInfo(absolutePath);
         if (file.Exists)
         {
@@ -184,7 +185,7 @@ public static class FileHelper
             {
                 HashData = strHashData,
                 FileName = file.Name,
-                RelativeFilePath = PathHelper.GetRelativePath(absolutePath, Environment.CurrentDirectory),
+                RelativeFilePath = StandardPathHelper.GetRelativePath(absolutePath, Environment.CurrentDirectory),
                 FullFilePath = file.FullName,
                 FileSize = file.Length.FormatFileSize(),
                 Length = file.Length

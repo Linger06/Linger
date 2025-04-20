@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using Linger.Extensions.Core;
+using Linger.Helper.PathHelpers;
 
 namespace Linger.Helper;
 
@@ -134,7 +135,7 @@ public static class GuardExtensions
             throw new ArgumentException("File path cannot be empty", paramName ?? nameof(filePath));
         }
 
-        if (!PathHelper.Exists(filePath, true))
+        if (!StandardPathHelper.Exists(filePath, true))
         {
             throw new FileNotFoundException(message ?? $"File not found: {filePath}", paramName ?? nameof(filePath));
         }
@@ -157,7 +158,7 @@ public static class GuardExtensions
             throw new ArgumentException("Directory path cannot be empty", paramName ?? nameof(directory));
         }
 
-        if (!PathHelper.Exists(directory, false))
+        if (!StandardPathHelper.Exists(directory, false))
         {
             throw new DirectoryNotFoundException(message ?? $"Directory not found: {directory}");
         }
