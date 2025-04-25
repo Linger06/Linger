@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Linger.JsonConverter;
+using Microsoft.VisualBasic;
 
 namespace Linger.Extensions.Core;
 
@@ -414,32 +415,20 @@ public static partial class StringExtensions
 #endif
     }
 
-    /// <summary>
-    /// Splits the string into a list of strings using the specified delimiter.
-    /// </summary>
-    /// <param name="value">The string to split.</param>
-    /// <param name="symbol">The delimiter to use. Default is carriage return and line feed.</param>
-    /// <returns>A list of strings.</returns>
-    public static List<string> ToSplitList(this string? value, string symbol = ",")
+    public static List<string> ToSplitList(this string? value, char symbol = ',', StringSplitOptions options = StringSplitOptions.None)
     {
-        if (value.IsNullOrEmpty())
-        {
-            return [];
-        }
-
-        return value.Split(new[] { symbol }, StringSplitOptions.None).ToList();
+        return value.ToSplitArray(symbol, options).ToList();
     }
 
     /// <summary>
     /// Splits the string into a list of strings using the specified delimiter.
     /// </summary>
     /// <param name="value">The string to split.</param>
-    /// <param name="symbol">The delimiter to use. Default is a comma.</param>
+    /// <param name="symbol">The delimiter to use. Default is carriage return and line feed.</param>
     /// <returns>A list of strings.</returns>
-    public static IEnumerable<string> ToSplitList(this string value, char symbol = ',')
+    public static List<string> ToSplitList(this string? value, string symbol, StringSplitOptions options = StringSplitOptions.None)
     {
-        var value2 = value.ToSplitArray(symbol);
-        return value2.ToEnumerable();
+        return value.ToSplitArray(symbol, options).ToList();
     }
 
     /// <summary>
@@ -448,14 +437,24 @@ public static partial class StringExtensions
     /// <param name="value">The string to split.</param>
     /// <param name="symbol">The delimiter to use. Default is a comma.</param>
     /// <returns>An array of strings.</returns>
-    public static string[] ToSplitArray(this string? value, char symbol = ',')
+    public static string[] ToSplitArray(this string? value, char symbol = ',', StringSplitOptions options = StringSplitOptions.None)
     {
         if (value.IsNullOrEmpty())
         {
             return [];
         }
 
-        return value.Split(symbol);
+        return value.Split([symbol], options);
+    }
+
+    public static string[] ToSplitArray(this string? value, string symbol, StringSplitOptions options = StringSplitOptions.None)
+    {
+        if (value.IsNullOrEmpty())
+        {
+            return [];
+        }
+
+        return value.Split([symbol], options);
     }
 
     /// <summary>
@@ -788,7 +787,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-        
+
         return EnglishRegex().IsMatch(input);
     }
 
@@ -804,7 +803,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return UrlRegex().IsMatch(input);
     }
 
@@ -820,7 +819,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return Ipv4Regex().IsMatch(input);
     }
 
@@ -836,7 +835,7 @@ public static partial class StringExtensions
     {
         if (str == null)
             return false;
-            
+
         return DomainRegex().IsMatch(str);
     }
 
@@ -866,7 +865,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return MultipleMailRegex().IsMatch(input);
     }
 
@@ -878,7 +877,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return ScientificNotationRegex().IsMatch(input);
     }
 
