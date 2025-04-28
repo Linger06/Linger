@@ -9,13 +9,9 @@ namespace Linger.Helper.PathHelpers;
 public class StandardPathHelper : PathHelperBase
 {
 #if NET8_0_OR_GREATER
-        private static readonly System.Buffers.SearchValues<char> s_windowsInvalidChars = System.Buffers.SearchValues.Create("*?\"<>|");
+    private static readonly System.Buffers.SearchValues<char> s_windowsInvalidChars = System.Buffers.SearchValues.Create("*?\"<>|");
 #else
-#if NET5_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            private static readonly char[] s_windowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
-#else
-    private static readonly char[] s_windowsInvalidChars = new[] { '*', '?', '"', '<', '>', '|' };
-#endif
+    private static readonly char[] s_windowsInvalidChars = ['*', '?', '"', '<', '>', '|'];
 #endif
 
     private static readonly HashSet<string> s_windowsReservedNames = new(StringComparer.OrdinalIgnoreCase)
@@ -121,7 +117,7 @@ public class StandardPathHelper : PathHelperBase
     /// </summary>
     public static bool IsWindowsDriveLetter(string? input)
     {
-        if (string.IsNullOrEmpty(input) || input.Length < 2)
+        if (input.IsNullOrEmpty() || input.Length < 2)
             return false;
 
         if (!char.IsLetter(input[0]) || input[1] != ':')
@@ -135,13 +131,8 @@ public class StandardPathHelper : PathHelperBase
             if (input[2] != '/' && input[2] != '\\')
                 return false;
 
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-            if (input.Length > 3 && ContainsInvalidPathChars(input[3..]))
-                return false;
-#else
             if (input.Length > 3 && ContainsInvalidPathChars(input.Substring(3)))
                 return false;
-#endif
         }
 
         return true;
@@ -270,7 +261,7 @@ public class StandardPathHelper : PathHelperBase
     /// </summary>
     public static new bool ContainsInvalidPathChars(string? path)
     {
-        if (string.IsNullOrEmpty(path))
+        if (path.IsNullOrEmpty())
             return false;
 
         // 系统定义的非法字符
@@ -294,7 +285,7 @@ public class StandardPathHelper : PathHelperBase
             {
                 string upperSegment = segment.ToUpperInvariant();
                 if (s_windowsReservedNames.Contains(upperSegment) ||
-                    (upperSegment.Contains(".") &&
+                    (upperSegment.Contains('.') &&
                      s_windowsReservedNames.Contains(upperSegment.Substring(0, upperSegment.IndexOf('.')))))
                 {
                     return true;

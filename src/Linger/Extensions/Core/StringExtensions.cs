@@ -5,7 +5,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Linger.JsonConverter;
-using Microsoft.VisualBasic;
 
 namespace Linger.Extensions.Core;
 
@@ -415,46 +414,53 @@ public static partial class StringExtensions
 #endif
     }
 
-    public static List<string> ToSplitList(this string? value, char symbol = ',', StringSplitOptions options = StringSplitOptions.None)
+    public static List<string> SplitToList(this string? value, char separator = ',', StringSplitOptions options = StringSplitOptions.None)
     {
-        return value.ToSplitArray(symbol, options).ToList();
+        return value.SplitToArray(separator, options).ToList();
     }
 
     /// <summary>
     /// Splits the string into a list of strings using the specified delimiter.
     /// </summary>
     /// <param name="value">The string to split.</param>
-    /// <param name="symbol">The delimiter to use. Default is carriage return and line feed.</param>
+    /// <param name="separator">The delimiter to use. Default is carriage return and line feed.</param>
     /// <returns>A list of strings.</returns>
-    public static List<string> ToSplitList(this string? value, string symbol, StringSplitOptions options = StringSplitOptions.None)
+    public static List<string> SplitToList(this string? value, string separator, StringSplitOptions options = StringSplitOptions.None)
     {
-        return value.ToSplitArray(symbol, options).ToList();
+        return value.SplitToArray(separator, options).ToList();
     }
 
     /// <summary>
     /// Splits the string into an array of strings using the specified delimiter.
     /// </summary>
     /// <param name="value">The string to split.</param>
-    /// <param name="symbol">The delimiter to use. Default is a comma.</param>
+    /// <param name="separator">The delimiter to use. Default is a comma.</param>
     /// <returns>An array of strings.</returns>
-    public static string[] ToSplitArray(this string? value, char symbol = ',', StringSplitOptions options = StringSplitOptions.None)
+    public static string[] SplitToArray(this string? value, char separator = ',', StringSplitOptions options = StringSplitOptions.None)
     {
         if (value.IsNullOrEmpty())
         {
             return [];
         }
 
-        return value.Split([symbol], options);
+#if NET8_0_OR_GREATER
+        return value.Split(separator, options);
+#else
+        return value.Split([separator], options);
+#endif
     }
 
-    public static string[] ToSplitArray(this string? value, string symbol, StringSplitOptions options = StringSplitOptions.None)
+    public static string[] SplitToArray(this string? value, string separator, StringSplitOptions options = StringSplitOptions.None)
     {
         if (value.IsNullOrEmpty())
         {
             return [];
         }
-
-        return value.Split([symbol], options);
+#if NET8_0_OR_GREATER
+        return value.Split(separator, options);
+#else
+        return value.Split([separator], options);
+#endif
     }
 
     /// <summary>
@@ -914,7 +920,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return s_multipleMailRegex.IsMatch(input);
     }
 
@@ -927,7 +933,7 @@ public static partial class StringExtensions
     {
         if (str == null)
             return false;
-            
+
         return s_domainRegex.IsMatch(str);
     }
 
@@ -940,7 +946,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return s_ipv4Regex.IsMatch(input);
     }
 
@@ -953,7 +959,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return s_urlRegex.IsMatch(input);
     }
 
@@ -966,7 +972,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-        
+
         return s_englishRegex.IsMatch(input);
     }
 
@@ -975,7 +981,7 @@ public static partial class StringExtensions
     {
         if (input == null)
             return false;
-            
+
         return Regex.IsMatch(input, "[+-]?\\d+(\\.\\d+)?[eE][+-]?\\d+");
     }
 

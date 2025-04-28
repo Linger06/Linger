@@ -871,7 +871,7 @@ public class StringExtensionsTests
     [InlineData(null, ",", new string[] { })]
     public void ToSplitList_StringOverload_ShouldReturnExpectedResult(string? input, string symbol, string[] expected)
     {
-        var result = input.ToSplitList(symbol);
+        var result = input.SplitToList(symbol);
         Assert.Equal(expected, result);
     }
 
@@ -882,7 +882,7 @@ public class StringExtensionsTests
     [InlineData(null, ',', new string[] { })]
     public void ToSplitArray_ShouldReturnExpectedResult(string? input, char symbol, string[] expected)
     {
-        var result = input.ToSplitArray(symbol);
+        var result = input.SplitToArray(symbol);
         Assert.Equal(expected, result);
     }
 

@@ -49,7 +49,7 @@ public class StringExtensions6Tests
     [InlineData(null, ",", new string[] { })]
     public void ToSplitList_String_ShouldReturnExpectedResult(string? value, string symbol, string[] expected)
     {
-        var result = value.ToSplitList(symbol).ToArray();
+        var result = value.SplitToList(symbol).ToArray();
         Assert.Equal(expected, result);
     }
 
@@ -57,7 +57,7 @@ public class StringExtensions6Tests
     [InlineData("line1,line2", ',', new[] { "line1", "line2" })]
     public void ToSplitList_Char_ShouldReturnExpectedResult(string value, char symbol, string[] expected)
     {
-        var result = value.ToSplitList(symbol).ToArray();
+        var result = value.SplitToList(symbol).ToArray();
         Assert.Equal(expected, result);
     }
 
@@ -66,7 +66,7 @@ public class StringExtensions6Tests
     [InlineData(null, ',', new string[] { })]
     public void ToSplitArray_ShouldReturnExpectedResult(string? value, char symbol, string[] expected)
     {
-        var result = value.ToSplitArray(symbol);
+        var result = value.SplitToArray(symbol);
         Assert.Equal(expected, result);
     }
 

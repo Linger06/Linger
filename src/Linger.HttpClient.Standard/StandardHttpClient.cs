@@ -126,7 +126,7 @@ public class StandardHttpClient : HttpClientBase
             url = url.AppendQuery("culture=" + Thread.CurrentThread.CurrentUICulture.Name);
 
             // 使用超时令牌源替代直接修改 _httpClient.Timeout
-            using var timeoutSource = CreateTimeoutTokenSource(timeout, cancellationToken);
+            using var timeoutSource = HttpClientBase.CreateTimeoutTokenSource(timeout, cancellationToken);
             var combinedToken = timeoutSource.Token;
 
             HttpMethod httpMethod = method switch
@@ -159,7 +159,7 @@ public class StandardHttpClient : HttpClientBase
             // 处理查询参数
             if (queryParams != null)
             {
-                string queryString = BuildQueryString(queryParams);
+                string queryString = HttpClientBase.BuildQueryString(queryParams);
                 if (!string.IsNullOrEmpty(queryString))
                 {
                     url = url.Contains('?') ? $"{url}&{queryString}" : $"{url}?{queryString}";

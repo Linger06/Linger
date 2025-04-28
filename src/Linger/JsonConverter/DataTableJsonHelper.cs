@@ -28,10 +28,8 @@ public static class DataTableJsonHelper
     /// <param name="value">The DataTable to write.</param>
     public static void WriteDataTable(Utf8JsonWriter jsonWriter, DataTable value)
     {
-        if (jsonWriter == null)
-            throw new ArgumentNullException(nameof(jsonWriter));
-        if (value == null)
-            throw new ArgumentNullException(nameof(value));
+        ArgumentNullException.ThrowIfNull(jsonWriter);
+        ArgumentNullException.ThrowIfNull(value);
 
         jsonWriter.WriteStartArray();
 
@@ -47,7 +45,7 @@ public static class DataTableJsonHelper
         for (int i = 0; i < value.Columns.Count; i++)
         {
             var columnType = value.Columns[i].DataType;
-            
+
             // 根据列类型选择合适的写入方法
             if (columnType == typeof(bool)) writeActions[i] = (writer, key, val) => writer.WriteBoolean(key, (bool)val);
             else if (columnType == typeof(byte)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (byte)val);

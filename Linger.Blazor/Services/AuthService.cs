@@ -1,4 +1,4 @@
-using Linger.Blazor.Models;
+﻿using Linger.Blazor.Models;
 using Linger.HttpClient.Contracts.Core;
 using Microsoft.Extensions.Logging;
 
@@ -9,7 +9,6 @@ namespace Linger.Blazor.Services;
 /// </summary>
 public class AuthService(IHttpClient httpClient, AppState appState, ILogger<AuthService>? logger = null)
 {
-
     /// <summary>
     /// 登录方法
     /// </summary>

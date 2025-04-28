@@ -219,7 +219,7 @@ public abstract class HttpClientBase : IHttpClient
     }
 
     // 改进3: 添加请求超时监控
-    protected CancellationTokenSource CreateTimeoutTokenSource(int? timeout, CancellationToken userToken)
+    protected static CancellationTokenSource CreateTimeoutTokenSource(int? timeout, CancellationToken userToken)
     {
         CancellationTokenSource timeoutSource = new();
 
@@ -233,7 +233,7 @@ public abstract class HttpClientBase : IHttpClient
     }
 
     // 改进4: 提供空安全的查询参数构建方法
-    protected string BuildQueryString(object? queryParams)
+    protected static string BuildQueryString(object? queryParams)
     {
         if (queryParams == null)
             return string.Empty;

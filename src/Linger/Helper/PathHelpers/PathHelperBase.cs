@@ -111,7 +111,7 @@ public abstract class PathHelperBase
 
         foreach (var c in invalidChars)
         {
-            if (path.IndexOf(c) != -1)
+            if (path.Contains(c))
                 return true;
         }
 
