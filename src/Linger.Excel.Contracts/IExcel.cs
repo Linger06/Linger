@@ -57,6 +57,12 @@ public interface IExcel<TWorksheet> where TWorksheet : class
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
     
     /// <summary>
+    /// 数据集转 Excel 文件(每个DataTable一个工作表)，支持自定义操作
+    /// </summary>
+    string DataSetToFile(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
+    
+    /// <summary>
     /// 列表转 Excel 文件，支持自定义操作
     /// </summary>
     string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", 

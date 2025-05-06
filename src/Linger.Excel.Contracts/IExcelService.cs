@@ -75,6 +75,11 @@ public interface IExcelService
     string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
     
     /// <summary>
+    /// 数据集转 Excel 文件(每个DataTable一个工作表)
+    /// </summary>
+    string DataSetToFile(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet");
+    
+    /// <summary>
     /// 列表转 Excel 文件
     /// </summary>
     string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;

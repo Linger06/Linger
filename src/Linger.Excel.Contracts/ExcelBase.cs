@@ -81,6 +81,51 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
+    /// 数据集转 Excel 文件(每个DataTable一个工作表)
+    /// </summary>
+    public override string DataSetToFile(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+    {
+        if (dataSet == null || dataSet.Tables.Count == 0)
+        {
+            Logger?.LogWarning("要导出的DataSet为空或不包含任何DataTable");
+            dataSet = new DataSet();
+            // 使用"Sheet1"作为空DataSet的默认工作表名称，而不是仅使用前缀
+            dataSet.Tables.Add(new DataTable($"{defaultSheetName}1"));
+        }
+
+        try
+        {
+            MemoryStream ms;
+            if (Options.EnablePerformanceMonitoring)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction);
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger?.LogInformation("导出DataSet到Excel[表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
+                        dataSet.Tables.Count, sw.ElapsedMilliseconds);
+                }
+            }
+            else
+            {
+                ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction);
+            }
+
+            ms.ToFile(fullFileName);
+            ms.Dispose();
+            return fullFileName;
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "导出DataSet到Excel失败");
+            throw new InvalidOperationException("导出DataSet到Excel失败", ex);
+        }
+    }
+
+    /// <summary>
     /// 将Stream转换为DataTable
     /// </summary>
     public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
@@ -406,9 +451,61 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
         Action<TWorksheet>? styleAction)
     {
-        // 创建Excel工作簿和工作表
+        // 创建Excel工作簿
         var workbook = CreateWorkbook();
-        var worksheet = CreateWorksheet(workbook, sheetsName);
+        
+        // 调用通用方法处理单个DataTable
+        ExportDataTableToWorksheet(workbook, dataTable, sheetsName, title, action, styleAction);
+        
+        // 保存到流
+        return SaveWorkbookToStream(workbook);
+    }
+
+    /// <summary>
+    /// 导出DataSet到Excel
+    /// </summary>
+    private MemoryStream ExportDataSet(
+        DataSet dataSet,
+        string defaultSheetName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        Action<TWorksheet>? styleAction)
+    {
+        // 创建Excel工作簿
+        var workbook = CreateWorkbook();
+        
+        // 遍历所有DataTable
+        for (int i = 0; i < dataSet.Tables.Count; i++)
+        {
+            var dataTable = dataSet.Tables[i];
+            var sheetName = !string.IsNullOrWhiteSpace(dataTable.TableName) ? dataTable.TableName : $"{defaultSheetName}{i + 1}";
+            
+            // 调用通用方法处理每个DataTable，不设置标题
+            ExportDataTableToWorksheet(workbook, dataTable, sheetName, null, action, styleAction);
+        }
+        
+        // 保存到流
+        return SaveWorkbookToStream(workbook);
+    }
+
+    /// <summary>
+    /// 将单个DataTable导出到工作表的通用方法
+    /// </summary>
+    /// <param name="workbook">工作簿</param>
+    /// <param name="dataTable">数据表</param>
+    /// <param name="sheetName">工作表名称</param>
+    /// <param name="title">标题(可选)</param>
+    /// <param name="action">自定义处理</param>
+    /// <param name="styleAction">样式处理</param>
+    private void ExportDataTableToWorksheet(
+        TWorkbook workbook,
+        DataTable dataTable,
+        string sheetName,
+        string? title,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        Action<TWorksheet>? styleAction)
+    {
+        // 创建工作表
+        var worksheet = CreateWorksheet(workbook, sheetName);
 
         // 获取所有列名
         string[] columnNames = dataTable.Columns.Cast<DataColumn>()
@@ -417,7 +514,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         // 应用标题
         int startRowIndex = 0;
-        if (title.IsNotNullAndEmpty())
+        if (!string.IsNullOrEmpty(title))
         {
             startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
         }
@@ -436,9 +533,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         // 进行工作表格式化
         ApplyWorksheetFormatting(worksheet, dataTable.Rows.Count + startRowIndex + 1, columnNames.Length);
-
-        // 保存到流
-        return SaveWorkbookToStream(workbook);
     }
 
     /// <summary>

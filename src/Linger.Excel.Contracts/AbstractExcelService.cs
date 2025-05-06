@@ -35,6 +35,14 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     }
 
     /// <summary>
+    /// 数据集转 Excel 文件 - 简单版本
+    /// </summary>
+    string IExcelService.DataSetToFile(DataSet dataSet, string fullFileName, string defaultSheetName)
+    {
+        return DataSetToFile(dataSet, fullFileName, defaultSheetName);
+    }
+
+    /// <summary>
     /// 列表转 Excel 文件 - 简单版本
     /// </summary>
     string IExcelService.ListToFile<T>(List<T> list, string fullFileName, string sheetsName, string title)
@@ -102,6 +110,12 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// 数据表格转 Excel 文件
     /// </summary>
     public abstract string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
+
+    /// <summary>
+    /// 数据集转 Excel 文件
+    /// </summary>
+    public abstract string DataSetToFile(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
 
     /// <summary>
