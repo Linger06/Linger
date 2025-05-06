@@ -2,7 +2,7 @@
 using System.Reflection;
 using Linger.Excel.Contracts;
 using Microsoft.Extensions.Logging;
-using NPOI.HSSF.UserModel;
+using NPOI.HSSF.Util;
 using NPOI.SS.Formula.Eval;
 using NPOI.SS.UserModel;
 using NPOI.SS.Util;
@@ -34,10 +34,8 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         {
             return workbook.GetSheetAt(0);
         }
-        else
-        {
-            return workbook.GetSheet(sheetName) ?? workbook.GetSheetAt(0);
-        }
+
+        return workbook.GetSheet(sheetName) ?? workbook.GetSheetAt(0);
     }
 
     protected override string GetSheetName(ISheet worksheet)
@@ -270,7 +268,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             try
             {
                 long longValue = Convert.ToInt64(value);
-                cell.SetCellValue((double)longValue);
+                cell.SetCellValue(longValue);
 
                 // 应用整数样式
                 if (!styleCache.TryGetValue(typeof(int), out var intStyle))
@@ -336,10 +334,8 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     return GetExcelCellValue(cell.NumericCellValue, true);
                 }
-                else
-                {
-                    return GetExcelCellValue(cell.NumericCellValue);
-                }
+
+                return GetExcelCellValue(cell.NumericCellValue);
             case CellType.Boolean:
                 return GetExcelCellValue(cell.BooleanCellValue);
             case CellType.Formula:
@@ -352,10 +348,8 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                         {
                             return GetExcelCellValue(cell.NumericCellValue, true);
                         }
-                        else
-                        {
-                            return GetExcelCellValue(cell.NumericCellValue);
-                        }
+
+                        return GetExcelCellValue(cell.NumericCellValue);
                     case CellType.Boolean:
                         return GetExcelCellValue(cell.BooleanCellValue);
                     case CellType.Error:
@@ -441,7 +435,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 try
                 {
                     // NPOI 使用索引色，这里使用灰色作为表头背景
-                    headerStyle.FillForegroundColor = NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
+                    headerStyle.FillForegroundColor = HSSFColor.Grey25Percent.Index;
                     headerStyle.FillPattern = FillPattern.SolidForeground;
                 }
                 catch (Exception ex)
@@ -533,10 +527,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         newStyle.BorderRight = BorderStyle.Thin;
 
         // 设置边框颜色（黑色）
-        newStyle.TopBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
-        newStyle.BottomBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
-        newStyle.LeftBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
-        newStyle.RightBorderColor = NPOI.HSSF.Util.HSSFColor.Black.Index;
+        newStyle.TopBorderColor = HSSFColor.Black.Index;
+        newStyle.BottomBorderColor = HSSFColor.Black.Index;
+        newStyle.LeftBorderColor = HSSFColor.Black.Index;
+        newStyle.RightBorderColor = HSSFColor.Black.Index;
 
         // 应用样式到单元格
         cell.CellStyle = newStyle;
@@ -622,7 +616,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// </remarks>
     protected override void ProcessDataRows(ISheet worksheet, DataTable dataTable, int startRowIndex)
     {
-        var sheet = (ISheet)worksheet;
+        var sheet = worksheet;
         var workbook = sheet.Workbook;
         bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
 
@@ -742,7 +736,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// </remarks>
     protected override void ProcessCollectionRows<T>(ISheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
-        var sheet = (ISheet)worksheet;
+        var sheet = worksheet;
         var workbook = sheet.Workbook;
         bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
 

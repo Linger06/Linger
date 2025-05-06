@@ -74,9 +74,9 @@ public static partial class StringExtensions
             return false;
         }
 
-        for (int i = 0; i < value.Length; i++)
+        foreach (var t in value)
         {
-            if (!char.IsWhiteSpace(value[i]))
+            if (!char.IsWhiteSpace(t))
             {
                 return false;
             }
@@ -424,6 +424,7 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="value">The string to split.</param>
     /// <param name="separator">The delimiter to use. Default is carriage return and line feed.</param>
+    /// <param name="options"></param>
     /// <returns>A list of strings.</returns>
     public static List<string> SplitToList(this string? value, string separator, StringSplitOptions options = StringSplitOptions.None)
     {
@@ -435,6 +436,7 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="value">The string to split.</param>
     /// <param name="separator">The delimiter to use. Default is a comma.</param>
+    /// <param name="options"></param>
     /// <returns>An array of strings.</returns>
     public static string[] SplitToArray(this string? value, char separator = ',', StringSplitOptions options = StringSplitOptions.None)
     {
@@ -596,12 +598,7 @@ public static partial class StringExtensions
     /// <returns>If the string is null or empty, returns <see cref="string.Empty"/>; if the string is not a valid email, returns <see cref="string.Empty"/>; otherwise, returns the substring before the "@" symbol.</returns>
     public static string GetEmailPrefix(this string? value)
     {
-        if (value.IsNullOrEmpty())
-        {
-            return string.Empty;
-        }
-
-        if (!value.IsEmail())
+        if (value.IsNullOrEmpty() || !value.IsEmail())
         {
             return string.Empty;
         }
@@ -742,8 +739,7 @@ public static partial class StringExtensions
     /// <returns>The truncated string.</returns>
     public static string TakeLast(this string self, int length)
     {
-        if (self == null) return string.Empty;
-        if (length <= 0) return string.Empty;
+        if (self == null || length <= 0) return string.Empty;
 
         if (length >= self.Length)
         {

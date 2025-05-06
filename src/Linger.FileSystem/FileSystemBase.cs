@@ -27,10 +27,6 @@ public abstract class FileSystemBase(RetryOptions? retryOptions = null) : IFileS
 
     #endregion
 
-    #region 公共属性
-
-    #endregion
-
     #region IFileSystem 同步实现
 
     public abstract bool FileExists(string filePath);

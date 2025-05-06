@@ -259,7 +259,7 @@ public class StandardPathHelper : PathHelperBase
     /// <summary>
     /// 检查路径中是否包含非法字符
     /// </summary>
-    public static new bool ContainsInvalidPathChars(string? path)
+    public new static bool ContainsInvalidPathChars(string? path)
     {
         if (path.IsNullOrEmpty())
             return false;

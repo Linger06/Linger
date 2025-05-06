@@ -67,7 +67,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
 
     public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null)
     {
-        var collection = SearchUsersByFilter($"""(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)""", ldapCredentials);
+        var collection = SearchUsersByFilter($"(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)", ldapCredentials);
         return await Task.FromResult(collection.ToAdUsersInfo());
     }
 

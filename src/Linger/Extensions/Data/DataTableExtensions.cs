@@ -717,7 +717,7 @@ public static partial class DataTableExtensions
                 }
                 else
                 {
-                    string strValue = value.ToString()!.ToLower();
+                    string strValue = value.ToString().ToLower();
                     property.SetValue(obj, strValue == "true" || strValue == "yes" || strValue == "y" || strValue == "1");
                 }
                 return;

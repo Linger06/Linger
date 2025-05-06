@@ -211,7 +211,7 @@ public static class JsonExtensions
                 if (firstPass)
                 {
                     JsonElement colValue = col.Value;
-                    dataTable.Columns.Add(new DataColumn(col.Name, colValue.ValueKind.ValueKindToType(colValue.ToString()!)));
+                    dataTable.Columns.Add(new DataColumn(col.Name, colValue.ValueKind.ValueKindToType(colValue.ToString())));
                 }
                 row[col.Name] = col.Value.JsonElementToTypedValue();
             }

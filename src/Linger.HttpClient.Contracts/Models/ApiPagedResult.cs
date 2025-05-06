@@ -15,7 +15,7 @@ public class ApiPagedResult<T>
     /// <summary>
     /// 是否有数据
     /// </summary>
-    public bool HasData => Data != null && Data.Count > 0;
+    public bool HasData => Data is { Count: > 0 };
     
     /// <summary>
     /// 是否有下一页

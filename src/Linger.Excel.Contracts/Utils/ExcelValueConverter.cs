@@ -56,7 +56,7 @@ public static class ExcelValueConverter
         {
             if (Math.Abs(d - Math.Round(d)) < double.Epsilon)
             {
-                if (d >= int.MinValue && d <= int.MaxValue)
+                if (d is >= int.MinValue and <= int.MaxValue)
                     return (int)d;
                 return (long)d;
             }

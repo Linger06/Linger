@@ -13,15 +13,15 @@ public class AuthController(IJwtService jwtService, ILogger<AuthController> logg
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login([FromBody] LoginRequest request)
     {
-        logger.LogInformation($"尝试登录用户: {request.Username}");
+        logger.LogInformation("尝试登录用户: {RequestUsername}", request.Username);
 
         // 简单的示例验证，实际应用中应该查询数据库验证用户
-        if (request.Username == "admin" && request.Password == "password")
+        if (request is { Username: "admin", Password: "password" })
         {
             try
             {
                 var token = await jwtService.CreateTokenAsync(request.Username);
-                logger.LogInformation($"用户 {request.Username} 登录成功");
+                logger.LogInformation("用户 {RequestUsername} 登录成功", request.Username);
 
                 var response = new LoginResponse
                 {
@@ -34,7 +34,7 @@ public class AuthController(IJwtService jwtService, ILogger<AuthController> logg
             }
             catch (Exception ex)
             {
-                logger.LogError($"生成令牌失败: {ex.Message}");
+                logger.LogError("生成令牌失败: {ExMessage}", ex.Message);
 
                 var errorResponse = new LoginResponse
                 {
@@ -47,7 +47,7 @@ public class AuthController(IJwtService jwtService, ILogger<AuthController> logg
             }
         }
 
-        logger.LogWarning($"用户 {request.Username} 登录失败：凭据无效");
+        logger.LogWarning("用户 {RequestUsername} 登录失败：凭据无效", request.Username);
 
         var unauthorizedResponse = new LoginResponse
         {

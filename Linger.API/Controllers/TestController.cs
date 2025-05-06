@@ -18,7 +18,7 @@ public class TestController(ILogger<TestController> logger) : ControllerBase
     public IActionResult ProtectedEndpoint()
     {
         var username = User.Identity?.Name ?? "未知用户";
-        logger.LogInformation($"用户 {username} 访问了受保护的API端点");
+        logger.LogInformation("用户 {Username} 访问了受保护的API端点", username);
         return Ok(new { message = $"你好, {username}! 这是一个受保护的API端点，需要认证" });
     }
 }

@@ -58,7 +58,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override void Connect()
     {
-        if (Client != null && !Client.IsConnected)
+        if (Client is { IsConnected: false })
             Client.Connect();
     }
 
