@@ -8,17 +8,17 @@ public class ExcelStyleOptions
     /// <summary>
     /// 标题样式配置
     /// </summary>
-    public TitleStyle TitleStyle { get; set; } = new TitleStyle();
+    public TitleStyle TitleStyle { get; set; } = new();
     
     /// <summary>
     /// 表头样式配置
     /// </summary>
-    public HeaderStyle HeaderStyle { get; set; } = new HeaderStyle();
+    public HeaderStyle HeaderStyle { get; set; } = new();
     
     /// <summary>
     /// 数据行样式配置
     /// </summary>
-    public DataStyle DataStyle { get; set; } = new DataStyle();
+    public DataStyle DataStyle { get; set; } = new();
     
     /// <summary>
     /// 是否显示网格线

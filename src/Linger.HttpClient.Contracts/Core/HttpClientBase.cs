@@ -14,7 +14,7 @@ public abstract class HttpClientBase : IHttpClient
     /// <summary>
     /// HTTP客户端选项
     /// </summary>
-    public HttpClientOptions Options { get; } = new HttpClientOptions();
+    public HttpClientOptions Options { get; } = new();
 
     /// <summary>
     /// 设置授权令牌
@@ -171,7 +171,7 @@ public abstract class HttpClientBase : IHttpClient
             }
             else
             {
-                var (errorMsg, errors) = await GetErrorMessageAsync(res);
+                (var errorMsg, IEnumerable<Error> errors) = await GetErrorMessageAsync(res);
                 rv.ErrorMsg = errorMsg;
                 rv.Errors = errors;
             }
@@ -209,10 +209,8 @@ public abstract class HttpClientBase : IHttpClient
                     {
                         return ("", errors);
                     }
-                    else
-                    {
-                        return (responseTxt, []);
-                    }
+
+                    return (responseTxt, []);
                 }
                 catch { return (responseTxt, []); }
         }

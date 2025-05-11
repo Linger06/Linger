@@ -64,7 +64,7 @@ public sealed class EmailService(
     private static EmailMessage CreateEmailMessage(string to, string subject, string body, bool isHtml) =>
         new()
         {
-            To = [new() { Address = to }],
+            To = [new EmailAddress { Address = to }],
             Subject = subject,
             Body = body,
             IsHtmlBody = isHtml

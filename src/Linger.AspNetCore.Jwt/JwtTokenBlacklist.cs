@@ -10,13 +10,12 @@ public class JwtTokenBlacklist
 {
     private readonly ConcurrentDictionary<string, DateTime> _blacklist = new();
     private readonly ILogger<JwtTokenBlacklist>? _logger;
-    private readonly Timer _cleanupTimer;
-    
+
     public JwtTokenBlacklist(ILogger<JwtTokenBlacklist>? logger = null)
     {
         _logger = logger;
         // 每小时清理一次过期的黑名单条目
-        _cleanupTimer = new Timer(CleanupExpiredEntries, null, TimeSpan.FromHours(1), TimeSpan.FromHours(1));
+        new Timer(CleanupExpiredEntries, null, TimeSpan.FromHours(1), TimeSpan.FromHours(1));
     }
     
     /// <summary>

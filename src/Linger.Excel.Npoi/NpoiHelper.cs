@@ -1182,8 +1182,8 @@ public static class NpoiHelper
     public static ISheet CrossCloneSheet(this ISheet sSheet, IWorkbook dWb)
     {
         var dSheetName = sSheet.SheetName;
-        var clonePrintSetup = true;
-        return sSheet.CrossCloneSheet(dWb, dSheetName, clonePrintSetup);
+        const bool ClonePrintSetup = true;
+        return sSheet.CrossCloneSheet(dWb, dSheetName, ClonePrintSetup);
     }
     private static IFont? FindFont(this IWorkbook dWb, IFont font, List<IFont> dFonts)
     {

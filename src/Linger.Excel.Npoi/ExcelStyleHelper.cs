@@ -110,21 +110,21 @@ public static class ExcelStyleHelper
         // 简化版本，仅返回一些常见的索引颜色
         if (r > 200 && g > 200 && b > 200) // 白色或浅色
             return NPOI.HSSF.Util.HSSFColor.White.Index;
-        else if (r < 50 && g < 50 && b < 50) // 黑色或深色
+        if (r < 50 && g < 50 && b < 50) // 黑色或深色
             return NPOI.HSSF.Util.HSSFColor.Black.Index;
-        else if (r > 200 && g < 100 && b < 100) // 红色
+        if (r > 200 && g < 100 && b < 100) // 红色
             return NPOI.HSSF.Util.HSSFColor.Red.Index;
-        else if (r < 100 && g > 200 && b < 100) // 绿色
+        if (r < 100 && g > 200 && b < 100) // 绿色
             return NPOI.HSSF.Util.HSSFColor.Green.Index;
-        else if (r < 100 && g < 100 && b > 200) // 蓝色
+        if (r < 100 && g < 100 && b > 200) // 蓝色
             return NPOI.HSSF.Util.HSSFColor.Blue.Index;
-        else if (r > 200 && g > 200 && b < 100) // 黄色
+        if (r > 200 && g > 200 && b < 100) // 黄色
             return NPOI.HSSF.Util.HSSFColor.Yellow.Index;
-        else if (r < 100 && g > 200 && b > 200) // 青色
+        if (r < 100 && g > 200 && b > 200) // 青色
             return NPOI.HSSF.Util.HSSFColor.Aqua.Index;
-        else if (r > 200 && g < 100 && b > 200) // 紫色
+        if (r > 200 && g < 100 && b > 200) // 紫色
             return NPOI.HSSF.Util.HSSFColor.Violet.Index;
-        else // 默认灰色
-            return NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
+        // 默认灰色
+        return NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index;
     }
 }

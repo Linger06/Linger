@@ -14,7 +14,7 @@ namespace Linger.Helper;
 /// </code>
 /// </example>
 /// </summary>
-public static partial class ExpressionHelper
+public static class ExpressionHelper
 {
     /// <summary>
     /// Creates a lambda expression that always returns true.

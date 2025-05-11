@@ -6,7 +6,7 @@ namespace Linger.Extensions.Core;
 /// <summary>
 /// Extension methods for the Type class
 /// </summary>
-public static partial class TypeExtension
+public static class TypeExtension
 {
     /// <summary>
     /// Gets or sets the property cache.

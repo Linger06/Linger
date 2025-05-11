@@ -12,7 +12,7 @@ namespace Linger.Excel.Contracts;
 /// Excel泛型接口 - 提供特定工作表类型的高级操作
 /// </summary>
 /// <typeparam name="TWorksheet">工作表类型</typeparam>
-public interface IExcel<TWorksheet> where TWorksheet : class
+public interface IExcel<out TWorksheet> where TWorksheet : class
 {
     #region Import
     

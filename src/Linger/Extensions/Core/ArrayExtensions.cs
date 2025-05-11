@@ -1,13 +1,11 @@
-﻿using System.Data;
-using System.Diagnostics.CodeAnalysis;
-using System.IO;
+﻿using System.Diagnostics.CodeAnalysis;
 
 namespace Linger.Extensions.Core;
 
 /// <summary>
 /// Provides extension methods for array manipulation.
 /// </summary>
-public static partial class ArrayExtensions
+public static class ArrayExtensions
 {
     /// <summary>
     /// Executes the specified action on each element of the array.
@@ -66,6 +64,8 @@ public static partial class ArrayExtensions
     /// </example>
     public static bool Exists<T>(this T[] array, T value)
     {
+        return Array.Exists(array, Predicate);
+
         bool Predicate(T item)
         {
             if (item == null)
@@ -80,8 +80,6 @@ public static partial class ArrayExtensions
 
             return item.Equals(value);
         }
-
-        return Array.Exists(array, Predicate);
     }
 
     /// <summary>
@@ -167,6 +165,8 @@ public static partial class ArrayExtensions
     /// </example>
     public static T[] Remove<T>(this T[] array, T value)
     {
+        return Array.FindAll(array, Predicate);
+
         bool Predicate(T item)
         {
             if (item == null)
@@ -181,8 +181,6 @@ public static partial class ArrayExtensions
 
             return !item.Equals(value);
         }
-
-        return Array.FindAll(array, Predicate);
     }
 
     /// <summary>

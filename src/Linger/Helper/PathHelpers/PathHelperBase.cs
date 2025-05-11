@@ -10,7 +10,7 @@ public abstract class PathHelperBase
     // 缓存常用值，减少重复计算
     protected static readonly char PlatformSeparator = Path.DirectorySeparatorChar;
     protected static readonly char[] PathSeparators = new[] { '/', '\\' };
-    protected static readonly StringComparison PathComparison = StringComparison.OrdinalIgnoreCase;
+    protected const StringComparison PathComparison = StringComparison.OrdinalIgnoreCase;
     protected static readonly string SingleSeparator = PlatformSeparator.ToString();
 
     /// <summary>
@@ -29,10 +29,7 @@ public abstract class PathHelperBase
     /// </summary>
     protected static string RemoveConsecutiveSeparators(string path)
     {
-        if (string.IsNullOrEmpty(path))
-            return string.Empty;
-
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrEmpty(path) || string.IsNullOrWhiteSpace(path))
             return string.Empty;
 
         // 优化：检查是否需要处理连续分隔符

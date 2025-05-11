@@ -11,9 +11,7 @@ public class StringCollectionConverter<T>(string separator = ";") : ValueConvert
     {
         if (typeof(T) == typeof(string[]))
             return items;
-        if (typeof(T) == typeof(List<string>))
-            return items.ToList();
-        if (typeof(T) == typeof(ICollection<string>))
+        if (typeof(T) == typeof(List<string>) || typeof(T) == typeof(ICollection<string>))
             return items.ToList();
         if (typeof(T) == typeof(IEnumerable<string>))
             return items;

@@ -6,7 +6,7 @@ namespace Linger.Extensions.Core;
 /// <summary>
 /// <see cref="object"/> extensions
 /// </summary>
-public static partial class ObjectExtensions
+public static class ObjectExtensions
 {
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is not null.

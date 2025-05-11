@@ -179,10 +179,10 @@ public class SftpFileSystem : RemoteFileSystemBase
             var fileName = Path.GetFileName(filePath);
 
             // 确保目录存在
-            CreateDirectoryIfNotExists(remoteDirectory);
+            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
 
             // 检查文件是否存在
-            if (FileExists(filePath) && !overwrite)
+            if (await FileExistsAsync(filePath, cancellationToken) && !overwrite)
                 return FileOperationResult.CreateFailure($"远程文件已存在: {filePath}");
 
             // 执行上传
@@ -247,7 +247,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!FileExists(filePath))
+            if (!await FileExistsAsync(filePath, cancellationToken))
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
 
             await RetryHelper.ExecuteAsync(
@@ -279,7 +279,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!FileExists(filePath))
+            if (!await FileExistsAsync(filePath, cancellationToken))
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
 
             // 确保目标目录存在
@@ -322,7 +322,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!FileExists(filePath))
+            if (!await FileExistsAsync(filePath, cancellationToken))
                 return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
 
             await Task.Run(() => Client.DeleteFile(filePath), cancellationToken);

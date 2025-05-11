@@ -188,7 +188,7 @@ public class RemoteSystemSetting
             return false;
 
         // 检查认证方式：必须有密码或者证书路径
-        bool hasPassword = !string.IsNullOrEmpty(Password) || (_securePassword != null && _securePassword.Length > 0);
+        bool hasPassword = !string.IsNullOrEmpty(Password) || _securePassword is { Length: > 0 };
         bool hasCertificate = !string.IsNullOrEmpty(CertificatePath);
 
         return hasPassword || hasCertificate;

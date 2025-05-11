@@ -25,14 +25,13 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         {
             return workbook.Worksheet(1);
         }
-        else if (workbook.Worksheets.TryGetWorksheet(sheetName, out var namedSheet))
+
+        if (workbook.Worksheets.TryGetWorksheet(sheetName, out var namedSheet))
         {
             return namedSheet;
         }
-        else
-        {
-            return workbook.Worksheet(1);
-        }
+
+        return workbook.Worksheet(1);
     }
 
     protected override string GetSheetName(IXLWorksheet worksheet)
@@ -191,7 +190,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             XLDataType.Boolean => GetExcelCellValue(cell.GetBoolean()),
             XLDataType.DateTime => GetExcelCellValue(cell.GetDateTime(), true),
             XLDataType.TimeSpan => GetExcelCellValue(cell.GetTimeSpan(), true),
-            _ => cell.Value,
+            _ => cell.Value
         };
     }
 

@@ -22,7 +22,7 @@ public static class ICollectionExtensions
         {
             // For other ICollection<T> implementations, manually remove matching elements
             var itemsToDelete = @this.Where(predicate).ToList();
-            foreach (T? item in itemsToDelete)
+            foreach (T item in itemsToDelete)
             {
                 @this.Remove(item);
             }

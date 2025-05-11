@@ -7,7 +7,7 @@ namespace Linger.Extensions.IO;
 /// <summary>
 /// Extensions for <see cref="FileInfo"/>.
 /// </summary>
-public static partial class FileInfoExtensions
+public static class FileInfoExtensions
 {
     /// <summary>
     /// Renames a file.

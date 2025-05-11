@@ -264,22 +264,20 @@ public static class JsonExtensions
                 {
                     return guidValue;
                 }
-                else
+
+                if (jsonElement.TryGetDateTime(out DateTime datetime))
                 {
-                    if (jsonElement.TryGetDateTime(out DateTime datetime))
+                    // If an offset was provided, use DateTimeOffset.
+                    if (datetime.Kind == DateTimeKind.Local)
                     {
-                        // If an offset was provided, use DateTimeOffset.
-                        if (datetime.Kind == DateTimeKind.Local)
+                        if (jsonElement.TryGetDateTimeOffset(out DateTimeOffset datetimeOffset))
                         {
-                            if (jsonElement.TryGetDateTimeOffset(out DateTimeOffset datetimeOffset))
-                            {
-                                return datetimeOffset;
-                            }
+                            return datetimeOffset;
                         }
-                        return datetime;
                     }
-                    return jsonElement.ToString();
+                    return datetime;
                 }
+                return jsonElement.ToString();
             case JsonValueKind.Number:
                 if (jsonElement.TryGetInt64(out long longValue))
                 {

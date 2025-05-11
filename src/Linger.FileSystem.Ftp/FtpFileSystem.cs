@@ -280,7 +280,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                         filePath,
                         token: cancellationToken);
 
-                    return status == true;
+                    return status;
                 },
                 "Download to stream", cancellationToken: cancellationToken);
 

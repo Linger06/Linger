@@ -166,11 +166,10 @@ public static class ExcelValueConverter
     {
         string columnName = string.Empty;
         int dividend = columnIndex;
-        int modulo;
 
         while (dividend > 0)
         {
-            modulo = (dividend - 1) % 26;
+            var modulo = (dividend - 1) % 26;
             columnName = Convert.ToChar(65 + modulo) + columnName;
             dividend = (dividend - modulo) / 26;
         }

@@ -8,7 +8,7 @@ namespace Linger.Extensions.Data;
 /// <summary>
 /// Extensions for <see cref="DataTable"/>.
 /// </summary>
-public static partial class DataTableExtensions
+public static class DataTableExtensions
 {
 #if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
     /// <summary>
@@ -25,7 +25,7 @@ public static partial class DataTableExtensions
     /// </example>
     public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
-        return Task.FromResult(dt.ToList<T>(1000));
+        return Task.FromResult(dt.ToList<T>());
         //return await Task.Run(dt.ToList<T>).ConfigureAwait(false);
     }
 #endif
@@ -547,7 +547,7 @@ public static partial class DataTableExtensions
         }
         DataTable result = dt.Clone();
         IEnumerable<DataRow> rows = dt.AsEnumerable().Skip((pageIndex - 1) * pageSize).Take(pageSize);
-        foreach (DataRow? item in rows)
+        foreach (DataRow item in rows)
         {
             result.ImportRow(item);
         }
@@ -576,7 +576,8 @@ public static partial class DataTableExtensions
     /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/>.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
-    /// <param name="dt">The current <see cref="DataTable"/>.</param>
+    /// <param name="dataTable">The current <see cref="DataTable"/>.</param>
+    /// <param name="parallelProcessingThreshold"></param>
     /// <returns>A <see cref="List{T}"/> representing the rows.</returns>
     public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000) where T : class, new()
     {

@@ -7,7 +7,7 @@ namespace Linger.Extensions.Collection;
 /// <summary>
 /// Provides extension methods for <see cref="IEnumerable{T}"/>.
 /// </summary>
-public static partial class IEnumerableExtensions
+public static class IEnumerableExtensions
 {
     /// <summary>
     /// Executes a given <see cref="Action"/> for each entry in the <see cref="IEnumerable{T}"/>.

@@ -53,14 +53,14 @@ public static class ListExtensions
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(separator);
 
+        return list.ToSeparatedString(separator, Format);
+
         string Format(string item)
         {
             var quote = singleQuoted ? "'" : string.Empty;
             var newItem = notSpace ? item.Replace(" ", string.Empty) : item;
             return $"{quote}{newItem}{quote}";
         }
-
-        return list.ToSeparatedString(separator, Format);
     }
 
     /// <summary>

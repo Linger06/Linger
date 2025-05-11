@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Linger.Extensions.Core;
 
-public static partial class DateTimeExtensions
+public static class DateTimeExtensions
 {
     public static string ToFormatDate(this DateTime dateTime, string format = "yyyy-MM-dd") => dateTime.ToString(format);
 
