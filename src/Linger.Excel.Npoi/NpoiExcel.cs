@@ -27,7 +27,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             return null!;
         }
     }
-
     protected override ISheet GetWorksheet(IWorkbook workbook, string? sheetName)
     {
         if (string.IsNullOrWhiteSpace(sheetName))
@@ -35,7 +34,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             return workbook.GetSheetAt(0);
         }
 
-        return workbook.GetSheet(sheetName) ?? workbook.GetSheetAt(0);
+        return workbook.GetSheet(sheetName); // 当指定的工作表不存在时返回null
     }
 
     protected override string GetSheetName(ISheet worksheet)

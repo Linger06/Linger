@@ -19,7 +19,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return new XLWorkbook(memoryStream);
     }
 
-    protected override IXLWorksheet GetWorksheet(XLWorkbook workbook, string? sheetName)
+    protected override IXLWorksheet? GetWorksheet(XLWorkbook workbook, string? sheetName)
     {
         if (sheetName.IsNullOrEmpty())
         {
@@ -31,7 +31,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             return namedSheet;
         }
 
-        return workbook.Worksheet(1);
+        return null; // 当指定的工作表不存在时返回null
     }
 
     protected override string GetSheetName(IXLWorksheet worksheet)

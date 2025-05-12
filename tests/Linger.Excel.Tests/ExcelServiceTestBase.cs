@@ -79,6 +79,89 @@ namespace Linger.Excel.Tests
             }
 
             return dt;
+        }        /// <summary>
+        /// 生成具有自定义表名和列的DataTable
+        /// </summary>
+        /// <param name="tableName">表名称</param>
+        /// <param name="rowCount">行数</param>
+        /// <param name="columnsSetup">自定义列设置的Action</param>
+        /// <returns>测试用的DataTable</returns>
+        protected DataTable GenerateCustomDataTable(string tableName, int rowCount, Action<DataTable> columnsSetup = null)
+        {
+            // 创建DataTable时，如果表名为null，则保留为null不设置默认值
+            var dt = string.IsNullOrWhiteSpace(tableName) ? new DataTable() : new DataTable(tableName);
+            
+            // 如果提供了自定义列设置，则使用它
+            if (columnsSetup != null)
+            {
+                columnsSetup(dt);
+            }
+            else
+            {
+                // 默认列设置
+                dt.Columns.Add("Id", typeof(int));
+                dt.Columns.Add("Name", typeof(string));
+                dt.Columns.Add("Value", typeof(decimal));
+            }
+
+            // 添加数据行
+            for (int i = 1; i <= rowCount; i++)
+            {
+                var row = dt.NewRow();
+                
+                // 为每一列设置数据
+                foreach (DataColumn column in dt.Columns)
+                {
+                    switch (column.DataType.Name)
+                    {
+                        case nameof(Int32):
+                            row[column.ColumnName] = i;
+                            break;
+                        case nameof(String):
+                            row[column.ColumnName] = $"{column.ColumnName} {i}";
+                            break;
+                        case nameof(DateTime):
+                            row[column.ColumnName] = DateTime.Now.AddDays(-i);
+                            break;
+                        case nameof(Decimal):
+                        case nameof(Double):
+                            row[column.ColumnName] = 100M * i;
+                            break;
+                        case nameof(Boolean):
+                            row[column.ColumnName] = i % 2 == 0;
+                            break;
+                        default:
+                            row[column.ColumnName] = null;
+                            break;
+                    }
+                }
+                
+                dt.Rows.Add(row);
+            }
+
+            return dt;
+        }
+
+        /// <summary>
+        /// 生成测试用的DataSet
+        /// </summary>
+        /// <param name="tableConfigs">表配置：表名、行数和列设置</param>
+        /// <returns>测试用的DataSet</returns>
+        protected DataSet GenerateTestDataSet(params (string TableName, int RowCount, Action<DataTable> ColumnsSetup)[] tableConfigs)
+        {
+            var dataSet = new DataSet("TestDataSet");
+            
+            foreach (var config in tableConfigs)
+            {
+                var dataTable = GenerateCustomDataTable(
+                    config.TableName, 
+                    config.RowCount, 
+                    config.ColumnsSetup);
+                
+                dataSet.Tables.Add(dataTable);
+            }
+            
+            return dataSet;
         }
 
         /// <summary>

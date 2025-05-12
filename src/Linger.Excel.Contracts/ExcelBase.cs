@@ -453,10 +453,10 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         // 创建Excel工作簿
         var workbook = CreateWorkbook();
-        
+
         // 调用通用方法处理单个DataTable
         ExportDataTableToWorksheet(workbook, dataTable, sheetsName, title, action, styleAction);
-        
+
         // 保存到流
         return SaveWorkbookToStream(workbook);
     }
@@ -472,17 +472,17 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         // 创建Excel工作簿
         var workbook = CreateWorkbook();
-        
+
         // 遍历所有DataTable
         for (int i = 0; i < dataSet.Tables.Count; i++)
         {
             var dataTable = dataSet.Tables[i];
             var sheetName = !string.IsNullOrWhiteSpace(dataTable.TableName) ? dataTable.TableName : $"{defaultSheetName}{i + 1}";
-            
+
             // 调用通用方法处理每个DataTable，不设置标题
             ExportDataTableToWorksheet(workbook, dataTable, sheetName, null, action, styleAction);
         }
-        
+
         // 保存到流
         return SaveWorkbookToStream(workbook);
     }
@@ -514,7 +514,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         // 应用标题
         int startRowIndex = 0;
-        if (!string.IsNullOrEmpty(title))
+        if (title.IsNotNullAndEmpty())
         {
             startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
         }
@@ -626,7 +626,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 获取工作表
     /// </summary>
-    protected abstract TWorksheet GetWorksheet(TWorkbook workbook, string? sheetName);
+    protected abstract TWorksheet? GetWorksheet(TWorkbook workbook, string? sheetName);
 
     /// <summary>
     /// 获取工作表名称

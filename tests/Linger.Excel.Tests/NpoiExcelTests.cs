@@ -153,40 +153,37 @@ namespace Linger.Excel.Tests
         {
             // Arrange
             var service = GetExcelService();
-            var dataSet = new DataSet("TestDataSet");
-            
-            // 添加第一个表，使用自定义表名以避免冲突
-            var table1 = new DataTable("部门信息");
-            table1.Columns.Add("Id", typeof(int));
-            table1.Columns.Add("Name", typeof(string));
-            table1.Columns.Add("Budget", typeof(decimal));
-            for (int i = 1; i <= 5; i++)
-            {
-                table1.Rows.Add(i, $"部门 {i}", 10000 * i);
-            }
-            dataSet.Tables.Add(table1);
-            
-            // 添加第二个表，使用自定义表名以避免冲突
-            var table2 = new DataTable("员工信息");
-            table2.Columns.Add("Id", typeof(int));
-            table2.Columns.Add("Name", typeof(string));
-            table2.Columns.Add("Age", typeof(int));
-            for (int i = 1; i <= 3; i++)
-            {
-                table2.Rows.Add(i, $"员工 {i}", 20 + i);
-            }
-            dataSet.Tables.Add(table2);
-            
-            // 添加第三个表（不设置表名，测试默认表名）
-            var table3 = new DataTable();
-            table3.Columns.Add("Id", typeof(int));
-            table3.Columns.Add("Value", typeof(string));
-            for (int i = 1; i <= 2; i++)
-            {
-                table3.Rows.Add(i, $"值 {i}");
-            }
-            dataSet.Tables.Add(table3);
-            
+            const int TABLE1_ROWS = 5;
+            const int TABLE2_ROWS = 3;
+            const int TABLE3_ROWS = 2;
+
+            // 使用辅助方法生成测试数据集
+            var dataSet = GenerateTestDataSet(
+                // 部门表
+                ("部门信息", TABLE1_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                    table.Columns.Add("Budget", typeof(decimal));
+                }
+            ),
+                // 员工表
+                ("员工信息", TABLE2_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                    table.Columns.Add("Age", typeof(int));
+                }
+            ),
+                // 未命名表（将使用默认表名）
+                (null, TABLE3_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Value", typeof(string));
+                }
+            )
+            );
+
             var filePath = Path.Combine(TestFilesDir, "NpoiExport_DataSet.xlsx");
 
             // Act
@@ -196,19 +193,22 @@ namespace Linger.Excel.Tests
             Assert.Equal(filePath, result);
             Assert.True(File.Exists(filePath));
             Assert.True(new FileInfo(filePath).Length > 0);
-            
-            // 验证可以重新读取该文件中的表
-            var table1Data = service.ExcelToDataTable(filePath, "部门信息", headerRowIndex: 0);
-            Assert.NotNull(table1Data);
-            Assert.Equal(5, table1Data.Rows.Count);  // table1有5行数据
-            
-            var table2Data = service.ExcelToDataTable(filePath, "员工信息", headerRowIndex: 0);
-            Assert.NotNull(table2Data);
-            Assert.Equal(3, table2Data.Rows.Count);  // table2有3行数据
-            
-            var table3Data = service.ExcelToDataTable(filePath, "Sheet3", headerRowIndex: 0);
-            Assert.NotNull(table3Data);
-            Assert.Equal(2, table3Data.Rows.Count);  // table3有2行数据
+
+            // 验证可以重新读取该文件中的表并包含所有正确的数据
+            var departmentData = service.ExcelToDataTable(filePath, "部门信息", headerRowIndex: 0);
+            Assert.NotNull(departmentData);
+            Assert.Equal(TABLE1_ROWS, departmentData.Rows.Count);
+            Assert.Equal(3, departmentData.Columns.Count);  // 确保所有列都导出
+
+            var employeeData = service.ExcelToDataTable(filePath, "员工信息", headerRowIndex: 0);
+            Assert.NotNull(employeeData);
+            Assert.Equal(TABLE2_ROWS, employeeData.Rows.Count);
+            Assert.Equal(3, employeeData.Columns.Count);
+            // 验证使用默认的表名称
+            var unnamedData = service.ExcelToDataTable(filePath, "Table1", headerRowIndex: 0);
+            Assert.NotNull(unnamedData);
+            Assert.Equal(TABLE3_ROWS, unnamedData.Rows.Count);
+            Assert.Equal(2, unnamedData.Columns.Count);
         }
 
         [Fact]
@@ -216,72 +216,105 @@ namespace Linger.Excel.Tests
         {
             // Arrange
             var service = GetExcelService();
-            var dataSet = new DataSet();
-            
-            // 添加一个空表，确保文件中有工作表
-            var emptyTable = new DataTable();
-            dataSet.Tables.Add(emptyTable);
-            
-            var filePath = Path.Combine(TestFilesDir, "NpoiExport_EmptyDataSet.xlsx");
 
-            // Act
-            var result = service.DataSetToFile(dataSet, filePath);
+            // 测试三种情况：
+            // 1. 完全空的DataSet（不包含任何表）
+            var emptyDataSet = new DataSet();
+            var emptyFilePath = Path.Combine(TestFilesDir, "NpoiExport_CompletelyEmptyDataSet.xlsx");
 
-            // Assert
-            Assert.Equal(filePath, result);
-            Assert.True(File.Exists(filePath));
-            Assert.True(new FileInfo(filePath).Length > 0);
-            
-            // 验证创建了默认Sheet1工作表
-            var importedData = service.ExcelToDataTable(filePath, "Sheet1", headerRowIndex: 0);
-            Assert.NotNull(importedData);
-            Assert.Empty(importedData.Rows);
+            // 2. 包含一个空的DataTable（无列无行）
+            var emptyTable = GenerateCustomDataTable("", 0, table => { });
+            var dataSetWithEmptyTable = new DataSet();
+            dataSetWithEmptyTable.Tables.Add(emptyTable);
+            var emptyTableFilePath = Path.Combine(TestFilesDir, "NpoiExport_EmptyTableDataSet.xlsx");
+
+            // 3. 包含有列但无行的DataTable
+            var dataSetWithColumnsOnly = GenerateTestDataSet(
+                ("", 0, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }
+            )
+            );
+            var columnsOnlyFilePath = Path.Combine(TestFilesDir, "NpoiExport_ColumnsOnlyDataSet.xlsx");
+
+            // Act & Assert - 测试完全空的DataSet
+            var result1 = service.DataSetToFile(emptyDataSet, emptyFilePath);
+            Assert.Equal(emptyFilePath, result1);
+            Assert.True(File.Exists(emptyFilePath));
+            // 验证创建了默认工作表
+            var importedData1 = service.ExcelToDataTable(emptyFilePath, "Table1", headerRowIndex: 0);
+            Assert.Null(importedData1);
+
+            // Act & Assert - 测试包含空表的DataSet
+            var result2 = service.DataSetToFile(dataSetWithEmptyTable, emptyTableFilePath);
+            Assert.Equal(emptyTableFilePath, result2);
+            Assert.True(File.Exists(emptyTableFilePath));
+            // 验证创建了默认工作表
+            var importedData2 = service.ExcelToDataTable(emptyTableFilePath, "Table1", headerRowIndex: 0);
+            Assert.Null(importedData2);
+
+            // Act & Assert - 测试只有列定义的表
+            var result3 = service.DataSetToFile(dataSetWithColumnsOnly, columnsOnlyFilePath);
+            Assert.Equal(columnsOnlyFilePath, result3);
+            Assert.True(File.Exists(columnsOnlyFilePath));
+            // 验证创建了工作表并包含列头但没有数据行
+            var importedData3 = service.ExcelToDataTable(columnsOnlyFilePath, "Table1", headerRowIndex: 0);
+            Assert.NotNull(importedData3);
+            Assert.Empty(importedData3.Rows);
+            Assert.Equal(2, importedData3.Columns.Count);// 应该包含两列
         }
-
         [Fact]
         public void DataSetToFile_WithCustomDefaultSheetName_UsesCorrectSheetNames()
         {
             // Arrange
             var service = GetExcelService();
-            var dataSet = new DataSet("TestDataSet");
-            
-            // 添加两个没有表名的表，使用不同的结构避免冲突
-            var table1 = new DataTable();
-            table1.Columns.Add("Id", typeof(int));
-            table1.Columns.Add("Name", typeof(string));
-            for (int i = 1; i <= 2; i++)
-            {
-                table1.Rows.Add(i, $"项目 {i}");
-            }
-            dataSet.Tables.Add(table1);
-            
-            var table2 = new DataTable();
-            table2.Columns.Add("Code", typeof(string));
-            table2.Columns.Add("Value", typeof(decimal));
-            for (int i = 1; i <= 2; i++)
-            {
-                table2.Rows.Add($"C{i}", i * 100.5m);
-            }
-            dataSet.Tables.Add(table2);
-            
+            const int TABLE_ROWS = 2;
+            const string CUSTOM_PREFIX = "Table";
+
+            // 使用辅助方法生成测试数据集，两个表都不设置表名
+            var dataSet = GenerateTestDataSet(
+                // 第一个表（不指定表名）
+                (null, TABLE_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }
+            ),
+                // 第二个表（不指定表名）
+                (null, TABLE_ROWS, table =>
+                {
+                    table.Columns.Add("Code", typeof(string));
+                    table.Columns.Add("Value", typeof(decimal));
+                }
+            )
+            );
+
             var filePath = Path.Combine(TestFilesDir, "NpoiExport_CustomSheetNames.xlsx");
 
-            // Act - 使用自定义的默认表名前缀"Custom"
-            var result = service.DataSetToFile(dataSet, filePath, "Custom");
+            // Act - 使用自定义的默认表名前缀
+            var result = service.DataSetToFile(dataSet, filePath, CUSTOM_PREFIX);
 
             // Assert
             Assert.Equal(filePath, result);
             Assert.True(File.Exists(filePath));
             Assert.True(new FileInfo(filePath).Length > 0);
-            
+
             // 验证工作表使用了正确的自定义名称
-            var sheet1Data = service.ExcelToDataTable(filePath, "Custom1", headerRowIndex: 0);
+            var sheet1Data = service.ExcelToDataTable(filePath, $"{CUSTOM_PREFIX}1", headerRowIndex: 0);
             Assert.NotNull(sheet1Data);
-            Assert.Equal(2, sheet1Data.Rows.Count);
-            
-            var sheet2Data = service.ExcelToDataTable(filePath, "Custom2", headerRowIndex: 0);
+            Assert.Equal(TABLE_ROWS, sheet1Data.Rows.Count);
+            Assert.Equal(2, sheet1Data.Columns.Count);
+
+            var sheet2Data = service.ExcelToDataTable(filePath, $"{CUSTOM_PREFIX}2", headerRowIndex: 0);
             Assert.NotNull(sheet2Data);
-            Assert.Equal(2, sheet2Data.Rows.Count);
+            Assert.Equal(TABLE_ROWS, sheet2Data.Rows.Count);
+            Assert.Equal(2, sheet2Data.Columns.Count);
+
+            // 额外验证 - 确认不能用默认的"Sheet"前缀访问
+            var nullData = service.ExcelToDataTable(filePath, "Sheet1", headerRowIndex: 0);
+            Assert.Null(nullData); // 应该返回null，因为没有Sheet1这个工作表
         }
     }
 }
