@@ -2,8 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-        <VersionPrefix>0.6.0</VersionPrefix>
-        <VersionSuffix>alpha</VersionSuffix>
+        <VersionPrefix>0.7.0</VersionPrefix>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 

@@ -4,8 +4,7 @@
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
         <PackageId>Linger.Utils</PackageId>
         <AssemblyTitle>Linger.Utils</AssemblyTitle>
-        <VersionPrefix>0.6.0</VersionPrefix>
-        <VersionSuffix>alpha</VersionSuffix>
+        <VersionPrefix>0.7.0</VersionPrefix>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
     </PropertyGroup>
@@ -13,12 +12,12 @@
     <ItemGroup Condition="'$(TargetFramework)'=='net472'">
         <Reference Include="System.Net.Http" />
         <Reference Include="System.Data.DataSetExtensions" />
-        <PackageReference Include="System.Text.Json" Version="9.0.4" />
+        <PackageReference Include="System.Text.Json" Version="9.0.5" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
         <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
-        <PackageReference Include="System.Text.Json" Version="9.0.4" />
+        <PackageReference Include="System.Text.Json" Version="9.0.5" />
     </ItemGroup>
 
     <ItemGroup>

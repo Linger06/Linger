@@ -19,7 +19,7 @@ public class AuthService(IHttpClient httpClient, AppState appState, ILogger<Auth
     {
         try
         {
-            logger?.LogInformation($"尝试登录用户: {loginRequest.Username}");
+            logger?.LogInformation("尝试登录用户: {LoginRequestUsername}", loginRequest.Username);
 
             // 直接使用IHttpClient发送POST请求
             var result = await httpClient.CallApi<LoginResponse>(
@@ -30,7 +30,7 @@ public class AuthService(IHttpClient httpClient, AppState appState, ILogger<Auth
 
             if (!result.IsSuccess)
             {
-                logger?.LogWarning($"登录失败: {result.ErrorMsg}");
+                logger?.LogWarning("登录失败: {ResultErrorMsg}", result.ErrorMsg);
                 return false;
             }
 
@@ -42,12 +42,12 @@ public class AuthService(IHttpClient httpClient, AppState appState, ILogger<Auth
             // 设置令牌到HttpClient
             httpClient.SetToken(result.Data.Token);
 
-            logger?.LogInformation($"用户 {loginRequest.Username} 登录成功");
+            logger?.LogInformation("用户 {LoginRequestUsername} 登录成功", loginRequest.Username);
             return true;
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, $"登录过程中发生异常: {ex.Message}");
+            logger?.LogError(ex, "登录过程中发生异常: {ExMessage}", ex.Message);
             return false;
         }
     }
@@ -57,7 +57,7 @@ public class AuthService(IHttpClient httpClient, AppState appState, ILogger<Auth
     /// </summary>
     public Task<bool> Logout()
     {
-        logger?.LogInformation($"用户 {appState.Username} 注销");
+        logger?.LogInformation("用户 {AppStateUsername} 注销", appState.Username);
 
         // 清除令牌和用户信息
         appState.Token = string.Empty;
