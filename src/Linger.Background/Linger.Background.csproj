@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0</TargetFrameworks>
-        <VersionPrefix>0.7.0</VersionPrefix>        
+        <Version>0.7.1</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
