@@ -150,12 +150,17 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
             // 获取工作表
             var worksheet = GetWorksheet(workbook, sheetName);
-            if (worksheet == null || !HasData(worksheet))
+            if (worksheet == null)
             {
-                Logger?.LogWarning("工作表为空或不存在: {SheetName}", sheetName ?? "默认");
+                Logger?.LogWarning("工作表不存在: {SheetName}", sheetName ?? "默认");
                 return null;
             }
 
+            if (!HasData(worksheet))
+            {
+                Logger?.LogWarning("工作表为空: {SheetName}", sheetName ?? "默认");
+                return null;
+            }
 
             DataTable? dataTable;
             if (Options.EnablePerformanceMonitoring)
@@ -507,32 +512,35 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         // 创建工作表
         var worksheet = CreateWorksheet(workbook, sheetName);
 
-        // 获取所有列名
-        string[] columnNames = dataTable.Columns.Cast<DataColumn>()
-            .Select(col => col.ColumnName)
-            .ToArray();
-
-        // 应用标题
-        int startRowIndex = 0;
-        if (title.IsNotNullAndEmpty())
+        if (dataTable.Columns.Count > 0)
         {
-            startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
+            // 获取所有列名
+            string[] columnNames = dataTable.Columns.Cast<DataColumn>()
+                .Select(col => col.ColumnName)
+                .ToArray();
+            int startRowIndex = 0;
+
+            // 应用标题
+            if (title.IsNotNullAndEmpty())
+            {
+                startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
+            }
+
+            // 创建表头行
+            CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
+
+            // 填充数据行
+            ProcessDataRows(worksheet, dataTable, startRowIndex);
+
+            // 应用自定义处理
+            action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
+
+            // 应用样式
+            styleAction?.Invoke(worksheet);
+
+            // 进行工作表格式化
+            ApplyWorksheetFormatting(worksheet, dataTable.Rows.Count + startRowIndex + 1, columnNames.Length);
         }
-
-        // 创建表头行
-        CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
-
-        // 填充数据行
-        ProcessDataRows(worksheet, dataTable, startRowIndex);
-
-        // 应用自定义处理
-        action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
-
-        // 应用样式
-        styleAction?.Invoke(worksheet);
-
-        // 进行工作表格式化
-        ApplyWorksheetFormatting(worksheet, dataTable.Rows.Count + startRowIndex + 1, columnNames.Length);
     }
 
     /// <summary>

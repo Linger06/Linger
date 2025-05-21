@@ -44,7 +44,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
 
     protected override bool HasData(ISheet worksheet)
     {
-        return worksheet.LastRowNum > 0;
+        return worksheet.PhysicalNumberOfRows > 0;
     }
 
     protected override Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(ISheet worksheet, int headerRowIndex)
