@@ -2,7 +2,12 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-        <Version>0.7.1</Version>        
+        <Version>0.7.1</Version>
+        <Description>
+            Contracts and interfaces for Linger HTTP client implementations.
+            Provides a unified API for making typed HTTP requests with standardized error handling.
+            Supports various HTTP methods, file uploading, and automatic token handling.
+        </Description>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 

@@ -1,31 +1,29 @@
-﻿# Linger.FileSystem 文件系统库
+﻿# Linger.FileSystem
 
-## 概述
+> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-Linger.FileSystem 是一个统一的文件系统抽象库，提供了对多种文件系统的一致访问接口，包括本地文件系统、FTP和SFTP。通过这个库，您可以使用相同的API操作不同类型的文件系统，简化开发过程，提高代码复用性。
+A unified file system abstraction library providing a consistent interface for accessing different file systems, including local file system, FTP, and SFTP. With this library, you can use the same API to operate on different types of file systems, simplifying the development process and improving code reusability.
 
-## 项目结构
+## Project Structure
 
-Linger.FileSystem解决方案包含以下NuGet包：
+The Linger.FileSystem solution includes the following NuGet packages:
 
-- **Linger.FileSystem**: 核心库，提供统一接口和本地文件系统实现
-- **Linger.FileSystem.Ftp**: FTP文件系统实现，基于FluentFTP
-- **Linger.FileSystem.Sftp**: SFTP文件系统实现，基于SSH.NET
+- **Linger.FileSystem**: Core library, providing unified interfaces and local file system implementation
+- **Linger.FileSystem.Ftp**: FTP file system implementation, based on FluentFTP
+- **Linger.FileSystem.Sftp**: SFTP file system implementation, based on SSH.NET
 
-### 安装方式
+## Installation
 
+```shell
+# Install core library
+dotnet add package Linger.FileSystem
+
+# Install FTP support
+dotnet add package Linger.FileSystem.Ftp
+
+# Install SFTP support
+dotnet add package Linger.FileSystem.Sftp
 ```
-# 安装核心库
-Install-Package Linger.FileSystem
-
-# 安装FTP支持
-Install-Package Linger.FileSystem.Ftp
-
-# 安装SFTP支持
-Install-Package Linger.FileSystem.Sftp
-```
-
-使用.NET CLI:
 
 ```
 # 安装核心库

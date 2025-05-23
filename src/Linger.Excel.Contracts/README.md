@@ -1,5 +1,7 @@
 # Linger Excel Framework
 
+> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+
 <div align="center">
 
 ![Linger Excel Framework](https://img.shields.io/badge/Linger-Excel%20Framework-brightgreen)

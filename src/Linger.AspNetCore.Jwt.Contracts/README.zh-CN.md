@@ -1,57 +1,57 @@
-﻿# Linger.AspNetCore.Jwt.Contracts
+# Linger.AspNetCore.Jwt.Contracts
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-Core interfaces and abstractions for JWT (JSON Web Token) authentication and authorization in ASP.NET Core applications.
+ASP.NET Core 应用中 JWT（JSON Web Token）认证和授权的核心接口和抽象。
 
-## Features
+## 功能特点
 
-- Standardized interfaces for JWT token generation and validation
-- Support for refresh token functionality
-- Clean separation between contracts and implementation
-- JWT configuration options model
-- Extension methods for service registration
+- 标准化的 JWT 令牌生成和验证接口
+- 支持刷新令牌功能
+- 契约与实现的清晰分离
+- JWT 配置选项模型
+- 服务注册扩展方法
 
-## Supported Frameworks
+## 支持的框架
 
 - .NET 8.0+
 - .NET 9.0+
 
-## Installation
+## 安装
 
 ```shell
 dotnet add package Linger.AspNetCore.Jwt.Contracts
 ```
 
-## Usage
+## 使用方法
 
-### Configuration
+### 配置
 
-Define your JWT settings in `appsettings.json`:
+在 `appsettings.json` 中定义 JWT 设置：
 
 ```json
 {
   "Jwt": {
     "Issuer": "https://api.example.com",
     "Audience": "https://example.com",
-    "SecurityKey": "your-long-and-secure-key-at-least-32-bytes",
+    "SecurityKey": "你的长而安全的密钥，至少32字节",
     "Expires": 30,
     "RefreshTokenExpires": 1440
   }
 }
 ```
 
-### Dependency Injection
+### 依赖注入
 
 ```csharp
-// Program.cs or Startup.cs
+// Program.cs 或 Startup.cs
 services.Configure<JwtOption>(Configuration.GetSection("Jwt"));
 
-// Register a JWT service implementation (from Linger.AspNetCore.Jwt package)
+// 注册 JWT 服务实现（来自 Linger.AspNetCore.Jwt 包）
 services.AddJwtService();
 ```
 
-### Basic Usage
+### 基本用法
 
 ```csharp
 public class AuthService
@@ -65,22 +65,22 @@ public class AuthService
     
     public async Task<Token> LoginAsync(string username, string password)
     {
-        // Validate credentials
+        // 验证凭证
         if (!await ValidateCredentialsAsync(username, password))
         {
-            throw new AuthenticationException("Invalid credentials");
+            throw new AuthenticationException("无效的凭证");
         }
         
-        // Get user ID
+        // 获取用户 ID
         var userId = await GetUserIdAsync(username);
         
-        // Generate JWT token
+        // 生成 JWT 令牌
         return await _jwtService.CreateTokenAsync(userId);
     }
 }
 ```
 
-### Using Refresh Tokens
+### 使用刷新令牌
 
 ```csharp
 public class AuthController : ControllerBase
@@ -114,7 +114,7 @@ public class AuthController : ControllerBase
 }
 ```
 
-## Core Interfaces
+## 核心接口
 
 ### IJwtService
 
@@ -122,10 +122,10 @@ public class AuthController : ControllerBase
 public interface IJwtService
 {
     /// <summary>
-    /// Creates a JWT token
+    /// 创建 JWT 令牌
     /// </summary>
-    /// <param name="userId">User identifier</param>
-    /// <returns>Token object containing the access token</returns>
+    /// <param name="userId">用户标识</param>
+    /// <returns>包含访问令牌的 Token 对象</returns>
     Task<Token> CreateTokenAsync(string userId);
 }
 ```
@@ -136,14 +136,14 @@ public interface IJwtService
 public interface IRefreshableJwtService : IJwtService
 {
     /// <summary>
-    /// Refreshes a JWT token
+    /// 刷新 JWT 令牌
     /// </summary>
-    /// <param name="token">Token object containing access token and refresh token</param>
-    /// <returns>New token object</returns>
+    /// <param name="token">包含访问令牌和刷新令牌的 Token 对象</param>
+    /// <returns>新的 Token 对象</returns>
     Task<Token> RefreshTokenAsync(Token token);
 }
 ```
 
-## Related Packages
+## 相关包
 
-- [Linger.AspNetCore.Jwt](../Linger.AspNetCore.Jwt/) - Implementation of these contracts
+- [Linger.AspNetCore.Jwt](../Linger.AspNetCore.Jwt/) - 这些契约的实现

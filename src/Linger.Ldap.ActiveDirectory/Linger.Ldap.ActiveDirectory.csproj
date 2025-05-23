@@ -4,6 +4,11 @@
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;</TargetFrameworks>
         <Version>0.7.1</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>
+            Implementation of LDAP client functionality for Active Directory using System.DirectoryServices.
+            Provides Windows-optimized AD connectivity with features for user authentication,
+            information retrieval, group management, and specialized Active Directory operations.
+        </Description>
     </PropertyGroup>
 
     <ItemGroup>

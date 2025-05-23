@@ -4,6 +4,11 @@
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
         <Version>0.7.1</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>
+            Core JWT (JSON Web Token) contracts and interfaces for ASP.NET Core applications.
+            Provides abstractions for token generation, validation, and refresh operations
+            with a clean API design for authentication and authorization services.
+        </Description>
     </PropertyGroup>
 
     <ItemGroup>

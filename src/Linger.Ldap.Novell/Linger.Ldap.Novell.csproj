@@ -4,6 +4,11 @@
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
         <Version>0.7.1</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>
+            Implementation of LDAP client functionality using the Novell.Directory.Ldap provider.
+            Provides cross-platform LDAP connectivity with features such as authentication, 
+            user information retrieval, group management, and secure connections.
+        </Description>
     </PropertyGroup>
 
     <ItemGroup>

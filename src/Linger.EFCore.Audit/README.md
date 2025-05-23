@@ -1,5 +1,7 @@
 ﻿# Linger.EFCore.Audit
 
+> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+
 An Entity Framework Core audit trail library for automatically tracking data changes.
 
 ## ✨ Features

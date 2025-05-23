@@ -2,7 +2,12 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;</TargetFrameworks>
-        <Version>0.7.1</Version>        
+        <Version>0.7.1</Version>
+        <Description>
+            Excel operations implementation based on NPOI library for the Linger.Excel framework.
+            Provides high-performance Excel file reading, writing, and manipulation capabilities
+            with support for both .xlsx and legacy .xls formats without requiring Microsoft Office.
+        </Description>
     </PropertyGroup>
 
     <ItemGroup>

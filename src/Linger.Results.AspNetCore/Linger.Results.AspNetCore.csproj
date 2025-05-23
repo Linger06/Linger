@@ -4,6 +4,11 @@
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
         <Version>0.7.1</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>
+            ASP.NET Core integration for Linger.Results library, providing extension methods to
+            seamlessly convert Result objects to ActionResults with appropriate HTTP status codes.
+            Simplifies API response handling with RFC 7807 support and automatic status mapping.
+        </Description>
     </PropertyGroup>
 
     <ItemGroup>

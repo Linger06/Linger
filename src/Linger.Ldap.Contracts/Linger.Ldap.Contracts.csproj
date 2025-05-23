@@ -4,6 +4,11 @@
         <TargetFrameworks>net9.0;net8.0;netstandard2.0</TargetFrameworks>
         <Version>0.7.1</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>
+            Core abstractions and interfaces for LDAP directory operations in .NET applications.
+            Defines data contracts, configuration models, and service interfaces for user authentication,
+            information retrieval, and directory operations independent of LDAP provider implementation.
+        </Description>
     </PropertyGroup>
 
     <ItemGroup>

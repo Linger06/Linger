@@ -1,35 +1,35 @@
-﻿# Linger.Results
+# Linger.Results
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-A modern operation result handling library designed with a functional style approach, helping developers handle various operation results more elegantly. By using the Result pattern instead of exceptions, it enables more controllable and predictable error handling processes.
+Linger.Results 是一个现代化的操作结果处理库，采用函数式风格设计，帮助开发者更优雅地处理各种操作结果。通过使用 Result 模式而非异常机制，可以实现更可控、可预测的错误处理流程。
 
-## Features
+## 特点
 
-- Provides clear success/failure result representation
-- Supports generic results that can carry return values of any type
-- Offers rich functional operations (mapping, binding, combining, etc.)
-- Strong typing for error handling, more controllable than exceptions
-- Supports multiple frameworks including .NET 9.0, .NET 8.0, .NET Standard 2.0, and .NET Framework 4.7.2
+- 提供清晰的成功/失败结果表示
+- 支持泛型结果，可携带任意类型的返回值
+- 提供丰富的函数式操作（映射、绑定、组合等）
+- 强类型的错误处理，比异常更可控
+- 支持 .NET 9.0、.NET 8.0、.NET Standard 2.0 和 .NET Framework 4.7.2 等多种框架
 
-## Installation
+## 安装
 
 ```shell
 dotnet add package Linger.Results
 ```
 
-## Basic Usage
+## 基本用法
 
-### Creating Results
+### 创建结果
 
 ```csharp
-// Create success results
+// 创建成功结果
 var success = Result.Success();
 var successWithValue = Result.Success(42);
 
-// Create failure results
-var failure = Result.Failure("Operation failed");
-var failureWithError = Result.Failure(new Error("ErrorCode", "Detailed error message"));
+// 创建失败结果
+var failure = Result.Failure("操作失败");
+var failureWithError = Result.Failure(new Error("ErrorCode", "详细错误信息"));
 
 // 创建未找到结果
 var notFound = Result.NotFound();

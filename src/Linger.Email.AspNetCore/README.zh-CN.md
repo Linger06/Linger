@@ -1,41 +1,41 @@
-﻿# Linger.Email.AspNetCore
+# Linger.Email.AspNetCore
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
 
-## Overview
+## 概述
 
-Linger.Email.AspNetCore provides ASP.NET Core integration for the Linger.Email library, making it easy to send emails in your ASP.NET Core applications. It includes dependency injection extensions and configuration integration to simplify email setup and management.
+Linger.Email.AspNetCore 提供了 ASP.NET Core 与 Linger.Email 库的集成，使在 ASP.NET Core 应用程序中发送电子邮件变得简单。它包括依赖注入扩展和配置集成，简化了电子邮件的设置和管理。
 
-## Supported .NET versions
+## 支持的 .NET 版本
 
 - .NET 9.0
 - .NET 8.0
 
-## Installation
+## 安装
 
 ```bash
 dotnet add package Linger.Email.AspNetCore
 ```
 
-## Features
+## 功能特点
 
-- Simple integration with ASP.NET Core dependency injection
-- Configuration binding from appsettings.json
-- Support for multiple named email configurations
-- Logging integration
-- Fully compatible with Linger.Email features
+- 与 ASP.NET Core 依赖注入的简单集成
+- 从 appsettings.json 进行配置绑定
+- 支持多个命名电子邮件配置
+- 日志集成
+- 完全兼容 Linger.Email 功能
 
-## Basic Usage
+## 基本用法
 
-### Configuration
+### 配置
 
-Add email settings to your `appsettings.json`:
+将电子邮件设置添加到您的 `appsettings.json`：
 
 ```json
 {
   "EmailOptions": {
     "DefaultFromEmail": "noreply@example.com",
-    "DefaultFromName": "My Application",
+    "DefaultFromName": "我的应用程序",
     "Smtp": {
       "Host": "smtp.example.com",
       "Port": 587,
@@ -47,9 +47,9 @@ Add email settings to your `appsettings.json`:
 }
 ```
 
-### Service Registration
+### 服务注册
 
-In your `Program.cs` or `Startup.cs`:
+在 `Program.cs` 或 `Startup.cs` 中：
 
 ```csharp
 using Linger.Email.AspNetCore;
@@ -57,13 +57,13 @@ using Linger.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add email services
+// 添加邮件服务
 builder.Services.AddEmailServices(builder.Configuration);
 
-// Or with custom configuration
+// 或使用自定义配置
 builder.Services.AddEmailServices(options => {
     options.DefaultFromEmail = "noreply@example.com";
-    options.DefaultFromName = "My Application";
+    options.DefaultFromName = "我的应用程序";
     options.Smtp = new SmtpOptions {
         Host = "smtp.example.com",
         Port = 587,
@@ -74,7 +74,7 @@ builder.Services.AddEmailServices(options => {
 });
 ```
 
-### Using Email Service
+### 使用电子邮件服务
 
 ```csharp
 using Linger.Email;
@@ -100,35 +100,35 @@ public class EmailController : ControllerBase
         };
         
         await _emailSender.SendAsync(message);
-        return Ok("Email sent successfully");
+        return Ok("电子邮件发送成功");
     }
 }
 ```
 
-## Advanced Features
+## 高级功能
 
-### Multiple Email Configurations
+### 多个电子邮件配置
 
-Configure multiple email providers:
+配置多个电子邮件提供程序：
 
 ```csharp
-// In your startup
+// 在启动时
 builder.Services.AddEmailServices(options => {
-    // Configure default options
+    // 配置默认选项
 })
 .AddNamedEmailOptions("marketing", options => {
     options.DefaultFromEmail = "marketing@example.com";
-    options.DefaultFromName = "Marketing Team";
-    // Other settings...
+    options.DefaultFromName = "营销团队";
+    // 其他设置...
 })
 .AddNamedEmailOptions("support", options => {
     options.DefaultFromEmail = "support@example.com";
-    options.DefaultFromName = "Support Team";
-    // Other settings...
+    options.DefaultFromName = "支持团队";
+    // 其他设置...
 });
 ```
 
-Using named email senders:
+使用命名电子邮件发送器：
 
 ```csharp
 public class NotificationService
@@ -157,17 +157,17 @@ public class NotificationService
 }
 ```
 
-## Dependencies
+## 依赖项
 
-- [Linger.Email](../Linger.Email): Core email functionality
-- [Linger.Configuration](../Linger.Configuration): Configuration abstractions
+- [Linger.Email](../Linger.Email)：核心电子邮件功能
+- [Linger.Configuration](../Linger.Configuration)：配置抽象
 - Microsoft.Extensions.Logging.Abstractions
 - Microsoft.Extensions.Options.ConfigurationExtensions
 
-## License
+## 许可证
 
-This project is licensed under the terms of the license provided with the Linger project.
+本项目根据 Linger 项目提供的许可条款授权。
 
-## Contributing
+## 贡献
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+欢迎贡献！请随时提交 Pull Request。

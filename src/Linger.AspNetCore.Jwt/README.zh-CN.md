@@ -1,5 +1,7 @@
 # Linger.AspNetCore.Jwt
 
+> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
+
 一个用于处理JWT令牌认证的C#辅助库，支持灵活的刷新令牌实现。
 
 ## 支持的 .NET 版本

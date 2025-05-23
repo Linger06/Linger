@@ -1,8 +1,11 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">    <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0</TargetFrameworks>
-        <Version>0.7.1</Version>        
+        <Version>0.7.1</Version>
+        <Description>
+            A C# email helper library that provides simplified email operations, SMTP support, HTML and plain text emails,
+            attachment handling, and asynchronous sending capabilities. Built on top of MailKit for robust and secure
+            email communication across multiple .NET frameworks.
+        </Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 

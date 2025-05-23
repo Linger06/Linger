@@ -1,8 +1,12 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">    <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-        <Version>0.7.1</Version>        
+        <Version>0.7.1</Version>
+        <Description>
+            A modern functional-style operation result handling library for .NET applications. 
+            Provides a more elegant alternative to exception handling with strongly-typed Results
+            that support chaining, mapping, binding, and other functional operations.
+            Simplifies error flow control and improves code readability.
+        </Description>
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 

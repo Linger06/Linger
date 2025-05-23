@@ -1,30 +1,32 @@
 ﻿# Linger.Ldap.Contracts
 
-一个C#的LDAP契约库，提供了跨多个.NET平台的LDAP目录服务集成的标准化接口和模型。
+> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-## 介绍
+A C# LDAP contract library that provides standardized interfaces and models for integrating LDAP directory services across multiple .NET platforms.
 
-Linger.Ldap.Contracts提供了一组标准化的LDAP操作接口和模型，使得在不同的.NET应用程序中实现一致的LDAP功能变得更加容易。
+## Introduction
 
-## 特性
+Linger.Ldap.Contracts provides a set of standardized LDAP operation interfaces and models, making it easier to implement consistent LDAP functionality across different .NET applications.
 
-### 核心契约
-- 标准化的LDAP操作接口
-- 通用的LDAP属性定义
-- 跨平台兼容的模型
-- 类型安全的LDAP操作
+## Features
 
-### 模型支持
-- 全面的用户属性映射
-- 组和组织单位模型
-- 搜索过滤器定义
-- 连接参数契约
+### Core Contracts
+- Standardized LDAP operation interfaces
+- Common LDAP attribute definitions
+- Cross-platform compatible models
+- Type-safe LDAP operations
 
-## ASP.NET Core集成
+### Model Support
+- Comprehensive user attribute mappings
+- Groups and organizational unit models
+- Search filter definitions
+- Connection parameter contracts
 
-### 配置服务
+## ASP.NET Core Integration
 
-在ASP.NET Core项目中，您可以通过依赖注入来使用LDAP服务：
+### Configuring Services
+
+In ASP.NET Core projects, you can utilize LDAP services through dependency injection:
 
 ```csharp
 // 在Program.cs或Startup.cs中配置服务

@@ -2,7 +2,12 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-        <Version>0.7.1</Version>        
+        <Version>0.7.1</Version>
+        <Description>
+            An Entity Framework Core audit trail library for automatically tracking data changes.
+            Captures entity creation, modification, and deletion events with old and new values.
+            Provides configurable audit logging with support for user tracking and timestamping.
+        </Description>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 

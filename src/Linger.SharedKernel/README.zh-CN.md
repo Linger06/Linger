@@ -1,43 +1,43 @@
-﻿# Linger.SharedKernel
+# Linger.SharedKernel
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-## Overview
+## 概述
 
-Linger.SharedKernel provides the core domain primitives and shared abstractions for building applications with the Linger framework. It serves as a foundation for implementing Domain-Driven Design (DDD) patterns across multiple projects.
+Linger.SharedKernel 提供了使用 Linger 框架构建应用程序的核心领域原语和共享抽象。它作为跨多个项目实现领域驱动设计 (DDD) 模式的基础。
 
-## Features
+## 功能特点
 
-- Base search models for building rich query capabilities
-- Expression-based filtering system
-- Pagination support with sorting and filtering
-- Reusable domain abstractions
-- Cross-cutting concerns like searching and pagination
+- 用于构建丰富查询功能的基础搜索模型
+- 基于表达式的过滤系统
+- 带排序和过滤的分页支持
+- 可重用的领域抽象
+- 搜索和分页等横切关注点
 
-## Installation
+## 安装
 
 ```shell
 dotnet add package Linger.SharedKernel
 ```
 
-## Usage
+## 使用方法
 
-### Basic Search Implementation
+### 基本搜索实现
 
 ```csharp
-// Create a domain-specific search model
+// 创建特定领域的搜索模型
 public class UserSearch : BaseSearch
 {
     public string? Username { get; set; }
     public DateTime? RegistrationDateFrom { get; set; }
     public DateTime? RegistrationDateTo { get; set; }
     
-    // Optional: Override methods to add custom filtering logic
+    // 可选：重写方法添加自定义过滤逻辑
     public override Expression<Func<User, bool>> GetSearchModelExpression<User>()
     {
         var expression = base.GetSearchModelExpression<User>();
         
-        // Add custom conditions
+        // 添加自定义条件
         if (!Username.IsNullOrEmpty())
         {
             this.SearchParameters.Add(new Condition
@@ -63,10 +63,10 @@ public class UserSearch : BaseSearch
 }
 ```
 
-### Implementing Paged Searches
+### 实现分页搜索
 
 ```csharp
-// Create a paged search model
+// 创建分页搜索模型
 public class ProductPagedSearch : BaseSearchPageList
 {
     public decimal? MinPrice { get; set; }
@@ -74,7 +74,7 @@ public class ProductPagedSearch : BaseSearchPageList
     public string? Category { get; set; }
 }
 
-// Using the search model in a repository or service
+// 在存储库或服务中使用搜索模型
 public class ProductService
 {
     private readonly IRepository<Product> _repository;
@@ -86,19 +86,19 @@ public class ProductService
     
     public async Task<PagedResult<ProductDto>> SearchProductsAsync(ProductPagedSearch search)
     {
-        // The BaseSearchPageList properties will handle pagination
+        // BaseSearchPageList 属性将处理分页
         var expression = search.GetSearchModelExpression<Product>();
         
-        // Apply the search expression
+        // 应用搜索表达式
         var query = _repository.Query().Where(expression);
         
-        // Apply sorting if specified
+        // 如果指定了排序，则应用排序
         if (!string.IsNullOrEmpty(search.Sorting))
         {
             query = query.ApplySorting(search.Sorting);
         }
         
-        // Apply pagination
+        // 应用分页
         var totalCount = await query.CountAsync();
         var items = await query
             .Skip((search.PageIndex - 1) * search.PageSize)
@@ -115,17 +115,17 @@ public class ProductService
 }
 ```
 
-### Advanced Filtering with Conditions
+### 使用条件进行高级过滤
 
 ```csharp
 var search = new BaseSearch();
 
-// Add conditions programmatically
+// 以编程方式添加条件
 search.SearchParameters.Add(new Condition 
 {
     Field = "Name",
     Operator = Operators.Contains,
-    Value = "John"
+    Value = "张三"
 });
 
 search.SearchParameters.Add(new Condition 
@@ -135,31 +135,31 @@ search.SearchParameters.Add(new Condition
     Value = 18
 });
 
-// Add OR conditions
+// 添加 OR 条件
 search.SearchOrParameters.Add(new Condition 
 {
     Field = "Email",
     Operator = Operators.EndsWith,
-    Value = "@gmail.com"
+    Value = "@qq.com"
 });
 
 search.SearchOrParameters.Add(new Condition 
 {
     Field = "Email",
     Operator = Operators.EndsWith,
-    Value = "@outlook.com"
+    Value = "@163.com"
 });
 
-// Apply to a LINQ query
+// 应用到 LINQ 查询
 var expression = search.GetSearchModelExpression<Customer>();
 var results = dbContext.Customers.Where(expression).ToList();
 ```
 
-## Dependencies
+## 依赖项
 
-- Linger (core package)
+- Linger (核心包)
 
-## Target Frameworks
+## 目标框架
 
 - .NET Framework 4.7.2+
 - .NET Standard 2.0+

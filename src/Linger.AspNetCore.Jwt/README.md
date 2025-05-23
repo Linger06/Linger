@@ -1,5 +1,7 @@
 ﻿# Linger.AspNetCore.Jwt
 
+> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+
 A C# helper library for handling JWT token authentication with flexible refresh token implementation.
 
 ## Supported .NET Versions

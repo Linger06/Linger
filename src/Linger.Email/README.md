@@ -1,5 +1,7 @@
 ﻿# Linger.Email
 
+> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+
 A C# email helper library that provides simplified email operations and SMTP support for .NET Framework 4.6.2+ and .NET Standard 2.0+.
 
 ## Introduction
