@@ -437,4 +437,27 @@ public static class IEnumerableExtensions
 
         return result.ToList();
     }
+
+    /// <summary>
+    /// Paginates the <see cref="IEnumerable{T}"/> based on the specified page index and page size.
+    /// </summary>
+    /// <typeparam name="T">The type of the elements in the enumerable.</typeparam>
+    /// <param name="source">The <see cref="IEnumerable{T}"/> to paginate.</param>
+    /// <param name="pageIndex">The index of the page to retrieve (1-based).</param>
+    /// <param name="pageSize">The size of the page to retrieve.</param>
+    /// <returns>A paginated <see cref="IEnumerable{T}"/>.</returns>
+    /// <example>
+    /// <code>
+    /// var enumerable = new[] { 1, 2, 3, 4, 5 };
+    /// var result = enumerable.Paging(2, 2);
+    /// // Output: [3, 4]
+    /// </code>
+    /// </example>
+    public static IEnumerable<T> Paging<T>(this IEnumerable<T>? source, int pageIndex, int pageSize)
+    {
+        if (source is null)
+            return Enumerable.Empty<T>();
+
+        return source.Skip((pageIndex - 1) * pageSize).Take(pageSize);
+    }
 }

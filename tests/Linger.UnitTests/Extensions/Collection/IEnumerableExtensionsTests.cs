@@ -348,6 +348,66 @@ public class IEnumerableExtensionsTests
         Assert.Equal("a,,b", result);
     }
 
+    [Fact]
+    public void Paging_ReturnsCorrectPageForIntegers()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3, 4, 5 };
+
+        var result = enumerable.Paging(2, 2).ToList();
+
+        Assert.Equal(new List<int> { 3, 4 }, result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmptyForOutOfRangePage()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3 };
+
+        var result = enumerable.Paging(4, 2).ToList();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsPartialPageForLastPage()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3, 4 };
+
+        var result = enumerable.Paging(2, 3).ToList();
+
+        Assert.Equal(new List<int> { 4 }, result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmptyForEmptyEnumerable()
+    {
+        IEnumerable<int> enumerable = Array.Empty<int>();
+
+        var result = enumerable.Paging(1, 2).ToList();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmptyForNullEnumerable()
+    {
+        IEnumerable<int>? enumerable = null;
+
+        var result = enumerable.Paging(1, 2).ToList();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Paging_WorksWithStrings()
+    {
+        IEnumerable<string> enumerable = new[] { "A", "B", "C", "D", "E" };
+
+        var result = enumerable.Paging(2, 2).ToList();
+
+        Assert.Equal(new List<string> { "C", "D" }, result);
+    }
+
     [Sample]
     private class SampleClass
     {

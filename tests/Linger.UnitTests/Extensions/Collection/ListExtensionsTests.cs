@@ -2,6 +2,7 @@
 
 public class ListExtensionsTests
 {
+    // String-specific Paging tests
     [Fact]
     public void Paging_ReturnsCorrectPage()
     {
@@ -40,6 +41,75 @@ public class ListExtensionsTests
         List<string>? result = list.Paging(1, 2);
 
         Assert.Empty(result);
+    }
+
+    // Generic Paging tests
+    [Fact]
+    public void PagingGeneric_ReturnsCorrectPageForIntegers()
+    {
+        var list = new List<int> { 1, 2, 3, 4, 5 };
+
+        List<int> result = list.Paging(2, 2);
+
+        Assert.Equal(new List<int> { 3, 4 }, result);
+    }
+
+    [Fact]
+    public void PagingGeneric_ReturnsEmptyListForOutOfRangePage()
+    {
+        var list = new List<int> { 1, 2, 3 };
+
+        List<int> result = list.Paging(4, 2);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void PagingGeneric_ReturnsPartialPageForLastPage()
+    {
+        var list = new List<int> { 1, 2, 3, 4 };
+
+        List<int> result = list.Paging(2, 3);
+
+        Assert.Equal(new List<int> { 4 }, result);
+    }
+
+    [Fact]
+    public void PagingGeneric_ReturnsEmptyListForEmptyInputList()
+    {
+        var list = new List<int>();
+
+        List<int> result = list.Paging(1, 2);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void PagingGeneric_ReturnsEmptyListForNullInputList()
+    {
+        List<int>? list = null;
+
+        List<int> result = list.Paging(1, 2);
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void PagingGeneric_WorksWithCustomObjects()
+    {
+        var list = new List<SampleClass>
+        {
+            new SampleClass { Id = 1, Name = "First" },
+            new SampleClass { Id = 2, Name = "Second" },
+            new SampleClass { Id = 3, Name = "Third" },
+            new SampleClass { Id = 4, Name = "Fourth" }
+        };
+
+        List<SampleClass> result = list.Paging(2, 2);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(3, result[0].Id);
+        Assert.Equal(4, result[1].Id);
     }
 
     [Fact]

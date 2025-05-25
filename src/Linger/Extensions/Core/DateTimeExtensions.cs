@@ -50,8 +50,16 @@ public static class DateTimeExtensions
             _ => TimeUnit.Days
         };
         return GetDateDifference(dateTime1, dateTime2, timeUnit, abs);
-    }
-
+    }    /// <summary>
+    /// Converts the DateTime to a string using the specified date mode.
+    /// </summary>
+    /// <param name="dateTime">The DateTime instance to format.</param>
+    /// <param name="dateMode">The date mode to use.</param>
+    /// <returns>A formatted string representation of the DateTime.</returns>
+    /// <remarks>
+    /// This method is obsolete. Use ToFormatDate() or ToFormatDateTime() methods instead, or use DateTime.ToString(format) directly.
+    /// </remarks>
+    [Obsolete("Use ToFormatDate() or ToFormatDateTime() methods instead, or use DateTime.ToString(format) directly. This method will be removed in a future version.")]
     public static string ToStringOfMode(this DateTime dateTime, int dateMode)
     {
         return dateMode switch
