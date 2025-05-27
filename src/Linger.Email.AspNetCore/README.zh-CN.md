@@ -27,29 +27,27 @@ dotnet add package Linger.Email.AspNetCore
 
 ## 基本用法
 
-### 配置
+### 配置与服务注册
 
-将电子邮件设置添加到您的 `appsettings.json`：
+1. 将电子邮件设置添加到您的 `appsettings.json`：
 
 ```json
 {
-  "EmailOptions": {
-    "DefaultFromEmail": "noreply@example.com",
-    "DefaultFromName": "我的应用程序",
-    "Smtp": {
-      "Host": "smtp.example.com",
-      "Port": 587,
-      "Username": "username",
-      "Password": "password",
-      "EnableSsl": true
+  "EmailConfig": {
+    "Host": "smtp.example.com",
+    "Port": 587,
+    "UseSsl": true,
+    "UserName": "username",
+    "Password": "password",
+    "From": {
+      "Name": "我的应用程序",
+      "Address": "noreply@example.com"
     }
   }
 }
 ```
 
-### 服务注册
-
-在 `Program.cs` 或 `Startup.cs` 中：
+2. 在 `Program.cs` 或 `Startup.cs` 中注册服务：
 
 ```csharp
 using Linger.Email.AspNetCore;
@@ -57,21 +55,11 @@ using Linger.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 添加邮件服务
-builder.Services.AddEmailServices(builder.Configuration);
+// 方式1：使用 ConfigureEmail 配置服务
+builder.Services.ConfigureEmail(builder.Configuration);
 
-// 或使用自定义配置
-builder.Services.AddEmailServices(options => {
-    options.DefaultFromEmail = "noreply@example.com";
-    options.DefaultFromName = "我的应用程序";
-    options.Smtp = new SmtpOptions {
-        Host = "smtp.example.com",
-        Port = 587,
-        Username = "username",
-        Password = "password",
-        EnableSsl = true
-    };
-});
+// 方式2：或使用 ConfigureMailKit 配置服务
+builder.Services.ConfigureMailKit(builder.Configuration);
 ```
 
 ### 使用电子邮件服务
@@ -81,11 +69,11 @@ using Linger.Email;
 
 public class EmailController : ControllerBase
 {
-    private readonly IEmailSender _emailSender;
+    private readonly IEmailService _emailService;
     
-    public EmailController(IEmailSender emailSender)
+    public EmailController(IEmailService emailService)
     {
-        _emailSender = emailSender;
+        _emailService = emailService;
     }
     
     [HttpPost("send-email")]
@@ -93,13 +81,13 @@ public class EmailController : ControllerBase
     {
         var message = new EmailMessage
         {
-            To = model.To,
+            To = new List<EmailAddress> { new EmailAddress { Address = model.To } },
             Subject = model.Subject,
             Body = model.Body,
-            IsBodyHtml = true
+            IsHtmlBody = true
         };
         
-        await _emailSender.SendAsync(message);
+        await _emailService.SendAsync(message);
         return Ok("电子邮件发送成功");
     }
 }
@@ -109,23 +97,25 @@ public class EmailController : ControllerBase
 
 ### 多个电子邮件配置
 
-配置多个电子邮件提供程序：
+您可以为不同的应用部分配置不同的电子邮件配置：
 
 ```csharp
 // 在启动时
-builder.Services.AddEmailServices(options => {
-    // 配置默认选项
-})
-.AddNamedEmailOptions("marketing", options => {
-    options.DefaultFromEmail = "marketing@example.com";
-    options.DefaultFromName = "营销团队";
-    // 其他设置...
-})
-.AddNamedEmailOptions("support", options => {
-    options.DefaultFromEmail = "support@example.com";
-    options.DefaultFromName = "支持团队";
-    // 其他设置...
-});
+// 主要电子邮件服务
+builder.Services.Configure<EmailConfig>(builder.Configuration.GetSection("PrimaryEmailConfig"));
+services.AddTransient<IEmailService, EmailService>();
+
+// 营销电子邮件服务
+var marketingConfig = new EmailConfig
+{
+    Host = "smtp-marketing.example.com",
+    Port = 587,
+    UseSsl = true,
+    UserName = "marketing",
+    Password = "password123",
+    From = new EmailAddress { Name = "营销团队", Address = "marketing@example.com" }
+};
+builder.Services.AddSingleton<MarketingEmailService>(sp => new MarketingEmailService(marketingConfig));
 ```
 
 使用命名电子邮件发送器：
@@ -133,26 +123,25 @@ builder.Services.AddEmailServices(options => {
 ```csharp
 public class NotificationService
 {
-    private readonly IEmailSenderFactory _emailSenderFactory;
+    private readonly IEmailService _emailService;
+    private readonly MarketingEmailService _marketingEmailService;
     
-    public NotificationService(IEmailSenderFactory emailSenderFactory)
+    public NotificationService(
+        IEmailService emailService, 
+        MarketingEmailService marketingEmailService)
     {
-        _emailSenderFactory = emailSenderFactory;
+        _emailService = emailService;
+        _marketingEmailService = marketingEmailService;
     }
     
-    public async Task SendMarketingEmail(string to, string subject, string body)
+    public async Task SendRegularEmail(EmailMessage message)
     {
-        var emailSender = _emailSenderFactory.Create("marketing");
-        
-        var message = new EmailMessage
-        {
-            To = to,
-            Subject = subject,
-            Body = body,
-            IsBodyHtml = true
-        };
-        
-        await emailSender.SendAsync(message);
+        await _emailService.SendAsync(message);
+    }
+    
+    public async Task SendMarketingEmail(EmailMessage message)
+    {
+        await _marketingEmailService.SendAsync(message);
     }
 }
 ```

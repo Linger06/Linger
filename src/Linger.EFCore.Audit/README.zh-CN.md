@@ -41,9 +41,10 @@ dotnet add package Linger.EFCore.Audit
 将审计功能集成到您的 EF Core DbContext 中：
 
 ```csharp
+// 1. 在你的 DbContext 中添加审计跟踪
 public class AppDbContext : DbContext
 {
-    // 您的 DbContext 配置...
+    public DbSet<AuditTrailEntry> AuditTrails { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -52,22 +53,17 @@ public class AppDbContext : DbContext
         // 应用审计配置
         modelBuilder.ApplyAudit();
     }
-    
-    public DbSet<AuditTrailEntry> AuditTrails { get; set; }
-    
-    public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        // 在保存前捕获审计信息
-        var auditEntries = this.CaptureAuditEntries();
-        
-        var result = await base.SaveChangesAsync(cancellationToken);
-        
-        // 处理审计条目
-        await this.ProcessAuditEntries(auditEntries);
-        
-        return result;
-    }
 }
+
+// 2. 注册审计拦截器
+services.AddDbContext<AppDbContext>(options => 
+{
+    options.AddInterceptors(sp => 
+        new AuditEntitiesSaveChangesInterceptor(
+            sp.GetRequiredService<IAuditUserProvider>()
+        )
+    );
+});
 ```
 
 ## 📋 使用示例
@@ -97,14 +93,33 @@ await dbContext.SaveChangesAsync();  // 这将生成一个"删除"审计记录
 
 ### 设置当前用户信息
 
-审计记录可以包括执行操作的用户信息：
+审计记录可以包括执行操作的用户信息。要实现这一点，需要提供 `IAuditUserProvider` 接口的实现：
 
 ```csharp
-// 在应用程序中设置当前用户
-dbContext.SetAuditUserId("user123");
-dbContext.SetAuditUsername("张三");
+// 1. 实现审计用户提供程序
+public class CurrentUserProvider : IAuditUserProvider 
+{ 
+    // 可以从当前认证系统获取用户信息
+    public string? UserName => "张三"; 
+    
+    public string GetUser() => UserName ?? "匿名用户"; 
+}
 
-// 现在所有操作都将包含此用户信息
+// 2. 在依赖注入容器中注册
+services.AddScoped<IAuditUserProvider, CurrentUserProvider>();
+
+// 3. 在拦截器中使用
+services.AddDbContext<AppDbContext>(options => 
+{
+    options.UseSqlServer(connectionString);
+    options.AddInterceptors(sp => 
+        new AuditEntitiesSaveChangesInterceptor(
+            sp.GetRequiredService<IAuditUserProvider>()
+        )
+    );
+});
+
+// 现在所有操作都将自动包含用户信息
 var product = new Product { Name = "示例产品", Price = 100.00m };
 dbContext.Products.Add(product);
 await dbContext.SaveChangesAsync();  // 审计记录包含用户ID和用户名
@@ -112,53 +127,86 @@ await dbContext.SaveChangesAsync();  // 审计记录包含用户ID和用户名
 
 ### 查询审计记录
 
+审计记录保存在 `AuditTrails` DbSet 中，可以通过多种方式查询：
+
 ```csharp
 // 查找与特定实体相关的所有审计记录
 var entityAudits = await dbContext.AuditTrails
     .Where(a => a.EntityId == "123" && a.EntityType == "User")
-    .OrderBy(a => a.CreatedAt)
+    .OrderBy(a => a.TimeStamp)
     .ToListAsync();
 
 // 显示审计历史
 foreach (var audit in entityAudits)
 {
-    Console.WriteLine($"操作: {audit.AuditType}, 时间: {audit.CreatedAt}, 用户: {audit.Username}");
+    Console.WriteLine($"操作: {audit.AuditType}, 时间: {audit.TimeStamp}, 用户: {audit.Username}");
     
-    if (audit.Changes != null)
+    // 显示所有更改的属性
+    if (audit.AffectedColumns != null)
     {
-        Console.WriteLine("变更:");
-        foreach (var change in audit.Changes)
+        Console.WriteLine("变更的属性:");
+        foreach (var column in audit.AffectedColumns)
         {
-            Console.WriteLine($"  {change.PropertyName}: 旧值 = {change.OldValue}, 新值 = {change.NewValue}");
+            var oldValue = audit.OldValues?[column];
+            var newValue = audit.NewValues?[column];
+            Console.WriteLine($"  {column}: 旧值 = {oldValue}, 新值 = {newValue}");
         }
     }
 }
+
+// 按用户查询审计记录
+var userAudits = await dbContext.AuditTrails
+    .Where(a => a.Username == "张三")
+    .OrderByDescending(a => a.TimeStamp)
+    .Take(10)
+    .ToListAsync();
+
+// 查询特定时间范围内的审计记录
+var startDate = DateTimeOffset.Now.AddDays(-7);
+var endDate = DateTimeOffset.Now;
+
+var recentAudits = await dbContext.AuditTrails
+    .Where(a => a.TimeStamp >= startDate && a.TimeStamp <= endDate)
+    .OrderBy(a => a.TimeStamp)
+    .ToListAsync();
+```
 ```
 
-## 📄 API 参考
+## 📄 审计跟踪数据
 
-### AuditTrailEntry 类
-
-表示单个审计记录的主要类：
+`AuditTrailEntry` 类是表示单个审计记录的主要类：
 
 ```csharp
 public class AuditTrailEntry
 {
     public long Id { get; set; }
-    public string? UserId { get; set; }
     public string? Username { get; set; }
-    public AuditType AuditType { get; set; }  // 创建、更新或删除
-    public string EntityType { get; set; }
-    public string EntityId { get; set; }
-    public string? TableName { get; set; }
+    public AuditType AuditType { get; set; }  // Added、Modified或Deleted
+    public string EntityName { get; set; }
+    public string? EntityId { get; set; }
     public Dictionary<string, object>? OldValues { get; set; }
     public Dictionary<string, object>? NewValues { get; set; }
-    public List<AuditChange>? Changes { get; set; }
     public List<string>? AffectedColumns { get; set; }
-    public DateTimeOffset CreatedAt { get; set; }
-    // ... 其他属性
+    public DateTimeOffset TimeStamp { get; set; }
+    public Dictionary<string, object>? Changes { get; set; }
+    public IEnumerable<PropertyEntry>? TempProperties { get; set; }
 }
 ```
+
+`AuditTrailEntry` 捕获：
+- 实体名称和 ID
+- 变更类型（Added/Modified/Deleted）
+- 执行变更的用户名
+- 时间戳
+- 属性的旧值和新值
+- 已修改属性列表
+```
+
+## 🔍 自动跟踪
+
+- 创建审计：CreatorId, CreationTime
+- 修改审计：LastModifierId, LastModificationTime
+- 软删除：IsDeleted, DeleterId, DeletionTime
 
 ## 🔄 与其他 Linger 库集成
 

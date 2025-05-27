@@ -23,6 +23,35 @@ Linger.Email simplifies email operations in .NET applications by providing an ea
 - Custom port configuration
 - Authentication options
 
+## Setup & Configuration
+
+Before using Linger.Email, you need to configure the email client. There are two main approaches:
+
+### Direct instantiation (for non-ASP.NET Core projects)
+
+```csharp
+// Create email configuration
+var emailConfig = new EmailConfig
+{
+    Host = "smtp.example.com",
+    Port = 587,
+    UseSsl = true,
+    UserName = "username",
+    Password = "password",
+    From = new EmailAddress { Address = "noreply@example.com", Name = "Example System" }
+};
+
+// Create email service
+var emailService = new Email(emailConfig);
+
+// Now you can use emailService to send emails
+```
+
+### Dependency Injection (for ASP.NET Core projects)
+
+For ASP.NET Core projects, please use the [Linger.Email.AspNetCore](../Linger.Email.AspNetCore) package to simplify email service configuration and dependency injection. Refer to that package's documentation for detailed usage.
+```
+
 ## Usage Examples
 
 ### Basic Email Sending
@@ -30,8 +59,8 @@ Linger.Email simplifies email operations in .NET applications by providing an ea
 // Simple text email 
 var email = new EmailMessage 
 { 
-    From = "sender@example.com", 
-    To = new[] { "recipient@example.com" }, 
+    From = new EmailAddress { Address = "sender@example.com" }, 
+    To = new List<EmailAddress> { new EmailAddress { Address = "recipient@example.com" } }, 
     Subject = "Hello", 
     Body = "This is a test email" 
 };
@@ -40,10 +69,14 @@ await emailService.SendAsync(email);
 // Multiple recipients 
 var groupEmail = new EmailMessage 
 { 
-    From = "sender@example.com", 
-    To = new[] { "recipient1@example.com", "recipient2@example.com" }, 
-    Cc = new[] { "manager@example.com" }, 
-    Bcc = new[] { "archive@example.com" }, 
+    From = new EmailAddress { Address = "sender@example.com" }, 
+    To = new List<EmailAddress> 
+    { 
+        new EmailAddress { Address = "recipient1@example.com" }, 
+        new EmailAddress { Address = "recipient2@example.com" } 
+    }, 
+    Cc = new List<EmailAddress> { new EmailAddress { Address = "manager@example.com" } }, 
+    Bcc = new List<EmailAddress> { new EmailAddress { Address = "archive@example.com" } }, 
     Subject = "Team Meeting", 
     Body = "Let's meet tomorrow at 2 PM" 
 };
@@ -56,24 +89,29 @@ await emailService.SendAsync(groupEmail);
 // HTML email with single attachment 
 var reportEmail = new EmailMessage 
 { 
-    From = "reports@company.com", 
-    To = new[] { "manager@company.com" },
+    From = new EmailAddress { Address = "reports@company.com" }, 
+    To = new List<EmailAddress> { new EmailAddress { Address = "manager@company.com" } },
     Subject = "Monthly Report", 
-    IsHtml = true,
-    Body = @" Monthly Sales Report Please find the attached report for this month.  Total Sales: $50,000 Growth: 15% " 
+    IsHtmlBody = true,
+    Body = @"<h1>Monthly Sales Report</h1><p>Please find the attached report for this month.</p><p><strong>Total Sales:</strong> $50,000<br><strong>Growth:</strong> 15%</p>" 
 };
-reportEmail.Attachments.Add(new EmailAttachment("monthly-report.pdf"));
+// Add file path as attachment
+reportEmail.AttachmentsPath = new List<string> { "monthly-report.pdf" };
 await emailService.SendAsync(reportEmail);
 
 // Multiple attachments with custom names 
 var documentsEmail = new EmailMessage
 { 
-    From = "documents@company.com", 
-    To = new[] { "client@example.com" }, 
+    From = new EmailAddress { Address = "documents@company.com" }, 
+    To = new List<EmailAddress> { new EmailAddress { Address = "client@example.com" } }, 
     Subject = "Project Documentation", 
-    IsHtml = true, 
-    Body = "Please find attached the project documents.", 
-    Attachments = new List { new EmailAttachment("specs.pdf", "Project-Specifications.pdf"), new EmailAttachment("timeline.xlsx", "Project-Timeline.xlsx") }
+    IsHtmlBody = true, 
+    Body = "Please find attached the project documents."
+};
+// Add attachment information
+documentsEmail.Attachments = new List<AttachmentInfo> { 
+    new AttachmentInfo { FileName = "Project-Specifications.pdf", Stream = File.OpenRead("specs.pdf") },
+    new AttachmentInfo { FileName = "Project-Timeline.xlsx", Stream = File.OpenRead("timeline.xlsx") }
 };
 await emailService.SendAsync(documentsEmail);
 ```

@@ -116,7 +116,7 @@ public async Task<ActionResult<PagedResult<ProductDto>>> GetProducts([FromQuery]
 }
 ```
 
-### 全局查询过滤器
+### 基于接口的过滤
 
 自动应用软删除过滤器：
 
@@ -136,7 +136,27 @@ public class Customer : ISoftDelete
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     // 为所有实现 ISoftDelete 的实体应用全局过滤器
-    modelBuilder.ApplySoftDeleteFilter();
+    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => !e.IsDeleted);
+}
+```
+
+### 基于属性的过滤
+
+```csharp
+// 多租户过滤示例
+public class ApplicationDbContext : DbContext 
+{
+    private readonly int _currentTenantId;
+    public ApplicationDbContext(int currentTenantId)
+    {
+        _currentTenantId = currentTenantId;
+    }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        // 自动按租户过滤实体
+        modelBuilder.ApplyGlobalFilters("TenantId", _currentTenantId);
+    }
 }
 ```
 
@@ -171,11 +191,11 @@ public interface IMultiTenant
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     // 应用软删除过滤器
-    modelBuilder.ApplySoftDeleteFilter();
+    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => !e.IsDeleted);
     
     // 应用多租户过滤器
     var tenantId = _tenantService.GetCurrentTenantId();
-    modelBuilder.ApplyGlobalFilter<IMultiTenant>(e => e.TenantId == tenantId);
+    modelBuilder.ApplyGlobalFilters<IMultiTenant>(e => e.TenantId == tenantId);
 }
 ```
 

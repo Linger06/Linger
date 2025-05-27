@@ -72,7 +72,7 @@ public class User : ISoftDelete
 protected override void OnModelCreating(ModelBuilder modelBuilder) 
 { 
     // This will automatically filter out soft-deleted entities 
-    modelBuilder.ApplyGlobalFilters(x => !x.IsDeleted); 
+    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => !e.IsDeleted); 
 }
 ```
 

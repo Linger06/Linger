@@ -27,29 +27,27 @@ dotnet add package Linger.Email.AspNetCore
 
 ## Basic Usage
 
-### Configuration
+### Configuration and Service Registration
 
-Add email settings to your `appsettings.json`:
+1. Add email settings to your `appsettings.json`:
 
 ```json
 {
-  "EmailOptions": {
-    "DefaultFromEmail": "noreply@example.com",
-    "DefaultFromName": "My Application",
-    "Smtp": {
-      "Host": "smtp.example.com",
-      "Port": 587,
-      "Username": "username",
-      "Password": "password",
-      "EnableSsl": true
+  "EmailConfig": {
+    "Host": "smtp.example.com",
+    "Port": 587,
+    "UseSsl": true,
+    "UserName": "username",
+    "Password": "password",
+    "From": {
+      "Name": "My Application",
+      "Address": "noreply@example.com"
     }
   }
 }
 ```
 
-### Service Registration
-
-In your `Program.cs` or `Startup.cs`:
+2. Register services in your `Program.cs` or `Startup.cs`:
 
 ```csharp
 using Linger.Email.AspNetCore;
@@ -57,21 +55,11 @@ using Linger.Email;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add email services
-builder.Services.AddEmailServices(builder.Configuration);
+// Option 1: Use ConfigureEmail
+builder.Services.ConfigureEmail(builder.Configuration);
 
-// Or with custom configuration
-builder.Services.AddEmailServices(options => {
-    options.DefaultFromEmail = "noreply@example.com";
-    options.DefaultFromName = "My Application";
-    options.Smtp = new SmtpOptions {
-        Host = "smtp.example.com",
-        Port = 587,
-        Username = "username",
-        Password = "password",
-        EnableSsl = true
-    };
-});
+// Option 2: Or use ConfigureMailKit
+builder.Services.ConfigureMailKit(builder.Configuration);
 ```
 
 ### Using Email Service
@@ -81,11 +69,11 @@ using Linger.Email;
 
 public class EmailController : ControllerBase
 {
-    private readonly IEmailSender _emailSender;
+    private readonly IEmailService _emailService;
     
-    public EmailController(IEmailSender emailSender)
+    public EmailController(IEmailService emailService)
     {
-        _emailSender = emailSender;
+        _emailService = emailService;
     }
     
     [HttpPost("send-email")]
@@ -93,13 +81,13 @@ public class EmailController : ControllerBase
     {
         var message = new EmailMessage
         {
-            To = model.To,
+            To = new List<EmailAddress> { new EmailAddress { Address = model.To } },
             Subject = model.Subject,
             Body = model.Body,
-            IsBodyHtml = true
+            IsHtmlBody = true
         };
         
-        await _emailSender.SendAsync(message);
+        await _emailService.SendAsync(message);
         return Ok("Email sent successfully");
     }
 }
@@ -109,23 +97,25 @@ public class EmailController : ControllerBase
 
 ### Multiple Email Configurations
 
-Configure multiple email providers:
+You can configure different email configurations for different parts of your application:
 
 ```csharp
 // In your startup
-builder.Services.AddEmailServices(options => {
-    // Configure default options
-})
-.AddNamedEmailOptions("marketing", options => {
-    options.DefaultFromEmail = "marketing@example.com";
-    options.DefaultFromName = "Marketing Team";
-    // Other settings...
-})
-.AddNamedEmailOptions("support", options => {
-    options.DefaultFromEmail = "support@example.com";
-    options.DefaultFromName = "Support Team";
-    // Other settings...
-});
+// Primary email service
+builder.Services.Configure<EmailConfig>(builder.Configuration.GetSection("PrimaryEmailConfig"));
+services.AddTransient<IEmailService, EmailService>();
+
+// Marketing email service
+var marketingConfig = new EmailConfig
+{
+    Host = "smtp-marketing.example.com",
+    Port = 587,
+    UseSsl = true,
+    UserName = "marketing",
+    Password = "password123",
+    From = new EmailAddress { Name = "Marketing Team", Address = "marketing@example.com" }
+};
+builder.Services.AddSingleton<MarketingEmailService>(sp => new MarketingEmailService(marketingConfig));
 ```
 
 Using named email senders:
@@ -133,26 +123,25 @@ Using named email senders:
 ```csharp
 public class NotificationService
 {
-    private readonly IEmailSenderFactory _emailSenderFactory;
+    private readonly IEmailService _emailService;
+    private readonly MarketingEmailService _marketingEmailService;
     
-    public NotificationService(IEmailSenderFactory emailSenderFactory)
+    public NotificationService(
+        IEmailService emailService, 
+        MarketingEmailService marketingEmailService)
     {
-        _emailSenderFactory = emailSenderFactory;
+        _emailService = emailService;
+        _marketingEmailService = marketingEmailService;
     }
     
-    public async Task SendMarketingEmail(string to, string subject, string body)
+    public async Task SendRegularEmail(EmailMessage message)
     {
-        var emailSender = _emailSenderFactory.Create("marketing");
-        
-        var message = new EmailMessage
-        {
-            To = to,
-            Subject = subject,
-            Body = body,
-            IsBodyHtml = true
-        };
-        
-        await emailSender.SendAsync(message);
+        await _emailService.SendAsync(message);
+    }
+    
+    public async Task SendMarketingEmail(EmailMessage message)
+    {
+        await _marketingEmailService.SendAsync(message);
     }
 }
 ```

@@ -120,12 +120,12 @@ public class User : FullAuditEntity<Guid>
 public class ProductService : IProductService
 {
     private readonly IRepository<Product, Guid> _productRepository;
-    private readonly ICurrentUser _currentUser;
+    private readonly IAuditUserProvider _auditUserProvider;
     
-    public ProductService(IRepository<Product, Guid> productRepository, ICurrentUser currentUser)
+    public ProductService(IRepository<Product, Guid> productRepository, IAuditUserProvider auditUserProvider)
     {
         _productRepository = productRepository;
-        _currentUser = currentUser;
+        _auditUserProvider = auditUserProvider;
     }
     
     public async Task<Product> CreateProductAsync(string name, decimal price)
@@ -151,12 +151,12 @@ public class ProductService : IProductService
 // EF Core 中处理审计字段的示例
 public class AppDbContext : DbContext
 {
-    private readonly ICurrentUser _currentUser;
+    private readonly IAuditUserProvider _auditUserProvider;
     
-    public AppDbContext(DbContextOptions options, ICurrentUser currentUser) 
+    public AppDbContext(DbContextOptions options, IAuditUserProvider auditUserProvider) 
         : base(options)
     {
-        _currentUser = currentUser;
+        _auditUserProvider = auditUserProvider;
     }
     
     public DbSet<Product> Products { get; set; } = null!;
@@ -170,7 +170,7 @@ public class AppDbContext : DbContext
     
     private void UpdateAuditFields()
     {
-        var userId = _currentUser?.Id;
+        var userId = _auditUserProvider.GetUser();
         var now = DateTimeOffset.UtcNow;
         
         foreach (var entry in ChangeTracker.Entries<IEntity>())
