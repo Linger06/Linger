@@ -2,138 +2,367 @@
 
 > 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-A C# email helper library that provides simplified email operations and SMTP support for .NET Framework 4.6.2+ and .NET Standard 2.0+.
+## Overview
 
-## Introduction
+Linger.Email is a comprehensive C# email helper library that provides simplified email operations with modern .NET development in mind. Built on top of the robust MailKit library, it offers secure SMTP support, HTML and plain text emails, attachment handling, and asynchronous sending capabilities across multiple .NET frameworks.
 
-Linger.Email simplifies email operations in .NET applications by providing an easy-to-use interface for sending emails, managing attachments, and handling SMTP configurations.
+## Installation
+
+```bash
+dotnet add package Linger.Email
+```
 
 ## Features
 
-### Email Operations
-- Simple email sending with fluent API
-- HTML and plain text support
-- File attachment handling
-- Email template support
-- Async operations
+- **Multi-format Email Support**: Send both HTML and plain text emails
+- **Attachment Handling**: Support for file attachments with multiple formats
+- **Secure SMTP**: SSL/TLS encryption support for secure email transmission
+- **Asynchronous Operations**: Modern async/await pattern for non-blocking email operations
+- **Flexible Configuration**: Easy-to-use configuration system
+- **Multiple Recipients**: Support for To, CC, and BCC recipients
+- **Priority Levels**: Configure email priority (High, Normal, Low)
+- **Cross-platform**: Supports multiple .NET frameworks (net9.0, net8.0, netstandard2.0)
 
-### SMTP Configuration
-- Multiple SMTP server support
-- SSL/TLS encryption
-- Custom port configuration
-- Authentication options
+## Quick Start
 
-## Setup & Configuration
-
-Before using Linger.Email, you need to configure the email client. There are two main approaches:
-
-### Direct instantiation (for non-ASP.NET Core projects)
+### Basic Configuration
 
 ```csharp
-// Create email configuration
+using Linger.Email;
+
+// Configure email settings
 var emailConfig = new EmailConfig
+{
+    Host = "smtp.gmail.com",
+    Port = 587,
+    UseSsl = true,
+    UseStartTls = true,
+    UserName = "your-email@gmail.com",
+    Password = "your-app-password",
+    From = new EmailAddress("your-email@gmail.com", "Your Name")
+};
+
+// Create email client
+using var email = new Email(emailConfig);
+```
+
+### Send Simple Text Email
+
+```csharp
+// Create email message
+var message = new EmailMessage
+{
+    To = new List<EmailAddress> { new("recipient@example.com", "Recipient Name") },
+    Subject = "Hello from Linger.Email",
+    Body = "This is a simple text email.",
+    IsHtmlBody = false
+};
+
+// Send email
+await email.SendAsync(message);
+```
+
+### Send HTML Email
+
+```csharp
+var htmlMessage = new EmailMessage
+{
+    To = new List<EmailAddress> { new("recipient@example.com") },
+    Subject = "HTML Email Example",
+    Body = @"
+        <h1>Welcome!</h1>
+        <p>This is an <strong>HTML email</strong> sent using Linger.Email.</p>
+        <ul>
+            <li>Feature 1</li>
+            <li>Feature 2</li>
+            <li>Feature 3</li>
+        </ul>
+    ",
+    IsHtmlBody = true
+};
+
+await email.SendAsync(htmlMessage);
+```
+
+### Send Email with Attachments
+
+```csharp
+var messageWithAttachments = new EmailMessage
+{
+    To = new List<EmailAddress> { new("recipient@example.com") },
+    Subject = "Email with Attachments",
+    Body = "Please find the attached files.",
+    IsHtmlBody = false,
+    AttachmentsPath = new List<string>
+    {
+        @"C:\Documents\report.pdf",
+        @"C:\Images\chart.png"
+    }
+};
+
+await email.SendAsync(messageWithAttachments);
+```
+
+### Send Email with Stream Attachments
+
+```csharp
+// Using AttachmentInfo for stream-based attachments
+var attachmentInfos = new List<AttachmentInfo>
+{
+    new()
+    {
+        Stream = new MemoryStream(pdfBytes),
+        FileName = "generated-report.pdf",
+        MediaType = "application/pdf"
+    },
+    new()
+    {
+        Stream = imageStream,
+        FileName = "image.jpg",
+        MediaType = "image/jpeg"
+    }
+};
+
+var message = new EmailMessage
+{
+    To = new List<EmailAddress> { new("recipient@example.com") },
+    Subject = "Email with Stream Attachments",
+    Body = "Generated attachments from streams.",
+    Attachments = attachmentInfos
+};
+
+await email.SendAsync(message);
+```
+
+## Advanced Features
+
+### Multiple Recipients with CC and BCC
+
+```csharp
+var message = new EmailMessage
+{
+    To = new List<EmailAddress>
+    {
+        new("primary@example.com", "Primary Recipient"),
+        new("secondary@example.com", "Secondary Recipient")
+    },
+    Cc = new List<EmailAddress>
+    {
+        new("manager@example.com", "Manager")
+    },
+    Bcc = new List<EmailAddress>
+    {
+        new("archive@example.com", "Archive")
+    },
+    Subject = "Team Update",
+    Body = "Important team announcement...",
+    Priority = MessagePriority.High
+};
+
+await email.SendAsync(message);
+```
+
+### Email with Callback
+
+```csharp
+await email.SendAsync(message, response =>
+{
+    Console.WriteLine($"Email sent successfully: {response}");
+    // Log the response or perform additional actions
+});
+```
+
+### Different SMTP Configurations
+
+#### Gmail Configuration
+```csharp
+var gmailConfig = new EmailConfig
+{
+    Host = "smtp.gmail.com",
+    Port = 587,
+    UseSsl = true,
+    UseStartTls = true,
+    UserName = "your-email@gmail.com",
+    Password = "your-app-password", // Use App Password, not regular password
+    From = new EmailAddress("your-email@gmail.com", "Your Name")
+};
+```
+
+#### Outlook Configuration
+```csharp
+var outlookConfig = new EmailConfig
+{
+    Host = "smtp-mail.outlook.com",
+    Port = 587,
+    UseSsl = false,
+    UseStartTls = true,
+    UserName = "your-email@outlook.com",
+    Password = "your-password",
+    From = new EmailAddress("your-email@outlook.com", "Your Name")
+};
+```
+
+#### Custom SMTP Server
+```csharp
+var customConfig = new EmailConfig
+{
+    Host = "mail.your-domain.com",
+    Port = 25,
+    UseSsl = false,
+    UseStartTls = false,
+    UserName = "username",
+    Password = "password",
+    From = new EmailAddress("noreply@your-domain.com", "Your App Name")
+};
+```
+
+### Global BCC Configuration
+
+```csharp
+var config = new EmailConfig
 {
     Host = "smtp.example.com",
     Port = 587,
     UseSsl = true,
-    UserName = "username",
+    UserName = "sender@example.com",
     Password = "password",
-    From = new EmailAddress { Address = "noreply@example.com", Name = "Example System" }
+    From = new EmailAddress("sender@example.com", "Sender"),
+    Bcc = new List<EmailAddress>
+    {
+        new("audit@example.com", "Audit Trail"),
+        new("backup@example.com", "Backup Archive")
+    }
 };
-
-// Create email service
-var emailService = new Email(emailConfig);
-
-// Now you can use emailService to send emails
 ```
 
-### Dependency Injection (for ASP.NET Core projects)
+## Error Handling
 
-For ASP.NET Core projects, please use the [Linger.Email.AspNetCore](../Linger.Email.AspNetCore) package to simplify email service configuration and dependency injection. Refer to that package's documentation for detailed usage.
-```
-
-## Usage Examples
-
-### Basic Email Sending
 ```csharp
-// Simple text email 
-var email = new EmailMessage 
-{ 
-    From = new EmailAddress { Address = "sender@example.com" }, 
-    To = new List<EmailAddress> { new EmailAddress { Address = "recipient@example.com" } }, 
-    Subject = "Hello", 
-    Body = "This is a test email" 
-};
-await emailService.SendAsync(email);
-
-// Multiple recipients 
-var groupEmail = new EmailMessage 
-{ 
-    From = new EmailAddress { Address = "sender@example.com" }, 
-    To = new List<EmailAddress> 
-    { 
-        new EmailAddress { Address = "recipient1@example.com" }, 
-        new EmailAddress { Address = "recipient2@example.com" } 
-    }, 
-    Cc = new List<EmailAddress> { new EmailAddress { Address = "manager@example.com" } }, 
-    Bcc = new List<EmailAddress> { new EmailAddress { Address = "archive@example.com" } }, 
-    Subject = "Team Meeting", 
-    Body = "Let's meet tomorrow at 2 PM" 
-};
-await emailService.SendAsync(groupEmail);
+try
+{
+    await email.SendAsync(message);
+    Console.WriteLine("Email sent successfully!");
+}
+catch (AuthenticationException ex)
+{
+    Console.WriteLine($"Authentication failed: {ex.Message}");
+    // Handle authentication errors
+}
+catch (SmtpException ex)
+{
+    Console.WriteLine($"SMTP error: {ex.Message}");
+    // Handle SMTP-specific errors
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"General error: {ex.Message}");
+    // Handle other errors
+}
 ```
 
+## Best Practices
 
-### HTML Email with Attachments
+1. **Use App Passwords**: For Gmail and other providers, use app-specific passwords instead of regular passwords
+2. **Dispose Properly**: Always use `using` statements or proper disposal patterns
+3. **Validate Email Addresses**: Validate email addresses before sending
+4. **Handle Exceptions**: Implement proper exception handling for network and authentication issues
+5. **Stream Management**: Properly dispose of streams when using stream-based attachments
+6. **Configuration Security**: Store email credentials securely (e.g., Azure Key Vault, user secrets)
+
+## Performance Tips
+
+1. **Connection Reuse**: Reuse SMTP connections for better performance when sending multiple emails
+2. **Batch Processing**: Send emails in batches to reduce connection overhead
+3. **Async Processing**: Use background services for high-volume email processing
+4. **Configuration Optimization**: Set appropriate timeout and retry policies
+5. **Resource Management**: Properly dispose of resources, especially when using streams
+6. **Error Handling**: Implement retry logic for transient failures
+
+## Common Use Cases
+
+### Password Reset Email
 ```csharp
-// HTML email with single attachment 
-var reportEmail = new EmailMessage 
-{ 
-    From = new EmailAddress { Address = "reports@company.com" }, 
-    To = new List<EmailAddress> { new EmailAddress { Address = "manager@company.com" } },
-    Subject = "Monthly Report", 
+var resetMessage = new EmailMessage
+{
+    To = new List<EmailAddress> { new(userEmail, userName) },
+    Subject = "Password Reset Request",
+    Body = $@"
+        <h2>Password Reset</h2>
+        <p>Hello {userName},</p>
+        <p>Click the link below to reset your password:</p>
+        <a href='{resetLink}'>Reset Password</a>
+        <p>This link expires in 24 hours.</p>
+    ",
+    IsHtmlBody = true
+};
+
+await email.SendAsync(resetMessage);
+```
+
+### Order Confirmation Email
+```csharp
+var orderMessage = new EmailMessage
+{
+    To = new List<EmailAddress> { new(customerEmail, customerName) },
+    Subject = $"Order Confirmation - #{orderNumber}",
+    Body = GenerateOrderConfirmationHtml(order),
     IsHtmlBody = true,
-    Body = @"<h1>Monthly Sales Report</h1><p>Please find the attached report for this month.</p><p><strong>Total Sales:</strong> $50,000<br><strong>Growth:</strong> 15%</p>" 
+    AttachmentsPath = new List<string> { invoicePdfPath }
 };
-// Add file path as attachment
-reportEmail.AttachmentsPath = new List<string> { "monthly-report.pdf" };
-await emailService.SendAsync(reportEmail);
 
-// Multiple attachments with custom names 
-var documentsEmail = new EmailMessage
-{ 
-    From = new EmailAddress { Address = "documents@company.com" }, 
-    To = new List<EmailAddress> { new EmailAddress { Address = "client@example.com" } }, 
-    Subject = "Project Documentation", 
-    IsHtmlBody = true, 
-    Body = "Please find attached the project documents."
+await email.SendAsync(orderMessage);
+```
+
+### System Notification Email
+```csharp
+var notificationMessage = new EmailMessage
+{
+    To = adminEmails,
+    Subject = "System Alert: High CPU Usage",
+    Body = "System performance alert...",
+    Priority = MessagePriority.High
 };
-// Add attachment information
-documentsEmail.Attachments = new List<AttachmentInfo> { 
-    new AttachmentInfo { FileName = "Project-Specifications.pdf", Stream = File.OpenRead("specs.pdf") },
-    new AttachmentInfo { FileName = "Project-Timeline.xlsx", Stream = File.OpenRead("timeline.xlsx") }
-};
-await emailService.SendAsync(documentsEmail);
+
+await email.SendAsync(notificationMessage);
 ```
 
-## Install
+## Core Classes
 
-### From Visual Studio
+### EmailConfig
+Configuration class that holds SMTP server settings, authentication credentials, and default sender information.
 
-1. Open the `Solution Explorer`.
-2. Right-click on a project within your solution.
-3. Click on `Manage NuGet Packages...`.
-4. Click on the `Browse` tab and search for "Linger.Email".
-5. Click on the `Linger.Email` package, select the appropriate version and click Install.
+### EmailMessage
+Represents an email message with recipients, subject, body, attachments, and other properties.
 
-### Package Manager Console
+### EmailAddress
+Represents an email address with optional display name.
 
-```
-PM> Install-Package Linger.Email
-```
+### AttachmentInfo
+Represents an email attachment with stream, filename, and media type information.
 
-### .NET CLI Console
+### Email
+Main email client class that handles SMTP connections and message sending.
 
-```
-> dotnet add package Linger.Email
-```
+## Dependencies
+
+- **[MailKit](https://github.com/jstedfast/MailKit)**: A cross-platform .NET library for IMAP, POP3, and SMTP
+- **[MimeKit](https://github.com/jstedfast/MimeKit)**: A .NET MIME creation and parser library
+
+## Supported .NET Versions
+
+- .NET 9.0
+- .NET 8.0
+- .NET Standard 2.0
+
+## Integration
+
+📖 **For ASP.NET Core integration and dependency injection support, see: [Linger.Email.AspNetCore README](../Linger.Email.AspNetCore/README.md)**
+
+## License
+
+This project is licensed under the terms of the license provided with the Linger project.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+

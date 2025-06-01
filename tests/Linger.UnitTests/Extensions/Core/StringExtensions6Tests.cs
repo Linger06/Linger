@@ -73,8 +73,8 @@ public class StringExtensions6Tests
     [Theory]
     [InlineData("http://example.com", "param1=value1", "http://example.com?param1=value1")]
     [InlineData("http://example.com?existing=param", "param1=value1", "http://example.com?existing=param&param1=value1")]
-    [InlineData("http://example.com", "", "http://example.com?")]
-    [InlineData("http://example.com?existing=param", "", "http://example.com?existing=param&")]
+    [InlineData("http://example.com", "", "http://example.com")]
+    [InlineData("http://example.com?existing=param", "", "http://example.com?existing=param")]
     public void AppendQuery_String_ShouldAppendQueryString(string url, string query, string expected)
     {
         // Act
@@ -85,8 +85,8 @@ public class StringExtensions6Tests
     }
 
     [Theory]
-    [InlineData("http://example.com", "param1=value1&param2=value2&", "http://example.com?param1=value1&param2=value2&")]
-    [InlineData("http://example.com?existing=param", "param1=value1&param2=value2&", "http://example.com?existing=param&param1=value1&param2=value2&")]
+    [InlineData("http://example.com", "param1=value1&param2=value2&", "http://example.com?param1=value1&param2=value2")]
+    [InlineData("http://example.com?existing=param", "param1=value1&param2=value2&", "http://example.com?existing=param&param1=value1&param2=value2")]
     public void AppendQuery_Dictionary_ShouldAppendQueryString(string url, string query, string expected)
     {
         // Arrange
@@ -106,8 +106,8 @@ public class StringExtensions6Tests
     }
 
     [Theory]
-    [InlineData("http://example.com", "param1=value1&param2=value2&", "http://example.com?param1=value1&param2=value2&")]
-    [InlineData("http://example.com?existing=param", "param1=value1&param2=value2&", "http://example.com?existing=param&param1=value1&param2=value2&")]
+    [InlineData("http://example.com", "param1=value1&param2=value2&", "http://example.com?param1=value1&param2=value2")]
+    [InlineData("http://example.com?existing=param", "param1=value1&param2=value2&", "http://example.com?existing=param&param1=value1&param2=value2")]
     public void AppendQuery_List_ShouldAppendQueryString(string url, string query, string expected)
     {
         // Arrange

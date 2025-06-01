@@ -1,12 +1,12 @@
 # Linger.Utils
 
-> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
+> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-一个综合性的 .NET 实用工具库，提供了广泛的类型转换扩展、字符串操作实用工具、日期时间辅助方法、文件系统操作、集合扩展以及用于日常开发任务的各种辅助类。
+一个功能丰富的 .NET 工具库，包含大量实用的扩展方法和帮助类，让您的日常开发工作更加轻松高效。
 
 ## 概述
 
-Linger.Utils 旨在成为开发者的日常伴侣，提供丰富的扩展方法和辅助类集合，使常见的编程任务变得更加简单和高效。该库遵循现代 C# 编码实践，支持多个 .NET 框架版本。
+Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是在处理字符串、操作日期时间、进行文件管理，还是需要进行数据转换，这个库都能为您提供简洁易用的解决方案。它采用现代 C# 语法，支持多个 .NET 版本，让您的代码更加优雅。
 
 ## 目录
 
@@ -22,48 +22,46 @@ Linger.Utils 旨在成为开发者的日常伴侣，提供丰富的扩展方法�
   - [JSON 扩展](#json-扩展)
   - [GUID 扩展](#guid-扩展)
   - [数组扩展](#数组扩展)
-  - [枚举扩展](#枚举扩展)
+  - [枚举扩展](#枚举扩展)  
   - [参数验证](#参数验证)
 - [高级功能](#高级功能)
-- [错误处理](#错误处理)
-- [性能考虑](#性能考虑)
 - [最佳实践](#最佳实践)
 
 ## 功能特性
 
 ### 🚀 核心扩展
-- **字符串扩展**：丰富的字符串操作、验证、转换和格式化实用工具
-- **日期时间扩展**：日期和时间操作、格式化和计算
-- **数值扩展**：类型安全的数值转换和操作
-- **枚举扩展**：增强的枚举处理和转换
-- **对象扩展**：通用对象操作和验证
-- **数组扩展**：数组处理和操作实用工具
-- **GUID 扩展**：GUID 操作和验证实用工具
+- **字符串扩展**: 提供丰富的字符串处理功能，包括验证、转换、格式化等实用方法
+- **日期时间扩展**: 简化日期时间的计算、格式化和各种常用操作
+- **数值扩展**: 安全可靠的数值类型转换，避免异常抛出
+- **枚举扩展**: 让枚举操作更加便捷，支持字符串转换和描述获取
+- **对象扩展**: 通用的对象处理方法，提供空值检查和类型转换
+- **数组扩展**: 简化数组操作，提供遍历和处理的便捷方法
+- **GUID 扩展**: 完善的 GUID 操作工具，包括验证和转换功能
 
 ### 📦 集合扩展
-- **列表扩展**：增强的列表操作和处理
-- **集合扩展**：通用集合实用工具和转换
+- **列表扩展**: 增强列表的操作能力，提供分页、遍历等实用功能
+- **集合扩展**: 通用的集合处理工具，让数据操作更简单
 
 ### 💾 数据扩展
-- **DataTable 扩展**：数据库和 DataTable 操作实用工具
-- **数据转换**：安全的数据类型转换和变换
+- **DataTable 扩展**: 简化 DataTable 的操作和处理
+- **数据转换**: 提供安全的数据类型转换方法
 
 ### 📁 文件系统操作
-- **文件辅助类**：全面的文件操作（读取、写入、复制、移动、删除）
-- **路径辅助类**：跨平台路径操作和验证
-- **目录操作**：目录管理和遍历实用工具
+- **文件助手**: 涵盖文件的读写、复制、移动、删除等所有常用操作
+- **路径助手**: 跨平台的路径处理，支持路径验证和规范化
+- **目录操作**: 完整的目录管理功能，包括创建、遍历等
 
-### 🔧 辅助类
-- **表达式辅助类**：表达式树操作和实用工具
-- **重试辅助类**：操作的健壮重试机制
-- **属性辅助类**：基于反射的属性操作
-- **GUID 代码**：增强的 GUID 生成和操作
-- **操作系统平台辅助类**：跨平台操作系统检测
-- **参数验证扩展**：保护性编程和输入验证实用工具
+### 🔧 助手类
+- **表达式助手**: 动态构建表达式树，适用于条件查询等场景
+- **重试助手**: 为不稳定的操作提供智能重试机制
+- **属性助手**: 基于反射的属性操作工具
+- **GUID 工具**: 高级 GUID 生成和处理功能
+- **平台助手**: 跨平台的操作系统检测和兼容性处理
+- **参数验证**: 提供防御性编程所需的输入验证工具
 
 ### 🌐 JSON 支持
-- **JSON 扩展**：简化的 JSON 序列化和反序列化
-- **自定义转换器**：复杂类型的专用 JSON 转换器
+- **JSON 扩展**: 简化 JSON 的序列化和反序列化操作
+- **自定义转换器**: 针对特殊类型提供专门的 JSON 处理方案
 
 ## 安装
 
@@ -85,29 +83,29 @@ dotnet add package Linger.Utils
 ```csharp
 using Linger.Extensions.Core;
 
-// 字符串验证
+// 邮箱格式验证
 string email = "user@example.com";
 bool isValid = email.IsEmail();
 
-// 字符串转换
+// 字符串转数字（带默认值）
 string number = "123";
-int result = number.ToInt(0); // 返回 123，转换失败时返回 0
-int? nullableResult = number.ToIntOrNull(); // 返回可空类型
+int result = number.ToInt(0); // 转换成功返回 123，失败则返回 0
+int? nullableResult = number.ToIntOrNull(); // 返回可为空的整数
 
-// 字符串操作
+// 字符串处理
 string text = "  Hello World  ";
-string cleaned = text.Trim(); // 移除首尾空白字符（.NET 原生方法，非扩展方法）
+string cleaned = text.Trim(); // 去除首尾空格
 
 // 字符串截取
 string longText = "Hello World";
-string part = longText.Left(5); // 获取左侧5个字符：Hello
-string rightPart = longText.Right(5); // 获取右侧5个字符：World
-string safePart = longText.SafeSubstring(0, 20); // 不会因长度超出而抛出异常
+string leftPart = longText.Left(5); // 取前 5 个字符："Hello"
+string rightPart = longText.Right(5); // 取后 5 个字符："World"
+string part = longText.SafeSubstring(0, 20); // 安全截取，超长不会报错
 
 // 字符串检查
-bool isEmpty = text.IsNullOrEmpty();
+bool isEmpty = text.IsNullOrEmpty(); // 检查是否为空
 bool isNumber = number.IsNumber(); // 检查是否为数字
-bool isInt = number.IsInt(); // 检查是否为整数
+bool isInt = number.IsInteger(); // 检查是否为整数
 ```
 
 ### 日期时间扩展
@@ -117,18 +115,18 @@ using Linger.Extensions.Core;
 
 DateTime date = DateTime.Now;
 
-// 年龄计算
+// 计算年龄
 DateTime birthDate = new DateTime(1990, 5, 15);
-int age = birthDate.CalculateAge();
+int age = birthDate.CalculateAge(); // 根据生日计算年龄
 
-// 日期范围操作
+// 判断日期是否在指定范围内
 bool isInRange = date.InRange(DateTime.Today, DateTime.Today.AddDays(7));
 
-// 日期操作
-DateTime startOfDay = date.StartOfDay(); // 当天开始时间
-DateTime endOfDay = date.EndOfDay(); // 当天结束时间
-DateTime startOfMonth = date.StartOfMonth(); // 月初
-DateTime endOfMonth = date.EndOfMonth(); // 月末
+// 日期边界处理
+DateTime startOfDay = date.StartOfDay(); // 当天 00:00:00
+DateTime endOfDay = date.EndOfDay(); // 当天 23:59:59
+DateTime startOfMonth = date.StartOfMonth(); // 当月第一天
+DateTime endOfMonth = date.EndOfMonth(); // 当月最后一天
 ```
 
 ### 文件操作
@@ -136,18 +134,18 @@ DateTime endOfMonth = date.EndOfMonth(); // 月末
 ```csharp
 using Linger.Helper;
 
-// 文件操作
-FileHelper.WriteText("data.txt", "Hello World");
-string content = FileHelper.ReadText("data.txt");
+// 基本文件操作
+FileHelper.WriteText("data.txt", "Hello World"); // 写入文本文件
+string content = FileHelper.ReadText("data.txt"); // 读取文本文件
 
-// 带目录创建的文件复制
+// 文件复制（自动创建目录）
 FileHelper.CopyFile("source.txt", "backup/dest.txt");
 
-// 安全文件删除
-FileHelper.DeleteFileIfExists("temp.txt");
+// 安全删除文件
+FileHelper.DeleteFileIfExists("temp.txt"); // 文件存在才删除，不会报错
 
-// 目录操作
-FileHelper.EnsureDirectoryExists("logs/2024");
+// 确保目录存在
+FileHelper.EnsureDirectoryExists("logs/2024"); // 目录不存在则创建
 ```
 
 ### 集合扩展
@@ -157,19 +155,19 @@ using Linger.Extensions.Collection;
 
 var list = new List<int> { 1, 2, 3, 4, 5 };
 
-// 安全检查集合状态
-bool isEmpty = list.IsNullOrEmpty(); // 检查是否为空或 null
+// 空值安全检查
+bool isEmpty = list.IsNullOrEmpty(); // 同时检查 null 和空集合
 
-// 分页操作
-var pagedResult = list.Paging(2, 2); // 第2页，每页2个元素：[3, 4]
+// 数据分页
+var pagedResult = list.Paging(2, 2); // 第 2 页，每页 2 条：返回 [3, 4]
 
-// 转换为分隔字符串
-string result = list.ToSeparatedString(", "); // "1, 2, 3, 4, 5"
+// 转为分隔字符串
+string result = list.ToSeparatedString(", "); // 输出："1, 2, 3, 4, 5"
 
-// 对每个元素执行操作
-list.ForEach(Console.WriteLine); // 输出每个元素
+// 遍历处理
+list.ForEach(Console.WriteLine); // 对每个元素执行操作
 
-// 转换为 DataTable
+// 转换为数据表
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 ```
 
@@ -178,22 +176,22 @@ var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 ```csharp
 using Linger.Extensions.Core;
 
-// 空值安全操作
+// 空值安全处理
 object obj = GetSomeObject();
-string result = obj.ToSafeString("default");
+string result = obj.ToSafeString("default"); // 为 null 时返回默认值
 
-// 类型检查
-string stringValue = obj.ToString(); // .NET 原生方法，非扩展方法
-bool isNumber = stringValue.IsNumber();
-bool isInt = stringValue.IsInt();
-bool isDouble = stringValue.IsDouble();
+// 类型判断
+string stringValue = obj.ToString();
+bool isNumber = stringValue.IsNumber(); // 是否为数字格式
+bool isInt = stringValue.IsInteger(); // 是否为整数格式
+bool isDouble = stringValue.IsDouble(); // 是否为浮点数格式
 
-// 对象转换
-var stringRepresentation = obj.ToStringOrNull();
+// 安全转换
+var stringRepresentation = obj.ToStringOrNull(); // 转换失败返回 null
 
-// 范围检查（对于数值）
+// 数值范围检查
 int value = 5;
-bool inRange = value.InRange(1, 10); // 检查是否在范围内
+bool inRange = value.InRange(1, 10); // 检查是否在 1 到 10 之间
 ```
 
 ### JSON 扩展
@@ -203,10 +201,10 @@ using Linger.Extensions;
 
 // 对象转 JSON
 var user = new { Name = "John", Age = 30 };
-string json = user.ToJsonString(); // 或者 user.SerializeJson()
+string json = user.ToJsonString(); // 或 user.SerializeJson()
 
 // JSON 转对象
-var userObj = json.Deserialize<User>(); // 或者 json.DeserializeJson<User>()
+var userObj = json.Deserialize<User>(); // 或 json.DeserializeJson<User>()
 
 // 动态 JSON 对象
 dynamic dynamicObj = json.DeserializeDynamicJsonObject();
@@ -238,9 +236,9 @@ bool isNotNullAndEmpty = nullableGuid.IsNotNullAndEmpty(); // 检查是否既不
 long longValue = guid.ToInt64(); // 转换为 Int64
 int intValue = guid.ToInt32(); // 转换为 Int32
 
-// .NET 9+ 特性：V7 GUID 时间戳提取
+// .NET 9+ 功能：V7 GUID 时间戳提取
 #if NET9_0_OR_GREATER
-DateTimeOffset timestamp = guid.GetTimestamp(); // 仅支持 V7 GUID
+DateTimeOffset timestamp = guid.GetTimestamp(); // 仅适用于 V7 GUID
 #endif
 ```
 
@@ -254,9 +252,9 @@ int[] numbers = { 1, 2, 3, 4, 5 };
 // 对每个元素执行操作
 numbers.ForEach(n => Console.WriteLine(n)); // 输出：1 2 3 4 5
 
-// 带索引的遍历
-numbers.ForEach((n, index) => Console.WriteLine($"Index {index}: {n}"));
-// 输出：Index 0: 1, Index 1: 2, ...
+// 带索引迭代
+numbers.ForEach((n, index) => Console.WriteLine($"索引 {index}: {n}"));
+// 输出：索引 0: 1, 索引 1: 2, ...
 ```
 
 ### 枚举扩展
@@ -273,7 +271,7 @@ public enum Status
 
 // 字符串转枚举
 string statusName = "Active";
-Status status = statusName.GetEnum<Status>(); // 或者 statusName.ToEnum<Status>()
+Status status = statusName.GetEnum<Status>(); // 或 statusName.ToEnum<Status>()
 
 // 整数转枚举
 int statusValue = 1;
@@ -282,7 +280,7 @@ Status statusFromInt = statusValue.GetEnum<Status>();
 // 获取枚举名称
 string enumName = statusValue.GetEnumName<Status>(); // 返回 "Active"
 
-// 获取枚举描述（如果有 Description 特性）
+// 获取枚举描述（如果存在 Description 特性）
 string description = status.GetDescription(); // 获取描述文本
 ```
 
@@ -293,10 +291,10 @@ using Linger.Helper;
 
 public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 {
-    // 基础验证
+    // 基本验证
     data.EnsureIsNotNull(nameof(data)); // 确保不为 null
-    data.EnsureIsNotNullAndEmpty(nameof(data)); // 确保不为 null 或空字符串
-    data.EnsureIsNotNullAndWhiteSpace(nameof(data)); // 确保不为 null、空或空白字符
+    data.EnsureIsNotNullAndEmpty(nameof(data)); // 确保不为 null 或空
+    data.EnsureIsNotNullAndWhiteSpace(nameof(data)); // 确保不为 null、空或空白
 
     // 集合验证
     numbers.EnsureIsNotNullOrEmpty(nameof(numbers)); // 确保集合不为 null 或空
@@ -306,68 +304,68 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
     Path.GetDirectoryName(filePath).EnsureDirectoryExist(); // 确保目录存在
 
     // 条件验证
-    (data.Length > 0).EnsureIsTrue(nameof(data), "Data must not be empty");
-    (numbers.Count() < 1000).EnsureIsTrue(nameof(numbers), "Too many items");
+    (data.Length > 0).EnsureIsTrue(nameof(data), "数据不能为空");
+    (numbers.Count() < 1000).EnsureIsTrue(nameof(numbers), "项目过多");
 
     // 范围验证
     int value = 5;
-    value.EnsureIsInRange(1, 10, nameof(value)); // 确保值在指定范围内
+    value.EnsureIsInRange(1, 10, nameof(value)); // 确保值在范围内
 
-    // null 检查
+    // 空值检查
     object? obj = GetSomeObject();
-    obj.EnsureIsNotNull(nameof(obj)); // 如果对象应该不为 null
-    // 或者
-    obj.EnsureIsNull(nameof(obj)); // 如果对象应该为 null
+    obj.EnsureIsNotNull(nameof(obj)); // 如果对象不应为 null
+    // 或
+    obj.EnsureIsNull(nameof(obj)); // 如果对象应为 null
 }
 ```
 
 ## 高级功能
 
-### 重试辅助类
+### 重试助手
 
 ```csharp
 using Linger.Helper;
 
-// 使用可配置策略重试操作
+// 自定义重试策略
 var options = new RetryOptions 
 {
-    MaxRetries = 3,
-    BaseDelayMs = 1000 // 1秒
+    MaxRetries = 3,      // 最多重试 3 次
+    BaseDelayMs = 1000   // 每次重试间隔 1 秒
 };
 var retryHelper = new RetryHelper(options);
 var result = await retryHelper.ExecuteAsync(
-    async () => await SomeOperationThatMightFail(),
-    "操作名称"
+    async () => await SomeOperationThatMightFail(), // 可能失败的操作
+    "网络请求"  // 操作描述
 );
 
-// 或使用默认选项
+// 使用默认重试策略
 var defaultRetryHelper = new RetryHelper();
 var result2 = await defaultRetryHelper.ExecuteAsync(
     async () => await AnotherOperationThatMightFail(),
-    "另一个操作名称"
+    "数据库操作"
 );
 ```
 
-### 表达式辅助类
+### 表达式助手
 
 ```csharp
 using Linger.Helper;
 using Linger.Enums;
 
-// 动态表达式构建
+// 构建动态查询条件
 // 基础表达式
-Expression<Func<User, bool>> trueExpression = ExpressionHelper.True<User>();
-Expression<Func<User, bool>> falseExpression = ExpressionHelper.False<User>();
+Expression<Func<User, bool>> trueExpression = ExpressionHelper.True<User>();   // 永远为真
+Expression<Func<User, bool>> falseExpression = ExpressionHelper.False<User>(); // 永远为假
 
-// 单个条件表达式
+// 单个条件
 Expression<Func<User, bool>> ageFilter = ExpressionHelper.CreateGreaterThan<User>("Age", "18");
 Expression<Func<User, bool>> nameFilter = ExpressionHelper.GetContains<User>("Name", "John");
 
-// 使用条件集合构建复杂表达式
+// 组合多个条件
 var conditions = new List<Condition>
 {
-    new Condition { Field = "Age", Op = CompareOperator.GreaterThan, Value = 18 },
-    new Condition { Field = "Name", Op = CompareOperator.Contains, Value = "John" }
+    new Condition { Field = "Age", Op = CompareOperator.GreaterThan, Value = 18 },    // 年龄大于 18
+    new Condition { Field = "Name", Op = CompareOperator.Contains, Value = "John" }   // 姓名包含 "John"
 };
 Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(conditions);
 ```
@@ -377,58 +375,72 @@ Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(
 ```csharp
 using Linger.Helper.PathHelpers;
 
-// 跨平台路径操作
-string normalized = StandardPathHelper.NormalizePath(@"C:\temp\..\folder\file.txt");
-bool pathEquals = StandardPathHelper.PathEquals(path1, path2);
+// 路径标准化 - 处理相对路径、重复分隔符等
+string messyPath = @"C:\temp\..\folder\.\file.txt";
+string normalized = StandardPathHelper.NormalizePath(messyPath);
+// 结果: "C:\folder\file.txt" (Windows) 或 "/folder/file.txt" (Unix)
+
+// 路径比较 - 跨平台安全的路径相等性检查
+string path1 = @"C:\Users\Documents\file.txt";
+string path2 = @"c:\users\documents\FILE.TXT"; // 大小写不同
+bool pathEquals = StandardPathHelper.PathEquals(path1, path2); // Windows: true, Linux: false
+
+// 获取相对路径 - 从基础路径到目标路径的相对路径
+string basePath = @"C:\Projects\MyApp";
+string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
 string relative = StandardPathHelper.GetRelativePath(basePath, targetPath);
-string absolutePath = StandardPathHelper.ResolveToAbsolutePath(basePath, relativePath);
-bool hasInvalidChars = StandardPathHelper.ContainsInvalidPathChars(somePath);
-bool fileExists = StandardPathHelper.Exists(filePath, checkAsFile: true);
-string parentDir = StandardPathHelper.GetParentDirectory(path, levels: 1);
+// 结果: "src\Components\Button.cs" (Windows) 或 "src/Components/Button.cs" (Unix)
+
+// 解析绝对路径 - 将相对路径转换为绝对路径
+string workingDir = @"C:\Projects";
+string relativePath = @"MyApp\src\file.txt";
+string absolutePath = StandardPathHelper.ResolveToAbsolutePath(workingDir, relativePath);
+// 结果: "C:\Projects\MyApp\src\file.txt"
+
+// 检查路径中的非法字符
+string suspiciousPath = "file<name>.txt"; // 包含非法字符 '<'
+bool hasInvalidChars = StandardPathHelper.ContainsInvalidPathChars(suspiciousPath); // true
+
+// 检查文件或目录是否存在
+string filePath = @"C:\temp\data.txt";
+bool fileExists = StandardPathHelper.Exists(filePath, checkAsFile: true); // 检查文件
+bool dirExists = StandardPathHelper.Exists(filePath, checkAsFile: false); // 检查目录
+
+// 获取父目录路径
+string deepPath = @"C:\Projects\MyApp\src\Components\Button.cs";
+string parentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 1);
+// 结果: "C:\Projects\MyApp\src\Components"
+string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 2);
+// 结果: "C:\Projects\MyApp\src"
 ```
-
-## 错误处理
-
-该库遵循防御性编程实践：
-
-- 大多数操作都有安全变体，返回默认值而不是抛出异常
-- 广泛的输入验证，提供有意义的错误消息
-- 所有组件间一致的错误处理模式
-
-## 性能考虑
-
-- 在可能的情况下优化性能，最小化内存分配
-- 缓存反射操作以获得更好的性能
-- 对 I/O 操作支持 async/await
-- 在适当的地方使用延迟求值
 
 ## 最佳实践
 
-1. **使用安全方法**：当转换可能失败时，优先使用 `ToIntOrNull()` 而不是 `ToInt()`
-2. **空值检查**：使用 `IsNullOrEmpty()` 等扩展方法进行验证
-3. **参数验证**：使用 `GuardExtensions` 中的 `EnsureIsNotNull()`、`EnsureIsNotNullAndEmpty()` 等方法进行输入验证
-4. **利用异步**：使用异步版本的文件操作以获得更好的性能
-5. **错误处理**：始终处理文件操作中的潜在异常
-6. **资源管理**：对可释放资源使用 `using` 语句
-7. **GUID 操作**：使用 `IsEmpty()` 和 `IsNotEmpty()` 等扩展方法而不是直接比较
-8. **集合处理**：使用 `ForEach()` 扩展方法简化数组和集合的迭代操作
+1. **优先使用安全方法**: 数据转换时推荐使用 `ToIntOrNull()` 而非 `ToInt()`，避免转换失败时抛出异常
+2. **善用空值检查**: 利用 `IsNullOrEmpty()` 等扩展方法，让代码更简洁可靠
+3. **做好参数验证**: 在方法入口使用 `EnsureIsNotNull()`、`EnsureIsNotNullAndEmpty()` 等方法进行参数校验
+4. **合理使用异步**: 文件操作等 I/O 密集型任务建议使用异步版本，提升程序响应性
+5. **妥善处理异常**: 文件操作等可能失败的操作要做好异常处理和用户提示
+6. **注意资源管理**: 使用 `using` 语句确保资源得到正确释放
+7. **GUID 操作规范**: 使用 `IsEmpty()`、`IsNotEmpty()` 等方法而不是直接比较
+8. **简化集合操作**: 善用 `ForEach()` 等扩展方法，让集合处理更加简洁
 
 ## 依赖项
 
-该库具有最少的外部依赖：
-- System.Text.Json（用于 JSON 操作）
-- System.Data.DataSetExtensions（用于 .NET Framework 和 .NET Standard 2.0）
+这个库保持轻量化设计，只依赖少量必要的外部包：
+- **System.Text.Json** - 用于 JSON 序列化和反序列化
+- **System.Data.DataSetExtensions** - 为 .NET Framework 和 .NET Standard 2.0 提供 DataTable 支持
 
-## 贡献
+## 贡献代码
 
-欢迎贡献！请随时提交 Pull Request。请确保：
-- 遵循现有的代码风格
-- 为新功能添加单元测试
-- 根据需要更新文档
+我们欢迎您为这个项目贡献代码！在提交 Pull Request 时，请确保：
+- 代码风格与现有代码保持一致
+- 为新功能添加相应的单元测试
+- 及时更新相关文档
 
 ## 许可证
 
-本项目根据 Linger 项目提供的许可条款授权。
+该项目在 Linger 项目提供的许可证条款下授权。
 
 ---
 

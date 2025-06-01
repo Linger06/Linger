@@ -6,7 +6,7 @@ A comprehensive .NET utility library providing extensive type conversion extensi
 
 ## Overview
 
-Linger.Utils is designed to be a developer's daily companion, providing a rich set of extension methods and helper classes that make common programming tasks easier and more efficient. The library follows modern C# coding practices and supports multiple .NET framework versions.
+Linger.Utils offer a rich collection of extension methods and helper classes that make common programming tasks simpler and more efficient. The library follows modern C# coding practices and supports multiple .NET framework versions.
 
 ## Table of Contents
 
@@ -22,42 +22,40 @@ Linger.Utils is designed to be a developer's daily companion, providing a rich s
   - [JSON Extensions](#json-extensions)
   - [GUID Extensions](#guid-extensions)
   - [Array Extensions](#array-extensions)
-  - [Enum Extensions](#enum-extensions)
+  - [Enum Extensions](#enum-extensions)  
   - [Parameter Validation](#parameter-validation)
 - [Advanced Features](#advanced-features)
-- [Error Handling](#error-handling)
-- [Performance Considerations](#performance-considerations)
 - [Best Practices](#best-practices)
 
 ## Features
 
 ### 🚀 Core Extensions
-- **String Extensions**: Rich string manipulation, validation, conversion, and formatting utilities
-- **DateTime Extensions**: Date and time operations, formatting, and calculations
+- **String Extensions**: Rich string operations, validation, conversion, and formatting utilities
+- **DateTime Extensions**: Date and time manipulation, formatting, and calculations
 - **Numeric Extensions**: Type-safe numeric conversions and operations
 - **Enum Extensions**: Enhanced enum handling and conversion
-- **Object Extensions**: General object manipulation and validation
+- **Object Extensions**: General object operations and validation
 - **Array Extensions**: Array processing and manipulation utilities
-- **GUID Extensions**: GUID operations and validation utilities
+- **GUID Extensions**: GUID operation and validation utilities
 
 ### 📦 Collection Extensions
-- **List Extensions**: Enhanced list operations and manipulations
-- **Collection Extensions**: Generic collection utilities and transformations
+- **List Extensions**: Enhanced list operations and processing
+- **Collection Extensions**: General collection utilities and transformations
 
 ### 💾 Data Extensions
-- **DataTable Extensions**: Database and DataTable manipulation utilities
-- **Data Conversion**: Safe data type conversions and transformations
+- **DataTable Extensions**: DataTable operation utilities
+- **Data Conversion**: Safe data type conversion and transformation
 
 ### 📁 File System Operations
 - **File Helper**: Comprehensive file operations (read, write, copy, move, delete)
-- **Path Helpers**: Cross-platform path manipulation and validation
+- **Path Helper**: Cross-platform path operations and validation
 - **Directory Operations**: Directory management and traversal utilities
 
 ### 🔧 Helper Classes
-- **Expression Helper**: Expression tree manipulation and utilities
+- **Expression Helper**: Expression tree operations and utilities
 - **Retry Helper**: Robust retry mechanisms for operations
 - **Property Helper**: Reflection-based property operations
-- **GUID Code**: Enhanced GUID generation and manipulation
+- **GUID Code**: Enhanced GUID generation and operations
 - **OS Platform Helper**: Cross-platform operating system detection
 - **Parameter Validation Extensions**: Defensive programming and input validation utilities
 
@@ -107,7 +105,7 @@ string part = longText.SafeSubstring(0, 20); // Won't throw if length exceeds
 // String checks
 bool isEmpty = text.IsNullOrEmpty();
 bool isNumber = number.IsNumber(); // Check if it's a number
-bool isInt = number.IsInt(); // Check if it's an integer
+bool isInt = number.IsInteger(); // Check if it's an integer
 ```
 
 ### DateTime Extensions
@@ -125,10 +123,10 @@ int age = birthDate.CalculateAge();
 bool isInRange = date.InRange(DateTime.Today, DateTime.Today.AddDays(7));
 
 // Date operations
-DateTime startOfDay = date.StartOfDay(); // Start of day
-DateTime endOfDay = date.EndOfDay(); // End of day
-DateTime startOfMonth = date.StartOfMonth(); // Start of month
-DateTime endOfMonth = date.EndOfMonth(); // End of month
+DateTime startOfDay = date.StartOfDay(); // Beginning of the day
+DateTime endOfDay = date.EndOfDay(); // End of the day
+DateTime startOfMonth = date.StartOfMonth(); // Beginning of the month
+DateTime endOfMonth = date.EndOfMonth(); // End of the month
 ```
 
 ### File Operations
@@ -140,7 +138,7 @@ using Linger.Helper;
 FileHelper.WriteText("data.txt", "Hello World");
 string content = FileHelper.ReadText("data.txt");
 
-// File copying with directory creation
+// File copy with directory creation
 FileHelper.CopyFile("source.txt", "backup/dest.txt");
 
 // Safe file deletion
@@ -157,17 +155,17 @@ using Linger.Extensions.Collection;
 
 var list = new List<int> { 1, 2, 3, 4, 5 };
 
-// Safe check collection status
-bool isEmpty = list.IsNullOrEmpty(); // Check if the collection is null or empty
+// Safe collection state checking
+bool isEmpty = list.IsNullOrEmpty(); // Check if null or empty
 
-// Paging operations
+// Pagination
 var pagedResult = list.Paging(2, 2); // Page 2, 2 items per page: [3, 4]
 
-// Convert to separated string
+// Convert to delimited string
 string result = list.ToSeparatedString(", "); // "1, 2, 3, 4, 5"
 
-// Execute operation on each element
-list.ForEach(Console.WriteLine); // Output each element
+// Execute action on each element
+list.ForEach(Console.WriteLine); // Print each element
 
 // Convert to DataTable
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
@@ -185,15 +183,15 @@ string result = obj.ToSafeString("default");
 // Type checking
 string stringValue = obj.ToString(); // .NET native method
 bool isNumber = stringValue.IsNumber();
-bool isInt = stringValue.IsInt();
+bool isInt = stringValue.IsInteger();
 bool isDouble = stringValue.IsDouble();
 
 // Object conversion
 var stringRepresentation = obj.ToStringOrNull();
 
-// Range check (for numeric values)
+// Range checking (for numeric values)
 int value = 5;
-bool inRange = value.InRange(1, 10); // Check if within range
+bool inRange = value.InRange(1, 10); // Check if in range
 ```
 
 ### JSON Extensions
@@ -210,7 +208,7 @@ var userObj = json.Deserialize<User>(); // or json.DeserializeJson<User>()
 
 // Dynamic JSON object
 dynamic dynamicObj = json.DeserializeDynamicJsonObject();
-string name = dynamicObj.Name; // Access property
+string name = dynamicObj.Name; // Access properties
 
 // JSON to DataTable (string extension)
 string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
@@ -238,7 +236,7 @@ bool isNotNullAndEmpty = nullableGuid.IsNotNullAndEmpty(); // Check if neither n
 long longValue = guid.ToInt64(); // Convert to Int64
 int intValue = guid.ToInt32(); // Convert to Int32
 
-// .NET 9+ features: V7 GUID timestamp extraction
+// .NET 9+ feature: V7 GUID timestamp extraction
 #if NET9_0_OR_GREATER
 DateTimeOffset timestamp = guid.GetTimestamp(); // Only for V7 GUIDs
 #endif
@@ -251,10 +249,10 @@ using Linger.Extensions.Core;
 
 int[] numbers = { 1, 2, 3, 4, 5 };
 
-// Execute operation on each element
+// Execute action on each element
 numbers.ForEach(n => Console.WriteLine(n)); // Output: 1 2 3 4 5
 
-// Execute operation with index
+// Iterate with index
 numbers.ForEach((n, index) => Console.WriteLine($"Index {index}: {n}"));
 // Output: Index 0: 1, Index 1: 2, ...
 ```
@@ -283,7 +281,7 @@ Status statusFromInt = statusValue.GetEnum<Status>();
 string enumName = statusValue.GetEnumName<Status>(); // Returns "Active"
 
 // Get enum description (if Description attribute exists)
-string description = status.GetDescription(); // Gets description text
+string description = status.GetDescription(); // Get description text
 ```
 
 ### Parameter Validation
@@ -311,9 +309,9 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 
     // Range validation
     int value = 5;
-    value.EnsureIsInRange(1, 10, nameof(value)); // Ensure value is in specified range
+    value.EnsureIsInRange(1, 10, nameof(value)); // Ensure value is in range
 
-    // null checks
+    // Null checking
     object? obj = GetSomeObject();
     obj.EnsureIsNotNull(nameof(obj)); // If object should not be null
     // or
@@ -328,7 +326,7 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 ```csharp
 using Linger.Helper;
 
-// Retry operations with configurable policy
+// Retry operation with configurable policy
 var options = new RetryOptions 
 {
     MaxRetries = 3,
@@ -337,14 +335,14 @@ var options = new RetryOptions
 var retryHelper = new RetryHelper(options);
 var result = await retryHelper.ExecuteAsync(
     async () => await SomeOperationThatMightFail(),
-    "OperationName"
+    "Operation Name"
 );
 
-// Or with default options
+// Or use default options
 var defaultRetryHelper = new RetryHelper();
 var result2 = await defaultRetryHelper.ExecuteAsync(
     async () => await AnotherOperationThatMightFail(),
-    "AnotherOperationName"
+    "Another Operation Name"
 );
 ```
 
@@ -377,52 +375,66 @@ Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(
 ```csharp
 using Linger.Helper.PathHelpers;
 
-// Cross-platform path operations
-string normalized = StandardPathHelper.NormalizePath(@"C:\temp\..\folder\file.txt");
-bool pathEquals = StandardPathHelper.PathEquals(path1, path2);
+// Path normalization - handles relative paths, duplicate separators, etc.
+string messyPath = @"C:\temp\..\folder\.\file.txt";
+string normalized = StandardPathHelper.NormalizePath(messyPath);
+// Result: "C:\folder\file.txt" (Windows) or "/folder/file.txt" (Unix)
+
+// Path comparison - cross-platform safe path equality check
+string path1 = @"C:\Users\Documents\file.txt";
+string path2 = @"c:\users\documents\FILE.TXT"; // Different case
+bool pathEquals = StandardPathHelper.PathEquals(path1, path2); // Windows: true, Linux: false
+
+// Get relative path - from base path to target path
+string basePath = @"C:\Projects\MyApp";
+string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
 string relative = StandardPathHelper.GetRelativePath(basePath, targetPath);
-string absolutePath = StandardPathHelper.ResolveToAbsolutePath(basePath, relativePath);
-bool hasInvalidChars = StandardPathHelper.ContainsInvalidPathChars(somePath);
-bool fileExists = StandardPathHelper.Exists(filePath, checkAsFile: true);
-string parentDir = StandardPathHelper.GetParentDirectory(path, levels: 1);
+// Result: "src\Components\Button.cs" (Windows) or "src/Components/Button.cs" (Unix)
+
+// Resolve absolute path - convert relative path to absolute
+string workingDir = @"C:\Projects";
+string relativePath = @"MyApp\src\file.txt";
+string absolutePath = StandardPathHelper.ResolveToAbsolutePath(workingDir, relativePath);
+// Result: "C:\Projects\MyApp\src\file.txt"
+
+// Check for invalid path characters
+string suspiciousPath = "file<name>.txt"; // Contains invalid character '<'
+bool hasInvalidChars = StandardPathHelper.ContainsInvalidPathChars(suspiciousPath); // true
+
+// Check if file or directory exists
+string filePath = @"C:\temp\data.txt";
+bool fileExists = StandardPathHelper.Exists(filePath, checkAsFile: true); // Check as file
+bool dirExists = StandardPathHelper.Exists(filePath, checkAsFile: false); // Check as directory
+
+// Get parent directory path
+string deepPath = @"C:\Projects\MyApp\src\Components\Button.cs";
+string parentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 1);
+// Result: "C:\Projects\MyApp\src\Components"
+string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 2);
+// Result: "C:\Projects\MyApp\src"
 ```
-
-## Error Handling
-
-The library follows defensive programming practices:
-
-- Most operations have safe variants that return default values instead of throwing exceptions
-- Extensive input validation with meaningful error messages
-- Consistent error handling patterns across all components
-
-## Performance Considerations
-
-- Optimized for performance with minimal allocations where possible
-- Cached reflection operations for better performance
-- Async/await support for I/O operations
-- Lazy evaluation where appropriate
 
 ## Best Practices
 
 1. **Use Safe Methods**: Prefer `ToIntOrNull()` over `ToInt()` when conversion might fail
-2. **Check for Null**: Use extension methods like `IsNullOrEmpty()` for validation
-3. **Parameter Validation**: Use methods like `EnsureIsNotNull()`, `EnsureIsNotNullAndEmpty()` from `GuardExtensions` for input validation
+2. **Null Checking**: Use extension methods like `IsNullOrEmpty()` for validation
+3. **Parameter Validation**: Use `GuardExtensions` methods like `EnsureIsNotNull()`, `EnsureIsNotNullAndEmpty()` for input validation
 4. **Leverage Async**: Use async versions of file operations for better performance
 5. **Error Handling**: Always handle potential exceptions in file operations
 6. **Resource Management**: Use `using` statements for disposable resources
 7. **GUID Operations**: Use extension methods like `IsEmpty()` and `IsNotEmpty()` instead of direct comparison
-8. **Collection Processing**: Use `ForEach()` extension methods to simplify array and collection iterations
+8. **Collection Processing**: Use `ForEach()` extension methods to simplify array and collection iteration
 
 ## Dependencies
 
-This library has minimal external dependencies:
+The library has minimal external dependencies:
 - System.Text.Json (for JSON operations)
 - System.Data.DataSetExtensions (for .NET Framework and .NET Standard 2.0)
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. Make sure to:
-- Follow the existing code style
+Contributions are welcome! Please feel free to submit a Pull Request. Please ensure:
+- Follow existing code style
 - Add unit tests for new features
 - Update documentation as needed
 
@@ -432,4 +444,4 @@ This project is licensed under the terms of the license provided with the Linger
 
 ---
 
-For more information about the Linger framework and other related packages, visit the [Linger project repository](https://github.com/Linger06/Linger).
+For more information about the Linger framework and other related packages, visit the [Linger Project Repository](https://github.com/Linger06/Linger).

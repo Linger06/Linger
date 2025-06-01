@@ -1,5 +1,10 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Text;
+
+#if NET6_0_OR_GREATER
+using System.Buffers;
+#endif
+
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
@@ -34,8 +39,7 @@ public static partial class StringExtensions
         return value ?? defaultFunc.Invoke();
     }
 
-    #region char
-
+    #region char    
     /// <summary>
     /// Tries to convert the string to a char.
     /// </summary>
@@ -44,13 +48,43 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToChar(this string? value, [NotNullWhen(true)] out char? result)
     {
-        if (value.IsNullOrWhiteSpace() || !char.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        // For modern .NET, directly check the span length to avoid TryParse overhead for single characters
+        var span = value.AsSpan().Trim();
+        if (span.Length == 1)
+        {
+            result = span[0];
+            return true;
+        }
+        
+        if (char.TryParse(span.ToString(), out var charResult))
+        {
+            result = charResult;
+            return true;
+        }
+#else
+        var trimmed = value.Trim();
+        if (trimmed.Length == 1)
+        {
+            result = trimmed[0];
+            return true;
+        }
+
+        if (char.TryParse(trimmed, out var charResult))
+        {
+            result = charResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -98,8 +132,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region sbyte
-
+    #region sbyte    
     /// <summary>
     /// Tries to convert the string to an sbyte.
     /// </summary>
@@ -108,13 +141,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToSByte(this string? value, [NotNullWhen(true)] out sbyte? result)
     {
-        if (value.IsNullOrWhiteSpace() || !sbyte.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (sbyte.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (sbyte.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -155,8 +203,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region byte
-
+    #region byte    
     /// <summary>
     /// Tries to convert the string to a byte.
     /// </summary>
@@ -165,13 +212,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToByte(this string? value, [NotNullWhen(true)] out byte? result)
     {
-        if (value.IsNullOrWhiteSpace() || !byte.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (byte.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (byte.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -212,8 +274,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region ushort
-
+    #region ushort    
     /// <summary>
     /// Tries to convert the string to a ushort.
     /// </summary>
@@ -222,13 +283,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToUShort(this string? value, [NotNullWhen(true)] out ushort? result)
     {
-        if (value.IsNullOrWhiteSpace() || !ushort.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (ushort.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (ushort.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -269,8 +345,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region short
-
+    #region short    
     /// <summary>
     /// Tries to convert the string to a short.
     /// </summary>
@@ -279,13 +354,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToShort(this string? value, [NotNullWhen(true)] out short? result)
     {
-        if (value.IsNullOrWhiteSpace() || !short.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (short.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (short.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -335,9 +425,7 @@ public static partial class StringExtensions
     /// <param name="result">The resulting byte array if the conversion is successful.</param>
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToBytes(this string? value, [NotNullWhen(true)] out byte[]? result)
-        => value.TryToBytes(Encoding.UTF8, out result);
-
-    /// <summary>
+        => value.TryToBytes(Encoding.UTF8, out result);    /// <summary>
     /// Tries to convert the string to a byte array using the specified encoding.
     /// </summary>
     /// <param name="value">The string to convert.</param>
@@ -352,7 +440,15 @@ public static partial class StringExtensions
             return false;
         }
 
+#if NET6_0_OR_GREATER
+        // For modern .NET, use span-based encoding for better performance
+        var span = value.AsSpan();
+        var byteCount = encoding.GetByteCount(span);
+        result = new byte[byteCount];
+        encoding.GetBytes(span, result);
+#else
         result = encoding.GetBytes(value);
+#endif
         return true;
     }
 
@@ -424,8 +520,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region Guid
-
+    #region Guid    
     /// <summary>
     /// Tries to convert the string to a Guid.
     /// </summary>
@@ -434,13 +529,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToGuid(this string? value, [NotNullWhen(true)] out Guid? result)
     {
-        if (value.IsNullOrWhiteSpace() || !Guid.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (Guid.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (Guid.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -515,8 +625,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region int
-
+    #region int    
     /// <summary>
     /// Tries to convert the string to an integer.
     /// </summary>
@@ -525,13 +634,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToInt(this string? value, [NotNullWhen(true)] out int? result)
     {
-        if (value.IsNullOrWhiteSpace() || !int.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (int.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (int.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -572,8 +696,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region long
-
+    #region long    
     /// <summary>
     /// Tries to convert the string to a long integer.
     /// </summary>
@@ -582,13 +705,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToLong(this string? value, [NotNullWhen(true)] out long? result)
     {
-        if (value.IsNullOrWhiteSpace() || !long.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (long.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (long.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -629,8 +767,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region decimal
-
+    #region decimal    
     /// <summary>
     /// Tries to convert the string to a decimal.
     /// </summary>
@@ -639,13 +776,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToDecimal(this string? value, [NotNullWhen(true)] out decimal? result)
     {
-        if (value.IsNullOrWhiteSpace() || !decimal.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (decimal.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (decimal.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -712,8 +864,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region float
-
+    #region float    
     /// <summary>
     /// Tries to convert the string to a float.
     /// </summary>
@@ -722,13 +873,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToFloat(this string? value, [NotNullWhen(true)] out float? result)
     {
-        if (value.IsNullOrWhiteSpace() || !float.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (float.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (float.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -795,8 +961,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region double
-
+    #region double    
     /// <summary>
     /// Tries to convert the string to a double.
     /// </summary>
@@ -807,13 +972,28 @@ public static partial class StringExtensions
         [NotNullWhen(true)]
         out double? result)
     {
-        if (value.IsNullOrWhiteSpace() || !double.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (double.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (double.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -880,8 +1060,7 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region datetime
-
+    #region datetime    
     /// <summary>
     /// Tries to convert the string to a DateTime.
     /// </summary>
@@ -890,13 +1069,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToDateTime(this string? value, [NotNullWhen(true)] out DateTime? result)
     {
-        if (value.IsNullOrWhiteSpace() || !DateTime.TryParse(value, out var valResult))
+        if (value.IsNullOrWhiteSpace())
         {
             result = null;
             return false;
         }
-        result = valResult;
-        return true;
+
+#if NET6_0_OR_GREATER
+        if (DateTime.TryParse(value.AsSpan(), out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#else
+        if (DateTime.TryParse(value, out var valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
+        result = null;
+        return false;
     }
 
     /// <summary>
@@ -981,9 +1175,7 @@ public static partial class StringExtensions
         { "ok", true },
         { "yes", true },
         { "success", true }
-    };
-
-    /// <summary>
+    };    /// <summary>
     /// Tries to convert the string to a boolean.
     /// </summary>
     /// <param name="value">The string to convert.</param>
@@ -991,12 +1183,28 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToBool(this string? value, [NotNullWhen(true)] out bool? result)
     {
-        if (!value.IsNullOrWhiteSpace() &&
-            (s_boolMap.TryGetValue(value, out var valResult) || bool.TryParse(value, out valResult)))
+        if (value.IsNullOrWhiteSpace())
+        {
+            result = null;
+            return false;
+        }
+
+#if NET6_0_OR_GREATER
+        // For modern .NET, use span-based operations for better performance
+        var span = value.AsSpan().Trim();
+        if (s_boolMap.TryGetValue(span.ToString(), out var valResult) || bool.TryParse(span, out valResult))
         {
             result = valResult;
             return true;
         }
+#else
+        if (s_boolMap.TryGetValue(value, out var valResult) || bool.TryParse(value, out valResult))
+        {
+            result = valResult;
+            return true;
+        }
+#endif
+
         result = null;
         return false;
     }
