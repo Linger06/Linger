@@ -148,7 +148,7 @@
         [Fact]
         public void IsFloat_ShouldReturnTrue_WhenObjectIsFloat()
         {
-            object num = "123.45";
+            object num = 123.45F;
             Assert.True(num.IsFloat());
         }
 

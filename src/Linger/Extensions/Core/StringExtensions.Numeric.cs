@@ -1,105 +1,52 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using Linger.Extensions.Core.Internal;
 
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
-{
-    /// <summary>
+{    /// <summary>
     /// Check if the specified string is equivalent to a <see cref="short"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="short"/> type; otherwise, false.</returns>
     public static bool IsInt16(this string? value)
-    {
-        if (value is null) return false;
-
-#if NET6_0_OR_GREATER
-        return short.TryParse(value.AsSpan(), out _);
-#else
-        return short.TryParse(value, out _);
-#endif
-    }
-
+        => value.IsType<short>(short.TryParse);
     /// <summary>
     /// Check if the specified string is equivalent to an <see cref="int"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to an <see cref="int"/> type; otherwise, false.</returns>
     public static bool IsInt(this string? value)
-    {
-        if (value is null) return false;
-
-#if NET6_0_OR_GREATER
-        return int.TryParse(value.AsSpan(), out _);
-#else
-        return int.TryParse(value, out _);
-#endif
-    }
-
+        => value.IsType<int>(int.TryParse);
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="long"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="long"/> type; otherwise, false.</returns>
     public static bool IsInt64(this string? value)
-    {
-        if (value is null) return false;
-
-#if NET6_0_OR_GREATER
-        return long.TryParse(value.AsSpan(), out _);
-#else
-        return long.TryParse(value, out _);
-#endif
-    }
-
+        => value.IsType<long>(long.TryParse);
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="decimal"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="decimal"/> type; otherwise, false.</returns>
     public static bool IsDecimal(this string? value)
-    {
-        if (value is null) return false;
-
-#if NET6_0_OR_GREATER
-        return decimal.TryParse(value.AsSpan(), out _);
-#else
-        return decimal.TryParse(value, out _);
-#endif
-    }
-
+        => value.IsType<decimal>(decimal.TryParse);
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="float"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="float"/> type; otherwise, false.</returns>
     public static bool IsSingle(this string? value)
-    {
-        if (value is null) return false;
-
-#if NET6_0_OR_GREATER
-        return float.TryParse(value.AsSpan(), out _);
-#else
-        return float.TryParse(value, out _);
-#endif
-    }
-
+        => value.IsType<float>(float.TryParse);
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="double"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="double"/> type; otherwise, false.</returns>
     public static bool IsDouble(this string? value)
-    {
-        if (value is null) return false;
-
-#if NET6_0_OR_GREATER
-        return double.TryParse(value.AsSpan(), out _);
-#else
-        return double.TryParse(value, out _);
-#endif
-    }
+        => value.IsType<double>(double.TryParse);
 
     /// <summary>
     /// Determines whether the specified date string is a datetime.
