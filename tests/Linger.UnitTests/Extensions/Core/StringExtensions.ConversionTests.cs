@@ -1,4 +1,4 @@
-﻿namespace Linger.UnitTests.Extensions.Core
+namespace Linger.UnitTests.Extensions.Core
 {
     public partial class StringExtensionsTests
     {
@@ -17,24 +17,6 @@
         public void ToSafeString_ShouldReturnExpectedResult(string? value, string defaultValue, string expected)
         {
             var result = value.ToSafeString(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, string?, string?> ToStringOrNullData()
-        {
-            return new TheoryData<string?, string?, string?>
-                {
-                    { null, null, null },
-                    { null, "default", "default" },
-                    { "value", "default", "value" }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToStringOrNullData))]
-        public void ToStringOrNull_ShouldReturnExpectedResult(string? value, string? defaultValue, string? expected)
-        {
-            var result = value.ToStringOrNull(defaultValue);
             Assert.Equal(expected, result);
         }
 

@@ -12,28 +12,31 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValue">The default value to return if the string is null.</param>
     /// <returns>The original string if not null, otherwise the default value.</returns>
-    public static string ToSafeString(this string? value, string defaultValue = "")
-        => value.IsNull() ? defaultValue : value;
+    /// <example>
+    /// <code>
+    /// string? nullString = null;
+    /// string result = nullString.ToSafeString("default"); // Returns "default"
+    /// string result2 = "hello".ToSafeString("default");   // Returns "hello"
+    /// </code>
+    /// </example>
+    public static string ToSafeString(this string? value, string defaultValue = "") => value ?? defaultValue;
 
     /// <summary>
-    /// Converts the string to a string or null, returning a default value if the string is null.
+    /// Converts the string to a safe string, using a function to provide the default value if the string is null.
     /// </summary>
     /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null.</param>
-    /// <returns>The original string if not null, otherwise the default value.</returns>
-    public static string? ToStringOrNull(this string? value, string? defaultValue = null)
-        => value.ToStringOrNull(() => defaultValue);
-
-    /// <summary>
-    /// Converts the string to a string or null, using a function to provide the default value if the string is null.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultFunc">The function to provide the default value if the string is null.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the string is null.</param>
     /// <returns>The original string if not null, otherwise the result of the default function.</returns>
-    public static string? ToStringOrNull(this string? value, Func<string?> defaultFunc)
+    /// <example>
+    /// <code>
+    /// string? nullString = null;
+    /// string result = nullString.ToSafeString(() => DateTime.Now.ToString()); // Returns current time as string
+    /// </code>
+    /// </example>
+    public static string ToSafeString(this string? value, Func<string> defaultValueFunc)
     {
-        ArgumentNullException.ThrowIfNull(defaultFunc);
-        return value ?? defaultFunc.Invoke();
+        ArgumentNullException.ThrowIfNull(defaultValueFunc);
+        return value ?? defaultValueFunc.Invoke();
     }
 
     #region char    
