@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 
 namespace Linger.Helper.PathHelpers;
 
@@ -9,7 +9,7 @@ public abstract class PathHelperBase
 {
     // 缓存常用值，减少重复计算
     protected static readonly char PlatformSeparator = Path.DirectorySeparatorChar;
-    protected static readonly char[] PathSeparators = new[] { '/', '\\' };
+    protected static readonly char[] PathSeparators = ['/', '\\'];
     protected const StringComparison PathComparison = StringComparison.OrdinalIgnoreCase;
     protected static readonly string SingleSeparator = PlatformSeparator.ToString();
 

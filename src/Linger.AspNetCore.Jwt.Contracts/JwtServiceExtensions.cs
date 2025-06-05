@@ -1,6 +1,3 @@
-using System;
-using System.Threading.Tasks;
-
 namespace Linger.AspNetCore.Jwt.Contracts;
 
 /// <summary>
@@ -17,7 +14,7 @@ public static class JwtServiceExtensions
     {
         return jwtService is IRefreshableJwtService;
     }
-    
+
     /// <summary>
     /// 尝试刷新令牌
     /// </summary>
@@ -30,7 +27,7 @@ public static class JwtServiceExtensions
         {
             try
             {
-                var newToken = await refreshableService.RefreshTokenAsync(token);
+                var newToken = await refreshableService.RefreshTokenAsync(token).ConfigureAwait(false);
                 return (true, newToken);
             }
             catch (Exception)
@@ -38,7 +35,7 @@ public static class JwtServiceExtensions
                 return (false, null);
             }
         }
-        
+
         return (false, null);
     }
 }

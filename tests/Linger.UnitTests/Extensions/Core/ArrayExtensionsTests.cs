@@ -1,4 +1,4 @@
-﻿namespace Linger.Extensions.Tests;
+namespace Linger.Extensions.Tests;
 
 public partial class ArrayExtensionsTests
 {
@@ -191,7 +191,7 @@ public partial class ArrayExtensionsTests
     public void RemoveRange_InvalidStartIndex_ShouldThrowException()
     {
         int[] numbers = { 1, 2, 3, 4 };
-        Assert.Throws<IndexOutOfRangeException>(() => numbers.RemoveRange(5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveRange(5));
     }
 
     [Fact]
@@ -206,27 +206,27 @@ public partial class ArrayExtensionsTests
     public void RemoveRange_InvalidRange_ShouldThrowException()
     {
         int[] numbers = { 1, 2, 3, 4, 5 };
-        Assert.Throws<IndexOutOfRangeException>(() => numbers.RemoveRange(1, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveRange(1, 5));
     }
 
     [Fact]
     public void RemoveRange_InvalidStartIndex_ShouldThrowException2()
     {
         int[] numbers = { 1, 2, 3, 4, 5 };
-        Assert.Throws<IndexOutOfRangeException>(() => numbers.RemoveRange(-1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveRange(-1));
     }
 
     [Fact]
     public void RemoveRange_InvalidStartIndex_WithLength_ShouldThrowException()
     {
         int[] numbers = { 1, 2, 3, 4, 5 };
-        Assert.Throws<IndexOutOfRangeException>(() => numbers.RemoveRange(6, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveRange(6, 5));
     }
 
     [Fact]
     public void RemoveRange_InvalidStartIndex_WithLength_ShouldThrowException2()
     {
         int[] numbers = { 1, 2, 3, 4, 5 };
-        Assert.Throws<IndexOutOfRangeException>(() => numbers.RemoveRange(-1, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveRange(-1, 5));
     }
 }

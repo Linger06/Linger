@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using Linger.Attributes;
 
 namespace Linger.Extensions.Core;
@@ -88,7 +88,7 @@ public static class TypeExtension
     /// <returns>The property info if found, otherwise null.</returns>
     public static PropertyInfo? GetSingleProperty(this Type self, string name)
     {
-        var fullName = self.FullName ?? throw new NullReferenceException(nameof(self.FullName));
+        var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
 
         if (!PropertyCache.TryGetValue(fullName, out List<PropertyInfo>? value))
         {
@@ -412,18 +412,18 @@ public static class TypeExtension
     public static List<ColumnInfo> GetColumnsInfo(this Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
-        
+
         var columns = new List<ColumnInfo>();
         var counter = 0;
-        
+
         // 获取所有属性
         foreach (var propertyInfo in type.GetProperties())
         {
             counter++;
-            
+
             // 使用GetCustomAttribute<T>方法直接获取特性，避免使用反射
             var attribute = propertyInfo.GetCustomAttribute<UserDefinedTableTypeColumnAttribute>(true);
-            
+
             // 创建并添加列信息
             var column = new ColumnInfo
             {
@@ -432,10 +432,10 @@ public static class TypeExtension
                 Property = propertyInfo,
                 PropertyType = propertyInfo.PropertyType
             };
-            
+
             columns.Add(column);
         }
-        
+
         // 按照PropertyOrder排序
         return columns.OrderBy(info => info.PropertyOrder).ToList();
     }

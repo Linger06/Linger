@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Linger.Email.AspNetCore;
@@ -30,7 +30,7 @@ public sealed class EmailService(
             {
                 _logger.LogInformation("邮件发送成功: {Response}", response);
                 completedCallback?.Invoke(response);
-            });
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -79,7 +79,7 @@ public sealed class EmailService(
 
         try
         {
-            await base.DisposeAsync();
+            await base.DisposeAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

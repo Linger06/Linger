@@ -12,16 +12,7 @@ public static class IntExtensions
     /// <returns>A string representing the file size in a human-readable format (e.g., Bytes, KB, MB, GB, etc.).</returns>
     public static string FormatFileSize(this int contentLength)
     {
-        var size = Convert.ToDouble(contentLength);
-        string[] units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
-        const double Mod = 1024.0;
-        var i = 0;
-        while (size >= Mod)
-        {
-            size /= Mod;
-            i++;
-        }
-
-        return $"{Math.Round(size)}{units[i]}";
+        var length = ((double)contentLength);
+        return length.FormatFileSize();
     }
 }

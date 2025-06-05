@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json;
 using Linger.Extensions.Core;
 using Linger.JsonConverter;
@@ -149,7 +149,7 @@ public static class DataTableExtensions
 
         foreach (DataRow dr in sourceTable.Rows)
         {
-            sum += Convert.ToDouble(dr[columnName]);
+            sum += dr[columnName].ToDouble();// Convert.ToDouble(dr[columnName]);
         }
 
         return sum;
@@ -247,7 +247,7 @@ public static class DataTableExtensions
         {
             if (!left.ContainAllColumns(x.ColumnName))
             {
-                throw new Exception($"{nameof(leftCols)} have columns not in {nameof(left)}");
+                throw new ArgumentException($"{nameof(leftCols)} have columns not in {nameof(left)}");
             }
         });
 
@@ -255,7 +255,7 @@ public static class DataTableExtensions
         {
             if (!right.ContainAllColumns(x.ColumnName))
             {
-                throw new Exception($"{nameof(rightCols)} have columns not in {nameof(right)}");
+                throw new ArgumentException($"{nameof(rightCols)} have columns not in {nameof(right)}");
             }
         });
 
@@ -440,7 +440,7 @@ public static class DataTableExtensions
                 try
                 {
                     // 获取值并设置到对应单元格
-                    object cellValue = sourceRow[valueColumn];
+                    var cellValue = sourceRow[valueColumn];
                     if (cellValue != DBNull.Value)
                     {
                         decimal currentValue = 0;
@@ -448,14 +448,15 @@ public static class DataTableExtensions
                         // 如果单元格已有值，则获取现有值
                         if (resultRow[captionValue] != DBNull.Value)
                         {
-                            currentValue = Convert.ToDecimal(resultRow[captionValue]);
+                            var value = resultRow[captionValue];
+                            currentValue = value.ToDecimal();// Convert.ToDecimal(resultRow[captionValue]);
                         }
 
                         // 将新值添加到现有值
                         decimal newValue = 0;
                         try
                         {
-                            newValue = Convert.ToDecimal(cellValue);
+                            newValue = cellValue.ToDecimal();// Convert.ToDecimal(cellValue);
                         }
                         catch (InvalidCastException)
                         {
@@ -553,7 +554,6 @@ public static class DataTableExtensions
         }
         return result;
     }
-
 
 #if !NETFRAMEWORK || NET462_OR_GREATER
     /// <summary>
@@ -712,15 +712,7 @@ public static class DataTableExtensions
 
             if (propertyType == typeof(bool))
             {
-                if (value is bool boolValue)
-                {
-                    property.SetValue(obj, boolValue);
-                }
-                else
-                {
-                    string strValue = value.ToString().ToLower();
-                    property.SetValue(obj, strValue == "true" || strValue == "yes" || strValue == "y" || strValue == "1");
-                }
+                property.SetValue(obj, value.ToBool());
                 return;
             }
 
@@ -747,7 +739,7 @@ public static class DataTableExtensions
             }
 
             // 常规类型转换
-            property.SetValue(obj, Convert.ChangeType(value, propertyType));
+            property.SetValue(obj, Convert.ChangeType(value, propertyType, ExtensionMethodSetting.DefaultCulture));
         }
         catch (Exception)
         {

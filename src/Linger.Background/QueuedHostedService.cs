@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -14,7 +14,7 @@ public class QueuedHostedService(IBackgroundTaskQueue taskQueue,
     {
         logger.LogInformation("Queued Hosted Service is running.");
 
-        await BackgroundProcessing(stoppingToken);
+        await BackgroundProcessing(stoppingToken).ConfigureAwait(false);
     }
 
     private async Task BackgroundProcessing(CancellationToken stoppingToken)
@@ -22,12 +22,12 @@ public class QueuedHostedService(IBackgroundTaskQueue taskQueue,
         while (!stoppingToken.IsCancellationRequested)
         {
             var workItem =
-                await TaskQueue.DequeueAsync(stoppingToken);
+                await TaskQueue.DequeueAsync(stoppingToken).ConfigureAwait(false);
 
             try
             {
                 using var scope = serviceProvider.CreateScope();
-                await workItem(scope.ServiceProvider, stoppingToken);
+                await workItem(scope.ServiceProvider, stoppingToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -41,6 +41,6 @@ public class QueuedHostedService(IBackgroundTaskQueue taskQueue,
     {
         logger.LogInformation("Queued Hosted Service is stopping.");
 
-        await base.StopAsync(stoppingToken);
+        await base.StopAsync(stoppingToken).ConfigureAwait(false);
     }
 }

@@ -3,7 +3,7 @@ using Linger.Extensions.Core;
 
 namespace Linger.UnitTests.Extensions.Core
 {
-    public class TypeExtensions2Tests
+    public partial class TypeExtensionsTests
     {
         [Fact]
         public void IsEnum_ShouldReturnTrue_WhenTypeIsEnum()
@@ -139,7 +139,7 @@ namespace Linger.UnitTests.Extensions.Core
         public void GetPropertyInfo_ShouldReturnPropertyInfo_WhenPropertyExists()
         {
             // Arrange
-            var type = typeof(SampleClass);
+            var type = typeof(SampleClass2);
             var propertyName = "Name";
 
             // Act
@@ -154,7 +154,7 @@ namespace Linger.UnitTests.Extensions.Core
         public void GetPropertyInfo_ShouldThrowException_WhenPropertyDoesNotExist()
         {
             // Arrange
-            var type = typeof(SampleClass);
+            var type = typeof(SampleClass2);
             var propertyName = "NonExistentProperty";
 
             // Act & Assert
@@ -165,7 +165,7 @@ namespace Linger.UnitTests.Extensions.Core
         public void GetColumnsInfo_ShouldReturnColumnInfoList_ForType()
         {
             // Arrange
-            var type = typeof(SampleClass);
+            var type = typeof(SampleClass2);
 
             // Act
             var result = type.GetColumnsInfo();
@@ -189,12 +189,12 @@ namespace Linger.UnitTests.Extensions.Core
             // Assert
             Assert.NotEmpty(result);
             Assert.Equal(3, result.Count);
-            
+
             // 验证属性名称是否保持不变
             Assert.Equal("FirstProperty", result[0].PropertyName);
             Assert.Equal("SecondProperty", result[1].PropertyName);
             Assert.Equal("ThirdProperty", result[2].PropertyName);
-            
+
             // 验证属性顺序是否按声明顺序递增
             Assert.Equal(1, result[0].PropertyOrder);
             Assert.Equal(2, result[1].PropertyOrder);
@@ -213,12 +213,12 @@ namespace Linger.UnitTests.Extensions.Core
             // Assert
             Assert.NotEmpty(result);
             Assert.Equal(3, result.Count);
-            
+
             // 验证属性名称和顺序
             Assert.Equal("CustomName", result[0].PropertyName);  // 第一个属性有特性并设置了名称和顺序
             Assert.Equal("SecondProperty", result[1].PropertyName);  // 第二个属性没有特性
             Assert.Equal("ThirdProperty", result[2].PropertyName);  // 第三个属性有特性只设置了顺序
-            
+
             // 验证属性顺序
             Assert.Equal(1, result[0].PropertyOrder);
             Assert.Equal(2, result[1].PropertyOrder);
@@ -237,7 +237,7 @@ namespace Linger.UnitTests.Extensions.Core
             // Assert
             Assert.NotEmpty(result);
             Assert.Equal(3, result.Count);  // 2个子类属性 + 1个父类属性
-            
+
             // 验证父类和子类属性都被正确处理
             var propertyNames = result.Select(c => c.PropertyName).ToList();
             Assert.Contains("ParentProperty", propertyNames);
@@ -270,11 +270,11 @@ namespace Linger.UnitTests.Extensions.Core
             // Assert
             Assert.NotEmpty(result);
             Assert.Equal(2, result.Count);
-            
+
             // 验证第二个属性排在第一位
             Assert.Equal("SecondProperty", result[0].PropertyName);
             Assert.Equal("FirstProperty", result[1].PropertyName);
-            
+
             // 验证顺序值
             Assert.Equal(5, result[0].PropertyOrder);
             Assert.Equal(10, result[1].PropertyOrder);
@@ -292,18 +292,18 @@ namespace Linger.UnitTests.Extensions.Core
             // Assert
             Assert.NotEmpty(result);
             Assert.Equal(2, result.Count);
-            
+
             // 验证名称被正确应用但保持默认顺序
             Assert.Equal("Custom1", result[0].PropertyName);
             Assert.Equal("Custom2", result[1].PropertyName);
-            
+
             // 默认顺序应该依次递增
             Assert.Equal(1, result[0].PropertyOrder);
             Assert.Equal(2, result[1].PropertyOrder);
         }
 
         // Sample class and attribute for testing
-        private class SampleClass
+        private class SampleClass2
         {
             [UserDefinedTableTypeColumn(1, "Name")]
             public string Name { get; set; }
@@ -327,9 +327,9 @@ namespace Linger.UnitTests.Extensions.Core
         {
             [UserDefinedTableTypeColumn(1, "CustomName")]
             public string FirstProperty { get; set; }
-            
+
             public int SecondProperty { get; set; }
-            
+
             [UserDefinedTableTypeColumn(10)]
             public bool ThirdProperty { get; set; }
         }
@@ -356,7 +356,7 @@ namespace Linger.UnitTests.Extensions.Core
         {
             [UserDefinedTableTypeColumn(10)]
             public string FirstProperty { get; set; }
-            
+
             [UserDefinedTableTypeColumn(5)]
             public int SecondProperty { get; set; }
         }
@@ -366,7 +366,7 @@ namespace Linger.UnitTests.Extensions.Core
         {
             [UserDefinedTableTypeColumn("Custom1")]
             public string FirstProperty { get; set; }
-            
+
             [UserDefinedTableTypeColumn("Custom2")]
             public int SecondProperty { get; set; }
         }

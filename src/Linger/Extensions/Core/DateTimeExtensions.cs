@@ -1,17 +1,20 @@
-﻿using System.Diagnostics.CodeAnalysis;
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace Linger.Extensions.Core;
 
 public static class DateTimeExtensions
 {
-    public static string ToFormatDate(this DateTime dateTime, string format = "yyyy-MM-dd") => dateTime.ToString(format);
+    public static string ToFormatDate(this DateTime dateTime, string format = "yyyy-MM-dd") => dateTime.ToString(format, ExtensionMethodSetting.DefaultCulture);
 
-    public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd") => dateTime?.ToString(format);
+    public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd") => dateTime?.ToString(format, ExtensionMethodSetting.DefaultCulture);
 
-    public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime.ToString(format);
+    public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime.ToString(format, ExtensionMethodSetting.DefaultCulture);
 
-    public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime?.ToString(format);
+    public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime?.ToString(format, ExtensionMethodSetting.DefaultCulture);
 
     public static TimeSpan GetDateDifference(this DateTime dateTime1, DateTime dateTime2) => dateTime1 - dateTime2;
 
@@ -50,7 +53,9 @@ public static class DateTimeExtensions
             _ => TimeUnit.Days
         };
         return GetDateDifference(dateTime1, dateTime2, timeUnit, abs);
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Converts the DateTime to a string using the specified date mode.
     /// </summary>
     /// <param name="dateTime">The DateTime instance to format.</param>
@@ -64,17 +69,17 @@ public static class DateTimeExtensions
     {
         return dateMode switch
         {
-            0 => dateTime.ToString("yyyy-MM-dd"),
-            1 => dateTime.ToString("yyyy-MM-dd HH:mm:ss"),
-            2 => dateTime.ToString("yyyy/MM/dd"),
-            4 => dateTime.ToString("MM-dd"),
-            5 => dateTime.ToString("MM/dd"),
-            7 => dateTime.ToString("yyyy-MM"),
-            8 => dateTime.ToString("yyyy/MM"),
-            10 => dateTime.ToString("yyyy-MM-dd") + " 00:00:00",
-            11 => dateTime.ToString("yyyyMMdd"),
-            12 => dateTime.ToString("yyyyMMddHHmmss"),
-            13 => dateTime.ToString("MM/dd/yyyy"),
+            0 => dateTime.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture),
+            1 => dateTime.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture),
+            2 => dateTime.ToString("yyyy/MM/dd", ExtensionMethodSetting.DefaultCulture),
+            4 => dateTime.ToString("MM-dd", ExtensionMethodSetting.DefaultCulture),
+            5 => dateTime.ToString("MM/dd", ExtensionMethodSetting.DefaultCulture),
+            7 => dateTime.ToString("yyyy-MM", ExtensionMethodSetting.DefaultCulture),
+            8 => dateTime.ToString("yyyy/MM", ExtensionMethodSetting.DefaultCulture),
+            10 => dateTime.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture) + " 00:00:00",
+            11 => dateTime.ToString("yyyyMMdd", ExtensionMethodSetting.DefaultCulture),
+            12 => dateTime.ToString("yyyyMMddHHmmss", ExtensionMethodSetting.DefaultCulture),
+            13 => dateTime.ToString("MM/dd/yyyy", ExtensionMethodSetting.DefaultCulture),
             _ => dateTime.ToString(ExtensionMethodSetting.DefaultCulture)
         };
     }
@@ -105,31 +110,6 @@ public static class DateTimeExtensions
     public static bool IsToday(this DateTime dt)
     {
         return dt.Date == DateTime.Today;
-    }
-
-    public static DateTime SetTime(this DateTime current, int hour)
-    {
-        return current.SetTime(hour, 0);
-    }
-
-    public static DateTime SetTime(this DateTime current, int hour, int minute, int second = 0, int millisecond = 0)
-    {
-        return new DateTime(current.Year, current.Month, current.Day, hour, minute, second, millisecond);
-    }
-
-    public static DateTime SetDay(this DateTime time, int day)
-    {
-        return new DateTime(time.Year, time.Month, day);
-    }
-
-    public static DateTime SetMonth(this DateTime time, int month)
-    {
-        return new DateTime(time.Year, month, time.Day);
-    }
-
-    public static DateTime SetYear(this DateTime time, int year)
-    {
-        return new DateTime(year, time.Month, time.Day);
     }
 
     public static bool InRange(this DateTime @this, DateTime minValue, DateTime maxValue)
@@ -226,60 +206,39 @@ public static class DateTimeExtensions
         return source.CompareTo(other) > 0;
     }
 
-    public static DateTime StartOfDay(this DateTime @this)
+    public static DateTime StartOfDay(this DateTime dateTime)
     {
-        return new DateTime(@this.Year, @this.Month, @this.Day);
+        return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day);
     }
 
     public static DateTime EndOfDay(this DateTime date)
     {
-        return date.SetTime(23, 59, 59, 999);
+        return date.SetDateTime(hour: 23, minute: 59, second: 59, millisecond: 999);
     }
 
-    public static DateTime StartOfMonth(this DateTime @this)
+    public static DateTime StartOfMonth(this DateTime dateTime)
     {
-        return new DateTime(@this.Year, @this.Month, 1);
+        return new DateTime(dateTime.Year, dateTime.Month, 1);
     }
 
-    public static DateTime EndOfMonth(this DateTime @this)
+    public static DateTime EndOfMonth(this DateTime dateTime)
     {
-        return new DateTime(@this.Year, @this.Month, 1).AddMonths(1).AddMilliseconds(-1);
+        return new DateTime(dateTime.Year, dateTime.Month, 1).AddMonths(1).AddMilliseconds(-1);
     }
 
-    public static DateTime FirstDayOfMonth(this DateTime date, DayOfWeek? dayOfWeek = null)
+    public static DateTime FirstDayOfMonth(this DateTime dateTime)
     {
-        var firstDay = new DateTime(date.Year, date.Month, 1);
-        if (!dayOfWeek.HasValue)
-            return firstDay;
-
-        while (firstDay.DayOfWeek != dayOfWeek.Value)
-        {
-            firstDay = firstDay.AddDays(1);
-        }
-        return firstDay;
+        return new DateTime(dateTime.Year, dateTime.Month, 1);
     }
 
-    public static DateTime FirstDayOfMonth2(this DateTime dateTime, TimeMode mode = TimeMode.Now)
+    public static DateTime LastDayOfMonth(this DateTime date)
     {
-        return dateTime.AddDays(1 - dateTime.Day).ToDateTimeOfMode(mode);
+        return new DateTime(date.Year, date.Month, date.GetCountDaysOfMonth());
     }
 
-    public static DateTime LastDayOfMonth(this DateTime date, DayOfWeek? dayOfWeek = null)
+    public static DateTime EndOfYear(this DateTime dateTime)
     {
-        var lastDay = new DateTime(date.Year, date.Month, date.GetCountDaysOfMonth());
-        if (!dayOfWeek.HasValue)
-            return lastDay;
-
-        while (lastDay.DayOfWeek != dayOfWeek.Value)
-        {
-            lastDay = lastDay.AddDays(-1);
-        }
-        return lastDay;
-    }
-
-    public static DateTime EndOfYear(this DateTime @this)
-    {
-        return new DateTime(@this.Year, 1, 1).AddYears(1).Subtract(new TimeSpan(0, 0, 0, 0, 1));
+        return new DateTime(dateTime.Year, 1, 1).AddYears(1).AddMilliseconds(-1);
     }
 
     public static DateTime ToDateTimeOfMode(this DateTime dateTime, TimeMode timeMode = TimeMode.Now)
@@ -325,7 +284,6 @@ public static class DateTimeExtensions
             second ?? current.Second,
             millisecond ?? current.Millisecond);
     }
-
 
 #if NET6_0_OR_GREATER
 
@@ -437,7 +395,6 @@ public static class DateTimeExtensions
         return new DateTimeOffset(value);
     }
 
-
     /// <summary>
     /// Gets the number of weeks in the specified year according to the specified culture's calendar.
     /// </summary>
@@ -506,8 +463,7 @@ public static class DateTimeExtensions
         // Get the number of weeks in the specified year
         var totalWeeks = GetWeekCountOfYear(year, culture);
         if (weekNumber < 1 || weekNumber > totalWeeks)
-            throw new ArgumentOutOfRangeException(nameof(weekNumber),
-                $"Week number must be between 1 and {totalWeeks} for year {year}.");
+            throw new ArgumentOutOfRangeException(nameof(weekNumber), $"Week number must be between 1 and {totalWeeks} for year {year}.");
 
         // Determine the start date of the first week
         var firstWeekStartEndDay = GetStartEndDayOfFirstWeek(year, culture);

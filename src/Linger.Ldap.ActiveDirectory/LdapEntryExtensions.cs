@@ -1,6 +1,9 @@
-﻿using System.DirectoryServices;
+using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
+using Linger.Extensions.Core;
+#if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
+#endif
 using Linger.Ldap.ActiveDirectory.Constants;
 using Linger.Ldap.Contracts;
 using static Linger.Ldap.ActiveDirectory.Constants.ActiveDirectoryConstants;
@@ -311,7 +314,8 @@ public static class LdapEntryExtensions
     {
         try
         {
-            return Convert.ToBoolean(entry.InvokeGet("IsAccountLocked"));
+            var isAccountLocked = entry.InvokeGet("IsAccountLocked");
+            return isAccountLocked.ToBool();// Convert.ToBoolean(entry.InvokeGet("IsAccountLocked"));
         }
         catch
         {
@@ -416,7 +420,7 @@ public static class LdapEntryExtensions
     {
         try
         {
-            var accountExpiresLong = Convert.ToInt64(accountExpiresValue);
+            var accountExpiresLong = accountExpiresValue.ToLong();
             if (accountExpiresLong == 0 || accountExpiresLong == TimeConstants.NoExpiryDate)
             {
                 return null;

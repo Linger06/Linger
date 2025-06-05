@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Reflection;
 using ClosedXML.Excel;
 using Linger.Excel.Contracts;
@@ -228,7 +228,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case int or long or short or byte or sbyte or ushort or uint or ulong:
-                cell.Value = Convert.ToInt64(value);
+                cell.Value = value.ToLong();// Convert.ToInt64(value);
                 cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.IntegerFormat; // 更新为新路径
                 break;
             default:
@@ -477,7 +477,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     protected override void ProcessCollectionRows<T>(IXLWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
         // 优先查找带有ExcelColumn特性的属性
-        var columns = GetExcelColumns(properties);
+        var columns = GetExcelColumns(properties).ToList();
         if (columns.Count == 0)
         {
             columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();

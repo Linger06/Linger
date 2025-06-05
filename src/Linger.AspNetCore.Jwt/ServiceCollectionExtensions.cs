@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Linger.AspNetCore.Jwt.Contracts;
@@ -82,7 +82,7 @@ public static class ServiceCollectionExtensions
                     }
 
                     Console.WriteLine($"令牌验证成功: {context.SecurityToken}");
-                    await Task.CompletedTask;
+                    await Task.CompletedTask.ConfigureAwait(false);
                 },
                 OnChallenge = context =>
                 {

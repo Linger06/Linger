@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Text;
 
 namespace Linger.Extensions.Core;
@@ -164,7 +163,7 @@ public static partial class StringExtensions
             {
                 sb.Append('&');
             }
-            
+
             sb.Append(item.Key);
             sb.Append('=');
             sb.Append(item.Value);

@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Linger.Extensions.Core;
 using MailKit;
 using MailKit.Net.Smtp;
@@ -31,12 +31,12 @@ public class Email : IEmail, IDisposable
             var mimeMessage = CreateMimeMessage(emailMessage);
             _actionSendCompletedCallback = completedCallback;
 
-            await ConnectToServerAsync();
-            await SendMessageAsync(mimeMessage);
+            await ConnectToServerAsync().ConfigureAwait(false);
+            await SendMessageAsync(mimeMessage).ConfigureAwait(false);
         }
         finally
         {
-            await DisconnectAsync();
+            await DisconnectAsync().ConfigureAwait(false);
         }
     }
 
@@ -52,11 +52,11 @@ public class Email : IEmail, IDisposable
     private async Task ConnectToServerAsync()
     {
         var secureOptions = DetermineSecureOptions();
-        await _smtpClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, secureOptions);
+        await _smtpClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, secureOptions).ConfigureAwait(false);
 
         if (_emailConfig.UserName.IsNotNullAndEmpty())
         {
-            await _smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password);
+            await _smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password).ConfigureAwait(false);
         }
     }
 
@@ -78,7 +78,7 @@ public class Email : IEmail, IDisposable
     {
         if (_smtpClient.IsConnected)
         {
-            await _smtpClient.DisconnectAsync(true);
+            await _smtpClient.DisconnectAsync(true).ConfigureAwait(false);
         }
     }
 
@@ -221,7 +221,7 @@ public class Email : IEmail, IDisposable
 
     public virtual async ValueTask DisposeAsync()
     {
-        await DisposeAsyncCore();
+        await DisposeAsyncCore().ConfigureAwait(false);
         Dispose(false);
         GC.SuppressFinalize(this);
     }
@@ -232,7 +232,7 @@ public class Email : IEmail, IDisposable
 
         if (_smtpClient.IsConnected)
         {
-            await _smtpClient.DisconnectAsync(true);
+            await _smtpClient.DisconnectAsync(true).ConfigureAwait(false);
         }
         _smtpClient.MessageSent -= SmtpClient_MessageSent;
         _smtpClient.Dispose();

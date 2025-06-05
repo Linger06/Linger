@@ -1,6 +1,3 @@
-using System.Net.Http;
-using System.Net.Http.Headers;
-
 namespace Linger.HttpClient.Contracts.Helpers;
 
 /// <summary>
@@ -23,11 +20,11 @@ public static class MultipartHelper
         string fileFieldName = "file")
     {
         var content = new MultipartFormDataContent();
-        
+
         // 添加文件
         var fileContent = new ByteArrayContent(fileData);
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
-        
+
         // 根据文件扩展名设置内容类型
         string contentType = extension switch
         {
@@ -46,10 +43,10 @@ public static class MultipartHelper
             ".zip" => "application/zip",
             _ => "application/octet-stream"
         };
-        
+
         fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
         content.Add(fileContent, fileFieldName, fileName);
-        
+
         // 添加表单数据
         if (formData != null)
         {
@@ -58,7 +55,7 @@ public static class MultipartHelper
                 content.Add(new StringContent(field.Value), field.Key);
             }
         }
-        
+
         return content;
     }
 }

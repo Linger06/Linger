@@ -1,4 +1,4 @@
-﻿using Linger.Helper.PathHelpers;
+using Linger.Helper.PathHelpers;
 
 namespace Linger.FileSystem.Local;
 
@@ -103,7 +103,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         var effectiveOverwrite = overwrite ?? _options.DefaultOverwrite;
         var effectiveUseSequencedName = useSequencedName ?? _options.DefaultUseSequencedName;
 
-
         return await RetryHelper.ExecuteAsync(
             async () => await UploadInternalAsync(
                 inputStream,
@@ -112,9 +111,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 destPath,
                 effectiveNamingRule,
                 effectiveOverwrite,
-                effectiveUseSequencedName),
+                effectiveUseSequencedName).ConfigureAwait(false),
             "文件上传",
-            ex => ex is not DuplicateFileException); // 文件重复异常不重试
+            ex => ex is not DuplicateFileException).ConfigureAwait(false); // 文件重复异常不重试
 
     }
 
@@ -127,7 +126,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     {
         // 先将输入流的内容复制到内存流中，这样可以多次读取
         using var memoryStream = new MemoryStream();
-        await inputStream.CopyToAsync(memoryStream, _options.UploadBufferSize);
+        await inputStream.CopyToAsync(memoryStream, _options.UploadBufferSize).ConfigureAwait(false);
         memoryStream.Position = 0;
 
         // 计算源文件哈希值
@@ -151,22 +150,22 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         // 写入文件
         memoryStream.Position = 0;
 #if NET8_0_OR_GREATER
-        await
-#endif
+        await using (var fileStream = File.Create(relativeFilePath))
+#else
         using (var fileStream = File.Create(relativeFilePath))
+#endif
         {
-            await memoryStream.CopyToAsync(fileStream);
+            await memoryStream.CopyToAsync(fileStream).ConfigureAwait(false);
         }
 
         // 验证文件完整性
         var fileInfo = new FileInfo(relativeFilePath);
 
 #if NET8_0_OR_GREATER
-        await ValidateFileIntegrityAsync(fileInfo, sourceHashData);
+        await ValidateFileIntegrityAsync(fileInfo, sourceHashData).ConfigureAwait(false);
 #else
         ValidateFileIntegrity(fileInfo, sourceHashData);
 #endif
-
 
         // 构建上传信息
         return new UploadedInfo
@@ -381,7 +380,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 var destFilePath = await GetUniqueDestFilePathAsync(
                     destFileName,
                     overwrite,
-                    useSequencedName);
+                    useSequencedName).ConfigureAwait(false);
 
 #if NET8_0_OR_GREATER
                 await
@@ -393,11 +392,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 using var destStream = File.Create(destFilePath);
                 //using var destStream = new FileStream(localDestinationPath, overwrite ? FileMode.Create : FileMode.CreateNew);
 
-                await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize);
+                await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize).ConfigureAwait(false);
                 return destFilePath;
             },
             "文件下载",
-            ex => !(ex is FileNotFoundException || ex is DuplicateFileException));
+            ex => !(ex is FileNotFoundException || ex is DuplicateFileException)).ConfigureAwait(false);
 
     }
 
@@ -427,7 +426,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         using var sourceStream = File.OpenRead(sourceFilePath);
 
         sourceStream.Position = 0;
-        await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize);
+        await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -441,7 +440,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         var directory = Path.GetDirectoryName(destFilePath);
         if (!string.IsNullOrEmpty(directory))
         {
-            await CreateDirectoryIfNotExistsAsync(directory);
+            await CreateDirectoryIfNotExistsAsync(directory).ConfigureAwait(false);
         }
 
         return destFilePath;
@@ -465,7 +464,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     public async Task DeleteAsync(string filePath)
     {
         var realPath = GetRealPath(filePath);
-        await DeleteFileIfExistsAsync(realPath);
+        await DeleteFileIfExistsAsync(realPath).ConfigureAwait(false);
     }
 
     public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
@@ -477,7 +476,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             var fileName = Path.GetFileName(filePath);
 
             var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath,
-                _options.DefaultNamingRule, overwrite, !overwrite);
+                _options.DefaultNamingRule, overwrite, !overwrite).ConfigureAwait(false);
 
             return FileOperationResult.CreateSuccess(
                 uploadedInfo.FilePath,
@@ -504,7 +503,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             var fileName = Path.GetFileName(localFilePath);
             // 构建完整的文件路径并调用更新后的UploadAsync
             var filePath = Path.Combine(destinationPath, fileName);
-            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken);
+            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -516,7 +515,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     {
         try
         {
-            await DownloadToStreamAsync(filePath, outputStream);
+            await DownloadToStreamAsync(filePath, outputStream).ConfigureAwait(false);
             return FileOperationResult.CreateSuccess();
         }
         catch (Exception ex)
@@ -529,7 +528,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     {
         try
         {
-            localDestinationPath = await DownloadAsync(filePath, localDestinationPath, overwrite, false);
+            localDestinationPath = await DownloadAsync(filePath, localDestinationPath, overwrite, false).ConfigureAwait(false);
             var fileInfo = new FileInfo(localDestinationPath);
             return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
         }
@@ -549,7 +548,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
             }
 
-            await Task.Run(() => File.Delete(realPath), cancellationToken);
+            await Task.Run(() => File.Delete(realPath), cancellationToken).ConfigureAwait(false);
             return FileOperationResult.CreateSuccess(filePath);
         }
         catch (Exception ex)

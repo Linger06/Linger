@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-
 namespace Linger.Results;
 
 /// <summary>
@@ -23,7 +19,7 @@ public static class ResultAsyncExtensions
     {
         if (result.IsSuccess)
         {
-            TResult mappedValue = await mapFunc(result.Value);
+            TResult mappedValue = await mapFunc(result.Value).ConfigureAwait(false);
             return Result.Success(mappedValue);
         }
 
@@ -44,7 +40,7 @@ public static class ResultAsyncExtensions
     {
         if (result.IsSuccess)
         {
-            return await bindFunc(result.Value);
+            return await bindFunc(result.Value).ConfigureAwait(false);
         }
 
         return Result<TResult>.Failure(result.Errors);
@@ -65,11 +61,11 @@ public static class ResultAsyncExtensions
     {
         if (result.IsSuccess)
         {
-            await onSuccess(result.Value);
+            await onSuccess(result.Value).ConfigureAwait(false);
         }
         else
         {
-            await onFailure(result.Errors);
+            await onFailure(result.Errors).ConfigureAwait(false);
         }
     }
 
@@ -91,7 +87,7 @@ public static class ResultAsyncExtensions
             return result;
         }
 
-        if (await predicate(result.Value))
+        if (await predicate(result.Value).ConfigureAwait(false))
         {
             return result;
         }

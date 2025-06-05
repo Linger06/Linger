@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Reflection;
 using Linger.Extensions.Core;
 
@@ -182,6 +182,6 @@ public static class IDataReaderExtensions
             conversionType = nullableConverter.UnderlyingType;
         }
 
-        return Convert.ChangeType(value, conversionType);
+        return Convert.ChangeType(value, conversionType, ExtensionMethodSetting.DefaultCulture);
     }
 }

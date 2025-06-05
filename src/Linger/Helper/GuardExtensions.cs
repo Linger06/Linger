@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Linger.Extensions.Core;
 using Linger.Helper.PathHelpers;
 
@@ -112,9 +112,11 @@ public static class GuardExtensions
         where T : IComparable<T>
     {
         if (value.CompareTo(min) < 0 || value.CompareTo(max) > 0)
+        {
             throw new ArgumentOutOfRangeException(
                 paramName ?? nameof(value),
                 message ?? $"Value must be between {min} and {max} (inclusive)");
+        }
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿using Linger.Excel.Contracts.Attributes;
+using Linger.Excel.Contracts.Attributes;
 
 namespace Linger.Excel.Contracts;
 
@@ -408,10 +408,10 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         string[] columnNames;
         var columns = GetExcelColumns(properties);
 
-        if (columns.Count > 0)
+        if (columns.Any())
         {
             // 使用特性标记的列名
-            columns = columns.OrderBy(c => c.Index).ToList();
+            columns = columns.OrderBy(c => c.Index);
             columnNames = columns.Select(c => c.ColumnName).ToArray();
         }
         else
@@ -515,7 +515,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         if (dataTable.Columns.Count > 0)
         {
             // 获取所有列名
-            string[] columnNames = dataTable.Columns.Cast<DataColumn>()
+            var columnNames = dataTable.Columns.Cast<DataColumn>()
                 .Select(col => col.ColumnName)
                 .ToArray();
             int startRowIndex = 0;

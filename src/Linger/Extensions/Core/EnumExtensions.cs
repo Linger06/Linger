@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.Reflection;
 #if NET5_0_OR_GREATER
 
@@ -58,7 +58,6 @@ public static class EnumExtensions
         return Enum.GetName(typeof(T), itemValue);
     }
 
-
     /// <summary>
     /// Gets the <see cref="DescriptionAttribute"/> of the enum value.
     /// </summary>
@@ -79,7 +78,6 @@ public static class EnumExtensions
 
         return item.ToString();  // If no Description attribute exists, return the enum name
     }
-
 
 #if NET5_0_OR_GREATER
 

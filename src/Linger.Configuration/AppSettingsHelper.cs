@@ -1,12 +1,12 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 
 namespace Linger.Configuration;
 
 public static class AppSettingsHelper
 {
-    private static readonly IConfiguration s_configuration;
+    private static readonly IConfiguration s_configuration = InitializeConfiguration();
 
-    static AppSettingsHelper()
+    static IConfiguration InitializeConfiguration()
     {
         //在当前目录或者根目录中寻找 appsettings.json文件
         const string FileName = "appsettings.json";
@@ -23,7 +23,7 @@ public static class AppSettingsHelper
             builder.AddJsonFile(filePath, false, true);
         }
 
-        s_configuration = builder.Build();
+        return builder.Build();
     }
 
     public static IConfigurationSection GetSection(string key)

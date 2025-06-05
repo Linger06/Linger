@@ -41,20 +41,4 @@ public partial class DateTimeExtensionsTests
         DateTime date = DateTime.Today;
         Assert.True(date.IsToday());
     }
-
-    [Fact]
-    public void SetTime_Hour()
-    {
-        var date = new DateTime(2021, 1, 1);
-        DateTime newDate = date.SetTime(10);
-        Assert.Equal(new DateTime(2021, 1, 1, 10, 0, 0), newDate);
-    }
-
-    [Fact]
-    public void SetTime_HourMinuteSecondMillisecond()
-    {
-        var date = new DateTime(2021, 1, 1);
-        DateTime newDate = date.SetTime(10, 30, 45, 500);
-        Assert.Equal(new DateTime(2021, 1, 1, 10, 30, 45, 500), newDate);
-    }
 }

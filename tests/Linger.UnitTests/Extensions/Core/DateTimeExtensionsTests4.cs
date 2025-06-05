@@ -19,36 +19,11 @@ public partial class DateTimeExtensionsTests
     }
 
     [Fact]
-    public void LastDayOfMonth_WithDayOfWeek_ShouldReturnLastSpecifiedDayOfWeek()
-    {
-        var date = new DateTime(2023, 10, 1);
-        var expected = new DateTime(2023, 10, 25); // Last Wednesday of October 2023
-        Assert.Equal(expected, date.LastDayOfMonth(DayOfWeek.Wednesday));
-    }
-
-
-    [Fact]
-    public void FirstDayOfMonth2_ShouldReturnFirstDay()
-    {
-        var date = new DateTime(2023, 10, 4);
-        var expected = new DateTime(2023, 10, 1);
-        Assert.Equal(expected, date.FirstDayOfMonth2(TimeMode.Zero));
-    }
-
-    [Fact]
     public void FirstDayOfMonth_ShouldReturnFirstDay()
     {
         var date = new DateTime(2023, 10, 4);
         var expected = new DateTime(2023, 10, 1);
         Assert.Equal(expected, date.FirstDayOfMonth());
-    }
-
-    [Fact]
-    public void FirstDayOfMonth_WithDayOfWeek_ShouldReturnFirstSpecifiedDayOfWeek()
-    {
-        var date = new DateTime(2023, 10, 4);
-        var expected = new DateTime(2023, 10, 2); // First Monday of October 2023
-        Assert.Equal(expected, date.FirstDayOfMonth(DayOfWeek.Monday));
     }
 
     [Theory]

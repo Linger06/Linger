@@ -1,52 +1,51 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using Linger.Extensions.Core.Internal;
 
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
-{    /// <summary>
+{
+    /// <summary>
     /// Check if the specified string is equivalent to a <see cref="short"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="short"/> type; otherwise, false.</returns>
-    public static bool IsInt16(this string? value)
-        => value.IsType<short>(short.TryParse);
+    public static bool IsInt16(this string? value) => value.IsType<short>(short.TryParse);
+
     /// <summary>
     /// Check if the specified string is equivalent to an <see cref="int"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to an <see cref="int"/> type; otherwise, false.</returns>
-    public static bool IsInt(this string? value)
-        => value.IsType<int>(int.TryParse);
+    public static bool IsInt(this string? value) => value.IsType<int>(int.TryParse);
+
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="long"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="long"/> type; otherwise, false.</returns>
-    public static bool IsInt64(this string? value)
-        => value.IsType<long>(long.TryParse);
+    public static bool IsInt64(this string? value) => value.IsType<long>(long.TryParse);
+
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="decimal"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="decimal"/> type; otherwise, false.</returns>
-    public static bool IsDecimal(this string? value)
-        => value.IsType<decimal>(decimal.TryParse);
+    public static bool IsDecimal(this string? value) => value.IsType<decimal>(decimal.TryParse);
+
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="float"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="float"/> type; otherwise, false.</returns>
-    public static bool IsSingle(this string? value)
-        => value.IsType<float>(float.TryParse);
+    public static bool IsSingle(this string? value) => value.IsType<float>(float.TryParse);
+
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="double"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="double"/> type; otherwise, false.</returns>
-    public static bool IsDouble(this string? value)
-        => value.IsType<double>(double.TryParse);
+    public static bool IsDouble(this string? value) => value.IsType<double>(double.TryParse);
 
     /// <summary>
     /// Determines whether the specified date string is a datetime.
@@ -199,7 +198,7 @@ public static partial class StringExtensions
             return false;
 
         int startIndex = 0;
-        
+
         // 检查可选的负号
         if (s[0] == '-')
         {
@@ -207,7 +206,7 @@ public static partial class StringExtensions
                 return false;
             startIndex = 1;
         }
-        
+
         // 检查剩余字符是否都是数字
         for (int i = startIndex; i < s.Length; i++)
         {
@@ -397,18 +396,18 @@ public static partial class StringExtensions
             return false;
 
         int pos = 0;
-        
+
         // 检查可选的符号
         if (input[pos] == '+' || input[pos] == '-')
             pos++;
-            
+
         if (pos >= input.Length)
             return false;
 
         // 检查至少一个数字
         if (!char.IsDigit(input[pos]))
             return false;
-            
+
         // 跳过数字
         while (pos < input.Length && char.IsDigit(input[pos]))
             pos++;
@@ -436,7 +435,7 @@ public static partial class StringExtensions
         // E后必须有至少一个数字
         if (pos >= input.Length || !char.IsDigit(input[pos]))
             return false;
-            
+
         // 跳过指数部分的数字
         while (pos < input.Length && char.IsDigit(input[pos]))
             pos++;
@@ -457,7 +456,7 @@ public static partial class StringExtensions
         decimal dData;
         if (input.IsScientificNotation())
         {
-            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float));
+            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float, ExtensionMethodSetting.DefaultCulture));
         }
         else
         {

@@ -8,20 +8,11 @@ public static class Int64Extensions
     /// <summary>
     /// Converts the file size in bytes to a human-readable string representation.
     /// </summary>
-    /// <param name="length">The file size in bytes.</param>
+    /// <param name="contentLength">The file size in bytes.</param>
     /// <returns>A string representing the file size in a human-readable format (e.g., Bytes, KB, MB, GB, etc.).</returns>
-    public static string FormatFileSize(this long length)
+    public static string FormatFileSize(this long contentLength)
     {
-        var size = Convert.ToDouble(length);
-        string[] units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
-        const double Mod = 1024.0;
-        var i = 0;
-        while (size >= Mod)
-        {
-            size /= Mod;
-            i++;
-        }
-
-        return $"{Math.Round(size)}{units[i]}";
+        var length = ((double)contentLength);
+        return length.FormatFileSize();
     }
 }

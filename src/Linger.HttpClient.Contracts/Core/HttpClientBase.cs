@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Linger.Extensions;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Helpers;
@@ -68,7 +68,7 @@ public abstract class HttpClientBase : IHttpClient
 
         if (postData == null)
         {
-            return await CallApi<T>(url, method, content, queryParams, timeout, cancellationToken);
+            return await CallApi<T>(url, method, content, queryParams, timeout, cancellationToken).ConfigureAwait(false);
         }
 
         if (postData is IDictionary<string, string> dictionary)
@@ -91,7 +91,7 @@ public abstract class HttpClientBase : IHttpClient
             content = new StringContent(json, Encoding.UTF8, "application/json");
         }
 
-        return await CallApi<T>(url, method, content, queryParams, timeout, cancellationToken);
+        return await CallApi<T>(url, method, content, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -127,26 +127,30 @@ public abstract class HttpClientBase : IHttpClient
                 Type type = typeof(T);
                 if (type == typeof(byte[]))
                 {
-                    var responseBytes = await res.Content.ReadAsByteArrayAsync();
+                    var responseBytes = await res.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
 
-                    if (responseBytes is not T bytes)
+                    if (responseBytes is T bytes)
                     {
-                        throw new NullReferenceException(nameof(bytes));
+                        rv.Data = bytes;
                     }
-
-                    rv.Data = bytes;
+                    else
+                    {
+                        throw new InvalidOperationException(nameof(bytes));
+                    }
                 }
                 else
                 {
-                    var responseTxt = await res.Content.ReadAsStringAsync();
+                    var responseTxt = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
                     if (type == typeof(string))
                     {
-                        if (responseTxt is not T txt)
+                        if (responseTxt is T txt)
                         {
-                            throw new NullReferenceException(nameof(txt));
+                            rv.Data = txt;
                         }
-
-                        rv.Data = txt;
+                        else
+                        {
+                            throw new InvalidOperationException(nameof(txt));
+                        }
                     }
                     else
                     {
@@ -171,7 +175,7 @@ public abstract class HttpClientBase : IHttpClient
             }
             else
             {
-                (var errorMsg, IEnumerable<Error> errors) = await GetErrorMessageAsync(res);
+                (var errorMsg, IEnumerable<Error> errors) = await GetErrorMessageAsync(res).ConfigureAwait(false);
                 rv.ErrorMsg = errorMsg;
                 rv.Errors = errors;
             }
@@ -201,7 +205,7 @@ public abstract class HttpClientBase : IHttpClient
                 return ("请求过于频繁，请稍后再试", []);
             default:
                 // 原有的错误提取逻辑
-                var responseTxt = await res.Content.ReadAsStringAsync();
+                var responseTxt = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
                 try
                 {
                     var errors = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);

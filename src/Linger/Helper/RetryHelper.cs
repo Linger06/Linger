@@ -1,4 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
+using System.Runtime.ExceptionServices;
 using Linger.Exceptions;
 
 namespace Linger.Helper;
@@ -31,10 +31,10 @@ public sealed class RetryHelper(RetryOptions? options = null)
         ArgumentNullException.ThrowIfNullOrEmpty(operationName);
 
         return await ExecuteWithRetryAsync(
-            async () => await operation(),
+            async () => await operation().ConfigureAwait(false),
             operationName,
             shouldRetry,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -56,14 +56,14 @@ public sealed class RetryHelper(RetryOptions? options = null)
         ArgumentNullException.ThrowIfNullOrEmpty(operationName);
 
         await ExecuteWithRetryAsync(
-            async () => 
+            async () =>
             {
-                await operation();
+                await operation().ConfigureAwait(false);
                 return true; // 返回值不重要，仅作为泛型方法的结果
             },
             operationName,
             shouldRetry,
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -85,7 +85,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
         {
             try
             {
-                return await operation();
+                return await operation().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -94,9 +94,9 @@ public sealed class RetryHelper(RetryOptions? options = null)
                 {
                     throw;
                 }
-                
+
                 lastException = ex;
-                
+
                 // 如果异常类型不需要重试，直接将原始异常重新抛出
                 if (!shouldRetry(ex))
                 {
@@ -104,7 +104,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
                     ExceptionDispatchInfo.Capture(ex).Throw();
                     throw; // 这行代码不会执行，但是需要它来满足编译器
                 }
-                
+
                 // 如果已经到达最后一次重试，不再等待，直接进入下一次循环
                 if (retry == _options.MaxRetries - 1)
                 {
@@ -116,7 +116,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
 
                 // 计算延迟时间
                 var delayMs = CalculateDelayWithJitter(retry);
-                await Task.Delay(delayMs, cancellationToken);
+                await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
             }
         }
 

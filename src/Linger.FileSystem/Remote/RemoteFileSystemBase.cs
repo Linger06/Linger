@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 namespace Linger.FileSystem.Remote;
 
@@ -22,7 +22,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemCo
     {
         Setting = setting ?? throw new ArgumentNullException(nameof(setting));
         if (string.IsNullOrEmpty(setting.Host))
-            throw new Exception($"Host cannot be null or empty: {nameof(setting.Host)}");
+            throw new ArgumentException($"Host cannot be null or empty: {nameof(setting.Host)}");
 
         ServerDetailsString = FormatServerDetails();
     }

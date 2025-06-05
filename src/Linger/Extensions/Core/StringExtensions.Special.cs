@@ -1,4 +1,3 @@
-using System.Data;
 using System.Text.Json;
 using Linger.JsonConverter;
 

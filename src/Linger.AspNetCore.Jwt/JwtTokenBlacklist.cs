@@ -17,7 +17,7 @@ public class JwtTokenBlacklist
         // 每小时清理一次过期的黑名单条目
         new Timer(CleanupExpiredEntries, null, TimeSpan.FromHours(1), TimeSpan.FromHours(1));
     }
-    
+
     /// <summary>
     /// 将令牌添加到黑名单
     /// </summary>
@@ -30,7 +30,7 @@ public class JwtTokenBlacklist
             _logger?.LogInformation("令牌已加入黑名单: {TokenId}, 过期时间: {ExpiryTime}", tokenId, expiryTime);
         }
     }
-    
+
     /// <summary>
     /// 检查令牌是否在黑名单中
     /// </summary>
@@ -40,7 +40,7 @@ public class JwtTokenBlacklist
     {
         return _blacklist.ContainsKey(tokenId);
     }
-    
+
     /// <summary>
     /// 从黑名单中移除令牌（通常在令牌过期后自动清理）
     /// </summary>
@@ -52,7 +52,7 @@ public class JwtTokenBlacklist
             _logger?.LogDebug("令牌已从黑名单移除: {TokenId}", tokenId);
         }
     }
-    
+
     private void CleanupExpiredEntries(object? state)
     {
         int removedCount = 0;
@@ -66,7 +66,7 @@ public class JwtTokenBlacklist
                 }
             }
         }
-        
+
         if (removedCount > 0)
         {
             _logger?.LogInformation("已清理 {Count} 个过期的黑名单条目", removedCount);

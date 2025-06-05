@@ -1,4 +1,7 @@
-﻿using System.Diagnostics.CodeAnalysis;
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Linger.Extensions.Core;
 
@@ -243,7 +246,6 @@ public static class IEnumerableExtensions
         return string.Join(separator, formattedList);
     }
 
-
     /// <summary>
     /// Determines whether the enumerable is null or empty.
     /// </summary>
@@ -435,7 +437,7 @@ public static class IEnumerableExtensions
                                       from xRight in rightLookup[key].DefaultIfEmpty()
                                       select resultSelector(xLeft, xRight);
 
-        return result.ToList();
+        return result;
     }
 
     /// <summary>
@@ -456,7 +458,7 @@ public static class IEnumerableExtensions
     public static IEnumerable<T> Paging<T>(this IEnumerable<T>? source, int pageIndex, int pageSize)
     {
         if (source is null)
-            return Enumerable.Empty<T>();
+            return [];
 
         return source.Skip((pageIndex - 1) * pageSize).Take(pageSize);
     }

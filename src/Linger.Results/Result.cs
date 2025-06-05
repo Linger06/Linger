@@ -1,4 +1,7 @@
-﻿#if NETSTANDARD2_0 || NETSTANDARD2_1 || NETCOREAPP2_0_OR_GREATER || NET451_OR_GREATER
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
+#if NETSTANDARD2_0 || NETSTANDARD2_1 || NETCOREAPP2_0_OR_GREATER || NET451_OR_GREATER
 using System.ComponentModel;
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace System.Runtime.CompilerServices
@@ -89,15 +92,15 @@ namespace Linger.Results
 
         public static implicit operator Result<TValue>(TValue? value) => Create(value);
 
-        public new static Result<TValue> Failure() => new(default, ResultStatus.Error) { Errors = [Error.Default] };
-        public new static Result<TValue> Failure(Error error) => new(default, ResultStatus.Error) { Errors = [error] };
-        public new static Result<TValue> Failure(string message) => new(default, ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
-        public new static Result<TValue> Failure(IEnumerable<Error> errors) => new(default, ResultStatus.Error) { Errors = errors };
+        public static new Result<TValue> Failure() => new(default, ResultStatus.Error) { Errors = [Error.Default] };
+        public static new Result<TValue> Failure(Error error) => new(default, ResultStatus.Error) { Errors = [error] };
+        public static new Result<TValue> Failure(string message) => new(default, ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
+        public static new Result<TValue> Failure(IEnumerable<Error> errors) => new(default, ResultStatus.Error) { Errors = errors };
 
-        public new static Result<TValue> NotFound() => new(default, ResultStatus.NotFound) { Errors = [Error.NotFound] };
-        public new static Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
-        public new static Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound) { Errors = [error] };
-        public new static Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound) { Errors = errors };
+        public static new Result<TValue> NotFound() => new(default, ResultStatus.NotFound) { Errors = [Error.NotFound] };
+        public static new Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
+        public static new Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound) { Errors = [error] };
+        public static new Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound) { Errors = errors };
 
         public bool TryGetValue([System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TValue? value)
         {

@@ -1,5 +1,4 @@
-﻿namespace Linger.Ldap.Contracts;
-
+namespace Linger.Ldap.Contracts;
 
 /// <summary>
 /// Represents low-level LDAP operations
@@ -30,7 +29,7 @@ public interface ILdap
     /// <returns>Collection of matching users; null if none found</returns>
     Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null);
 
-        /// <summary>
+    /// <summary>
     /// Checks if user exists in LDAP directory
     /// </summary>
     /// <param name="userName">Username to check</param>

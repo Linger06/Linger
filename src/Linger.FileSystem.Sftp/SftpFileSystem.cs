@@ -1,4 +1,4 @@
-﻿using Linger.Extensions.Core;
+using Linger.Extensions.Core;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
 using Renci.SshNet;
@@ -179,10 +179,10 @@ public class SftpFileSystem : RemoteFileSystemBase
             var fileName = Path.GetFileName(filePath);
 
             // 确保目录存在
-            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
+            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
 
             // 检查文件是否存在
-            if (await FileExistsAsync(filePath, cancellationToken) && !overwrite)
+            if (await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false) && !overwrite)
                 return FileOperationResult.CreateFailure($"远程文件已存在: {filePath}");
 
             // 执行上传
@@ -201,10 +201,10 @@ public class SftpFileSystem : RemoteFileSystemBase
 
                         Client.UploadFile(ms, filePath);
                         return true;
-                    }, cancellationToken);
+                    }, cancellationToken).ConfigureAwait(false);
                     return true;
                 },
-                "Upload file", cancellationToken: cancellationToken);
+                "Upload file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // 获取文件大小
             var fileSize = Client.GetAttributes(filePath).Size;
@@ -233,7 +233,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                 : $"{destinationPath}/{fileName}";
 
             // 使用新的合并参数格式调用UploadAsync
-            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken);
+            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -247,7 +247,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken))
+            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
 
             await RetryHelper.ExecuteAsync(
@@ -257,10 +257,10 @@ public class SftpFileSystem : RemoteFileSystemBase
                     {
                         Client.DownloadFile(filePath, outputStream);
                         return true;
-                    }, cancellationToken);
+                    }, cancellationToken).ConfigureAwait(false);
                     return true;
                 },
-                "Download to stream", cancellationToken: cancellationToken);
+                "Download to stream", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // 获取文件大小
             var fileSize = Client.GetAttributes(filePath).Size;
@@ -279,7 +279,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken))
+            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
 
             // 确保目标目录存在
@@ -302,10 +302,10 @@ public class SftpFileSystem : RemoteFileSystemBase
                         using var fileStream = File.Create(localDestinationPath);
                         Client.DownloadFile(filePath, fileStream);
                         return true;
-                    }, cancellationToken);
+                    }, cancellationToken).ConfigureAwait(false);
                     return true;
                 },
-                "Download file", cancellationToken: cancellationToken);
+                "Download file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var fileInfo = new FileInfo(localDestinationPath);
             return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
@@ -322,10 +322,10 @@ public class SftpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken))
+            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
                 return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
 
-            await Task.Run(() => Client.DeleteFile(filePath), cancellationToken);
+            await Task.Run(() => Client.DeleteFile(filePath), cancellationToken).ConfigureAwait(false);
             return FileOperationResult.CreateSuccess(filePath);
         }
         catch (Exception ex)
@@ -348,7 +348,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         try
         {
             if (!DirectoryExists(directoryPath))
-                return new List<string>();
+                return [];
 
             var files = Client.ListDirectory(directoryPath)
                 .Where(file => !file.IsDirectory && !file.Name.StartsWith('.'))
@@ -360,7 +360,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List files", ex, directoryPath);
-            return new List<string>();
+            return [];
         }
     }
 
@@ -373,7 +373,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         try
         {
             if (!DirectoryExists(directoryPath))
-                return new List<string>();
+                return [];
 
             var directories = Client.ListDirectory(directoryPath)
                 .Where(file => file.IsDirectory && !file.Name.StartsWith('.') && file.Name != "." && file.Name != "..")
@@ -385,7 +385,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List directories", ex, directoryPath);
-            return new List<string>();
+            return [];
         }
     }
 

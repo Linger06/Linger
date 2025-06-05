@@ -1,4 +1,4 @@
-﻿namespace Linger.Excel.Contracts;
+namespace Linger.Excel.Contracts;
 
 /// <summary>
 /// Excel扩展方法
@@ -37,11 +37,11 @@ public static class ExcelExtensions
             }
 
             using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            await ms.CopyToAsync(fs);
-            await fs.FlushAsync();
+            await ms.CopyToAsync(fs).ConfigureAwait(false);
+            await fs.FlushAsync().ConfigureAwait(false);
 
             return fullFileName;
-        }, "导出数据表到Excel文件");
+        }, "导出数据表到Excel文件").ConfigureAwait(false);
     }
 
     /// <summary>
@@ -78,10 +78,10 @@ public static class ExcelExtensions
             }
 
             using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            await ms.CopyToAsync(fs);
-            await fs.FlushAsync();
+            await ms.CopyToAsync(fs).ConfigureAwait(false);
+            await fs.FlushAsync().ConfigureAwait(false);
 
             return fullFileName;
-        }, "导出对象集合到Excel文件");
+        }, "导出对象集合到Excel文件").ConfigureAwait(false);
     }
 }

@@ -1,47 +1,7 @@
 ﻿namespace Linger.UnitTests.Extensions.Core;
 
-public class StringExtensions6Tests
+public partial class StringExtensionsTests
 {
-    [Theory]
-    [InlineData("test@example.com;test2@example.com", true)]
-    [InlineData("invalid-email", false)]
-    public void IsMultipleEmail_ShouldReturnExpectedResult(string value, bool expected)
-    {
-        var result = value.IsMultipleEmail();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("123", true)]
-    [InlineData("abc", false)]
-    public void IsPositiveInteger_ShouldReturnExpectedResult(string value, bool expected)
-    {
-        var result = value.IsPositiveInteger();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("123", true)]
-    [InlineData("-123", true)]
-    [InlineData("abc", false)]
-    public void IsInteger_ShouldReturnExpectedResult(string value, bool expected)
-    {
-        var result = value.IsInteger();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData("123", 0, 0, false)]
-    [InlineData("123", 3, 0, true)]
-    [InlineData("123.45", 3, 2, true)]
-    [InlineData("123.456", 3, 2, false)]
-    [InlineData("abc", 3, 0, false)]
-    public void IsNumber_ShouldReturnExpectedResult(string value, int precision, int scale, bool expected)
-    {
-        var result = value.IsNumber(precision, scale);
-        Assert.Equal(expected, result);
-    }
-
     [Theory]
     [InlineData("line1\r\nline2", "\r\n", new[] { "line1", "line2" })]
     [InlineData("line1,line2", ",", new[] { "line1", "line2" })]
@@ -62,11 +22,24 @@ public class StringExtensions6Tests
     }
 
     [Theory]
-    [InlineData("line1,line2", ',', new[] { "line1", "line2" })]
-    [InlineData(null, ',', new string[] { })]
-    public void ToSplitArray_ShouldReturnExpectedResult(string? value, char symbol, string[] expected)
+    [InlineData("a,b,c", ",", new[] { "a", "b", "c" })]
+    [InlineData("a|b|c", "|", new[] { "a", "b", "c" })]
+    [InlineData("", ",", new string[] { })]
+    [InlineData(null, ",", new string[] { })]
+    public void ToSplitList_StringOverload_ShouldReturnExpectedResult(string? input, string symbol, string[] expected)
     {
-        var result = value.SplitToArray(symbol);
+        var result = input.SplitToList(symbol);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("a,b,c", ',', new[] { "a", "b", "c" })]
+    [InlineData("a|b|c", '|', new[] { "a", "b", "c" })]
+    [InlineData("", ',', new string[] { })]
+    [InlineData(null, ',', new string[] { })]
+    public void ToSplitArray_ShouldReturnExpectedResult(string? input, char symbol, string[] expected)
+    {
+        var result = input.SplitToArray(symbol);
         Assert.Equal(expected, result);
     }
 

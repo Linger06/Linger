@@ -3,7 +3,7 @@ using Linger.Extensions.Core;
 
 namespace Linger.UnitTests.Extensions.Core;
 
-public class DateTimeExtensionsTests
+public partial class DateTimeExtensionsTests
 {
     [Fact]
     public void ToFormatDate_WithDefaultFormat_ReturnsFormattedDate()
@@ -285,84 +285,6 @@ public class DateTimeExtensionsTests
         Assert.True(resultToday);
         Assert.False(resultYesterday);
         Assert.False(resultTomorrow);
-    }
-
-    [Fact]
-    public void SetTime_WithHourOnly_SetsTimeCorrectly()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15, 14, 30, 25);
-
-        // Act
-        var result = dateTime.SetTime(9);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 15, 9, 0, 0), result);
-    }
-
-    [Fact]
-    public void SetTime_WithHourAndMinute_SetsTimeCorrectly()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15, 14, 30, 25);
-
-        // Act
-        var result = dateTime.SetTime(9, 45);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 15, 9, 45, 0), result);
-    }
-
-    [Fact]
-    public void SetTime_WithAllComponents_SetsTimeCorrectly()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15, 14, 30, 25);
-
-        // Act
-        var result = dateTime.SetTime(9, 45, 30, 500);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 15, 9, 45, 30, 500), result);
-    }
-
-    [Fact]
-    public void SetDay_SetsCorrectDay()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15);
-
-        // Act
-        var result = dateTime.SetDay(20);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 20), result);
-    }
-
-    [Fact]
-    public void SetMonth_SetsCorrectMonth()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15);
-
-        // Act
-        var result = dateTime.SetMonth(6);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 6, 15), result);
-    }
-
-    [Fact]
-    public void SetYear_SetsCorrectYear()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15);
-
-        // Act
-        var result = dateTime.SetYear(2025);
-
-        // Assert
-        Assert.Equal(new DateTime(2025, 4, 15), result);
     }
 
     [Fact]
@@ -654,60 +576,6 @@ public class DateTimeExtensionsTests
     }
 
     [Fact]
-    public void FirstDayOfMonth_WithDayOfWeek_ReturnsFirstSpecificDayOfWeek()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15); // April 2023
-
-        // Act
-        var resultMonday = dateTime.FirstDayOfMonth(DayOfWeek.Monday);
-        var resultSunday = dateTime.FirstDayOfMonth(DayOfWeek.Sunday);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 3), resultMonday); // First Monday is April 3
-        Assert.Equal(new DateTime(2023, 4, 2), resultSunday); // First Sunday is April 2
-    }
-
-    [Fact]
-    public void FirstDayOfMonth2_WithDefaultMode_ReturnsFirstDay()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15);
-
-        // Act
-        var result = dateTime.FirstDayOfMonth2();
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 1), result);
-    }
-
-    [Fact]
-    public void FirstDayOfMonth2_WithZeroMode_ReturnsFirstDayAtMidnight()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15, 14, 30, 25);
-
-        // Act
-        var result = dateTime.FirstDayOfMonth2(TimeMode.Zero);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 1, 0, 0, 0), result);
-    }
-
-    [Fact]
-    public void FirstDayOfMonth2_WithFullMode_ReturnsFirstDayAtEndOfDay()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15, 14, 30, 25);
-
-        // Act
-        var result = dateTime.FirstDayOfMonth2(TimeMode.Full);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 1, 23, 59, 59, 999), result);
-    }
-
-    [Fact]
     public void LastDayOfMonth_WithNoDayOfWeek_ReturnsLastDay()
     {
         // Arrange
@@ -721,21 +589,6 @@ public class DateTimeExtensionsTests
         // Assert
         Assert.Equal(new DateTime(2023, 4, 30), result1);
         Assert.Equal(new DateTime(2023, 2, 28), result2);
-    }
-
-    [Fact]
-    public void LastDayOfMonth_WithDayOfWeek_ReturnsLastSpecificDayOfWeek()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15); // April 2023
-
-        // Act
-        var resultMonday = dateTime.LastDayOfMonth(DayOfWeek.Monday);
-        var resultSunday = dateTime.LastDayOfMonth(DayOfWeek.Sunday);
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 24), resultMonday); // Last Monday is April 24
-        Assert.Equal(new DateTime(2023, 4, 30), resultSunday); // Last Sunday is April 30
     }
 
     [Fact]
@@ -972,10 +825,10 @@ public class DateTimeExtensionsTests
     {
         // Arrange
         var dateTime = new DateTime(2023, 4, 15, 14, 30, 25, DateTimeKind.Unspecified);
-        
+
         // Act
         var result = dateTime.ToDateTimeOffset();
-        
+
         // Assert
         // DateTimeOffset does not preserve DateTime.Kind information
         // Instead, we check that the offset matches the local timezone offset
@@ -1123,7 +976,7 @@ public class DateTimeExtensionsTests
         Assert.True(result.Start.Year == 2023);
         Assert.True(result.End > result.Start);
         // 确保第一周开始日期是周一
-        Assert.Equal(DayOfWeek.Monday, result.Start.DayOfWeek); 
+        Assert.Equal(DayOfWeek.Monday, result.Start.DayOfWeek);
 #endif
     }
 

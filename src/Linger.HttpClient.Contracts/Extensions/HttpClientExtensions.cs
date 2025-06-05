@@ -1,4 +1,4 @@
-﻿using Linger.HttpClient.Contracts.Core;
+using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.HttpClient.Contracts.Extensions;
@@ -18,7 +18,7 @@ public static class HttpClientExtensions
         int? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<ApiPagedResult<T>>(url, queryParams, timeout, cancellationToken);
+        return await client.CallApi<ApiPagedResult<T>>(url, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -31,7 +31,7 @@ public static class HttpClientExtensions
         int? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<T>(url, queryParams, timeout, cancellationToken);
+        return await client.CallApi<T>(url, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public static class HttpClientExtensions
         int? timeoutSeconds = timeout.HasValue ? (int)timeout.Value.TotalSeconds : null;
 
         // 使用基础方法发送请求
-        return await client.CallApi<T>(url, queryParams, timeoutSeconds, cancellationToken);
+        return await client.CallApi<T>(url, queryParams, timeoutSeconds, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -62,7 +62,7 @@ public static class HttpClientExtensions
         int? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<T>(url, HttpMethodEnum.Post, postData, queryParams, timeout, cancellationToken);
+        return await client.CallApi<T>(url, HttpMethodEnum.Post, postData, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -76,7 +76,7 @@ public static class HttpClientExtensions
         int? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<T>(url, HttpMethodEnum.Put, postData, queryParams, timeout, cancellationToken);
+        return await client.CallApi<T>(url, HttpMethodEnum.Put, postData, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -89,6 +89,6 @@ public static class HttpClientExtensions
         int? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<T>(url, HttpMethodEnum.Delete, null, queryParams, timeout, cancellationToken);
+        return await client.CallApi<T>(url, HttpMethodEnum.Delete, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 }

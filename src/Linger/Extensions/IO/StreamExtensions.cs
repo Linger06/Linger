@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
 using Linger.Extensions.Core;
 using Linger.Helper;
@@ -34,7 +34,7 @@ public static class StreamExtensions
         var sb = new StringBuilder();
         foreach (var bytes in hashBytes)
         {
-            _ = sb.Append(bytes.ToString("X2"));
+            _ = sb.Append(bytes.ToString("X2", ExtensionMethodSetting.DefaultCulture));
         }
 
         return sb.ToString();
@@ -80,7 +80,7 @@ public static class StreamExtensions
     public static async Task<byte[]> ToMd5HashByteAsync(this Stream stream)
     {
         using var md5 = MD5.Create();
-        var hashBytes = await md5.ComputeHashAsync(stream);
+        var hashBytes = await md5.ComputeHashAsync(stream).ConfigureAwait(false);
         return hashBytes;
     }
 
@@ -123,15 +123,15 @@ public static class StreamExtensions
     public static void ToFile(this Stream stream, string filePath)
     {
         FileHelper.EnsureDirectoryExists(filePath);
-        
+
         using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-        
+
         // 对于可查找的流，尝试将位置重置到开始
         if (stream.CanSeek)
         {
             stream.Position = 0;
         }
-        
+
         // 使用CopyTo方法进行流复制，适用于所有类型的流
         stream.CopyTo(fs);
         fs.Flush();
@@ -154,18 +154,18 @@ public static class StreamExtensions
     public static async Task ToFileAsync(this Stream stream, string filePath)
     {
         FileHelper.EnsureDirectoryExists(filePath);
-        
+
         using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-        
+
         // 对于可查找的流，尝试将位置重置到开始
         if (stream.CanSeek)
         {
             stream.Position = 0;
         }
-        
+
         // 使用CopyToAsync方法进行异步流复制
-        await stream.CopyToAsync(fs);
-        await fs.FlushAsync();
+        await stream.CopyToAsync(fs).ConfigureAwait(false);
+        await fs.FlushAsync().ConfigureAwait(false);
     }
 }
 

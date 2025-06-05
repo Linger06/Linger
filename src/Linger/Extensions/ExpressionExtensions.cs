@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 
 namespace Linger.Extensions;
 
@@ -139,7 +139,7 @@ public static class ExpressionExtensions
         {
             return false;
         }
-        
+
         // 不能直接依赖IOrderedQueryable接口检查，因为许多LINQ提供程序都实现了这个接口
         // 即使查询没有排序操作
         // if (query is IOrderedQueryable)
@@ -156,7 +156,7 @@ public static class ExpressionExtensions
     /// <summary>
     /// Replaces parameters in an expression with the specified map.
     /// </summary>
-    private class ParameterRebindVisitor : ExpressionVisitor
+    private sealed class ParameterRebindVisitor : ExpressionVisitor
     {
         /// <summary>
         /// The ParameterExpression map.
@@ -211,7 +211,7 @@ public static class ExpressionExtensions
     /// <summary>
     /// Visits expressions to determine if an OrderBy clause is present.
     /// </summary>
-    private class OrderByVisitor : ExpressionVisitor
+    private sealed class OrderByVisitor : ExpressionVisitor
     {
         /// <summary>
         /// Gets a value indicating whether the query has an OrderBy clause.
@@ -241,7 +241,7 @@ public static class ExpressionExtensions
                     return node;
                 }
             }
-            
+
             // 检查自定义扩展方法或 EF Core 扩展
             else if (node.Method.Name.Contains("OrderBy"))
             {

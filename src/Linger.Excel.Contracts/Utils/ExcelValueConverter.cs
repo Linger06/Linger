@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 
 namespace Linger.Excel.Contracts.Utils;
 
@@ -107,28 +107,28 @@ public static class ExcelValueConverter
                 return value.ToString();
 
             if (actualType == typeof(int))
-                return Convert.ToInt32(value);
+                return value.ToInt();// Convert.ToInt32(value);
 
             if (actualType == typeof(long))
-                return Convert.ToInt64(value);
+                return value.ToLong();// Convert.ToInt64(value);
 
             if (actualType == typeof(decimal))
-                return Convert.ToDecimal(value);
+                return value.ToDecimal();// Convert.ToDecimal(value);
 
             if (actualType == typeof(double))
-                return Convert.ToDouble(value);
+                return value.ToDouble();// Convert.ToDouble(value);
 
             if (actualType == typeof(float))
-                return Convert.ToSingle(value);
+                return value.ToFloat();// Convert.ToSingle(value);
 
             if (actualType == typeof(bool))
             {
-                if (value is string str)
-                {
-                    str = str.Trim().ToLower();
-                    return str == "true" || str == "yes" || str == "y" || str == "1";
-                }
-                return Convert.ToBoolean(value);
+                //if (value is string str)
+                //{
+                //    str = str.Trim().ToLower();
+                //    return str == "true" || str == "yes" || str == "y" || str == "1";
+                //}
+                return value.ToBool();// Convert.ToBoolean(value);
             }
 
             if (actualType == typeof(DateTime))
@@ -139,7 +139,7 @@ public static class ExcelValueConverter
                 if (value is string s)
                     return DateTime.Parse(s, CultureInfo.CurrentCulture);
 
-                return Convert.ToDateTime(value);
+                return value.ToDateTime();// Convert.ToDateTime(value);
             }
 
             if (actualType.IsEnum)
@@ -147,7 +147,7 @@ public static class ExcelValueConverter
                 if (value is string s)
                     return Enum.Parse(actualType, s, true);
 
-                return Enum.ToObject(actualType, Convert.ToInt32(value));
+                return Enum.ToObject(actualType, value.ToInt());
             }
 
             // 其他类型尝试直接转换

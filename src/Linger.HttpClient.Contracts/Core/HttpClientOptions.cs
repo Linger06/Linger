@@ -13,5 +13,5 @@ public class HttpClientOptions
     /// <summary>
     /// 默认请求头
     /// </summary>
-    public Dictionary<string, string> DefaultHeaders { get; set; } = new();
+    public Dictionary<string, string> DefaultHeaders { get; set; } = [];
 }

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Linger.Extensions.Core;
@@ -107,7 +107,8 @@ public static class ObjectExtensions
     /// </example>
     public static object? GetPropertyValue(this object obj, string propertyName)
     {
-        return obj.GetPropertyInfo(propertyName).GetValue(obj, null);    }
+        return obj.GetPropertyInfo(propertyName).GetValue(obj, null);
+    }
 
     #region Type checking methods
 
@@ -153,7 +154,9 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="decimal"/> type; otherwise, false.</returns>
-    public static bool IsDecimal(this object? value) => value.IsOfType<decimal>();    /// <summary>
+    public static bool IsDecimal(this object? value) => value.IsOfType<decimal>();
+
+    /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="float"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
@@ -245,14 +248,15 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <returns>A string representation of the input object, or null if the input is null.</returns>
-    public static string? ToStringOrNull(this object? input) => input?.ToString();    /// <summary>
+    public static string? ToStringOrNull(this object? input) => input?.ToString();
+
+    /// <summary>
     /// Converts the input object to a short. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>A short representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static short ToShort(this object? input, short defaultValue = 0) => 
-        input.ConvertWithDefault(ToShortOrNull, defaultValue);
+    public static short ToShort(this object? input, short defaultValue = 0) => input.ToShortOrNull() ?? defaultValue;
 
     /// <summary>
     /// Converts the input object to a nullable short. Returns null if the conversion fails.
@@ -262,14 +266,15 @@ public static class ObjectExtensions
     public static short? ToShortOrNull(this object? input)
     {
         return input.ToStringOrNull().ToShortOrNull();
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Converts the input object to a long. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>A long representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static long ToLong(this object? input, long defaultValue = 0) => 
-        input.ConvertWithDefault(ToLongOrNull, defaultValue);
+    public static long ToLong(this object? input, long defaultValue = 0) => input.ToLongOrNull() ?? defaultValue;
 
     /// <summary>
     /// Converts the input object to a nullable long. Returns null if the conversion fails.
@@ -314,14 +319,15 @@ public static class ObjectExtensions
     public static decimal? ToDecimalOrNull(this object? input, decimal? defaultValue = null, int? digits = null)
     {
         return input.ToStringOrNull().ToDecimalOrNull(defaultValue, digits);
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Converts the input object to an integer. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>An integer representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static int ToInt(this object? input, int defaultValue = 0) => 
-        input.ConvertWithDefault(ToIntOrNull, defaultValue);
+    public static int ToInt(this object? input, int defaultValue = 0) => input.ToIntOrNull() ?? defaultValue;
 
     /// <summary>
     /// Converts the input object to a nullable integer. Returns null if the conversion fails.
@@ -401,21 +407,22 @@ public static class ObjectExtensions
     {
         return ToDateTimeOrNull(input) ?? DateTime.MinValue;
     }    /// <summary>
-    /// Converts the input object to a nullable DateTime. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable DateTime representation of the input object, or null if the conversion fails.</returns>
+         /// Converts the input object to a nullable DateTime. Returns null if the conversion fails.
+         /// </summary>
+         /// <param name="input">The input object.</param>
+         /// <returns>A nullable DateTime representation of the input object, or null if the conversion fails.</returns>
     public static DateTime? ToDateTimeOrNull(this object? input)
     {
         return input.ToStringOrNull().ToDateTimeOrNull();
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Converts the input object to a boolean. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>A boolean representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static bool ToBool(this object? input, bool defaultValue = false) => 
-        input.ConvertWithDefault(ToBoolOrNull, defaultValue);
+    public static bool ToBool(this object? input, bool defaultValue = false) => input.ToBoolOrNull() ?? defaultValue;
 
     /// <summary>
     /// Converts the input object to a nullable boolean. Returns null if the conversion fails.
@@ -435,7 +442,9 @@ public static class ObjectExtensions
     public static Guid ToGuid(this object? input)
     {
         return ToGuidOrNull(input) ?? Guid.Empty;
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Converts the input object to a nullable Guid. Returns null if the conversion fails.
     /// </summary>
     /// <param name="value">The input object.</param>
@@ -444,35 +453,4 @@ public static class ObjectExtensions
     {
         return value.ToStringOrNull().ToGuidOrNull();
     }
-
-    #region Private helper methods for optimization
-
-    /// <summary>
-    /// Helper method to convert object to nullable type via string conversion.
-    /// </summary>
-    /// <typeparam name="T">The target nullable type.</typeparam>
-    /// <param name="input">The input object.</param>
-    /// <param name="stringConverter">Function to convert string to nullable T.</param>
-    /// <returns>Converted value or null if conversion fails.</returns>
-    private static T? ConvertViaString<T>(this object? input, Func<string?, T?> stringConverter) 
-        where T : struct
-    {
-        return stringConverter(input.ToStringOrNull());
-    }
-
-    /// <summary>
-    /// Helper method to convert object to non-nullable type with default value.
-    /// </summary>
-    /// <typeparam name="T">The target type.</typeparam>
-    /// <param name="input">The input object.</param>
-    /// <param name="nullableConverter">Function to convert to nullable T.</param>
-    /// <param name="defaultValue">Default value if conversion fails.</param>
-    /// <returns>Converted value or default value if conversion fails.</returns>
-    private static T ConvertWithDefault<T>(this object? input, Func<object?, T?> nullableConverter, T defaultValue) 
-        where T : struct
-    {
-        return nullableConverter(input) ?? defaultValue;
-    }
-
-    #endregion
 }

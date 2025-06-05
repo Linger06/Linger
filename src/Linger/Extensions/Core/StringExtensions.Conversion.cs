@@ -1,10 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Linger.Extensions.Core.Internal;
-
-#if NET6_0_OR_GREATER
-using System.Buffers;
-#endif
 
 namespace Linger.Extensions.Core;
 
@@ -63,7 +59,7 @@ public static partial class StringExtensions
             result = span[0];
             return true;
         }
-        
+
         if (char.TryParse(span.ToString(), out var charResult))
         {
             result = charResult;
@@ -334,12 +330,12 @@ public static partial class StringExtensions
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToBytes(this string? value, [NotNullWhen(true)] out byte[]? result)
         => value.TryToBytes(Encoding.UTF8, out result);    /// <summary>
-    /// Tries to convert the string to a byte array using the specified encoding.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="encoding">The encoding to use for the conversion.</param>
-    /// <param name="result">The resulting byte array if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
+                                                           /// Tries to convert the string to a byte array using the specified encoding.
+                                                           /// </summary>
+                                                           /// <param name="value">The string to convert.</param>
+                                                           /// <param name="encoding">The encoding to use for the conversion.</param>
+                                                           /// <param name="result">The resulting byte array if the conversion is successful.</param>
+                                                           /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToBytes(this string? value, Encoding encoding, [NotNullWhen(true)] out byte[]? result)
     {
         if (value.IsNullOrWhiteSpace())
@@ -428,7 +424,8 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region Guid      /// <summary>
+    #region Guid      
+    /// <summary>
     /// Tries to convert the string to a Guid.
     /// </summary>
     /// <param name="value">The string to convert.</param>
@@ -509,7 +506,8 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region int      /// <summary>
+    #region int      
+    /// <summary>
     /// Tries to convert the string to an integer.
     /// </summary>
     /// <param name="value">The string to convert.</param>
@@ -679,7 +677,8 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region float      /// <summary>
+    #region float      
+    /// <summary>
     /// Tries to convert the string to a float.
     /// </summary>
     /// <param name="value">The string to convert.</param>
@@ -752,7 +751,8 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region double      /// <summary>
+    #region double      
+    /// <summary>
     /// Tries to convert the string to a double.
     /// </summary>
     /// <param name="value">The string to convert.</param>
@@ -825,7 +825,8 @@ public static partial class StringExtensions
 
     #endregion
 
-    #region datetime      /// <summary>
+    #region datetime      
+    /// <summary>
     /// Tries to convert the string to a DateTime.
     /// </summary>
     /// <param name="value">The string to convert.</param>
@@ -944,7 +945,9 @@ public static partial class StringExtensions
     /// <param name="result">The resulting boolean if the conversion is successful.</param>
     /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToBool(this string? value, [NotNullWhen(true)] out bool? result)
-        => value.TryConvert(TryParseBoolExtended, out result);    /// <summary>
+        => value.TryConvert(TryParseBoolExtended, out result);
+
+    /// <summary>
     /// Converts the string to a boolean or returns the default value if the conversion fails.
     /// </summary>
     /// <param name="value">The string to convert.</param>

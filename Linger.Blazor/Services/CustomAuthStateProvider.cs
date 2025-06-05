@@ -22,10 +22,11 @@ public class CustomAuthStateProvider : AuthenticationStateProvider
         }
 
         // 已登录状态创建包含用户信息的身份
-        var identity = new ClaimsIdentity(new[]
-        {
+        var identity = new ClaimsIdentity(
+        [
             new Claim(ClaimTypes.Name, _appState.Username),
-        }, "Custom Authentication");
+        ]
+        , "Custom Authentication");
 
         var user = new ClaimsPrincipal(identity);
         return Task.FromResult(new AuthenticationState(user));

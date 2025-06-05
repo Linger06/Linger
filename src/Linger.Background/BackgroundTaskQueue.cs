@@ -1,4 +1,4 @@
-﻿using System.Threading.Channels;
+using System.Threading.Channels;
 
 namespace Linger.Background;
 
@@ -33,13 +33,13 @@ public class BackgroundTaskQueue : IBackgroundTaskQueue
     {
         ArgumentNullException.ThrowIfNull(workItem);
 
-        await _queue.Writer.WriteAsync(workItem);
+        await _queue.Writer.WriteAsync(workItem).ConfigureAwait(false);
     }
 
     public async ValueTask<Func<IServiceProvider, CancellationToken, ValueTask>> DequeueAsync(
         CancellationToken cancellationToken)
     {
-        var workItem = await _queue.Reader.ReadAsync(cancellationToken);
+        var workItem = await _queue.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
 
         return workItem;
     }

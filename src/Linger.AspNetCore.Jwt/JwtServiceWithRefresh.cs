@@ -1,4 +1,4 @@
-﻿using System.Security.Claims;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using Linger.AspNetCore.Jwt.Contracts;
 using Microsoft.Extensions.Logging;
@@ -15,11 +15,11 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger? logge
         try
         {
             // 首先获取基本访问令牌
-            Token baseToken = await base.CreateTokenAsync(userId);
+            Token baseToken = await base.CreateTokenAsync(userId).ConfigureAwait(false);
 
             // 生成刷新令牌并处理存储
             JwtRefreshToken refreshToken = GenerateRefreshToken();
-            await HandleRefreshToken(userId, refreshToken);
+            await HandleRefreshToken(userId, refreshToken).ConfigureAwait(false);
 
             // 返回包含刷新令牌的完整Token
             return new Token(baseToken.AccessToken, refreshToken.RefreshToken);
@@ -40,14 +40,14 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger? logge
 
         ClaimsPrincipal principal = GetPrincipalFromExpiredToken(token.AccessToken);
         var userId = principal.Identity?.Name!;
-        JwtRefreshToken refreshToken = await GetExistRefreshTokenAsync(userId);
+        JwtRefreshToken refreshToken = await GetExistRefreshTokenAsync(userId).ConfigureAwait(false);
 
         if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.Now)
         {
             throw new Exception("提供的刷新令牌无效或已过期");
         }
 
-        return await CreateTokenAsync(userId);
+        return await CreateTokenAsync(userId).ConfigureAwait(false);
     }
 
     private JwtRefreshToken GenerateRefreshToken()

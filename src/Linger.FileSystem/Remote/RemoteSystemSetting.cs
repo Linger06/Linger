@@ -1,4 +1,4 @@
-﻿using System.Security;
+using System.Security;
 using System.Text;
 
 namespace Linger.FileSystem.Remote;
@@ -140,16 +140,16 @@ public class RemoteSystemSetting
     {
         var clone = new RemoteSystemSetting
         {
-            Host = this.Host,
-            Port = this.Port,
-            UserName = this.UserName,
-            Password = this.Password,
-            Type = this.Type,
-            CertificatePath = this.CertificatePath,
-            CertificatePassphrase = this.CertificatePassphrase,
-            ConnectionTimeout = this.ConnectionTimeout,
-            OperationTimeout = this.OperationTimeout,
-            Encoding = this.Encoding
+            Host = Host,
+            Port = Port,
+            UserName = UserName,
+            Password = Password,
+            Type = Type,
+            CertificatePath = CertificatePath,
+            CertificatePassphrase = CertificatePassphrase,
+            ConnectionTimeout = ConnectionTimeout,
+            OperationTimeout = OperationTimeout,
+            Encoding = Encoding
         };
 
         // 克隆 SecurePassword

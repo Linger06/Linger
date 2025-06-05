@@ -1,4 +1,4 @@
-﻿using System.Net.Http.Headers;
+using System.Net.Http.Headers;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Models;
@@ -167,9 +167,9 @@ public class StandardHttpClient : HttpClientBase
             }
 
             // 执行请求
-            var res = await _httpClient.SendAsync(request, combinedToken);
+            var res = await _httpClient.SendAsync(request, combinedToken).ConfigureAwait(false);
 
-            rv = await HandleResponseMessage<T>(res);
+            rv = await HandleResponseMessage<T>(res).ConfigureAwait(false);
 
             return rv;
         }

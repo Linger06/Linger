@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Linger.Extensions.Core;
 
 namespace Linger.Helper.PathHelpers;
@@ -195,7 +195,9 @@ public class StandardPathHelper : PathHelperBase
         // 确保基路径以分隔符结尾
         if (!relativeTo.EndsWith(PlatformSeparator) &&
             !relativeTo.EndsWith(Path.AltDirectorySeparatorChar))
+        {
             relativeTo += PlatformSeparator;
+        }
 
         // 处理路径部分
         string relativeToWithoutRoot = relativeTo.Substring(relativeToRoot.Length);
@@ -259,7 +261,7 @@ public class StandardPathHelper : PathHelperBase
     /// <summary>
     /// 检查路径中是否包含非法字符
     /// </summary>
-    public new static bool ContainsInvalidPathChars(string? path)
+    public static new bool ContainsInvalidPathChars(string? path)
     {
         if (path.IsNullOrEmpty())
             return false;
@@ -286,7 +288,7 @@ public class StandardPathHelper : PathHelperBase
                 string upperSegment = segment.ToUpperInvariant();
                 if (s_windowsReservedNames.Contains(upperSegment) ||
                     (upperSegment.Contains('.') &&
-                     s_windowsReservedNames.Contains(upperSegment.Substring(0, upperSegment.IndexOf('.')))))
+                     s_windowsReservedNames.Contains(upperSegment.Take(upperSegment.IndexOf('.')))))
                 {
                     return true;
                 }

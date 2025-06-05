@@ -1,6 +1,7 @@
-﻿using System.Data;
+using System.Data;
 using System.Reflection;
 using Linger.Excel.Contracts;
+using Linger.Extensions.Core;
 using Microsoft.Extensions.Logging;
 using NPOI.HSSF.Util;
 using NPOI.SS.Formula.Eval;
@@ -266,7 +267,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 整数类型 - 使用统一的整数格式
             try
             {
-                long longValue = Convert.ToInt64(value);
+                long longValue = value.ToLong();// Convert.ToInt64(value);
                 cell.SetCellValue(longValue);
 
                 // 应用整数样式
@@ -291,7 +292,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 浮点类型 - 使用统一的小数格式
             try
             {
-                double doubleValue = Convert.ToDouble(value);
+                double doubleValue = value.ToDouble();// Convert.ToDouble(value);
                 cell.SetCellValue(doubleValue);
 
                 // 应用浮点数样式
@@ -749,7 +750,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         styleCache[typeof(DateTime)] = dateStyle;
 
         // 获取有ExcelColumn特性的列，如果没有则使用所有列
-        var columns = GetExcelColumns(properties);
+        var columns = GetExcelColumns(properties).ToList();
         if (columns.Count == 0)
         {
             columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();

@@ -8,7 +8,7 @@ public class DoubleExtensionsTests
     public void FileSize_ReturnsCorrectSizeForBytes()
     {
         double length = 512;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("512Bytes", result);
     }
 
@@ -16,7 +16,7 @@ public class DoubleExtensionsTests
     public void FileSize_ReturnsCorrectSizeForKilobytes()
     {
         double length = 2048;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("2KB", result);
     }
 
@@ -24,7 +24,7 @@ public class DoubleExtensionsTests
     public void FileSize_ReturnsCorrectSizeForMegabytes()
     {
         double length = 1048576;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("1MB", result);
     }
 
@@ -32,7 +32,7 @@ public class DoubleExtensionsTests
     public void FileSize_ReturnsCorrectSizeForGigabytes()
     {
         double length = 1073741824;
-        var result = length.FileSize();
+        var result = length.FormatFileSize();
         Assert.Equal("1GB", result);
     }
 

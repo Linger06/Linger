@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Text;
 using FluentFTP;
 using Linger.Extensions.Core;
@@ -105,7 +105,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            return await Client.FileExists(filePath, cancellationToken);
+            return await Client.FileExists(filePath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -119,7 +119,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            return await Client.DirectoryExists(directoryPath, cancellationToken);
+            return await Client.DirectoryExists(directoryPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -133,8 +133,8 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await DirectoryExistsAsync(directoryPath, cancellationToken))
-                _ = await Client.CreateDirectory(directoryPath, cancellationToken);
+            if (!await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
+                _ = await Client.CreateDirectory(directoryPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -147,8 +147,8 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (await FileExistsAsync(filePath, cancellationToken))
-                await Client.DeleteFile(filePath, cancellationToken);
+            if (await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
+                await Client.DeleteFile(filePath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -173,7 +173,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             if (filePath.Contains('/'))
             {
                 int lastSlashIndex = filePath.LastIndexOf('/');
-                remoteDirectory = filePath.Substring(0, lastSlashIndex);
+                remoteDirectory = filePath.Take(lastSlashIndex);
                 fileName = filePath.Substring(lastSlashIndex + 1);
             }
             else
@@ -184,7 +184,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             }
 
             // 确保目录存在
-            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken);
+            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
 
             // 执行上传
             bool result = await RetryHelper.ExecuteAsync(
@@ -196,17 +196,17 @@ public class FtpFileSystem : RemoteFileSystemBase
                         filePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
-                        token: cancellationToken);
+                        token: cancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
-                "Upload file", cancellationToken: cancellationToken);
+                "Upload file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"上传文件失败: {filePath}");
 
             long fileSize = 0;
-            try { fileSize = await Client.GetFileSize(filePath, token: cancellationToken); } catch { /* 忽略 */ }
+            try { fileSize = await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false); } catch { /* 忽略 */ }
 
             return FileOperationResult.CreateSuccess(filePath, null, fileSize);
         }
@@ -242,11 +242,11 @@ public class FtpFileSystem : RemoteFileSystemBase
                         filePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
-                        token: cancellationToken);
+                        token: cancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
-                "Upload file", cancellationToken: cancellationToken);
+                "Upload file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"上传文件失败: {filePath}");
@@ -266,7 +266,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken))
+            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
             {
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
             }
@@ -278,18 +278,18 @@ public class FtpFileSystem : RemoteFileSystemBase
                     var status = await Client.DownloadStream(
                         outputStream,
                         filePath,
-                        token: cancellationToken);
+                        token: cancellationToken).ConfigureAwait(false);
 
                     return status;
                 },
-                "Download to stream", cancellationToken: cancellationToken);
+                "Download to stream", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件到流失败: {filePath}");
 
             // 获取文件大小
             long fileSize = 0;
-            try { fileSize = await Client.GetFileSize(filePath, token: cancellationToken); } catch { /* 忽略获取大小失败 */ }
+            try { fileSize = await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false); } catch { /* 忽略获取大小失败 */ }
 
             return FileOperationResult.CreateSuccess(filePath, null, fileSize);
         }
@@ -305,7 +305,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken))
+            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
             {
                 return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
             }
@@ -331,11 +331,11 @@ public class FtpFileSystem : RemoteFileSystemBase
                         localDestinationPath,
                         filePath,
                         overwrite ? FtpLocalExists.Overwrite : FtpLocalExists.Skip,
-                        token: cancellationToken);
+                        token: cancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
-                "Download file", cancellationToken: cancellationToken);
+                "Download file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件失败: {filePath}");
@@ -355,7 +355,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken))
+            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
             {
                 return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
             }
@@ -364,10 +364,10 @@ public class FtpFileSystem : RemoteFileSystemBase
             await RetryHelper.ExecuteAsync(
                 async () =>
                 {
-                    await Client.DeleteFile(filePath, cancellationToken);
+                    await Client.DeleteFile(filePath, cancellationToken).ConfigureAwait(false);
                     return true;
                 },
-                "Delete file", cancellationToken: cancellationToken);
+                "Delete file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return FileOperationResult.CreateSuccess(filePath);
         }
@@ -390,7 +390,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            return await Client.GetModifiedTime(filePath, cancellationToken);
+            return await Client.GetModifiedTime(filePath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -402,18 +402,17 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 列出目录内容
     /// </summary>
-    public async Task<List<string>> ListDirectoryAsync(string? directoryPath = null, FtpObjectType type = FtpObjectType.File, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<string>> ListDirectoryAsync(string? directoryPath = null, FtpObjectType type = FtpObjectType.File, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
         {
             FtpListItem[] items = directoryPath == null ?
-                await Client.GetListing(token: cancellationToken) :
-                await Client.GetListing(directoryPath, token: cancellationToken);
+                await Client.GetListing(token: cancellationToken).ConfigureAwait(false) :
+                await Client.GetListing(directoryPath, token: cancellationToken).ConfigureAwait(false);
 
             return items.Where(f => f.Type == type)
-                       .Select(f => f.Name)
-                       .ToList();
+                       .Select(f => f.Name);
         }
         catch (Exception ex)
         {
@@ -430,8 +429,8 @@ public class FtpFileSystem : RemoteFileSystemBase
         using var scope = CreateConnectionScope();
         try
         {
-            if (!string.IsNullOrWhiteSpace(directoryPath) && await DirectoryExistsAsync(directoryPath, cancellationToken))
-                await Client.SetWorkingDirectory(directoryPath, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(directoryPath) && await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
+                await Client.SetWorkingDirectory(directoryPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -454,7 +453,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             if (fileInfos.Count == 0)
                 return 0;
 
-            List<FtpResult> results = await Client.UploadFiles(fileInfos, remoteDirectory, remoteExistsMode, token: cancellationToken);
+            List<FtpResult> results = await Client.UploadFiles(fileInfos, remoteDirectory, remoteExistsMode, token: cancellationToken).ConfigureAwait(false);
             return results.Count;
         }
         catch (Exception ex)
@@ -475,7 +474,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             if (!Directory.Exists(localDirectory))
                 Directory.CreateDirectory(localDirectory);
 
-            List<FtpResult> results = await Client.DownloadFiles(localDirectory, remoteFiles, token: cancellationToken);
+            List<FtpResult> results = await Client.DownloadFiles(localDirectory, remoteFiles, token: cancellationToken).ConfigureAwait(false);
             return results.Count;
         }
         catch (Exception ex)

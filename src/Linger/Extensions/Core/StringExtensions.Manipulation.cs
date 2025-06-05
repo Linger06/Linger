@@ -1,4 +1,6 @@
+#if !NET6_0_OR_GREATER
 using System.Text;
+#endif
 
 namespace Linger.Extensions.Core;
 
@@ -10,9 +12,9 @@ public static partial class StringExtensions
     /// <param name="str">The input string.</param>
     /// <param name="value">The character to remove.</param>
     /// <returns>The string without the specified prefix and suffix.</returns>
-    public static string? DelPrefixAndSuffix(this string? str, char value)
+    public static string? RemovePrefixAndSuffix(this string? str, char value)
     {
-        return str.DelPrefixAndSuffix(value.ToString());
+        return str.RemovePrefixAndSuffix(value.ToString());
     }
 
     /// <summary>
@@ -21,7 +23,7 @@ public static partial class StringExtensions
     /// <param name="str">The input string.</param>
     /// <param name="value">The string to remove.</param>
     /// <returns>The string without the specified prefix and suffix.</returns>    
-    public static string? DelPrefixAndSuffix(this string? str, string value)
+    public static string? RemovePrefixAndSuffix(this string? str, string value)
     {
         if (str is null)
             return null;
@@ -47,7 +49,7 @@ public static partial class StringExtensions
         return span.ToString();
 #else
         string result = str;
-        
+
         if (result.StartsWith(value))
         {
             result = result.Substring(value.Length);
@@ -101,7 +103,7 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="value">The string to remove the last newline from.</param>
     /// <returns>The string without the last newline character.</returns>
-    public static string DelLastNewLine(this string value)
+    public static string RemoveLastNewLine(this string value)
     {
         return value.TrimEnd('\r', '\n');
     }
@@ -111,7 +113,7 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="value">The string to remove all newlines from.</param>
     /// <returns>The string without any newline characters.</returns>
-    public static string DelAllNewLine(this string? value)
+    public static string RemoveAllNewLine(this string? value)
     {
         if (value == null)
         {
@@ -154,7 +156,7 @@ public static partial class StringExtensions
         });
 #else
         var result = new StringBuilder(value.Length);
-        
+
         for (int i = 0; i < value.Length; i++)
         {
             char c = value[i];
@@ -163,7 +165,7 @@ public static partial class StringExtensions
                 result.Append(c);
             }
         }
-        
+
         return result.ToString();
 #endif
     }
@@ -173,9 +175,9 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="str">The string to remove the last comma from.</param>
     /// <returns>The string without the last comma.</returns>
-    public static string DelLastComma(this string str)
+    public static string RemoveLastComma(this string str)
     {
-        return str.DelLastChar(",");
+        return str.RemoveLastChar(",");
     }
 
     /// <summary>
@@ -184,7 +186,7 @@ public static partial class StringExtensions
     /// <param name="str">The string to remove the character from.</param>
     /// <param name="character">The character to remove.</param>
     /// <returns>The string without the specified character at the end.</returns>
-    public static string DelLastChar(this string str, string character)
+    public static string RemoveLastChar(this string str, string character)
     {
         if (str.IsNullOrEmpty() || character.IsNullOrEmpty())
         {
@@ -250,7 +252,7 @@ public static partial class StringExtensions
     /// <param name="self">The string to truncate.</param>
     /// <param name="length">The length to truncate to.</param>
     /// <returns>The truncated string.</returns>
-    public static string TruncateFromStart(this string self, int length)
+    public static string Take(this string self, int length)
     {
         return self.Truncate(length, string.Empty);
     }
@@ -276,15 +278,14 @@ public static partial class StringExtensions
 #endif
     }
 
-    // 保留旧方法名称以保持兼容性
     /// <summary>
     /// Truncates the string to the specified length, or returns the entire string if it is shorter than the specified length.
     /// </summary>
     /// <param name="self">The string to truncate.</param>
     /// <param name="length">The length to truncate to.</param>
     /// <returns>The truncated string.</returns>
-    [Obsolete("Use TruncateFromStart instead")]
-    public static string Substring2(this string self, int length) => TruncateFromStart(self, length);
+    [Obsolete("Use Take instead")]
+    public static string Substring2(this string self, int length) => Take(self, length);
 
     /// <summary>
     /// Truncates the string to the specified length from the end, or returns the entire string if it is shorter than the specified length.

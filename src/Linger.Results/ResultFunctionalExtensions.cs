@@ -1,4 +1,4 @@
-﻿namespace Linger.Results;
+namespace Linger.Results;
 
 /// <summary>
 /// 为 Result 类型提供函数式编程风格的扩展方法
@@ -139,7 +139,7 @@ public static class ResultFunctionalExtensions
     {
         try
         {
-            return Result.Success(await func());
+            return Result.Success(await func().ConfigureAwait(false));
         }
         catch (Exception ex)
         {

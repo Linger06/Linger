@@ -1,7 +1,9 @@
-﻿using System.DirectoryServices;
+using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
 using System.DirectoryServices.ActiveDirectory;
+#if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
+#endif
 using Linger.Extensions.Core;
 using Linger.Helper;
 using Linger.Ldap.Contracts;
@@ -23,7 +25,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     {
         PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
         UserPrincipal userPrincipal = UserPrincipal.FindByIdentity(principalContext, userName);
-        return await Task.FromResult(userPrincipal.ToAdUser());
+        return await Task.FromResult(userPrincipal.ToAdUser()).ConfigureAwait(false);
     }
 
     public DirectoryEntry GetEntryByUsername(string username)
@@ -68,7 +70,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null)
     {
         var collection = SearchUsersByFilter($"(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)", ldapCredentials);
-        return await Task.FromResult(collection.ToAdUsersInfo());
+        return await Task.FromResult(collection.ToAdUsersInfo()).ConfigureAwait(false);
     }
 
     //private IEnumerable<AdUserInfo> GetUsers2(string userName, LdapCredentials? ldapCredentials = null)
@@ -110,10 +112,10 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         if (result)
         {
             var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
-            var adUserInfo = await FindUserAsync(userName, ldapCredentials);
-            return await Task.FromResult((true, adUserInfo));
+            var adUserInfo = await FindUserAsync(userName, ldapCredentials).ConfigureAwait(false);
+            return await Task.FromResult((true, adUserInfo)).ConfigureAwait(false);
         }
-        return await Task.FromResult<(bool IsValid, AdUserInfo? AdUserInfo)>((false, null));
+        return await Task.FromResult<(bool IsValid, AdUserInfo? AdUserInfo)>((false, null)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -201,5 +203,5 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <param name="userName">Username to check</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user exists; otherwise, false</returns>
-    public async Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default) => await FindUserAsync(userName) != null;
+    public async Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default) => await FindUserAsync(userName).ConfigureAwait(false) != null;
 }

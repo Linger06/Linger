@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using System.Reflection;
 using Linger.Enums;
 using Linger.Extensions.Core;
@@ -522,21 +522,20 @@ public static class ExpressionHelper
             return x => true;
         }
 
-        IEnumerable<Condition> iEnumerable = conditions.ToList();
-        if (!iEnumerable.Any())
+        if (!conditions.Any())
         {
             return x => true;
         }
 
         ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
 
-        var simpleExps = iEnumerable
+        var simpleExps = conditions
             .ToList()
             .FindAll(c => string.IsNullOrEmpty(c.OrGroup))
             .Select(c => GetExpression(parameter, c))
             .ToList();
 
-        var complexExps = iEnumerable
+        var complexExps = conditions
             .ToList()
             .FindAll(c => !string.IsNullOrEmpty(c.OrGroup))
             .GroupBy(x => x.OrGroup)
@@ -568,17 +567,14 @@ public static class ExpressionHelper
             return x => true;
         }
 
-        IEnumerable<Condition> iEnumerable = conditions.ToList();
-        if (!iEnumerable.Any())
+        if (!conditions.Any())
         {
             return x => true;
         }
 
         ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-        var simpleExps = iEnumerable
-            .ToList()
-            .Select(c => GetExpression(parameter, c))
-            .ToList();
+        var simpleExps = conditions
+            .Select(c => GetExpression(parameter, c));
 
         Expression exp = simpleExps.Aggregate((left, right) => left.IsNull() ? right : Expression.AndAlso(left, right));
         return Expression.Lambda<Func<T, bool>>(exp, parameter);
@@ -604,17 +600,14 @@ public static class ExpressionHelper
             return x => true;
         }
 
-        IEnumerable<Condition> iEnumerable = conditions.ToList();
-        if (!iEnumerable.Any())
+        if (!conditions.Any())
         {
             return x => true;
         }
 
         ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-        var simpleExps = iEnumerable
-            .ToList()
-            .Select(c => GetExpression(parameter, c))
-            .ToList();
+        var simpleExps = conditions
+            .Select(c => GetExpression(parameter, c));
 
         Expression exp = simpleExps.Aggregate((left, right) => left.IsNull() ? right : Expression.OrElse(left, right));
         return Expression.Lambda<Func<T, bool>>(exp, parameter);
@@ -644,7 +637,7 @@ public static class ExpressionHelper
 
         if (condition.Op is not CompareOperator.StdIn and not CompareOperator.StdNotIn)
         {
-            condition.Value = Convert.ChangeType(condition.Value, realPropertyType);
+            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, ExtensionMethodSetting.DefaultCulture);
         }
         else
         {

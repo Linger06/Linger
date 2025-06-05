@@ -1,4 +1,4 @@
-﻿namespace Linger.Email;
+namespace Linger.Email;
 
 public static class EmailExtensions
 {
@@ -16,11 +16,6 @@ public static class EmailExtensions
 
         foreach (var box in splitMailboxes)
         {
-            if (box == null)
-            {
-                throw new NullReferenceException(nameof(box));
-            }
-
             var address = new EmailAddress { Address = box };
             list.Add(address);
         }

@@ -1,4 +1,4 @@
-﻿namespace Linger.Excel.Contracts;
+namespace Linger.Excel.Contracts;
 
 /// <summary>
 /// Excel基础服务类，同时实现IExcelService和IExcel接口
@@ -158,7 +158,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             {
                 using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 return ConvertStreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
-            });
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -185,7 +185,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             {
                 using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 return ConvertStreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
-            });
+            }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -207,7 +207,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             throw new InvalidOperationException("转换DataTable到MemoryStream失败");
         }
 
-        await ms.ToFileAsync(fullFileName);
+        await ms.ToFileAsync(fullFileName).ConfigureAwait(false);
         return fullFileName;
     }
 
@@ -224,7 +224,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             throw new InvalidOperationException("转换对象列表到MemoryStream失败");
         }
 
-        await ms.ToFileAsync(fullFileName);
+        await ms.ToFileAsync(fullFileName).ConfigureAwait(false);
         return fullFileName;
     }
 
@@ -253,20 +253,12 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 从属性数组中获取Excel列信息
     /// </summary>
-    protected List<(string Name, string ColumnName, int Index)> GetExcelColumns(PropertyInfo[] properties)
+    protected IEnumerable<(string Name, string ColumnName, int Index)> GetExcelColumns(PropertyInfo[] properties)
     {
-        var columns = new List<(string Name, string ColumnName, int Index)>();
-
-        foreach (var property in properties)
-        {
-            var excelColumnAttr = property.GetCustomAttribute<Attributes.ExcelColumnAttribute>();
-            if (excelColumnAttr != null)
-            {
-                columns.Add((property.Name, ColumnName: excelColumnAttr.ColumnName ?? property.Name, excelColumnAttr.Index));
-            }
-        }
-
-        return columns;
+        return from property in properties
+               let excelColumnAttr = property.GetCustomAttribute<Attributes.ExcelColumnAttribute>()
+               where excelColumnAttr != null
+               select (property.Name, ColumnName: excelColumnAttr.ColumnName ?? property.Name, excelColumnAttr.Index);
     }
 
     /// <summary>

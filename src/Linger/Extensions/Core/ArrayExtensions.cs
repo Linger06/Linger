@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Linger.Extensions.Core;
 
@@ -235,7 +235,7 @@ public static class ArrayExtensions
     {
         if (startIndex < 0 || startIndex >= array.Length)
         {
-            throw new IndexOutOfRangeException("The specified index is out of the array bounds.");
+            throw new ArgumentOutOfRangeException(nameof(startIndex), "The specified index is out of the array bounds.");
         }
 
         var newArray = new T[startIndex];
@@ -266,12 +266,12 @@ public static class ArrayExtensions
     {
         if (startIndex < 0 || startIndex >= array.Length)
         {
-            throw new IndexOutOfRangeException("The specified index is out of the array bounds.");
+            throw new ArgumentOutOfRangeException(nameof(startIndex), "The specified index is out of the array bounds.");
         }
 
         if (startIndex + length > array.Length)
         {
-            throw new IndexOutOfRangeException("The range at the specified index is out of the array bounds.");
+            throw new ArgumentOutOfRangeException(nameof(length), "The range at the specified index is out of the array bounds.");
         }
 
         var arr = new T[array.Length - length];

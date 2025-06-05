@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Linger.Extensions.Core;
 using Linger.Helper;
 
@@ -228,9 +228,9 @@ public static class FileInfoExtensions
     {
         return bytes switch
         {
-            >= 1073741824 => (bytes / (double)1073741824).ToString("0") + "G",
-            >= 1048576 => (bytes / (double)1048576).ToString("0") + "M",
-            >= 1024 => (bytes / (double)1024).ToString("0") + "K",
+            >= 1073741824 => (bytes / (double)1073741824).ToString("0", ExtensionMethodSetting.DefaultCulture) + "G",
+            >= 1048576 => (bytes / (double)1048576).ToString("0", ExtensionMethodSetting.DefaultCulture) + "M",
+            >= 1024 => (bytes / (double)1024).ToString("0", ExtensionMethodSetting.DefaultCulture) + "K",
             _ => bytes + "Bytes"
         };
     }
@@ -311,7 +311,6 @@ public static class FileInfoExtensions
         return arrayHashValue.ToMd5HashCode();
     }
 
-
 #if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
     /// <summary>
     /// Asynchronously retrieves the file data as a byte array.
@@ -322,7 +321,7 @@ public static class FileInfoExtensions
     {
         using FileStream fs = File.OpenRead(filePath);
         using var ms = new MemoryStream(ExtensionMethodSetting.DefaultBufferSize);
-        await fs.CopyToAsync(ms);
+        await fs.CopyToAsync(ms).ConfigureAwait(false);
         return ms.ToArray();
     }
 #endif

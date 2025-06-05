@@ -9,12 +9,12 @@ public interface IFullScreenService
     /// 切换全屏状态
     /// </summary>
     Task ToggleFullScreenAsync();
-    
+
     /// <summary>
     /// 获取当前是否处于全屏状态
     /// </summary>
     Task<bool> IsFullScreenAsync();
-    
+
     /// <summary>
     /// 初始化全屏状态监听
     /// </summary>

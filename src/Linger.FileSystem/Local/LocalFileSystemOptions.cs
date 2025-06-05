@@ -1,4 +1,4 @@
-﻿namespace Linger.FileSystem.Local;
+namespace Linger.FileSystem.Local;
 
 /// <summary>
 /// 本地文件系统配置选项
@@ -23,7 +23,7 @@ public class LocalFileSystemOptions
     /// <summary>
     /// 默认是否覆盖文件
     /// </summary>
-    public bool DefaultOverwrite { get; set; } = false;
+    public bool DefaultOverwrite { get; set; }
 
     /// <summary>
     /// 默认是否使用序号命名（文件名冲突时）

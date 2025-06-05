@@ -1,4 +1,4 @@
-﻿using System.IdentityModel.Tokens.Jwt;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Linger.AspNetCore.Jwt.Contracts;
@@ -46,7 +46,7 @@ public class JwtService : IJwtService
         {
             Logger?.LogDebug("正在为用户 {userId} 生成令牌，密钥长度: {Length}", userId, ValidationParameters.IssuerSigningKey.KeySize);
             SigningCredentials signingCredentials = GetSigningCredentials();
-            List<Claim> claims = await GetClaimsAsync(userId);
+            List<Claim> claims = await GetClaimsAsync(userId).ConfigureAwait(false);
 
             // 添加唯一标识符和颁发时间，增强安全性
             var tokenId = Guid.NewGuid().ToString();
@@ -58,7 +58,7 @@ public class JwtService : IJwtService
             Logger?.LogDebug("令牌生成成功: {token}...", token[..10]);
 
             // 基础实现只返回访问令牌
-            return await Task.FromResult(new Token(token));
+            return await Task.FromResult(new Token(token)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

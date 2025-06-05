@@ -11,12 +11,12 @@ public class ApiPagedResult<T>
     public int PageCount { get; set; }
     public string? Msg { get; set; }
     public int Code { get; set; }
-    
+
     /// <summary>
     /// 是否有数据
     /// </summary>
     public bool HasData => Data is { Count: > 0 };
-    
+
     /// <summary>
     /// 是否有下一页
     /// </summary>

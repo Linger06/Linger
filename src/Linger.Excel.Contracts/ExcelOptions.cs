@@ -1,4 +1,4 @@
-﻿namespace Linger.Excel.Contracts;
+namespace Linger.Excel.Contracts;
 
 /// <summary>
 /// Excel配置选项
@@ -30,7 +30,7 @@ public class ExcelOptions
     /// <summary>
     /// 是否启用性能监控
     /// </summary>
-    public bool EnablePerformanceMonitoring { get; set; } = false;
+    public bool EnablePerformanceMonitoring { get; set; }
 
     /// <summary>
     /// 性能监控阈值(毫秒)，超过此阈值才记录日志

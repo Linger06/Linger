@@ -8,20 +8,20 @@ public static class DoubleExtensions
     /// <summary>
     /// Returns the size corresponding to the ContentLength.
     /// </summary>
-    /// <param name="length">The length of the ContentLength.</param>
+    /// <param name="contentLength">The length of the ContentLength.</param>
     /// <returns>The size in Bytes/KB/MB/GB/TB/PB.</returns>
-    public static string FileSize(this double length)
+    public static string FormatFileSize(this double contentLength)
     {
         string[] units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
         const double Mod = 1024.0;
         var i = 0;
-        while (length >= Mod)
+        while (contentLength >= Mod)
         {
-            length /= Mod;
+            contentLength /= Mod;
             i++;
         }
 
-        return Math.Round(length) + units[i];
+        return Math.Round(contentLength) + units[i];
     }
 
     /// <summary>

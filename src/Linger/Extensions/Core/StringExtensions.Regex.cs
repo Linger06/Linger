@@ -8,14 +8,11 @@ public static partial class StringExtensions
     const string Ipv4RegexPattern = @"^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$";
     const string DomainRegexPattern = @"^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?$";
     const string UrlRegexPattern = @"^https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]";
-    const string EnglishRegexPattern = "^[A-Za-z]+$";
     const string EmailRegexPattern = @"^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
     const string MultipleMailRegexPattern = @"^((?:(?:[a-zA-Z0-9_\-\.]+)@(?:(?:\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(?:(?:[a-zA-Z0-9\-]+\.)+))(?:[a-zA-Z]{2,4}|[0-9]{1,3})(?:\]?)(?:\s*;\s*|\s*$))+)$";
     #endregion
 
 #if NET8_0_OR_GREATER
-    [GeneratedRegex(EnglishRegexPattern)]
-    private static partial Regex EnglishRegex();
 
     /// <summary>
     /// Determines whether the specified string contains only English letters.
@@ -128,14 +125,10 @@ public static partial class StringExtensions
         return MultipleMailRegex().IsMatch(input);
     }
 
-    [GeneratedRegex("[+-]?\\d+(\\.\\d+)?[eE][+-]?\\d+")]
-    private static partial Regex ScientificNotationRegex();
-
 #else
     private static readonly Regex s_ipv4Regex = new(Ipv4RegexPattern, RegexOptions.Compiled);
     private static readonly Regex s_domainRegex = new(DomainRegexPattern, RegexOptions.Compiled);
     private static readonly Regex s_urlRegex = new(UrlRegexPattern, RegexOptions.Compiled);
-    private static readonly Regex s_englishRegex = new(EnglishRegexPattern, RegexOptions.Compiled);
     private static readonly Regex s_emailRegex = new(EmailRegexPattern, RegexOptions.Compiled);
     private static readonly Regex s_multipleMailRegex = new(MultipleMailRegexPattern, RegexOptions.Compiled);
 
@@ -200,8 +193,8 @@ public static partial class StringExtensions
             return false;
 
         return s_urlRegex.IsMatch(input);
-    }    
-    
+    }
+
     /// <summary>
     /// Determines whether the specified string contains only English letters.
     /// </summary>
@@ -233,7 +226,7 @@ public static partial class StringExtensions
         }
 
         return true;
-    }    
+    }
 #endif
 
     /// <summary>

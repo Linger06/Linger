@@ -2,7 +2,7 @@
 
 namespace Linger.UnitTests.Extensions.Core
 {
-    public class TypeExtensionsTests
+    public partial class TypeExtensionsTests
     {
         [Fact]
         public void IsGeneric_ShouldReturnTrue_WhenTypeIsGeneric()

@@ -1,4 +1,4 @@
-﻿namespace Linger.Results;
+namespace Linger.Results;
 
 public class ExecuteResult
 {
@@ -205,5 +205,5 @@ public class ExecuteResult<TValue> : ExecuteResult
     /// </summary>
     /// <param name="message">错误信息</param>
     /// <returns>包含错误信息的失败结果</returns>
-    public new static ExecuteResult<TValue> Fail(string message) => new(false, message);
+    public static new ExecuteResult<TValue> Fail(string message) => new(false, message);
 }

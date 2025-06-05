@@ -1,12 +1,12 @@
-﻿using Linger.API.Models;
+using Linger.API.Models;
 
 namespace Linger.API.Services;
 
 public class UserService
 {
     // 模拟数据库中的用户集合
-    private static readonly List<UserInfo> s_users = new()
-    {
+    private static readonly List<UserInfo> s_users =
+    [
         new UserInfo
         {
             Id = "1",
@@ -14,7 +14,7 @@ public class UserService
             Email = "test@example.com",
             AvatarUrl = "/images/avatars/default.png"
         }
-    };
+    ];
 
     // 获取单个用户
     public UserInfo? GetUser(string id)
@@ -58,11 +58,11 @@ public class UserService
         var user = s_users.FirstOrDefault(u => u.Id == request.Id);
         if (user == null)
             return null;
-            
+
         // 更新用户信息
         user.Name = request.Name;
         user.Email = request.Email;
-        
+
         return user;
     }
 }

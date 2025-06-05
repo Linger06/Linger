@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Linger.Extensions.Core;
 using Linger.Ldap.Contracts;
 using Novell.Directory.Ldap;
@@ -158,7 +158,7 @@ public static class LdapEntryExtensions
 
         try
         {
-            return DateTime.FromFileTime(Convert.ToInt64(attribute.StringValue))
+            return DateTime.FromFileTime(attribute.StringValue.ToLong())
                 .ToString(CultureInfo.InvariantCulture);
         }
         catch

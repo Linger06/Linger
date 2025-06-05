@@ -6,11 +6,11 @@ namespace Linger.UnitTests.Extensions.Core;
 /// <summary>
 /// 测试 GetYearWeekCount 方法的功能
 /// </summary>
-public class DateTimeExtensions7Tests
+public class DateTimeExtensionsTests7
 {
     private readonly ITestOutputHelper _outputHelper;
 
-    public DateTimeExtensions7Tests(ITestOutputHelper outputHelper)
+    public DateTimeExtensionsTests7(ITestOutputHelper outputHelper)
     {
         _outputHelper = outputHelper;
         // 重置默认文化信息
@@ -163,16 +163,16 @@ public class DateTimeExtensions7Tests
         yield return new object[] { "en-US", "2023-07-01", 26 };
         yield return new object[] { "de-DE", "2023-07-01", 26 };
         yield return new object[] { "fr-FR", "2023-07-01", 26 };
-        
+
         // 为中文文化创建实例，检测实际环境设置
         var zhCultureInfo = new CultureInfo("zh-CN", false);
         var firstDayOfWeek = zhCultureInfo.DateTimeFormat.FirstDayOfWeek;
         var calendarWeekRule = zhCultureInfo.DateTimeFormat.CalendarWeekRule;
-        
+
         // 输出实际的文化信息设置，便于调试
         Console.WriteLine($"zh-CN FirstDayOfWeek: {firstDayOfWeek}");
         Console.WriteLine($"zh-CN CalendarWeekRule: {calendarWeekRule}");
-        
+
         // 根据实际环境设置，动态计算2023年7月1日的周数
         var date = new DateTime(2023, 7, 1);
         int weekNumber = date.WeekNumberOfYear(zhCultureInfo);
@@ -236,16 +236,16 @@ public class DateTimeExtensions7Tests
         yield return new object[] { "en-US", 2023, 1, "2023-01-01", "2023-01-07" }; // 美国文化
         yield return new object[] { "de-DE", 2023, 1, "2023-01-02", "2023-01-08" }; // 德国文化(ISO 8601)
         yield return new object[] { "fr-FR", 2023, 1, "2023-01-02", "2023-01-08" }; // 法国文化
-        
+
         // 创建中文文化实例以检测其实际设置
         var zhCultureInfo = new CultureInfo("zh-CN", false);
         var firstDayOfWeek = zhCultureInfo.DateTimeFormat.FirstDayOfWeek;
         var calendarWeekRule = zhCultureInfo.DateTimeFormat.CalendarWeekRule;
-        
+
         // 输出实际的文化信息设置，便于调试
         Console.WriteLine($"zh-CN FirstDayOfWeek: {firstDayOfWeek}");
         Console.WriteLine($"zh-CN CalendarWeekRule: {calendarWeekRule}");
-        
+
         // 2023年1月1日是星期日
         // 根据检测到的设置选择正确的预期值
         if (firstDayOfWeek == DayOfWeek.Sunday)
@@ -291,10 +291,10 @@ public class DateTimeExtensions7Tests
             Console.WriteLine($"未预期的FirstDayOfWeek设置: {firstDayOfWeek}");
             // 添加通用的预期值，用于通过测试
             yield return new object[] {
-                "zh-CN", 
-                2023, 
-                1, 
-                "2023-01-01", 
+                "zh-CN",
+                2023,
+                1,
+                "2023-01-01",
                 "2023-01-07"
             };
         }
@@ -309,12 +309,12 @@ public class DateTimeExtensions7Tests
         _outputHelper.WriteLine($"Runtime: {Environment.Version}");
         _outputHelper.WriteLine($"Framework: {RuntimeInformation.FrameworkDescription}");
         _outputHelper.WriteLine($"Culture: {cultureName}");
-        
+
         // Arrange
         var culture = new CultureInfo(cultureName, false);
         _outputHelper.WriteLine($"FirstDayOfWeek: {culture.DateTimeFormat.FirstDayOfWeek}");
         _outputHelper.WriteLine($"CalendarWeekRule: {culture.DateTimeFormat.CalendarWeekRule}");
-        
+
         var expectedStartDate = DateTime.Parse(expectedStart);
         var expectedEndDate = DateTime.Parse(expectedEnd);
 
@@ -508,14 +508,14 @@ public class DateTimeExtensions7Tests
         int year,
         DayOfWeek firstDayOfWeek,
         CalendarWeekRule calendarWeekRule,
-        string expectedStartDateStr, 
+        string expectedStartDateStr,
         string expectedEndDateStr,
         string testDescription)
     {
         // 输出测试场景信息
         _outputHelper.WriteLine($"测试场景: {testDescription}");
         _outputHelper.WriteLine($"年份: {year}, 一周第一天: {firstDayOfWeek}, 日历周规则: {calendarWeekRule}");
-        
+
         // Arrange
         var expectedStartDate = DateTime.Parse(expectedStartDateStr);
         var expectedEndDate = DateTime.Parse(expectedEndDateStr);
@@ -529,11 +529,11 @@ public class DateTimeExtensions7Tests
         _outputHelper.WriteLine($"期望的结束日期: {expectedEndDate:yyyy-MM-dd}");
         _outputHelper.WriteLine($"实际的结束日期: {result.End.Date:yyyy-MM-dd}");
         _outputHelper.WriteLine($"实际周期时长: {(result.End.Date - result.Start.Date).Days + 1}天");
-        
+
         // Assert
         Assert.Equal(expectedStartDate, result.Start);
         Assert.Equal(expectedEndDate, result.End.Date);
-        
+
         // 额外验证：检查开始日期的合理性
         // 2010年1月1日是星期五，所以在这种特殊情况下需要单独处理
         if (year == 2010 && calendarWeekRule == CalendarWeekRule.FirstDay)
@@ -554,11 +554,11 @@ public class DateTimeExtensions7Tests
         {
             // 验证周的开始和结束日期是否合理，而不是简单地比较开始日期的星期
             // 因为即使不是FirstDay规则，一周的开始日期也可能受到年初特殊情况的影响
-            
+
             // 记录有用的诊断信息
             _outputHelper.WriteLine($"一周开始日期: {result.Start:yyyy-MM-dd} ({result.Start.DayOfWeek})");
             _outputHelper.WriteLine($"一周结束日期: {result.End.Date:yyyy-MM-dd} ({result.End.Date.DayOfWeek})");
-            
+
             // 针对FirstFourDayWeek规则的验证
             if (calendarWeekRule == CalendarWeekRule.FirstFourDayWeek)
             {
@@ -570,7 +570,7 @@ public class DateTimeExtensions7Tests
                     {
                         if (day.Year == year) daysInYear++;
                     }
-                    
+
                     _outputHelper.WriteLine($"当年包含的天数: {daysInYear}");
                     // 对于第一周，如果使用FirstFourDayWeek规则，该周至少应有4天属于当年
                     if (result.Start.Year < year)  // 如果开始日期在上一年
@@ -579,7 +579,7 @@ public class DateTimeExtensions7Tests
                     }
                 }
             }
-            
+
             // 针对FirstFullWeek规则的验证
             if (calendarWeekRule == CalendarWeekRule.FirstFullWeek)
             {
@@ -591,10 +591,10 @@ public class DateTimeExtensions7Tests
                 }
             }
         }
-        
+
         // 验证周期长度是否合理
         var daysDifference = (result.End.Date - result.Start.Date).Days;
-        Assert.True(daysDifference >= 0 && daysDifference <= 6, 
+        Assert.True(daysDifference >= 0 && daysDifference <= 6,
             $"一周的时长应该在0-6天之间，但实际为{daysDifference}天");
     }
 }

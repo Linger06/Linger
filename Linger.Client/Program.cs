@@ -1,6 +1,3 @@
-﻿using System;
-using System.Windows.Forms;
-
 namespace Linger.Client;
 
 internal static class Program
