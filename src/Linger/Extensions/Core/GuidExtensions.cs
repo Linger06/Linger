@@ -1,4 +1,4 @@
-﻿namespace Linger.Extensions.Core;
+namespace Linger.Extensions.Core;
 
 /// <summary>
 /// Provides extension methods for the <see cref="Guid"/> struct.
@@ -32,7 +32,7 @@ public static class GuidExtensions
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is null; otherwise, <c>false</c>.</returns>
     public static bool IsNull(this Guid? value)
     {
-        return value == null;
+        return value is null;
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public static class GuidExtensions
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is not null; otherwise, <c>false</c>.</returns>
     public static bool IsNotNull(this Guid? value)
     {
-        return value != null;
+        return value is not null;
     }
 
     /// <summary>
@@ -52,17 +52,7 @@ public static class GuidExtensions
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is null or <see cref="Guid.Empty"/>; otherwise, <c>false</c>.</returns>
     public static bool IsNullOrEmpty(this Guid? value)
     {
-        if (value == null)
-        {
-            return true;
-        }
-
-        if (value.Value == Guid.Empty)
-        {
-            return true;
-        }
-
-        return false;
+        return value is null || value.Value == Guid.Empty;
     }
 
     /// <summary>

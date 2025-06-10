@@ -1,18 +1,28 @@
+using System.Collections.Concurrent;
 using System.Reflection;
 using Linger.Attributes;
 
 namespace Linger.Extensions.Core;
 
 /// <summary>
-/// Extension methods for the Type class
+/// Extension methods for the Type class with performance optimizations
 /// </summary>
 public static class TypeExtension
-{
-    /// <summary>
-    /// Gets or sets the property cache.
+{    /// <summary>
+    /// Thread-safe property cache for improved performance.
     /// </summary>
     /// <value>The property cache.</value>
-    public static Dictionary<string, List<PropertyInfo>> PropertyCache { get; set; } = [];
+    private static readonly ConcurrentDictionary<string, List<PropertyInfo>> PropertyCache = new();
+    
+    /// <summary>
+    /// Cache for type properties to minimize reflection overhead.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> TypePropertyCache = new();
+    
+    /// <summary>
+    /// Cache for column information to minimize reflection overhead.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, List<ColumnInfo>> ColumnInfoCache = new();
 
     /// <summary>
     /// Determines if the type is a generic type.
@@ -78,25 +88,23 @@ public static class TypeExtension
         Type checkType = self.IsNullable() ? self.GetGenericArguments()[0] : self;
         return checkType == typeof(int) || checkType == typeof(short) || checkType == typeof(long) ||
                checkType == typeof(float) || checkType == typeof(decimal) || checkType == typeof(double);
-    }
-
-    /// <summary>
-    /// Gets a single property by name.
+    }    /// <summary>
+    /// Gets a single property by name with thread-safe caching.
     /// </summary>
     /// <param name="self">The type to check.</param>
     /// <param name="name">The name of the property.</param>
     /// <returns>The property info if found, otherwise null.</returns>
+    /// <example>
+    /// <code>
+    /// PropertyInfo? prop = typeof(Person).GetSingleProperty("Name");
+    /// </code>
+    /// </example>
     public static PropertyInfo? GetSingleProperty(this Type self, string name)
     {
         var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
 
-        if (!PropertyCache.TryGetValue(fullName, out List<PropertyInfo>? value))
-        {
-            value = self.GetProperties().ToList();
-            PropertyCache[fullName] = value;
-        }
-
-        return value.FirstOrDefault(x => x.Name == name);
+        var properties = PropertyCache.GetOrAdd(fullName, _ => self.GetProperties().ToList());
+        return properties.FirstOrDefault(x => x.Name == name);
     }
 
     /// <summary>
@@ -159,27 +167,36 @@ public static class TypeExtension
     {
         var customAttributes = field.GetCustomAttributes(typeof(T), false);
         return customAttributes.Length > 0 ? (T)customAttributes[0] : null;
-    }
-
-    /// <summary>
-    /// Gets the properties of a type.
+    }    /// <summary>
+    /// Gets the properties of a type with caching for performance.
     /// </summary>
     /// <param name="type">The type to get the properties of.</param>
     /// <returns>The properties of the type.</returns>
+    /// <example>
+    /// <code>
+    /// PropertyInfo[] properties = typeof(Person).Props().ToArray();
+    /// </code>
+    /// </example>
     public static IEnumerable<PropertyInfo> Props(this Type type)
     {
-        return type.GetProperties();
+        return TypePropertyCache.GetOrAdd(type, t => t.GetProperties());
     }
 
     /// <summary>
-    /// Gets the properties of an object.
+    /// Gets the properties of an object with caching for performance.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
     /// <param name="obj">The object to get the properties of.</param>
     /// <returns>The properties of the object.</returns>
+    /// <example>
+    /// <code>
+    /// var person = new Person();
+    /// PropertyInfo[] properties = person.Props()?.ToArray();
+    /// </code>
+    /// </example>
     public static IEnumerable<PropertyInfo>? Props<T>(this T obj)
     {
-        return obj?.GetType().GetProperties();
+        return obj?.GetType().Props();
     }
 
     /// <summary>
@@ -373,10 +390,8 @@ public static class TypeExtension
     public static bool IsBoolOrNullableBool(this Type self)
     {
         return self == typeof(bool) || self == typeof(bool?);
-    }
-
-    /// <summary>
-    /// Gets a property info by name.
+    }    /// <summary>
+    /// Gets a property info by name with caching for performance.
     /// </summary>
     /// <param name="objType">The type to get the property from.</param>
     /// <param name="name">The name of the property.</param>
@@ -394,12 +409,12 @@ public static class TypeExtension
         ArgumentNullException.ThrowIfNull(objType);
         ArgumentNullException.ThrowIfNull(name);
 
-        PropertyInfo? matchedProperty = objType.GetProperties().FirstOrDefault(p => p.Name == name);
+        // Use cached properties for better performance
+        var properties = TypePropertyCache.GetOrAdd(objType, t => t.GetProperties());
+        PropertyInfo? matchedProperty = properties.FirstOrDefault(p => p.Name == name);
         return matchedProperty ?? throw new InvalidOperationException($"Property '{name}' not found on type '{objType.FullName}'.");
-    }
-
-    /// <summary>
-    /// Gets the column information for the specified type.
+    }    /// <summary>
+    /// Gets the column information for the specified type with caching for performance.
     /// </summary>
     /// <param name="type">The type to get column information for.</param>
     /// <returns>A list of <see cref="ColumnInfo"/> objects that represent the columns of the specified type.</returns>
@@ -413,31 +428,36 @@ public static class TypeExtension
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        var columns = new List<ColumnInfo>();
-        var counter = 0;
-
-        // 获取所有属性
-        foreach (var propertyInfo in type.GetProperties())
+        return ColumnInfoCache.GetOrAdd(type, t =>
         {
-            counter++;
+            var columns = new List<ColumnInfo>();
+            var counter = 0;
 
-            // 使用GetCustomAttribute<T>方法直接获取特性，避免使用反射
-            var attribute = propertyInfo.GetCustomAttribute<UserDefinedTableTypeColumnAttribute>(true);
+            // 使用缓存的属性信息以提高性能
+            var properties = TypePropertyCache.GetOrAdd(t, pt => pt.GetProperties());
 
-            // 创建并添加列信息
-            var column = new ColumnInfo
+            foreach (var propertyInfo in properties)
             {
-                PropertyName = attribute?.Name ?? propertyInfo.Name,
-                PropertyOrder = attribute?.Order > 0 ? attribute.Order : counter,
-                Property = propertyInfo,
-                PropertyType = propertyInfo.PropertyType
-            };
+                counter++;
 
-            columns.Add(column);
-        }
+                // 使用GetCustomAttribute<T>方法直接获取特性，避免使用反射
+                var attribute = propertyInfo.GetCustomAttribute<UserDefinedTableTypeColumnAttribute>(true);
 
-        // 按照PropertyOrder排序
-        return columns.OrderBy(info => info.PropertyOrder).ToList();
+                // 创建并添加列信息
+                var column = new ColumnInfo
+                {
+                    PropertyName = attribute?.Name ?? propertyInfo.Name,
+                    PropertyOrder = attribute?.Order > 0 ? attribute.Order : counter,
+                    Property = propertyInfo,
+                    PropertyType = propertyInfo.PropertyType
+                };
+
+                columns.Add(column);
+            }
+
+            // 按照PropertyOrder排序
+            return columns.OrderBy(info => info.PropertyOrder).ToList();
+        });
     }
 }
 

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
@@ -8,6 +9,8 @@ namespace Linger.Extensions.Core;
 /// </summary>
 public static class ObjectExtensions
 {
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
+
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is not null.
     /// </summary>
@@ -23,32 +26,30 @@ public static class ObjectExtensions
     public static bool IsNull([NotNullWhen(false)] this object? value) => value is null;
 
     /// <summary>
-    /// Indicates whether the specified <see cref="object"/> is not null and not an empty string.
+    /// Indicates whether the specified <see cref="object"/> is not null and its string representation is not empty.
     /// </summary>
     /// <param name="value">The specified <see cref="object"/>.</param>
-    /// <returns>true if the object is not null and not an empty string; otherwise, false.</returns>
+    /// <returns>true if the object is not null and its string representation is not empty; otherwise, false.</returns>
     public static bool IsNotNullAndEmpty([NotNullWhen(true)] this object? value) => value is not null && !string.IsNullOrEmpty(value.ToString());
 
     /// <summary>
-    /// Indicates whether the specified <see cref="object"/> is null or an empty string.
+    /// Indicates whether the specified <see cref="object"/> is null or its string representation is empty.
     /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>
-    /// <returns>true if the object is null or an empty string; otherwise, false.</returns>
+    /// <param name="value">The specified <see cref="object"/>.</param>    /// <returns>true if the object is null or its string representation is empty; otherwise, false.</returns>
     public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value) => value is null || string.IsNullOrEmpty(value.ToString());
-
+    
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is null or <see cref="DBNull"/>.
     /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>
-    /// <returns>true if the object is null or DBNull; otherwise, false.</returns>
+    /// <param name="value">The specified <see cref="object"/>.</param>    /// <returns>true if the object is null or DBNull; otherwise, false.</returns>
     public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value) => value is DBNull or null;
-
+    
     /// <summary>
-    /// Executes a specified action on each property of the current class.
+    /// Executes a specified action on each property of the current object.
     /// </summary>
-    /// <typeparam name="T">The type of the class to perform the action on.</typeparam>
-    /// <param name="value">The class to perform the action on.</param>
-    /// <param name="action">The <see cref="Action{T}"/> delegate to perform on each property of the current class.</param>
+    /// <typeparam name="T">The type of the object to perform the action on.</typeparam>
+    /// <param name="value">The object to perform the action on.</param>
+    /// <param name="action">The <see cref="Action{T1, T2}"/> delegate to perform on each property of the current object.</param>
     /// <example>
     /// <code>
     /// var obj = new { Name = "John", Age = 30 };
@@ -58,27 +59,28 @@ public static class ObjectExtensions
     /// // Age: 30
     /// </code>
     /// </example>
-    public static void ForIn<T>(this T? value, Action<string, object?> action) where T : class
+    public static void ForIn<T>(this T? value, Action<string, object?> action) 
+        where T : class
     {
-        if (value == null)
+        if (value is null)
         {
             return;
         }
 
-        foreach (PropertyInfo item in typeof(T).GetProperties())
+        var properties = PropertyCache.GetOrAdd(typeof(T), type => type.GetProperties());
+        
+        foreach (PropertyInfo property in properties)
         {
-            var val = item.GetValue(value, null);
-            action(item.Name, val);
-        }
+            var val = property.GetValue(value, null);
+            action(property.Name, val);        }
     }
-
-    /// <summary>
-    /// Gets the <see cref="PropertyInfo"/> of a specified property name.
+      /// <summary>
+    /// Gets the <see cref="PropertyInfo"/> of a specified property name with caching for performance.
     /// </summary>
     /// <param name="obj">The object to get the property info from.</param>
     /// <param name="propertyName">The name of the property.</param>
     /// <returns>The <see cref="PropertyInfo"/> of the specified property.</returns>
-    /// <exception cref="ArgumentException">Thrown when the property name does not exist.</exception>
+    /// <exception cref="InvalidOperationException">Thrown when the property name does not exist.</exception>
     /// <example>
     /// <code>
     /// var obj = new { Name = "John" };
@@ -88,15 +90,16 @@ public static class ObjectExtensions
     /// </example>
     public static PropertyInfo GetPropertyInfo(this object obj, string propertyName)
     {
-        var matchedProperty = obj.GetType().GetProperty(propertyName);
-        return matchedProperty ?? throw new InvalidOperationException($"{nameof(propertyName)} has not been initialized");
+        // Use cached properties to minimize reflection overhead
+        var properties = PropertyCache.GetOrAdd(obj.GetType(), type => type.GetProperties());
+        var matchedProperty = properties.FirstOrDefault(p => p.Name == propertyName);
+        return matchedProperty ?? throw new InvalidOperationException($"Property '{propertyName}' does not exist on type '{obj.GetType().Name}'");
     }
 
     /// <summary>
     /// Gets the value of a specified property.
     /// </summary>
-    /// <param name="obj">The object to get the property value from.</param>
-    /// <param name="propertyName">The name of the property.</param>
+    /// <param name="obj">The object to get the property value from.</param>    /// <param name="propertyName">The name of the property.</param>
     /// <returns>The value of the specified property.</returns>
     /// <example>
     /// <code>
@@ -110,152 +113,144 @@ public static class ObjectExtensions
         return obj.GetPropertyInfo(propertyName).GetValue(obj, null);
     }
 
-    #region Type checking methods
-
-    // Type checking helper method
-    /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of the specified type T.
-    /// </summary>
-    /// <typeparam name="T">The type to check against.</typeparam>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of the specified type T; otherwise, false.</returns>
-    private static bool IsOfType<T>(this object? value) => value?.GetType() == typeof(T);
-
-    /// <summary>
+    #region Type checking methods    /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="string"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="string"/> type; otherwise, false.</returns>
-    public static bool IsString(this object? value) => value.IsOfType<string>();
+    public static bool IsString(this object? value) => value is string;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="short"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="short"/> type; otherwise, false.</returns>
-    public static bool IsInt16(this object? value) => value.IsOfType<short>();
+    public static bool IsInt16(this object? value) => value is short;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="int"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="int"/> type; otherwise, false.</returns>
-    public static bool IsInt(this object? value) => value.IsOfType<int>();
+    public static bool IsInt(this object? value) => value is int;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="long"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="long"/> type; otherwise, false.</returns>
-    public static bool IsInt64(this object? value) => value.IsOfType<long>();
+    public static bool IsInt64(this object? value) => value is long;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="decimal"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="decimal"/> type; otherwise, false.</returns>
-    public static bool IsDecimal(this object? value) => value.IsOfType<decimal>();
+    public static bool IsDecimal(this object? value) => value is decimal;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="float"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="float"/> type; otherwise, false.</returns>
-    public static bool IsSingle(this object? value) => value.IsOfType<float>();
+    public static bool IsSingle(this object? value) => value is float;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="float"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="float"/> type; otherwise, false.</returns>
-    public static bool IsFloat(this object? value) => value.IsOfType<float>();
+    public static bool IsFloat(this object? value) => value is float;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="double"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="double"/> type; otherwise, false.</returns>
-    public static bool IsDouble(this object? value) => value.IsOfType<double>();
+    public static bool IsDouble(this object? value) => value is double;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="DateTime"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="DateTime"/> type; otherwise, false.</returns>
-    public static bool IsDateTime(this object? value) => value.IsOfType<DateTime>();
+    public static bool IsDateTime(this object? value) => value is DateTime;
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="bool"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="bool"/> type; otherwise, false.</returns>
-    public static bool IsBoolean(this object? value) => value.IsOfType<bool>();
+    /// <returns>True if the value is of an equivalent <see cref="bool"/> type; otherwise, false.</returns>    
+    public static bool IsBoolean(this object? value) => value is bool;
 
     #endregion
-
-    //public const string DoubleFixedPoint = "0.###################################################################################################################################################################################################################################################################################################################################################";
-
-    ///// <summary>
-    ///// 数字科学计数法处理
-    ///// </summary>
-    ///// <param name="strData"></param>
-    ///// <returns></returns>
-    //public static Decimal ChangeToDecimal(this object input)
-    //{
-    //    var inputStr = input.ToString();
-    //    if(inputStr.IsScientificNotation())
-    //    {
-    //        Decimal dData = 0.0M;
-    //        if (inputStr.Contains("E"))
-    //        {
-    //            dData = Convert.ToDecimal(Decimal.Parse(inputStr, System.Globalization.NumberStyles.Float));
-
-    //            string numberFromToString = input.ToString(DoubleFixedPoint);//0.00009
-    //        }
-    //        else
-    //        {
-    //            dData = Convert.ToDecimal(inputStr);
-    //        }
-    //        return Math.Round(dData, 4);
-    //    }
-
-    //}
-
+    
     /// <summary>
     /// Converts the input object to a trimmed string. Returns an empty string if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <returns>A trimmed string representation of the input object, or an empty string if the input is null.</returns>
+    /// <example>
+    /// <code>
+    /// object obj = "  Hello World  ";
+    /// string result = obj.ToNotSpaceString();
+    /// Console.WriteLine(result); // Output: "Hello World"
+    /// </code>    /// </example>
     public static string ToNotSpaceString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
-
+    
     /// <summary>
     /// Converts the input object to a string. Returns the specified default value if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the input is null.</param>
     /// <returns>A string representation of the input object, or the specified default value if the input is null.</returns>
-    public static string ToSafeString(this object? input, string defaultValue = "") => input != null ? input.ToString() ?? defaultValue : defaultValue;
-
+    /// <example>
+    /// <code>
+    /// object? obj = null;
+    /// string result = obj.ToSafeString("Default");
+    /// Console.WriteLine(result); // Output: "Default"
+    /// </code>    /// </example>
+    public static string ToSafeString(this object? input, string defaultValue = "") => input?.ToString() ?? defaultValue;
+    
     /// <summary>
     /// Converts the input object to a string. Returns an empty string if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <returns>A string representation of the input object, or an empty string if the input is null.</returns>
+    /// <example>
+    /// <code>
+    /// object? obj = 42;
+    /// string result = obj.ToStringOrEmpty();
+    /// Console.WriteLine(result); // Output: "42"
+    /// </code>    /// </example>
     public static string ToStringOrEmpty(this object? input) => input?.ToString() ?? string.Empty;
-
+    
     /// <summary>
     /// Converts the input object to a string. Returns null if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <returns>A string representation of the input object, or null if the input is null.</returns>
+    /// <example>
+    /// <code>
+    /// object? obj = null;
+    /// string? result = obj.ToStringOrNull();
+    /// Console.WriteLine(result ?? "Was null"); // Output: "Was null"
+    /// </code>    /// </example>
     public static string? ToStringOrNull(this object? input) => input?.ToString();
-
+    
     /// <summary>
     /// Converts the input object to a short. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>A short representation of the input object, or the specified default value if the conversion fails.</returns>
+    /// <example>
+    /// <code>
+    /// object obj = "123";
+    /// short result = obj.ToShort();
+    /// Console.WriteLine(result); // Output: 123
+    /// </code>
+    /// </example>
     public static short ToShort(this object? input, short defaultValue = 0) => input.ToShortOrNull() ?? defaultValue;
 
     /// <summary>
@@ -396,21 +391,22 @@ public static class ObjectExtensions
     public static float? ToFloatOrNull(this object? input, float? defaultValue = null, int? digits = null)
     {
         return input.ToStringOrNull().ToFloatOrNull(defaultValue, digits);
+    }    /// <summary>
+    /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
+    /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
+    public static DateTime ToDateTime(this object? input, DateTime? defaultValue = null)
+    {
+        return ToDateTimeOrNull(input) ?? defaultValue ?? DateTime.MinValue;
     }
 
     /// <summary>
-    /// Converts the input object to a DateTime. Returns DateTime.MinValue if the conversion fails.
+    /// Converts the input object to a nullable DateTime. Returns null if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
-    /// <returns>A DateTime representation of the input object, or DateTime.MinValue if the conversion fails.</returns>
-    public static DateTime ToDateTime(this object input)
-    {
-        return ToDateTimeOrNull(input) ?? DateTime.MinValue;
-    }    /// <summary>
-         /// Converts the input object to a nullable DateTime. Returns null if the conversion fails.
-         /// </summary>
-         /// <param name="input">The input object.</param>
-         /// <returns>A nullable DateTime representation of the input object, or null if the conversion fails.</returns>
+    /// <returns>A nullable DateTime representation of the input object, or null if the conversion fails.</returns>
     public static DateTime? ToDateTimeOrNull(this object? input)
     {
         return input.ToStringOrNull().ToDateTimeOrNull();

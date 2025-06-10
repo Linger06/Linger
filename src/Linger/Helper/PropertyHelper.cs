@@ -6,11 +6,12 @@ using Linger.Extensions.Core;
 namespace Linger.Helper;
 
 /// <summary>
-/// Helper class for property operations.
+/// Helper class for property operations with performance optimizations.
 /// </summary>
 public static class PropertyHelper
 {
     private static readonly ConcurrentDictionary<string, PropertyInfo?> s_cachedObjectProperties = new();
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
 
     /// <summary>
     /// Gets the member expression for the specified member name.
@@ -71,7 +72,13 @@ public static class PropertyHelper
         PropertyInfo? rv = null;
         if (me != null)
         {
-            rv = me.Member.DeclaringType?.GetProperties().FirstOrDefault(x => x.Name == me.Member.Name);
+            var declaringType = me.Member.DeclaringType;
+            if (declaringType != null)
+            {
+                // Use cached properties for better performance
+                var properties = s_typePropertiesCache.GetOrAdd(declaringType, t => t.GetProperties());
+                rv = properties.FirstOrDefault(x => x.Name == me.Member.Name);
+            }
         }
 
         return rv;
@@ -151,8 +158,13 @@ public static class PropertyHelper
             }
 
             var memberExpression = (MemberExpression)propertySelector.Body;
+            var objType = obj?.GetType();
+            
+            if (objType == null) return null;
 
-            PropertyInfo? propertyInfo = obj?.GetType().GetProperties().FirstOrDefault(x =>
+            // Use cached properties for better performance
+            var properties = s_typePropertiesCache.GetOrAdd(objType, t => t.GetProperties());
+            PropertyInfo? propertyInfo = properties.FirstOrDefault(x =>
                 x.Name == memberExpression.Member.Name &&
                 x.GetSetMethod(true) != null);
 
