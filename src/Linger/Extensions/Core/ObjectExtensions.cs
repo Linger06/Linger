@@ -184,6 +184,19 @@ public static class ObjectExtensions
     public static bool IsBoolean(this object? value) => value is bool;
 
     #endregion
+      /// <summary>
+    /// Converts the input object to a trimmed string. Returns an empty string if the input is null.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <returns>A trimmed string representation of the input object, or an empty string if the input is null.</returns>
+    /// <example>
+    /// <code>
+    /// object obj = "  Hello World  ";
+    /// string result = obj.ToTrimmedString();
+    /// Console.WriteLine(result); // Output: "Hello World"
+    /// </code>
+    /// </example>
+    public static string ToTrimmedString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
     
     /// <summary>
     /// Converts the input object to a trimmed string. Returns an empty string if the input is null.
@@ -195,7 +208,9 @@ public static class ObjectExtensions
     /// object obj = "  Hello World  ";
     /// string result = obj.ToNotSpaceString();
     /// Console.WriteLine(result); // Output: "Hello World"
-    /// </code>    /// </example>
+    /// </code>
+    /// </example>
+    [Obsolete("Use ToTrimmedString() instead. This method will be removed in a future version.")]
     public static string ToNotSpaceString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
     
     /// <summary>
@@ -211,8 +226,7 @@ public static class ObjectExtensions
     /// Console.WriteLine(result); // Output: "Default"
     /// </code>    /// </example>
     public static string ToSafeString(this object? input, string defaultValue = "") => input?.ToString() ?? defaultValue;
-    
-    /// <summary>
+      /// <summary>
     /// Converts the input object to a string. Returns an empty string if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -222,10 +236,11 @@ public static class ObjectExtensions
     /// object? obj = 42;
     /// string result = obj.ToStringOrEmpty();
     /// Console.WriteLine(result); // Output: "42"
-    /// </code>    /// </example>
+    /// </code>
+    /// </example>
+    [Obsolete("Use ToSafeString() instead. This method will be removed in a future version.")]
     public static string ToStringOrEmpty(this object? input) => input?.ToString() ?? string.Empty;
-    
-    /// <summary>
+      /// <summary>
     /// Converts the input object to a string. Returns null if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -235,8 +250,40 @@ public static class ObjectExtensions
     /// object? obj = null;
     /// string? result = obj.ToStringOrNull();
     /// Console.WriteLine(result ?? "Was null"); // Output: "Was null"
-    /// </code>    /// </example>
+    /// </code>
+    /// </example>
     public static string? ToStringOrNull(this object? input) => input?.ToString();
+    
+    /// <summary>
+    /// Converts the input object to a normalized string with optional trimming and null handling.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="trim">Whether to trim whitespace from the result.</param>
+    /// <param name="treatEmptyAsNull">Whether to treat empty strings as null.</param>
+    /// <returns>A normalized string representation of the input object.</returns>
+    /// <example>
+    /// <code>
+    /// object obj = "  Hello World  ";
+    /// string? result = obj.ToNormalizedString(trim: true, treatEmptyAsNull: true);
+    /// Console.WriteLine(result); // Output: "Hello World"
+    /// </code>
+    /// </example>
+    public static string? ToNormalizedString(this object? input, bool trim = false, bool treatEmptyAsNull = false)
+    {
+        var result = input?.ToString();
+        
+        if (trim)
+        {
+            result = result?.Trim();
+        }
+        
+        if (treatEmptyAsNull && string.IsNullOrEmpty(result))
+        {
+            return null;
+        }
+        
+        return result;
+    }
     
     /// <summary>
     /// Converts the input object to a short. Returns the specified default value if the conversion fails.
