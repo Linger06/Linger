@@ -290,8 +290,16 @@ public static class FileInfoExtensions
     /// </summary>
     /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
     /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    public static MemoryStream ToMemoryStream3(this FileInfo fileInfo)
+    /// <example>
+    /// <code>
+    /// FileInfo file = new FileInfo("path/to/file.txt");
+    /// using MemoryStream stream = file.ToMemoryStream();
+    /// </code>
+    /// </example>
+    public static MemoryStream ToMemoryStream(this FileInfo fileInfo)
     {
+        ArgumentNullException.ThrowIfNull(fileInfo);
+
         var memoryStream = new MemoryStream();
         using FileStream fileStream = fileInfo.OpenRead();
         fileStream.CopyTo(memoryStream);

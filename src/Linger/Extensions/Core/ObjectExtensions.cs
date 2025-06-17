@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Linger.Extensions.Core;
@@ -37,13 +36,13 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The specified <see cref="object"/>.</param>    /// <returns>true if the object is null or its string representation is empty; otherwise, false.</returns>
     public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value) => value is null || string.IsNullOrEmpty(value.ToString());
-    
+
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is null or <see cref="DBNull"/>.
     /// </summary>
     /// <param name="value">The specified <see cref="object"/>.</param>    /// <returns>true if the object is null or DBNull; otherwise, false.</returns>
     public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value) => value is DBNull or null;
-    
+
     /// <summary>
     /// Executes a specified action on each property of the current object.
     /// </summary>
@@ -59,7 +58,7 @@ public static class ObjectExtensions
     /// // Age: 30
     /// </code>
     /// </example>
-    public static void ForIn<T>(this T? value, Action<string, object?> action) 
+    public static void ForIn<T>(this T? value, Action<string, object?> action)
         where T : class
     {
         if (value is null)
@@ -67,14 +66,18 @@ public static class ObjectExtensions
             return;
         }
 
-        var properties = PropertyCache.GetOrAdd(typeof(T), type => type.GetProperties());
-        
+        var properties = PropertyCache.GetOrAdd(typeof(T), static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+
         foreach (PropertyInfo property in properties)
         {
-            var val = property.GetValue(value, null);
-            action(property.Name, val);        }
+            if (property.CanRead)
+            {
+                var val = property.GetValue(value, null);
+                action(property.Name, val);
+            }
+        }
     }
-      /// <summary>
+    /// <summary>
     /// Gets the <see cref="PropertyInfo"/> of a specified property name with caching for performance.
     /// </summary>
     /// <param name="obj">The object to get the property info from.</param>
@@ -184,7 +187,7 @@ public static class ObjectExtensions
     public static bool IsBoolean(this object? value) => value is bool;
 
     #endregion
-      /// <summary>
+    /// <summary>
     /// Converts the input object to a trimmed string. Returns an empty string if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -197,7 +200,7 @@ public static class ObjectExtensions
     /// </code>
     /// </example>
     public static string ToTrimmedString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
-    
+
     /// <summary>
     /// Converts the input object to a trimmed string. Returns an empty string if the input is null.
     /// </summary>
@@ -212,7 +215,7 @@ public static class ObjectExtensions
     /// </example>
     [Obsolete("Use ToTrimmedString() instead. This method will be removed in a future version.")]
     public static string ToNotSpaceString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
-    
+
     /// <summary>
     /// Converts the input object to a string. Returns the specified default value if the input is null.
     /// </summary>
@@ -226,7 +229,7 @@ public static class ObjectExtensions
     /// Console.WriteLine(result); // Output: "Default"
     /// </code>    /// </example>
     public static string ToSafeString(this object? input, string defaultValue = "") => input?.ToString() ?? defaultValue;
-      /// <summary>
+    /// <summary>
     /// Converts the input object to a string. Returns an empty string if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -240,7 +243,7 @@ public static class ObjectExtensions
     /// </example>
     [Obsolete("Use ToSafeString() instead. This method will be removed in a future version.")]
     public static string ToStringOrEmpty(this object? input) => input?.ToString() ?? string.Empty;
-      /// <summary>
+    /// <summary>
     /// Converts the input object to a string. Returns null if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -253,7 +256,7 @@ public static class ObjectExtensions
     /// </code>
     /// </example>
     public static string? ToStringOrNull(this object? input) => input?.ToString();
-    
+
     /// <summary>
     /// Converts the input object to a normalized string with optional trimming and null handling.
     /// </summary>
@@ -271,20 +274,20 @@ public static class ObjectExtensions
     public static string? ToNormalizedString(this object? input, bool trim = false, bool treatEmptyAsNull = false)
     {
         var result = input?.ToString();
-        
+
         if (trim)
         {
             result = result?.Trim();
         }
-        
+
         if (treatEmptyAsNull && string.IsNullOrEmpty(result))
         {
             return null;
         }
-        
+
         return result;
     }
-    
+
     /// <summary>
     /// Converts the input object to a short. Returns the specified default value if the conversion fails.
     /// </summary>
@@ -439,11 +442,11 @@ public static class ObjectExtensions
     {
         return input.ToStringOrNull().ToFloatOrNull(defaultValue, digits);
     }    /// <summary>
-    /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
-    /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
+         /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
+         /// </summary>
+         /// <param name="input">The input object.</param>
+         /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
+         /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
     public static DateTime ToDateTime(this object? input, DateTime? defaultValue = null)
     {
         return ToDateTimeOrNull(input) ?? defaultValue ?? DateTime.MinValue;

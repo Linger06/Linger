@@ -13,7 +13,7 @@ public static class DataTableExtensions
 {
     // Performance optimization: Cache property mappings to avoid repeated reflection calls
     private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> PropertyMappingCache = new();
-    
+
     // Cache for type property arrays to reduce reflection overhead
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> TypePropertiesCache = new();
 
@@ -610,7 +610,7 @@ public static class DataTableExtensions
 
         // Get cached property mapping for the type
         var propertyMap = GetCachedPropertyMapping<T>();
-        
+
         // Build column to property mappings
         var columnMappings = new Dictionary<int, PropertyInfo>();
         for (int i = 0; i < dataTable.Columns.Count; i++)
@@ -635,7 +635,7 @@ public static class DataTableExtensions
             //Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dataTable.Rows.Count);
 
             var items = new T[dataTable.Rows.Count];
-            
+
             Parallel.For(0, dataTable.Rows.Count, i =>
             {
                 var item = new T();
@@ -682,11 +682,11 @@ public static class DataTableExtensions
 
         return result;
     }    /// <summary>
-    /// Gets cached property mapping for the specified type to minimize reflection overhead.
-    /// Only includes properties that have public setters.
-    /// </summary>
-    /// <typeparam name="T">The type to get property mapping for.</typeparam>
-    /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
+         /// Gets cached property mapping for the specified type to minimize reflection overhead.
+         /// Only includes properties that have public setters.
+         /// </summary>
+         /// <typeparam name="T">The type to get property mapping for.</typeparam>
+         /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
     private static Dictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
     {
         return PropertyMappingCache.GetOrAdd(typeof(T), type =>
@@ -752,12 +752,12 @@ public static class DataTableExtensions
         {
             if (value == null || value == DBNull.Value)
                 return Enum.ToObject(actualType, 0);
-            
+
             if (value is string stringValue)
             {
                 return Enum.Parse(actualType, stringValue, true);
             }
-            
+
             // For numeric values, convert to the enum
             return Enum.ToObject(actualType, value);
         }
@@ -774,14 +774,14 @@ public static class DataTableExtensions
             nameof(String) => value.ToSafeString(),
             nameof(Int16) => value.ToShort(),
             nameof(Int32) => value.ToInt(),
-            nameof(Int64) => value.ToLong(), 
+            nameof(Int64) => value.ToLong(),
             nameof(Single) => value.ToFloat(),
             nameof(Double) => value.ToDouble(),
             nameof(Decimal) => value.ToDecimal(),
             nameof(Boolean) => value.ToBool(),
             nameof(DateTime) => value.ToDateTime(),
             nameof(Guid) => value.ToGuid(),
-            _ => Convert.ChangeType(value, actualType) // Fallback for other types
+            _ => Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture) // Fallback for other types
         };
     }
 }

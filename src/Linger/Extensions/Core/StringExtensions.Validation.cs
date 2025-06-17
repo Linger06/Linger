@@ -3,48 +3,38 @@ using System.Diagnostics.CodeAnalysis;
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
-{
-    /// <summary>
+{    /// <summary>
     /// Check if the specified string is null.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is null; otherwise, false.</returns>
-    public static bool IsNull([NotNullWhen(false)] this string? value)
-    {
-        return value == null;
-    }
+    public static bool IsNull([NotNullWhen(false)] this string? value) => value is null;
 
     /// <summary>
     /// Check if the specified string is empty.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is empty; otherwise, false.</returns>
-    public static bool IsEmpty(this string value)
-    {
-        return value == string.Empty;
-    }
+    public static bool IsEmpty(this string value) => value == string.Empty;
 
     /// <summary>
     /// Check if the specified string is null or empty.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is null or empty; otherwise, false.</returns>
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this string? value)
-    {
-        return string.IsNullOrEmpty(value);
-    }
-
-    /// <summary>
+    public static bool IsNullOrEmpty([NotNullWhen(false)] this string? value) => string.IsNullOrEmpty(value);    /// <summary>
     /// Check if the specified string is null or consists only of white-space characters.
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is null or consists only of white-space characters; otherwise, false.</returns>
     public static bool IsNullOrWhiteSpace([NotNullWhen(false)] this string? value)
     {
-#if !NETFRAMEWORK || NET40_OR_GREATER
+#if NET6_0_OR_GREATER
+        return string.IsNullOrWhiteSpace(value);
+#elif NETSTANDARD2_0_OR_GREATER || NETFRAMEWORK
         return string.IsNullOrWhiteSpace(value);
 #else
-        if ((object)value == null)
+        if (value is null)
         {
             return true;
         }
@@ -59,24 +49,19 @@ public static partial class StringExtensions
 
         return true;
 #endif
-    }
-
+    }    /// <summary>
+    /// Check if the specified string consists only of white-space characters.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string consists only of white-space characters; otherwise, false.</returns>
     public static bool IsWhiteSpace(this string? value)
     {
-        if (value.IsNull())
+        return value switch
         {
-            return false;
-        }
-
-        foreach (var t in value)
-        {
-            if (!char.IsWhiteSpace(t))
-            {
-                return false;
-            }
-        }
-
-        return true;
+            null => false,
+            "" => true,
+            _ => value.All(char.IsWhiteSpace)
+        };
     }
 
     /// <summary>

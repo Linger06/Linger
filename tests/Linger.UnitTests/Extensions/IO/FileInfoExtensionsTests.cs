@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Linger.Extensions.Core;
@@ -230,14 +230,14 @@ public class FileInfoExtensionsTests : IDisposable
 
         // 合并异常，不应立即抛出
         var aggregateException = Assert.Throws<AggregateException>(() => files.Delete(true));
-        
+
         // 验证聚合异常包含两个内部异常
         Assert.Equal(2, aggregateException.InnerExceptions.Count);
-        
+
         // 验证有效文件被删除了
         Assert.False(File.Exists(validPath1));
         Assert.False(File.Exists(validPath2));
-        
+
         // 验证锁定的文件仍然存在
         Assert.True(File.Exists(lockedPath1));
         Assert.True(File.Exists(lockedPath2));
@@ -302,14 +302,14 @@ public class FileInfoExtensionsTests : IDisposable
 
         // 合并异常测试
         var aggregateException = Assert.Throws<AggregateException>(() => files.CopyTo(targetDir, true));
-        
+
         // 验证聚合异常包含一个内部异常
         Assert.Single(aggregateException.InnerExceptions);
-        
+
         // 验证有效文件被成功复制
         string validTargetPath = Path.Combine(targetDir, "valid_copy.txt");
         Assert.True(File.Exists(validTargetPath));
-        
+
         // 验证锁定的文件未被复制
         string lockedTargetPath = Path.Combine(targetDir, "locked_copy.txt");
         Assert.False(File.Exists(lockedTargetPath));
@@ -336,7 +336,7 @@ public class FileInfoExtensionsTests : IDisposable
 
         // 不合并异常，应立即抛出
         Assert.Throws<IOException>(() => files.CopyTo(targetDir, false));
-        
+
         // 验证没有文件被复制，因为第一个文件就失败了
         Assert.False(File.Exists(Path.Combine(targetDir, "valid_direct.txt")));
         Assert.False(File.Exists(Path.Combine(targetDir, "locked_direct.txt")));
@@ -396,14 +396,14 @@ public class FileInfoExtensionsTests : IDisposable
 
         // 合并异常测试
         var aggregateException = Assert.Throws<AggregateException>(() => files.MoveTo(targetDir, true));
-        
+
         // 验证聚合异常包含一个内部异常
         Assert.Single(aggregateException.InnerExceptions);
-        
+
         // 验证有效文件被成功移动
         Assert.False(File.Exists(validPath));
         Assert.True(File.Exists(Path.Combine(targetDir, "valid_move.txt")));
-        
+
         // 验证锁定的文件未被移动
         Assert.True(File.Exists(lockedPath));
         Assert.False(File.Exists(Path.Combine(targetDir, "locked_move.txt")));
@@ -430,11 +430,11 @@ public class FileInfoExtensionsTests : IDisposable
 
         // 不合并异常，应立即抛出
         Assert.Throws<IOException>(() => files.MoveTo(targetDir, false));
-        
+
         // 验证所有文件仍在原位置
         Assert.True(File.Exists(validPath));
         Assert.True(File.Exists(lockedPath));
-        
+
         // 验证没有文件被移动到目标目录
         Assert.False(File.Exists(Path.Combine(targetDir, "valid_move_direct.txt")));
         Assert.False(File.Exists(Path.Combine(targetDir, "locked_move_direct.txt")));
@@ -493,7 +493,7 @@ public class FileInfoExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void ToMemoryStream3_ShouldCreateMemoryStreamWithSameContent()
+    public void ToMemoryStream_ShouldCreateMemoryStreamWithSameContent()
     {
         // 创建测试文件
         string content = "This is a test for memory stream conversion";
@@ -501,7 +501,7 @@ public class FileInfoExtensionsTests : IDisposable
         var fileInfo = new FileInfo(filePath);
 
         // 执行测试
-        using var memoryStream = fileInfo.ToMemoryStream3();
+        using var memoryStream = fileInfo.ToMemoryStream();
 
         // 验证
         memoryStream.Position = 0;
@@ -529,7 +529,7 @@ public class FileInfoExtensionsTests : IDisposable
     public async Task GetFileDataAsync_ShouldThrowException_ForNonExistentFile()
     {
         string nonExistentPath = Path.Combine(_testDirectory, "non_existent_file.txt");
-        
+
         // 验证抛出异常
         await Assert.ThrowsAsync<FileNotFoundException>(() => nonExistentPath.GetFileDataAsync());
     }

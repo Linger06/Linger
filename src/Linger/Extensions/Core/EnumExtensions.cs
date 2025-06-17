@@ -14,7 +14,7 @@ public static class EnumExtensions
 {
     // Performance optimization: Cache enum descriptions to avoid repeated reflection calls
     private static readonly ConcurrentDictionary<Enum, string> DescriptionCache = new();
-    
+
 #if NET5_0_OR_GREATER
     // Cache for Display attributes (NET5+ only)
     private static readonly ConcurrentDictionary<Enum, string> DisplayCache = new();
@@ -44,9 +44,9 @@ public static class EnumExtensions
             return false;
 
         // Convert to underlying type for bitwise operations (avoids boxing)
-        var variableValue = Convert.ToUInt64(variable);
-        var flagValue = Convert.ToUInt64(value);
-        
+        var variableValue = Convert.ToUInt64(variable, CultureInfo.InvariantCulture);
+        var flagValue = Convert.ToUInt64(value, CultureInfo.InvariantCulture);
+
         return (variableValue & flagValue) == flagValue;
     }
 
@@ -163,9 +163,9 @@ public static class EnumExtensions
     {
         var type = item.GetType();
         var memberName = item.ToString();
-        
+
         // Use cached member info if available
-        var memInfo = MemberInfoCache.GetOrAdd((type, memberName), 
+        var memInfo = MemberInfoCache.GetOrAdd((type, memberName),
             key => key.Item1.GetMember(key.Item2));
 
         if (memInfo.Length > 0)
@@ -184,9 +184,9 @@ public static class EnumExtensions
     {
         var type = item.GetType();
         var memberName = item.ToString();
-        
+
         // Use cached member info if available
-        var memInfo = MemberInfoCache.GetOrAdd((type, memberName), 
+        var memInfo = MemberInfoCache.GetOrAdd((type, memberName),
             key => key.Item1.GetMember(key.Item2));
 
         if (memInfo.Length > 0)

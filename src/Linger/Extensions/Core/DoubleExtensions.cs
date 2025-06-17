@@ -4,24 +4,23 @@
 /// <see cref="double"/> extensions
 /// </summary>
 public static class DoubleExtensions
-{
-    /// <summary>
+{    /// <summary>
     /// Returns the size corresponding to the ContentLength.
     /// </summary>
     /// <param name="contentLength">The length of the ContentLength.</param>
     /// <returns>The size in Bytes/KB/MB/GB/TB/PB.</returns>
     public static string FormatFileSize(this double contentLength)
     {
-        string[] units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
+        ReadOnlySpan<string> units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
         const double Mod = 1024.0;
         var i = 0;
-        while (contentLength >= Mod)
+        while (contentLength >= Mod && i < units.Length - 1)
         {
             contentLength /= Mod;
             i++;
         }
 
-        return Math.Round(contentLength) + units[i];
+        return $"{Math.Round(contentLength)}{units[i]}";
     }
 
     /// <summary>
