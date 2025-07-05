@@ -61,8 +61,50 @@ public class JwtOption
 }
 ```
 
-### 2. 实现您的自定义JWT服务
 
+### 2. 使用默认的JWT服务
+`JwtService`实现`JJwtService`,并且只会获取`ClaimTypes.Name`加入Token
+
+```csharp
+    protected virtual Task<List<Claim>> GetClaimsAsync(string userId)
+    {
+        // 演示了返回用户名和Role两类Claims
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Name,userId )
+        };
+
+        //IList<string> roles = await _userManager.GetRolesAsync(User);
+        //claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        return Task.FromResult(claims);
+    }
+```
+
+### 3. 实现您的自定义JWT服务
+如果`JwtService`不满足你的需求,可以自定义JWT服务,并重写`GetClaimsAsync`方法
+```csharp
+public class CustomJwtServices(CrudAppContext dbContext, JwtOption jwtOptions, ILogger? logger = null) : JwtService(jwtOptions, logger)
+{
+    protected override async Task<List<Claim>> GetClaimsAsync(string userId)
+    {
+        var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, userId)
+            };
+
+        var user = await dbContext.Users.FindAsync(userId);
+
+        //Claims中加入当前用户的Roles,以便前端进行权限管控
+        foreach (var role in user.Roles.Split(','))
+            claims.Add(new Claim(ClaimTypes.Role, role));
+
+        return claims;
+    }
+}
+```
+
+如果需要刷新Token,需要实现`JwtServiceWithRefresh`
 由于`JwtServiceWithRefresh`是一个抽象类，您需要继承它并实现抽象方法来处理刷新令牌的存储和获取：
 
 ```csharp
@@ -131,33 +173,46 @@ public class DbJwtService : JwtServiceWithRefresh
 }
 ```
 
-### 3. 注册服务
+### 4. 注册服务
 
 在`Program.cs`或`Startup.cs`中注册JWT服务：
 
 ```csharp
-// 从appsettings.json添加JWT配置
-services.Configure<JwtOption>(Configuration.GetSection("JwtOptions"));
+//配置JwtBearer - 选择以下选项之一：
 
-// 注册为单例以确保配置一致性
-services.AddSingleton(sp => sp.GetRequiredService<IOptions<JwtOption>>().Value);
+//选项1：使用内置方法
+builder.Services.ConfigureJwt(builder.Configuration);
+
+//选项2：若存在多种认证方式 如：Cookie,Jwt等
+
+    // 从appsettings.json获取JWT配置并注册为单例
+    JwtOption? config = builder.Configuration.GetGeneric<JwtOption>("JwtOptions");
+    ArgumentNullException.ThrowIfNull(config);
+    builder.Services.AddSingleton(config);
+
+    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie()
+                .AddJwtBearer(config); //此方法为类库的扩展方法
 
 // 注册JWT服务 - 选择以下选项之一：
 
 // 选项1：基本服务（无刷新令牌）
-services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
 
-// 选项2：支持刷新令牌的服务（使用内存缓存）
-services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
+// 选项2：自定义服务（无刷新令牌）
+builder.Services.AddScoped<IJwtService, CustomJwtServices>();
+
+// 选项3：支持刷新令牌的服务（使用内存缓存）
+builder.Services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
 // 同时注册为基础接口，允许通过IJwtService访问
-services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
+builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
 
-// 选项3：支持刷新令牌的服务（使用数据库）
-services.AddScoped<IRefreshableJwtService, DbJwtService>();
-services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
+// 选项4：支持刷新令牌的服务（使用数据库）
+builder.Services.AddScoped<IRefreshableJwtService, DbJwtService>();
+builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
 ```
 
-### 4. 在控制器中使用
+### 5. 在控制器中使用
 
 在控制器中实现认证：
 
@@ -947,38 +1002,6 @@ public partial class LoginForm : Form
 
 ## 高级功能
 
-### 令牌黑名单与撤销
-
-本库支持通过黑名单机制撤销已颁发但尚未过期的令牌，提供额外的安全保障：
-
-```csharp
-// 注册令牌黑名单服务（在ConfigureJwt方法中已自动添加）
-services.AddSingleton<JwtTokenBlacklist>();
-
-// 在JWT服务中实现撤销功能
-public class CustomJwtService : JwtService 
-{
-    public CustomJwtService(JwtOption jwtOptions, JwtTokenBlacklist tokenBlacklist, ILogger<CustomJwtService>? logger = null)
-        : base(jwtOptions, logger, tokenBlacklist)
-    {
-    }
-    
-    // 通过调用此方法撤销特定令牌
-    public async Task RevokeUserTokenAsync(string userId) 
-    {
-        // 查找用户的令牌ID并撤销
-        var tokenId = GetUserTokenId(userId);
-        if (!string.IsNullOrEmpty(tokenId))
-        {
-            // 撤销令牌，直到其原本的过期时间
-            await RevokeTokenAsync(tokenId, DateTime.UtcNow.AddMinutes(_jwtOptions.Expires));
-        }
-    }
-}
-```
-
-黑名单服务会定期清理过期的令牌条目，无需手动维护。
-
 ### 增强的令牌安全性
 
 令牌中添加了以下声明以增强安全性：
@@ -992,34 +1015,3 @@ public class CustomJwtService : JwtService
 - 支持精确的令牌撤销
 - 改进日志记录和审计功能
 - 符合安全最佳实践
-
-### 使用令牌撤销功能
-
-```csharp
-[Authorize]
-[HttpPost("logout")]
-public async Task<IActionResult> Logout()
-{
-    // 获取当前用户的令牌ID
-    var tokenId = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
-    
-    if (!string.IsNullOrEmpty(tokenId))
-    {
-        // 计算令牌的原始过期时间
-        var issuedAt = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Iat)?.Value;
-        var expiryTime = DateTime.UtcNow.AddMinutes(_jwtOptions.Expires);
-        
-        if (long.TryParse(issuedAt, out var issuedAtTimestamp))
-        {
-            var issuedAtDateTime = DateTimeOffset.FromUnixTimeSeconds(issuedAtTimestamp).UtcDateTime;
-            expiryTime = issuedAtDateTime.AddMinutes(_jwtOptions.Expires);
-        }
-        
-        // 撤销令牌
-        await _jwtService.RevokeTokenAsync(tokenId, expiryTime);
-        return Ok(new { message = "注销成功" });
-    }
-    
-    return BadRequest(new { message = "令牌ID无效" });
-}
-```

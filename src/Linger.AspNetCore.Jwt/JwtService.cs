@@ -15,13 +15,11 @@ public class JwtService : IJwtService
     protected readonly JwtOption JwtOptions;
     protected readonly ILogger? Logger;
     protected readonly TokenValidationParameters ValidationParameters;
-    private readonly JwtTokenBlacklist? _tokenBlacklist;
 
-    public JwtService(JwtOption jwtOptions, ILogger? logger = null, JwtTokenBlacklist? tokenBlacklist = null)
+    public JwtService(JwtOption jwtOptions, ILogger? logger = null)
     {
         JwtOptions = jwtOptions;
         Logger = logger;
-        _tokenBlacklist = tokenBlacklist;
         var issuer = JwtOptions.Issuer;
         var audience = JwtOptions.Audience;
         //实际环境中，最好是需要从环境变量中进行获取，而不应该写在代码中
@@ -65,25 +63,6 @@ public class JwtService : IJwtService
             Logger?.LogError("生成令牌时出错: {Message}", ex.Message);
             throw;
         }
-    }
-
-    // 添加撤销令牌的功能
-    public virtual Task RevokeTokenAsync(string tokenId, DateTime expiryTime)
-    {
-        if (_tokenBlacklist == null)
-        {
-            Logger?.LogWarning("无法撤销令牌，黑名单服务未注册");
-            return Task.CompletedTask;
-        }
-
-        _tokenBlacklist.Add(tokenId, expiryTime);
-        return Task.CompletedTask;
-    }
-
-    // 验证令牌是否已被撤销
-    protected bool IsTokenRevoked(string tokenId)
-    {
-        return _tokenBlacklist?.Contains(tokenId) ?? false;
     }
 
     private SigningCredentials GetSigningCredentials()

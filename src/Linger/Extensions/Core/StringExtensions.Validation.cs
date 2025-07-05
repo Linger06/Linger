@@ -1,9 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
-{    /// <summary>
+{
+    /// <summary>
     /// Check if the specified string is null.
     /// </summary>
     /// <param name="value">The string to check.</param>
@@ -22,7 +21,9 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is null or empty; otherwise, false.</returns>
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this string? value) => string.IsNullOrEmpty(value);    /// <summary>
+    public static bool IsNullOrEmpty([NotNullWhen(false)] this string? value) => string.IsNullOrEmpty(value);
+
+    /// <summary>
     /// Check if the specified string is null or consists only of white-space characters.
     /// </summary>
     /// <param name="value">The string to check.</param>
@@ -49,7 +50,9 @@ public static partial class StringExtensions
 
         return true;
 #endif
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Check if the specified string consists only of white-space characters.
     /// </summary>
     /// <param name="value">The string to check.</param>

@@ -1,4 +1,4 @@
-﻿# Linger.AspNetCore.Jwt.Contracts
+# Linger.AspNetCore.Jwt.Contracts
 
 > 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
@@ -21,97 +21,6 @@ Core interfaces and abstractions for JWT (JSON Web Token) authentication and aut
 
 ```shell
 dotnet add package Linger.AspNetCore.Jwt.Contracts
-```
-
-## Usage
-
-### Configuration
-
-Define your JWT settings in `appsettings.json`:
-
-```json
-{
-  "Jwt": {
-    "Issuer": "https://api.example.com",
-    "Audience": "https://example.com",
-    "SecurityKey": "your-long-and-secure-key-at-least-32-bytes",
-    "Expires": 30,
-    "RefreshTokenExpires": 1440
-  }
-}
-```
-
-### Dependency Injection
-
-```csharp
-// Program.cs or Startup.cs
-services.Configure<JwtOption>(Configuration.GetSection("Jwt"));
-
-// Register a JWT service implementation (from Linger.AspNetCore.Jwt package)
-services.AddJwtService();
-```
-
-### Basic Usage
-
-```csharp
-public class AuthService
-{
-    private readonly IJwtService _jwtService;
-    
-    public AuthService(IJwtService jwtService)
-    {
-        _jwtService = jwtService;
-    }
-    
-    public async Task<Token> LoginAsync(string username, string password)
-    {
-        // Validate credentials
-        if (!await ValidateCredentialsAsync(username, password))
-        {
-            throw new AuthenticationException("Invalid credentials");
-        }
-        
-        // Get user ID
-        var userId = await GetUserIdAsync(username);
-        
-        // Generate JWT token
-        return await _jwtService.CreateTokenAsync(userId);
-    }
-}
-```
-
-### Using Refresh Tokens
-
-```csharp
-public class AuthController : ControllerBase
-{
-    private readonly IRefreshableJwtService _jwtService;
-    
-    public AuthController(IRefreshableJwtService jwtService)
-    {
-        _jwtService = jwtService;
-    }
-    
-    [HttpPost("refresh")]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
-    {
-        try
-        {
-            var token = new Token(request.AccessToken, request.RefreshToken);
-            var newToken = await _jwtService.RefreshTokenAsync(token);
-            
-            return Ok(new
-            {
-                accessToken = newToken.AccessToken,
-                refreshToken = newToken.RefreshToken
-            });
-        }
-        catch (Exception ex)
-        {
-            return Unauthorized(ex.Message);
-        }
-    }
-}
 ```
 
 ## Core Interfaces

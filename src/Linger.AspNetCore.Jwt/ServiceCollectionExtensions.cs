@@ -1,9 +1,11 @@
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Linger.AspNetCore.Jwt.Contracts;
 using Linger.Configuration;
+using Linger.Extensions;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -19,21 +21,25 @@ public static class ServiceCollectionExtensions
     /// <param name="configuration"></param>
     public static void ConfigureJwt(this IServiceCollection services, IConfiguration configuration)
     {
-        // 使用IOptions配置
-        services.Configure<JwtOption>(configuration.GetSection("JwtOptions"));
+        // 直接注册JwtOption实例
         JwtOption? config = configuration.GetGeneric<JwtOption>("JwtOptions");
         ArgumentNullException.ThrowIfNull(config);
 
         services.AddSingleton(config);
 
-        // 添加令牌黑名单服务
-        services.AddSingleton<JwtTokenBlacklist>();
-
         services.AddAuthentication(opt =>
         {
             opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
             opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-        }).AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+        }).AddJwtBearer(config);
+
+        //services.AddScoped<IJwtService, JwtService>();
+    }
+
+    public static void AddJwtBearer(this AuthenticationBuilder builder, JwtOption config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        builder.AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
         {
             options.TokenValidationParameters = new TokenValidationParameters
             {
@@ -64,34 +70,61 @@ public static class ServiceCollectionExtensions
             {
                 OnAuthenticationFailed = context =>
                 {
-                    Console.WriteLine($"认证失败: {context.Exception.Message}");
-                    return Task.CompletedTask;
-                },
-                OnTokenValidated = async context =>
-                {
-                    // 检查令牌是否在黑名单中
-                    var tokenId = context.Principal?.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
-                    if (!string.IsNullOrEmpty(tokenId))
+                    var exception = context.Exception;
+                    Console.WriteLine($"Token解析失败(如过期、签名错误): {exception.Message}");
+                    if (exception is SecurityTokenExpiredException)
                     {
-                        var blacklist = context.HttpContext.RequestServices.GetService<JwtTokenBlacklist>();
-                        if (blacklist?.Contains(tokenId) == true)
-                        {
-                            context.Fail("令牌已被撤销");
-                            return;
-                        }
+                        context.Response.Headers.Append("Token-Expired", "true");
+                    }
+                    else if (exception is SecurityTokenInvalidSignatureException)
+                    {
+                        context.Response.Headers.Append("Token-Invalid-Signature", "true");
+                    }
+                    else if (exception is SecurityTokenInvalidAudienceException)
+                    {
+                        context.Response.Headers.Append("Token-Invalid-Audience", "true");
+                    }
+                    else if (exception is SecurityTokenInvalidIssuerException)
+                    {
+                        context.Response.Headers.Append("Token-Invalid-Issuer", "true");
+                    }
+                    else if (exception is SecurityTokenNoExpirationException)
+                    {
+                        context.Response.Headers.Append("Token-No-Expiration", "true");
+                    }
+                    else
+                    {
+                        // 添加日志记录
+                        Console.WriteLine(exception.ToString(), "An unhandled exception occurred during authentication.");
                     }
 
-                    Console.WriteLine($"令牌验证成功: {context.SecurityToken}");
-                    await Task.CompletedTask.ConfigureAwait(false);
+                    return Task.CompletedTask;
+                },
+                OnForbidden = context =>
+                {
+                    Console.WriteLine($"Token有效但权限不足");
+                    context.Response.StatusCode = 200;
+                    context.Response.ContentType = "application/json";
+                    return context.Response.WriteAsJsonAsync(new { status = 403, msg = "无权限访问" });
                 },
                 OnChallenge = context =>
                 {
-                    Console.WriteLine($"认证挑战: {context.AuthenticateFailure?.Message}");
+                    Console.WriteLine($"请求未携带Token或Token无效: {context.AuthenticateFailure?.Message}");
+
+                    // 自定义处理失败挑战的响应
+                    context.HandleResponse();
+                    context.Response.StatusCode = 401;
+                    context.Response.ContentType = "application/json";
+
+                    // 获取异常信息
+                    var errorInfo = context.Error;
+                    var errorDescription = context.ErrorDescription;
+
+                    var result = new { error = errorInfo, error_description = errorDescription };
+                    context.Response.WriteAsync(result.ToJsonString());
                     return Task.CompletedTask;
                 }
             };
         });
-
-        //services.AddScoped<IJwtService, JwtService>();
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 using Linger.Extensions.Core;
@@ -159,7 +159,7 @@ public static class PropertyHelper
 
             var memberExpression = (MemberExpression)propertySelector.Body;
             var objType = obj?.GetType();
-            
+
             if (objType == null) return null;
 
             // Use cached properties for better performance

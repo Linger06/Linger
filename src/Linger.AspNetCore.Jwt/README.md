@@ -61,8 +61,52 @@ Configure JWT options in your `appsettings.json` file:
 }
 ```
 
-### 2. Implement Your Custom JWT Service
+### 2. Using the Default JWT Service
 
+`JwtService` implements `IJwtService` and only includes `ClaimTypes.Name` in the token:
+
+```csharp
+    protected virtual Task<List<Claim>> GetClaimsAsync(string userId)
+    {
+        // Example of returning username and role claims
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.Name, userId)
+        };
+
+        //IList<string> roles = await _userManager.GetRolesAsync(User);
+        //claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
+
+        return Task.FromResult(claims);
+    }
+```
+
+### 3. Implement Your Custom JWT Service
+
+If `JwtService` doesn't meet your needs, you can create a custom JWT service and override the `GetClaimsAsync` method:
+
+```csharp
+public class CustomJwtServices(CrudAppContext dbContext, JwtOption jwtOptions, ILogger? logger = null) : JwtService(jwtOptions, logger)
+{
+    protected override async Task<List<Claim>> GetClaimsAsync(string userId)
+    {
+        var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.Name, userId)
+            };
+
+        var user = await dbContext.Users.FindAsync(userId);
+
+        // Add current user's roles to claims for frontend permission control
+        foreach (var role in user.Roles.Split(','))
+            claims.Add(new Claim(ClaimTypes.Role, role));
+
+        return claims;
+    }
+}
+```
+
+If you need refresh token functionality, you need to implement `JwtServiceWithRefresh`.
 Since `JwtServiceWithRefresh` is an abstract class, you need to inherit from it and implement the abstract methods to handle refresh token storage and retrieval:
 
 ```csharp
@@ -131,33 +175,46 @@ public class DbJwtService : JwtServiceWithRefresh
 }
 ```
 
-### 3. Register Services
+### 4. Register Services
 
 Register the JWT service in your `Program.cs` or `Startup.cs`:
 
 ```csharp
-// Add JWT configuration from appsettings.json
-services.Configure<JwtOption>(Configuration.GetSection("JwtOptions"));
+// Configure JwtBearer - choose one of the following options:
 
-// Register as singleton to ensure configuration consistency
-services.AddSingleton(sp => sp.GetRequiredService<IOptions<JwtOption>>().Value);
+// Option 1: Use built-in method
+builder.Services.ConfigureJwt(builder.Configuration);
+
+// Option 2: If there are multiple authentication methods like Cookie, Jwt, etc.
+
+    // Get JWT configuration from appsettings.json and register as singleton
+    JwtOption? config = builder.Configuration.GetGeneric<JwtOption>("JwtOptions");
+    ArgumentNullException.ThrowIfNull(config);
+    builder.Services.AddSingleton(config);
+
+    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+                .AddCookie()
+                .AddJwtBearer(config); // This method is an extension method from the library
 
 // Register JWT service - choose one of these options:
 
 // Option 1: Basic service (no refresh token)
-services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
 
-// Option 2: Service with refresh token support (using memory cache)
-services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
+// Option 2: Custom service (no refresh token)
+builder.Services.AddScoped<IJwtService, CustomJwtServices>();
+
+// Option 3: Service with refresh token support (using memory cache)
+builder.Services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
 // Also register as base interface, allowing access via IJwtService
-services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
+builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
 
-// Option 3: Service with refresh token support (using database)
-services.AddScoped<IRefreshableJwtService, DbJwtService>();
-services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
+// Option 4: Service with refresh token support (using database)
+builder.Services.AddScoped<IRefreshableJwtService, DbJwtService>();
+builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
 ```
 
-### 4. Use in Controllers
+### 5. Use in Controllers
 
 Implement authentication in your controllers:
 
@@ -947,38 +1004,6 @@ Therefore, refresh tokens help for a smooth authentication workflow without requ
 
 ## Advanced Features
 
-### Token Blacklisting and Revocation
-
-This library supports revoking issued but not-yet-expired tokens through a blacklist mechanism, providing an additional layer of security:
-
-```csharp
-// Register the token blacklist service (automatically added in the ConfigureJwt method)
-services.AddSingleton<JwtTokenBlacklist>();
-
-// Implement revocation in JWT service
-public class CustomJwtService : JwtService 
-{
-    public CustomJwtService(JwtOption jwtOptions, JwtTokenBlacklist tokenBlacklist, ILogger<CustomJwtService>? logger = null)
-        : base(jwtOptions, logger, tokenBlacklist)
-    {
-    }
-    
-    // Call this method to revoke a specific token
-    public async Task RevokeUserTokenAsync(string userId) 
-    {
-        // Find the user's token ID and revoke it
-        var tokenId = GetUserTokenId(userId);
-        if (!string.IsNullOrEmpty(tokenId))
-        {
-            // Revoke token until its original expiry time
-            await RevokeTokenAsync(tokenId, DateTime.UtcNow.AddMinutes(_jwtOptions.Expires));
-        }
-    }
-}
-```
-
-The blacklist service will periodically clean up expired token entries, requiring no manual maintenance.
-
 ### Enhanced Token Security
 
 The following claims are added to tokens to enhance security:
@@ -992,34 +1017,3 @@ These enhancements can be used without modifying existing code and provide the f
 - Support for precise token revocation
 - Improved logging and auditing
 - Compliance with security best practices
-
-### Using Token Revocation
-
-```csharp
-[Authorize]
-[HttpPost("logout")]
-public async Task<IActionResult> Logout()
-{
-    // Get the current user's token ID
-    var tokenId = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Jti)?.Value;
-    
-    if (!string.IsNullOrEmpty(tokenId))
-    {
-        // Calculate the original expiry time of the token
-        var issuedAt = User.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Iat)?.Value;
-        var expiryTime = DateTime.UtcNow.AddMinutes(_jwtOptions.Expires);
-        
-        if (long.TryParse(issuedAt, out var issuedAtTimestamp))
-        {
-            var issuedAtDateTime = DateTimeOffset.FromUnixTimeSeconds(issuedAtTimestamp).UtcDateTime;
-            expiryTime = issuedAtDateTime.AddMinutes(_jwtOptions.Expires);
-        }
-        
-        // Revoke the token
-        await _jwtService.RevokeTokenAsync(tokenId, expiryTime);
-        return Ok(new { message = "Logout successful" });
-    }
-    
-    return BadRequest(new { message = "Invalid token ID" });
-}
-```

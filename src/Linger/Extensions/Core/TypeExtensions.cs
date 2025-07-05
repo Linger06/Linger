@@ -8,17 +8,18 @@ namespace Linger.Extensions.Core;
 /// Extension methods for the Type class with performance optimizations
 /// </summary>
 public static class TypeExtension
-{    /// <summary>
+{
+    /// <summary>
     /// Thread-safe property cache for improved performance.
     /// </summary>
     /// <value>The property cache.</value>
     private static readonly ConcurrentDictionary<string, List<PropertyInfo>> PropertyCache = new();
-    
+
     /// <summary>
     /// Cache for type properties to minimize reflection overhead.
     /// </summary>
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> TypePropertyCache = new();
-    
+
     /// <summary>
     /// Cache for column information to minimize reflection overhead.
     /// </summary>
@@ -88,7 +89,9 @@ public static class TypeExtension
         Type checkType = self.IsNullable() ? self.GetGenericArguments()[0] : self;
         return checkType == typeof(int) || checkType == typeof(short) || checkType == typeof(long) ||
                checkType == typeof(float) || checkType == typeof(decimal) || checkType == typeof(double);
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Gets a single property by name with thread-safe caching.
     /// </summary>
     /// <param name="self">The type to check.</param>
@@ -167,7 +170,9 @@ public static class TypeExtension
     {
         var customAttributes = field.GetCustomAttributes(typeof(T), false);
         return customAttributes.Length > 0 ? (T)customAttributes[0] : null;
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Gets the properties of a type with caching for performance.
     /// </summary>
     /// <param name="type">The type to get the properties of.</param>
@@ -390,7 +395,9 @@ public static class TypeExtension
     public static bool IsBoolOrNullableBool(this Type self)
     {
         return self == typeof(bool) || self == typeof(bool?);
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Gets a property info by name with caching for performance.
     /// </summary>
     /// <param name="objType">The type to get the property from.</param>
@@ -413,7 +420,9 @@ public static class TypeExtension
         var properties = TypePropertyCache.GetOrAdd(objType, t => t.GetProperties());
         PropertyInfo? matchedProperty = properties.FirstOrDefault(p => p.Name == name);
         return matchedProperty ?? throw new InvalidOperationException($"Property '{name}' not found on type '{objType.FullName}'.");
-    }    /// <summary>
+    }
+
+    /// <summary>
     /// Gets the column information for the specified type with caching for performance.
     /// </summary>
     /// <param name="type">The type to get column information for.</param>

@@ -1,10 +1,11 @@
-﻿namespace Linger.Extensions.Core;
+namespace Linger.Extensions.Core;
 
 /// <summary>
 /// <see cref="double"/> extensions
 /// </summary>
 public static class DoubleExtensions
-{    /// <summary>
+{
+    /// <summary>
     /// Returns the size corresponding to the ContentLength.
     /// </summary>
     /// <param name="contentLength">The length of the ContentLength.</param>
