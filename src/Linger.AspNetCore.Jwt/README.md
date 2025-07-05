@@ -61,6 +61,27 @@ Configure JWT options in your `appsettings.json` file:
 }
 ```
 
+**Security Best Practices:**
+- **Environment Variables**: The library prioritizes the `SECRET` environment variable over `SecurityKey` for enhanced security
+- **Key Length**: Ensure your security key is at least 256 bits (32 characters) long
+- **Production Deployment**: Always use environment variables for sensitive configuration in production
+
+**Environment Variable Example:**
+```bash
+# Set via environment variable (recommended for production)
+export SECRET="your-production-secret-key-at-least-32-characters-long"
+
+# Or in Docker
+docker run -e SECRET="your-production-secret-key" your-app
+
+# Or in appsettings.Production.json (less secure)
+{
+  "JwtOptions": {
+    "SecurityKey": "fallback-key-for-development-only"
+  }
+}
+```
+
 ### 2. Using the Default JWT Service
 
 `JwtService` implements `IJwtService` and only includes `ClaimTypes.Name` in the token:

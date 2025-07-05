@@ -61,6 +61,27 @@ public class JwtOption
 }
 ```
 
+**安全最佳实践：**
+- **环境变量**: 库优先使用 `SECRET` 环境变量，而不是 `SecurityKey`，以增强安全性
+- **密钥长度**: 确保安全密钥至少为256位（32个字符）长
+- **生产部署**: 在生产环境中始终使用环境变量进行敏感配置
+
+**环境变量示例：**
+```bash
+# 通过环境变量设置（生产环境推荐）
+export SECRET="你的生产环境密钥至少32个字符长"
+
+# 或在Docker中
+docker run -e SECRET="你的生产环境密钥" your-app
+
+# 或在appsettings.Production.json中（安全性较低）
+{
+  "JwtOptions": {
+    "SecurityKey": "仅用于开发环境的备用密钥"
+  }
+}
+```
+
 
 ### 2. 使用默认的JWT服务
 `JwtService`实现`JJwtService`,并且只会获取`ClaimTypes.Name`加入Token

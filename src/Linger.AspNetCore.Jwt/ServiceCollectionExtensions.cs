@@ -56,7 +56,7 @@ public static class ServiceCollectionExtensions
                 //是否验证签名,不验证的话可以篡改数据，不安全
                 ValidateIssuerSigningKey = true,
                 //解密的密钥
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config.SecurityKey)),
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("SECRET") ?? config.SecurityKey)),
                 //是否验证过期时间,过期了就拒绝访问,使用当前时间与Token的Claims中的NotBefore和Expires对比.同时启用ClockSkew
                 ValidateLifetime = true,
                 //总的Token有效时间 = JwtRegisteredClaimNames.Exp + ClockSkew ；
@@ -103,7 +103,7 @@ public static class ServiceCollectionExtensions
                 OnForbidden = context =>
                 {
                     Console.WriteLine($"Token有效但权限不足");
-                    context.Response.StatusCode = 200;
+                    context.Response.StatusCode = 403;
                     context.Response.ContentType = "application/json";
                     return context.Response.WriteAsJsonAsync(new { status = 403, msg = "无权限访问" });
                 },

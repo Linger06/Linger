@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using Linger.AspNetCore.Jwt.Contracts;
 using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Linger.AspNetCore.Jwt;
 
@@ -44,7 +45,7 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger? logge
 
         if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.Now)
         {
-            throw new Exception("提供的刷新令牌无效或已过期");
+            throw new SecurityTokenException("提供的刷新令牌无效或已过期");
         }
 
         return await CreateTokenAsync(userId).ConfigureAwait(false);

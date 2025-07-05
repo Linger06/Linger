@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Globalization;
 using Linger.AspNetCore.Jwt.Contracts;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -49,7 +50,7 @@ public class JwtService : IJwtService
             // 添加唯一标识符和颁发时间，增强安全性
             var tokenId = Guid.NewGuid().ToString();
             claims.Add(new Claim(JwtRegisteredClaimNames.Jti, tokenId));
-            claims.Add(new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()));
+            claims.Add(new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)));
 
             JwtSecurityToken tokenOptions = GenerateTokenOptions(signingCredentials, claims);
             var token = new JwtSecurityTokenHandler().WriteToken(tokenOptions);
@@ -92,7 +93,7 @@ public class JwtService : IJwtService
             ValidationParameters.ValidIssuer,
             ValidationParameters.ValidAudience,
             claims,
-            expires: DateTime.Now.AddMinutes(JwtOptions.Expires),
+            expires: DateTimeOffset.UtcNow.AddMinutes(JwtOptions.Expires).DateTime,
             signingCredentials: signingCredentials
         );
         return tokenOptions;
