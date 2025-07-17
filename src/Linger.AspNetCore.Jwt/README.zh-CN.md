@@ -324,6 +324,147 @@ public class RefreshableAuthController : ControllerBase
 
 除了服务端实现令牌刷新外，客户端应用程序需要相应的机制来处理令牌过期和刷新。推荐的方法是使用Microsoft.Extensions.Http.Resilience，它比传统的拦截器方式提供了更加集成和健壮的解决方案。
 
+### 快速入门 - 5分钟实现令牌自动刷新
+
+如果您想快速上手，以下是一个最简化的实现示例：
+
+```csharp
+// 1. 简单的令牌管理器
+public class SimpleTokenManager
+{
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public event Action? OnTokenRefreshRequired;
+    
+    public void RequireRefresh() => OnTokenRefreshRequired?.Invoke();
+}
+
+// 2. 简单的HTTP客户端包装器
+public class SimpleAuthHttpClient
+{
+    private readonly HttpClient _httpClient;
+    private readonly SimpleTokenManager _tokenManager;
+    
+    public SimpleAuthHttpClient(HttpClient httpClient, SimpleTokenManager tokenManager)
+    {
+        _httpClient = httpClient;
+        _tokenManager = tokenManager;
+    }
+    
+    public async Task<T?> GetAsync<T>(string url)
+    {
+        // 设置认证头
+        if (!string.IsNullOrEmpty(_tokenManager.AccessToken))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = 
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _tokenManager.AccessToken);
+        }
+        
+        var response = await _httpClient.GetAsync(url);
+        
+        // 如果401，尝试刷新令牌
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            if (await TryRefreshTokenAsync())
+            {
+                // 重新设置认证头并重试
+                _httpClient.DefaultRequestHeaders.Authorization = 
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _tokenManager.AccessToken);
+                response = await _httpClient.GetAsync(url);
+            }
+            else
+            {
+                _tokenManager.RequireRefresh();
+                return default;
+            }
+        }
+        
+        if (response.IsSuccessStatusCode)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<T>(json);
+        }
+        
+        return default;
+    }
+    
+    private async Task<bool> TryRefreshTokenAsync()
+    {
+        if (string.IsNullOrEmpty(_tokenManager.RefreshToken))
+            return false;
+            
+        try
+        {
+            var refreshRequest = new { RefreshToken = _tokenManager.RefreshToken };
+            var response = await _httpClient.PostAsJsonAsync("/api/auth/refresh", refreshRequest);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<TokenResponse>();
+                _tokenManager.AccessToken = result?.AccessToken;
+                _tokenManager.RefreshToken = result?.RefreshToken;
+                return true;
+            }
+        }
+        catch { }
+        
+        return false;
+    }
+    
+    private class TokenResponse
+    {
+        public string AccessToken { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
+    }
+}
+
+// 3. 使用示例
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // 注册服务
+        var services = new ServiceCollection();
+        services.AddHttpClient();
+        services.AddSingleton<SimpleTokenManager>();
+        services.AddScoped<SimpleAuthHttpClient>();
+        
+        var serviceProvider = services.BuildServiceProvider();
+        var tokenManager = serviceProvider.GetRequiredService<SimpleTokenManager>();
+        var httpClient = serviceProvider.GetRequiredService<SimpleAuthHttpClient>();
+        
+        // 监听重新登录事件
+        tokenManager.OnTokenRefreshRequired += () =>
+        {
+            Console.WriteLine("需要重新登录！");
+            // 在这里处理重新登录逻辑
+        };
+        
+        // 先登录获取令牌
+        await LoginAsync(tokenManager);
+        
+        // 使用API（自动处理令牌刷新）
+        var userData = await httpClient.GetAsync<UserData>("/api/user/profile");
+        Console.WriteLine($"用户数据: {userData?.Name}");
+    }
+    
+    private static async Task LoginAsync(SimpleTokenManager tokenManager)
+    {
+        // 这里实现登录逻辑
+        tokenManager.AccessToken = "your-access-token";
+        tokenManager.RefreshToken = "your-refresh-token";
+    }
+}
+```
+
+**这个简化示例的优点：**
+- ✅ **代码简洁** - 不到100行代码实现核心功能
+- ✅ **易于理解** - 清晰的类结构和方法命名
+- ✅ **即插即用** - 可以直接复制到项目中使用
+- ✅ **自动刷新** - 透明处理401错误和令牌刷新
+
+如果您需要更robust的解决方案，请参考下面的完整实现。
+
 ### 安装必要的包
 
 要在客户端使用自动令牌刷新功能，需要安装以下NuGet包：

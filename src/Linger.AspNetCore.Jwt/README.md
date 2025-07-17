@@ -326,6 +326,147 @@ public class RefreshableAuthController : ControllerBase
 
 In addition to server-side token refresh implementation, clients also need mechanisms to handle token expiration and refreshing. The recommended approach is using Microsoft.Extensions.Http.Resilience, which provides a more integrated and robust solution compared to traditional interceptors.
 
+### Quick Start - 5-Minute Token Auto-Refresh Implementation
+
+If you want to get started quickly, here's a simplified implementation example:
+
+```csharp
+// 1. Simple token manager
+public class SimpleTokenManager
+{
+    public string? AccessToken { get; set; }
+    public string? RefreshToken { get; set; }
+    public event Action? OnTokenRefreshRequired;
+    
+    public void RequireRefresh() => OnTokenRefreshRequired?.Invoke();
+}
+
+// 2. Simple HTTP client wrapper
+public class SimpleAuthHttpClient
+{
+    private readonly HttpClient _httpClient;
+    private readonly SimpleTokenManager _tokenManager;
+    
+    public SimpleAuthHttpClient(HttpClient httpClient, SimpleTokenManager tokenManager)
+    {
+        _httpClient = httpClient;
+        _tokenManager = tokenManager;
+    }
+    
+    public async Task<T?> GetAsync<T>(string url)
+    {
+        // Set authorization header
+        if (!string.IsNullOrEmpty(_tokenManager.AccessToken))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = 
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _tokenManager.AccessToken);
+        }
+        
+        var response = await _httpClient.GetAsync(url);
+        
+        // If 401, try to refresh token
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            if (await TryRefreshTokenAsync())
+            {
+                // Reset authorization header and retry
+                _httpClient.DefaultRequestHeaders.Authorization = 
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _tokenManager.AccessToken);
+                response = await _httpClient.GetAsync(url);
+            }
+            else
+            {
+                _tokenManager.RequireRefresh();
+                return default;
+            }
+        }
+        
+        if (response.IsSuccessStatusCode)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<T>(json);
+        }
+        
+        return default;
+    }
+    
+    private async Task<bool> TryRefreshTokenAsync()
+    {
+        if (string.IsNullOrEmpty(_tokenManager.RefreshToken))
+            return false;
+            
+        try
+        {
+            var refreshRequest = new { RefreshToken = _tokenManager.RefreshToken };
+            var response = await _httpClient.PostAsJsonAsync("/api/auth/refresh", refreshRequest);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<TokenResponse>();
+                _tokenManager.AccessToken = result?.AccessToken;
+                _tokenManager.RefreshToken = result?.RefreshToken;
+                return true;
+            }
+        }
+        catch { }
+        
+        return false;
+    }
+    
+    private class TokenResponse
+    {
+        public string AccessToken { get; set; } = string.Empty;
+        public string RefreshToken { get; set; } = string.Empty;
+    }
+}
+
+// 3. Usage example
+public class Program
+{
+    public static async Task Main(string[] args)
+    {
+        // Register services
+        var services = new ServiceCollection();
+        services.AddHttpClient();
+        services.AddSingleton<SimpleTokenManager>();
+        services.AddScoped<SimpleAuthHttpClient>();
+        
+        var serviceProvider = services.BuildServiceProvider();
+        var tokenManager = serviceProvider.GetRequiredService<SimpleTokenManager>();
+        var httpClient = serviceProvider.GetRequiredService<SimpleAuthHttpClient>();
+        
+        // Listen for re-login events
+        tokenManager.OnTokenRefreshRequired += () =>
+        {
+            Console.WriteLine("Re-login required!");
+            // Handle re-login logic here
+        };
+        
+        // Login first to get tokens
+        await LoginAsync(tokenManager);
+        
+        // Use API (automatically handles token refresh)
+        var userData = await httpClient.GetAsync<UserData>("/api/user/profile");
+        Console.WriteLine($"User data: {userData?.Name}");
+    }
+    
+    private static async Task LoginAsync(SimpleTokenManager tokenManager)
+    {
+        // Implement login logic here
+        tokenManager.AccessToken = "your-access-token";
+        tokenManager.RefreshToken = "your-refresh-token";
+    }
+}
+```
+
+**Advantages of this simplified example:**
+- ✅ **Concise code** - Core functionality in under 100 lines
+- ✅ **Easy to understand** - Clear class structure and method naming
+- ✅ **Plug and play** - Can be directly copied into your project
+- ✅ **Automatic refresh** - Transparently handles 401 errors and token refresh
+
+For a more robust solution, refer to the complete implementation below.
+
 ### Install Required Packages
 
 To use automatic token refresh functionality on the client side, you need to install the following NuGet packages:
