@@ -185,9 +185,18 @@ namespace Linger.Results
     {
         public static readonly Error None = new(string.Empty, string.Empty);//None代表没有错误
         public static readonly Error Default = new("Error.Default", "No Detail Error.");//Default代表默认错误,不具体指定        
-        public static readonly Error NullValue = new("Error.NullValue", "The specified result value is null.");
+        public static readonly Error NullValue = new("Error.NullValue", "Value cannot be null.");
         public static readonly Error ConditionNotMet = new("Error.ConditionNotMet", "The specified condition was not met.");
-        public static readonly Error NotFound = new("Error.NotFound", "The Service was unable to find a requested resource.");
+        public static readonly Error NotFound = new("Error.NotFound", "Not Found.");
+
+        /// <summary>
+        /// 自定义ToString方法，提供更友好的错误信息格式
+        /// </summary>
+        /// <returns>格式化的错误信息</returns>
+        public override string ToString()
+        {
+            return string.IsNullOrEmpty(Code) ? Message : $"{Code}: {Message}";
+        }
     }
 }
 
