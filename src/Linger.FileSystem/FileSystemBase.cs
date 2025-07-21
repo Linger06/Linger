@@ -1,4 +1,4 @@
-﻿using System.Runtime.CompilerServices;
+using System.Runtime.CompilerServices;
 
 namespace Linger.FileSystem;
 
@@ -21,7 +21,7 @@ public abstract class FileSystemBase(RetryOptions? retryOptions = null) : IFileS
     /// </summary>
     protected virtual void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
-        string message = $"{operation} failed. {(path != null ? $"Path: {path}" : string.Empty)}, Method: {callerMethod}";
+        var message = $"{operation} failed. {(path != null ? $"Path: {path}" : string.Empty)}, Method: {callerMethod}";
         throw new FileSystemException(operation, path, message, ex);
     }
 

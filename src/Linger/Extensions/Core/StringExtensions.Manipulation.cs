@@ -48,7 +48,7 @@ public static partial class StringExtensions
 
         return span.ToString();
 #else
-        string result = str;
+        var result = str;
 
         if (result.StartsWith(value))
         {
@@ -79,12 +79,12 @@ public static partial class StringExtensions
         if (input.Length <= maxLength)
             return input;
 
-        int actualMaxLength = maxLength - suffix.Length;
+        var actualMaxLength = maxLength - suffix.Length;
         if (actualMaxLength <= 0)
             return suffix;
 
 #if NET6_0_OR_GREATER
-        int totalLength = actualMaxLength + suffix.Length;
+        var totalLength = actualMaxLength + suffix.Length;
         return string.Create(totalLength, (input, actualMaxLength, suffix), (span, state) =>
         {
             state.input.AsSpan(0, state.actualMaxLength).CopyTo(span);
@@ -125,9 +125,9 @@ public static partial class StringExtensions
             return string.Empty;
 
         // 先计算结果长度
-        int resultLength = 0;
+        var resultLength = 0;
         ReadOnlySpan<char> source = value.AsSpan();
-        for (int i = 0; i < source.Length; i++)
+        for (var i = 0; i < source.Length; i++)
         {
             if (source[i] != '\r' && source[i] != '\n')
                 resultLength++;
@@ -143,11 +143,11 @@ public static partial class StringExtensions
         return string.Create(resultLength, value, static (span, str) =>
         {
             ReadOnlySpan<char> source = str.AsSpan();
-            int writeIndex = 0;
+            var writeIndex = 0;
 
-            for (int i = 0; i < source.Length; i++)
+            for (var i = 0; i < source.Length; i++)
             {
-                char c = source[i];
+                var c = source[i];
                 if (c != '\r' && c != '\n')
                 {
                     span[writeIndex++] = c;
@@ -157,9 +157,9 @@ public static partial class StringExtensions
 #else
         var result = new StringBuilder(value.Length);
 
-        for (int i = 0; i < value.Length; i++)
+        for (var i = 0; i < value.Length; i++)
         {
-            char c = value[i];
+            var c = value[i];
             if (c != '\r' && c != '\n')
             {
                 result.Append(c);

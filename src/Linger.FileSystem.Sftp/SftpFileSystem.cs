@@ -114,8 +114,8 @@ public class SftpFileSystem : RemoteFileSystemBase
             if (!DirectoryExists(directoryPath))
             {
                 // SFTP可能需要递归创建目录
-                string[] paths = directoryPath.Split(s_separator, StringSplitOptions.RemoveEmptyEntries);
-                string currentPath = string.Empty;
+                var paths = directoryPath.Split(s_separator, StringSplitOptions.RemoveEmptyEntries);
+                var currentPath = string.Empty;
 
                 foreach (var path in paths)
                 {

@@ -26,7 +26,7 @@ public static class MultipartHelper
         var extension = Path.GetExtension(fileName).ToLowerInvariant();
 
         // 根据文件扩展名设置内容类型
-        string contentType = extension switch
+        var contentType = extension switch
         {
             ".png" => "image/png",
             ".jpg" or ".jpeg" => "image/jpeg",

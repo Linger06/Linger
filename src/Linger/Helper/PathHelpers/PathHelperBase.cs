@@ -33,8 +33,8 @@ public abstract class PathHelperBase
             return string.Empty;
 
         // 优化：检查是否需要处理连续分隔符
-        bool hasConsecutiveSeparators = false;
-        for (int i = 0; i < path.Length - 1; i++)
+        var hasConsecutiveSeparators = false;
+        for (var i = 0; i < path.Length - 1; i++)
         {
             if (Array.IndexOf(PathSeparators, path[i]) >= 0 && Array.IndexOf(PathSeparators, path[i + 1]) >= 0)
             {
@@ -47,11 +47,11 @@ public abstract class PathHelperBase
             return path;
 
         StringBuilder result = new(path.Length);
-        bool lastWasSeparator = false;
+        var lastWasSeparator = false;
 
-        foreach (char c in path)
+        foreach (var c in path)
         {
-            bool isSeparator = Array.IndexOf(PathSeparators, c) >= 0;
+            var isSeparator = Array.IndexOf(PathSeparators, c) >= 0;
             if (!(isSeparator && lastWasSeparator))
                 result.Append(c);
 

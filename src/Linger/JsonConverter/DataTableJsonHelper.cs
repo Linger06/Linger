@@ -1,5 +1,4 @@
-﻿#if !NETFRAMEWORK || NET462_OR_GREATER
-using System.Text.Json;
+#if !NETFRAMEWORK || NET462_OR_GREATER
 using Linger.Extensions;
 
 namespace Linger.JsonConverter;
@@ -35,14 +34,14 @@ public static class DataTableJsonHelper
 
         // 预先创建列到列名的映射，避免在每行循环中重复获取
         var columnNameMap = new string[value.Columns.Count];
-        for (int i = 0; i < value.Columns.Count; i++)
+        for (var i = 0; i < value.Columns.Count; i++)
         {
             columnNameMap[i] = value.Columns[i].ColumnName.Trim();
         }
 
         // 预先确定每列的类型，避免在每个单元格都进行类型判断
         var writeActions = new Dictionary<int, Action<Utf8JsonWriter, string, object>>(value.Columns.Count);
-        for (int i = 0; i < value.Columns.Count; i++)
+        for (var i = 0; i < value.Columns.Count; i++)
         {
             var columnType = value.Columns[i].DataType;
 
@@ -69,10 +68,10 @@ public static class DataTableJsonHelper
         {
             jsonWriter.WriteStartObject();
 
-            for (int i = 0; i < value.Columns.Count; i++)
+            for (var i = 0; i < value.Columns.Count; i++)
             {
-                string key = columnNameMap[i];
-                object cellValue = row[i];
+                var key = columnNameMap[i];
+                var cellValue = row[i];
 
                 // 处理DBNull值
                 if (cellValue == DBNull.Value)

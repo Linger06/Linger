@@ -1,4 +1,4 @@
-﻿using Linger.Attributes;
+using Linger.Attributes;
 using Linger.Extensions.Core;
 
 namespace Linger.UnitTests.Extensions.Core
@@ -168,7 +168,7 @@ namespace Linger.UnitTests.Extensions.Core
             var type = typeof(SampleClass2);
 
             // Act
-            var result = type.GetColumnsInfo();
+            var result = type.GetColumnsInfo().ToList();
 
             // Assert
             Assert.NotEmpty(result);
@@ -184,7 +184,7 @@ namespace Linger.UnitTests.Extensions.Core
             var type = typeof(ClassWithoutAttributes);
 
             // Act
-            var result = type.GetColumnsInfo();
+            var result = type.GetColumnsInfo().ToList();
 
             // Assert
             Assert.NotEmpty(result);
@@ -208,7 +208,7 @@ namespace Linger.UnitTests.Extensions.Core
             var type = typeof(ClassWithMixedAttributes);
 
             // Act
-            var result = type.GetColumnsInfo();
+            var result = type.GetColumnsInfo().ToList();
 
             // Assert
             Assert.NotEmpty(result);
@@ -232,7 +232,7 @@ namespace Linger.UnitTests.Extensions.Core
             var type = typeof(ChildClass);
 
             // Act
-            var result = type.GetColumnsInfo();
+            var result = type.GetColumnsInfo().ToList();
 
             // Assert
             Assert.NotEmpty(result);
@@ -265,7 +265,7 @@ namespace Linger.UnitTests.Extensions.Core
             var type = typeof(ClassWithOrderOnly);
 
             // Act
-            var result = type.GetColumnsInfo();
+            var result = type.GetColumnsInfo().ToList();
 
             // Assert
             Assert.NotEmpty(result);
@@ -287,7 +287,7 @@ namespace Linger.UnitTests.Extensions.Core
             var type = typeof(ClassWithNameOnly);
 
             // Act
-            var result = type.GetColumnsInfo();
+            var result = type.GetColumnsInfo().ToList();
 
             // Assert
             Assert.NotEmpty(result);

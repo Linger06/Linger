@@ -1,5 +1,6 @@
 namespace Linger.Results;
 
+[Obsolete("This class is obsolete and will be removed in a future version.")]
 public class ExecuteResult
 {
     public ExecuteResult(bool isSucceed, string message)
@@ -115,6 +116,7 @@ public class ExecuteResult
 ///     执行返回结果
 /// </summary>
 /// <typeparam name="TValue">结果值的类型</typeparam>
+[Obsolete("This class is obsolete and will be removed in a future version.")]
 public class ExecuteResult<TValue> : ExecuteResult
 {
     public ExecuteResult() : base()

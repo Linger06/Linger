@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Linger.Extensions.Core;
 
 /// <summary>
@@ -397,7 +395,7 @@ public static class ArrayExtensions
     /// </example>
     public static List<string> ToList(this string[]? value)
     {
-        return value.ToEnumerable().ToList();
+        return (List<string>)value.ToEnumerable();
     }
 
     /// <summary>

@@ -1,9 +1,7 @@
-﻿#if !NETFRAMEWORK || NET462_OR_GREATER
-
+#if !NETFRAMEWORK || NET462_OR_GREATER
 using System.Dynamic;
 using System.Runtime.Serialization.Json;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Linger.Extensions.Core;
 
@@ -201,7 +199,7 @@ public static class JsonExtensions
     public static DataTable JsonElementToDataTable(this JsonElement dataRoot)
     {
         var dataTable = new DataTable();
-        bool firstPass = true;
+        var firstPass = true;
         foreach (JsonElement element in dataRoot.EnumerateArray())
         {
             DataRow row = dataTable.NewRow();
@@ -279,7 +277,7 @@ public static class JsonExtensions
                 }
                 return jsonElement.ToString();
             case JsonValueKind.Number:
-                if (jsonElement.TryGetInt64(out long longValue))
+                if (jsonElement.TryGetInt64(out var longValue))
                 {
                     return longValue;
                 }

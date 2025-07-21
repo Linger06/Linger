@@ -21,15 +21,15 @@ public class Ldap : ILdap
 
         try
         {
-            var searchFilter = string.Format(_ldapConfig.SearchFilter, userName);
+            var searchFilter = string.Format(ExtensionMethodSetting.DefaultCulture, _ldapConfig.SearchFilter, userName);
             ILdapSearchResults? result = await _ldapConn.SearchAsync(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false).ConfigureAwait(false);
 
             LdapEntry? user = await result.NextAsync().ConfigureAwait(false);
             return user?.ToAdUser();
         }
-        catch (Exception ex)
+        catch
         {
-            throw new Exception("Login failed.", ex);
+            throw;
         }
         finally
         {
@@ -45,7 +45,7 @@ public class Ldap : ILdap
         {
             var ldapEntries = new List<LdapEntry>();
 
-            var searchFilter = string.Format(_ldapConfig.SearchFilter, userName + "*");
+            var searchFilter = string.Format(ExtensionMethodSetting.DefaultCulture, _ldapConfig.SearchFilter, userName + "*");
             ILdapSearchResults? lsc = await _ldapConn.SearchAsync(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false).ConfigureAwait(false);
             while (await lsc.HasMoreAsync().ConfigureAwait(false))
             {
@@ -76,9 +76,9 @@ public class Ldap : ILdap
             }
             return adUserInfos;
         }
-        catch (Exception ex)
+        catch
         {
-            throw new Exception("Login failed.", ex);
+            throw;
         }
         finally
         {
@@ -101,9 +101,9 @@ public class Ldap : ILdap
                 return (_ldapConn.Bound, adUserInfo);
             }
         }
-        catch (Exception ex)
+        catch
         {
-            throw new Exception("Login failed.", ex);
+            throw;
         }
         finally
         {

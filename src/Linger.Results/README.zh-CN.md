@@ -45,7 +45,27 @@ public Result<User> GetUser(int id)
     if (user == null)
         return Result<User>.NotFound($"找不到ID为{id}的用户");
     
-    return Result.Success(user);
+    return Result<User>.Success(user);
+}
+
+// 优雅的语法 - 利用隐式转换
+public Result<User> GetUserWithValidation(string email)
+{
+    // 验证邮箱
+    if (string.IsNullOrEmpty(email))
+    {
+        // 直接返回 Result.Failure，会自动转换为 Result<User>
+        return Result.Failure(new Error("ValidationError", "邮箱不能为空"));
+    }
+
+    var user = _repository.FindByEmail(email);
+    if (user == null)
+    {
+        // 同样，这里也会自动转换
+        return Result.NotFound("用户不存在");
+    }
+
+    return Result<User>.Success(user);
 }
 
 // 使用方法
@@ -119,6 +139,51 @@ public Result ValidatePassword(string password)
 }
 ```
 
+## 隐式转换和优雅语法
+
+Linger.Results 提供了强大的隐式转换功能，让您的代码更加简洁优雅：
+
+### 从 Result 到 Result&lt;T&gt; 的隐式转换
+
+```csharp
+public Result<User> CreateUser(CreateUserRequest request)
+{
+    // 验证用户名
+    if (string.IsNullOrEmpty(request.Username))
+    {
+        // 直接返回 Result.Failure，自动转换为 Result<User>
+        return Result.Failure("用户名不能为空");
+    }
+    
+    // 检查邮箱格式
+    if (!IsValidEmail(request.Email))
+    {
+        // 使用自定义错误对象，同样会自动转换
+        return Result.Failure(new Error("Email.Invalid", "邮箱格式不正确"));
+    }
+    
+    // 检查用户是否已存在
+    if (UserExists(request.Username))
+    {
+        // NotFound 同样支持隐式转换
+        return Result.NotFound("用户名已被占用");
+    }
+    
+    // 创建成功的情况
+    var user = new User { Username = request.Username, Email = request.Email };
+    return Result<User>.Success(user);
+}
+```
+
+### API 设计原则
+
+经过优化，Linger.Results 遵循以下设计原则：
+
+1. **清晰的 API 边界**：`Result` 类专注于非泛型操作，`Result<T>` 类处理有返回值的操作
+2. **隐式转换支持**：支持从 `Result` 到 `Result<T>` 的自然转换，但避免意外的值转换
+3. **类型安全**：编译时确保类型正确性，避免运行时错误
+4. **简洁语法**：减少样板代码，提高开发效率
+
 ### 错误处理
 
 ```csharp
@@ -164,12 +229,12 @@ public Result<User> Authenticate(string username, string password)
 {
     var user = _repository.FindByUsername(username);
     if (user == null)
-        return Result<User>.Failure(UserErrors.NotFound);
+        return Result.Failure(UserErrors.NotFound); // 隐式转换为 Result<User>
         
     if (!ValidatePassword(password, user.PasswordHash))
-        return Result<User>.Failure(UserErrors.InvalidCredentials);
+        return Result.Failure(UserErrors.InvalidCredentials); // 隐式转换为 Result<User>
         
-    return Result.Success(user);
+    return Result<User>.Success(user);
 }
 ```
 
@@ -237,8 +302,21 @@ namespace Linger.Results
    - 定义领域特定的错误常量
    - 使用结构化的错误代码（如 "Category.SubCategory.Error"）
 
-4. **利用链式操作**：
+4. **利用隐式转换简化代码**：
+   - 在返回 `Result<T>` 的方法中，可以直接返回 `Result.Failure()` 或 `Result.NotFound()`
+   - 这样可以让代码更简洁优雅，同时保持类型安全
+
+5. **正确使用 API**：
+   - 对于泛型结果，应该直接使用 `Result<T>.Success()`, `Result<T>.Failure()` 等方法
+   - 利用隐式转换从 `Result` 转换到 `Result<T>`，而不是依赖已移除的转发方法
+
+6. **利用链式操作**：
    - 使用函数式方法组合而非传统的条件语句
+   - Map、Bind、Tap等方法可以极大提高代码可读性
+
+7. **对于Web API**：
+   - 结合 [Linger.Results.AspNetCore](../Linger.Results.AspNetCore/README.zh-CN.md) 包转换为HTTP响应
+   - 使用ProblemDetails格式返回标准化的错误响应
    - Map、Bind、Tap等方法可以极大提高代码可读性
 
 5. **对于Web API**：

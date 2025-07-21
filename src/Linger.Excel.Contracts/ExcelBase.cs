@@ -236,9 +236,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
             // 创建列到属性的映射
             var columnToProperty = new Dictionary<int, PropertyInfo>();
-            for (int i = 0; i < dataTable.Columns.Count; i++)
+            for (var i = 0; i < dataTable.Columns.Count; i++)
             {
-                string columnName = dataTable.Columns[i].ColumnName;
+                var columnName = dataTable.Columns[i].ColumnName;
                 if (propertyMapping.TryGetValue(columnName, out var property))
                 {
                     columnToProperty[i] = property;
@@ -252,14 +252,14 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
                 foreach (var kvp in columnToProperty)
                 {
-                    int columnIndex = kvp.Key;
+                    var columnIndex = kvp.Key;
                     PropertyInfo property = kvp.Value;
 
                     try
                     {
                         if (!row.IsNull(columnIndex))
                         {
-                            object? value = row[columnIndex];
+                            var value = row[columnIndex];
                             var convertedValue = ExcelValueConverter.TryConvertValue(value, property.PropertyType);
                             if (convertedValue != null)
                             {
@@ -421,7 +421,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
 
         // 应用标题
-        int startRowIndex = 0;
+        var startRowIndex = 0;
         if (title.IsNotNullAndEmpty())
         {
             startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
@@ -479,7 +479,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         var workbook = CreateWorkbook();
 
         // 遍历所有DataTable
-        for (int i = 0; i < dataSet.Tables.Count; i++)
+        for (var i = 0; i < dataSet.Tables.Count; i++)
         {
             var dataTable = dataSet.Tables[i];
             var sheetName = !string.IsNullOrWhiteSpace(dataTable.TableName) ? dataTable.TableName : $"{defaultSheetName}{i + 1}";
@@ -518,7 +518,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             var columnNames = dataTable.Columns.Cast<DataColumn>()
                 .Select(col => col.ColumnName)
                 .ToArray();
-            int startRowIndex = 0;
+            var startRowIndex = 0;
 
             // 应用标题
             if (title.IsNotNullAndEmpty())
@@ -559,10 +559,10 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </remarks>
     private DataTable ImportFromWorksheet(TWorksheet worksheet, int headerRowIndex, bool addEmptyRow)
     {
-        DataTable dataTable = new DataTable(GetSheetName(worksheet));
+        var dataTable = new DataTable(GetSheetName(worksheet));
 
         // 估计列数
-        int columnCount = EstimateColumnCount(worksheet);
+        var columnCount = EstimateColumnCount(worksheet);
         if (columnCount <= 0)
         {
             Logger?.LogWarning("工作表为空或无法确定列数");
@@ -575,7 +575,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         // 如果headerRowIndex=-1且没有映射，自动生成列名(Column1, Column2...)
         if (headerMappings.Count == 0 && headerRowIndex < 0)
         {
-            for (int i = 0; i < columnCount; i++)
+            for (var i = 0; i < columnCount; i++)
             {
                 headerMappings[i] = $"Column{i + 1}";
             }
@@ -588,21 +588,21 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
 
         // 获取数据行范围 - 这里的startRow和endRow将使用各实现类的原生索引格式
-        int startRow = GetDataStartRow(worksheet, headerRowIndex);
-        int endRow = GetDataEndRow(worksheet);
+        var startRow = GetDataStartRow(worksheet, headerRowIndex);
+        var endRow = GetDataEndRow(worksheet);
 
         // 读取数据行
-        for (int rowNum = startRow; rowNum <= endRow; rowNum++)
+        for (var rowNum = startRow; rowNum <= endRow; rowNum++)
         {
             DataRow row = dataTable.NewRow();
-            bool hasValue = false;
+            var hasValue = false;
 
             foreach (var mapping in headerMappings)
             {
-                int colIndex = mapping.Key;
+                var colIndex = mapping.Key;
 
                 // GetCellValue期望接收原生索引格式 - rowNum已由GetDataStartRow转换，colIndex无需转换
-                object cellValue = GetCellValue(worksheet, rowNum, colIndex);
+                var cellValue = GetCellValue(worksheet, rowNum, colIndex);
 
                 // 设置行值
                 if (cellValue != DBNull.Value)

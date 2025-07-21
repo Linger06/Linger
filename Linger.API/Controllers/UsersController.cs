@@ -1,4 +1,4 @@
-﻿using Linger.API.Models;
+using Linger.API.Models;
 using Linger.API.Services;
 using Linger.Results;
 using Linger.Results.AspNetCore;
@@ -53,7 +53,7 @@ public class UsersController(
             if (!Request.Form.TryGetValue("userId", out var userIdValues))
                 return Result.Failure("缺少用户ID").ToActionResult();
 
-            string userId = userIdValues.ToString();
+            var userId = userIdValues.ToString();
 
             // 检查用户是否存在
             var user = userService.GetUser(userId);
@@ -66,13 +66,13 @@ public class UsersController(
                 return Result.Failure("没有上传文件").ToActionResult();
 
             // 创建用户头像目录
-            string avatarDirectory = Path.Combine("images", "avatars", userId);
+            var avatarDirectory = Path.Combine("images", "avatars", userId);
             if (!Directory.Exists(avatarDirectory))
                 Directory.CreateDirectory(avatarDirectory);
 
             // 保存文件
-            string uniqueFileName = $"{DateTime.Now:yyyyMMddHHmmss}_{Path.GetFileName(file.FileName)}";
-            string filePath = Path.Combine(avatarDirectory, uniqueFileName);
+            var uniqueFileName = $"{DateTime.Now:yyyyMMddHHmmss}_{Path.GetFileName(file.FileName)}";
+            var filePath = Path.Combine(avatarDirectory, uniqueFileName);
 
             await using (var stream = new FileStream(filePath, FileMode.Create))
             {
@@ -80,7 +80,7 @@ public class UsersController(
             }
 
             // 更新用户头像URL
-            string avatarUrl = userService.UpdateAvatar(userId, uniqueFileName);
+            var avatarUrl = userService.UpdateAvatar(userId, uniqueFileName);
 
             return Result.Success(avatarUrl).ToActionResult();
         }

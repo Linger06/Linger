@@ -26,7 +26,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     private AsyncFtpClient CreateClient()
     {
         // 创建FTP客户端配置
-        FtpConfig config = new FtpConfig
+        var config = new FtpConfig
         {
             RetryAttempts = 0, // 使用基类中的重试机制
             TimeConversion = FtpDate.LocalTime,
@@ -172,7 +172,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             // FTP路径始终使用正斜杠
             if (filePath.Contains('/'))
             {
-                int lastSlashIndex = filePath.LastIndexOf('/');
+                var lastSlashIndex = filePath.LastIndexOf('/');
                 remoteDirectory = filePath.Take(lastSlashIndex);
                 fileName = filePath.Substring(lastSlashIndex + 1);
             }
@@ -187,7 +187,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
 
             // 执行上传
-            bool result = await RetryHelper.ExecuteAsync(
+            var result = await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     inputStream.Position = 0;
@@ -234,7 +234,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 : $"{destinationPath}/{fileName}";
 
             // 执行上传
-            bool result = await RetryHelper.ExecuteAsync(
+            var result = await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     var status = await Client.UploadFile(
@@ -272,7 +272,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             }
 
             // 使用AsyncFtpClient执行下载
-            bool result = await RetryHelper.ExecuteAsync(
+            var result = await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     var status = await Client.DownloadStream(
@@ -324,7 +324,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             }
 
             // 执行下载
-            bool result = await RetryHelper.ExecuteAsync(
+            var result = await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     var status = await Client.DownloadFile(

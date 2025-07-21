@@ -1,17 +1,154 @@
-﻿# Linger.HttpClient.Standard
+# Linger.HttpClient.Standard
 
-## Introduction
+## Table of Contents
+- [Overview](#overview)
+- [Linger.Results Integration](#lingerresults-integration)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Usage Examples](#usage-examples)
+- [Error Handling](#error-handling)
+- [Performance & Monitoring](#performance--monitoring)
+- [Troubleshooting](#troubleshooting)
 
-Linger.HttpClient.Standard is an implementation based on the standard .NET HttpClient, providing a lightweight wrapper that conforms to the Linger.HttpClient.Contracts interfaces. This project focuses on delivering a stable, efficient, and .NET-style HTTP communication solution.
+## Overview
 
-## Core Advantages
+**Linger.HttpClient.Standard** is the production-ready implementation of `Linger.HttpClient.Contracts`, built on `System.Net.Http.HttpClient` for real-world applications.
 
-- **Lightweight Design**: Minimal dependencies, low runtime overhead
-- **.NET Integration**: Seamlessly works with HttpClientFactory and DI
-- **High Performance**: Optimized for performance in .NET environments
-- **Easy Configuration**: Simple setup with familiar .NET patterns
-- **Built-in Logging**: Comprehensive logging support using Microsoft.Extensions.Logging
-- **Structured Logging**: Performance metrics, request/response tracking, and error monitoring
+### 🎯 Key Features
+
+- **Zero Dependencies** - Built on standard .NET libraries
+- **HttpClientFactory Integration** - Proper socket management
+- **Comprehensive Logging** - Built-in performance monitoring
+- **Resource Management** - Implements IDisposable
+- **Culture Support** - Automatic internationalization handling
+- **Linger.Results Integration** - Seamless error mapping from server to client
+
+## Linger.Results Integration
+
+StandardHttpClient's `ApiResult<T>` seamlessly integrates with **Linger.Results** for unified error handling.
+
+### � Error Mapping
+
+| Server (Linger.Results) | Client (ApiResult) | HTTP Status |
+|------------------------|-------------------|-------------|
+| `Result<T>.NotFound("User not found")` | `ApiResult<T>` with `Errors[0].Code = "NotFound"` | 404 |
+| `Result<T>.Failure("Invalid email")` | `ApiResult<T>` with `Errors[0].Code = "Error"` | 400/500 |
+
+### 🚀 Usage Example
+
+```csharp
+// Server: API Controller
+[HttpGet("{id}")]
+public async Task<IActionResult> GetUser(int id)
+{
+    var result = await _userService.GetUserAsync(id);
+    return result.ToActionResult(); // Automatic HTTP status mapping
+}
+
+// Client: Automatically receives structured errors
+var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
+if (!apiResult.IsSuccess)
+{
+    foreach (var error in apiResult.Errors)
+        Console.WriteLine($"Error: {error.Code} - {error.Message}");
+}
+```
+
+### 🔧 Integration with Other APIs
+
+If the server **does not use Linger.Results**, StandardHttpClient still works perfectly:
+
+```csharp
+// Standard REST API response
+// HTTP 404: { "message": "User not found", "code": "USER_NOT_FOUND" }
+var result = await _httpClient.CallApi<User>("api/users/999");
+if (!result.IsSuccess)
+{
+    Console.WriteLine($"Status Code: {result.StatusCode}");
+    Console.WriteLine($"Error Message: {result.ErrorMsg}"); // "User not found"
+    // result.Errors will be automatically populated from response body
+}
+
+// Custom error format
+// HTTP 400: { "errors": [{"field": "email", "message": "Invalid format"}] }
+var createResult = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
+if (!createResult.IsSuccess)
+{
+    foreach (var error in createResult.Errors)
+    {
+        Console.WriteLine($"Field: {error.Code}, Message: {error.Message}");
+    }
+}
+
+// Simple text error
+// HTTP 500: "Internal server error"
+var serverErrorResult = await _httpClient.CallApi<User>("api/users/error");
+if (!serverErrorResult.IsSuccess)
+{
+    Console.WriteLine($"Server Error: {serverErrorResult.ErrorMsg}");
+    // Even plain text errors are handled correctly
+}
+```
+
+### 🎛️ Custom Error Parsing
+
+For special API error formats, you can inherit from StandardHttpClient and override the `GetErrorMessageAsync` method:
+
+```csharp
+public class CustomApiHttpClient : StandardHttpClient
+{
+    public CustomApiHttpClient(string baseUrl, ILogger<StandardHttpClient>? logger = null) 
+        : base(baseUrl, logger)
+    {
+    }
+
+    protected override async Task<(string ErrorMessage, Error[] Errors)> GetErrorMessageAsync(HttpResponseMessage response)
+    {
+        var content = await response.Content.ReadAsStringAsync();
+        
+        try
+        {
+            // Custom API error format: { "error": { "message": "xxx", "details": [...] } }
+            var errorResponse = JsonSerializer.Deserialize<CustomErrorResponse>(content);
+            if (errorResponse?.Error != null)
+            {
+                var errors = errorResponse.Error.Details?.Select(d => new Error(d.Code, d.Message)).ToArray() 
+                           ?? new[] { new Error("API_ERROR", errorResponse.Error.Message) };
+                           
+                return (errorResponse.Error.Message, errors);
+            }
+        }
+        catch (JsonException)
+        {
+            // JSON parsing failed, use default handling
+        }
+        
+        // Fallback to default error parsing
+        return await base.GetErrorMessageAsync(response);
+    }
+    
+    private class CustomErrorResponse
+    {
+        public CustomError? Error { get; set; }
+    }
+    
+    private class CustomError
+    {
+        public string Message { get; set; } = "";
+        public CustomErrorDetail[]? Details { get; set; }
+    }
+    
+    private class CustomErrorDetail
+    {
+        public string Code { get; set; } = "";
+        public string Message { get; set; } = "";
+    }
+}
+
+// Use custom client
+services.AddHttpClient<IHttpClient, CustomApiHttpClient>();
+```
 
 ## Installation
 
@@ -21,284 +158,300 @@ dotnet add package Linger.HttpClient.Standard
 
 ## Quick Start
 
-### Basic Creation
+### Basic Usage
 
 ```csharp
-// Create client directly
-var client = new StandardHttpClient("https://api.example.com");
+// Register in DI container
+services.AddHttpClient<IHttpClient, StandardHttpClient>();
 
-// Configure options
-client.Options.DefaultTimeout = 30;
-client.AddHeader("User-Agent", "Linger.Client");
+// Use in your service
+public class UserService
+{
+    private readonly IHttpClient _httpClient;
 
-// Create with logging support
-using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
-var logger = loggerFactory.CreateLogger<StandardHttpClient>();
-var clientWithLogging = new StandardHttpClient("https://api.example.com", logger);
+    public UserService(IHttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
+    public async Task<User?> GetUserAsync(int id)
+    {
+        var result = await _httpClient.CallApi<User>($"api/users/{id}");
+        return result.IsSuccess ? result.Data : null;
+    }
+
+    public async Task<User?> CreateUserAsync(CreateUserRequest request)
+    {
+        var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, request);
+        return result.IsSuccess ? result.Data : null;
+    }
+}
 ```
 
-### With HttpClientFactory
+### With Logging
 
 ```csharp
-// In your startup configuration
-services.AddHttpClient<StandardHttpClient>(client =>
-{
-    client.BaseAddress = new Uri("https://api.example.com/");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-})
-.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
-{
-    var standardClient = new StandardHttpClient(httpClient);
-    
-    // Configure options
-    standardClient.Options.DefaultTimeout = 30;
-    standardClient.AddHeader("User-Agent", "MyApp/1.0");
-    
-    return standardClient;
-});
-```
-
-### With Logging and HttpClientFactory
-
-```csharp
-// In your startup configuration
 services.AddLogging(builder => builder.AddConsole());
-services.AddHttpClient<StandardHttpClient>(client =>
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
 {
     client.BaseAddress = new Uri("https://api.example.com/");
     client.DefaultRequestHeaders.Add("Accept", "application/json");
-})
-.AddTypedClient<IHttpClient>((httpClient, serviceProvider) => 
-{
-    var logger = serviceProvider.GetService<ILogger<StandardHttpClient>>();
-    var standardClient = new StandardHttpClient(httpClient, logger);
-    
-    // Configure options
-    standardClient.Options.DefaultTimeout = 30;
-    standardClient.AddHeader("User-Agent", "MyApp/1.0");
-    
-    return standardClient;
 });
 ```
 
-## Logging Features
+## Configuration
 
-### Log Levels
-
-The `StandardHttpClient` provides comprehensive logging at different levels:
-
-- **Debug**: Request start/end, timing information, configuration details
-- **Trace**: Detailed request headers, query parameters  
-- **Information**: Successful operations
-- **Warning**: Failed API calls, empty URLs
-- **Error**: Exceptions, timeouts, protocol violations
-
-### Example Log Output
-
-```
-[Debug] StandardHttpClient initialized with base URL: https://api.example.com
-[Debug] Starting API call: Post /api/users with timeout: 30s
-[Trace] Request headers: Authorization: Bearer xxx, User-Agent: MyApp/1.0
-[Debug] Query parameters appended to URL: culture=en-US
-[Debug] API call completed in 245ms with status: Created
-[Debug] API call successful for Post /api/users
-```
-
-### Configuring Logging
+### HttpClient Options
 
 ```csharp
-// Development - verbose logging
-services.AddLogging(builder =>
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
 {
-    builder.AddConsole()
-           .SetMinimumLevel(LogLevel.Debug);
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
 });
+```
 
-// Production - essential logging only
-services.AddLogging(builder =>
-{
-    builder.AddFile("logs/httpclient-{Date}.txt")
-           .SetMinimumLevel(LogLevel.Information);
-});
+### StandardHttpClient Options
+
+```csharp
+var client = new StandardHttpClient("https://api.example.com");
+client.Options.DefaultTimeout = 30;
+client.AddHeader("Authorization", "Bearer token");
 ```
 
 ## Usage Examples
 
-### Simple GET Request
+### GET Request
 
 ```csharp
-// Send GET request
-var response = await client.CallApi<UserData>("api/users/1");
-
-// Process response
-if (response.IsSuccess)
+var result = await _httpClient.CallApi<UserData>("api/users/123");
+if (result.IsSuccess)
 {
-    Console.WriteLine($"User: {response.Data.Name}");
+    Console.WriteLine($"User: {result.Data.Name}");
 }
 ```
 
-### POST Request with JSON
+### POST with JSON
 
 ```csharp
-// Create user data
-var userData = new UserCreateModel { Name = "John", Email = "john@example.com" };
-
-// Send POST request
-var response = await client.CallApi<UserData>(
-    "api/users",
-    HttpMethodEnum.Post,
-    userData
-);
-
-if (response.IsSuccess)
-{
-    Console.WriteLine($"User created successfully: {response.Data.Id}");
-}
+var createRequest = new CreateUserRequest { Name = "John", Email = "john@example.com" };
+var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, createRequest);
 ```
 
 ### File Upload
 
 ```csharp
-// Read file
-byte[] fileData = File.ReadAllBytes("document.pdf");
+var fileData = File.ReadAllBytes("document.pdf");
+var result = await _httpClient.CallApi<UploadResult>(
+    "api/upload", 
+    HttpMethodEnum.Post, 
+    fileData, 
+    headers: new Dictionary<string, string> { ["Content-Type"] = "application/pdf" }
+);
+```
 
-// Create form data
-var formData = new Dictionary<string, string>
+### With Query Parameters
+
+```csharp
+var queryParams = new Dictionary<string, object>
 {
-    { "description", "Sample document" }
+    ["page"] = 1,
+    ["size"] = 10,
+    ["active"] = true
 };
+var result = await _httpClient.CallApi<PagedResult<User>>("api/users", queryParams: queryParams);
+```
 
-// Upload file
-var response = await client.CallApi<FileResponse>(
-    "api/files",
-    HttpMethodEnum.Post,
-    formData,
-    fileData,
-    "document.pdf"
-);
+## Error Handling
 
-if (response.IsSuccess)
+### Linger.Results Compatible Error Handling
+
+Convert `ApiResult<T>` to `Result<T>` for consistent error handling patterns:
+
+```csharp
+public async Task<Result<User>> GetUserAsync(int id)
 {
-    Console.WriteLine($"File uploaded successfully: {response.Data.FileId}");
+    var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
+    
+    if (apiResult.IsSuccess)
+        return Result<User>.Success(apiResult.Data);
+        
+    return apiResult.StatusCode switch
+    {
+        HttpStatusCode.NotFound => Result<User>.NotFound("User not found"),
+        HttpStatusCode.BadRequest => Result<User>.Failure(apiResult.ErrorMsg),
+        HttpStatusCode.Unauthorized => Result<User>.Failure($"Access denied: {apiResult.ErrorMsg}"),
+        _ => Result<User>.Failure($"Server error: {apiResult.ErrorMsg}")
+    };
 }
 ```
 
-### Request with Query Parameters
+### ApiResult Pattern
 
 ```csharp
-// Query parameters
-var queryParams = new { page = 1, size = 10, keyword = "test" };
+var result = await _httpClient.CallApi<UserData>("api/users/123");
 
-// Send request
-var response = await client.CallApi<PagedResult<UserData>>(
-    "api/users",
-    queryParams
-);
-
-if (response.IsSuccess)
+if (result.IsSuccess)
 {
-    Console.WriteLine($"Retrieved {response.Data.Items.Count} users");
+    // Success case
+    var user = result.Data;
+    Console.WriteLine($"User: {user.Name}");
+}
+else
+{
+    // Error case
+    Console.WriteLine($"Error: {result.ErrorMsg}");
+    
+    // Handle specific status codes
+    switch (result.StatusCode)
+    {
+        case HttpStatusCode.NotFound:
+            Console.WriteLine("User not found");
+            break;
+        case HttpStatusCode.Unauthorized:
+            Console.WriteLine("Authentication required");
+            break;
+        default:
+            Console.WriteLine($"HTTP {(int)result.StatusCode}: {result.ErrorMsg}");
+            break;
+    }
+    
+    // Access detailed errors
+    foreach (var error in result.Errors)
+    {
+        Console.WriteLine($"Error Code: {error.Code}, Message: {error.Message}");
+    }
 }
 ```
 
-## Best Practices
-
-### Configuration
+### Exception Handling
 
 ```csharp
-// Recommended settings for production
-client.Options.DefaultTimeout = 15; // 15 seconds timeout
-client.AddHeader("User-Agent", "MyApp/1.0");
-client.AddHeader("Accept", "application/json");
-
-// Or set via Options
-client.Options.DefaultHeaders["Authorization"] = "Bearer your-token";
-client.Options.DefaultHeaders["Custom-Header"] = "custom-value";
-```
-
-### Error Handling with Logging
-
-```csharp
-var logger = serviceProvider.GetService<ILogger<StandardHttpClient>>();
-var client = new StandardHttpClient("https://api.example.com", logger);
-
 try
 {
-    var response = await client.CallApi<UserData>("api/users/1");
-    
-    if (response.IsSuccess)
-    {
-        // Process data
-    }
-    else
-    {
-        // Handle API error - automatically logged
-        Console.WriteLine($"API Error: {response.ErrorMsg}");
-    }
+    var result = await _httpClient.CallApi<UserData>("api/users/123");
+    // Process result...
 }
-catch (Exception ex)
+catch (HttpRequestException ex)
 {
-    // Handle network or other exceptions - automatically logged
-    Console.WriteLine($"Request failed: {ex.Message}");
+    // Network-level errors
+    Console.WriteLine($"Network error: {ex.Message}");
+}
+catch (TaskCanceledException ex)
+{
+    // Timeout errors
+    Console.WriteLine($"Request timeout: {ex.Message}");
 }
 ```
 
-### Resource Management
+## Performance & Monitoring
 
-**Using HttpClientFactory (Recommended)**:
+### Built-in Logging
+
+StandardHttpClient automatically logs:
+- **Request/Response details** (Debug level)
+- **Performance metrics** (Information level)
+- **Errors and warnings** (Warning/Error levels)
+
 ```csharp
-// Register in startup configuration
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
+// Example log output
+[INF] HTTP GET https://api.example.com/api/users/123 completed in 245ms (Status: 200)
+[DBG] Request Headers: Accept: application/json, User-Agent: MyApp/1.0
+[DBG] Response Headers: Content-Type: application/json; charset=utf-8
+```
 
-// Use in service - lifecycle managed automatically
-public class UserService
+### Performance Monitoring
+
+```csharp
+public class MonitoredUserService
 {
     private readonly IHttpClient _httpClient;
-    
-    public UserService(IHttpClient httpClient)
+    private readonly ILogger<MonitoredUserService> _logger;
+
+    public MonitoredUserService(IHttpClient httpClient, ILogger<MonitoredUserService> logger)
     {
         _httpClient = httpClient;
+        _logger = logger;
     }
-    
-    public async Task<UserData> GetUserAsync(int id)
+
+    public async Task<User?> GetUserAsync(int id)
     {
-        return await _httpClient.CallApi<UserData>($"users/{id}");
+        using var activity = Activity.StartActivity("GetUser");
+        activity?.SetTag("user.id", id);
+
+        var stopwatch = Stopwatch.StartActivity();
+        var result = await _httpClient.CallApi<User>($"api/users/{id}");
+        stopwatch.Stop();
+
+        _logger.LogInformation("GetUser completed in {ElapsedMs}ms, Success: {Success}", 
+            stopwatch.ElapsedMilliseconds, result.IsSuccess);
+
+        return result.IsSuccess ? result.Data : null;
     }
 }
 ```
 
-**Direct Creation Resource Management**:
-```csharp
-// Method 1: Using using statement
-using var httpClient = new System.Net.Http.HttpClient();
-var client = new StandardHttpClient(httpClient, logger);
-// Use client...
-// using statement ensures proper disposal
+## Troubleshooting
 
-// Method 2: Manual management
-var httpClient = new System.Net.Http.HttpClient();
-try
+### Common Issues
+
+**1. Connection Timeout**
+```csharp
+// Increase timeout
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
 {
-    var client = new StandardHttpClient(httpClient, logger);
-    // Use client...
-}
-finally
+    client.Timeout = TimeSpan.FromMinutes(5);
+});
+```
+
+**2. SSL Certificate Issues**
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>()
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
+    });
+```
+
+**3. Port Exhaustion**
+- Always use HttpClientFactory (automatic in DI)
+- Never create StandardHttpClient instances manually in loops
+
+**4. Memory Leaks**
+```csharp
+// ✅ Good: Use DI
+services.AddHttpClient<IHttpClient, StandardHttpClient>();
+
+// ❌ Bad: Manual creation without disposal
+var client = new StandardHttpClient("https://api.example.com");
+
+// ✅ Good: Manual creation with disposal
+using var client = new StandardHttpClient("https://api.example.com");
+```
+
+### Debugging Tips
+
+**Enable Detailed Logging**
+```json
 {
-    httpClient?.Dispose();
+  "Logging": {
+    "LogLevel": {
+      "Linger.HttpClient.Standard": "Debug"
+    }
+  }
 }
 ```
 
-## Performance Considerations
+**Inspect Network Traffic**
+- Use Fiddler, Wireshark, or browser dev tools
+- Check request/response headers in logs
+- Verify JSON serialization/deserialization
 
-1. **Log Level Optimization**: Use `Information` level in production to avoid performance impact from verbose logging
-2. **HttpClientFactory Usage**: Recommended to use HttpClientFactory to avoid port exhaustion issues
-3. **Timeout Settings**: Set appropriate timeouts based on API response times to avoid long waits
-4. **Concurrency Control**: HttpClient is thread-safe and can be safely used in multi-threaded environments
+---
 
-## Important Notes
+## 📖 Related Documentation
 
-⚠️ **Important Reminders**:
-- Don't create new HttpClient instances for each request; reuse them
-- Be careful with sensitive information (like Authorization headers) when using logging
-- Set timeout values based on actual API response times
-- Use HttpClientFactory in high-concurrency scenarios
+- **[Linger.HttpClient.Contracts](../Linger.HttpClient.Contracts/README.md)** - Interface definitions and architecture guidance
+- **[Linger.Results](../Linger.Results/README.md)** - Server-side result patterns that integrate seamlessly with ApiResult
+- **[Microsoft HttpClientFactory](https://docs.microsoft.com/en-us/dotnet/core/extensions/httpclient-factory)** - Official .NET documentation

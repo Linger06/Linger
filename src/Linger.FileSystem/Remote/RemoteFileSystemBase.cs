@@ -89,7 +89,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemCo
     protected override void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
         // 添加服务器详情到异常信息
-        string message = $"""
+        var message = $"""
                           {operation} failed on {Setting.Host}:{Setting.Port}. 
                           {(path != null ? $"Path: {path}. " : string.Empty)}.
                           Type: {Setting.Type}, Method: {callerMethod}

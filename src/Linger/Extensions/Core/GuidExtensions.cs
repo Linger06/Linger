@@ -103,9 +103,9 @@ public static class GuidExtensions
     {
         if (guid.Version == 7)
         {
-            string str = guid.ToString("N")[..12];
-            long milliseconds = Convert.ToInt64(str, 16);
-            DateTimeOffset timestamp = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
+            var str = guid.ToString("N")[..12];
+            var milliseconds = Convert.ToInt64(str, 16);
+            var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
             return timestamp;
         }
 

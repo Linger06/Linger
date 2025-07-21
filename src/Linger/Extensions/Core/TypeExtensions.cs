@@ -13,7 +13,7 @@ public static class TypeExtension
     /// Thread-safe property cache for improved performance.
     /// </summary>
     /// <value>The property cache.</value>
-    private static readonly ConcurrentDictionary<string, List<PropertyInfo>> PropertyCache = new();
+    private static readonly ConcurrentDictionary<string, PropertyInfo[]> PropertyCache = new();
 
     /// <summary>
     /// Cache for type properties to minimize reflection overhead.
@@ -23,7 +23,7 @@ public static class TypeExtension
     /// <summary>
     /// Cache for column information to minimize reflection overhead.
     /// </summary>
-    private static readonly ConcurrentDictionary<Type, List<ColumnInfo>> ColumnInfoCache = new();
+    private static readonly ConcurrentDictionary<Type, IEnumerable<ColumnInfo>> ColumnInfoCache = new();
 
     /// <summary>
     /// Determines if the type is a generic type.
@@ -106,7 +106,7 @@ public static class TypeExtension
     {
         var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
 
-        var properties = PropertyCache.GetOrAdd(fullName, _ => self.GetProperties().ToList());
+        var properties = PropertyCache.GetOrAdd(fullName, _ => self.GetProperties());
         return properties.FirstOrDefault(x => x.Name == name);
     }
 
@@ -433,7 +433,7 @@ public static class TypeExtension
     /// // Output: List of ColumnInfo objects for properties of Person class
     /// </code>
     /// </example>
-    public static List<ColumnInfo> GetColumnsInfo(this Type type)
+    public static IEnumerable<ColumnInfo> GetColumnsInfo(this Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
 

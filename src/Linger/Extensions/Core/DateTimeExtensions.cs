@@ -1,9 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
-
 namespace Linger.Extensions.Core;
 
 public static class DateTimeExtensions
@@ -527,7 +524,7 @@ public static class DateTimeExtensions
         var jan1 = new DateTime(year, 1, 1);
         var jan1DayOfWeek = jan1.DayOfWeek;
 
-        int dayOffset = ((7 + (int)firstDayOfWeek - (int)jan1DayOfWeek) % 7);
+        var dayOffset = ((7 + (int)firstDayOfWeek - (int)jan1DayOfWeek) % 7);
 
         DateTime firstWeekStart = jan1;
         DateTime firstWeekEnd = firstWeekStart.AddDays(7);

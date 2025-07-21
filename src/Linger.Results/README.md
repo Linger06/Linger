@@ -31,110 +31,175 @@ var successWithValue = Result.Success(42);
 var failure = Result.Failure("Operation failed");
 var failureWithError = Result.Failure(new Error("ErrorCode", "Detailed error message"));
 
-// 创建未找到结果
+// Create not found results
 var notFound = Result.NotFound();
 ```
 
-### 使用泛型结果
+### Using Generic Results
 
 ```csharp
-// 定义返回用户信息的方法
+// Define a method that returns user information
 public Result<User> GetUser(int id)
 {
     var user = _repository.FindById(id);
     if (user == null)
-        return Result<User>.NotFound($"找不到ID为{id}的用户");
+        return Result<User>.NotFound($"User with ID {id} not found");
     
-    return Result.Success(user);
+    return Result<User>.Success(user);
 }
 
-// 使用方法
+// Elegant syntax with implicit conversion
+public Result<User> GetUserWithValidation(string email)
+{
+    // Validate email
+    if (string.IsNullOrEmpty(email))
+    {
+        // Directly return Result.Failure, automatically converts to Result<User>
+        return Result.Failure(new Error("ValidationError", "Email cannot be empty"));
+    }
+
+    var user = _repository.FindByEmail(email);
+    if (user == null)
+    {
+        // This also converts automatically
+        return Result.NotFound("User not found");
+    }
+
+    return Result<User>.Success(user);
+}
+
+// Usage example
 var result = GetUser(123);
 if (result.IsSuccess)
 {
-    var user = result.Value; // 只有在结果成功时才能访问值
-    Console.WriteLine($"找到用户: {user.Name}");
+    var user = result.Value; // Value is only accessible when result is successful
+    Console.WriteLine($"Found user: {user.Name}");
 }
 else
 {
-    Console.WriteLine($"错误: {string.Join(", ", result.Errors.Select(e => e.Message))}");
+    Console.WriteLine($"Error: {string.Join(", ", result.Errors.Select(e => e.Message))}");
 }
 ```
 
-### 使用 Match 方法
+### Using Match Method
 
 ```csharp
-// 使用 Match 方法处理不同的结果状态
+// Use Match method to handle different result states
 string displayName = result.Match(
-    user => $"用户: {user.Name}",
-    errors => $"错误: {string.Join(", ", errors.Select(e => e.Message))}"
+    user => $"User: {user.Name}",
+    errors => $"Error: {string.Join(", ", errors.Select(e => e.Message))}"
 );
 ```
 
-### 安全访问值
+### Safe Value Access
 
 ```csharp
-// 使用TryGetValue安全地访问结果值
+// Use TryGetValue to safely access result value
 if (result.TryGetValue(out var user))
 {
-    // 成功获取用户
-    Console.WriteLine($"用户: {user.Name}");
+    // Successfully obtained user
+    Console.WriteLine($"User: {user.Name}");
 }
 
-// 使用ValueOrDefault获取值或默认值
-var safeUser = result.ValueOrDefault; // 失败时为null
+// Use ValueOrDefault to get value or default value
+var safeUser = result.ValueOrDefault; // null when failed
 
-// 指定默认值
-var userOrGuest = result.GetValueOrDefault(new User { Name = "访客" });
+// Specify default value
+var userOrGuest = result.GetValueOrDefault(new User { Name = "Guest" });
 ```
 
-### 链式操作
+### Method Chaining
 
 ```csharp
-// 使用扩展方法进行链式操作
+// Use extension methods for method chaining
 var finalResult = GetUser(123)
     .Map(user => user.Email)
     .Bind(email => SendEmail(email))
-    .Ensure(success => success, new Error("EmailError", "邮件发送失败"));
+    .Ensure(success => success, new Error("EmailError", "Email sending failed"));
 ```
 
-### 异步支持
+### Async Support
 
 ```csharp
-// 异步操作
+// Async operations
 var result = await GetUserAsync(123)
     .MapAsync(async user => await GetUserPreferencesAsync(user))
     .BindAsync(async prefs => await UpdatePreferencesAsync(prefs));
 ```
 
-### 使用 Result.Create 进行条件判断
+### Using Result.Create for Condition Checking
 
 ```csharp
-// 基于布尔条件创建结果
+// Create results based on boolean conditions
 public Result ValidatePassword(string password)
 {
     return Result.Create(password.Length >= 8)
-        .Ensure(() => password.Any(char.IsUpper), new Error("Password", "密码必须包含大写字母"))
-        .Ensure(() => password.Any(char.IsDigit), new Error("Password", "密码必须包含数字"));
+        .Ensure(() => password.Any(char.IsUpper), new Error("Password", "Password must contain uppercase letters"))
+        .Ensure(() => password.Any(char.IsDigit), new Error("Password", "Password must contain digits"));
 }
 ```
 
-### 错误处理
+## Implicit Conversion and Elegant Syntax
+
+Linger.Results provides powerful implicit conversion features to make your code more concise and elegant:
+
+### Implicit Conversion from Result to Result&lt;T&gt;
 
 ```csharp
-// 使用 Try 方法捕获异常并转换为结果
+public Result<User> CreateUser(CreateUserRequest request)
+{
+    // Validate username
+    if (string.IsNullOrEmpty(request.Username))
+    {
+        // Directly return Result.Failure, automatically converts to Result<User>
+        return Result.Failure("Username cannot be empty");
+    }
+    
+    // Check email format
+    if (!IsValidEmail(request.Email))
+    {
+        // Using custom error object, also converts automatically
+        return Result.Failure(new Error("Email.Invalid", "Invalid email format"));
+    }
+    
+    // Check if user already exists
+    if (UserExists(request.Username))
+    {
+        // NotFound also supports implicit conversion
+        return Result.NotFound("Username is already taken");
+    }
+    
+    // Success case
+    var user = new User { Username = request.Username, Email = request.Email };
+    return Result<User>.Success(user);
+}
+```
+
+### API Design Principles
+
+After optimization, Linger.Results follows these design principles:
+
+1. **Clear API Boundaries**: `Result` class focuses on non-generic operations, `Result<T>` class handles operations with return values
+2. **Implicit Conversion Support**: Supports natural conversion from `Result` to `Result<T>`, but avoids unexpected value conversions
+3. **Type Safety**: Ensures type correctness at compile time, avoiding runtime errors
+4. **Concise Syntax**: Reduces boilerplate code and improves development efficiency
+
+### Error Handling
+
+```csharp
+// Use Try method to catch exceptions and convert to results
 var result = ResultFunctionalExtensions.Try(
     () => SomeOperationThatMightThrow(),
     ex => ex.ToError()
 );
 ```
 
-## 高级用法
+## Advanced Usage
 
-### 组合多个结果
+### Combining Multiple Results
 
 ```csharp
-// 组合多个结果，所有结果成功时才成功
+// Combine multiple results, succeeds only when all results succeed
 var combinedResult = Result.Combine(
     ValidateUsername(request.Username),
     ValidateEmail(request.Email),
@@ -143,78 +208,78 @@ var combinedResult = Result.Combine(
 
 if (combinedResult.IsSuccess)
 {
-    // 所有验证都通过
+    // All validations passed
     return Result.Success(new User { /* ... */ });
 }
 ```
 
-### 自定义错误类型
+### Custom Error Types
 
 ```csharp
-// 定义特定领域的错误类型
+// Define domain-specific error types
 public static class UserErrors
 {
-    public static readonly Error NotFound = new("User.NotFound", "用户不存在");
-    public static readonly Error InvalidCredentials = new("User.InvalidCredentials", "用户名或密码不正确");
-    public static readonly Error DuplicateEmail = new("User.DuplicateEmail", "邮箱已被使用");
+    public static readonly Error NotFound = new("User.NotFound", "User not found");
+    public static readonly Error InvalidCredentials = new("User.InvalidCredentials", "Invalid username or password");
+    public static readonly Error DuplicateEmail = new("User.DuplicateEmail", "Email is already in use");
 }
 
-// 使用自定义错误
+// Use custom errors
 public Result<User> Authenticate(string username, string password)
 {
     var user = _repository.FindByUsername(username);
     if (user == null)
-        return Result<User>.Failure(UserErrors.NotFound);
+        return Result.Failure(UserErrors.NotFound); // Implicit conversion to Result<User>
         
     if (!ValidatePassword(password, user.PasswordHash))
-        return Result<User>.Failure(UserErrors.InvalidCredentials);
+        return Result.Failure(UserErrors.InvalidCredentials); // Implicit conversion to Result<User>
         
-    return Result.Success(user);
+    return Result<User>.Success(user);
 }
 ```
 
-### 条件分支处理
+### Conditional Branch Processing
 
 ```csharp
 public async Task<Result<OrderConfirmation>> ProcessOrder(Order order)
 {
-    // 链式处理订单流程
+    // Chain process order workflow
     return await ValidateOrder(order)
         .BindAsync(async validOrder => 
         {
-            // 根据支付方式选择不同处理路径
+            // Choose different processing paths based on payment method
             if (validOrder.PaymentMethod == PaymentMethod.CreditCard)
                 return await ProcessCreditCardPayment(validOrder);
             else if (validOrder.PaymentMethod == PaymentMethod.BankTransfer)
                 return await ProcessBankTransfer(validOrder);
             else
-                return Result<OrderConfirmation>.Failure("不支持的支付方式");
+                return Result<OrderConfirmation>.Failure("Unsupported payment method");
         })
         .TapAsync(async confirmation => 
         {
-            // 成功时执行副作用操作，但不改变结果
+            // Execute side effect operations on success, but don't change the result
             await SendConfirmationEmail(confirmation);
             await UpdateInventory(order);
         });
 }
 ```
 
-## ResultStatus 枚举扩展
+## ResultStatus Enum Extension
 
-默认的 `ResultStatus` 枚举包含 `Ok`、`NotFound` 和 `Error`。您可以根据需要扩展此枚举以包含更多状态：
+The default `ResultStatus` enum includes `Ok`, `NotFound`, and `Error`. You can extend this enum to include more statuses as needed:
 
 ```csharp
-// 在您的项目中创建一个部分类扩展
+// Create a partial class extension in your project
 namespace Linger.Results
 {
     public enum ResultStatus
     {
-        // 已有的状态
+        // Existing statuses
         Ok,
         NotFound,
         Error,
         
-        // 新增自定义状态
+        // New custom statuses
         Unauthorized,
         Forbidden,
         Conflict,
@@ -223,38 +288,46 @@ namespace Linger.Results
 }
 ```
 
-## 最佳实践
+## Best Practices
 
-1. **优先使用 Result 和 Result<T> 类，而非异常**：
-   - 对于预期内的错误（如验证错误、未找到资源等）返回 Result
-   - 只对真正的异常情况（程序错误、未预期的系统故障）使用异常机制
+1. **Prefer Result and Result<T> over exceptions**:
+   - Return Result for expected errors (validation errors, resource not found, etc.)
+   - Use exceptions only for truly exceptional situations (program errors, unexpected system failures)
 
-2. **返回值保持一致性**：
-   - 服务方法应始终返回 Result 或 Result<T>，而非混合使用结果和异常
-   - 保持统一的错误处理模式，便于调用方处理
+2. **Maintain consistency in return values**:
+   - Service methods should consistently return Result or Result<T>, not mix results and exceptions
+   - Maintain unified error handling patterns for easier handling by callers
 
-3. **使用有意义的错误代码**：
-   - 定义领域特定的错误常量
-   - 使用结构化的错误代码（如 "Category.SubCategory.Error"）
+3. **Use meaningful error codes**:
+   - Define domain-specific error constants
+   - Use structured error codes (like "Category.SubCategory.Error")
 
-4. **利用链式操作**：
-   - 使用函数式方法组合而非传统的条件语句
-   - Map、Bind、Tap等方法可以极大提高代码可读性
+4. **Leverage implicit conversion to simplify code**:
+   - In methods returning `Result<T>`, you can directly return `Result.Failure()` or `Result.NotFound()`
+   - This makes code more concise and elegant while maintaining type safety
 
-5. **对于Web API**：
-   - 结合 [Linger.Results.AspNetCore](../Linger.Results.AspNetCore/README.md) 包转换为HTTP响应
-   - 使用ProblemDetails格式返回标准化的错误响应
+5. **Use API correctly**:
+   - For generic results, use `Result<T>.Success()`, `Result<T>.Failure()` methods directly
+   - Leverage implicit conversion from `Result` to `Result<T>` instead of relying on removed forwarding methods
 
-## 和异常处理对比
+6. **Leverage method chaining**:
+   - Use functional composition instead of traditional conditional statements
+   - Map, Bind, Tap methods can greatly improve code readability
 
-| 方面 | Result 模式 | 异常机制 |
-|------|------------|---------|
-| 可见性 | 明确的返回类型，编译时可见 | 隐式抛出，运行时才知道 |
-| 性能 | 较好，无堆栈捕获开销 | 较差，尤其在高频调用场景 |
-| 可组合性 | 优秀，支持链式和组合操作 | 弱，需要多层try-catch |
-| 类型安全 | 强类型，编译器辅助 | 弱类型，基于字符串匹配 |
-| 适用场景 | 业务逻辑，预期内的错误 | 程序错误，未预期的异常 |
+7. **For Web APIs**:
+   - Combine with [Linger.Results.AspNetCore](../Linger.Results.AspNetCore/README.md) package to convert to HTTP responses
+   - Use ProblemDetails format to return standardized error responses
 
-## 许可证
+## Comparison with Exception Handling
+
+| Aspect | Result Pattern | Exception Mechanism |
+|--------|---------------|-------------------|
+| Visibility | Explicit return type, visible at compile time | Implicit throwing, known only at runtime |
+| Performance | Better, no stack capture overhead | Worse, especially in high-frequency call scenarios |
+| Composability | Excellent, supports chaining and composition operations | Weak, requires multiple try-catch layers |
+| Type Safety | Strong typing, compiler assistance | Weak typing, based on string matching |
+| Use Cases | Business logic, expected errors | Program errors, unexpected exceptions |
+
+## License
 
 MIT

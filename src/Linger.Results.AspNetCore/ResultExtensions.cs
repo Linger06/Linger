@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Linger.Results.AspNetCore;
@@ -22,7 +22,7 @@ public static class ResultExtensions
         }
 
         // 根据Result的Status确定HTTP状态码
-        int statusCode = result.Status switch
+        var statusCode = result.Status switch
         {
             ResultStatus.NotFound => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status400BadRequest
@@ -74,7 +74,7 @@ public static class ResultExtensions
         }
 
         // 根据Result的Status确定HTTP状态码
-        int statusCode = result.Status switch
+        var statusCode = result.Status switch
         {
             ResultStatus.NotFound => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status400BadRequest

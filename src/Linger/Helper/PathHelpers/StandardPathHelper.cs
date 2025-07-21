@@ -1,4 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
 using Linger.Extensions.Core;
 
 namespace Linger.Helper.PathHelpers;
@@ -186,8 +185,8 @@ public class StandardPathHelper : PathHelperBase
         if (PathEquals(path, relativeTo))
             return ".";
 
-        string pathRoot = Path.GetPathRoot(path) ?? string.Empty;
-        string relativeToRoot = Path.GetPathRoot(relativeTo) ?? string.Empty;
+        var pathRoot = Path.GetPathRoot(path) ?? string.Empty;
+        var relativeToRoot = Path.GetPathRoot(relativeTo) ?? string.Empty;
 
         if (!string.Equals(pathRoot, relativeToRoot, PathComparison))
             return path;
@@ -200,17 +199,17 @@ public class StandardPathHelper : PathHelperBase
         }
 
         // 处理路径部分
-        string relativeToWithoutRoot = relativeTo.Substring(relativeToRoot.Length);
-        string pathWithoutRoot = path.Substring(pathRoot.Length);
+        var relativeToWithoutRoot = relativeTo.Substring(relativeToRoot.Length);
+        var pathWithoutRoot = path.Substring(pathRoot.Length);
 
         var fromParts = SplitPath(relativeToWithoutRoot);
         var toParts = SplitPath(pathWithoutRoot);
 
         // 找到共同前缀
-        int commonLength = 0;
-        int minLength = Math.Min(fromParts.Length, toParts.Length);
+        var commonLength = 0;
+        var minLength = Math.Min(fromParts.Length, toParts.Length);
 
-        for (int i = 0; i < minLength; i++)
+        for (var i = 0; i < minLength; i++)
         {
             if (string.Equals(fromParts[i], toParts[i], PathComparison))
                 commonLength++;
@@ -222,13 +221,13 @@ public class StandardPathHelper : PathHelperBase
         var result = new List<string>();
 
         // 上级路径部分
-        for (int i = commonLength; i < fromParts.Length; i++)
+        for (var i = commonLength; i < fromParts.Length; i++)
         {
             result.Add("..");
         }
 
         // 目标路径部分
-        for (int i = commonLength; i < toParts.Length; i++)
+        for (var i = commonLength; i < toParts.Length; i++)
         {
             result.Add(toParts[i]);
         }
@@ -248,7 +247,7 @@ public class StandardPathHelper : PathHelperBase
         if (levels == 0) return path;
 
         // 使用循环代替递归
-        for (int i = 0; i < levels; i++)
+        for (var i = 0; i < levels; i++)
         {
             var info = Directory.GetParent(path);
             if (info == null) return path;
@@ -285,7 +284,7 @@ public class StandardPathHelper : PathHelperBase
             var segments = path.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries);
             foreach (var segment in segments)
             {
-                string upperSegment = segment.ToUpperInvariant();
+                var upperSegment = segment.ToUpperInvariant();
                 if (s_windowsReservedNames.Contains(upperSegment) ||
                     (upperSegment.Contains('.') &&
                      s_windowsReservedNames.Contains(upperSegment.Take(upperSegment.IndexOf('.')))))

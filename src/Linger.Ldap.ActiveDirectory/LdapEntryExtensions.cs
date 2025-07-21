@@ -57,9 +57,9 @@ public static class LdapEntryExtensions
     {
         // 处理只能从 UserPrincipal 获取的属性
         userInfo.Status = GetUserStatus(user);
-        userInfo.PwdLastSet = user.LastPasswordSet?.ToString();
+        userInfo.PwdLastSet = user.LastPasswordSet?.ToString(ExtensionMethodSetting.DefaultCulture);
         userInfo.PwdExpirationLeftDays = GetPasswordExpirationDays(user);
-        userInfo.AccountExpires = user.AccountExpirationDate?.ToString();
+        userInfo.AccountExpires = user.AccountExpirationDate?.ToString(ExtensionMethodSetting.DefaultCulture);
     }
 
     private static string? GetPropertyValue(DirectoryEntry entry, string propertyName)
@@ -153,7 +153,7 @@ public static class LdapEntryExtensions
             var expirationDate = lastSet.Value.AddDays((double)maxPwdAgeDays);
             var daysLeft = (expirationDate - DateTime.Now).Days;
 
-            return daysLeft.ToString();
+            return daysLeft.ToString(ExtensionMethodSetting.DefaultCulture);
         }
         catch (Exception)
         {
@@ -348,7 +348,7 @@ public static class LdapEntryExtensions
         var expiresStr = GetPropertyValue(entry, LdapUserType.AccountExpires);
         if (long.TryParse(expiresStr, out var expiresValue))
         {
-            return GetAccountExpirationDate(expiresValue)?.ToString();
+            return GetAccountExpirationDate(expiresValue)?.ToString(ExtensionMethodSetting.DefaultCulture);
         }
         return null;
     }
@@ -373,7 +373,7 @@ public static class LdapEntryExtensions
 
         userInfo.PwdLastSet = lastSetValue == 0
             ? PasswordStatus.NeverChanged
-            : DateTime.FromFileTime(lastSetValue).ToString();
+            : DateTime.FromFileTime(lastSetValue).ToString(ExtensionMethodSetting.DefaultCulture);
 
         userInfo.PwdExpirationLeftDays =
             (userAccountControl & ActiveDirectoryConstants.UserAccountControl.PasswordNeverExpires) != 0

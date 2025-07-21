@@ -4,9 +4,9 @@ namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
 {
-    public static List<string> SplitToList(this string? value, char separator = ',', StringSplitOptions options = StringSplitOptions.None)
+    public static IEnumerable<string> SplitToList(this string? value, char separator = ',', StringSplitOptions options = StringSplitOptions.None)
     {
-        return value.SplitToArray(separator, options).ToList();
+        return value.SplitToArray(separator, options);
     }
 
     /// <summary>
@@ -16,9 +16,9 @@ public static partial class StringExtensions
     /// <param name="separator">The delimiter to use. Default is carriage return and line feed.</param>
     /// <param name="options"></param>
     /// <returns>A list of strings.</returns>
-    public static List<string> SplitToList(this string? value, string separator, StringSplitOptions options = StringSplitOptions.None)
+    public static IEnumerable<string> SplitToList(this string? value, string separator, StringSplitOptions options = StringSplitOptions.None)
     {
-        return value.SplitToArray(separator, options).ToList();
+        return value.SplitToArray(separator, options);
     }
 
     /// <summary>
@@ -38,7 +38,7 @@ public static partial class StringExtensions
 #if NET8_0_OR_GREATER
         return value.Split(separator, options);
 #else
-        return value.Split(new[] { separator }, options);
+        return value.Split([separator], options);
 #endif
     }
 
@@ -51,7 +51,7 @@ public static partial class StringExtensions
 #if NET8_0_OR_GREATER
         return value.Split(separator, options);
 #else
-        return value.Split(new[] { separator }, options);
+        return value.Split([separator], options);
 #endif
     }
 
@@ -69,14 +69,14 @@ public static partial class StringExtensions
         }
 
 #if NET6_0_OR_GREATER
-        bool hasQuery = self.Contains('?');
-        char separator = hasQuery ? '&' : '?';
-        int totalLength = self.Length + 1 + query.Length;
+        var hasQuery = self.Contains('?');
+        var separator = hasQuery ? '&' : '?';
+        var totalLength = self.Length + 1 + query.Length;
 
         return string.Create(totalLength, (self, separator, query), (span, state) =>
         {
             state.self.AsSpan().CopyTo(span);
-            int position = state.self.Length;
+            var position = state.self.Length;
             span[position++] = state.separator;
             state.query.AsSpan().CopyTo(span[position..]);
         });
@@ -107,7 +107,7 @@ public static partial class StringExtensions
         sb.Append(self);
         sb.Append(self.Contains('?') ? '&' : '?');
 
-        bool isFirst = true;
+        var isFirst = true;
         foreach (DictionaryEntry item in data)
         {
             if (!isFirst)
@@ -143,7 +143,7 @@ public static partial class StringExtensions
         sb.Append(self.Contains('?') ? '&' : '?');
 
 #if NET5_0_OR_GREATER
-        for (int i = 0; i < data.Count; i++)
+        for (var i = 0; i < data.Count; i++)
         {
             if (i > 0)
             {
@@ -156,7 +156,7 @@ public static partial class StringExtensions
             sb.Append(item.Value);
         }
 #else
-        bool isFirst = true;
+        var isFirst = true;
         foreach (var item in data)
         {
             if (!isFirst)

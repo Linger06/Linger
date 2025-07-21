@@ -35,7 +35,7 @@ public class TokenRefreshHandler(AppState appState, IServiceProvider serviceProv
             // 只有401错误才触发令牌刷新
             ShouldHandle = args =>
             {
-                bool shouldRetry = args.Outcome.Result?.StatusCode == HttpStatusCode.Unauthorized;
+                var shouldRetry = args.Outcome.Result?.StatusCode == HttpStatusCode.Unauthorized;
                 return ValueTask.FromResult(shouldRetry);
             },
             // 在重试前执行令牌刷新

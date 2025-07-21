@@ -1,4 +1,3 @@
-using System.Globalization;
 using Linger.Extensions.Core.Internal;
 
 namespace Linger.Extensions.Core;
@@ -130,7 +129,7 @@ public static partial class StringExtensions
             return false;
 
         // 检查每个字符是否都是数字
-        foreach (char c in span)
+        foreach (var c in span)
         {
             if (!char.IsDigit(c))
                 return false;
@@ -142,7 +141,7 @@ public static partial class StringExtensions
             return false;
 
         // 检查每个字符是否都是数字
-        for (int i = 0; i < s.Length; i++)
+        for (var i = 0; i < s.Length; i++)
         {
             if (!char.IsDigit(s[i]))
                 return false;
@@ -175,7 +174,7 @@ public static partial class StringExtensions
         if (span.IsEmpty)
             return false;
 
-        int startIndex = 0;
+        var startIndex = 0;
 
         // 检查可选的负号
         if (span[0] == '-')
@@ -186,7 +185,7 @@ public static partial class StringExtensions
         }
 
         // 检查剩余字符是否都是数字
-        for (int i = startIndex; i < span.Length; i++)
+        for (var i = startIndex; i < span.Length; i++)
         {
             if (!char.IsDigit(span[i]))
                 return false;
@@ -197,7 +196,7 @@ public static partial class StringExtensions
         if (s.Length == 0)
             return false;
 
-        int startIndex = 0;
+        var startIndex = 0;
 
         // 检查可选的负号
         if (s[0] == '-')
@@ -208,7 +207,7 @@ public static partial class StringExtensions
         }
 
         // 检查剩余字符是否都是数字
-        for (int i = startIndex; i < s.Length; i++)
+        for (var i = startIndex; i < s.Length; i++)
         {
             if (!char.IsDigit(s[i]))
                 return false;
@@ -246,11 +245,11 @@ public static partial class StringExtensions
         if (span.IsEmpty)
             return false;
 
-        int integerDigits = 0;  // 小数点前的位数
-        int decimalPlaces = 0;  // 小数点后的位数
-        bool foundDecimal = false;
+        var integerDigits = 0;  // 小数点前的位数
+        var decimalPlaces = 0;  // 小数点后的位数
+        var foundDecimal = false;
 
-        foreach (char c in span)
+        foreach (var c in span)
         {
             if (char.IsDigit(c))
             {
@@ -283,13 +282,13 @@ public static partial class StringExtensions
         if (s.Length == 0)
             return false;
 
-        int integerDigits = 0;  // 小数点前的位数
-        int decimalPlaces = 0;  // 小数点后的位数
-        bool foundDecimal = false;
+        var integerDigits = 0;  // 小数点前的位数
+        var decimalPlaces = 0;  // 小数点后的位数
+        var foundDecimal = false;
 
-        for (int i = 0; i < s.Length; i++)
+        for (var i = 0; i < s.Length; i++)
         {
-            char c = s[i];
+            var c = s[i];
             if (char.IsDigit(c))
             {
                 if (foundDecimal)
@@ -344,7 +343,7 @@ public static partial class StringExtensions
         if (span.IsEmpty)
             return false;
 
-        int pos = 0;
+        var pos = 0;
 
         // 检查可选的符号
         if (span[pos] is '+' or '-')
@@ -395,7 +394,7 @@ public static partial class StringExtensions
         if (input.Length == 0)
             return false;
 
-        int pos = 0;
+        var pos = 0;
 
         // 检查可选的符号
         if (input[pos] == '+' || input[pos] == '-')

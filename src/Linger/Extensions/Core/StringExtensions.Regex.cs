@@ -38,7 +38,7 @@ public static partial class StringExtensions
             return false;
 
         // 检查每个字符是否都是英文字母
-        foreach (char c in span)
+        foreach (var c in span)
         {
             if (!char.IsAsciiLetter(c))
                 return false;
@@ -218,9 +218,9 @@ public static partial class StringExtensions
             return false;
 
         // 检查每个字符是否都是英文字母(A-Z, a-z)
-        for (int i = 0; i < input.Length; i++)
+        for (var i = 0; i < input.Length; i++)
         {
-            char c = input[i];
+            var c = input[i];
             if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')))
                 return false;
         }

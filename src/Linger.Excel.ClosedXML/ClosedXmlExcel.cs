@@ -142,8 +142,8 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
 
         foreach (var cell in headerRow.CellsUsed())
         {
-            int colIndex = cell.Address.ColumnNumber;
-            string columnName = cell.Value.ToString() ?? $"Column{colIndex}";
+            var colIndex = cell.Address.ColumnNumber;
+            var columnName = cell.Value.ToString() ?? $"Column{colIndex}";
             // 存储0-based索引作为键，确保在GetCellValue中能正确+1
             result[colIndex - 1] = columnName;
         }
@@ -386,7 +386,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </summary>
     protected override void CreateHeaderRowCore(IXLWorksheet worksheet, string[] columnNames, int startRowIndex)
     {
-        for (int i = 0; i < columnNames.Length; i++)
+        for (var i = 0; i < columnNames.Length; i++)
         {
             var cell = worksheet.Cell(startRowIndex + 1, i + 1);
             cell.Value = columnNames[i];
@@ -409,7 +409,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </remarks>
     protected override void ProcessDataRows(IXLWorksheet worksheet, DataTable dataTable, int startRowIndex)
     {
-        bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+        var useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
 
         if (useParallelProcessing)
         {
@@ -417,7 +417,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
 
             // 使用批处理提高性能
-            int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
+            var batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
 
             // 预先计算所有值以避免在多线程中重复计算
             var cellValues = new object?[dataTable.Rows.Count, dataTable.Columns.Count];
@@ -431,11 +431,11 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             });
 
             // 批量写入
-            for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
+            for (var batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
             {
-                int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
+                var batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
 
-                for (int i = batchStart; i < batchEnd; i++)
+                for (var i = batchStart; i < batchEnd; i++)
                 {
                     for (var j = 0; j < dataTable.Columns.Count; j++)
                     {
@@ -485,7 +485,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         columns = columns.OrderBy(c => c.Index).ToList();
 
         // 判断是否需要并行处理
-        bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+        var useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
 
         if (useParallelProcessing)
         {
@@ -493,14 +493,14 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
 
             // 使用批处理提高性能
-            int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
+            var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
 
             // 预计算所有值
             var cellValues = new object?[list.Count, columns.Count];
 
             Parallel.For(0, list.Count, i =>
             {
-                for (int j = 0; j < columns.Count; j++)
+                for (var j = 0; j < columns.Count; j++)
                 {
                     // 查找对应的属性
                     var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
@@ -509,12 +509,12 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             });
 
             // 批量写入
-            for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
+            for (var batchStart = 0; batchStart < list.Count; batchStart += batchSize)
             {
-                int batchEnd = Math.Min(batchStart + batchSize, list.Count);
-                for (int i = batchStart; i < batchEnd; i++)
+                var batchEnd = Math.Min(batchStart + batchSize, list.Count);
+                for (var i = batchStart; i < batchEnd; i++)
                 {
-                    for (int j = 0; j < columns.Count; j++)
+                    for (var j = 0; j < columns.Count; j++)
                     {
                         var cell = worksheet.Cell(startRowIndex + i + 2, j + 1);
                         WriteValueToCell(cell, cellValues[i, j]);
@@ -525,9 +525,9 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         else
         {
             // 顺序处理小数据集
-            for (int i = 0; i < list.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
-                for (int j = 0; j < columns.Count; j++)
+                for (var j = 0; j < columns.Count; j++)
                 {
                     var cell = worksheet.Cell(startRowIndex + i + 2, j + 1);
                     var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
@@ -549,7 +549,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             worksheet.Columns().AdjustToContents();
 
             // 对所有列设置最小宽度 - 修正注释
-            for (int i = 1; i <= columnCount; i++)
+            for (var i = 1; i <= columnCount; i++)
             {
                 var column = worksheet.Column(i);
                 if (column.Width < 12)

@@ -151,7 +151,7 @@ public static class ExcelValueConverter
             }
 
             // 其他类型尝试直接转换
-            return Convert.ChangeType(value, actualType);
+            return Convert.ChangeType(value, actualType, ExtensionMethodSetting.DefaultCulture);
         }
         catch
         {
@@ -164,8 +164,8 @@ public static class ExcelValueConverter
     /// </summary>
     public static string GetExcelColumnName(int columnIndex)
     {
-        string columnName = string.Empty;
-        int dividend = columnIndex;
+        var columnName = string.Empty;
+        var dividend = columnIndex;
 
         while (dividend > 0)
         {
@@ -186,9 +186,9 @@ public static class ExcelValueConverter
             return -1;
 
         columnName = columnName.ToUpperInvariant();
-        int index = 0;
+        var index = 0;
 
-        for (int i = 0; i < columnName.Length; i++)
+        for (var i = 0; i < columnName.Length; i++)
         {
             index *= 26;
             index += (columnName[i] - 'A' + 1);

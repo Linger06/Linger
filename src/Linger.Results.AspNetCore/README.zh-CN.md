@@ -171,7 +171,7 @@ public async Task<Result<UserDto>> GetUserByIdAsync(int id)
 }
 ```
 
-对于控制器中没有使用泛型的`Result`，失败时现在也只返回错误信息：
+对于控制器中没有使用泛型的`Result`，失败时现在也只返回错误信息，成功时返回空对象：
 
 ```csharp
 // 控制器
@@ -180,6 +180,9 @@ public ActionResult DeleteUser(int id)
     var result = _userService.DeleteUser(id);
     return result.ToActionResult();
 }
+
+// 如果删除成功，返回的JSON：
+{}
 
 // 如果删除失败，返回的JSON：
 {

@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-
 namespace Linger.Extensions.Core.Internal;
 
 /// <summary>

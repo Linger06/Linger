@@ -1,11 +1,10 @@
-﻿namespace Linger.HttpClient.Contracts.Models;
+namespace Linger.HttpClient.Contracts.Models;
 
 /// <summary>
-/// API调用结果
+/// API调用结果（无返回值场景）
 /// </summary>
-public class ApiResult<T>
+public class ApiResult
 {
-    public T Data { get; set; } = default!;
     public HttpStatusCode? StatusCode { get; set; }
     public IEnumerable<Error> Errors { get; set; } = [];
     public string? ErrorMsg { get; set; }
@@ -20,6 +19,15 @@ public class ApiResult<T>
     /// </summary>
     public bool IsUnauthorized => StatusCode == HttpStatusCode.Unauthorized;
 }
+
+/// <summary>
+/// API调用结果（带返回值场景）
+/// </summary>
+public class ApiResult<T> : ApiResult
+{
+    public T Data { get; set; } = default!;
+}
+
 public class Error(string code, string message)
 {
     public string Code { get; set; } = code;

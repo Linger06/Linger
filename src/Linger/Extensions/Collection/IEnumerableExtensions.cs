@@ -1,7 +1,6 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Linger.Extensions.Core;
 
@@ -139,7 +138,7 @@ public static class IEnumerableExtensions
         ArgumentNullException.ThrowIfNull(recordList);
 
         Type type = typeof(T);
-        List<ColumnInfo> columns = type.GetColumnsInfo();
+        var columns = type.GetColumnsInfo();
         DataTable dt = new DataTable()
             .AddColumns(columns, actionColumn)
             .AddRows(columns, recordList, actionRow);
@@ -461,5 +460,12 @@ public static class IEnumerableExtensions
             return [];
 
         return source.Skip((pageIndex - 1) * pageSize).Take(pageSize);
+    }
+
+    public static ICollection<T> ToCollection<T>(this IEnumerable<T>? source)
+    {
+        if (source is null)
+            return [];
+        return (ICollection<T>)source;
     }
 }

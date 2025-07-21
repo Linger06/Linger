@@ -1,4 +1,4 @@
-﻿namespace Linger.UnitTests.Extensions.Collection;
+namespace Linger.UnitTests.Extensions.Collection;
 
 public class ListExtensionsTests
 {
@@ -8,7 +8,7 @@ public class ListExtensionsTests
     {
         var list = new List<string> { "A", "B", "C", "D", "E" };
 
-        List<string>? result = list.Paging(2, 2);
+        var result = list.Paging(2, 2);
 
         Assert.Equal(new List<string> { "C", "D" }, result);
     }
@@ -18,7 +18,7 @@ public class ListExtensionsTests
     {
         var list = new List<string> { "A", "B", "C" };
 
-        List<string>? result = list.Paging(4, 2);
+        var result = list.Paging(4, 2);
 
         Assert.Empty(result);
     }
@@ -28,7 +28,7 @@ public class ListExtensionsTests
     {
         var list = new List<string> { "A", "B", "C", "D" };
 
-        List<string>? result = list.Paging(2, 3);
+        var result = list.Paging(2, 3);
 
         Assert.Equal(new List<string> { "D" }, result);
     }
@@ -38,7 +38,7 @@ public class ListExtensionsTests
     {
         var list = new List<string>();
 
-        List<string>? result = list.Paging(1, 2);
+        var result = list.Paging(1, 2);
 
         Assert.Empty(result);
     }
@@ -49,7 +49,7 @@ public class ListExtensionsTests
     {
         var list = new List<int> { 1, 2, 3, 4, 5 };
 
-        List<int> result = list.Paging(2, 2);
+        var result = list.Paging(2, 2);
 
         Assert.Equal(new List<int> { 3, 4 }, result);
     }
@@ -59,7 +59,7 @@ public class ListExtensionsTests
     {
         var list = new List<int> { 1, 2, 3 };
 
-        List<int> result = list.Paging(4, 2);
+        var result = list.Paging(4, 2);
 
         Assert.Empty(result);
     }
@@ -69,7 +69,7 @@ public class ListExtensionsTests
     {
         var list = new List<int> { 1, 2, 3, 4 };
 
-        List<int> result = list.Paging(2, 3);
+        var result = list.Paging(2, 3);
 
         Assert.Equal(new List<int> { 4 }, result);
     }
@@ -79,7 +79,7 @@ public class ListExtensionsTests
     {
         var list = new List<int>();
 
-        List<int> result = list.Paging(1, 2);
+        var result = list.Paging(1, 2);
 
         Assert.Empty(result);
     }
@@ -89,7 +89,7 @@ public class ListExtensionsTests
     {
         List<int>? list = null;
 
-        List<int> result = list.Paging(1, 2);
+        var result = list.Paging(1, 2);
 
         Assert.Empty(result);
     }
@@ -105,7 +105,7 @@ public class ListExtensionsTests
             new SampleClass { Id = 4, Name = "Fourth" }
         };
 
-        List<SampleClass> result = list.Paging(2, 2);
+        var result = list.Paging(2, 2).ToList();
 
         Assert.Equal(2, result.Count);
         Assert.Equal(3, result[0].Id);

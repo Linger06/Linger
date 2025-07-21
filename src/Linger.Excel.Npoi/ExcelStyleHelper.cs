@@ -1,4 +1,4 @@
-﻿using Linger.Extensions.Core;
+using Linger.Extensions.Core;
 using NPOI.SS.UserModel;
 
 namespace Linger.Excel.Npoi;
@@ -47,12 +47,12 @@ public static class ExcelStyleHelper
             try
             {
                 // 尝试解析HTML颜色
-                string colorStr = fontColor.TrimStart('#');
+                var colorStr = fontColor.TrimStart('#');
                 if (colorStr.Length == 6)
                 {
-                    int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
-                    int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
-                    int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
+                    var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
+                    var g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
+                    var b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
 
                     // 获取最接近的颜色索引
                     font.Color = GetClosestColorIndex(r, g, b);
@@ -71,7 +71,7 @@ public static class ExcelStyleHelper
             try
             {
                 // 尝试解析HTML颜色
-                string colorStr = backgroundColor.TrimStart('#');
+                var colorStr = backgroundColor.TrimStart('#');
                 if (colorStr.Length == 6)
                 {
                     // 为NPOI设置背景色

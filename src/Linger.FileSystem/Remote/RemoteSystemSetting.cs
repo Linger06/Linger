@@ -39,7 +39,7 @@ public class RemoteSystemSetting
             if (!string.IsNullOrEmpty(value))
             {
                 _securePassword = new SecureString();
-                foreach (char c in value)
+                foreach (var c in value)
                 {
                     _securePassword.AppendChar(c);
                 }
@@ -156,13 +156,13 @@ public class RemoteSystemSetting
         if (_securePassword != null)
         {
             var newSecurePassword = new SecureString();
-            IntPtr bstr = System.Runtime.InteropServices.Marshal.SecureStringToBSTR(_securePassword);
+            var bstr = System.Runtime.InteropServices.Marshal.SecureStringToBSTR(_securePassword);
             try
             {
-                string password = System.Runtime.InteropServices.Marshal.PtrToStringBSTR(bstr);
+                var password = System.Runtime.InteropServices.Marshal.PtrToStringBSTR(bstr);
                 if (password != null)
                 {
-                    foreach (char c in password)
+                    foreach (var c in password)
                     {
                         newSecurePassword.AppendChar(c);
                     }
@@ -188,8 +188,8 @@ public class RemoteSystemSetting
             return false;
 
         // 检查认证方式：必须有密码或者证书路径
-        bool hasPassword = !string.IsNullOrEmpty(Password) || _securePassword is { Length: > 0 };
-        bool hasCertificate = !string.IsNullOrEmpty(CertificatePath);
+        var hasPassword = !string.IsNullOrEmpty(Password) || _securePassword is { Length: > 0 };
+        var hasCertificate = !string.IsNullOrEmpty(CertificatePath);
 
         return hasPassword || hasCertificate;
     }

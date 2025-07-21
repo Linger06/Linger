@@ -119,10 +119,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
 
     protected override int EstimateColumnCount(ISheet worksheet)
     {
-        int maxCellCount = 0;
+        var maxCellCount = 0;
 
         // 扫描所有行找到最大列数
-        for (int i = worksheet.FirstRowNum; i <= worksheet.LastRowNum; i++)
+        for (var i = worksheet.FirstRowNum; i <= worksheet.LastRowNum; i++)
         {
             var row = worksheet.GetRow(i);
             if (row != null && row.LastCellNum > maxCellCount)
@@ -160,7 +160,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         for (int i = headerRow.FirstCellNum; i < headerRow.LastCellNum; i++)
         {
             var cell = headerRow.GetCell(i);
-            string columnName = cell?.ToString() ?? $"Column{i + 1}";
+            var columnName = cell?.ToString() ?? $"Column{i + 1}";
             result[i] = columnName;
         }
 
@@ -248,7 +248,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             bool boolValue;
             if (value is bool b)
                 boolValue = b;
-            else if (bool.TryParse(value.ToString(), out bool parsedBool))
+            else if (bool.TryParse(value.ToString(), out var parsedBool))
                 boolValue = parsedBool;
             else
                 boolValue = false;
@@ -267,7 +267,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 整数类型 - 使用统一的整数格式
             try
             {
-                long longValue = value.ToLong();// Convert.ToInt64(value);
+                var longValue = value.ToLong();// Convert.ToInt64(value);
                 cell.SetCellValue(longValue);
 
                 // 应用整数样式
@@ -292,7 +292,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 浮点类型 - 使用统一的小数格式
             try
             {
-                double doubleValue = value.ToDouble();// Convert.ToDouble(value);
+                var doubleValue = value.ToDouble();// Convert.ToDouble(value);
                 cell.SetCellValue(doubleValue);
 
                 // 应用浮点数样式
@@ -393,9 +393,9 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     var colorStr = Options.StyleOptions.TitleStyle.FontColor.TrimStart('#'); // 更新为新路径
                     if (colorStr.Length == 6) // 标准RGB格式
                     {
-                        int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
-                        int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
-                        int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
+                        var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
+                        var g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
+                        var b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
 
                         // 将RGB值转换为NPOI的最接近的索引颜色
                         titleFont.Color = ExcelStyleHelper.GetClosestColorIndex(r, g, b);
@@ -458,9 +458,9 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     var colorStr = Options.StyleOptions.HeaderStyle.FontColor.TrimStart('#'); // 更新为新路径
                     if (colorStr.Length == 6) // 标准RGB格式
                     {
-                        int r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
-                        int g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
-                        int b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
+                        var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
+                        var g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
+                        var b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
 
                         // 将RGB值转换为NPOI的最接近的索引颜色
                         headerFont.Color = ExcelStyleHelper.GetClosestColorIndex(r, g, b);
@@ -595,7 +595,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     {
         var headerRow = worksheet.CreateRow(startRowIndex);
 
-        for (int i = 0; i < columnNames.Length; i++)
+        for (var i = 0; i < columnNames.Length; i++)
         {
             var cell = headerRow.CreateCell(i);
             cell.SetCellValue(columnNames[i]);
@@ -618,7 +618,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     {
         var sheet = worksheet;
         var workbook = sheet.Workbook;
-        bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
+        var useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
 
         // 预创建样式字典，提高性能
         var styleCache = new Dictionary<Type, ICellStyle>();
@@ -636,7 +636,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             var columnTypes = new Type[dataTable.Columns.Count];
 
             // 获取列类型
-            for (int i = 0; i < dataTable.Columns.Count; i++)
+            for (var i = 0; i < dataTable.Columns.Count; i++)
             {
                 columnTypes[i] = dataTable.Columns[i].DataType;
             }
@@ -644,21 +644,21 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 并行填充数据
             Parallel.For(0, dataTable.Rows.Count, i =>
             {
-                for (int j = 0; j < dataTable.Columns.Count; j++)
+                for (var j = 0; j < dataTable.Columns.Count; j++)
                 {
                     cellValues[i, j] = dataTable.Rows[i][j];
                 }
             });
 
             // 批量写入
-            int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
-            for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
+            var batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
+            for (var batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
             {
-                int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
-                for (int i = batchStart; i < batchEnd; i++)
+                var batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
+                for (var i = batchStart; i < batchEnd; i++)
                 {
                     var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                    for (int j = 0; j < dataTable.Columns.Count; j++)
+                    for (var j = 0; j < dataTable.Columns.Count; j++)
                     {
                         var value = cellValues[i, j];
                         WriteValueToCell(workbook, dataRow, j, value, columnTypes[j], styleCache);
@@ -669,10 +669,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         else
         {
             // 顺序处理小数据集
-            for (int i = 0; i < dataTable.Rows.Count; i++)
+            for (var i = 0; i < dataTable.Rows.Count; i++)
             {
                 var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                for (int j = 0; j < dataTable.Columns.Count; j++)
+                for (var j = 0; j < dataTable.Columns.Count; j++)
                 {
                     var value = dataTable.Rows[i][j];
                     WriteValueToCell(workbook, dataRow, j, value, dataTable.Columns[j].DataType, styleCache);
@@ -689,7 +689,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         // 设置所有单元格自动适应宽度
         if (Options.AutoFitColumns)
         {
-            for (int i = 0; i < columnCount; i++)
+            for (var i = 0; i < columnCount; i++)
             {
                 worksheet.AutoSizeColumn(i);
                 // 确保最小列宽
@@ -738,7 +738,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     {
         var sheet = worksheet;
         var workbook = sheet.Workbook;
-        bool useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+        var useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
 
         // 预创建样式字典，提高性能
         var styleCache = new Dictionary<Type, ICellStyle>();
@@ -763,14 +763,14 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
 
             // 使用批处理提高性能
-            int batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
+            var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
 
             // 预计算所有值
             var cellValues = new object?[list.Count, columns.Count];
 
             Parallel.For(0, list.Count, rowIndex =>
             {
-                for (int colIndex = 0; colIndex < columns.Count; colIndex++)
+                for (var colIndex = 0; colIndex < columns.Count; colIndex++)
                 {
                     var property = properties.FirstOrDefault(p => p.Name == columns[colIndex].Name);
                     cellValues[rowIndex, colIndex] = property?.GetValue(list[rowIndex]);
@@ -778,13 +778,13 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             });
 
             // 批量写入
-            for (int batchStart = 0; batchStart < list.Count; batchStart += batchSize)
+            for (var batchStart = 0; batchStart < list.Count; batchStart += batchSize)
             {
-                int batchEnd = Math.Min(batchStart + batchSize, list.Count);
-                for (int i = batchStart; i < batchEnd; i++)
+                var batchEnd = Math.Min(batchStart + batchSize, list.Count);
+                for (var i = batchStart; i < batchEnd; i++)
                 {
                     var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                    for (int j = 0; j < columns.Count; j++)
+                    for (var j = 0; j < columns.Count; j++)
                     {
                         WriteValueToCell(workbook, dataRow, j, cellValues[i, j],
                             properties.FirstOrDefault(p => p.Name == columns[j].Name)?.PropertyType ?? typeof(string),
@@ -796,10 +796,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         else
         {
             // 顺序处理小数据集
-            for (int i = 0; i < list.Count; i++)
+            for (var i = 0; i < list.Count; i++)
             {
                 var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                for (int j = 0; j < columns.Count; j++)
+                for (var j = 0; j < columns.Count; j++)
                 {
                     var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
                     WriteValueToCell(workbook, dataRow, j, property?.GetValue(list[i]),

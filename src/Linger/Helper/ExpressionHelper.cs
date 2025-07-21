@@ -472,7 +472,7 @@ public static class ExpressionHelper
         {
             var columnName = orderColumn[i];
             var dirKey = orderDir[i].ToLower();
-            string[] props = columnName.Split('.');
+            var props = columnName.Split('.');
             Type type = typeof(T);
             ParameterExpression arg = Expression.Parameter(type, "uf");
             Expression expr = arg;
@@ -623,12 +623,7 @@ public static class ExpressionHelper
     {
         MemberExpression propertyParam = Expression.Property(parameter, condition.Field);
 
-        var propertyInfo = propertyParam.Member as PropertyInfo;
-        if (propertyInfo == null)
-        {
-            throw new MissingMemberException(nameof(Condition), condition.Field);
-        }
-
+        var propertyInfo = propertyParam.Member as PropertyInfo ?? throw new MissingMemberException(nameof(Condition), condition.Field);
         Type realPropertyType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
         if (propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
         {

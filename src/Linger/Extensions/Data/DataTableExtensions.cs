@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using System.Text.Json;
 using Linger.Extensions.Core;
 using Linger.JsonConverter;
 
@@ -401,12 +400,12 @@ public static class DataTableExtensions
         var distinctCaptionValues = new HashSet<string>();
         foreach (DataRow row in source.Rows)
         {
-            string captionValue = FormatCaptionValue(row, captionColumns);
+            var captionValue = FormatCaptionValue(row, captionColumns);
             distinctCaptionValues.Add(captionValue);
         }
 
         // 添加列标题作为新列
-        foreach (string captionValue in distinctCaptionValues)
+        foreach (var captionValue in distinctCaptionValues)
         {
             if (!resultTable.Columns.Contains(captionValue) &&
                 !string.IsNullOrEmpty(captionValue))
@@ -423,7 +422,7 @@ public static class DataTableExtensions
         foreach (DataRow sourceRow in source.Rows)
         {
             // 使用分隔符生成分组键，避免歧义
-            string groupKey = GenerateGroupKey(sourceRow, groupColumns);
+            var groupKey = GenerateGroupKey(sourceRow, groupColumns);
 
             // 获取或创建分组对应的结果行
             if (!groupedRows.TryGetValue(groupKey, out DataRow? resultRow))
@@ -441,7 +440,7 @@ public static class DataTableExtensions
             }
 
             // 获取列标题和值
-            string captionValue = FormatCaptionValue(sourceRow, captionColumns);
+            var captionValue = FormatCaptionValue(sourceRow, captionColumns);
 
             if (resultTable.Columns.Contains(captionValue))
             {
@@ -492,9 +491,9 @@ public static class DataTableExtensions
         var keyParts = new List<string>();
         foreach (DataColumn column in groupColumns)
         {
-            object value = row[column];
+            var value = row[column];
             // 确保null和DBNull值也能生成唯一键
-            string stringValue = value == DBNull.Value ? "<NULL>" : value?.ToString() ?? "<NULL>";
+            var stringValue = value == DBNull.Value ? "<NULL>" : value?.ToString() ?? "<NULL>";
             keyParts.Add(stringValue);
         }
 
@@ -508,9 +507,9 @@ public static class DataTableExtensions
         var captionParts = new List<string>();
         foreach (DataColumn column in captionColumns)
         {
-            object value = row[column];
+            var value = row[column];
             // 确保null和DBNull值也能生成有效的列名
-            string stringValue = value == DBNull.Value ? "NULL" : value?.ToString() ?? "NULL";
+            var stringValue = value == DBNull.Value ? "NULL" : value?.ToString() ?? "NULL";
 
             // 替换可能导致列名无效的字符
             stringValue = SanitizeColumnName(stringValue);
@@ -613,7 +612,7 @@ public static class DataTableExtensions
 
         // Build column to property mappings
         var columnMappings = new Dictionary<int, PropertyInfo>();
-        for (int i = 0; i < dataTable.Columns.Count; i++)
+        for (var i = 0; i < dataTable.Columns.Count; i++)
         {
             if (propertyMap.TryGetValue(dataTable.Columns[i].ColumnName, out var property))
             {
@@ -628,7 +627,7 @@ public static class DataTableExtensions
         }
 
         // 判断是否使用并行处理
-        bool useParallel = dataTable.Rows.Count > parallelProcessingThreshold;
+        var useParallel = dataTable.Rows.Count > parallelProcessingThreshold;
 
         if (useParallel)
         {
@@ -643,7 +642,7 @@ public static class DataTableExtensions
 
                 foreach (var mapping in columnMappings)
                 {
-                    int colIndex = mapping.Key;
+                    var colIndex = mapping.Key;
                     PropertyInfo property = mapping.Value;
                     var value = row[colIndex];
 
@@ -666,7 +665,7 @@ public static class DataTableExtensions
 
                 foreach (var mapping in columnMappings)
                 {
-                    int colIndex = mapping.Key;
+                    var colIndex = mapping.Key;
                     PropertyInfo property = mapping.Value;
                     var value = row[colIndex];
 

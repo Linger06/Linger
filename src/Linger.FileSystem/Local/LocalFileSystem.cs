@@ -149,10 +149,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
         // 写入文件
         memoryStream.Position = 0;
+
+        var fileStream = File.Create(relativeFilePath);
+
 #if NET8_0_OR_GREATER
-        await using (var fileStream = File.Create(relativeFilePath))
+        await using (fileStream.ConfigureAwait(false))
 #else
-        using (var fileStream = File.Create(relativeFilePath))
+        using (fileStream)
 #endif
         {
             await memoryStream.CopyToAsync(fileStream).ConfigureAwait(false);
@@ -194,10 +197,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             return;
 
         // 验证文件MD5
+
+        var stream = fileInfo.OpenRead();
+
 #if NET8_0_OR_GREATER
-        await using (var stream = fileInfo.OpenRead())
+        await using (stream.ConfigureAwait(false))
 #else
-        using (var stream = fileInfo.OpenRead())
+        using (stream)
 #endif
         {
             var uploadedFileHash = stream.ComputeHashMd5();
@@ -382,17 +388,19 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                     overwrite,
                     useSequencedName).ConfigureAwait(false);
 
-#if NET8_0_OR_GREATER
-                await
-#endif
-                using var sourceStream = File.OpenRead(sourceFilePath);
-#if NET8_0_OR_GREATER
-                await
-#endif
-                using var destStream = File.Create(destFilePath);
-                //using var destStream = new FileStream(localDestinationPath, overwrite ? FileMode.Create : FileMode.CreateNew);
+                var sourceStream = File.OpenRead(sourceFilePath);
+                var destStream = File.Create(destFilePath);
 
-                await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize).ConfigureAwait(false);
+#if NET8_0_OR_GREATER
+                await using (sourceStream.ConfigureAwait(false))
+                await using (destStream.ConfigureAwait(false))
+#else
+                using (sourceStream)
+                using (destStream)
+#endif
+                {
+                    await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize).ConfigureAwait(false);
+                }
                 return destFilePath;
             },
             "文件下载",
@@ -420,13 +428,17 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             throw new FileNotFoundException("Source file not found", sourceFilePath);
         }
 
-#if NET8_0_OR_GREATER
-        await
-#endif
-        using var sourceStream = File.OpenRead(sourceFilePath);
+        var sourceStream = File.OpenRead(sourceFilePath);
 
-        sourceStream.Position = 0;
-        await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize).ConfigureAwait(false);
+#if NET8_0_OR_GREATER
+        await using (sourceStream.ConfigureAwait(false))
+#else
+        using (sourceStream)
+#endif
+        {
+            sourceStream.Position = 0;
+            await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize).ConfigureAwait(false);
+        }
     }
 
     /// <summary>

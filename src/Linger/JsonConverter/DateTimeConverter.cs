@@ -1,6 +1,5 @@
 #if !NETFRAMEWORK || NET462_OR_GREATER
 
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Linger.JsonConverter;

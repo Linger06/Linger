@@ -24,14 +24,14 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null)
     {
         PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
-        UserPrincipal userPrincipal = UserPrincipal.FindByIdentity(principalContext, userName);
+        var userPrincipal = UserPrincipal.FindByIdentity(principalContext, userName);
         return await Task.FromResult(userPrincipal.ToAdUser()).ConfigureAwait(false);
     }
 
     public DirectoryEntry GetEntryByUsername(string username)
     {
-        PrincipalContext ctx = new PrincipalContext(ContextType.Domain, ldapConfig.Url);
-        UserPrincipal user = UserPrincipal.FindByIdentity(ctx, username);
+        var ctx = new PrincipalContext(ContextType.Domain, ldapConfig.Url);
+        var user = UserPrincipal.FindByIdentity(ctx, username);
         var entry = user.GetUnderlyingObject() as DirectoryEntry;
         entry.EnsureIsNotNull();
         return entry;
@@ -53,7 +53,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
 
         if (ldapCredentials == null)
         {
-            PrincipalContext principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, ldapConfig.SearchBase, ContextOptions.SimpleBind);
+            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, ldapConfig.SearchBase, ContextOptions.SimpleBind);
             return principalContext;
         }
         else
@@ -61,7 +61,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             var domain = ldapConfig.Domain;
             var userId = ldapCredentials.BindDn;
             var password = ldapCredentials.BindCredentials;
-            PrincipalContext principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, ldapConfig.SearchBase, ContextOptions.SimpleBind,
+            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, ldapConfig.SearchBase, ContextOptions.SimpleBind,
             $@"{domain}\{userId}", password);
             return principalContext;
         }

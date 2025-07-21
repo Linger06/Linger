@@ -1,4 +1,4 @@
-﻿using Linger.Extensions.Core;
+using Linger.Extensions.Core;
 
 namespace Linger.Extensions.Collection;
 
@@ -22,9 +22,9 @@ public static class ListExtensions
     /// // Output: [3, 4]
     /// </code>
     /// </example>
-    public static List<T> Paging<T>(this List<T>? list, int pageIndex, int pageSize)
+    public static IEnumerable<T> Paging<T>(this List<T>? list, int pageIndex, int pageSize)
     {
-        return ((IEnumerable<T>?)list).Paging(pageIndex, pageSize).ToList();
+        return ((IEnumerable<T>?)list).Paging(pageIndex, pageSize);
     }
 
     /// <summary>

@@ -63,12 +63,7 @@ namespace Linger.Results
         public static Result Failure(string message) => new(ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
         public static Result Failure(IEnumerable<Error> errors) => new(ResultStatus.Error) { Errors = errors };
 
-        public static Result<TValue> Failure<TValue>(Error error) => new(default, ResultStatus.Error) { Errors = [error] };
-        public static Result<TValue> Failure<TValue>(string message) => new(default, ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
-        public static Result<TValue> Failure<TValue>(IEnumerable<Error> errors) => new(default, ResultStatus.Error) { Errors = errors };
-
         public static Result Create(bool condition) => condition ? Success() : Failure(Error.ConditionNotMet);
-        public static Result<TValue> Create<TValue>(TValue? value) => value is not null ? Success(value) : Failure<TValue>(Error.NullValue);
 
         public static Result NotFound() => new(ResultStatus.NotFound) { Errors = [Error.NotFound] };
         public static Result NotFound(string errorMessage) => new(ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
@@ -80,27 +75,60 @@ namespace Linger.Results
     /// 表示包含值的操作结果
     /// </summary>
     /// <typeparam name="TValue">结果包含的值的类型</typeparam>
-    public class Result<TValue> : Result
+    public class Result<TValue>
     {
         private readonly TValue? _value;
 
-        protected internal Result(TValue? value, ResultStatus status) : base(status) => _value = value;
+        protected internal Result(TValue? value, ResultStatus status)
+        {
+            _value = value;
+            Status = status;
+        }
+
+        /// <summary>
+        /// 内部构造函数，用于从Result转换
+        /// </summary>
+        internal Result(TValue? value, ResultStatus status, IEnumerable<Error> errors)
+        {
+            _value = value;
+            Status = status;
+            Errors = errors;
+        }
+
+        public ResultStatus Status { get; protected set; } = ResultStatus.Ok;
+
+        public bool IsSuccess => Status is ResultStatus.Ok;
+
+        public bool IsFailure => !IsSuccess;
+
+        public IEnumerable<Error> Errors { get; protected set; } = [];
 
         public TValue Value => IsSuccess
             ? _value!
             : throw new InvalidOperationException("The value of a failure result can not be accessed.");
 
-        public static implicit operator Result<TValue>(TValue? value) => Create(value);
+        /// <summary>
+        /// 隐式转换：从非泛型Result转换为Result&lt;TValue&gt;
+        /// 这是关键！现在可以直接写 return Result.Failure(error);
+        /// </summary>
+        public static implicit operator Result<TValue>(Result result)
+        {
+            return new Result<TValue>(default, result.Status, result.Errors);
+        }
 
-        public static new Result<TValue> Failure() => new(default, ResultStatus.Error) { Errors = [Error.Default] };
-        public static new Result<TValue> Failure(Error error) => new(default, ResultStatus.Error) { Errors = [error] };
-        public static new Result<TValue> Failure(string message) => new(default, ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
-        public static new Result<TValue> Failure(IEnumerable<Error> errors) => new(default, ResultStatus.Error) { Errors = errors };
+        public static Result<TValue> Success(TValue value) => new(value, ResultStatus.Ok);
 
-        public static new Result<TValue> NotFound() => new(default, ResultStatus.NotFound) { Errors = [Error.NotFound] };
-        public static new Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
-        public static new Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound) { Errors = [error] };
-        public static new Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound) { Errors = errors };
+        public static Result<TValue> Failure() => new(default, ResultStatus.Error) { Errors = [Error.Default] };
+        public static Result<TValue> Failure(Error error) => new(default, ResultStatus.Error) { Errors = [error] };
+        public static Result<TValue> Failure(string message) => new(default, ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
+        public static Result<TValue> Failure(IEnumerable<Error> errors) => new(default, ResultStatus.Error) { Errors = errors };
+
+        public static Result<TValue> NotFound() => new(default, ResultStatus.NotFound) { Errors = [Error.NotFound] };
+        public static Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
+        public static Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound) { Errors = [error] };
+        public static Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound) { Errors = errors };
+
+        public static Result<TValue> Create(TValue? value) => value is not null ? Success(value) : Failure(Error.NullValue);
 
         public bool TryGetValue([System.Diagnostics.CodeAnalysis.MaybeNullWhen(false)] out TValue? value)
         {

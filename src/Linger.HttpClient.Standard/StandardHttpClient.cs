@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Core;
@@ -14,7 +15,7 @@ namespace Linger.HttpClient.Standard;
 /// <summary>
 /// 基于标准 System.Net.Http.HttpClient 的 HTTP 客户端实现
 /// </summary>
-public class StandardHttpClient : HttpClientBase
+public class StandardHttpClient : HttpClientBase, IDisposable
 {
     private readonly System.Net.Http.HttpClient _httpClient;
     private readonly ILogger<StandardHttpClient> _logger;
@@ -145,7 +146,7 @@ public class StandardHttpClient : HttpClientBase
                 return rv;
             }
 
-            url = url.AppendQuery("culture=" + Thread.CurrentThread.CurrentUICulture.Name);
+            url = url.AppendQuery("culture=" + CultureInfo.CurrentUICulture.Name);
 
             _logger.LogInformation("[{RequestId}] Starting HTTP {Method} request to {Url}",
                 requestId, method, url);
@@ -191,7 +192,7 @@ public class StandardHttpClient : HttpClientBase
             // 处理查询参数
             if (queryParams != null)
             {
-                string queryString = HttpClientBase.BuildQueryString(queryParams);
+                var queryString = HttpClientBase.BuildQueryString(queryParams);
                 if (!string.IsNullOrEmpty(queryString))
                 {
                     url = url.Contains('?') ? $"{url}&{queryString}" : $"{url}?{queryString}";
@@ -261,6 +262,49 @@ public class StandardHttpClient : HttpClientBase
 
             rv.ErrorMsg = ex.ToString();
             return rv;
+        }
+    }
+
+    /// <summary>
+    /// Calls an API endpoint that does not return a value.
+    /// </summary>
+    /// <param name="url">The API endpoint URL.</param>
+    /// <param name="method">The HTTP method.</param>
+    /// <param name="content">The request content.</param>
+    /// <param name="queryParams">Query parameters.</param>
+    /// <param name="timeout">Timeout in seconds.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>API result without data.</returns>
+    public async Task<ApiResult> CallApi(string url, HttpMethodEnum method, HttpContent? content = null,
+        object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default)
+    {
+        var result = await CallApi<object>(url, method, content, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return new ApiResult
+        {
+            StatusCode = result.StatusCode,
+            ErrorMsg = result.ErrorMsg,
+            Errors = result.Errors
+        };
+    }
+
+    /// <summary>
+    /// 释放资源
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// 释放资源的具体实现
+    /// </summary>
+    /// <param name="disposing">是否为主动释放</param>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _httpClient?.Dispose();
         }
     }
 }

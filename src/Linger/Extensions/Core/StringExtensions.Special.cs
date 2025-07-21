@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Linger.JsonConverter;
 
 namespace Linger.Extensions.Core;
@@ -15,7 +14,7 @@ public static partial class StringExtensions
         if (value.IsNullOrEmpty() || !value.IsEmail())
             return string.Empty;
 
-        int atIndex = value.IndexOf('@');
+        var atIndex = value.IndexOf('@');
         if (atIndex <= 0)
             return string.Empty;
 

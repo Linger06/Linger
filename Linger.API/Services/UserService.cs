@@ -46,7 +46,7 @@ public class UserService
             return string.Empty;
 
         // 构建头像URL (在实际应用中，这应该是服务器上存储的路径)
-        string avatarUrl = $"/images/avatars/{userId}/{filename}";
+        var avatarUrl = $"/images/avatars/{userId}/{filename}";
         user.AvatarUrl = avatarUrl;
 
         return avatarUrl;
