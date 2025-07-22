@@ -141,9 +141,9 @@ public Result ValidatePassword(string password)
 
 ## Implicit Conversion and Elegant Syntax
 
-Linger.Results provides powerful implicit conversion features to make your code more concise and elegant:
+Linger.Results provides powerful implicit conversion features to make your code more concise and elegant. It supports three types of implicit conversions:
 
-### Implicit Conversion from Result to Result&lt;T&gt;
+### 1. Implicit Conversion from Result to Result&lt;T&gt;
 
 ```csharp
 public Result<User> CreateUser(CreateUserRequest request)
@@ -175,6 +175,72 @@ public Result<User> CreateUser(CreateUserRequest request)
 }
 ```
 
+### 2. Implicit Conversion from Result&lt;T&gt; to Result
+
+```csharp
+public Result ProcessUser(int userId)
+{
+    // Get user (returns Result<User>)
+    Result<User> userResult = GetUser(userId);
+    
+    // Automatically converts to Result, loses specific value but preserves status and error info
+    Result processResult = userResult; 
+    
+    if (processResult.IsSuccess)
+    {
+        // Execute processing logic
+        return Result.Success();
+    }
+    
+    // Error information is preserved
+    return processResult;
+}
+```
+
+### 3. Implicit Conversion from T to Result&lt;T&gt;
+
+```csharp
+public Result<User> GetDefaultUser()
+{
+    var defaultUser = new User { Name = "Default User", Email = "default@example.com" };
+    
+    // Object automatically converts to successful Result<User>
+    return defaultUser;
+}
+
+public Result<string> GetConfigValue(string key)
+{
+    string value = _configuration[key];
+    
+    // If value is null, automatically creates failure result
+    // If value is not null, automatically creates success result
+    return value; // Equivalent to Result<string>.Create(value)
+}
+```
+
+### Chained Conversion Examples
+
+```csharp
+// Demonstrates different return types that can implicitly convert to Result<User>
+private Result<User> GetUserById(int id)
+{
+    return id switch
+    {
+        1 => _testUser,                     // User → Result<User>
+        0 => Result.Success(),              // Result → Result<User>  
+        _ => Result.Failure("User not found") // Result → Result<User>
+    };
+}
+
+// Can freely convert between different result types
+private Result ProcessUserData(Result<User> userResult)
+{
+    // Result<User> → Result
+    return userResult; 
+}
+```
+```
+
 ### API Design Principles
 
 After optimization, Linger.Results follows these design principles:
@@ -183,6 +249,31 @@ After optimization, Linger.Results follows these design principles:
 2. **Implicit Conversion Support**: Supports natural conversion from `Result` to `Result<T>`, but avoids unexpected value conversions
 3. **Type Safety**: Ensures type correctness at compile time, avoiding runtime errors
 4. **Concise Syntax**: Reduces boilerplate code and improves development efficiency
+
+### Important Notes on Implicit Conversion
+
+⚠️ **Important Notes**:
+- `Result<T>` → `Result` conversion will **lose value information**, as non-generic Result doesn't store specific values
+- In `T` → `Result<T>` conversion, if value is `null`, it automatically creates a failure result
+- Accessing `.Value` property on a failed `Result<T>` will throw `InvalidOperationException`
+- Recommended to use `.ValueOrDefault` or `.TryGetValue()` for safe value access
+
+```csharp
+// Correct usage examples
+Result<User> userResult = GetUser(123);
+
+// ✅ Safe value access
+if (userResult.TryGetValue(out var user))
+{
+    Console.WriteLine($"User: {user.Name}");
+}
+
+// ✅ Using default value
+var safeUser = userResult.ValueOrDefault;
+
+// ❌ Dangerous: Will throw exception if result is failed
+var user = userResult.Value; // May throw InvalidOperationException
+```
 
 ### Error Handling
 

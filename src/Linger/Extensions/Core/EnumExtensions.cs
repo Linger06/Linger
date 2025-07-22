@@ -13,15 +13,15 @@ namespace Linger.Extensions.Core;
 public static class EnumExtensions
 {
     // Performance optimization: Cache enum descriptions to avoid repeated reflection calls
-    private static readonly ConcurrentDictionary<Enum, string> DescriptionCache = new();
+    private static readonly ConcurrentDictionary<Enum, string> s_descriptionCache = new();
 
 #if NET5_0_OR_GREATER
     // Cache for Display attributes (NET5+ only)
-    private static readonly ConcurrentDictionary<Enum, string> DisplayCache = new();
+    private static readonly ConcurrentDictionary<Enum, string> s_displayCache = new();
 #endif
 
     // Cache for enum member info to reduce reflection overhead
-    private static readonly ConcurrentDictionary<(Type, string), MemberInfo[]> MemberInfoCache = new();
+    private static readonly ConcurrentDictionary<(Type, string), MemberInfo[]> s_memberInfoCache = new();
 
     /// <summary>
     /// Determines if the enum value has the specified flag.
@@ -72,7 +72,7 @@ public static class EnumExtensions
             return string.Empty;
 
         // Use cached result if available
-        return DescriptionCache.GetOrAdd(item, GetDescriptionInternal);
+        return s_descriptionCache.GetOrAdd(item, GetDescriptionInternal);
     }
 
 #if NET5_0_OR_GREATER
@@ -98,7 +98,7 @@ public static class EnumExtensions
             return string.Empty;
 
         // Use cached result if available
-        return DisplayCache.GetOrAdd(item, GetDisplayInternal);
+        return s_displayCache.GetOrAdd(item, GetDisplayInternal);
     }
 #endif
 
@@ -165,7 +165,7 @@ public static class EnumExtensions
         var memberName = item.ToString();
 
         // Use cached member info if available
-        var memInfo = MemberInfoCache.GetOrAdd((type, memberName),
+        var memInfo = s_memberInfoCache.GetOrAdd((type, memberName),
             key => key.Item1.GetMember(key.Item2));
 
         if (memInfo.Length > 0)
@@ -186,7 +186,7 @@ public static class EnumExtensions
         var memberName = item.ToString();
 
         // Use cached member info if available
-        var memInfo = MemberInfoCache.GetOrAdd((type, memberName),
+        var memInfo = s_memberInfoCache.GetOrAdd((type, memberName),
             key => key.Item1.GetMember(key.Item2));
 
         if (memInfo.Length > 0)

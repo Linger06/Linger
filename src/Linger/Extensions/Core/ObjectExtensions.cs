@@ -8,7 +8,7 @@ namespace Linger.Extensions.Core;
 /// </summary>
 public static class ObjectExtensions
 {
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> PropertyCache = new();
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_propertyCache = new();
 
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is not null.
@@ -66,7 +66,7 @@ public static class ObjectExtensions
             return;
         }
 
-        var properties = PropertyCache.GetOrAdd(typeof(T), static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+        var properties = s_propertyCache.GetOrAdd(typeof(T), static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
 
         foreach (PropertyInfo property in properties)
         {
@@ -94,7 +94,7 @@ public static class ObjectExtensions
     public static PropertyInfo GetPropertyInfo(this object obj, string propertyName)
     {
         // Use cached properties to minimize reflection overhead
-        var properties = PropertyCache.GetOrAdd(obj.GetType(), type => type.GetProperties());
+        var properties = s_propertyCache.GetOrAdd(obj.GetType(), type => type.GetProperties());
         var matchedProperty = properties.FirstOrDefault(p => p.Name == propertyName);
         return matchedProperty ?? throw new InvalidOperationException($"Property '{propertyName}' does not exist on type '{obj.GetType().Name}'");
     }

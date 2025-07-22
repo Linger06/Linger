@@ -116,6 +116,13 @@ namespace Linger.Results
             return new Result<TValue>(default, result.Status, result.Errors);
         }
 
+        public static implicit operator Result(Result<TValue> result)
+        {
+            return result.Match(p => Result.Success(), Result.Failure);
+        }
+
+        public static implicit operator Result<TValue>(TValue? value) => Create(value);
+
         public static Result<TValue> Success(TValue value) => new(value, ResultStatus.Ok);
 
         public static Result<TValue> Failure() => new(default, ResultStatus.Error) { Errors = [Error.Default] };

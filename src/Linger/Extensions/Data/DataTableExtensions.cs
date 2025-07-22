@@ -11,10 +11,10 @@ namespace Linger.Extensions.Data;
 public static class DataTableExtensions
 {
     // Performance optimization: Cache property mappings to avoid repeated reflection calls
-    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> PropertyMappingCache = new();
+    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> s_propertyMappingCache = new();
 
     // Cache for type property arrays to reduce reflection overhead
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> TypePropertiesCache = new();
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
 
 #if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
     /// <summary>
@@ -688,7 +688,7 @@ public static class DataTableExtensions
          /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
     private static Dictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
     {
-        return PropertyMappingCache.GetOrAdd(typeof(T), type =>
+        return s_propertyMappingCache.GetOrAdd(typeof(T), type =>
         {
             var properties = GetCachedTypeProperties(type);
             // Only include properties with public setters
@@ -704,7 +704,7 @@ public static class DataTableExtensions
     /// <returns>An array of PropertyInfo objects.</returns>
     private static PropertyInfo[] GetCachedTypeProperties(Type type)
     {
-        return TypePropertiesCache.GetOrAdd(type, t => t.GetProperties());
+        return s_typePropertiesCache.GetOrAdd(type, t => t.GetProperties());
     }
 
     /// <summary>

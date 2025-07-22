@@ -13,17 +13,17 @@ public static class TypeExtension
     /// Thread-safe property cache for improved performance.
     /// </summary>
     /// <value>The property cache.</value>
-    private static readonly ConcurrentDictionary<string, PropertyInfo[]> PropertyCache = new();
+    private static readonly ConcurrentDictionary<string, PropertyInfo[]> s_propertyCache = new();
 
     /// <summary>
     /// Cache for type properties to minimize reflection overhead.
     /// </summary>
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> TypePropertyCache = new();
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertyCache = new();
 
     /// <summary>
     /// Cache for column information to minimize reflection overhead.
     /// </summary>
-    private static readonly ConcurrentDictionary<Type, IEnumerable<ColumnInfo>> ColumnInfoCache = new();
+    private static readonly ConcurrentDictionary<Type, IEnumerable<ColumnInfo>> s_columnInfoCache = new();
 
     /// <summary>
     /// Determines if the type is a generic type.
@@ -106,7 +106,7 @@ public static class TypeExtension
     {
         var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
 
-        var properties = PropertyCache.GetOrAdd(fullName, _ => self.GetProperties());
+        var properties = s_propertyCache.GetOrAdd(fullName, _ => self.GetProperties());
         return properties.FirstOrDefault(x => x.Name == name);
     }
 
@@ -184,7 +184,7 @@ public static class TypeExtension
     /// </example>
     public static IEnumerable<PropertyInfo> Props(this Type type)
     {
-        return TypePropertyCache.GetOrAdd(type, t => t.GetProperties());
+        return s_typePropertyCache.GetOrAdd(type, t => t.GetProperties());
     }
 
     /// <summary>
@@ -417,7 +417,7 @@ public static class TypeExtension
         ArgumentNullException.ThrowIfNull(name);
 
         // Use cached properties for better performance
-        var properties = TypePropertyCache.GetOrAdd(objType, t => t.GetProperties());
+        var properties = s_typePropertyCache.GetOrAdd(objType, t => t.GetProperties());
         PropertyInfo? matchedProperty = properties.FirstOrDefault(p => p.Name == name);
         return matchedProperty ?? throw new InvalidOperationException($"Property '{name}' not found on type '{objType.FullName}'.");
     }
@@ -437,13 +437,13 @@ public static class TypeExtension
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        return ColumnInfoCache.GetOrAdd(type, t =>
+        return s_columnInfoCache.GetOrAdd(type, t =>
         {
             var columns = new List<ColumnInfo>();
             var counter = 0;
 
             // 使用缓存的属性信息以提高性能
-            var properties = TypePropertyCache.GetOrAdd(t, pt => pt.GetProperties());
+            var properties = s_typePropertyCache.GetOrAdd(t, pt => pt.GetProperties());
 
             foreach (var propertyInfo in properties)
             {

@@ -12,6 +12,7 @@ public static partial class StringExtensions
     /// <param name="str">The input string.</param>
     /// <param name="value">The character to remove.</param>
     /// <returns>The string without the specified prefix and suffix.</returns>
+    [return: NotNullIfNotNull(nameof(str))]
     public static string? RemovePrefixAndSuffix(this string? str, char value)
     {
         return str.RemovePrefixAndSuffix(value.ToString());
@@ -23,6 +24,7 @@ public static partial class StringExtensions
     /// <param name="str">The input string.</param>
     /// <param name="value">The string to remove.</param>
     /// <returns>The string without the specified prefix and suffix.</returns>    
+    [return: NotNullIfNotNull(nameof(str))]
     public static string? RemovePrefixAndSuffix(this string? str, string value)
     {
         if (str is null)

@@ -268,7 +268,7 @@ public abstract class HttpClientBase : IHttpClient
         try
         {
             var responseTxt = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
-            
+
             // 如果响应内容为空，返回通用错误消息
             if (string.IsNullOrWhiteSpace(responseTxt))
             {

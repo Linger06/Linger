@@ -1,7 +1,7 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using System.Globalization;
 using Linger.AspNetCore.Jwt.Contracts;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -14,10 +14,10 @@ namespace Linger.AspNetCore.Jwt;
 public class JwtService : IJwtService
 {
     protected readonly JwtOption JwtOptions;
-    protected readonly ILogger? Logger;
+    protected readonly ILogger<JwtService>? Logger;
     protected readonly TokenValidationParameters ValidationParameters;
 
-    public JwtService(JwtOption jwtOptions, ILogger? logger = null)
+    public JwtService(JwtOption jwtOptions, ILogger<JwtService>? logger = null)
     {
         JwtOptions = jwtOptions;
         Logger = logger;
@@ -93,7 +93,7 @@ public class JwtService : IJwtService
             ValidationParameters.ValidIssuer,
             ValidationParameters.ValidAudience,
             claims,
-            expires: DateTimeOffset.UtcNow.AddMinutes(JwtOptions.Expires).DateTime,
+            expires: DateTime.Now.AddMinutes(JwtOptions.Expires),
             signingCredentials: signingCredentials
         );
         return tokenOptions;

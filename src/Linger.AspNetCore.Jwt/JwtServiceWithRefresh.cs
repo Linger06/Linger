@@ -9,7 +9,7 @@ namespace Linger.AspNetCore.Jwt;
 /// <summary>
 /// 支持刷新令牌功能的JWT服务实现
 /// </summary>
-public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger? logger = null) : JwtService(jwtOptions, logger), IRefreshableJwtService
+public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtServiceWithRefresh>? logger = null) : JwtService(jwtOptions, logger), IRefreshableJwtService
 {
     public override async Task<Token> CreateTokenAsync(string userId)
     {

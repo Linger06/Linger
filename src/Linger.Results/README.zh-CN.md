@@ -141,9 +141,9 @@ public Result ValidatePassword(string password)
 
 ## 隐式转换和优雅语法
 
-Linger.Results 提供了强大的隐式转换功能，让您的代码更加简洁优雅：
+Linger.Results 提供了强大的隐式转换功能，让您的代码更加简洁优雅。支持以下三种隐式转换：
 
-### 从 Result 到 Result&lt;T&gt; 的隐式转换
+### 1. 从 Result 到 Result&lt;T&gt; 的隐式转换
 
 ```csharp
 public Result<User> CreateUser(CreateUserRequest request)
@@ -175,14 +175,95 @@ public Result<User> CreateUser(CreateUserRequest request)
 }
 ```
 
-### API 设计原则
+### 2. 从 Result&lt;T&gt; 到 Result 的隐式转换
 
-经过优化，Linger.Results 遵循以下设计原则：
+```csharp
+public Result ProcessUser(int userId)
+{
+    // 获取用户（返回 Result<User>）
+    Result<User> userResult = GetUser(userId);
+    
+    // 自动转换为 Result，丢失具体的值但保留状态和错误信息
+    Result processResult = userResult; 
+    
+    if (processResult.IsSuccess)
+    {
+        // 执行处理逻辑
+        return Result.Success();
+    }
+    
+    // 错误信息被保留
+    return processResult;
+}
+```
 
-1. **清晰的 API 边界**：`Result` 类专注于非泛型操作，`Result<T>` 类处理有返回值的操作
-2. **隐式转换支持**：支持从 `Result` 到 `Result<T>` 的自然转换，但避免意外的值转换
-3. **类型安全**：编译时确保类型正确性，避免运行时错误
-4. **简洁语法**：减少样板代码，提高开发效率
+### 3. 从 T 到 Result&lt;T&gt; 的隐式转换
+
+```csharp
+public Result<User> GetDefaultUser()
+{
+    var defaultUser = new User { Name = "默认用户", Email = "default@example.com" };
+    
+    // 对象自动转换为成功的 Result<User>
+    return defaultUser;
+}
+
+public Result<string> GetConfigValue(string key)
+{
+    string value = _configuration[key];
+    
+    // 如果值为 null，自动创建失败结果
+    // 如果值不为 null，自动创建成功结果
+    return value; // 等价于 Result<string>.Create(value)
+}
+```
+
+### 链式转换示例
+
+```csharp
+// 演示不同的返回方式都能隐式转换为 Result<User>
+private Result<User> GetUserById(int id)
+{
+    return id switch
+    {
+        1 => _testUser,                     // User → Result<User>
+        0 => Result.Success(),              // Result → Result<User>  
+        _ => Result.Failure("User not found") // Result → Result<User>
+    };
+}
+
+// 可以自由在不同结果类型间转换
+private Result ProcessUserData(Result<User> userResult)
+{
+    // Result<User> → Result
+    return userResult; 
+}
+```
+
+### 隐式转换的重要说明
+
+⚠️ **重要提示**：
+- `Result<T>` → `Result` 转换会**丢失值信息**，因为非泛型Result不保存具体值
+- `T` → `Result<T>` 转换中，如果值为 `null` 会自动创建失败结果
+- 失败的 `Result<T>` 访问 `.Value` 属性会抛出 `InvalidOperationException`
+- 建议使用 `.ValueOrDefault` 或 `.TryGetValue()` 进行安全的值访问
+
+```csharp
+// 正确的用法示例
+Result<User> userResult = GetUser(123);
+
+// ✅ 安全访问值
+if (userResult.TryGetValue(out var user))
+{
+    Console.WriteLine($"用户：{user.Name}");
+}
+
+// ✅ 使用默认值
+var safeUser = userResult.ValueOrDefault;
+
+// ❌ 危险：如果结果失败会抛出异常
+var user = userResult.Value; // 可能抛出 InvalidOperationException
+```
 
 ### 错误处理
 
@@ -290,12 +371,12 @@ namespace Linger.Results
 
 ## 最佳实践
 
-1. **优先使用 Result 和 Result<T> 类，而非异常**：
+1. **优先使用 `Result` 和 `Result<T>` 类，而非异常**：
    - 对于预期内的错误（如验证错误、未找到资源等）返回 Result
    - 只对真正的异常情况（程序错误、未预期的系统故障）使用异常机制
 
 2. **返回值保持一致性**：
-   - 服务方法应始终返回 Result 或 Result<T>，而非混合使用结果和异常
+   - 服务方法应始终返回 `Result` 或 `Result<T>`，而非混合使用结果和异常
    - 保持统一的错误处理模式，便于调用方处理
 
 3. **使用有意义的错误代码**：
@@ -304,11 +385,14 @@ namespace Linger.Results
 
 4. **利用隐式转换简化代码**：
    - 在返回 `Result<T>` 的方法中，可以直接返回 `Result.Failure()` 或 `Result.NotFound()`
+   - 可以直接返回对象实例，会自动转换为成功的 `Result<T>`
+   - 注意 `null` 值会自动转换为失败结果
    - 这样可以让代码更简洁优雅，同时保持类型安全
 
-5. **正确使用 API**：
-   - 对于泛型结果，应该直接使用 `Result<T>.Success()`, `Result<T>.Failure()` 等方法
-   - 利用隐式转换从 `Result` 转换到 `Result<T>`，而不是依赖已移除的转发方法
+5. **正确使用 Value 属性**：
+   - 始终在访问 `.Value` 前检查 `.IsSuccess`
+   - 优先使用 `.ValueOrDefault` 或 `.TryGetValue()` 进行安全访问
+   - 避免在失败的结果上访问 `.Value`，这会抛出 `InvalidOperationException`
 
 6. **利用链式操作**：
    - 使用函数式方法组合而非传统的条件语句
@@ -317,11 +401,11 @@ namespace Linger.Results
 7. **对于Web API**：
    - 结合 [Linger.Results.AspNetCore](../Linger.Results.AspNetCore/README.zh-CN.md) 包转换为HTTP响应
    - 使用ProblemDetails格式返回标准化的错误响应
-   - Map、Bind、Tap等方法可以极大提高代码可读性
 
-5. **对于Web API**：
-   - 结合 [Linger.Results.AspNetCore](../Linger.Results.AspNetCore/README.md) 包转换为HTTP响应
-   - 使用ProblemDetails格式返回标准化的错误响应
+8. **隐式转换最佳实践**：
+   - 了解转换过程中的信息丢失（如 `Result<T>` → `Result` 会丢失值）
+   - 合理利用对象到结果的自动转换简化代码
+   - 注意 `null` 检查，避免意外的失败结果
 
 ## 和异常处理对比
 

@@ -16,7 +16,7 @@ public static class EmailExtensions
 
         foreach (var box in splitMailboxes)
         {
-            var address = new EmailAddress { Address = box };
+            var address = new EmailAddress { Address = box.Trim() };
             list.Add(address);
         }
 
