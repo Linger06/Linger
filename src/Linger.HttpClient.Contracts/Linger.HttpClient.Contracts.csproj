@@ -1,8 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-        <Version>0.7.2</Version>
+        <Version>0.8.0-preview</Version>
         <Description>
             Contracts and interfaces for Linger HTTP client implementations.
             Provides a unified API for making typed HTTP requests with standardized error handling.
