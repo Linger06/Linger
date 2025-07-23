@@ -81,7 +81,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
         Exception? lastException = null;
         shouldRetry ??= _ => true;
 
-        for (var retry = 0; retry < _options.MaxRetries; retry++)
+        for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
         {
             try
             {
@@ -106,7 +106,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
                 }
 
                 // 如果已经到达最后一次重试，不再等待，直接进入下一次循环
-                if (retry == _options.MaxRetries - 1)
+                if (retry == _options.MaxRetryAttempts - 1)
                 {
                     continue;
                 }
@@ -121,21 +121,21 @@ public sealed class RetryHelper(RetryOptions? options = null)
         }
 
         // 如果所有重试都失败，抛出统一的异常
-        throw new OutOfReTryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetries}", lastException);
+        throw new OutOfReTryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetryAttempts}", lastException);
     }
 
     private int CalculateDelayWithJitter(int retryAttempt)
     {
         // 计算基础延迟
         var delay = _options.UseExponentialBackoff
-            ? _options.BaseDelayMs * Math.Pow(2, retryAttempt)
-            : _options.BaseDelayMs;
+            ? _options.DelayMilliseconds * Math.Pow(2, retryAttempt)
+            : _options.DelayMilliseconds;
 
         // 限制最大延迟时间
-        delay = Math.Min(delay, _options.MaxDelayMs);
+        delay = Math.Min(delay, _options.MaxDelayMilliseconds);
 
         // 添加随机抖动
-        var jitterRange = delay * _options.JitterFactor;
+        var jitterRange = delay * _options.Jitter;
         var jitter = _random.NextDouble() * jitterRange;
 
         return (int)(delay + jitter);
@@ -147,12 +147,12 @@ public class RetryOptions
     /// <summary>
     /// 最大重试次数
     /// </summary>
-    public int MaxRetries { get; set; } = 3;
+    public int MaxRetryAttempts { get; set; } = 3;
 
     /// <summary>
     /// 基础延迟时间(毫秒)
     /// </summary>
-    public int BaseDelayMs { get; set; } = 1000;
+    public int DelayMilliseconds { get; set; } = 1000;
 
     /// <summary>
     /// 是否使用指数退避
@@ -162,10 +162,10 @@ public class RetryOptions
     /// <summary>
     /// 最大延迟时间(毫秒)
     /// </summary>
-    public int MaxDelayMs { get; set; } = 30000;
+    public int MaxDelayMilliseconds { get; set; } = 30000;
 
     /// <summary>
     /// 抖动因子(0-1之间)
     /// </summary>
-    public double JitterFactor { get; set; } = 0.2;
+    public double Jitter { get; set; } = 0.2;
 }

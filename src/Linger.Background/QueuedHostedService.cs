@@ -37,10 +37,10 @@ public class QueuedHostedService(IBackgroundTaskQueue taskQueue,
         }
     }
 
-    public override async Task StopAsync(CancellationToken stoppingToken)
+    public override async Task StopAsync(CancellationToken cancellationToken)
     {
         logger.LogInformation("Queued Hosted Service is stopping.");
 
-        await base.StopAsync(stoppingToken).ConfigureAwait(false);
+        await base.StopAsync(cancellationToken).ConfigureAwait(false);
     }
 }

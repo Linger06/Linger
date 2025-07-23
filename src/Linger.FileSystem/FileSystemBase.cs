@@ -57,9 +57,9 @@ public abstract class FileSystemBase(RetryOptions? retryOptions = null) : IFileS
 
     public abstract Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
 
-    public abstract Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default);
+    public abstract Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default);
 
-    public abstract Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
+    public abstract Task<FileOperationResult> DownloadFileAsync(string remoteFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
 
     public abstract Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default);
 

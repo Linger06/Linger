@@ -261,14 +261,14 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
     }
 
-    public override async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
+            if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
             {
-                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+                return FileOperationResult.CreateFailure($"文件不存在: {remoteFilePath}");
             }
 
             // 使用AsyncFtpClient执行下载
@@ -277,7 +277,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 {
                     var status = await Client.DownloadStream(
                         outputStream,
-                        filePath,
+                        remoteFilePath,
                         token: cancellationToken).ConfigureAwait(false);
 
                     return status;
@@ -285,29 +285,38 @@ public class FtpFileSystem : RemoteFileSystemBase
                 "Download to stream", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
-                return FileOperationResult.CreateFailure($"下载文件到流失败: {filePath}");
+                return FileOperationResult.CreateFailure($"下载文件到流失败: {remoteFilePath}");
 
             // 获取文件大小
             long fileSize = 0;
-            try { fileSize = await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false); } catch { /* 忽略获取大小失败 */ }
+            try { fileSize = await Client.GetFileSize(remoteFilePath, token: cancellationToken).ConfigureAwait(false); } catch { /* 忽略获取大小失败 */ }
 
-            return FileOperationResult.CreateSuccess(filePath, null, fileSize);
+            return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
         }
         catch (Exception ex)
         {
-            HandleException("Download to stream", ex, filePath);
+            HandleException("Download to stream", ex, remoteFilePath);
             return FileOperationResult.CreateFailure($"下载文件到流失败: {ex.Message}", ex);
         }
     }
 
-    public override async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 从FTP服务器下载文件到本地文件系统
+    /// </summary>
+    /// <param name="remoteFilePath">FTP服务器上文件的完整路径或相对路径，例如："/htdocs/MyVideo_2.mp4"</param>
+    /// <param name="localDestinationPath">本地文件系统的完整路径或相对路径，例如：@"C:\MyVideo_2.mp4"</param>
+    /// <param name="overwrite">如果目标文件已存在，是否覆盖。默认为 false</param>
+    /// <param name="cancellationToken">用于取消操作的令牌</param>
+    /// <returns>包含下载操作结果的 <see cref="FileOperationResult"/>，包括是否成功、文件路径和大小等信息</returns>
+    /// <exception cref="FileSystemException">当文件操作失败时抛出</exception>
+    public override async Task<FileOperationResult> DownloadFileAsync(string remoteFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
+            if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
             {
-                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+                return FileOperationResult.CreateFailure($"文件不存在: {remoteFilePath}");
             }
 
             // 确保目标目录存在
@@ -329,7 +338,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 {
                     var status = await Client.DownloadFile(
                         localDestinationPath,
-                        filePath,
+                        remoteFilePath,
                         overwrite ? FtpLocalExists.Overwrite : FtpLocalExists.Skip,
                         token: cancellationToken).ConfigureAwait(false);
 
@@ -338,14 +347,14 @@ public class FtpFileSystem : RemoteFileSystemBase
                 "Download file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
-                return FileOperationResult.CreateFailure($"下载文件失败: {filePath}");
+                return FileOperationResult.CreateFailure($"下载文件失败: {remoteFilePath}");
 
             var fileInfo = new FileInfo(localDestinationPath);
-            return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
+            return FileOperationResult.CreateSuccess(remoteFilePath, localDestinationPath, fileInfo.Length);
         }
         catch (Exception ex)
         {
-            HandleException("Download file", ex, filePath);
+            HandleException("Download file", ex, remoteFilePath);
             return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
         }
     }

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using Linger.Exceptions;
 using Linger.Helper;
 using Xunit.Sdk;
@@ -12,7 +12,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_WithSuccessfulOperation_ShouldReturnResult()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3 };
+        var options = new RetryOptions { MaxRetryAttempts = 3 };
         var retryHelper = new RetryHelper(options);
 
         // Act
@@ -26,7 +26,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_WithFailingOperationThatShouldNotRetry_ShouldThrowOriginalException()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3 };
+        var options = new RetryOptions { MaxRetryAttempts = 3 };
         var retryHelper = new RetryHelper(options);
         var exception = new InvalidOperationException("Test exception");
 
@@ -46,7 +46,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_WithFailingOperationThatExceedsRetries_ShouldThrowOutOfRetryCountException()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3, BaseDelayMs = 10 }; // 使用较短的延迟以加快测试
+        var options = new RetryOptions { MaxRetryAttempts = 3, DelayMilliseconds = 10 }; // 使用较短的延迟以加快测试
         var retryHelper = new RetryHelper(options);
 
         // Act & Assert
@@ -64,7 +64,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_Void_WithSuccessfulOperation_ShouldComplete()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3 };
+        var options = new RetryOptions { MaxRetryAttempts = 3 };
         var retryHelper = new RetryHelper(options);
         var operationExecuted = false;
 
@@ -83,7 +83,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_Void_WithFailingOperationThatExceedsRetries_ShouldThrowOutOfRetryCountException()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3, BaseDelayMs = 10 }; // 使用较短的延迟以加快测试
+        var options = new RetryOptions { MaxRetryAttempts = 3, DelayMilliseconds = 10 }; // 使用较短的延迟以加快测试
         var retryHelper = new RetryHelper(options);
 
         // Act & Assert
@@ -103,8 +103,8 @@ public class RetryHelperTests
         // Arrange
         var options = new RetryOptions
         {
-            MaxRetries = 3,
-            BaseDelayMs = 10,
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 10,
             UseExponentialBackoff = true
         };
         var retryHelper = new RetryHelper(options);
@@ -134,18 +134,18 @@ public class RetryHelperTests
         var options = new RetryOptions();
 
         // Assert
-        Assert.Equal(3, options.MaxRetries);
-        Assert.Equal(1000, options.BaseDelayMs);
+        Assert.Equal(3, options.MaxRetryAttempts);
+        Assert.Equal(1000, options.DelayMilliseconds);
         Assert.True(options.UseExponentialBackoff);
-        Assert.Equal(30000, options.MaxDelayMs);
-        Assert.Equal(0.2, options.JitterFactor);
+        Assert.Equal(30000, options.MaxDelayMilliseconds);
+        Assert.Equal(0.2, options.Jitter);
     }
 
     [Fact]
     public async Task ExecuteAsync_WithCancellation_ShouldThrowOperationCanceledException()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3, BaseDelayMs = 10 };
+        var options = new RetryOptions { MaxRetryAttempts = 3, DelayMilliseconds = 10 };
         var retryHelper = new RetryHelper(options);
         var cts = new CancellationTokenSource();
         cts.Cancel(); // 立即取消
@@ -169,7 +169,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_Void_WithCancellation_ShouldThrowOperationCanceledException()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3, BaseDelayMs = 10 };
+        var options = new RetryOptions { MaxRetryAttempts = 3, DelayMilliseconds = 10 };
         var retryHelper = new RetryHelper(options);
         var cts = new CancellationTokenSource();
         cts.Cancel(); // 立即取消
@@ -189,7 +189,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_WithLastAttemptSucceeding_ShouldReturnResult()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 3, BaseDelayMs = 10 };
+        var options = new RetryOptions { MaxRetryAttempts = 3, DelayMilliseconds = 10 };
         var retryHelper = new RetryHelper(options);
         var attemptCount = 0;
 
@@ -216,10 +216,10 @@ public class RetryHelperTests
         // Arrange
         var options = new RetryOptions
         {
-            MaxRetries = 3,
-            BaseDelayMs = 50,
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 50,
             UseExponentialBackoff = false,
-            JitterFactor = 0.0 // 移除抖动以便于测试
+            Jitter = 0.0 // 移除抖动以便于测试
         };
         var retryHelper = new RetryHelper(options);
         var attemptCount = 0;
@@ -252,7 +252,7 @@ public class RetryHelperTests
     public async Task ExecuteAsync_WithZeroRetries_ShouldNotRetry()
     {
         // Arrange
-        var options = new RetryOptions { MaxRetries = 1, BaseDelayMs = 10 }; // 设置为1表示只尝试一次，没有重试
+        var options = new RetryOptions { MaxRetryAttempts = 1, DelayMilliseconds = 10 }; // 设置为1表示只尝试一次，没有重试
         var retryHelper = new RetryHelper(options);
         var attemptCount = 0;
 
@@ -341,10 +341,10 @@ public class RetryHelperTests
         // Arrange
         var options = new RetryOptions
         {
-            MaxRetries = 10,
-            BaseDelayMs = 10,
+            MaxRetryAttempts = 10,
+            DelayMilliseconds = 10,
             UseExponentialBackoff = false,
-            JitterFactor = 1.0 // 最大抖动
+            Jitter = 1.0 // 最大抖动
         };
         var retryHelper = new RetryHelper(options);
         var delayTimes = new List<long>();

@@ -329,8 +329,11 @@ using Linger.Helper;
 // 自定义重试策略
 var options = new RetryOptions 
 {
-    MaxRetries = 3,      // 最多重试 3 次
-    BaseDelayMs = 1000   // 每次重试间隔 1 秒
+    MaxRetryAttempts = 3,           // 最多重试 3 次
+    DelayMilliseconds = 1000,       // 基础延迟时间 1 秒
+    UseExponentialBackoff = true,   // 使用指数退避
+    MaxDelayMilliseconds = 30000,   // 最大延迟时间 30 秒
+    Jitter = 0.2                    // 抖动因子 20%
 };
 var retryHelper = new RetryHelper(options);
 var result = await retryHelper.ExecuteAsync(

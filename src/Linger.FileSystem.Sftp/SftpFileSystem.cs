@@ -242,20 +242,20 @@ public class SftpFileSystem : RemoteFileSystemBase
         }
     }
 
-    public override async Task<FileOperationResult> DownloadToStreamAsync(string filePath, Stream outputStream, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
-                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+            if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
+                return FileOperationResult.CreateFailure($"文件不存在: {remoteFilePath}");
 
             await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     await Task.Run(() =>
                     {
-                        Client.DownloadFile(filePath, outputStream);
+                        Client.DownloadFile(remoteFilePath, outputStream);
                         return true;
                     }, cancellationToken).ConfigureAwait(false);
                     return true;
@@ -263,24 +263,24 @@ public class SftpFileSystem : RemoteFileSystemBase
                 "Download to stream", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // 获取文件大小
-            var fileSize = Client.GetAttributes(filePath).Size;
+            var fileSize = Client.GetAttributes(remoteFilePath).Size;
 
-            return FileOperationResult.CreateSuccess(filePath, null, fileSize);
+            return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
         }
         catch (Exception ex)
         {
-            HandleException("Download to stream", ex, filePath);
+            HandleException("Download to stream", ex, remoteFilePath);
             return FileOperationResult.CreateFailure($"下载文件到流失败: {ex.Message}", ex);
         }
     }
 
-    public override async Task<FileOperationResult> DownloadFileAsync(string filePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> DownloadFileAsync(string remoteFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         using var scope = CreateConnectionScope();
         try
         {
-            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
-                return FileOperationResult.CreateFailure($"文件不存在: {filePath}");
+            if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
+                return FileOperationResult.CreateFailure($"文件不存在: {remoteFilePath}");
 
             // 确保目标目录存在
             var destDir = Path.GetDirectoryName(localDestinationPath);
@@ -300,7 +300,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                             File.Delete(localDestinationPath);
 
                         using var fileStream = File.Create(localDestinationPath);
-                        Client.DownloadFile(filePath, fileStream);
+                        Client.DownloadFile(remoteFilePath, fileStream);
                         return true;
                     }, cancellationToken).ConfigureAwait(false);
                     return true;
@@ -308,11 +308,11 @@ public class SftpFileSystem : RemoteFileSystemBase
                 "Download file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var fileInfo = new FileInfo(localDestinationPath);
-            return FileOperationResult.CreateSuccess(filePath, localDestinationPath, fileInfo.Length);
+            return FileOperationResult.CreateSuccess(remoteFilePath, localDestinationPath, fileInfo.Length);
         }
         catch (Exception ex)
         {
-            HandleException("Download file", ex, filePath);
+            HandleException("Download file", ex, remoteFilePath);
             return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
         }
     }
