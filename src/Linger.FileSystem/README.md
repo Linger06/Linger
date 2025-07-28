@@ -1,4 +1,4 @@
-﻿# Linger.FileSystem
+# Linger.FileSystem
 
 > 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
@@ -36,7 +36,7 @@ IFileSystem                   IAsyncFileSystem
                     │
           IFileSystemOperations
            /            \
-ILocalFileSystem    IRemoteFileSystemContext
+ILocalFileSystem    IRemoteFileSystem
 ```
 
 ### Core Interfaces
@@ -45,7 +45,7 @@ ILocalFileSystem    IRemoteFileSystemContext
 - **IAsyncFileSystem**: Defines basic asynchronous file operation interfaces
 - **IFileSystemOperations**: Unified file system operation interface, inheriting from the above two interfaces
 - **ILocalFileSystem**: Local file system specific interface, extending unique functionalities
-- **IRemoteFileSystemContext**: Remote file system connection management interface
+- **IRemoteFileSystem**: Remote file system connection management interface
 
 ### Implementation Class Hierarchy
 
@@ -60,7 +60,7 @@ ILocalFileSystem    IRemoteFileSystemContext
 ### Base Classes
 
 - **FileSystemBase**: Abstract base class for all file systems, implementing the IFileSystemOperations interface
-- **RemoteFileSystemBase**: Abstract base class for remote file systems, inheriting from FileSystemBase and implementing IRemoteFileSystemContext
+- **RemoteFileSystemBase**: Abstract base class for remote file systems, inheriting from FileSystemBase and implementing IRemoteFileSystem
 - **LocalFileSystem**: Concrete implementation of local file system
 - **FtpFileSystem**: FTP file system implementation based on FluentFTP library
 - **SftpFileSystem**: SFTP file system implementation based on SSH.NET library

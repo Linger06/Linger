@@ -1,4 +1,4 @@
-﻿# Linger.FileSystem
+# Linger.FileSystem
 
 > 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
 
@@ -36,7 +36,7 @@ IFileSystem                   IAsyncFileSystem
                     │
           IFileSystemOperations
            /            \
-ILocalFileSystem    IRemoteFileSystemContext
+ILocalFileSystem    IRemoteFileSystem
 ```
 
 ### 核心接口
@@ -45,7 +45,7 @@ ILocalFileSystem    IRemoteFileSystemContext
 - **IAsyncFileSystem**: 定义基本异步文件操作接口
 - **IFileSystemOperations**: 统一的文件系统操作接口，继承自上述两个接口
 - **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
-- **IRemoteFileSystemContext**: 远程文件系统连接管理接口
+- **IRemoteFileSystem**: 远程文件系统连接管理接口
 
 ### 实现类层次
 
@@ -60,7 +60,7 @@ ILocalFileSystem    IRemoteFileSystemContext
 ### 基础类
 
 - **FileSystemBase**: 所有文件系统的抽象基类，实现了IFileSystemOperations接口
-- **RemoteFileSystemBase**: 远程文件系统的抽象基类，继承自FileSystemBase，实现了IRemoteFileSystemContext
+- **RemoteFileSystemBase**: 远程文件系统的抽象基类，继承自FileSystemBase，实现了IRemoteFileSystem
 - **LocalFileSystem**: 本地文件系统具体实现
 - **FtpFileSystem**: FTP文件系统实现，基于FluentFTP库
 - **SftpFileSystem**: SFTP文件系统实现，基于SSH.NET库
@@ -325,14 +325,14 @@ using (var ftpFs = new FtpFileSystem(remoteSetting))
 // 方式2: 手动管理连接
 try
 {
-    ftpFs.Connect();
+    await ftpFs.ConnectAsync();
     // 执行多个操作...
     await ftpFs.UploadFileAsync("file1.txt", "/remote");
     await ftpFs.UploadFileAsync("file2.txt", "/remote");
 }
 finally
 {
-    ftpFs.Disconnect();
+    await ftpFs.DisconnectAsync();
 }
 ```
 

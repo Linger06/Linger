@@ -15,6 +15,10 @@
     <Project Path="src/Linger.Audit/Linger.Audit.csproj" />
     <Project Path="src/Linger.Background/Linger.Background.csproj" />
     <Project Path="src/Linger.Configuration/Linger.Configuration.csproj" />
+    <Project Path="src/Linger.DataAccess.Oracle/Linger.DataAccess.Oracle.csproj" />
+    <Project Path="src/Linger.DataAccess.Sqlite/Linger.DataAccess.Sqlite.csproj" />
+    <Project Path="src/Linger.DataAccess.SqlServer/Linger.DataAccess.SqlServer.csproj" />
+    <Project Path="src/Linger.DataAccess/Linger.DataAccess.csproj" />
     <Project Path="src/Linger.EFCore.Audit/Linger.EFCore.Audit.csproj" />
     <Project Path="src/Linger.EFCore/Linger.EFCore.csproj" />
     <Project Path="src/Linger.Email.AspNetCore/Linger.Email.AspNetCore.csproj" />
@@ -36,6 +40,9 @@
     <Project Path="src/Linger/Linger.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Linger.DataAccess.Oracle.UnitTests/Linger.DataAccess.Oracle.UnitTests.csproj" />
+    <Project Path="tests/Linger.DataAccess.Sqlite.UnitTests/Linger.DataAccess.Sqlite.UnitTests.csproj" />
+    <Project Path="tests/Linger.DataAccess.SqlServer.UnitTests/Linger.DataAccess.SqlServer.UnitTests.csproj" />
     <Project Path="tests/Linger.EFCore.Audit.UnitTests/Linger.EFCore.Audit.UnitTests.csproj" />
     <Project Path="tests/Linger.EFCore.UnitTests/Linger.EFCore.UnitTests.csproj" />
     <Project Path="tests/Linger.Excel.Tests/Linger.Excel.Tests.csproj" />

@@ -5,7 +5,7 @@ namespace Linger.FileSystem.Remote;
 /// <summary>
 /// 远程文件系统基类，实现连接管理和通用功能
 /// </summary>
-public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemContext
+public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
 {
     /// <summary>
     /// 服务器连接信息
@@ -37,10 +37,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemCo
         return $"{Setting.Type}://{Setting.UserName}@{Setting.Host}:{Setting.Port}";
     }
 
-    #region IRemoteFileSystemContext 实现
+    #region IRemoteFileSystem 实现
     public abstract bool IsConnected();
-    public abstract void Connect();
-    public abstract void Disconnect();
+    //public abstract void Connect();
+    public abstract Task ConnectAsync();
+    //public abstract void Disconnect();
+    public abstract Task DisconnectAsync();
     public abstract void Dispose();
     public virtual string ServerDetails() => ServerDetailsString;
     #endregion
@@ -60,7 +62,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemCo
             _wasConnected = _fileSystem.IsConnected();
 
             if (!_wasConnected)
-                _fileSystem.Connect();
+                _fileSystem.ConnectAsync().ConfigureAwait(false);
         }
 
         public void Dispose()
@@ -69,7 +71,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystemCo
                 return;
 
             if (!_wasConnected)
-                _fileSystem.Disconnect();
+                _fileSystem.DisconnectAsync();
 
             _disposed = true;
         }

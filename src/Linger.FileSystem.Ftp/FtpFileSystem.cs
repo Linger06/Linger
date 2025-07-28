@@ -56,16 +56,16 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override bool IsConnected() => Client.IsConnected;
 
-    public override void Connect()
+    public override async Task ConnectAsync()
     {
         if (!Client.IsConnected)
-            Client.Connect();
+            await Client.AutoConnect().ConfigureAwait(false);
     }
 
-    public override void Disconnect()
+    public override async Task DisconnectAsync()
     {
         if (Client.IsConnected)
-            Client.Disconnect();
+            await Client.Disconnect().ConfigureAwait(false);
     }
 
     public override void Dispose()
@@ -492,6 +492,5 @@ public class FtpFileSystem : RemoteFileSystemBase
             return 0;
         }
     }
-
     #endregion
 }

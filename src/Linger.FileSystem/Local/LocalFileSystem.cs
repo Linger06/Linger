@@ -325,7 +325,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// 获取文件路径（支持序号命名避免文件名冲突）
     /// </summary>
     /// <param name="destPath">目标目录路径</param>
-    /// <param name="destFileName">目标文件名</param>
+    /// <param name="destFileName">目标文件名（可以包含相对路径）</param>
     /// <param name="overwrite">是否允许覆盖已存在的文件</param>
     /// <param name="useSequencedName">当文件已存在且不允许覆盖时，是否使用序号命名（如 file[1].txt）</param>
     /// <param name="destRootPath">目标根路径，用于检查文件是否存在。默认为空字符串</param>
@@ -561,7 +561,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
         // 提取路径中的目录部分，为后续的目录创建做准备
         var directory = Path.GetDirectoryName(destFilePath);
-        
+
         // 如果存在目录路径且目录不存在，则异步创建目录
         if (!string.IsNullOrEmpty(directory))
         {

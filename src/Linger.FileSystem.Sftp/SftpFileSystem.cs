@@ -56,16 +56,28 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override bool IsConnected() => Client?.IsConnected ?? false;
 
-    public override void Connect()
+    public void Connect()
     {
         if (Client is { IsConnected: false })
             Client.Connect();
     }
 
-    public override void Disconnect()
+    public override Task ConnectAsync()
+    {
+        Connect();
+        return Task.CompletedTask;
+    }
+
+    public void Disconnect()
     {
         if (Client?.IsConnected == true)
             Client.Disconnect();
+    }
+
+    public override Task DisconnectAsync()
+    {
+        Disconnect();
+        return Task.CompletedTask;
     }
 
     public override void Dispose()
@@ -455,6 +467,5 @@ public class SftpFileSystem : RemoteFileSystemBase
     {
         return Task.Run(() => ListDirectories(directoryPath), cancellationToken);
     }
-
     #endregion
 }
