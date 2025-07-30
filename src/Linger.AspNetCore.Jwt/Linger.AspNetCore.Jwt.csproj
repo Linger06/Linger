@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-        <Version>0.8.0-preview</Version>
+        <Version>0.8.1-preview</Version>
         <Description>
             A comprehensive JWT authentication implementation for ASP.NET Core applications.
             Provides JWT token generation, validation, and refresh token functionality with 

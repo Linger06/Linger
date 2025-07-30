@@ -17,13 +17,8 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
     public DataTable Page(string sql, List<string> parameters)
     {
-        ArgumentNullException.ThrowIfNull(sql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sql));
-        }
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -44,7 +39,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
             var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
 
             // 创建Oracle参数
-            var oracleParams = currentBatch.Select((value, index) => 
+            var oracleParams = currentBatch.Select((value, index) =>
                 new OracleParameter($":param{index}", (object?)value ?? DBNull.Value)).ToArray();
 
             // 执行参数化查询
@@ -59,7 +54,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
 
             dataTable = dataTable.Combine(currentPageData);
             pageNumber++;
-        } 
+        }
         while (count == 1000);
 
         return dataTable;
@@ -76,13 +71,8 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
     public Task<DataTable> PageAsync(string sql, List<string> parameters, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(sql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sql));
-        }
 
         return Task.Run(() =>
         {
@@ -107,7 +97,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
                 var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
 
                 // 创建Oracle参数
-                var oracleParams = currentBatch.Select((value, index) => 
+                var oracleParams = currentBatch.Select((value, index) =>
                     new OracleParameter($":param{index}", (object?)value ?? DBNull.Value)).ToArray();
 
                 // 执行参数化查询
@@ -122,7 +112,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
 
                 dataTable = dataTable.Combine(currentPageData);
                 pageNumber++;
-            } 
+            }
             while (count == 1000);
 
             return dataTable;
@@ -138,12 +128,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public bool Exists(string strSql)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
 
         var count = FindCountBySql(strSql);
         return count > 0;
@@ -159,13 +144,8 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public bool Exists(string strSql, params OracleParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
 
         var count = FindCountBySql(strSql, parameters);
         return count > 0;
@@ -181,12 +161,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public Task<bool> ExistsAsync(string strSql, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
 
         return Task.Run(() =>
         {
@@ -207,13 +182,8 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public Task<bool> ExistsAsync(string strSql, CancellationToken cancellationToken = default, params OracleParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
 
         return Task.Run(() =>
         {
@@ -232,13 +202,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public DataSet Query(string sqlString)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
-
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
         return GetDataSet(CommandType.Text, sqlString);
     }
 
@@ -252,13 +216,8 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public DataSet Query(string sqlString, params OracleParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
 
         return GetDataSet(CommandType.Text, sqlString, parameters);
     }
@@ -273,12 +232,7 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
 
         return Task.Run(() =>
         {
@@ -298,13 +252,8 @@ public class OracleHelper(string strConnection) : Database(new OracleProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default, params OracleParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
 
         return Task.Run(() =>
         {

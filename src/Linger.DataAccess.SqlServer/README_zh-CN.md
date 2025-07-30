@@ -17,12 +17,6 @@
 - .NET 8.0  
 - .NET Framework 4.6.2+
 
-## 安装
-
-```xml
-<PackageReference Include="Linger.DataAccess.SqlServer" Version="0.8.0-preview" />
-```
-
 ## 使用示例
 
 ### 基本设置
@@ -30,7 +24,7 @@
 ```csharp
 using Linger.DataAccess.SqlServer;
 
-var connectionString = "Server=localhost;Database=MyDB;Trusted_Connection=true;";
+var connectionString = "Data Source=localhost;Initial Catalog=MyDB;User ID=xxxx;Password=xxxx;TrustServerCertificate=true";
 var sqlHelper = new SqlServerHelper(connectionString);
 ```
 
@@ -38,7 +32,7 @@ var sqlHelper = new SqlServerHelper(connectionString);
 
 ```csharp
 // 同步批量插入
-var dataTable = GetDataTable(); // 您的包含数据的 DataTable
+var dataTable = GetDataTable(); // 包含数据的 DataTable
 sqlHelper.AddByBulkCopy(dataTable, "Users", batchSize: 2000, timeout: 120);
 
 // 异步批量插入

@@ -1,3 +1,7 @@
+using System.Data;
+using System.Data.SQLite;
+using Xunit;
+
 namespace Linger.DataAccess.Sqlite.UnitTests;
 
 /// <summary>
@@ -5,7 +9,6 @@ namespace Linger.DataAccess.Sqlite.UnitTests;
 /// </summary>
 public class SqliteHelperTests : IDisposable
 {
-    private readonly SqliteHelper _inMemoryHelper;
     private readonly string _testDbPath;
     private readonly SqliteHelper _fileHelper;
     private bool _isInitialized;
@@ -14,15 +17,12 @@ public class SqliteHelperTests : IDisposable
     {
         try
         {
-            // 创建内存数据库用于测试
-            _inMemoryHelper = SqliteHelper.CreateInMemory();
-            
             // 创建临时文件数据库用于测试
             _testDbPath = Path.GetTempFileName();
             File.Delete(_testDbPath); // 删除临时文件，让SQLite创建
             _testDbPath = Path.ChangeExtension(_testDbPath, ".db");
             _fileHelper = SqliteHelper.CreateFileDatabase(_testDbPath);
-            
+
             // 安全地初始化测试数据
             InitializeTestData();
             _isInitialized = true;
@@ -30,7 +30,6 @@ public class SqliteHelperTests : IDisposable
         catch (Exception ex)
         {
             // 清理资源
-            _inMemoryHelper?.Dispose();
             _fileHelper?.Dispose();
             _isInitialized = false;
             throw new InvalidOperationException($"测试环境初始化失败: {ex.Message}", ex);
@@ -39,9 +38,9 @@ public class SqliteHelperTests : IDisposable
 
     private void InitializeTestData()
     {
-        // 在内存数据库中创建测试表和数据
-        _inMemoryHelper.ExecuteBySql(@"
-            CREATE TABLE users (
+        // 在文件数据库中创建测试表和数据
+        _fileHelper.ExecuteBySql(@"
+            CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 email TEXT,
@@ -50,7 +49,7 @@ public class SqliteHelperTests : IDisposable
                 created_date TEXT DEFAULT CURRENT_TIMESTAMP
             )");
 
-        _inMemoryHelper.ExecuteBySql(@"
+        _fileHelper.ExecuteBySql(@"
             INSERT INTO users (name, email, age, active) VALUES 
             ('Alice', 'alice@test.com', 25, 1),
             ('Bob', 'bob@test.com', 30, 1),
@@ -58,9 +57,9 @@ public class SqliteHelperTests : IDisposable
             ('David', 'david@test.com', 28, 1),
             ('Eve', 'eve@test.com', 32, 1)");
 
-        // 在文件数据库中创建相同的结构
+        // 创建产品测试表
         _fileHelper.ExecuteBySql(@"
-            CREATE TABLE products (
+            CREATE TABLE IF NOT EXISTS products (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 category TEXT,
@@ -74,13 +73,33 @@ public class SqliteHelperTests : IDisposable
             ('Phone', 'Electronics', 599.99, 25),
             ('Book', 'Education', 19.99, 100),
             ('Chair', 'Furniture', 149.99, 5)");
+
+        // 创建另一张测试表用于存在性测试
+        _fileHelper.ExecuteBySql(@"
+            CREATE TABLE IF NOT EXISTS test_table (
+                id INTEGER PRIMARY KEY,
+                name TEXT
+            )");
+
+        // 创建文档表用于测试（替代FTS5）
+        _fileHelper.ExecuteBySql(@"
+            CREATE TABLE IF NOT EXISTS documents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                content TEXT
+            )");
+
+        _fileHelper.ExecuteBySql(@"
+            INSERT INTO documents (title, content) VALUES 
+            ('Document 1', 'This is the content of document 1'),
+            ('Document 2', 'This contains different text for searching'),
+            ('Report', 'Annual report with financial data')");
     }
 
     public void Dispose()
     {
-        _inMemoryHelper?.Dispose();
         _fileHelper?.Dispose();
-        
+
         // 清理测试文件
         if (File.Exists(_testDbPath))
         {
@@ -96,17 +115,6 @@ public class SqliteHelperTests : IDisposable
     }
 
     #region 静态工厂方法测试
-
-    [Fact]
-    public void CreateInMemory_ShouldCreateValidInstance()
-    {
-        // Act
-        using var helper = SqliteHelper.CreateInMemory();
-
-        // Assert
-        Assert.NotNull(helper);
-        Assert.Contains(":memory:", helper.ToString()); // 验证实例类型正确
-    }
 
     [Fact]
     public void CreateFileDatabase_WithValidPath_ShouldCreateInstance()
@@ -141,23 +149,12 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         if (filePath is null)
         {
-            Assert.Throws<ArgumentNullException>(() => SqliteHelper.CreateFileDatabase(filePath!));
+            Assert.Throws<System.ArgumentNullException>(() => SqliteHelper.CreateFileDatabase(filePath!));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => SqliteHelper.CreateFileDatabase(filePath));
+            Assert.Throws<System.ArgumentException>(() => SqliteHelper.CreateFileDatabase(filePath));
         }
-    }
-
-    [Fact]
-    public void CreateTemporary_ShouldCreateValidInstance()
-    {
-        // Act
-        using var helper = SqliteHelper.CreateTemporary();
-
-        // Assert
-        Assert.NotNull(helper);
-        // 验证临时数据库实例创建成功
     }
 
     #endregion
@@ -172,7 +169,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act
-        var result = _inMemoryHelper.Page(sql, userIds);
+        var result = _fileHelper.Page(sql, userIds);
 
         // Assert
         Assert.NotNull(result);
@@ -191,7 +188,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT COUNT(*) as total FROM users WHERE id NOT IN ({0})";
 
         // Act
-        var result = _inMemoryHelper.Page(sql, largeList);
+        var result = _fileHelper.Page(sql, largeList);
 
         // Assert
         Assert.NotNull(result);
@@ -210,11 +207,11 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<ArgumentNullException>(() => _inMemoryHelper.Page(sql!, parameters));
+            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Page(sql!, parameters));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => _inMemoryHelper.Page(sql, parameters));
+            Assert.Throws<System.ArgumentException>(() => _fileHelper.Page(sql, parameters));
         }
     }
 
@@ -225,7 +222,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => _inMemoryHelper.Page(sql, null!));
+        Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Page(sql, null!));
     }
 
     [Fact]
@@ -236,7 +233,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act
-        var result = await _inMemoryHelper.PageAsync(sql, userIds);
+        var result = await _fileHelper.PageAsync(sql, userIds);
 
         // Assert
         Assert.NotNull(result);
@@ -253,8 +250,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
-            _inMemoryHelper.PageAsync(sql, userIds, cts.Token));
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+            _fileHelper.PageAsync(sql, userIds, cts.Token));
     }
 
     #endregion
@@ -268,7 +265,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT COUNT(*) FROM users WHERE active = 1";
 
         // Act
-        var result = _inMemoryHelper.Exists(sql);
+        var result = _fileHelper.Exists(sql);
 
         // Assert
         Assert.True(result);
@@ -282,7 +279,7 @@ public class SqliteHelperTests : IDisposable
         var parameter = new SQLiteParameter("@name", "Alice");
 
         // Act
-        var result = _inMemoryHelper.Exists(sql, parameter);
+        var result = _fileHelper.Exists(sql, parameter);
 
         // Assert
         Assert.True(result);
@@ -296,7 +293,7 @@ public class SqliteHelperTests : IDisposable
         var parameter = new SQLiteParameter("@name", "NonExistentUser");
 
         // Act
-        var result = _inMemoryHelper.Exists(sql, parameter);
+        var result = _fileHelper.Exists(sql, parameter);
 
         // Assert
         Assert.False(result);
@@ -311,11 +308,11 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<ArgumentNullException>(() => _inMemoryHelper.Exists(sql!));
+            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Exists(sql!));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => _inMemoryHelper.Exists(sql));
+            Assert.Throws<System.ArgumentException>(() => _fileHelper.Exists(sql));
         }
     }
 
@@ -326,7 +323,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT COUNT(*) FROM users WHERE active = 1";
 
         // Act
-        var result = await _inMemoryHelper.ExistsAsync(sql);
+        var result = await _fileHelper.ExistsAsync(sql);
 
         // Assert
         Assert.True(result);
@@ -341,8 +338,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
-            _inMemoryHelper.ExistsAsync(sql, cts.Token));
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+            _fileHelper.ExistsAsync(sql, cts.Token));
     }
 
     #endregion
@@ -356,7 +353,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE active = 1";
 
         // Act
-        var result = _inMemoryHelper.Query(sql);
+        var result = _fileHelper.Query(sql);
 
         // Assert
         Assert.NotNull(result);
@@ -376,14 +373,14 @@ public class SqliteHelperTests : IDisposable
         };
 
         // Act
-        var result = _inMemoryHelper.Query(sql, parameters);
+        var result = _fileHelper.Query(sql, parameters);
 
         // Assert
         Assert.NotNull(result);
         Assert.True(result.Tables.Count > 0);
         var table = result.Tables[0];
         Assert.True(table.Rows.Count > 0);
-        
+
         // 验证返回的数据符合条件
         foreach (DataRow row in table.Rows)
         {
@@ -401,11 +398,11 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<ArgumentNullException>(() => _inMemoryHelper.Query(sql!));
+            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Query(sql!));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => _inMemoryHelper.Query(sql));
+            Assert.Throws<System.ArgumentException>(() => _fileHelper.Query(sql));
         }
     }
 
@@ -416,7 +413,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE active = 1";
 
         // Act
-        var result = await _inMemoryHelper.QueryAsync(sql);
+        var result = await _fileHelper.QueryAsync(sql);
 
         // Assert
         Assert.NotNull(result);
@@ -433,33 +430,13 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
-            _inMemoryHelper.QueryAsync(sql, cts.Token));
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+            _fileHelper.QueryAsync(sql, cts.Token));
     }
 
     #endregion
 
     #region SQLite特有功能测试
-
-    [Fact]
-    public void EnableWalMode_ShouldReturnTrue()
-    {
-        // Act
-        var result = _fileHelper.EnableWalMode();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void SetCacheSize_WithValidSize_ShouldReturnTrue()
-    {
-        // Act
-        var result = _fileHelper.SetCacheSize(-64000); // 64MB
-
-        // Assert
-        Assert.True(result);
-    }
 
     [Fact]
     public void VacuumDatabase_ShouldReturnTrue()
@@ -541,11 +518,11 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         if (tableName is null)
         {
-            Assert.Throws<ArgumentNullException>(() => _fileHelper.TableExists(tableName!));
+            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.TableExists(tableName!));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => _fileHelper.TableExists(tableName));
+            Assert.Throws<System.ArgumentException>(() => _fileHelper.TableExists(tableName));
         }
     }
 
@@ -586,11 +563,11 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         if (backupPath is null)
         {
-            Assert.Throws<ArgumentNullException>(() => _fileHelper.BackupDatabase(backupPath!));
+            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.BackupDatabase(backupPath!));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => _fileHelper.BackupDatabase(backupPath));
+            Assert.Throws<System.ArgumentException>(() => _fileHelper.BackupDatabase(backupPath));
         }
     }
 
@@ -627,7 +604,7 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _fileHelper.BackupDatabaseAsync(backupPath, cts.Token));
     }
 
@@ -651,7 +628,7 @@ public class SqliteHelperTests : IDisposable
 
         // Assert
         Assert.True(result);
-        
+
         // 验证数据是否正确插入
         var verifyResult = _fileHelper.Query("SELECT COUNT(*) as count FROM products WHERE category = 'Test'");
         Assert.Equal(2, Convert.ToInt32(verifyResult.Tables[0].Rows[0]["count"]));
@@ -661,7 +638,7 @@ public class SqliteHelperTests : IDisposable
     public void ExecuteInTransaction_WithNullStatements_ShouldThrowArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => _fileHelper.ExecuteInTransaction(null!));
+        Assert.Throws<System.ArgumentNullException>(() => _fileHelper.ExecuteInTransaction(null!));
     }
 
     [Fact]
@@ -692,7 +669,7 @@ public class SqliteHelperTests : IDisposable
 
         // Assert
         Assert.True(result);
-        
+
         // 验证数据是否正确插入
         var verifyResult = _fileHelper.Query("SELECT COUNT(*) as count FROM products WHERE category = 'AsyncTest'");
         Assert.Equal(2, Convert.ToInt32(verifyResult.Tables[0].Rows[0]["count"]));
@@ -707,7 +684,7 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _fileHelper.ExecuteInTransactionAsync(statements, cts.Token));
     }
 
@@ -724,12 +701,12 @@ public class SqliteHelperTests : IDisposable
         var parameter = new SQLiteParameter("@name", maliciousInput);
 
         // Act - 执行参数化查询（恶意输入应被安全处理）
-        var result = _inMemoryHelper.Query(sql, parameter);
+        var result = _fileHelper.Query(sql, parameter);
 
         // Assert
         Assert.NotNull(result);
         // 表应该仍然存在（没有被删除）
-        var tableCheck = _inMemoryHelper.Query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
+        var tableCheck = _fileHelper.Query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
         Assert.True(tableCheck.Tables[0].Rows.Count > 0);
     }
 
@@ -777,7 +754,7 @@ public class SqliteHelperTests : IDisposable
         // Act - 测试分批逻辑
         var batchSize = 1000;
         var batches = new List<List<string>>();
-        
+
         for (int i = 0; i < parameters.Count; i += batchSize)
         {
             batches.Add(parameters.Skip(i).Take(batchSize).ToList());

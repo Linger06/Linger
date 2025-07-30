@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Data.SQLite;
 using Linger.Extensions.Collection;
 using Linger.Extensions.Data;
@@ -13,15 +13,6 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     #region 静态工厂方法
 
     /// <summary>
-    /// 创建内存数据库实例
-    /// </summary>
-    /// <returns>内存数据库SqliteHelper实例</returns>
-    public static SqliteHelper CreateInMemory()
-    {
-        return new SqliteHelper("Data Source=:memory:");
-    }
-
-    /// <summary>
     /// 创建文件数据库实例
     /// </summary>
     /// <param name="filePath">数据库文件路径</param>
@@ -31,27 +22,13 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当filePath为空字符串时抛出</exception>
     public static SqliteHelper CreateFileDatabase(string filePath, bool createIfNotExists = true)
     {
-        ArgumentNullException.ThrowIfNull(filePath);
-        
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            throw new ArgumentException("文件路径不能为空", nameof(filePath));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(filePath);
 
-        var connectionString = createIfNotExists 
-            ? $"Data Source={filePath}" 
+        var connectionString = createIfNotExists
+            ? $"Data Source={filePath}"
             : $"Data Source={filePath};FailIfMissing=True";
 
         return new SqliteHelper(connectionString);
-    }
-
-    /// <summary>
-    /// 创建临时数据库实例
-    /// </summary>
-    /// <returns>临时数据库SqliteHelper实例</returns>
-    public static SqliteHelper CreateTemporary()
-    {
-        return new SqliteHelper("Data Source=:memory:;Cache=Shared");
     }
 
     #endregion
@@ -68,13 +45,8 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
     public DataTable Page(string sql, List<string> parameters)
     {
-        ArgumentNullException.ThrowIfNull(sql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sql));
-        }
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -95,7 +67,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
             var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
 
             // 创建SQLite参数
-            var sqliteParams = currentBatch.Select((value, index) => 
+            var sqliteParams = currentBatch.Select((value, index) =>
                 new SQLiteParameter($"@param{index}", (object?)value ?? DBNull.Value)).ToArray();
 
             // 执行参数化查询
@@ -110,7 +82,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
 
             dataTable = dataTable.Combine(currentPageData);
             pageNumber++;
-        } 
+        }
         while (count == 1000);
 
         return dataTable;
@@ -127,13 +99,8 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
     public Task<DataTable> PageAsync(string sql, List<string> parameters, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(sql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sql));
-        }
 
         return Task.Run(() =>
         {
@@ -158,7 +125,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
                 var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
 
                 // 创建SQLite参数
-                var sqliteParams = currentBatch.Select((value, index) => 
+                var sqliteParams = currentBatch.Select((value, index) =>
                     new SQLiteParameter($"@param{index}", (object?)value ?? DBNull.Value)).ToArray();
 
                 // 执行参数化查询
@@ -173,7 +140,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
 
                 dataTable = dataTable.Combine(currentPageData);
                 pageNumber++;
-            } 
+            }
             while (count == 1000);
 
             return dataTable;
@@ -193,12 +160,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public bool Exists(string strSql)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
 
         var count = FindCountBySql(strSql);
         return count > 0;
@@ -214,13 +176,8 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public bool Exists(string strSql, params SQLiteParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
 
         var count = FindCountBySql(strSql, parameters);
         return count > 0;
@@ -236,12 +193,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public Task<bool> ExistsAsync(string strSql, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
 
         return Task.Run(() =>
         {
@@ -262,13 +214,8 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当strSql为空字符串时抛出</exception>
     public Task<bool> ExistsAsync(string strSql, CancellationToken cancellationToken = default, params SQLiteParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(strSql);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
 
         return Task.Run(() =>
         {
@@ -291,12 +238,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public DataSet Query(string sqlString)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
 
         return GetDataSet(CommandType.Text, sqlString);
     }
@@ -311,13 +253,8 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public DataSet Query(string sqlString, params SQLiteParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
 
         return GetDataSet(CommandType.Text, sqlString, parameters);
     }
@@ -332,12 +269,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
 
         return Task.Run(() =>
         {
@@ -357,13 +289,8 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
     public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default, params SQLiteParameter[] parameters)
     {
-        ArgumentNullException.ThrowIfNull(sqlString);
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        if (string.IsNullOrWhiteSpace(sqlString))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(sqlString));
-        }
 
         return Task.Run(() =>
         {
@@ -375,55 +302,6 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     #endregion
 
     #region SQLite特有功能
-
-    /// <summary>
-    /// 启用WAL (Write-Ahead Logging) 模式
-    /// </summary>
-    /// <returns>操作是否成功</returns>
-    public bool EnableWalMode()
-    {
-        try
-        {
-            ExecuteBySql("PRAGMA journal_mode=WAL");
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// 异步启用WAL (Write-Ahead Logging) 模式
-    /// </summary>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>操作是否成功</returns>
-    public Task<bool> EnableWalModeAsync(CancellationToken cancellationToken = default)
-    {
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return EnableWalMode();
-        }, cancellationToken);
-    }
-
-    /// <summary>
-    /// 设置缓存大小
-    /// </summary>
-    /// <param name="cacheSize">缓存大小（页数），负数表示KB</param>
-    /// <returns>操作是否成功</returns>
-    public bool SetCacheSize(int cacheSize)
-    {
-        try
-        {
-            ExecuteBySql($"PRAGMA cache_size={cacheSize}");
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
 
     /// <summary>
     /// 获取数据库文件大小（字节）
@@ -559,7 +437,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
         {
             var dataSet = Query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
             var tableNames = new List<string>();
-            
+
             if (dataSet.Tables.Count > 0)
             {
                 foreach (DataRow row in dataSet.Tables[0].Rows)
@@ -567,7 +445,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
                     tableNames.Add(row["name"].ToString()!);
                 }
             }
-            
+
             return tableNames;
         }
         catch
@@ -599,14 +477,9 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当tableName为空字符串时抛出</exception>
     public bool TableExists(string tableName)
     {
-        ArgumentNullException.ThrowIfNull(tableName);
-        
-        if (string.IsNullOrWhiteSpace(tableName))
-        {
-            throw new ArgumentException("表名不能为空", nameof(tableName));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(tableName);
 
-        return Exists("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@tableName", 
+        return Exists("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@tableName",
             new SQLiteParameter("@tableName", tableName));
     }
 
@@ -620,14 +493,9 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当tableName为空字符串时抛出</exception>
     public Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(tableName);
-        
-        if (string.IsNullOrWhiteSpace(tableName))
-        {
-            throw new ArgumentException("表名不能为空", nameof(tableName));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(tableName);
 
-        return ExistsAsync("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@tableName", 
+        return ExistsAsync("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@tableName",
             cancellationToken, new SQLiteParameter("@tableName", tableName));
     }
 
@@ -644,21 +512,16 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当backupFilePath为空字符串时抛出</exception>
     public bool BackupDatabase(string backupFilePath)
     {
-        ArgumentNullException.ThrowIfNull(backupFilePath);
-        
-        if (string.IsNullOrWhiteSpace(backupFilePath))
-        {
-            throw new ArgumentException("备份文件路径不能为空", nameof(backupFilePath));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(backupFilePath);
 
         try
         {
             using var connection = new SQLiteConnection(ConnString);
             connection.Open();
-            
+
             using var backup = new SQLiteConnection($"Data Source={backupFilePath}");
             backup.Open();
-            
+
             connection.BackupDatabase(backup, "main", "main", -1, null, 0);
             return true;
         }
@@ -678,12 +541,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
     /// <exception cref="ArgumentException">当backupFilePath为空字符串时抛出</exception>
     public Task<bool> BackupDatabaseAsync(string backupFilePath, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(backupFilePath);
-        
-        if (string.IsNullOrWhiteSpace(backupFilePath))
-        {
-            throw new ArgumentException("备份文件路径不能为空", nameof(backupFilePath));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(backupFilePath);
 
         return Task.Run(() =>
         {
@@ -716,7 +574,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
         {
             using var connection = new SQLiteConnection(ConnString);
             connection.Open();
-            
+
             using var transaction = connection.BeginTransaction();
             try
             {
@@ -728,7 +586,7 @@ public class SqliteHelper(string strConnection) : Database(new SqliteProvider(),
                         command.ExecuteNonQuery();
                     }
                 }
-                
+
                 transaction.Commit();
                 return true;
             }

@@ -12,14 +12,7 @@ Linger.DataAccess.Oracle 是一个安全且功能丰富的 Oracle 数据库访�
 - **⚡ 高性能**: 智能分页批处理（每批 1000 项）
 - **🔄 异步支持**: 完整的 async/await 支持，包含 CancellationToken
 - **🎯 多框架**: 支持 .NET 9.0、.NET 8.0 和 .NET Framework 4.6.2
-- **📊 全面操作**: 完整的 CRUD 操作和高级功能
-- **🧪 充分测试**: 全面的单元测试覆盖（28+ 测试方法）
 
-## 安装
-
-```xml
-<PackageReference Include="Linger.DataAccess.Oracle" Version="0.8.0-preview" />
-```
 
 ## 快速开始
 
@@ -100,18 +93,6 @@ var users = await oracle.QueryAsync<User>("SELECT * FROM users", cancellationTok
 - **Oracle.ManagedDataAccess** 21.19.0 (.NET Framework 4.6.2)
 - **Linger.DataAccess** (核心抽象)
 
-## 测试
-
-包含 28+ 测试方法的全面单元测试套件，覆盖：
-- SQL 注入防护
-- 参数验证
-- 批处理
-- 异步操作
-- 错误处理
-
-```bash
-dotnet test Linger.DataAccess.Oracle.UnitTests
-```
 
 ## 最佳实践
 

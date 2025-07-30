@@ -15,13 +15,8 @@ public class BaseDatabase : IBaseDatabase
     public BaseDatabase(IProvider provider, string strConnection)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        ArgumentNullException.ThrowIfNull(strConnection);
-        
-        if (string.IsNullOrWhiteSpace(strConnection))
-        {
-            throw new ArgumentException("连接字符串不能为空或仅包含空格", nameof(strConnection));
-        }
-        
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strConnection);
+
         Provider = provider;
         ConnString = strConnection;
     }
@@ -30,6 +25,9 @@ public class BaseDatabase : IBaseDatabase
     /// 数据库连接对象
     /// </summary>
     private DbConnection? Connection { get; set; }
+
+    protected bool IsConnected { get; set; }
+
     /// <summary>
     /// 事务对象
     /// </summary>

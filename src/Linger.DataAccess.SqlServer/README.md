@@ -1,4 +1,4 @@
-﻿# Linger.DataAccess.SqlServer
+# Linger.DataAccess.SqlServer
 
 A SQL Server data access library that provides high-performance database operations with bulk copy support.
 
@@ -30,7 +30,7 @@ This library supports .NET applications that utilize:
 ```csharp
 using Linger.DataAccess.SqlServer;
 
-var connectionString = "Server=localhost;Database=MyDB;Trusted_Connection=true;";
+var connectionString = "Data Source=localhost;Initial Catalog=MyDB;User ID=xxxx;Password=xxxx;TrustServerCertificate=true";
 var sqlHelper = new SqlServerHelper(connectionString);
 ```
 

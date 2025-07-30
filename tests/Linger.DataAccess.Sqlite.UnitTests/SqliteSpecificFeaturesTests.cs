@@ -1,3 +1,6 @@
+using Linger.Helper;
+using Xunit;
+
 namespace Linger.DataAccess.Sqlite.UnitTests;
 
 /// <summary>
@@ -14,7 +17,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         File.Delete(_testDbPath);
         _testDbPath = Path.ChangeExtension(_testDbPath, ".db");
         _helper = SqliteHelper.CreateFileDatabase(_testDbPath);
-        
+
         InitializeTestData();
     }
 
@@ -40,7 +43,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
     public void Dispose()
     {
         _helper?.Dispose();
-        
+
         if (File.Exists(_testDbPath))
         {
             try
@@ -54,94 +57,6 @@ public class SqliteSpecificFeaturesTests : IDisposable
         }
     }
 
-    #region WAL模式测试
-
-    [Fact]
-    public void EnableWalMode_ShouldEnableWalJournalMode()
-    {
-        // Act
-        var result = _helper.EnableWalMode();
-
-        // Assert
-        Assert.True(result);
-        
-        // 验证WAL模式是否启用
-        var journalMode = _helper.Query("PRAGMA journal_mode");
-        var mode = journalMode.Tables[0].Rows[0][0].ToString();
-        Assert.Equal("wal", mode?.ToLower());
-    }
-
-    [Fact]
-    public async Task EnableWalModeAsync_ShouldEnableWalJournalMode()
-    {
-        // Act
-        var result = await _helper.EnableWalModeAsync();
-
-        // Assert
-        Assert.True(result);
-        
-        // 验证WAL模式是否启用
-        var journalMode = _helper.Query("PRAGMA journal_mode");
-        var mode = journalMode.Tables[0].Rows[0][0].ToString();
-        Assert.Equal("wal", mode?.ToLower());
-    }
-
-    [Fact]
-    public async Task EnableWalModeAsync_WithCancellation_ShouldSupportCancellation()
-    {
-        // Arrange
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
-            _helper.EnableWalModeAsync(cts.Token));
-    }
-
-    #endregion
-
-    #region 缓存大小测试
-
-    [Theory]
-    [InlineData(-2000)]    // 2MB
-    [InlineData(-64000)]   // 64MB
-    [InlineData(-128000)]  // 128MB
-    [InlineData(1000)]     // 1000 pages
-    [InlineData(5000)]     // 5000 pages
-    public void SetCacheSize_WithVariousSizes_ShouldSetCorrectly(int cacheSize)
-    {
-        // Act
-        var result = _helper.SetCacheSize(cacheSize);
-
-        // Assert
-        Assert.True(result);
-        
-        // 验证缓存大小是否设置正确
-        var currentCacheSize = _helper.Query("PRAGMA cache_size");
-        var actualSize = Convert.ToInt64(currentCacheSize.Tables[0].Rows[0][0]);
-        Assert.Equal(cacheSize, actualSize);
-    }
-
-    [Fact]
-    public void SetCacheSize_ShouldSetCacheSize()
-    {
-        // Arrange
-        const int expectedSize = -32000; // 32MB
-
-        // Act
-        var result = _helper.SetCacheSize(expectedSize);
-
-        // Assert
-        Assert.True(result);
-        
-        // 验证缓存大小
-        var currentCacheSize = _helper.Query("PRAGMA cache_size");
-        var actualSize = Convert.ToInt64(currentCacheSize.Tables[0].Rows[0][0]);
-        Assert.Equal(expectedSize, actualSize);
-    }
-
-    #endregion
-
     #region 数据库维护测试
 
     [Fact]
@@ -151,7 +66,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         // 插入一些数据然后删除，创建空间碎片
         _helper.ExecuteBySql("INSERT INTO test_table (name, value) SELECT 'temp' || id, id * 1000 FROM test_table");
         _helper.ExecuteBySql("DELETE FROM test_table WHERE name LIKE 'temp%'");
-        
+
         var sizeBefore = _helper.GetDatabaseSize();
 
         // Act
@@ -159,7 +74,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
 
         // Assert
         Assert.True(result);
-        
+
         var sizeAfter = _helper.GetDatabaseSize();
         // VACUUM后数据库大小应该不增加（可能减少）
         Assert.True(sizeAfter <= sizeBefore);
@@ -183,7 +98,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _helper.VacuumDatabaseAsync(cts.Token));
     }
 
@@ -195,7 +110,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
 
         // Assert
         Assert.True(result);
-        
+
         // 验证统计信息是否更新（检查sqlite_stat1表是否存在）
         var statsTables = _helper.Query("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'sqlite_stat%'");
         Assert.True(statsTables.Tables[0].Rows.Count > 0);
@@ -219,7 +134,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _helper.AnalyzeDatabaseAsync(cts.Token));
     }
 
@@ -236,7 +151,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         // Assert
         Assert.True(size > 0);
         Assert.True(File.Exists(_testDbPath));
-        
+
         // 验证返回的大小与实际文件大小一致
         var actualFileSize = new FileInfo(_testDbPath).Length;
         Assert.Equal(actualFileSize, size);
@@ -260,7 +175,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _helper.GetDatabaseSizeAsync(cts.Token));
     }
 
@@ -294,7 +209,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _helper.CheckIntegrityAsync(cts.Token));
     }
 
@@ -334,7 +249,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _helper.GetTableNamesAsync(cts.Token));
     }
 
@@ -379,7 +294,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() => 
+        await Assert.ThrowsAsync<TaskCanceledException>(() =>
             _helper.TableExistsAsync("test_table", cts.Token));
     }
 
@@ -392,11 +307,11 @@ public class SqliteSpecificFeaturesTests : IDisposable
         // Act & Assert
         if (tableName is null)
         {
-            Assert.Throws<ArgumentNullException>(() => _helper.TableExists(tableName!));
+            Assert.Throws<System.ArgumentNullException>(() => _helper.TableExists(tableName!));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => _helper.TableExists(tableName));
+            Assert.Throws<System.ArgumentException>(() => _helper.TableExists(tableName));
         }
     }
 
@@ -405,7 +320,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
     #region 备份功能高级测试
 
     [Fact]
-    public void BackupDatabase_ShouldCreateIdenticalCopy()
+    public async Task BackupDatabase_ShouldCreateIdenticalCopy()
     {
         // Arrange
         var backupPath = Path.GetTempFileName();
@@ -422,19 +337,50 @@ public class SqliteSpecificFeaturesTests : IDisposable
             Assert.True(File.Exists(backupPath));
 
             // 验证备份文件包含相同的数据
-            using var backupHelper = SqliteHelper.CreateFileDatabase(backupPath, false);
-            var originalData = _helper.Query("SELECT COUNT(*) as count FROM test_table");
-            var backupData = backupHelper.Query("SELECT COUNT(*) as count FROM test_table");
-            
-            Assert.Equal(
-                originalData.Tables[0].Rows[0]["count"],
-                backupData.Tables[0].Rows[0]["count"]
-            );
+            using (var backupHelper = SqliteHelper.CreateFileDatabase(backupPath, false))
+            {
+                var originalData = _helper.Query("SELECT COUNT(*) as count FROM test_table");
+                var backupData = backupHelper.Query("SELECT COUNT(*) as count FROM test_table");
+
+                Assert.Equal(
+                    originalData.Tables[0].Rows[0]["count"],
+                    backupData.Tables[0].Rows[0]["count"]
+                );
+            } // backupHelper在这里被释放
+
+            // 确保连接完全释放，避免文件占用
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
         }
         finally
         {
-            if (File.Exists(backupPath))
-                File.Delete(backupPath);
+            // 连接已释放，使用RetryHelper处理文件删除
+            var retryHelper = new RetryHelper(new RetryOptions
+            {
+                MaxRetryAttempts = 3,
+                DelayMilliseconds = 100,
+                UseExponentialBackoff = false
+            });
+
+            try
+            {
+                await retryHelper.ExecuteAsync(
+                    () =>
+                    {
+                        if (File.Exists(backupPath))
+                        {
+                            File.Delete(backupPath);
+                        }
+                        return Task.CompletedTask;
+                    },
+                    "删除备份文件",
+                    ex => ex is IOException // 仅对文件IO异常重试
+                );
+            }
+            catch
+            {
+                // 测试清理失败不应影响测试结果
+            }
         }
     }
 
@@ -454,7 +400,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
             // Assert
             Assert.True(result);
             Assert.True(File.Exists(backupPath));
-            
+
             // 验证文件不再包含原始内容
             var content = File.ReadAllText(backupPath);
             Assert.DoesNotContain("existing content", content);
@@ -513,7 +459,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
 
         // Assert
         Assert.True(result);
-        
+
         // 验证事务执行结果
         var newCount = GetTestTableCount();
         Assert.Equal(originalCount + 1, newCount); // +2 inserts, -1 delete = +1
@@ -577,7 +523,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
 
         // Assert
         Assert.True(result);
-        
+
         var newCount = GetTestTableCount();
         Assert.Equal(originalCount + 100, newCount);
 
@@ -602,7 +548,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         // Arrange
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var statements = new List<string>();
-        
+
         for (int i = 1; i <= 1000; i++)
         {
             statements.Add($"INSERT INTO test_table (name, value) VALUES ('Perf{i}', {i})");
@@ -615,7 +561,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         // Assert
         Assert.True(result);
         Assert.True(stopwatch.ElapsedMilliseconds < 5000); // 应该在5秒内完成
-        
+
         Console.WriteLine($"插入1000条记录耗时: {stopwatch.ElapsedMilliseconds}ms");
     }
 
@@ -624,7 +570,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
     {
         // Arrange & Act
         var tasks = new List<Task<bool>>();
-        
+
         for (int i = 0; i < 10; i++)
         {
             int taskId = i;
@@ -643,7 +589,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
 
         // Assert
         Assert.All(results, result => Assert.True(result));
-        
+
         // 验证数据完整性
         var stressRecords = _helper.Query("SELECT COUNT(*) as count FROM test_table WHERE name LIKE 'Stress%'");
         Assert.Equal(10, Convert.ToInt32(stressRecords.Tables[0].Rows[0]["count"]));

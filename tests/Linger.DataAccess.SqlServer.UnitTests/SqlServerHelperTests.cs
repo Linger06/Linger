@@ -308,11 +308,11 @@ public class SqlServerHelperPerformanceTests
 
         // Assert
         Assert.Equal(rowCount, table.Rows.Count);
-        
+
         // Verify empty table doesn't cause issues
         table.Clear();
         sqlHelper.AddByBulkCopy(table, "TestTable"); // Should not throw
-        
+
         var result = sqlHelper.BulkInsert(table);
         Assert.False(result); // Empty table should return false
     }

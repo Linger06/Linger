@@ -1,9 +1,0 @@
-global using System.Data;
-global using System.Data.SQLite;
-global using Linger.DataAccess.Sqlite;
-global using Linger.Extensions;
-global using Linger.Extensions.Collection;
-global using Linger.Extensions.Core;
-global using Linger.Extensions.Data;
-global using Moq;
-global using Xunit;

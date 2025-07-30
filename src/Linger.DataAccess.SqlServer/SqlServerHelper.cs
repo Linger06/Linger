@@ -23,11 +23,7 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
     public void AddByBulkCopy(DataTable table, string tableName, int batchSize = 1000, int timeout = 100)
     {
         ArgumentNullException.ThrowIfNull(table, nameof(table));
-        
-        if (string.IsNullOrWhiteSpace(tableName))
-        {
-            throw new ArgumentException("表名不能为空", nameof(tableName));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
         if (table.Rows.Count == 0)
         {
@@ -59,11 +55,7 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(table, nameof(table));
-        
-        if (string.IsNullOrWhiteSpace(tableName))
-        {
-            throw new ArgumentException("表名不能为空", nameof(tableName));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
         if (table.Rows.Count == 0)
         {
@@ -90,15 +82,8 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     public int? GetMaxId(string fieldName, string tableName)
     {
-        if (string.IsNullOrWhiteSpace(fieldName))
-        {
-            throw new ArgumentException("字段名不能为空", nameof(fieldName));
-        }
-        
-        if (string.IsNullOrWhiteSpace(tableName))
-        {
-            throw new ArgumentException("表名不能为空", nameof(tableName));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
         try
         {
@@ -129,15 +114,8 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     public async Task<int?> GetMaxIdAsync(string fieldName, string tableName, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(fieldName))
-        {
-            throw new ArgumentException("字段名不能为空", nameof(fieldName));
-        }
-        
-        if (string.IsNullOrWhiteSpace(tableName))
-        {
-            throw new ArgumentException("表名不能为空", nameof(tableName));
-        }
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
         try
         {
@@ -165,11 +143,8 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
     /// <exception cref="ArgumentException">当 strSql 为空时抛出</exception>
     public bool Exists(string strSql)
     {
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
-        
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql, nameof(strSql));
+
         var count = FindCountBySql(strSql);
         return count > 0;
     }
@@ -183,11 +158,8 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
     /// <exception cref="ArgumentException">当 strSql 为空时抛出</exception>
     public async Task<bool> ExistsAsync(string strSql, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(strSql))
-        {
-            throw new ArgumentException("SQL语句不能为空", nameof(strSql));
-        }
-        
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql, nameof(strSql));
+
         var count = await FindCountBySqlAsync(strSql).ConfigureAwait(false);
         return count > 0;
     }
