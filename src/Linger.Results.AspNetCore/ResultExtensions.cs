@@ -186,4 +186,247 @@ public static class ResultExtensions
             StatusCode = failureStatusCode
         };
     }
+
+    #region Minimal API Extensions
+
+    /// <summary>
+    /// 将Result转换为IResult，用于Minimal API
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <returns>对应的IResult对象</returns>
+    /// <example>
+    /// <code>
+    /// app.MapGet("/api/status", () =>
+    /// {
+    ///     var result = SomeOperation();
+    ///     return result.ToResult();
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToResult(this Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.Ok();
+        }
+
+        return result.Status switch
+        {
+            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
+            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
+        };
+    }
+
+    /// <summary>
+    /// 将Result{T}转换为IResult，用于Minimal API
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <returns>对应的IResult对象</returns>
+    /// <example>
+    /// <code>
+    /// app.MapGet("/api/users/{id}", (int id) =>
+    /// {
+    ///     var result = GetUser(id);
+    ///     return result.ToResult();
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToResult<T>(this Result<T> result)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.Ok(result.Value);
+        }
+
+        return result.Status switch
+        {
+            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
+            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
+        };
+    }
+
+    /// <summary>
+    /// 将Result转换为IResult，并指定成功和失败时的状态码，用于Minimal API
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <param name="failureStatusCode">失败时返回的HTTP状态码</param>
+    /// <returns>对应的IResult对象</returns>
+    /// <example>
+    /// <code>
+    /// app.MapPost("/api/users", (CreateUserRequest request) =>
+    /// {
+    ///     var result = CreateUser(request);
+    ///     return result.ToResult(StatusCodes.Status201Created);
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToResult(
+        this Result result,
+        int successStatusCode = StatusCodes.Status200OK,
+        int failureStatusCode = StatusCodes.Status400BadRequest)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.StatusCode(successStatusCode);
+        }
+
+        var problemDetails = CreateProblemDetails(result, failureStatusCode);
+        return Microsoft.AspNetCore.Http.Results.Problem(problemDetails);
+    }
+
+    /// <summary>
+    /// 将Result{T}转换为IResult，并指定成功和失败时的状态码，用于Minimal API
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <param name="failureStatusCode">失败时返回的HTTP状态码</param>
+    /// <returns>对应的IResult对象</returns>
+    /// <example>
+    /// <code>
+    /// app.MapPut("/api/users/{id}", (int id, UpdateUserRequest request) =>
+    /// {
+    ///     var result = UpdateUser(id, request);
+    ///     return result.ToResult(StatusCodes.Status200OK, StatusCodes.Status404NotFound);
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToResult<T>(
+        this Result<T> result,
+        int successStatusCode = StatusCodes.Status200OK,
+        int failureStatusCode = StatusCodes.Status400BadRequest)
+    {
+        if (result.IsSuccess)
+        {
+            return successStatusCode switch
+            {
+                StatusCodes.Status200OK => Microsoft.AspNetCore.Http.Results.Ok(result.Value),
+                StatusCodes.Status201Created => Microsoft.AspNetCore.Http.Results.Created(string.Empty, result.Value),
+                StatusCodes.Status202Accepted => Microsoft.AspNetCore.Http.Results.Accepted(string.Empty, result.Value),
+                _ => Microsoft.AspNetCore.Http.Results.Json(result.Value, statusCode: successStatusCode)
+            };
+        }
+
+        var problemDetails = CreateProblemDetails(result, failureStatusCode);
+        return Microsoft.AspNetCore.Http.Results.Problem(problemDetails);
+    }
+
+    /// <summary>
+    /// 将Result转换为特定类型的IResult，用于Minimal API的特殊场景
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <param name="location">Created结果的位置URI</param>
+    /// <returns>对应的IResult对象</returns>
+    /// <example>
+    /// <code>
+    /// app.MapPost("/api/users", (CreateUserRequest request) =>
+    /// {
+    ///     var result = CreateUser(request);
+    ///     return result.ToCreatedResult($"/api/users/{user.Id}");
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToCreatedResult(this Result result, string location)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.Created(location, null);
+        }
+
+        return result.Status switch
+        {
+            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
+            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
+        };
+    }
+
+    /// <summary>
+    /// 将Result{T}转换为Created类型的IResult，用于Minimal API
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <param name="location">Created结果的位置URI</param>
+    /// <returns>对应的IResult对象</returns>
+    /// <example>
+    /// <code>
+    /// app.MapPost("/api/users", (CreateUserRequest request) =>
+    /// {
+    ///     var result = CreateUser(request);
+    ///     return result.ToCreatedResult($"/api/users/{result.Value.Id}");
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToCreatedResult<T>(this Result<T> result, string location)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.Created(location, result.Value);
+        }
+
+        return result.Status switch
+        {
+            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
+            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
+        };
+    }
+
+    /// <summary>
+    /// 将Result{T}转换为NoContent类型的IResult，用于Minimal API的删除操作
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <returns>对应的IResult对象</returns>
+    /// <example>
+    /// <code>
+    /// app.MapDelete("/api/users/{id}", (int id) =>
+    /// {
+    ///     var result = DeleteUser(id);
+    ///     return result.ToNoContentResult();
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToNoContentResult(this Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.NoContent();
+        }
+
+        return result.Status switch
+        {
+            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
+            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
+        };
+    }
+
+    #endregion
+
+    #region Helper Methods
+
+    /// <summary>
+    /// 创建ProblemDetails对象的辅助方法
+    /// </summary>
+    /// <param name="result">Result对象</param>
+    /// <param name="statusCode">HTTP状态码</param>
+    /// <returns>ProblemDetails对象</returns>
+    private static ProblemDetails CreateProblemDetails(Result result, int statusCode)
+    {
+        var problemDetails = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = "One or more errors occurred",
+            Detail = string.Join("; ", result.Errors.Select(e => e.Message))
+        };
+
+        if (result.Errors.Count() > 1)
+        {
+            var errors = result.Errors.Select(e => e.Message).ToList();
+            problemDetails.Extensions["errors"] = errors;
+        }
+
+        return problemDetails;
+    }
+
+    #endregion
 }

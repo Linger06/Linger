@@ -7,6 +7,7 @@ Linger.Results.AspNetCore 提供了将 Linger.Results 库与 ASP.NET Core 框架
 ## 功能特点
 
 - 将 `Result` 和 `Result<T>` 对象优雅地转换为 ASP.NET Core 的 `ActionResult`
+- 支持 **Minimal API** - 使用现代 `Results` 静态类将 `Result` 和 `Result<T>` 转换为 `IResult`
 - 基于结果状态自动选择适当的HTTP状态码
 - 支持自定义成功和失败状态码
 - 提供符合RFC 7807标准的ProblemDetails格式输出
@@ -69,6 +70,52 @@ public class UsersController : ControllerBase
     }
 }
 ```
+
+### 在Minimal API中使用ToResult扩展方法
+
+```csharp
+var app = WebApplication.Create();
+
+// 基本用法 - 自动状态码映射
+app.MapGet("/api/users/{id}", async (int id, IUserService userService) =>
+{
+    var result = await userService.GetUserByIdAsync(id);
+    return result.ToResult(); // 自动返回Ok(value)或NotFound/BadRequest
+});
+
+// 自定义状态码
+app.MapPost("/api/users", async (CreateUserRequest request, IUserService userService) =>
+{
+    var result = await userService.CreateUserAsync(request);
+    return result.ToResult(StatusCodes.Status201Created);
+});
+
+// Created结果带位置信息
+app.MapPost("/api/products", async (CreateProductRequest request, IProductService productService) =>
+{
+    var result = await productService.CreateProductAsync(request);
+    return result.ToCreatedResult($"/api/products/{result.Value?.Id}");
+});
+
+// 删除操作的NoContent结果
+app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
+{
+    var result = await userService.DeleteUserAsync(id);
+    return result.ToNoContentResult();
+});
+
+app.Run();
+```
+
+## API方法对比
+
+| 场景 | 控制器API | Minimal API |
+|------|-----------|-------------|
+| 基本转换 | `result.ToActionResult()` | `result.ToResult()` |
+| 自定义状态码 | `result.ToActionResult(201, 400)` | `result.ToResult(201, 400)` |
+| Created响应 | `result.ToActionResult(201)` | `result.ToCreatedResult("/api/users/123")` |
+| NoContent响应 | `result.ToActionResult(204)` | `result.ToNoContentResult()` |
+| 问题详情 | `result.ToProblemDetails()` | `result.ToResult()` (自动使用ProblemDetails) |
 
 ### 返回值示意
 
@@ -231,6 +278,7 @@ public async Task<ActionResult> GetUserWithProblemDetails(int id)
 
 ### 自定义失败状态码
 
+#### 控制器
 ```csharp
 [HttpDelete("{id}")]
 public async Task<ActionResult> DeleteUser(int id)
@@ -240,6 +288,54 @@ public async Task<ActionResult> DeleteUser(int id)
     // 成功返回204 No Content，失败根据Result状态自动选择状态码
     return result.ToActionResult(successStatusCode: StatusCodes.Status204NoContent);
 }
+```
+
+#### Minimal API
+```csharp
+app.MapPut("/api/users/{id}", async (int id, UpdateUserRequest request, IUserService userService) =>
+{
+    var result = await userService.UpdateUserAsync(id, request);
+    return result.ToResult(StatusCodes.Status200OK, StatusCodes.Status404NotFound);
+});
+```
+
+### 高级Minimal API示例
+
+```csharp
+// 多操作组合及错误处理
+app.MapPost("/api/transfer", async (TransferRequest request, IAccountService accountService) =>
+{
+    // 验证源账户
+    var sourceResult = await accountService.ValidateAccountAsync(request.SourceAccountId);
+    if (sourceResult.IsFailure)
+        return sourceResult.ToResult();
+        
+    // 验证目标账户
+    var targetResult = await accountService.ValidateAccountAsync(request.TargetAccountId);
+    if (targetResult.IsFailure)
+        return targetResult.ToResult();
+    
+    // 执行转账
+    var transferResult = await accountService.TransferAsync(
+        request.SourceAccountId, 
+        request.TargetAccountId, 
+        request.Amount);
+        
+    return transferResult.ToResult();
+});
+
+// 使用不同的响应类型
+app.MapGet("/api/users", async (IUserService userService) =>
+{
+    var result = await userService.GetAllUsersAsync();
+    return result.ToResult(); // 返回Ok(List<UserDto>)或BadRequest(errors)
+});
+
+app.MapPost("/api/users/{id}/activate", async (int id, IUserService userService) =>
+{
+    var result = await userService.ActivateUserAsync(id);
+    return result.ToResult(StatusCodes.Status202Accepted); // 返回202 Accepted或错误
+});
 ```
 
 ### 组合使用多个Result
@@ -270,11 +366,13 @@ public async Task<ActionResult> TransferMoney(TransferRequest request)
 
 ## 最佳实践
 
-1. **清晰的关注点分离**：服务层返回业务结果 (`Result`)，控制器负责将其转换为HTTP响应
+1. **清晰的关注点分离**：服务层返回业务结果 (`Result`)，控制器/端点负责将其转换为HTTP响应
 2. **一致的API响应**：保持API返回格式的一致性，使客户端处理更简单
 3. **直接返回值**：成功时直接返回 `result.Value`，让API响应更简洁
 4. **利用状态映射**：扩展`ResultStatus`枚举以满足更多业务场景
 5. **优先使用`ToProblemDetails`**：对于面向客户端的API，尽可能使用符合RFC 7807的错误格式
+6. **选择合适的API风格**：复杂场景需要模型绑定、过滤器等功能时使用控制器，简单轻量的端点使用Minimal API
+7. **统一错误处理**：无论使用控制器还是Minimal API，在整个应用程序中保持一致的错误响应格式
 
 ## 与Linger.Results配合使用
 
