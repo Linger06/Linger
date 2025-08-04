@@ -1,4 +1,4 @@
-﻿# Linger.Results.AspNetCore
+# Linger.Results.AspNetCore
 
 > 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
@@ -20,11 +20,6 @@ Linger.Results.AspNetCore provides extension methods that seamlessly integrate t
 For example, when a service returns `Result<UserDto>` and converts it via `ToActionResult()`, the client will receive the `UserDto` JSON directly, not a wrapper object containing properties like `Value`, `IsSuccess`, etc.
 
 ## Supported Framework Versions
-
-- .NET Core 3.1+ 
-- .NET 5.0+
-- .NET 6.0+
-- .NET 7.0+
 - .NET 8.0+
 
 ## Installation

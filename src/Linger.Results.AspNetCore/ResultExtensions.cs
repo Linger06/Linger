@@ -21,14 +21,13 @@ public static class ResultExtensions
             return new OkObjectResult(result);
         }
 
-        // 根据Result的Status确定HTTP状态码
         var statusCode = result.Status switch
         {
             ResultStatus.NotFound => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status400BadRequest
         };
 
-        return new ObjectResult(result.Errors)
+        return new ObjectResult(new { errors = result.Errors })
         {
             StatusCode = statusCode
         };
@@ -53,7 +52,8 @@ public static class ResultExtensions
                 StatusCode = successStatusCode
             };
         }
-        return new ObjectResult(result.Errors)
+
+        return new ObjectResult(new { errors = result.Errors })
         {
             StatusCode = failureStatusCode
         };
@@ -69,18 +69,15 @@ public static class ResultExtensions
     {
         if (result.IsSuccess)
         {
-            // 注意: 这里直接返回值，而不是整个Result对象
             return new OkObjectResult(result.Value);
         }
 
-        // 根据Result的Status确定HTTP状态码
         var statusCode = result.Status switch
         {
             ResultStatus.NotFound => StatusCodes.Status404NotFound,
             _ => StatusCodes.Status400BadRequest
         };
 
-        // 返回错误信息
         return new ObjectResult(new { errors = result.Errors })
         {
             StatusCode = statusCode
@@ -102,14 +99,12 @@ public static class ResultExtensions
     {
         if (result.IsSuccess)
         {
-            // 直接返回值，而不是整个Result对象
             return new ObjectResult(result.Value)
             {
                 StatusCode = successStatusCode
             };
         }
 
-        // 返回错误信息，而不是整个Result对象
         return new ObjectResult(new { errors = result.Errors })
         {
             StatusCode = failureStatusCode
@@ -131,20 +126,7 @@ public static class ResultExtensions
             return new OkObjectResult(result);
         }
 
-        var problemDetails = new ProblemDetails
-        {
-            Status = failureStatusCode,
-            Title = "One or more errors occurred",
-            Detail = string.Join("; ", result.Errors.Select(e => e.Message))
-        };
-
-        // 添加所有错误到扩展字典
-        if (result.Errors.Count() > 1)
-        {
-            var errors = result.Errors.Select(e => e.Message).ToList();
-            problemDetails.Extensions["errors"] = errors;
-        }
-
+        var problemDetails = CreateProblemDetails(result, failureStatusCode);
         return new ObjectResult(problemDetails)
         {
             StatusCode = failureStatusCode
@@ -167,20 +149,7 @@ public static class ResultExtensions
             return new OkObjectResult(result.Value);
         }
 
-        var problemDetails = new ProblemDetails
-        {
-            Status = failureStatusCode,
-            Title = "One or more errors occurred",
-            Detail = string.Join("; ", result.Errors.Select(e => e.Message))
-        };
-
-        // 添加所有错误到扩展字典
-        if (result.Errors.Count() > 1)
-        {
-            var errors = result.Errors.Select(e => e.Message).ToList();
-            problemDetails.Extensions["errors"] = errors;
-        }
-
+        var problemDetails = CreateProblemDetails(result, failureStatusCode);
         return new ObjectResult(problemDetails)
         {
             StatusCode = failureStatusCode
@@ -210,11 +179,8 @@ public static class ResultExtensions
             return Microsoft.AspNetCore.Http.Results.Ok();
         }
 
-        return result.Status switch
-        {
-            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
-            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
-        };
+        var problemDetails = CreateProblemDetails(result);
+        return CreateErrorResult(result, problemDetails);
     }
 
     /// <summary>
@@ -239,11 +205,8 @@ public static class ResultExtensions
             return Microsoft.AspNetCore.Http.Results.Ok(result.Value);
         }
 
-        return result.Status switch
-        {
-            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
-            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
-        };
+        var problemDetails = CreateProblemDetails(result);
+        return CreateErrorResult(result, problemDetails);
     }
 
     /// <summary>
@@ -314,7 +277,7 @@ public static class ResultExtensions
     }
 
     /// <summary>
-    /// 将Result转换为特定类型的IResult，用于Minimal API的特殊场景
+    /// 将Result转换为Created类型的IResult，用于Minimal API
     /// </summary>
     /// <param name="result">要转换的Result对象</param>
     /// <param name="location">Created结果的位置URI</param>
@@ -335,11 +298,8 @@ public static class ResultExtensions
             return Microsoft.AspNetCore.Http.Results.Created(location, null);
         }
 
-        return result.Status switch
-        {
-            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
-            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
-        };
+        var problemDetails = CreateProblemDetails(result);
+        return CreateErrorResult(result, problemDetails);
     }
 
     /// <summary>
@@ -365,15 +325,12 @@ public static class ResultExtensions
             return Microsoft.AspNetCore.Http.Results.Created(location, result.Value);
         }
 
-        return result.Status switch
-        {
-            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
-            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
-        };
+        var problemDetails = CreateProblemDetails(result);
+        return CreateErrorResult(result, problemDetails);
     }
 
     /// <summary>
-    /// 将Result{T}转换为NoContent类型的IResult，用于Minimal API的删除操作
+    /// 将Result转换为NoContent类型的IResult，用于Minimal API的删除操作
     /// </summary>
     /// <param name="result">要转换的Result对象</param>
     /// <returns>对应的IResult对象</returns>
@@ -393,11 +350,8 @@ public static class ResultExtensions
             return Microsoft.AspNetCore.Http.Results.NoContent();
         }
 
-        return result.Status switch
-        {
-            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(CreateProblemDetails(result, StatusCodes.Status404NotFound)),
-            _ => Microsoft.AspNetCore.Http.Results.BadRequest(CreateProblemDetails(result, StatusCodes.Status400BadRequest))
-        };
+        var problemDetails = CreateProblemDetails(result);
+        return CreateErrorResult(result, problemDetails);
     }
 
     #endregion
@@ -405,27 +359,51 @@ public static class ResultExtensions
     #region Helper Methods
 
     /// <summary>
-    /// 创建ProblemDetails对象的辅助方法
+    /// 创建ProblemDetails对象
     /// </summary>
     /// <param name="result">Result对象</param>
-    /// <param name="statusCode">HTTP状态码</param>
+    /// <param name="statusCode">HTTP状态码，如果不指定则根据Result状态自动确定</param>
     /// <returns>ProblemDetails对象</returns>
-    private static ProblemDetails CreateProblemDetails(Result result, int statusCode)
+    private static ProblemDetails CreateProblemDetails(Result result, int? statusCode = null)
     {
+        var code = statusCode ?? (result.Status == ResultStatus.NotFound ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest);
+        
         var problemDetails = new ProblemDetails
         {
-            Status = statusCode,
-            Title = "One or more errors occurred",
+            Status = code,
+            Title = code switch
+            {
+                StatusCodes.Status400BadRequest => "One or more validation errors occurred",
+                StatusCodes.Status401Unauthorized => "Unauthorized access",
+                StatusCodes.Status403Forbidden => "Access forbidden",
+                StatusCodes.Status404NotFound => "The requested resource was not found",
+                StatusCodes.Status409Conflict => "A conflict occurred",
+                _ => "An error occurred"
+            },
             Detail = string.Join("; ", result.Errors.Select(e => e.Message))
         };
 
-        if (result.Errors.Count() > 1)
+        if (result.Errors.Any())
         {
-            var errors = result.Errors.Select(e => e.Message).ToList();
-            problemDetails.Extensions["errors"] = errors;
+            problemDetails.Extensions["errors"] = result.Errors.ToDictionary(e => e.Code, e => e.Message);
         }
 
         return problemDetails;
+    }
+
+    /// <summary>
+    /// 根据Result状态返回相应的IResult错误响应
+    /// </summary>
+    /// <param name="result">Result对象</param>
+    /// <param name="problemDetails">ProblemDetails对象</param>
+    /// <returns>IResult对象</returns>
+    private static IResult CreateErrorResult(Result result, ProblemDetails problemDetails)
+    {
+        return result.Status switch
+        {
+            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(problemDetails),
+            _ => Microsoft.AspNetCore.Http.Results.BadRequest(problemDetails)
+        };
     }
 
     #endregion

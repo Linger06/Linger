@@ -200,12 +200,25 @@ public abstract class HttpClientBase : IHttpClient
         // 处理空JSON对象
         if (responseText == "{}")
         {
-            return targetType switch
+            if (targetType.IsValueType)
             {
-                { IsValueType: true } => default!,
-                not null when targetType == typeof(object) => (T)(object)new { },
-                _ => TryCreateDefaultInstance<T>()
-            };
+                return default!;
+            }
+            
+            if (targetType == typeof(object))
+            {
+                return (T)(object)new { };
+            }
+            
+            // 安全地尝试创建默认实例
+            try
+            {
+                return Activator.CreateInstance<T>();
+            }
+            catch
+            {
+                return default!;
+            }
         }
 
         // 尝试JSON反序列化
@@ -221,50 +234,8 @@ public abstract class HttpClientBase : IHttpClient
         }
     }
 
-    /// <summary>
-    /// 安全地尝试创建类型的默认实例
-    /// </summary>
-    /// <typeparam name="T">目标类型</typeparam>
-    /// <returns>创建的实例或默认值</returns>
-    private static T TryCreateDefaultInstance<T>()
-    {
-        try
-        {
-            return Activator.CreateInstance<T>();
-        }
-        catch
-        {
-            return default!;
-        }
-    }
-
     protected virtual async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage res)
     {
-        // 优化特定状态码的处理方式
-        var statusMessage = res.StatusCode switch
-        {
-            HttpStatusCode.BadRequest => "Bad request",
-            HttpStatusCode.Unauthorized => "Authentication required",
-            HttpStatusCode.Forbidden => "Access forbidden",
-            HttpStatusCode.NotFound => "Resource not found",
-            HttpStatusCode.MethodNotAllowed => "Method not allowed",
-            HttpStatusCode.Conflict => "Request conflict",
-            (HttpStatusCode)422 => "Validation failed", // Unprocessable Entity
-            (HttpStatusCode)429 => "Too many requests, please try again later",
-            HttpStatusCode.InternalServerError => "Internal server error",
-            HttpStatusCode.BadGateway => "Bad gateway",
-            HttpStatusCode.ServiceUnavailable => "Service unavailable",
-            HttpStatusCode.GatewayTimeout => "Gateway timeout",
-            _ => null
-        };
-
-        // 如果是已知状态码，直接返回预定义消息
-        if (statusMessage is not null)
-        {
-            return (statusMessage, []);
-        }
-
-        // 尝试从响应内容中提取详细错误信息
         try
         {
             var responseTxt = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
@@ -272,15 +243,16 @@ public abstract class HttpClientBase : IHttpClient
             // 如果响应内容为空，返回通用错误消息
             if (string.IsNullOrWhiteSpace(responseTxt))
             {
-                return ($"HTTP {(int)res.StatusCode}: {res.ReasonPhrase}", []);
+                return (GetStatusCodeMessage(res.StatusCode) ?? $"HTTP {(int)res.StatusCode}: {res.ReasonPhrase}", []);
             }
 
-            // 尝试反序列化为错误集合
+            // 尝试解析 ProblemDetails 格式
             try
             {
-                var errors = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
-                if (errors.IsNotNull() && errors.Any())
+                var problemDetails = responseTxt.Deserialize<ProblemDetailsWithErrors>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                if (problemDetails is not null && problemDetails.Errors.Count > 0)
                 {
+                    var errors = problemDetails.Errors.Select(kvp => new Error(kvp.Key, kvp.Value)).ToList();
                     var firstError = errors.FirstOrDefault();
                     var errorMsg = firstError?.Message ?? "An unknown error occurred";
                     return (errorMsg, errors);
@@ -288,10 +260,33 @@ public abstract class HttpClientBase : IHttpClient
             }
             catch (JsonException)
             {
-                // 反序列化失败，可能不是标准的错误格式
-                // 继续使用原始响应文本
+                // ProblemDetails 解析失败，继续尝试其他格式
             }
 
+            // 尝试解析直接的错误集合格式
+            try
+            {
+                var errorList = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                if (errorList is not null && errorList.Any())
+                {
+                    var firstError = errorList.FirstOrDefault();
+                    var errorMsg = firstError?.Message ?? "An unknown error occurred";
+                    return (errorMsg, errorList);
+                }
+            }
+            catch (JsonException)
+            {
+                // Error 集合解析失败，继续使用其他方式
+            }
+
+            // 如果无法解析为结构化错误，尝试返回状态码对应的消息
+            var statusMessage = GetStatusCodeMessage(res.StatusCode);
+            if (statusMessage is not null)
+            {
+                return (statusMessage, []);
+            }
+
+            // 最后返回原始响应文本
             return (responseTxt, []);
         }
         catch (Exception ex)
@@ -300,6 +295,28 @@ public abstract class HttpClientBase : IHttpClient
             return ($"HTTP {(int)res.StatusCode}: {res.ReasonPhrase} (Failed to read response: {ex.Message})", []);
         }
     }
+
+    /// <summary>
+    /// 获取状态码对应的友好错误消息
+    /// </summary>
+    /// <param name="statusCode">HTTP状态码</param>
+    /// <returns>友好的错误消息</returns>
+    private static string? GetStatusCodeMessage(HttpStatusCode statusCode) => statusCode switch
+    {
+        HttpStatusCode.BadRequest => "Bad request", // 请求参数错误
+        HttpStatusCode.Unauthorized => "Authentication required", // 身份验证失败
+        HttpStatusCode.Forbidden => "Access forbidden", // 访问被拒绝
+        HttpStatusCode.NotFound => "Resource not found", // 请求的资源不存在
+        HttpStatusCode.MethodNotAllowed => "Method not allowed", // 请求方法不被允许
+        HttpStatusCode.Conflict => "Request conflict", // 请求冲突
+        (HttpStatusCode)422 => "Validation failed", // 数据验证失败 (Unprocessable Entity)
+        (HttpStatusCode)429 => "Too many requests, please try again later", // 请求过于频繁，请稍后重试
+        HttpStatusCode.InternalServerError => "Internal server error", // 服务器内部错误
+        HttpStatusCode.BadGateway => "Bad gateway", // 网关错误
+        HttpStatusCode.ServiceUnavailable => "Service unavailable", // 服务暂时不可用
+        HttpStatusCode.GatewayTimeout => "Gateway timeout", // 网关超时
+        _ => null
+    };
 
     /// <summary>
     /// 创建超时取消令牌源

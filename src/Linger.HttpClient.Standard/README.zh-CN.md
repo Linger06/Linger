@@ -91,9 +91,69 @@ if (!serverErrorResult.IsSuccess)
 }
 ```
 
+### 🔧 ProblemDetails支持
+
+StandardHttpClient原生支持**RFC 7807 ProblemDetails**格式，特别针对**ProblemDetailsWithErrors**进行了优化：
+
+```csharp
+// 服务端返回ProblemDetails格式 (使用Linger.Results.AspNetCore的ToProblemDetails())
+// HTTP 400: {
+//   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+//   "title": "One or more validation errors occurred",
+//   "status": 400,
+//   "detail": "Name is required; Email format is invalid",
+//   "extensions": {
+//     "errors": {
+//       "Name": "Name is required",
+//       "Email": "Email format is invalid"
+//     }
+//   }
+// }
+
+var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
+if (!result.IsSuccess)
+{
+    Console.WriteLine($"HTTP状态: {result.StatusCode}");           // 400
+    Console.WriteLine($"标题: {result.ErrorMsg}");                 // "One or more validation errors occurred"
+    
+    // 自动解析extensions.errors为Error对象
+    foreach (var error in result.Errors)
+    {
+        Console.WriteLine($"字段: {error.Code}, 错误: {error.Message}");
+        // 输出: 字段: Name, 错误: Name is required
+        // 输出: 字段: Email, 错误: Email format is invalid
+    }
+}
+```
+
+**ProblemDetailsWithErrors支持的字段：**
+
+| ProblemDetails字段 | ApiResult映射 | 说明 |
+|-------------------|---------------|-----|
+| `title` | `ErrorMsg` | 主要错误消息 |
+| `detail` | `ErrorMsg` (如果title为空) | 详细错误描述 |
+| `status` | `StatusCode` | HTTP状态码 |
+| `extensions.errors` | `Errors[]` | 结构化错误列表 |
+
+**支持的错误格式：**
+
+```csharp
+// 1. 标准ProblemDetails (无extensions.errors)
+// { "title": "User not found", "status": 404 }
+// → ErrorMsg: "User not found", Errors: [Error("Error", "User not found")]
+
+// 2. ProblemDetailsWithErrors (有extensions.errors字典)
+// { "title": "Validation failed", "extensions": { "errors": { "Name": "Required" } } }
+// → ErrorMsg: "Validation failed", Errors: [Error("Name", "Required")]
+
+// 3. ProblemDetailsWithErrors (extensions.errors为数组)
+// { "title": "Multiple errors", "extensions": { "errors": [{"code": "E001", "message": "Error 1"}] } }
+// → ErrorMsg: "Multiple errors", Errors: [Error("E001", "Error 1")]
+```
+
 ### 🎛️ 自定义错误解析
 
-对于特殊的API错误格式，可以通过继承StandardHttpClient并重写`GetErrorMessageAsync`方法：
+StandardHttpClient内置支持多种错误格式，包括**ProblemDetails**。对于特殊的API错误格式，可以通过继承StandardHttpClient并重写`GetErrorMessageAsync`方法：
 
 ```csharp
 public class CustomApiHttpClient : StandardHttpClient
@@ -109,6 +169,14 @@ public class CustomApiHttpClient : StandardHttpClient
         
         try
         {
+            // 首先尝试解析为ProblemDetails (内置支持)
+            if (response.Content.Headers.ContentType?.MediaType == "application/problem+json" ||
+                content.Contains("\"title\"") && content.Contains("\"status\""))
+            {
+                // 使用内置的ProblemDetails解析
+                return await base.GetErrorMessageAsync(response);
+            }
+            
             // 自定义API错误格式: { "error": { "message": "xxx", "details": [...] } }
             var errorResponse = JsonSerializer.Deserialize<CustomErrorResponse>(content);
             if (errorResponse?.Error != null)
@@ -124,7 +192,7 @@ public class CustomApiHttpClient : StandardHttpClient
             // JSON解析失败，使用默认处理
         }
         
-        // 回退到默认错误解析
+        // 回退到默认错误解析（包括ProblemDetails）
         return await base.GetErrorMessageAsync(response);
     }
     
@@ -149,6 +217,13 @@ public class CustomApiHttpClient : StandardHttpClient
 // 使用自定义客户端
 services.AddHttpClient<IHttpClient, CustomApiHttpClient>();
 ```
+
+**内置支持的错误格式：**
+
+1. **ProblemDetails (RFC 7807)** - 推荐格式
+2. **简单错误对象** - `{ "message": "error", "code": "ERROR_CODE" }`
+3. **错误数组** - `{ "errors": [{ "code": "E1", "message": "Error 1" }] }`
+4. **纯文本** - 直接的错误消息字符串
 
 ## 安装
 
@@ -284,6 +359,41 @@ public async Task<Result<User>> GetUserAsync(int id)
         HttpStatusCode.Unauthorized => Result<User>.Failure($"访问被拒绝: {apiResult.ErrorMsg}"),
         _ => Result<User>.Failure($"服务器错误: {apiResult.ErrorMsg}")
     };
+}
+```
+
+### ProblemDetails错误处理
+
+StandardHttpClient自动处理ProblemDetails格式的错误响应，提供结构化的错误信息：
+
+```csharp
+// 服务端使用Linger.Results.AspNetCore的ToProblemDetails()方法
+[HttpPost]
+public async Task<IActionResult> CreateUser(CreateUserRequest request)
+{
+    var result = await _userService.CreateUserAsync(request);
+    return result.ToProblemDetails(); // 自动生成ProblemDetails格式响应
+}
+
+// 客户端自动解析ProblemDetails
+var createResult = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, request);
+if (!createResult.IsSuccess)
+{
+    // 主要错误消息来自ProblemDetails.title
+    Console.WriteLine($"错误: {createResult.ErrorMsg}");
+    
+    // 详细错误来自extensions.errors
+    foreach (var error in createResult.Errors)
+    {
+        Console.WriteLine($"字段 {error.Code}: {error.Message}");
+    }
+    
+    // 可以检查是否为特定类型的验证错误
+    if (createResult.StatusCode == HttpStatusCode.BadRequest && createResult.Errors.Any())
+    {
+        var validationErrors = createResult.Errors.ToDictionary(e => e.Code, e => e.Message);
+        // 处理验证错误...
+    }
 }
 ```
 

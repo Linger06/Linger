@@ -20,11 +20,6 @@ Linger.Results.AspNetCore 提供了将 Linger.Results 库与 ASP.NET Core 框架
 例如，当一个服务返回 `Result<UserDto>` 并通过 `ToActionResult()` 转换时，客户端将直接收到 `UserDto` JSON，而不是包含 `Value`、`IsSuccess` 等属性的包装对象。
 
 ## 支持的框架版本
-
-- .NET Core 3.1+ 
-- .NET 5.0+
-- .NET 6.0+
-- .NET 7.0+
 - .NET 8.0+
 
 ## 安装
