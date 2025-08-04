@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0</TargetFrameworks>
-        <Version>0.8.1-preview</Version>
+        <Version>0.8.2-preview</Version>
         <Description>
             An FTP implementation of the Linger FileSystem abstraction.
             Provides a robust and retry-capable FTP client for file operations using FluentFTP.

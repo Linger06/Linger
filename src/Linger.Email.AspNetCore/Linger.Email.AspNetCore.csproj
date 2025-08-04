@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-        <Version>0.8.1-preview</Version>
+        <Version>0.8.2-preview</Version>
         <Description>
             ASP.NET Core integration for the Linger.Email library.
             Provides dependency injection extensions and configuration integration for email services.
