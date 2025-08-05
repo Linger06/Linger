@@ -56,11 +56,11 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<ArgumentNullException>(() => helper.Page(sql!, parameters));
+            Assert.Throws<ArgumentNullException>(() => helper.QueryInBatches(sql!, parameters));
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => helper.Page(sql, parameters));
+            Assert.Throws<ArgumentException>(() => helper.QueryInBatches(sql, parameters));
         }
     }
 
@@ -72,7 +72,7 @@ public class OracleHelperTests
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => helper.Page(sql, null!));
+        Assert.Throws<ArgumentNullException>(() => helper.QueryInBatches(sql, null!));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class OracleHelperTests
         var parameters = new List<string>();
 
         // Act
-        var result = helper.Page(sql, parameters);
+        var result = helper.QueryInBatches(sql, parameters);
 
         // Assert
         Assert.NotNull(result);
@@ -140,11 +140,11 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => helper.PageAsync(sql!, parameters));
+            await Assert.ThrowsAsync<ArgumentNullException>(() => helper.QueryInBatchesAsync(sql!, parameters));
         }
         else
         {
-            await Assert.ThrowsAsync<ArgumentException>(() => helper.PageAsync(sql, parameters));
+            await Assert.ThrowsAsync<ArgumentException>(() => helper.QueryInBatchesAsync(sql, parameters));
         }
     }
 
@@ -160,7 +160,7 @@ public class OracleHelperTests
 
         // Act & Assert
         await Assert.ThrowsAsync<TaskCanceledException>(() => 
-            helper.PageAsync(sql, parameters, cts.Token));
+            helper.QueryInBatchesAsync(sql, parameters, cts.Token));
     }
 
     [Theory]

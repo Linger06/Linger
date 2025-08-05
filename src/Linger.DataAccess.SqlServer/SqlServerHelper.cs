@@ -8,7 +8,7 @@ namespace Linger.DataAccess.SqlServer;
 /// SQL Server 数据库帮助类，提供 SQL Server 特有的功能
 /// </summary>
 /// <param name="strConnection">数据库连接字符串</param>
-public class SqlServerHelper(string strConnection) : Database(new SqlServerProvider(), strConnection)
+public class SqlServerHelper(string connectionString) : Database(new SqlServerProvider(), connectionString)
 {
     /// <summary>
     /// 海量数据插入方法
@@ -87,8 +87,8 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
 
         try
         {
-            var strSql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
-            var obj = FindMaxBySql(strSql);
+            var sql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
+            var obj = FindMaxBySql(sql);
 
             return obj switch
             {
@@ -119,8 +119,8 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
 
         try
         {
-            var strSql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
-            var obj = await ExecuteScalarAsync(CommandType.Text, strSql).ConfigureAwait(false);
+            var sql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
+            var obj = await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false);
 
             return obj switch
             {
@@ -138,29 +138,54 @@ public class SqlServerHelper(string strConnection) : Database(new SqlServerProvi
     /// <summary>
     /// 检查指定SQL查询是否返回数据
     /// </summary>
-    /// <param name="strSql">SQL查询语句</param>
+    /// <param name="sql">SQL查询语句</param>
     /// <returns>如果有数据返回 true，否则返回 false</returns>
-    /// <exception cref="ArgumentException">当 strSql 为空时抛出</exception>
-    public bool Exists(string strSql)
+    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
+    /// <example>
+    /// <code>
+    /// // 检查用户是否存在
+    /// var userExists = helper.Exists("SELECT COUNT(*) FROM Users WHERE Id = 1");
+    /// 
+    /// // 检查表中是否有数据
+    /// var hasData = helper.Exists("SELECT COUNT(*) FROM Products WHERE Price > 100");
+    /// 
+    /// // 检查特定条件的记录是否存在
+    /// var hasActiveUsers = helper.Exists("SELECT COUNT(*) FROM Users WHERE Status = 'Active' AND LastLogin > '2024-01-01'");
+    /// </code>
+    /// </example>
+    public bool Exists(string sql)
     {
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql, nameof(strSql));
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
 
-        var count = FindCountBySql(strSql);
+        var count = FindCountBySql(sql);
         return count > 0;
     }
 
     /// <summary>
     /// 检查指定SQL查询是否返回数据（异步版本）
     /// </summary>
-    /// <param name="strSql">SQL查询语句</param>
+    /// <param name="sql">SQL查询语句</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>如果有数据返回 true，否则返回 false</returns>
-    /// <exception cref="ArgumentException">当 strSql 为空时抛出</exception>
-    public async Task<bool> ExistsAsync(string strSql, CancellationToken cancellationToken = default)
+    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
+    /// <example>
+    /// <code>
+    /// // 异步检查用户是否存在
+    /// var userExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Users WHERE Email = 'user@example.com'");
+    /// 
+    /// // 异步检查订单是否存在
+    /// var orderExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Orders WHERE OrderDate >= DATEADD(day, -30, GETDATE())");
+    /// 
+    /// // 使用取消令牌的异步检查
+    /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+    /// var hasExpiredSessions = await helper.ExistsAsync("SELECT COUNT(*) FROM UserSessions WHERE ExpiryDate < GETDATE()", cts.Token);
+    /// </code>
+    /// </example>
+    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(strSql, nameof(strSql));
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
 
-        var count = await FindCountBySqlAsync(strSql).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
         return count > 0;
     }
 

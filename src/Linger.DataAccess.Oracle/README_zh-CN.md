@@ -28,7 +28,7 @@ var users = await oracle.QueryAsync<User>("SELECT * FROM users WHERE department 
 
 // 自动分页的批处理
 var userIds = new List<string> { "1", "2", "3", ..., "5000" }; // 大列表
-var results = oracle.Page("SELECT * FROM users WHERE id IN ({0})", userIds);
+var results = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", userIds);
 
 // 安全检查存在性
 bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email",
@@ -38,8 +38,8 @@ bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email
 ## 核心方法
 
 ### 批处理操作
-- `Page(sql, parameters)` - 大参数列表的智能批处理
-- `PageAsync(sql, parameters, cancellationToken)` - 异步批处理
+- `QueryInBatches(sql, parameters)` - 大参数列表的智能批处理
+- `QueryInBatchesAsync(sql, parameters, cancellationToken)` - 异步批处理
 
 ### 存在性检查
 - `Exists(sql, parameters)` - 参数化存在性验证
@@ -75,7 +75,7 @@ var result = oracle.Query<User>(sql, new OracleParameter(":userName", userName))
 ```csharp
 // 高效处理 10,000+ ID
 var massiveIdList = Enumerable.Range(1, 10000).Select(i => i.ToString()).ToList();
-var results = oracle.Page("SELECT * FROM users WHERE id IN ({0})", massiveIdList);
+var results = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", massiveIdList);
 // 自动分为 10 批，每批 1000 项
 ```
 

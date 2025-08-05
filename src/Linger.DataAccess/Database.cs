@@ -2,6 +2,7 @@ using System.Collections;
 using System.Data;
 using System.Data.Common;
 using System.Text;
+using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
 using Linger.Extensions.Data;
 
@@ -10,19 +11,20 @@ namespace Linger.DataAccess;
 /// <summary>
 ///     操作数据库基类
 /// </summary>
-public class Database(IProvider provider, string strConnection) : BaseDatabase(provider, strConnection), IDatabase
+public class Database(IProvider provider, string connectionString) : BaseDatabase(provider, connectionString), IDatabase
 {
 
     #region SqlBulkCopy大批量数据插入
 
     /// <summary>
     ///     大批量数据插入
+    ///     基类默认不支持，需要子类重写实现具体的批量插入逻辑
     /// </summary>
     /// <param name="dt">资料表</param>
-    /// <returns></returns>
-    public bool BulkInsert(DataTable dt)
+    /// <returns>插入是否成功</returns>
+    public virtual bool BulkInsert(DataTable dt)
     {
-        return false;
+        throw new NotSupportedException("当前数据库提供程序不支持批量插入操作，请使用具体的数据库实现类（如 SqlServerHelper）");
     }
 
     #endregion
@@ -32,55 +34,89 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     执行SQL语句
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public int ExecuteBySql(string strSql)
+    public int ExecuteBySql(string sql)
     {
-        return ExecuteNonQuery(CommandType.Text, strSql);
+        return ExecuteNonQuery(CommandType.Text, sql);
     }
 
     /// <summary>
     ///     执行SQL语句
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
-    /// <returns></returns>
-    public int ExecuteBySql(StringBuilder strSql)
-    {
-        return ExecuteNonQuery(CommandType.Text, strSql.ToString());
-    }
-
-    /// <summary>
-    ///     执行SQL语句
-    /// </summary>
-    /// <param name="strSql">Sql语句</param>
-    /// <param name="isOpenTrans">事务对象</param>
-    /// <returns></returns>
-    public int ExecuteBySql(StringBuilder strSql, DbTransaction isOpenTrans)
-    {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, strSql.ToString());
-    }
-
-    /// <summary>
-    ///     执行SQL语句
-    /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public int ExecuteBySql(StringBuilder strSql, DbParameter[] parameters)
+    public int ExecuteBySql(string sql, DbParameter[] parameters)
     {
-        return ExecuteNonQuery(CommandType.Text, strSql.ToString(), parameters);
+        return ExecuteNonQuery(CommandType.Text, sql, parameters);
     }
 
     /// <summary>
     ///     执行SQL语句
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="isOpenTrans">事务对象</param>
+    /// <returns></returns>
+    public int ExecuteBySql(string sql, DbTransaction isOpenTrans)
+    {
+        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql);
+    }
+
+    /// <summary>
+    ///     执行SQL语句
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <param name="isOpenTrans">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(StringBuilder strSql, DbParameter[] parameters, DbTransaction isOpenTrans)
+    public int ExecuteBySql(string sql, DbParameter[] parameters, DbTransaction isOpenTrans)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, strSql.ToString(), parameters);
+        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql, parameters);
+    }
+
+    /// <summary>
+    ///     执行SQL语句
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <returns></returns>
+    public int ExecuteBySql(StringBuilder sql)
+    {
+        return ExecuteNonQuery(CommandType.Text, sql.ToString());
+    }
+
+    /// <summary>
+    ///     执行SQL语句
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="isOpenTrans">事务对象</param>
+    /// <returns></returns>
+    public int ExecuteBySql(StringBuilder sql, DbTransaction isOpenTrans)
+    {
+        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql.ToString());
+    }
+
+    /// <summary>
+    ///     执行SQL语句
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <returns></returns>
+    public int ExecuteBySql(StringBuilder sql, DbParameter[] parameters)
+    {
+        return ExecuteNonQuery(CommandType.Text, sql.ToString(), parameters);
+    }
+
+    /// <summary>
+    ///     执行SQL语句
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <param name="isOpenTrans">事务对象</param>
+    /// <returns></returns>
+    public int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction isOpenTrans)
+    {
+        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql.ToString(), parameters);
     }
 
     #endregion
@@ -138,23 +174,23 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     查询数据列表、返回List
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public List<T> FindListBySql<T>(string strSql)
+    public List<T> FindListBySql<T>(string sql)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql);
         return dr.ReaderToList<T>();
     }
 
     /// <summary>
     ///     查询数据列表、返回List
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public List<T> FindListBySql<T>(string strSql, DbParameter[] parameters)
+    public List<T> FindListBySql<T>(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql, parameters);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
         return dr.ReaderToList<T>();
     }
 
@@ -165,29 +201,46 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     查询数据列表、返回 DataTable
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public DataTable FindTableBySql(string strSql)
+    public DataTable FindTableBySql(string sql)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql);
         return dr.ReaderToDataTable();
     }
 
-    public async Task<DataTable> FindTableBySqlAsync(string strSql)
+    /// <summary>
+    ///     查询数据列表、返回 DataTable（异步版本）
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <returns></returns>
+    public async Task<DataTable> FindTableBySqlAsync(string sql)
     {
-        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, strSql).ConfigureAwait(false);
+        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql).ConfigureAwait(false);
+        return dr.ReaderToDataTable();
+    }
+
+    /// <summary>
+    ///     查询数据列表、返回 DataTable（异步版本）
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <returns></returns>
+    public async Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters)
+    {
+        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters).ConfigureAwait(false);
         return dr.ReaderToDataTable();
     }
 
     /// <summary>
     ///     查询数据列表、返回 DataTable
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public DataTable FindTableBySql(string strSql, DbParameter[] parameters)
+    public DataTable FindTableBySql(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql, parameters);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
         return dr.ReaderToDataTable();
     }
 
@@ -221,22 +274,43 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     查询数据列表、返回DataSet
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public DataSet FindDataSetBySql(string strSql)
+    public DataSet FindDataSetBySql(string sql)
     {
-        return GetDataSet(CommandType.Text, strSql);
+        return GetDataSet(CommandType.Text, sql);
     }
 
     /// <summary>
     ///     查询数据列表、返回DataSet
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public DataSet FindDataSetBySql(string strSql, DbParameter[] parameters)
+    public DataSet FindDataSetBySql(string sql, DbParameter[] parameters)
     {
-        return GetDataSet(CommandType.Text, strSql, parameters);
+        return GetDataSet(CommandType.Text, sql, parameters);
+    }
+
+    /// <summary>
+    ///     查询数据列表、返回DataSet（异步版本）
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <returns></returns>
+    public Task<DataSet> FindDataSetBySqlAsync(string sql)
+    {
+        return GetDataSetAsync(CommandType.Text, sql);
+    }
+
+    /// <summary>
+    ///     查询数据列表、返回DataSet（异步版本）
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <returns></returns>
+    public Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters)
+    {
+        return GetDataSetAsync(CommandType.Text, sql, parameters);
     }
 
     /// <summary>
@@ -267,23 +341,23 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     查询对象、返回实体
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public T FindEntityBySql<T>(string strSql)
+    public T FindEntityBySql<T>(string sql)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql);
         return dr.ReaderToModel<T>();
     }
 
     /// <summary>
     ///     查询对象、返回实体
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public T FindEntityBySql<T>(string strSql, DbParameter[] parameters)
+    public T FindEntityBySql<T>(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql, parameters);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
         return dr.ReaderToModel<T>();
     }
 
@@ -294,23 +368,23 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     查询对象、返回哈希表
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public Hashtable FindHashtableBySql(string strSql)
+    public Hashtable FindHashtableBySql(string sql)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql);
         return dr.ReaderToHashtable();
     }
 
     /// <summary>
     ///     查询对象、返回哈希表
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public Hashtable FindHashtableBySql(string strSql, DbParameter[] parameters)
+    public Hashtable FindHashtableBySql(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, strSql, parameters);
+        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
         return dr.ReaderToHashtable();
     }
 
@@ -321,32 +395,43 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     查询数据、返回条数
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public int FindCountBySql(string strSql)
+    public int FindCountBySql(string sql)
     {
-        return ExecuteScalar(CommandType.Text, strSql).ToInt();
+        return ExecuteScalar(CommandType.Text, sql).ToInt();
     }
 
     /// <summary>
     ///     查询数据、返回条数
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public async Task<int> FindCountBySqlAsync(string strSql)
+    public async Task<int> FindCountBySqlAsync(string sql)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, strSql).ConfigureAwait(false)).ToInt();
+        return (await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false)).ToInt();
     }
 
     /// <summary>
     ///     查询数据、返回条数
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public int FindCountBySql(string strSql, DbParameter[] parameters)
+    public int FindCountBySql(string sql, DbParameter[] parameters)
     {
-        return ExecuteScalar(CommandType.Text, strSql, parameters).ToInt();
+        return ExecuteScalar(CommandType.Text, sql, parameters).ToInt();
+    }
+
+    /// <summary>
+    ///     查询数据、返回条数（异步版本）
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <returns></returns>
+    public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters)
+    {
+        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false)).ToInt();
     }
 
     #endregion
@@ -356,22 +441,197 @@ public class Database(IProvider provider, string strConnection) : BaseDatabase(p
     /// <summary>
     ///     查询数据、返回最大数
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public object? FindMaxBySql(string strSql)
+    public object? FindMaxBySql(string sql)
     {
-        return ExecuteScalar(CommandType.Text, strSql);
+        return ExecuteScalar(CommandType.Text, sql);
+    }
+
+    /// <summary>
+    ///     查询数据、返回最大数（异步版本）
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <returns></returns>
+    public async Task<object?> FindMaxBySqlAsync(string sql)
+    {
+        return await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false);
     }
 
     /// <summary>
     ///     查询数据、返回最大数
     /// </summary>
-    /// <param name="strSql">Sql语句</param>
+    /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns></returns>
-    public object? FindMaxBySql(string strSql, DbParameter[] parameters)
+    public object? FindMaxBySql(string sql, DbParameter[] parameters)
     {
-        return ExecuteScalar(CommandType.Text, strSql, parameters);
+        return ExecuteScalar(CommandType.Text, sql, parameters);
+    }
+
+    /// <summary>
+    ///     查询数据、返回最大数（异步版本）
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <returns></returns>
+    public async Task<object?> FindMaxBySqlAsync(string sql, DbParameter[] parameters)
+    {
+        return await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false);
+    }
+
+    #endregion
+
+    #region 分批查询方法
+
+    /// <summary>
+    ///     拆分为多个1000,进行查询 (使用参数化查询防止SQL注入)
+    /// </summary>
+    /// <param name="sql">SQL查询语句，使用 {0} 作为参数占位符</param>
+    /// <param name="parameters">参数列表</param>
+    /// <returns>查询结果DataTable</returns>
+    /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
+    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
+    public virtual DataTable QueryInBatches(string sql, List<string> parameters)
+    {
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        var dataTable = new DataTable();
+        var pageNumber = 1;
+        int count;
+
+        do
+        {
+            var currentBatch = parameters.Paging(pageNumber, 1000);
+            count = currentBatch.Count();
+
+            if (count == 0)
+            {
+                break;
+            }
+
+            // 创建参数化查询
+            var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
+            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+
+            // 创建数据库参数
+            var dbParams = currentBatch.Select((value, index) =>
+                CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
+
+            // 执行参数化查询
+            var resultDataSet = FindDataSetBySql(formattedSql, dbParams);
+            
+            // 检查结果集是否为空
+            if (resultDataSet.Tables.Count == 0)
+            {
+                break;
+            }
+            
+            var currentPageData = resultDataSet.Tables[0];
+
+            // 仅在第一次的时候进行Clone
+            if (pageNumber == 1)
+            {
+                dataTable = currentPageData.Clone();
+            }
+
+            dataTable = dataTable.Combine(currentPageData);
+            pageNumber++;
+        }
+        while (count == 1000);
+
+        return dataTable;
+    }
+
+    /// <summary>
+    ///     拆分为多个1000,进行异步查询 (使用参数化查询防止SQL注入)
+    /// </summary>
+    /// <param name="sql">SQL查询语句，使用 {0} 作为参数占位符</param>
+    /// <param name="parameters">参数列表</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>查询结果DataTable</returns>
+    /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
+    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
+    public virtual async Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentNullException.ThrowIfNull(parameters);
+
+        var dataTable = new DataTable();
+        var pageNumber = 1;
+        int count;
+
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var currentBatch = parameters.Paging(pageNumber, 1000);
+            count = currentBatch.Count();
+
+            if (count == 0)
+            {
+                break;
+            }
+
+            // 创建参数化查询
+            var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
+            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+
+            // 创建数据库参数
+            var dbParams = currentBatch.Select((value, index) =>
+                CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
+
+            // 执行参数化查询
+            var resultDataSet = await FindDataSetBySqlAsync(formattedSql, dbParams).ConfigureAwait(false);
+            
+            // 检查结果集是否为空
+            if (resultDataSet.Tables.Count == 0)
+            {
+                break;
+            }
+            
+            var currentPageData = resultDataSet.Tables[0];
+
+            // 仅在第一次的时候进行Clone
+            if (pageNumber == 1)
+            {
+                dataTable = currentPageData.Clone();
+            }
+
+            dataTable = dataTable.Combine(currentPageData);
+            pageNumber++;
+        }
+        while (count == 1000);
+
+        return dataTable;
+    }
+
+    /// <summary>
+    ///     获取参数名称（不同数据库使用不同的参数前缀）
+    /// </summary>
+    /// <param name="index">参数索引</param>
+    /// <returns>参数名称</returns>
+    protected virtual string GetParameterName(int index)
+    {
+        // 默认使用 @ 符号（SQL Server, SQLite 兼容）
+        return $"@param{index}";
+    }
+
+    /// <summary>
+    ///     创建数据库参数
+    /// </summary>
+    /// <param name="parameterName">参数名称</param>
+    /// <param name="value">参数值</param>
+    /// <returns>数据库参数</returns>
+    protected virtual DbParameter CreateParameter(string parameterName, object value)
+    {
+        var command = Provider.CreateCommand();
+        var parameter = command.CreateParameter();
+        parameter.ParameterName = parameterName;
+        parameter.Value = value;
+        // 不能使用 using，因为我们需要返回参数对象
+        return parameter;
     }
 
     #endregion

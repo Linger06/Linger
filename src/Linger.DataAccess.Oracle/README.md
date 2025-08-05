@@ -35,7 +35,7 @@ var users = await oracle.QueryAsync<User>("SELECT * FROM users WHERE department 
 
 // Batch processing with automatic pagination
 var userIds = new List<string> { "1", "2", "3", ..., "5000" }; // Large list
-var results = oracle.Page("SELECT * FROM users WHERE id IN ({0})", userIds);
+var results = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", userIds);
 
 // Check existence safely
 bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email",
@@ -45,8 +45,8 @@ bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email
 ## Core Methods
 
 ### Batch Operations
-- `Page(sql, parameters)` - Intelligent batch processing for large parameter lists
-- `PageAsync(sql, parameters, cancellationToken)` - Async batch processing
+- `QueryInBatches(sql, parameters)` - Intelligent batch processing for large parameter lists
+- `QueryInBatchesAsync(sql, parameters, cancellationToken)` - Async batch processing
 
 ### Existence Checks
 - `Exists(sql, parameters)` - Parameterized existence verification
@@ -82,7 +82,7 @@ Large parameter lists are automatically split into batches of 1000 items:
 ```csharp
 // Handles 10,000+ IDs efficiently
 var massiveIdList = Enumerable.Range(1, 10000).Select(i => i.ToString()).ToList();
-var results = oracle.Page("SELECT * FROM users WHERE id IN ({0})", massiveIdList);
+var results = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", massiveIdList);
 // Automatically processes in 10 batches of 1000 items each
 ```
 

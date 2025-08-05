@@ -169,7 +169,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act
-        var result = _fileHelper.Page(sql, userIds);
+        var result = _fileHelper.QueryInBatches(sql, userIds);
 
         // Assert
         Assert.NotNull(result);
@@ -188,7 +188,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT COUNT(*) as total FROM users WHERE id NOT IN ({0})";
 
         // Act
-        var result = _fileHelper.Page(sql, largeList);
+        var result = _fileHelper.QueryInBatches(sql, largeList);
 
         // Assert
         Assert.NotNull(result);
@@ -207,11 +207,11 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Page(sql!, parameters));
+            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.QueryInBatches(sql!, parameters));
         }
         else
         {
-            Assert.Throws<System.ArgumentException>(() => _fileHelper.Page(sql, parameters));
+            Assert.Throws<System.ArgumentException>(() => _fileHelper.QueryInBatches(sql, parameters));
         }
     }
 
@@ -222,7 +222,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Page(sql, null!));
+        Assert.Throws<System.ArgumentNullException>(() => _fileHelper.QueryInBatches(sql, null!));
     }
 
     [Fact]
@@ -233,7 +233,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act
-        var result = await _fileHelper.PageAsync(sql, userIds);
+        var result = await _fileHelper.QueryInBatchesAsync(sql, userIds);
 
         // Assert
         Assert.NotNull(result);
@@ -251,7 +251,7 @@ public class SqliteHelperTests : IDisposable
 
         // Act & Assert
         await Assert.ThrowsAsync<TaskCanceledException>(() =>
-            _fileHelper.PageAsync(sql, userIds, cts.Token));
+            _fileHelper.QueryInBatchesAsync(sql, userIds, cts.Token));
     }
 
     #endregion

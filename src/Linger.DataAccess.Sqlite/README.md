@@ -1,4 +1,4 @@
-﻿# Linger.DataAccess.Sqlite
+# Linger.DataAccess.Sqlite
 
 [中文](README_zh-CN.md) | English
 
@@ -29,7 +29,7 @@ var users = fileDb.Query("SELECT * FROM users WHERE age > @age",
 
 // Batch processing with automatic pagination
 var userIds = new List<string> { "1", "2", "3", ..., "5000" };
-var results = fileDb.Page("SELECT * FROM users WHERE id IN ({0})", userIds);
+var results = fileDb.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", userIds);
 
 // SQLite-specific operations
 await fileDb.VacuumDatabaseAsync();
@@ -47,8 +47,8 @@ var fileDb = SqliteHelper.CreateFileDatabase("app.db", createIfNotExists: true);
 ## Core Methods
 
 ### Batch Operations
-- `Page(sql, parameters)` - Intelligent batch processing for large parameter lists
-- `PageAsync(sql, parameters, cancellationToken)` - Async batch processing
+- `QueryInBatches(sql, parameters)` - Intelligent batch processing for large parameter lists
+- `QueryInBatchesAsync(sql, parameters, cancellationToken)` - Async batch processing
 
 ### Existence Checks
 - `Exists(sql, parameters)` - Parameterized existence verification

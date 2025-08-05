@@ -28,7 +28,7 @@ var users = fileDb.Query("SELECT * FROM users WHERE age > @age",
 
 // 自动分页的批处理
 var userIds = new List<string> { "1", "2", "3", ..., "5000" };
-var results = fileDb.Page("SELECT * FROM users WHERE id IN ({0})", userIds);
+var results = fileDb.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", userIds);
 
 // SQLite 特有操作
 await fileDb.VacuumDatabaseAsync();
@@ -46,8 +46,8 @@ var fileDb = SqliteHelper.CreateFileDatabase("app.db", createIfNotExists: true);
 ## 核心方法
 
 ### 批处理操作
-- `Page(sql, parameters)` - 大参数列表的智能批处理
-- `PageAsync(sql, parameters, cancellationToken)` - 异步批处理
+- `QueryInBatches(sql, parameters)` - 大参数列表的智能批处理
+- `QueryInBatchesAsync(sql, parameters, cancellationToken)` - 异步批处理
 
 ### 存在性检查
 - `Exists(sql, parameters)` - 参数化存在性验证
