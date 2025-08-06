@@ -1,229 +1,16 @@
 # Linger.HttpClient.Standard
 
-## 目录
-- [概述](#概述)
-- [Linger.Results集成](#lingerresults集成)
-- [安装](#安装)
-- [快速开始](#快速开始)
-- [配置](#配置)
-- [使用示例](#使用示例)
-- [错误处理](#错误处理)
-- [性能与监控](#性能与监控)
-- [故障排除](#故障排除)
+[中文](README_zh-CN.md) | [English](README.md)
 
-## 概述
+基于 System.Net.Http.HttpClient 的生产级 HTTP 客户端实现。
 
-**Linger.HttpClient.Standard** 是 `Linger.HttpClient.Contracts` 的生产级实现，基于 `System.Net.Http.HttpClient` 构建，专为实际应用场景设计。
+## 功能特性
 
-### 🎯 核心特性
-
-- **零依赖** - 基于标准.NET库构建
-- **HttpClientFactory集成** - 正确的套接字管理
-- **全面日志记录** - 内置性能监控
-- **资源管理** - 实现IDisposable
-- **文化支持** - 自动国际化处理
-- **Linger.Results集成** - 服务端到客户端的无缝错误映射
-
-## Linger.Results集成
-
-StandardHttpClient的 `ApiResult<T>` 与 **Linger.Results** 无缝集成，提供统一的错误处理体验。
-
-### 🔗 错误映射
-
-| 服务端 (Linger.Results) | 客户端 (ApiResult) | HTTP状态 |
-|------------------------|-------------------|-------------|
-| `Result<T>.NotFound("用户未找到")` | `ApiResult<T>` 其中 `Errors[0].Code = "NotFound"` | 404 |
-| `Result<T>.Failure("邮箱无效")` | `ApiResult<T>` 其中 `Errors[0].Code = "Error"` | 400/500 |
-
-### 🚀 使用示例
-
-```csharp
-// 服务端: API控制器
-[HttpGet("{id}")]
-public async Task<IActionResult> GetUser(int id)
-{
-    var result = await _userService.GetUserAsync(id);
-    return result.ToActionResult(); // 自动HTTP状态映射
-}
-
-// 客户端: 自动接收结构化错误
-var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
-if (!apiResult.IsSuccess)
-{
-    foreach (var error in apiResult.Errors)
-        Console.WriteLine($"错误: {error.Code} - {error.Message}");
-}
-```
-
-### 🔧 与其他API集成
-
-如果服务端**没有使用Linger.Results**，StandardHttpClient同样能很好地工作：
-
-```csharp
-// 标准REST API响应
-// HTTP 404: { "message": "User not found", "code": "USER_NOT_FOUND" }
-var result = await _httpClient.CallApi<User>("api/users/999");
-if (!result.IsSuccess)
-{
-    Console.WriteLine($"状态码: {result.StatusCode}");
-    Console.WriteLine($"错误消息: {result.ErrorMsg}"); // "User not found"
-    // result.Errors 将根据响应体自动填充
-}
-
-// 自定义错误格式
-// HTTP 400: { "errors": [{"field": "email", "message": "Invalid format"}] }
-var createResult = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
-if (!createResult.IsSuccess)
-{
-    foreach (var error in createResult.Errors)
-    {
-        Console.WriteLine($"字段: {error.Code}, 消息: {error.Message}");
-    }
-}
-
-// 简单文本错误
-// HTTP 500: "Internal server error"
-var serverErrorResult = await _httpClient.CallApi<User>("api/users/error");
-if (!serverErrorResult.IsSuccess)
-{
-    Console.WriteLine($"服务器错误: {serverErrorResult.ErrorMsg}");
-    // 即使是纯文本也会被正确处理
-}
-```
-
-### 🔧 ProblemDetails支持
-
-StandardHttpClient原生支持**RFC 7807 ProblemDetails**格式，特别针对**ProblemDetailsWithErrors**进行了优化：
-
-```csharp
-// 服务端返回ProblemDetails格式 (使用Linger.Results.AspNetCore的ToProblemDetails())
-// HTTP 400: {
-//   "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
-//   "title": "One or more validation errors occurred",
-//   "status": 400,
-//   "detail": "Name is required; Email format is invalid",
-//   "extensions": {
-//     "errors": {
-//       "Name": "Name is required",
-//       "Email": "Email format is invalid"
-//     }
-//   }
-// }
-
-var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
-if (!result.IsSuccess)
-{
-    Console.WriteLine($"HTTP状态: {result.StatusCode}");           // 400
-    Console.WriteLine($"标题: {result.ErrorMsg}");                 // "One or more validation errors occurred"
-    
-    // 自动解析extensions.errors为Error对象
-    foreach (var error in result.Errors)
-    {
-        Console.WriteLine($"字段: {error.Code}, 错误: {error.Message}");
-        // 输出: 字段: Name, 错误: Name is required
-        // 输出: 字段: Email, 错误: Email format is invalid
-    }
-}
-```
-
-**ProblemDetailsWithErrors支持的字段：**
-
-| ProblemDetails字段 | ApiResult映射 | 说明 |
-|-------------------|---------------|-----|
-| `title` | `ErrorMsg` | 主要错误消息 |
-| `detail` | `ErrorMsg` (如果title为空) | 详细错误描述 |
-| `status` | `StatusCode` | HTTP状态码 |
-| `extensions.errors` | `Errors[]` | 结构化错误列表 |
-
-**支持的错误格式：**
-
-```csharp
-// 1. 标准ProblemDetails (无extensions.errors)
-// { "title": "User not found", "status": 404 }
-// → ErrorMsg: "User not found", Errors: [Error("Error", "User not found")]
-
-// 2. ProblemDetailsWithErrors (有extensions.errors字典)
-// { "title": "Validation failed", "extensions": { "errors": { "Name": "Required" } } }
-// → ErrorMsg: "Validation failed", Errors: [Error("Name", "Required")]
-
-// 3. ProblemDetailsWithErrors (extensions.errors为数组)
-// { "title": "Multiple errors", "extensions": { "errors": [{"code": "E001", "message": "Error 1"}] } }
-// → ErrorMsg: "Multiple errors", Errors: [Error("E001", "Error 1")]
-```
-
-### 🎛️ 自定义错误解析
-
-StandardHttpClient内置支持多种错误格式，包括**ProblemDetails**。对于特殊的API错误格式，可以通过继承StandardHttpClient并重写`GetErrorMessageAsync`方法：
-
-```csharp
-public class CustomApiHttpClient : StandardHttpClient
-{
-    public CustomApiHttpClient(string baseUrl, ILogger<StandardHttpClient>? logger = null) 
-        : base(baseUrl, logger)
-    {
-    }
-
-    protected override async Task<(string ErrorMessage, Error[] Errors)> GetErrorMessageAsync(HttpResponseMessage response)
-    {
-        var content = await response.Content.ReadAsStringAsync();
-        
-        try
-        {
-            // 首先尝试解析为ProblemDetails (内置支持)
-            if (response.Content.Headers.ContentType?.MediaType == "application/problem+json" ||
-                content.Contains("\"title\"") && content.Contains("\"status\""))
-            {
-                // 使用内置的ProblemDetails解析
-                return await base.GetErrorMessageAsync(response);
-            }
-            
-            // 自定义API错误格式: { "error": { "message": "xxx", "details": [...] } }
-            var errorResponse = JsonSerializer.Deserialize<CustomErrorResponse>(content);
-            if (errorResponse?.Error != null)
-            {
-                var errors = errorResponse.Error.Details?.Select(d => new Error(d.Code, d.Message)).ToArray() 
-                           ?? new[] { new Error("API_ERROR", errorResponse.Error.Message) };
-                           
-                return (errorResponse.Error.Message, errors);
-            }
-        }
-        catch (JsonException)
-        {
-            // JSON解析失败，使用默认处理
-        }
-        
-        // 回退到默认错误解析（包括ProblemDetails）
-        return await base.GetErrorMessageAsync(response);
-    }
-    
-    private class CustomErrorResponse
-    {
-        public CustomError? Error { get; set; }
-    }
-    
-    private class CustomError
-    {
-        public string Message { get; set; } = "";
-        public CustomErrorDetail[]? Details { get; set; }
-    }
-    
-    private class CustomErrorDetail
-    {
-        public string Code { get; set; } = "";
-        public string Message { get; set; } = "";
-    }
-}
-
-// 使用自定义客户端
-services.AddHttpClient<IHttpClient, CustomApiHttpClient>();
-```
-
-**内置支持的错误格式：**
-
-1. **ProblemDetails (RFC 7807)** - 推荐格式
-2. **简单错误对象** - `{ "message": "error", "code": "ERROR_CODE" }`
-3. **错误数组** - `{ "errors": [{ "code": "E1", "message": "Error 1" }] }`
-4. **纯文本** - 直接的错误消息字符串
+- **零依赖**: 基于标准 .NET 库构建
+- **HttpClientFactory 集成**: 正确的套接字管理
+- **全面日志记录**: 内置性能监控
+- **Linger.Results 集成**: 服务端到客户端的无缝错误映射
+- **ProblemDetails 支持**: 原生支持 RFC 7807 标准
 
 ## 安装
 
@@ -231,12 +18,10 @@ services.AddHttpClient<IHttpClient, CustomApiHttpClient>();
 dotnet add package Linger.HttpClient.Standard
 ```
 
-## 快速开始
-
-### 基本用法
+## 基本用法
 
 ```csharp
-// 在DI容器中注册
+// 在 DI 容器中注册
 services.AddHttpClient<IHttpClient, StandardHttpClient>();
 
 // 在服务中使用
@@ -254,166 +39,75 @@ public class UserService
         var result = await _httpClient.CallApi<User>($"api/users/{id}");
         return result.IsSuccess ? result.Data : null;
     }
+}
+```
 
-    public async Task<User?> CreateUserAsync(CreateUserRequest request)
+## Linger.Results 集成
+
+与 Linger.Results 框架无缝集成，提供统一的错误处理：
+
+```csharp
+// 服务端使用 Linger.Results
+[HttpGet("{id}")]
+public async Task<IActionResult> GetUser(int id)
+{
+    var result = await _userService.GetUserAsync(id);
+    return result.ToActionResult(); // 自动 HTTP 状态映射
+}
+
+// 客户端自动接收结构化错误
+var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
+if (!apiResult.IsSuccess)
+{
+    foreach (var error in apiResult.Errors)
+        Console.WriteLine($"错误: {error.Code} - {error.Message}");
+}
+```
+
+## ProblemDetails 支持
+
+原生支持 RFC 7807 ProblemDetails 格式：
+
+```csharp
+// 自动解析 ProblemDetails 响应
+var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
+if (!result.IsSuccess)
+{
+    Console.WriteLine($"错误: {result.ErrorMsg}");
+    foreach (var error in result.Errors)
     {
-        var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, request);
-        return result.IsSuccess ? result.Data : null;
+        Console.WriteLine($"字段: {error.Code}, 错误: {error.Message}");
     }
 }
 ```
 
-### 带日志记录
+## 核心方法
 
+### CallApi<T>
 ```csharp
-services.AddLogging(builder => builder.AddConsole());
-services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
-{
-    client.BaseAddress = new Uri("https://api.example.com/");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-});
+public async Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method = HttpMethodEnum.Get, 
+    object? data = null, Dictionary<string, string>? headers = null)
 ```
 
-## 配置
-
-### HttpClient选项
-
-```csharp
-services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
-{
-    client.BaseAddress = new Uri("https://api.example.com/");
-    client.Timeout = TimeSpan.FromSeconds(30);
-    client.DefaultRequestHeaders.Add("User-Agent", "MyApp/1.0");
-});
-```
-
-### StandardHttpClient选项
-
-```csharp
-var client = new StandardHttpClient("https://api.example.com");
-client.Options.DefaultTimeout = 30;
-client.AddHeader("Authorization", "Bearer token");
-```
-
-## 使用示例
-
-### GET请求
-
-```csharp
-var result = await _httpClient.CallApi<UserData>("api/users/123");
-if (result.IsSuccess)
-{
-    Console.WriteLine($"用户: {result.Data.Name}");
-}
-```
-
-### POST JSON数据
-
-```csharp
-var createRequest = new CreateUserRequest { Name = "张三", Email = "zhangsan@example.com" };
-var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, createRequest);
-```
-
-### 文件上传
-
-```csharp
-var fileData = File.ReadAllBytes("document.pdf");
-var result = await _httpClient.CallApi<UploadResult>(
-    "api/upload", 
-    HttpMethodEnum.Post, 
-    fileData, 
-    headers: new Dictionary<string, string> { ["Content-Type"] = "application/pdf" }
-);
-```
-
-### 带查询参数
-
-```csharp
-var queryParams = new Dictionary<string, object>
-{
-    ["page"] = 1,
-    ["size"] = 10,
-    ["active"] = true
-};
-var result = await _httpClient.CallApi<PagedResult<User>>("api/users", queryParams: queryParams);
-```
+支持的 HTTP 方法：
+- GET: 获取数据
+- POST: 创建资源
+- PUT: 更新资源
+- DELETE: 删除资源
+- PATCH: 部分更新
 
 ## 错误处理
 
-### Linger.Results兼容的错误处理
-
-将 `ApiResult<T>` 转换为 `Result<T>` 以保持一致的错误处理模式：
-
 ```csharp
-public async Task<Result<User>> GetUserAsync(int id)
-{
-    var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
-    
-    if (apiResult.IsSuccess)
-        return Result<User>.Success(apiResult.Data);
-        
-    return apiResult.StatusCode switch
-    {
-        HttpStatusCode.NotFound => Result<User>.NotFound("用户未找到"),
-        HttpStatusCode.BadRequest => Result<User>.Failure(apiResult.ErrorMsg),
-        HttpStatusCode.Unauthorized => Result<User>.Failure($"访问被拒绝: {apiResult.ErrorMsg}"),
-        _ => Result<User>.Failure($"服务器错误: {apiResult.ErrorMsg}")
-    };
-}
-```
-
-### ProblemDetails错误处理
-
-StandardHttpClient自动处理ProblemDetails格式的错误响应，提供结构化的错误信息：
-
-```csharp
-// 服务端使用Linger.Results.AspNetCore的ToProblemDetails()方法
-[HttpPost]
-public async Task<IActionResult> CreateUser(CreateUserRequest request)
-{
-    var result = await _userService.CreateUserAsync(request);
-    return result.ToProblemDetails(); // 自动生成ProblemDetails格式响应
-}
-
-// 客户端自动解析ProblemDetails
-var createResult = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, request);
-if (!createResult.IsSuccess)
-{
-    // 主要错误消息来自ProblemDetails.title
-    Console.WriteLine($"错误: {createResult.ErrorMsg}");
-    
-    // 详细错误来自extensions.errors
-    foreach (var error in createResult.Errors)
-    {
-        Console.WriteLine($"字段 {error.Code}: {error.Message}");
-    }
-    
-    // 可以检查是否为特定类型的验证错误
-    if (createResult.StatusCode == HttpStatusCode.BadRequest && createResult.Errors.Any())
-    {
-        var validationErrors = createResult.Errors.ToDictionary(e => e.Code, e => e.Message);
-        // 处理验证错误...
-    }
-}
-```
-
-### ApiResult模式
-
-```csharp
-var result = await _httpClient.CallApi<UserData>("api/users/123");
+var result = await _httpClient.CallApi<User>("api/users/123");
 
 if (result.IsSuccess)
 {
-    // 成功情况
     var user = result.Data;
-    Console.WriteLine($"用户: {user.Name}");
 }
 else
 {
-    // 错误情况
-    Console.WriteLine($"错误: {result.ErrorMsg}");
-    
-    // 处理特定状态码
+    // 检查 HTTP 状态码
     switch (result.StatusCode)
     {
         case HttpStatusCode.NotFound:
@@ -422,146 +116,20 @@ else
         case HttpStatusCode.Unauthorized:
             Console.WriteLine("需要身份验证");
             break;
-        default:
-            Console.WriteLine($"HTTP {(int)result.StatusCode}: {result.ErrorMsg}");
-            break;
     }
     
     // 访问详细错误
     foreach (var error in result.Errors)
     {
-        Console.WriteLine($"错误代码: {error.Code}, 消息: {error.Message}");
+        Console.WriteLine($"错误: {error.Code} - {error.Message}");
     }
 }
 ```
 
-### 异常处理
+## 最佳实践
 
-```csharp
-try
-{
-    var result = await _httpClient.CallApi<UserData>("api/users/123");
-    // 处理结果...
-}
-catch (HttpRequestException ex)
-{
-    // 网络级错误
-    Console.WriteLine($"网络错误: {ex.Message}");
-}
-catch (TaskCanceledException ex)
-{
-    // 超时错误
-    Console.WriteLine($"请求超时: {ex.Message}");
-}
-```
-
-## 性能与监控
-
-### 内置日志记录
-
-StandardHttpClient自动记录：
-- **请求/响应详情** (Debug级别)
-- **性能指标** (Information级别)
-- **错误和警告** (Warning/Error级别)
-
-```csharp
-// 示例日志输出
-[INF] HTTP GET https://api.example.com/api/users/123 completed in 245ms (Status: 200)
-[DBG] Request Headers: Accept: application/json, User-Agent: MyApp/1.0
-[DBG] Response Headers: Content-Type: application/json; charset=utf-8
-```
-
-### 性能监控
-
-```csharp
-public class MonitoredUserService
-{
-    private readonly IHttpClient _httpClient;
-    private readonly ILogger<MonitoredUserService> _logger;
-
-    public MonitoredUserService(IHttpClient httpClient, ILogger<MonitoredUserService> logger)
-    {
-        _httpClient = httpClient;
-        _logger = logger;
-    }
-
-    public async Task<User?> GetUserAsync(int id)
-    {
-        using var activity = Activity.StartActivity("GetUser");
-        activity?.SetTag("user.id", id);
-
-        var stopwatch = Stopwatch.StartActivity();
-        var result = await _httpClient.CallApi<User>($"api/users/{id}");
-        stopwatch.Stop();
-
-        _logger.LogInformation("GetUser completed in {ElapsedMs}ms, Success: {Success}", 
-            stopwatch.ElapsedMilliseconds, result.IsSuccess);
-
-        return result.IsSuccess ? result.Data : null;
-    }
-}
-```
-
-## 故障排除
-
-### 常见问题
-
-**1. 连接超时**
-```csharp
-// 增加超时时间
-services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
-{
-    client.Timeout = TimeSpan.FromMinutes(5);
-});
-```
-
-**2. SSL证书问题**
-```csharp
-services.AddHttpClient<IHttpClient, StandardHttpClient>()
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-    {
-        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-    });
-```
-
-**3. 端口耗尽**
-- 始终使用HttpClientFactory（DI中自动）
-- 不要在循环中手动创建StandardHttpClient实例
-
-**4. 内存泄漏**
-```csharp
-// ✅ 正确：使用DI
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
-
-// ❌ 错误：手动创建不释放
-var client = new StandardHttpClient("https://api.example.com");
-
-// ✅ 正确：手动创建要释放
-using var client = new StandardHttpClient("https://api.example.com");
-```
-
-### 调试技巧
-
-**启用详细日志**
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Linger.HttpClient.Standard": "Debug"
-    }
-  }
-}
-```
-
-**检查网络流量**
-- 使用Fiddler、Wireshark或浏览器开发工具
-- 检查日志中的请求/响应头
-- 验证JSON序列化/反序列化
-
----
-
-## 📖 相关文档
-
-- **[Linger.HttpClient.Contracts](../Linger.HttpClient.Contracts/README.zh-CN.md)** - 接口定义和架构指导
-- **[Linger.Results](../Linger.Results/README.zh-CN.md)** - 与ApiResult无缝集成的服务端结果模式
-- **[Microsoft HttpClientFactory](https://docs.microsoft.com/zh-cn/dotnet/core/extensions/httpclient-factory)** - 官方.NET文档
+- 使用 HttpClientFactory 进行依赖注入
+- 使用 `using` 语句确保资源正确释放
+- 启用详细日志以便调试
+- 合理设置超时时间
+- 处理网络异常和超时情况

@@ -1,39 +1,16 @@
 # Linger.HttpClient.Contracts
 
-## Table of Contents
-- [Overview](#overview)
-- [Features](#features)
-- [Installation](#installation)
-- [ApiResult and Linger.Results Integration](#apiresult-and-lingerresults-integration)
-- [Quick Start](#quick-start)
-- [Best Practices](#best-practices)
-- [Related Documentation](#related-documentation)
+[中文](README_zh-CN.md) | English
 
-## Overview
-
-**Linger.HttpClient.Contracts** defines standard interfaces and contracts for HTTP client operations, enabling **dependency inversion** and **implementation flexibility**.
-
-### 🎯 Core Benefits
-
-- **Decouple** - Separate business logic from HTTP implementations
-- **Switch** - Seamlessly change HTTP client implementations  
-- **Test** - Easy unit testing with mock implementations
-- **Extend** - Support custom HTTP client implementations
-
-### 🏗️ Architecture Layers
-
-```
-Application → IHttpClient Interface → Concrete Implementation
-            (Contracts)              (Standard/Custom)
-```
+Standard interfaces and contracts for HTTP client operations.
 
 ## Features
 
-- **Strongly Typed Contracts**: Generic `ApiResult<T>` for type-safe responses
-- **Async Support**: Full async/await pattern with `CancellationToken`
-- **Error Handling**: Structured `ApiResult` error handling framework
-- **Dependency Injection**: Designed for DI containers and HttpClientFactory
-- **Extensibility**: Easy to implement custom HTTP clients
+- **Interface Decoupling**: Separate business logic from HTTP implementations
+- **Implementation Flexibility**: Support multiple HTTP client implementations
+- **Testing Friendly**: Easy unit testing and mocking
+- **Strongly Typed**: Generic `ApiResult<T>` for type safety
+- **Async Support**: Full async/await pattern
 
 ## Installation
 
@@ -45,37 +22,46 @@ dotnet add package Linger.HttpClient.Contracts
 dotnet add package Linger.HttpClient.Standard
 ```
 
-## ApiResult and Linger.Results Integration
+## Core Interfaces
 
-`ApiResult` is designed to seamlessly integrate with `Linger.Results`, but **also fully compatible with other API designs**:
+### IHttpClient
+```csharp
+public interface IHttpClient : IDisposable
+{
+    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method = HttpMethodEnum.Get, 
+        object? data = null, Dictionary<string, string>? headers = null, 
+        Dictionary<string, object>? queryParams = null, CancellationToken cancellationToken = default);
+}
+```
 
-**When integrated with Linger.Results**:
-- **Error Structure Compatibility** - `ApiResult.Errors` matches `Result<T>.Errors` structure
-- **Status Code Mapping** - HTTP status automatically corresponds to Result error types  
-- **Message Propagation** - Server-side error information fully transmitted to client
+### ApiResult<T>
+```csharp
+public class ApiResult<T>
+{
+    public bool IsSuccess { get; set; }
+    public T Data { get; set; }
+    public string ErrorMsg { get; set; }
+    public HttpStatusCode StatusCode { get; set; }
+    public Error[] Errors { get; set; }
+}
+```
 
-**When integrated with other APIs**:
-- **Standard HTTP Responses** - Automatically parses HTTP status codes and response bodies
-- **Flexible Error Handling** - Supports arbitrary JSON error formats
-- **Universal Adaptation** - Works with REST, GraphQL, and various API styles
-
-> 💡 **Detailed Integration Examples**: See [StandardHttpClient Documentation](../Linger.HttpClient.Standard/README.md#lingerresults-integration)
-
-## Quick Start
-
-### 🚀 Basic Usage
+## Basic Usage
 
 ```csharp
-// 1. Register implementation
+// Register in DI
 services.AddHttpClient<IHttpClient, StandardHttpClient>();
 
-// 2. Inject and use
+// Use in service
 public class UserService
 {
     private readonly IHttpClient _httpClient;
-    
-    public UserService(IHttpClient httpClient) => _httpClient = httpClient;
-    
+
+    public UserService(IHttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
     public async Task<User?> GetUserAsync(int id)
     {
         var result = await _httpClient.CallApi<User>($"api/users/{id}");
@@ -84,38 +70,55 @@ public class UserService
 }
 ```
 
-### 🔄 Implementation Switching
+## Linger.Results Integration
+
+`ApiResult` seamlessly integrates with `Linger.Results`:
 
 ```csharp
-// Development: Standard implementation
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
+// Server using Linger.Results
+public async Task<Result<User>> GetUserAsync(int id)
+{
+    var user = await _userRepository.GetUserAsync(id);
+    return user is not null ? Result<User>.Success(user) : Result<User>.NotFound("User not found");
+}
 
-// Testing: Mock implementation
-services.AddSingleton<IHttpClient, MockHttpClient>();
+// Client receives structured errors
+var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
+if (!apiResult.IsSuccess)
+{
+    // Automatically mapped error information
+    foreach (var error in apiResult.Errors)
+        Console.WriteLine($"Error: {error.Code} - {error.Message}");
+}
+```
 
-// Production: Resilient implementation
-services.AddHttpClient<IHttpClient, ResilientHttpClient>();
+## Error Handling
+
+```csharp
+var result = await _httpClient.CallApi<User>("api/users/123");
+
+if (result.IsSuccess)
+{
+    var user = result.Data;
+    // Handle success
+}
+else
+{
+    // Handle error
+    Console.WriteLine($"HTTP Status: {result.StatusCode}");
+    Console.WriteLine($"Error Message: {result.ErrorMsg}");
+    
+    foreach (var error in result.Errors)
+    {
+        Console.WriteLine($"Detailed Error: {error.Code} - {error.Message}");
+    }
+}
 ```
 
 ## Best Practices
 
-### 🏛️ Architecture Principles
-1. **Always program against interfaces** - Use `IHttpClient`, never concrete implementations
-2. **Register implementations in DI** - Let the container manage lifecycle and dependencies  
-3. **Keep business logic implementation-agnostic** - Your services should work with any IHttpClient implementation
-
-### 🧪 Testing Strategy  
-4. **Interface mocking** - Use mock implementations for unit tests
-5. **Integration testing** - Use real implementations to verify HTTP behavior
-6. **Error testing** - Ensure graceful handling of network exceptions
-
-### 📊 Performance Considerations
-7. **Resource management** - Properly implement IDisposable
-8. **Async patterns** - Use ConfigureAwait(false)
-9. **Cancellation support** - Respect CancellationToken
-
----
-
-## 📖 Related Documentation
-
-- **[StandardHttpClient](../Linger.HttpClient.Standard/README.md)** - Production implementation with detailed usage examples
+- Use dependency injection to manage HTTP client lifecycle
+- Leverage `ApiResult`'s structured error handling
+- Inherit from existing implementations when implementing custom error handling
+- Use `CancellationToken` to support request cancellation
+- Use mock implementations in unit tests

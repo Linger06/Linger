@@ -11,13 +11,6 @@ Linger.Results.AspNetCore 提供了将 Linger.Results 库与 ASP.NET Core 框架
 - 基于结果状态自动选择适当的HTTP状态码
 - 支持自定义成功和失败状态码
 - 提供符合RFC 7807标准的ProblemDetails格式输出
-- 分离业务逻辑与HTTP协议细节
-
-## 重要说明
-
-**特别注意**：当调用 `ToActionResult()` 方法时，成功情况下返回的是 `result.Value`（对于 `Result<T>`），而不是整个 `result` 对象。这使得API返回值更加简洁，客户端可以直接获取所需的数据，而不需要处理额外的包装层。
-
-例如，当一个服务返回 `Result<UserDto>` 并通过 `ToActionResult()` 转换时，客户端将直接收到 `UserDto` JSON，而不是包含 `Value`、`IsSuccess` 等属性的包装对象。
 
 ## 支持的框架版本
 - .NET 8.0+
@@ -30,76 +23,58 @@ dotnet add package Linger.Results.AspNetCore
 
 ## 基本用法
 
-### 在控制器中使用ToActionResult扩展方法
+### 控制器中使用
 
 ```csharp
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
 {
-    private readonly IUserService _userService;
-    
-    public UsersController(IUserService userService)
-    {
-        _userService = userService;
-    }
-    
     [HttpGet("{id}")]
     public async Task<ActionResult<UserDto>> GetUser(int id)
     {
-        // 服务层返回Result<UserDto>
         var result = await _userService.GetUserByIdAsync(id);
-        
-        // 自动转换为适当的HTTP响应
-        // 成功时返回UserDto对象(result.Value)，而不是整个Result对象
-        return result.ToActionResult();
+        return result.ToActionResult(); // 成功返回UserDto，失败返回错误数组
     }
     
     [HttpPost]
     public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
     {
         var result = await _userService.CreateUserAsync(request);
-        
-        // 成功时返回201 Created状态码和UserDto对象(result.Value)
         return result.ToActionResult(successStatusCode: StatusCodes.Status201Created);
+    }
+    
+    [HttpDelete("{id}")]
+    public async Task<ActionResult> DeleteUser(int id)
+    {
+        var result = await _userService.DeleteUserAsync(id);
+        return result.ToProblemDetails(); // 使用RFC 7807格式
     }
 }
 ```
 
-### 在Minimal API中使用ToResult扩展方法
+### Minimal API中使用
 
 ```csharp
 var app = WebApplication.Create();
 
-// 基本用法 - 自动状态码映射
 app.MapGet("/api/users/{id}", async (int id, IUserService userService) =>
 {
     var result = await userService.GetUserByIdAsync(id);
-    return result.ToResult(); // 自动返回Ok(value)或NotFound/BadRequest
+    return result.ToResult(); // 自动状态码映射
 });
 
-// 自定义状态码
 app.MapPost("/api/users", async (CreateUserRequest request, IUserService userService) =>
 {
     var result = await userService.CreateUserAsync(request);
     return result.ToResult(StatusCodes.Status201Created);
 });
 
-// Created结果带位置信息
-app.MapPost("/api/products", async (CreateProductRequest request, IProductService productService) =>
-{
-    var result = await productService.CreateProductAsync(request);
-    return result.ToCreatedResult($"/api/products/{result.Value?.Id}");
-});
-
-// 删除操作的NoContent结果
 app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 {
     var result = await userService.DeleteUserAsync(id);
-    return result.ToNoContentResult();
+    return result.ToNoContentResult(); // 成功返回204 No Content
 });
-
-app.Run();
 ```
 
 ## API方法对比
@@ -112,262 +87,63 @@ app.Run();
 | NoContent响应 | `result.ToActionResult(204)` | `result.ToNoContentResult()` |
 | 问题详情 | `result.ToProblemDetails()` | `result.ToResult()` (自动使用ProblemDetails) |
 
-### 返回值示意
+## 返回格式示例
 
-假设服务层方法返回以下结果：
-
-```csharp
-// 服务层
-public async Task<Result<UserDto>> GetUserByIdAsync(int id)
-{
-    var user = await _repository.GetByIdAsync(id);
-    if (user == null)
-        return Result<UserDto>.NotFound($"ID为{id}的用户不存在");
-        
-    var userDto = new UserDto 
-    { 
-        Id = user.Id, 
-        Name = user.Name, 
-        Email = user.Email 
-    };
-    
-    return Result.Success(userDto);
-}
-```
-
-当控制器调用 `result.ToActionResult()` 后：
-
-**成功情况**下，客户端收到的JSON：
+### 成功响应
 ```json
+// Result<UserDto> 成功时
 {
   "id": 123,
   "name": "张三",
   "email": "zhangsan@example.com"
 }
-```
 
-**而不是**：
-```json
+// Result 成功时
 {
-  "value": {
-    "id": 123,
-    "name": "张三",
-    "email": "zhangsan@example.com"
-  },
-  "isSuccess": true,
   "status": "Ok",
+  "isSuccess": true,
+  "isFailure": false,
   "errors": []
 }
 ```
 
-**失败情况**下，客户端收到的JSON取决于错误类型和状态码：
-
-1. **NotFound错误** (HTTP 404)：
+### 失败响应
 ```json
-{
-  "errors": [
-    {
-      "code": "Error.NotFound",
-      "message": "ID为456的用户不存在"
-    }
-  ]
-}
-```
+// 标准错误格式
+[
+  {
+    "code": "User.NotFound",
+    "message": "ID为123的用户不存在"
+  }
+]
 
-2. **验证错误** (HTTP 400)：
-```json
+// ProblemDetails格式 (ToProblemDetails())
 {
-  "errors": [
-    {
-      "code": "User.InvalidEmail",
-      "message": "邮箱格式不正确"
-    },
-    {
-      "code": "User.WeakPassword",
-      "message": "密码强度不足"
-    }
-  ]
-}
-```
-
-3. **使用ToProblemDetails()方法时** (RFC 7807格式)：
-```json
-{
-  "type": "https://tools.ietf.org/html/rfc7231#section-6.5.1",
-  "title": "One or more errors occurred",
+  "type": null,
+  "title": "One or more validation errors occurred",
   "status": 400,
   "detail": "邮箱格式不正确; 密码强度不足",
-  "errors": ["邮箱格式不正确", "密码强度不足"]
-}
-```
-
-4. **业务规则错误** (HTTP 400)：
-```json
-{
-  "errors": [
-    {
-      "code": "Order.InsufficientStock",
-      "message": "库存不足，当前库存:5，请求数量:10"
+  "extensions": {
+    "errors": {
+      "User.InvalidEmail": "邮箱格式不正确",
+      "User.WeakPassword": "密码强度不足"
     }
-  ]
+  }
 }
 ```
 
-对于控制器中没有使用泛型的`Result`，失败时现在也只返回错误信息，成功时返回空对象：
+## 状态码映射
 
-```csharp
-// 控制器
-public ActionResult DeleteUser(int id)
-{
-    var result = _userService.DeleteUser(id);
-    return result.ToActionResult();
-}
-
-// 如果删除成功，返回的JSON：
-{}
-
-// 如果删除失败，返回的JSON：
-{
-  "errors": [
-    {
-      "code": "User.CannotDelete",
-      "message": "无法删除，该用户有关联的订单"
-    }
-  ]
-}
-```
-
-这样，无论是`Result`还是`Result<T>`，在转换为ActionResult时都会有一致的行为：
-- 成功时：`Result`返回空对象({}), `Result<T>`返回T的值
-- 失败时：两者都只返回错误信息部分，不包含整个result对象
-
-### 自动状态码映射
-
-```csharp
-// 在服务层，根据不同情况返回不同状态的Result
-public async Task<Result<UserDto>> GetUserByIdAsync(int id)
-{
-    var user = await _repository.GetByIdAsync(id);
-    
-    if (user == null)
-        return Result<UserDto>.NotFound($"ID为{id}的用户不存在"); // 将映射为404 Not Found
-        
-    return Result.Success(user.ToDto()); // 将映射为200 OK
-}
-```
-
-### 使用ProblemDetails格式
-
-```csharp
-[HttpGet("{id}")]
-public async Task<ActionResult> GetUserWithProblemDetails(int id)
-{
-    var result = await _userService.GetUserByIdAsync(id);
-    
-    // 返回RFC 7807格式的错误信息
-    return result.ToProblemDetails();
-}
-```
-
-## 高级用法
-
-### 自定义失败状态码
-
-#### 控制器
-```csharp
-[HttpDelete("{id}")]
-public async Task<ActionResult> DeleteUser(int id)
-{
-    var result = await _userService.DeleteUserAsync(id);
-    
-    // 成功返回204 No Content，失败根据Result状态自动选择状态码
-    return result.ToActionResult(successStatusCode: StatusCodes.Status204NoContent);
-}
-```
-
-#### Minimal API
-```csharp
-app.MapPut("/api/users/{id}", async (int id, UpdateUserRequest request, IUserService userService) =>
-{
-    var result = await userService.UpdateUserAsync(id, request);
-    return result.ToResult(StatusCodes.Status200OK, StatusCodes.Status404NotFound);
-});
-```
-
-### 高级Minimal API示例
-
-```csharp
-// 多操作组合及错误处理
-app.MapPost("/api/transfer", async (TransferRequest request, IAccountService accountService) =>
-{
-    // 验证源账户
-    var sourceResult = await accountService.ValidateAccountAsync(request.SourceAccountId);
-    if (sourceResult.IsFailure)
-        return sourceResult.ToResult();
-        
-    // 验证目标账户
-    var targetResult = await accountService.ValidateAccountAsync(request.TargetAccountId);
-    if (targetResult.IsFailure)
-        return targetResult.ToResult();
-    
-    // 执行转账
-    var transferResult = await accountService.TransferAsync(
-        request.SourceAccountId, 
-        request.TargetAccountId, 
-        request.Amount);
-        
-    return transferResult.ToResult();
-});
-
-// 使用不同的响应类型
-app.MapGet("/api/users", async (IUserService userService) =>
-{
-    var result = await userService.GetAllUsersAsync();
-    return result.ToResult(); // 返回Ok(List<UserDto>)或BadRequest(errors)
-});
-
-app.MapPost("/api/users/{id}/activate", async (int id, IUserService userService) =>
-{
-    var result = await userService.ActivateUserAsync(id);
-    return result.ToResult(StatusCodes.Status202Accepted); // 返回202 Accepted或错误
-});
-```
-
-### 组合使用多个Result
-
-```csharp
-[HttpPost("transfer")]
-public async Task<ActionResult> TransferMoney(TransferRequest request)
-{
-    // 验证源账户
-    var sourceResult = await _accountService.ValidateAccountAsync(request.SourceAccountId);
-    if (sourceResult.IsFailure)
-        return sourceResult.ToActionResult();
-        
-    // 验证目标账户
-    var targetResult = await _accountService.ValidateAccountAsync(request.TargetAccountId);
-    if (targetResult.IsFailure)
-        return targetResult.ToActionResult();
-    
-    // 执行转账
-    var transferResult = await _accountService.TransferAsync(
-        request.SourceAccountId, 
-        request.TargetAccountId, 
-        request.Amount);
-        
-    return transferResult.ToActionResult();
-}
-```
+- `Result.Success()` → 200 OK
+- `Result.NotFound()` → 404 Not Found  
+- `Result.Failure()` → 400 Bad Request
 
 ## 最佳实践
 
-1. **清晰的关注点分离**：服务层返回业务结果 (`Result`)，控制器/端点负责将其转换为HTTP响应
-2. **一致的API响应**：保持API返回格式的一致性，使客户端处理更简单
-3. **直接返回值**：成功时直接返回 `result.Value`，让API响应更简洁
-4. **利用状态映射**：扩展`ResultStatus`枚举以满足更多业务场景
-5. **优先使用`ToProblemDetails`**：对于面向客户端的API，尽可能使用符合RFC 7807的错误格式
-6. **选择合适的API风格**：复杂场景需要模型绑定、过滤器等功能时使用控制器，简单轻量的端点使用Minimal API
-7. **统一错误处理**：无论使用控制器还是Minimal API，在整个应用程序中保持一致的错误响应格式
+1. **关注点分离**：服务层返回 `Result`，控制器负责转换为HTTP响应
+2. **一致的API响应**：在整个应用中保持统一的错误格式
+3. **使用ProblemDetails**：面向客户端的API优先使用RFC 7807格式
+4. **选择合适的API风格**：复杂场景用控制器，简单场景用Minimal API
 
 ## 与Linger.Results配合使用
 

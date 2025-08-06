@@ -27,7 +27,7 @@ public static class ResultExtensions
             _ => StatusCodes.Status400BadRequest
         };
 
-        return new ObjectResult(new { errors = result.Errors })
+        return new ObjectResult(result.Errors)
         {
             StatusCode = statusCode
         };
@@ -53,7 +53,7 @@ public static class ResultExtensions
             };
         }
 
-        return new ObjectResult(new { errors = result.Errors })
+        return new ObjectResult(result.Errors)
         {
             StatusCode = failureStatusCode
         };
@@ -78,7 +78,7 @@ public static class ResultExtensions
             _ => StatusCodes.Status400BadRequest
         };
 
-        return new ObjectResult(new { errors = result.Errors })
+        return new ObjectResult(result.Errors)
         {
             StatusCode = statusCode
         };
@@ -105,7 +105,7 @@ public static class ResultExtensions
             };
         }
 
-        return new ObjectResult(new { errors = result.Errors })
+        return new ObjectResult(result.Errors)
         {
             StatusCode = failureStatusCode
         };
