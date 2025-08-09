@@ -485,17 +485,17 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     #region 分批查询方法
 
     /// <summary>
-    ///     拆分为多个1000,进行查询 (使用参数化查询防止SQL注入)
+    ///     拆分为多个批次进行查询 (使用参数化查询防止SQL注入)。默认 batchSize = 1000。
     /// </summary>
     /// <param name="sql">SQL查询语句，使用 {0} 作为参数占位符</param>
     /// <param name="parameters">参数列表</param>
+    /// <param name="batchSize">每批次数量(>0)，默认 1000</param>
     /// <returns>查询结果DataTable</returns>
-    /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public virtual DataTable QueryInBatches(string sql, List<string> parameters)
+    public virtual DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000)
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
+        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -503,60 +503,38 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
 
         do
         {
-            var currentBatch = parameters.Paging(pageNumber, 1000);
+            var currentBatch = parameters.Paging(pageNumber, batchSize);
             count = currentBatch.Count();
+            if (count == 0) break;
 
-            if (count == 0)
-            {
-                break;
-            }
-
-            // 创建参数化查询
             var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
             var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+            var dbParams = currentBatch.Select((value, index) => CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
 
-            // 创建数据库参数
-            var dbParams = currentBatch.Select((value, index) =>
-                CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
-
-            // 执行参数化查询
             var resultDataSet = FindDataSetBySql(formattedSql, dbParams);
-            
-            // 检查结果集是否为空
-            if (resultDataSet.Tables.Count == 0)
-            {
-                break;
-            }
-            
+            if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
-
-            // 仅在第一次的时候进行Clone
-            if (pageNumber == 1)
-            {
-                dataTable = currentPageData.Clone();
-            }
-
+            if (pageNumber == 1) dataTable = currentPageData.Clone();
             dataTable = dataTable.Combine(currentPageData);
             pageNumber++;
-        }
-        while (count == 1000);
+        } while (count == batchSize);
 
         return dataTable;
     }
 
     /// <summary>
-    ///     拆分为多个1000,进行异步查询 (使用参数化查询防止SQL注入)
+    ///     拆分为多个批次进行异步查询 (使用参数化查询防止SQL注入)。默认 batchSize = 1000。
     /// </summary>
     /// <param name="sql">SQL查询语句，使用 {0} 作为参数占位符</param>
     /// <param name="parameters">参数列表</param>
+    /// <param name="batchSize">每批次数量(>0)，默认 1000</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>查询结果DataTable</returns>
-    /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public virtual async Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, CancellationToken cancellationToken = default)
+    public virtual async Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, int batchSize = 1000, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
+        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -565,46 +543,108 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
         do
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            var currentBatch = parameters.Paging(pageNumber, 1000);
+            var currentBatch = parameters.Paging(pageNumber, batchSize);
             count = currentBatch.Count();
+            if (count == 0) break;
 
-            if (count == 0)
-            {
-                break;
-            }
-
-            // 创建参数化查询
             var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
             var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+            var dbParams = currentBatch.Select((value, index) => CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
 
-            // 创建数据库参数
-            var dbParams = currentBatch.Select((value, index) =>
-                CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
-
-            // 执行参数化查询
             var resultDataSet = await FindDataSetBySqlAsync(formattedSql, dbParams).ConfigureAwait(false);
-            
-            // 检查结果集是否为空
-            if (resultDataSet.Tables.Count == 0)
-            {
-                break;
-            }
-            
+            if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
-
-            // 仅在第一次的时候进行Clone
-            if (pageNumber == 1)
-            {
-                dataTable = currentPageData.Clone();
-            }
-
+            if (pageNumber == 1) dataTable = currentPageData.Clone();
             dataTable = dataTable.Combine(currentPageData);
             pageNumber++;
-        }
-        while (count == 1000);
+        } while (count == batchSize);
 
         return dataTable;
+    }
+
+    /// <summary>
+    ///     拆分为多个批次进行查询 (字符串拼接方式，需自行确保输入安全)。
+    /// </summary>
+    /// <param name="sql">SQL查询语句，使用 {0} 作为值列表占位符</param>
+    /// <param name="values">值列表（例如用于 IN 查询的值）</param>
+    /// <param name="batchSize">每批次数量(>0)</param>
+    /// <param name="quote">是否对值加单引号（默认 true）</param>
+    /// <returns>查询结果DataTable</returns>
+    /// <remarks>仅适用于受信任数据来源。若 values 来自用户输入，请使用参数化方法。</remarks>
+    public virtual DataTable QueryInBatchesRaw(string sql, List<string> values, int batchSize = 1000, bool quote = true)
+    {
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentNullException.ThrowIfNull(values);
+        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
+
+        var dataTable = new DataTable();
+        var pageNumber = 1;
+        int count;
+        do
+        {
+            var currentBatch = values.Paging(pageNumber, batchSize);
+            count = currentBatch.Count();
+            if (count == 0) break;
+
+            var joined = string.Join(",", currentBatch.Select(v => FormatRawValue(v, quote)));
+            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, joined);
+            var resultDataSet = FindDataSetBySql(formattedSql);
+            if (resultDataSet.Tables.Count == 0) break;
+            var currentPageData = resultDataSet.Tables[0];
+            if (pageNumber == 1) dataTable = currentPageData.Clone();
+            dataTable = dataTable.Combine(currentPageData);
+            pageNumber++;
+        } while (count == batchSize);
+
+        return dataTable;
+    }
+
+    /// <summary>
+    ///     拆分为多个批次进行异步查询 (字符串拼接方式，需自行确保输入安全)。
+    /// </summary>
+    /// <param name="sql">SQL查询语句，使用 {0} 作为值列表占位符</param>
+    /// <param name="values">值列表</param>
+    /// <param name="batchSize">每批次数量(>0)</param>
+    /// <param name="quote">是否对值加单引号（默认 true）</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>查询结果DataTable</returns>
+    public virtual async Task<DataTable> QueryInBatchesRawAsync(string sql, List<string> values, int batchSize = 1000, bool quote = true, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentNullException.ThrowIfNull(values);
+        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
+
+        var dataTable = new DataTable();
+        var pageNumber = 1;
+        int count;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var currentBatch = values.Paging(pageNumber, batchSize);
+            count = currentBatch.Count();
+            if (count == 0) break;
+
+            var joined = string.Join(",", currentBatch.Select(v => FormatRawValue(v, quote)));
+            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, joined);
+            var resultDataSet = await FindDataSetBySqlAsync(formattedSql).ConfigureAwait(false);
+            if (resultDataSet.Tables.Count == 0) break;
+            var currentPageData = resultDataSet.Tables[0];
+            if (pageNumber == 1) dataTable = currentPageData.Clone();
+            dataTable = dataTable.Combine(currentPageData);
+            pageNumber++;
+        } while (count == batchSize);
+
+        return dataTable;
+    }
+
+    /// <summary>
+    ///     格式化原始拼接值
+    /// </summary>
+    protected virtual string FormatRawValue(string? value, bool quote)
+    {
+        if (value == null) return "NULL";
+        if (!quote) return value;
+        return "'" + value.Replace("'", "''") + "'";
     }
 
     /// <summary>
@@ -621,16 +661,12 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <summary>
     ///     创建数据库参数
     /// </summary>
-    /// <param name="parameterName">参数名称</param>
-    /// <param name="value">参数值</param>
-    /// <returns>数据库参数</returns>
     protected virtual DbParameter CreateParameter(string parameterName, object value)
     {
         var command = Provider.CreateCommand();
         var parameter = command.CreateParameter();
         parameter.ParameterName = parameterName;
         parameter.Value = value;
-        // 不能使用 using，因为我们需要返回参数对象
         return parameter;
     }
 

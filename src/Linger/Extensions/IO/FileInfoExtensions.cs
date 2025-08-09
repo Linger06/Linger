@@ -244,7 +244,7 @@ public static class FileInfoExtensions
     public static long GetFileSize(this string filePath)
     {
         ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        GuardExtensions.EnsureFileExist(filePath);
+    GuardExtensions.EnsureFileExists(filePath);
 
         return new FileInfo(filePath).Length;
     }

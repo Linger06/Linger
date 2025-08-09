@@ -2,1132 +2,195 @@
 
 > 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
 
-一个用于处理JWT令牌认证的C#辅助库，支持灵活的刷新令牌实现。
+一个用于处理 JWT 认证并可选支持刷新令牌的 C# 辅助库，聚焦“简单集成 + 可扩展 + 安全实践”。
 
-## 支持的 .NET 版本
+## 目录
+- [核心特性](#核心特性)
+- [支持平台](#支持平台)
+- [安装](#安装)
+- [快速开始（最少代码）](#快速开始最少代码)
+- [配置 JwtOption](#配置-jwtoption)
+- [注册与集成方式](#注册与集成方式)
+- [扩展 Claims](#扩展-claims)
+- [启用刷新令牌](#启用刷新令牌)
+- [控制器示例](#控制器示例)
+- [客户端自动刷新（概览）](#客户端自动刷新概览)
+- [刷新令牌工作流程说明](#刷新令牌工作流程说明)
+- [安全最佳实践](#安全最佳实践)
+- [高级功能](#高级功能)
+- [故障排查](#故障排查)
+- [FAQ](#faq)
 
-本库支持在.NET 8.0+上运行的ASP.NET Core应用程序。
+## 核心特性
+- ✅ 接口分离：`IJwtService` 仅颁发访问令牌；刷新逻辑通过扩展接口解耦
+- ✅ 渐进式增强：按需启用刷新令牌 / 自动刷新
+- ✅ 可插拔存储：内存、数据库或自定义实现
+- ✅ Resilience 支持：基于 `Microsoft.Extensions.Http.Resilience` 的并发安全刷新
+- ✅ 安全强化：支持 jti / iat、外部化密钥、最小权限原则
+- ✅ 易扩展：重写 `GetClaimsAsync` 即可添加角色 / 权限 / 租户
 
-## 设计特点
+## 支持平台
+- .NET 8.0+ ASP.NET Core
 
-本库采用扩展方法实现方式处理刷新令牌功能，主要优势如下：
+## 安装
+```bash
+dotnet add package Linger.AspNetCore.Jwt
+```
+> 客户端自动刷新需要额外：`Linger.HttpClient.Contracts`、`Linger.HttpClient.Standard`、`Microsoft.Extensions.Http.Resilience`
 
-- **接口隔离**：核心`IJwtService`接口保持简洁，只包含基本令牌生成功能
-- **功能扩展**：通过`IRefreshableJwtService`接口和扩展方法提供刷新令牌功能
-- **灵活使用**：可以根据不同场景选择使用基本JWT认证或带刷新令牌的认证
-- **兼容性好**：不破坏现有代码结构，易于集成到已有项目
+## 快速开始（最少代码）
+```csharp
+// Program.cs
+var builder = WebApplication.CreateBuilder(args);
+// 1. 绑定配置 + 注册验证方案
+builder.Services.ConfigureJwt(builder.Configuration);
+// 2. 基础服务
+builder.Services.AddScoped<IJwtService, JwtService>();
+// 3. 中间件
+var app = builder.Build();
+app.UseAuthentication();
+app.UseAuthorization();
+// 4. 登录端点
+app.MapPost("/login", async (IJwtService jwt, LoginModel m) =>
+{
+    if (!UserValidator.Validate(m.Username, m.Password)) return Results.Unauthorized();
+    return Results.Ok(await jwt.CreateTokenAsync(m.Username));
+});
+app.Run();
+```
+> 至此：已具备基础 JWT 能力；如需刷新支持 → 参见下文“启用刷新令牌”。
 
-## 使用指南
-
-### 1. 配置JWT选项
-
-`JwtOption`类提供了JWT令牌生成和验证的配置设置：
-
+## 配置 JwtOption
 ```csharp
 public class JwtOption
 {
-    // JWT签名密钥（在生产环境中应存储在安全位置）
-    public string SecurityKey { get; set; } = "this is my custom Secret key for authentication";
-    
-    // 令牌颁发者（通常是您的应用程序或认证服务器域名）
+    public string SecurityKey { get; set; } = "this is my custom Secret key for authentication"; // 生产使用环境变量覆盖
     public string Issuer { get; set; } = "Linger.com";
-    
-    // 令牌受众（通常是您的API域名）
     public string Audience { get; set; } = "Linger.com";
-    
-    // 访问令牌过期时间，单位分钟（默认：30分钟）
-    public int Expires { get; set; } = 30;
-    
-    // 刷新令牌过期时间，单位分钟（默认：60分钟）
-    public int RefreshTokenExpires { get; set; } = 60;
-    
-    // 启用/禁用刷新令牌功能的标志
-    public bool EnableRefreshToken { get; set; } = true;
+    public int Expires { get; set; } = 30;               // 访问令牌有效期(分钟)
+    public int RefreshTokenExpires { get; set; } = 60;    // 刷新令牌有效期(分钟)
+    public bool EnableRefreshToken { get; set; } = true;  // 是否启用刷新支持
 }
 ```
-
-在`appsettings.json`文件中配置JWT选项：
-
+`appsettings.json`：
 ```json
 {
   "JwtOptions": {
-    "SecurityKey": "您的安全密钥，至少256位",
+    "SecurityKey": "至少32字符生产密钥(用SECRET环境变量覆盖)",
     "Issuer": "your-app.com",
     "Audience": "your-api.com",
     "Expires": 15,
-    "RefreshTokenExpires": 10080, // 7天
+    "RefreshTokenExpires": 10080,
     "EnableRefreshToken": true
   }
 }
 ```
-
-**安全最佳实践：**
-- **环境变量**: 库优先使用 `SECRET` 环境变量，而不是 `SecurityKey`，以增强安全性
-- **密钥长度**: 确保安全密钥至少为256位（32个字符）长
-- **生产部署**: 在生产环境中始终使用环境变量进行敏感配置
-
-**环境变量示例：**
+环境变量示例：
 ```bash
-# 通过环境变量设置（生产环境推荐）
-export SECRET="你的生产环境密钥至少32个字符长"
+# Linux / macOS
+export SECRET="Prod_YourLongSecret_AtLeast32Chars"
+# Windows PowerShell
+$Env:SECRET = "Prod_YourLongSecret_AtLeast32Chars"
+```
 
-# 或在Docker中
-docker run -e SECRET="你的生产环境密钥" your-app
+## 注册与集成方式
+```csharp
+// 简洁方式uilder.Services.ConfigureJwt(builder.Configuration);
 
-# 或在appsettings.Production.json中（安全性较低）
+// 自行绑定 + 多认证共存
+var opt = builder.Configuration.GetGeneric<JwtOption>("JwtOptions");
+ArgumentNullException.ThrowIfNull(opt);
+builder.Services.AddSingleton(opt);
+builder.Services.AddAuthentication(o =>
 {
-  "JwtOptions": {
-    "SecurityKey": "仅用于开发环境的备用密钥"
-  }
-}
+    o.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
+.AddCookie()
+.AddJwtBearer(opt); // 扩展
+
+// 可选实现注入
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IJwtService, CustomJwtServices>();
+builder.Services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
+builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
+builder.Services.AddScoped<IRefreshableJwtService, DbJwtService>();
 ```
-
-
-### 2. 使用默认的JWT服务
-`JwtService`实现`JJwtService`,并且只会获取`ClaimTypes.Name`加入Token
-
+## 扩展 Claims
+默认：
 ```csharp
-    protected virtual Task<List<Claim>> GetClaimsAsync(string userId)
-    {
-        // 演示了返回用户名和Role两类Claims
-        var claims = new List<Claim>
-        {
-            new(ClaimTypes.Name,userId )
-        };
-
-        //IList<string> roles = await _userManager.GetRolesAsync(User);
-        //claims.AddRange(roles.Select(role => new Claim(ClaimTypes.Role, role)));
-
-        return Task.FromResult(claims);
-    }
+protected virtual Task<List<Claim>> GetClaimsAsync(string userId) =>
+    Task.FromResult(new List<Claim>{ new(ClaimTypes.Name, userId) });
 ```
-
-### 3. 实现您的自定义JWT服务
-如果`JwtService`不满足你的需求,可以自定义JWT服务,并重写`GetClaimsAsync`方法
+自定义：
 ```csharp
-public class CustomJwtServices(CrudAppContext dbContext, JwtOption jwtOptions, ILogger? logger = null) : JwtService(jwtOptions, logger)
+public class CustomJwtServices(CrudAppContext db, JwtOption opt, ILogger? logger = null) : JwtService(opt, logger)
 {
     protected override async Task<List<Claim>> GetClaimsAsync(string userId)
     {
-        var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Name, userId)
-            };
-
-        var user = await dbContext.Users.FindAsync(userId);
-
-        //Claims中加入当前用户的Roles,以便前端进行权限管控
+        var claims = new List<Claim>{ new(ClaimTypes.Name, userId) };
+        var user = await db.Users.FindAsync(userId);
         foreach (var role in user.Roles.Split(','))
             claims.Add(new Claim(ClaimTypes.Role, role));
-
         return claims;
     }
 }
 ```
 
-如果需要刷新Token,需要实现`JwtServiceWithRefresh`
-由于`JwtServiceWithRefresh`是一个抽象类，您需要继承它并实现抽象方法来处理刷新令牌的存储和获取：
-
+## 启用刷新令牌
+继承抽象 `JwtServiceWithRefresh`并实现存储：
 ```csharp
-// 使用内存缓存的实现示例
 public class MemoryCachedJwtService : JwtServiceWithRefresh
 {
     private readonly IMemoryCache _cache;
-
-    public MemoryCachedJwtService(JwtOption jwtOptions, IMemoryCache cache, ILogger<MemoryCachedJwtService>? logger = null) 
-        : base(jwtOptions, logger)
+    public MemoryCachedJwtService(JwtOption opt, IMemoryCache cache, ILogger<MemoryCachedJwtService>? logger = null) : base(opt, logger) => _cache = cache;
+    protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
     {
-        _cache = cache;
-    }
-
-    protected override Task HandleRefreshToken(string userId, JwtRefreshToken refreshToken)
-    {
-        // 将刷新令牌存储在内存缓存中
-        _cache.Set($"RT_{userId}", refreshToken, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpires));
+        _cache.Set($"RT_{userId}", token, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpires));
         return Task.CompletedTask;
     }
-
     protected override Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
     {
-        // 从内存缓存中获取刷新令牌
-        if (_cache.TryGetValue($"RT_{userId}", out JwtRefreshToken? token) && token != null)
-        {
+        if (_cache.TryGetValue($"RT_{userId}", out JwtRefreshToken? token) && token is not null)
             return Task.FromResult(token);
-        }
-        
         throw new Exception("刷新令牌未找到或已过期");
     }
 }
-
-// 使用数据库的实现示例
+```
+数据库示例（节选）：
+```csharp
 public class DbJwtService : JwtServiceWithRefresh
 {
-    private readonly IUserRepository _userRepository;
-
-    public DbJwtService(JwtOption jwtOptions, IUserRepository userRepository, ILogger<DbJwtService>? logger = null) 
-        : base(jwtOptions, logger)
-    {
-        _userRepository = userRepository;
-    }
-
-    protected override async Task HandleRefreshToken(string userId, JwtRefreshToken refreshToken)
-    {
-        // 将刷新令牌存储在数据库中
-        await _userRepository.UpdateRefreshTokenAsync(userId, refreshToken.RefreshToken, refreshToken.ExpiryTime);
-    }
-
+    private readonly IUserRepository _repo;
+    public DbJwtService(JwtOption opt, IUserRepository repo, ILogger<DbJwtService>? logger = null) : base(opt, logger) => _repo = repo;
+    protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
+        => _repo.UpdateRefreshTokenAsync(userId, token.RefreshToken, token.ExpiryTime);
     protected override async Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
     {
-        // 从数据库中获取刷新令牌
-        var user = await _userRepository.GetUserAsync(userId);
-        if (user != null && !string.IsNullOrEmpty(user.RefreshToken))
-        {
-            return new JwtRefreshToken
-            {
-                RefreshToken = user.RefreshToken,
-                ExpiryTime = user.RefreshTokenExpiryTime
-            };
-        }
-        
+        var user = await _repo.GetUserAsync(userId);
+        if (user is not null && !string.IsNullOrEmpty(user.RefreshToken))
+            return new JwtRefreshToken { RefreshToken = user.RefreshToken, ExpiryTime = user.RefreshTokenExpiryTime };
         throw new Exception("刷新令牌未找到或已过期");
     }
 }
 ```
 
-### 4. 注册服务
-
-在`Program.cs`或`Startup.cs`中注册JWT服务：
-
+## 控制器示例
 ```csharp
-//配置JwtBearer - 选择以下选项之一：
-
-//选项1：使用内置方法
-builder.Services.ConfigureJwt(builder.Configuration);
-
-//选项2：若存在多种认证方式 如：Cookie,Jwt等
-
-    // 从appsettings.json获取JWT配置并注册为单例
-    JwtOption? config = builder.Configuration.GetGeneric<JwtOption>("JwtOptions");
-    ArgumentNullException.ThrowIfNull(config);
-    builder.Services.AddSingleton(config);
-
-    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-                .AddCookie()
-                .AddJwtBearer(config); //此方法为类库的扩展方法
-
-// 注册JWT服务 - 选择以下选项之一：
-
-// 选项1：基本服务（无刷新令牌）
-builder.Services.AddScoped<IJwtService, JwtService>();
-
-// 选项2：自定义服务（无刷新令牌）
-builder.Services.AddScoped<IJwtService, CustomJwtServices>();
-
-// 选项3：支持刷新令牌的服务（使用内存缓存）
-builder.Services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
-// 同时注册为基础接口，允许通过IJwtService访问
-builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
-
-// 选项4：支持刷新令牌的服务（使用数据库）
-builder.Services.AddScoped<IRefreshableJwtService, DbJwtService>();
-builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
-```
-
-### 5. 在控制器中使用
-
-在控制器中实现认证：
-
-```csharp
-// 方式1：只使用基本功能时
-public class BasicAuthController : ControllerBase
+public class AuthController(IJwtService jwt, IUserService users) : ControllerBase
 {
-    private readonly IJwtService _jwtService;
-    
-    public BasicAuthController(IJwtService jwtService)
-    {
-        _jwtService = jwtService;
-    }
-    
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginModel model)
-    {
-        // 验证用户凭据...
-        string userId = await _userService.ValidateUserAsync(model.Username, model.Password);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-        
-        var token = await _jwtService.CreateTokenAsync(userId);
-        return Ok(token);
-    }
-    
-    [HttpPost("refresh")]
-    public async Task<IActionResult> RefreshToken([FromBody] Token token)
-    {
-        // 利用扩展方法检查是否支持刷新功能
-        if (_jwtService.SupportsRefreshToken())
-        {
-            var (success, newToken) = await _jwtService.TryRefreshTokenAsync(token);
-            if (success)
-            {
-                return Ok(newToken);
-            }
-        }
-        
-        return Unauthorized("请重新登录");
-    }
-}
-
-// 方式2：直接使用具有刷新功能的接口
-public class RefreshableAuthController : ControllerBase
-{
-    private readonly IRefreshableJwtService _jwtService;
-    
-    public RefreshableAuthController(IRefreshableJwtService jwtService)
-    {
-        _jwtService = jwtService;
-    }
-    
-    [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginModel model)
-    {
-        // 验证用户凭据...
-        string userId = await _userService.ValidateUserAsync(model.Username, model.Password);
-        if (string.IsNullOrEmpty(userId))
-        {
-            return Unauthorized();
-        }
-        
-        var token = await _jwtService.CreateTokenAsync(userId);
-        return Ok(token);
-    }
-    
-    [HttpPost("refresh")]
-    public async Task<IActionResult> RefreshToken([FromBody] Token token)
-    {
-        try 
-        {
-            // 直接调用刷新方法，无需检查支持与否
-            var newToken = await _jwtService.RefreshTokenAsync(token);
-            return Ok(newToken);
-        }
-        catch (Exception ex)
-        {
-            return Unauthorized($"刷新令牌失败: {ex.Message}");
-        }
-    }
+    [HttpPost("login")] public async Task<IActionResult> Login(LoginModel m)
+    { var id = await users.ValidateUserAsync(m.Username, m.Password); if (string.IsNullOrEmpty(id)) return Unauthorized(); return Ok(await jwt.CreateTokenAsync(id)); }
+    [HttpPost("refresh")] public async Task<IActionResult> Refresh(Token token)
+    { if (jwt.SupportsRefreshToken()) { var (ok, tk) = await jwt.TryRefreshTokenAsync(token); if (ok) return Ok(tk);} return Unauthorized("请重新登录"); }
 }
 ```
 
-## 客户端自动令牌刷新
+## 客户端自动刷新（概览）
+若只需演示，可参考“快速入门示例”；生产建议使用弹性策略防止并发重复刷新。
 
-除了服务端实现令牌刷新外，客户端应用程序需要相应的机制来处理令牌过期和刷新。推荐的方法是使用Microsoft.Extensions.Http.Resilience，它比传统的拦截器方式提供了更加集成和健壮的解决方案。
+---
 
-### 快速入门 - 5分钟实现令牌自动刷新
-
-如果您想快速上手，以下是一个最简化的实现示例：
-
-```csharp
-// 1. 简单的令牌管理器
-public class SimpleTokenManager
-{
-    public string? AccessToken { get; set; }
-    public string? RefreshToken { get; set; }
-    public event Action? OnTokenRefreshRequired;
-    
-    public void RequireRefresh() => OnTokenRefreshRequired?.Invoke();
-}
-
-// 2. 简单的HTTP客户端包装器
-public class SimpleAuthHttpClient
-{
-    private readonly HttpClient _httpClient;
-    private readonly SimpleTokenManager _tokenManager;
-    
-    public SimpleAuthHttpClient(HttpClient httpClient, SimpleTokenManager tokenManager)
-    {
-        _httpClient = httpClient;
-        _tokenManager = tokenManager;
-    }
-    
-    public async Task<T?> GetAsync<T>(string url)
-    {
-        // 设置认证头
-        if (!string.IsNullOrEmpty(_tokenManager.AccessToken))
-        {
-            _httpClient.DefaultRequestHeaders.Authorization = 
-                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _tokenManager.AccessToken);
-        }
-        
-        var response = await _httpClient.GetAsync(url);
-        
-        // 如果401，尝试刷新令牌
-        if (response.StatusCode == HttpStatusCode.Unauthorized)
-        {
-            if (await TryRefreshTokenAsync())
-            {
-                // 重新设置认证头并重试
-                _httpClient.DefaultRequestHeaders.Authorization = 
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _tokenManager.AccessToken);
-                response = await _httpClient.GetAsync(url);
-            }
-            else
-            {
-                _tokenManager.RequireRefresh();
-                return default;
-            }
-        }
-        
-        if (response.IsSuccessStatusCode)
-        {
-            var json = await response.Content.ReadAsStringAsync();
-            return JsonSerializer.Deserialize<T>(json);
-        }
-        
-        return default;
-    }
-    
-    private async Task<bool> TryRefreshTokenAsync()
-    {
-        if (string.IsNullOrEmpty(_tokenManager.RefreshToken))
-            return false;
-            
-        try
-        {
-            var refreshRequest = new { RefreshToken = _tokenManager.RefreshToken };
-            var response = await _httpClient.PostAsJsonAsync("/api/auth/refresh", refreshRequest);
-            
-            if (response.IsSuccessStatusCode)
-            {
-                var result = await response.Content.ReadFromJsonAsync<TokenResponse>();
-                _tokenManager.AccessToken = result?.AccessToken;
-                _tokenManager.RefreshToken = result?.RefreshToken;
-                return true;
-            }
-        }
-        catch { }
-        
-        return false;
-    }
-    
-    private class TokenResponse
-    {
-        public string AccessToken { get; set; } = string.Empty;
-        public string RefreshToken { get; set; } = string.Empty;
-    }
-}
-
-// 3. 使用示例
-public class Program
-{
-    public static async Task Main(string[] args)
-    {
-        // 注册服务
-        var services = new ServiceCollection();
-        services.AddHttpClient();
-        services.AddSingleton<SimpleTokenManager>();
-        services.AddScoped<SimpleAuthHttpClient>();
-        
-        var serviceProvider = services.BuildServiceProvider();
-        var tokenManager = serviceProvider.GetRequiredService<SimpleTokenManager>();
-        var httpClient = serviceProvider.GetRequiredService<SimpleAuthHttpClient>();
-        
-        // 监听重新登录事件
-        tokenManager.OnTokenRefreshRequired += () =>
-        {
-            Console.WriteLine("需要重新登录！");
-            // 在这里处理重新登录逻辑
-        };
-        
-        // 先登录获取令牌
-        await LoginAsync(tokenManager);
-        
-        // 使用API（自动处理令牌刷新）
-        var userData = await httpClient.GetAsync<UserData>("/api/user/profile");
-        Console.WriteLine($"用户数据: {userData?.Name}");
-    }
-    
-    private static async Task LoginAsync(SimpleTokenManager tokenManager)
-    {
-        // 这里实现登录逻辑
-        tokenManager.AccessToken = "your-access-token";
-        tokenManager.RefreshToken = "your-refresh-token";
-    }
-}
-```
-
-**这个简化示例的优点：**
-- ✅ **代码简洁** - 不到100行代码实现核心功能
-- ✅ **易于理解** - 清晰的类结构和方法命名
-- ✅ **即插即用** - 可以直接复制到项目中使用
-- ✅ **自动刷新** - 透明处理401错误和令牌刷新
-
-如果您需要更robust的解决方案，请参考下面的完整实现。
-
-### 安装必要的包
-
-要在客户端使用自动令牌刷新功能，需要安装以下NuGet包：
-
-```bash
-# 安装HTTP客户端接口和契约
-dotnet add package Linger.HttpClient.Contracts
-
-# 安装HTTP客户端实现
-dotnet add package Linger.HttpClient.Standard
-
-# 安装Microsoft.Extensions.Http.Resilience用于处理重试和令牌刷新
-dotnet add package Microsoft.Extensions.Http.Resilience
-```
-
-### 使用弹性管道实现令牌刷新
-
-现代方法使用Microsoft.Extensions.Http.Resilience以线程安全和弹性的方式处理令牌刷新：
-
-1. 首先，创建应用状态类来维护令牌状态：
-
-```csharp
-/// <summary>
-/// 应用状态管理类，用于存储跨组件的应用状态
-/// </summary>
-public class AppState
-{
-    private string _token = string.Empty;
-    
-    /// <summary>
-    /// 用户的JWT认证令牌
-    /// </summary>
-    public string? Token 
-    { 
-        get => _token;
-        set 
-        {
-            _token = value ?? string.Empty;
-            NotifyStateChanged();
-        }
-    }
-    
-    /// <summary>
-    /// 用于获取新访问令牌的刷新令牌
-    /// </summary>
-    public string RefreshToken { get; set; } = string.Empty;
-    
-    /// <summary>
-    /// 检查用户当前是否已认证
-    /// </summary>
-    public bool IsAuthenticated => !string.IsNullOrEmpty(Token);
-
-    /// <summary>
-    /// 令牌变化时触发的事件
-    /// </summary>
-    public event Action? OnChange;
-    
-    /// <summary>
-    /// 需要重新登录时触发的事件
-    /// </summary>
-    public event Action? RequireRelogin;
-    
-    /// <summary>
-    /// 通知状态变更
-    /// </summary>
-    private void NotifyStateChanged() => OnChange?.Invoke();
-    
-    /// <summary>
-    /// 触发重新登录请求
-    /// </summary>
-    public void RaiseRequireReloginEvent()
-    {
-        RequireRelogin?.Invoke();
-    }
-}
-```
-
-2. 然后，创建一个令牌刷新处理器，管理令牌刷新过程：
-
-```csharp
-/// <summary>
-/// 使用Microsoft.Extensions.Http.Resilience的令牌刷新处理器
-/// </summary>
-public class TokenRefreshHandler
-{
-    private readonly AppState _appState;
-    private readonly IServiceProvider _serviceProvider;
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
-
-    public TokenRefreshHandler(AppState appState, IServiceProvider serviceProvider)
-    {
-        _appState = appState;
-        _serviceProvider = serviceProvider;
-    }
-
-    /// <summary>
-    /// 配置令牌刷新弹性管道
-    /// </summary>
-    public void ConfigureTokenRefreshResiliencePipeline(ResiliencePipelineBuilder<HttpResponseMessage> builder)
-    {
-        // 添加处理401(Unauthorized)的弹性策略
-        builder.AddRetry(new HttpRetryStrategyOptions
-        {
-            // 设置最大重试次数为1（只尝试刷新令牌一次）
-            MaxRetryAttempts = 1,
-            // 只有401错误才触发令牌刷新
-            ShouldHandle = args => 
-            {
-                bool shouldRetry = args.Outcome.Result?.StatusCode == HttpStatusCode.Unauthorized;
-                return ValueTask.FromResult(shouldRetry);
-            },
-            // 在重试前执行令牌刷新
-            OnRetry = async context =>
-            {
-                // 使用信号量防止多个请求同时尝试刷新令牌
-                await _semaphore.WaitAsync();
-                try
-                {
-                    await RefreshTokenAsync();
-                }
-                finally
-                {
-                    _semaphore.Release();
-                }
-            },
-            // 重试延迟设为0，令牌刷新后立即重试
-            BackoffType = DelayBackoffType.Constant,
-            Delay = TimeSpan.Zero
-        });
-    }
-
-    /// <summary>
-    /// 刷新令牌
-    /// </summary>
-    private async Task RefreshTokenAsync()
-    {
-        try
-        {
-            // 获取认证服务来刷新令牌
-            using var scope = _serviceProvider.CreateScope();
-            var authService = scope.ServiceProvider.GetRequiredService<AuthService>();
-
-            // 使用当前令牌和刷新令牌获取新的令牌
-            var (success, newToken) = await authService.RefreshTokenAsync(
-                _appState.Token, 
-                _appState.RefreshToken);
-
-            if (success && !string.IsNullOrEmpty(newToken))
-            {
-                // 更新令牌
-                _appState.Token = newToken;
-                // Token属性setter会自动通知变更
-            }
-            else
-            {
-                // 如果刷新失败，清除令牌
-                _appState.Token = string.Empty;
-                _appState.RefreshToken = string.Empty;
-                // 触发需要重新登录的事件
-                _appState.RaiseRequireReloginEvent();
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"令牌刷新失败: {ex.Message}");
-            
-            // 清除无效令牌
-            _appState.Token = string.Empty;
-            _appState.RefreshToken = string.Empty;
-            
-            // 触发重新登录事件
-            _appState.RaiseRequireReloginEvent();
-        }
-    }
-}
-```
-
-3. 实现一个认证服务，可以处理登录和令牌刷新：
-
-```csharp
-/// <summary>
-/// 认证服务，使用IHttpClient处理登录、注销
-/// </summary>
-public class AuthService
-{
-    private readonly IHttpClient _httpClient;
-    private readonly AppState _appState;
-    private readonly ILogger<AuthService>? _logger;
-
-    public AuthService(IHttpClient httpClient, AppState appState, ILogger<AuthService>? logger = null)
-    {
-        _httpClient = httpClient;
-        _appState = appState;
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// 登录方法
-    /// </summary>
-    public async Task<bool> LoginAsync(LoginRequest loginRequest, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            _logger?.LogInformation($"尝试登录用户: {loginRequest.Username}");
-
-            // 直接使用IHttpClient发送POST请求
-            var result = await _httpClient.CallApi<LoginResponse>(
-                "api/auth/login",
-                HttpMethodEnum.Post,
-                postData: loginRequest,
-                cancellationToken: cancellationToken);
-
-            if (!result.IsSuccess)
-            {
-                _logger?.LogWarning($"登录失败: {result.ErrorMsg}");
-                return false;
-            }
-
-            // 保存令牌和用户信息到应用状态
-            _appState.Token = result.Data.Token;
-            _appState.Username = loginRequest.Username;
-            _appState.IsLoggedIn = true;
-
-            _logger?.LogInformation($"用户 {loginRequest.Username} 登录成功");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogError(ex, $"登录过程中发生异常: {ex.Message}");
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// 刷新令牌
-    /// </summary>
-    public async Task<(bool success, string newToken)> RefreshTokenAsync(string accessToken, string refreshToken)
-    {
-        try
-        {
-            // 创建刷新令牌请求的数据
-            var refreshRequest = new
-            {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken
-            };
-            
-            // 调用刷新令牌API
-            var response = await _httpClient.CallApi<TokenResponse>(
-                "api/auth/refresh", 
-                HttpMethodEnum.Post, 
-                refreshRequest);
-                
-            if (response.IsSuccess && response.Data != null)
-            {
-                return (true, response.Data.AccessToken);
-            }
-            
-            return (false, string.Empty);
-        }
-        catch
-        {
-            return (false, string.Empty);
-        }
-    }
-    
-    /// <summary>
-    /// 注销方法
-    /// </summary>
-    public Task<bool> Logout()
-    {
-        _logger?.LogInformation($"用户 {_appState.Username} 注销");
-
-        // 清除令牌和用户信息
-        _appState.Token = null;
-        _appState.Username = string.Empty;
-        _appState.IsLoggedIn = false;
-
-        return Task.FromResult(true);
-    }
-    
-    // 令牌响应模型
-    private class TokenResponse
-    {
-        public string AccessToken { get; set; } = string.Empty;
-        public string RefreshToken { get; set; } = string.Empty;
-        public int ExpiresIn { get; set; }
-    }
-}
-```
-
-### 注册和使用
-
-使用HttpClientFactory注册令牌刷新处理器并配置弹性：
-
-```csharp
-// 注册AppState
-services.AddSingleton<AppState>();
-
-// 注册令牌刷新处理器
-services.AddSingleton<TokenRefreshHandler>();
-
-// 注册HTTP客户端和服务
-services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
-{
-    client.BaseAddress = new Uri("https://api.example.com/");
-    client.DefaultRequestHeaders.Add("Accept", "application/json");
-    client.Timeout = TimeSpan.FromSeconds(30);
-})
-.AddTypedClient<IHttpClient>((httpClient, serviceProvider) =>
-{
-    var standardClient = new StandardHttpClient(httpClient);
-
-    // 从AppState设置令牌
-    var appState = serviceProvider.GetRequiredService<AppState>();
-    if (!string.IsNullOrEmpty(appState.Token))
-    {
-        standardClient.SetToken(appState.Token);
-    }
-
-    // 订阅令牌变化事件
-    appState.OnChange += () =>
-    {
-        if (!string.IsNullOrEmpty(appState.Token))
-        {
-            standardClient.SetToken(appState.Token);
-        }
-    };
-
-    return standardClient;
-})
-.AddResilienceHandler("Default", (builder, context) =>
-{
-    // 添加处理常见HTTP错误的标准重试策略
-    builder.AddRetry(new HttpRetryStrategyOptions
-    {
-        MaxRetryAttempts = 3,
-        Delay = TimeSpan.FromSeconds(2),
-        ShouldHandle = args =>
-        {
-            return ValueTask.FromResult(args.Outcome.Result?.StatusCode is
-                HttpStatusCode.RequestTimeout or        // 408
-                HttpStatusCode.TooManyRequests or       // 429
-                HttpStatusCode.BadGateway or            // 502
-                HttpStatusCode.ServiceUnavailable or    // 503
-                HttpStatusCode.GatewayTimeout);         // 504
-        }
-    });
-
-    // 添加令牌刷新策略
-    var tokenRefreshHandler = context.ServiceProvider.GetRequiredService<TokenRefreshHandler>();
-    tokenRefreshHandler.ConfigureTokenRefreshResiliencePipeline(builder);
-});
-
-// 注册认证服务
-services.AddScoped<AuthService>();
-```
-
-### 在不同客户端类型中处理重新登录
-
-您需要根据客户端类型处理 `RequireReLogin` 事件：
-
-#### 对于 Blazor 应用程序
-
-```csharp
-// 注入 AppState
-@inject AppState AppState
-@inject NavigationManager Navigation
-@implements IDisposable
-
-@code {
-    protected override void OnInitialized()
-    {
-        // 订阅重新登录事件
-        AppState.RequireRelogin += HandleRequireReLogin;
-        base.OnInitialized();
-    }
-
-    private void HandleRequireReLogin()
-    {
-        // 重定向到登录页面
-        Navigation.NavigateTo("/login", forceLoad: false);
-    }
-
-    public void Dispose()
-    {
-        // 取消订阅以防止内存泄漏
-        AppState.RequireRelogin -= HandleRequireReLogin;
-    }
-}
-```
-
-#### 对于带Blazor WebView的WinForms应用程序
-
-```csharp
-public partial class MainForm : Form
-{
-    // 直接从服务获取AppState
-    public MainForm()
-    {
-        InitializeComponent();
-        
-        // 其他初始化...
-        
-        // 从Blazor服务获取AppState
-        var appState = blazorWebView.Services.GetRequiredService<AppState>();
-        appState.RequireRelogin += HandleRequireReLogin;
-    }
-    
-    private void HandleRequireReLogin()
-    {
-        // 需要在UI线程上调用，因为事件可能来自后台线程
-        this.Invoke((MethodInvoker)delegate
-        {
-            // 显示登录窗体
-            var loginForm = new LoginForm();
-            
-            // 方式1: 显示为对话框
-            if (loginForm.ShowDialog(this) != DialogResult.OK)
-            {
-                // 用户取消登录
-                // 可以选择关闭应用程序或其他操作
-            }
-        });
-    }
-    
-    protected override void OnFormClosed(FormClosedEventArgs e)
-    {
-        // 从Blazor服务获取AppState
-        var appState = blazorWebView.Services.GetRequiredService<AppState>();
-        
-        // 窗体关闭时取消订阅
-        appState.RequireRelogin -= HandleRequireReLogin;
-        base.OnFormClosed(e);
-    }
-}
-```
-
-#### 对于纯WinForms应用程序（不使用Blazor WebView）
-
-```csharp
-// Program.cs
-internal static class Program
-{
-    // 应用程序级别的服务提供者
-    public static IServiceProvider ServiceProvider { get; private set; } = null!;
-    
-    [STAThread]
-    static void Main()
-    {
-        ApplicationConfiguration.Initialize();
-        
-        // 配置服务
-        var services = new ServiceCollection();
-        ConfigureServices(services);
-        ServiceProvider = services.BuildServiceProvider();
-        
-        // 启动主窗体
-        var mainForm = ServiceProvider.GetRequiredService<MainForm>();
-        Application.Run(mainForm);
-    }
-    
-    private static void ConfigureServices(IServiceCollection services)
-    {
-        // 注册AppState为单例
-        services.AddSingleton<AppState>();
-        
-        // 注册令牌刷新处理器
-        services.AddSingleton<TokenRefreshHandler>();
-        
-        // 注册带弹性管道的HttpClient
-        services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
-        {
-            client.BaseAddress = new Uri("https://api.example.com/");
-            client.DefaultRequestHeaders.Add("Accept", "application/json");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        })
-        .AddTypedClient<IHttpClient>((httpClient, serviceProvider) =>
-        {
-            var standardClient = new StandardHttpClient(httpClient);
-            
-            // 从AppState设置令牌
-            var appState = serviceProvider.GetRequiredService<AppState>();
-            if (!string.IsNullOrEmpty(appState.Token))
-            {
-                standardClient.SetToken(appState.Token);
-            }
-            
-            // 订阅令牌变化事件
-            appState.OnChange += () =>
-            {
-                if (!string.IsNullOrEmpty(appState.Token))
-                {
-                    standardClient.SetToken(appState.Token);
-                }
-            };
-            
-            return standardClient;
-        })
-        .AddResilienceHandler("Default", (builder, context) =>
-        {
-            // 标准重试策略
-            builder.AddRetry(new HttpRetryStrategyOptions
-            {
-                MaxRetryAttempts = 3,
-                Delay = TimeSpan.FromSeconds(2),
-                ShouldHandle = args =>
-                {
-                    return ValueTask.FromResult(args.Outcome.Result?.StatusCode is
-                        HttpStatusCode.RequestTimeout or        // 408
-                        HttpStatusCode.TooManyRequests or       // 429
-                        HttpStatusCode.BadGateway or            // 502
-                        HttpStatusCode.ServiceUnavailable or    // 503
-                        HttpStatusCode.GatewayTimeout);         // 504
-                }
-            });
-            
-            // 添加令牌刷新策略
-            var tokenRefreshHandler = context.ServiceProvider.GetRequiredService<TokenRefreshHandler>();
-            tokenRefreshHandler.ConfigureTokenRefreshResiliencePipeline(builder);
-        });
-        
-        // 注册服务
-        services.AddTransient<AuthService>();
-        services.AddTransient<LoginForm>();
-        services.AddTransient<MainForm>();
-    }
-}
-
-// MainForm.cs
-public partial class MainForm : Form
-{
-    private readonly AppState _appState;
-    
-    public MainForm(AppState appState)
-    {
-        InitializeComponent();
-        _appState = appState;
-        
-        // 订阅重新登录事件
-        _appState.RequireRelogin += HandleRequireReLogin;
-        
-        // 检查用户是否已认证
-        if (!_appState.IsAuthenticated)
-        {
-            ShowLoginForm();
-        }
-    }
-    
-    private void HandleRequireReLogin()
-    {
-        // 需要在UI线程上调用，因为事件可能来自后台线程
-        this.Invoke(() => ShowLoginForm());
-    }
-    
-    private void ShowLoginForm()
-    {
-        using var loginForm = Program.ServiceProvider.GetRequiredService<LoginForm>();
-        
-        if (loginForm.ShowDialog() != DialogResult.OK)
-        {
-            // 用户取消登录
-            Close();
-        }
-    }
-    
-    protected override void OnFormClosed(FormClosedEventArgs e)
-    {
-        // 窗体关闭时取消订阅
-        _appState.RequireRelogin -= HandleRequireReLogin;
-        base.OnFormClosed(e);
-    }
-}
-
-// LoginForm.cs
-public partial class LoginForm : Form
-{
-    private readonly AuthService _authService;
-    
-    public LoginForm(AuthService authService)
-    {
-        InitializeComponent();
-        _authService = authService;
-        
-        // 设置UI控件
-        btnLogin.Click += BtnLogin_Click;
-    }
-    
-    private async void BtnLogin_Click(object sender, EventArgs e)
-    {
-        if (string.IsNullOrEmpty(txtUsername.Text) || string.IsNullOrEmpty(txtPassword.Text))
-        {
-            MessageBox.Show("请输入用户名和密码", "登录错误",
-                MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            return;
-        }
-        
-        btnLogin.Enabled = false;
-        lblStatus.Text = "正在登录...";
-        
-        try
-        {
-            var loginRequest = new LoginRequest
-            {
-                Username = txtUsername.Text,
-                Password = txtPassword.Text
-            };
-            
-            bool success = await _authService.LoginAsync(loginRequest);
-            
-            if (success)
-            {
-                DialogResult = DialogResult.OK;
-                Close();
-            }
-            else
-            {
-                lblStatus.Text = "登录失败，请检查您的凭据。";
-                btnLogin.Enabled = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            lblStatus.Text = "登录过程中发生错误。";
-            MessageBox.Show($"登录失败: {ex.Message}", "登录错误", 
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
-            btnLogin.Enabled = true;
-        }
-    }
-}
-```
-
-这种纯WinForms方式使用依赖注入但不依赖Blazor，使您的WinForms应用程序能够受益于相同的令牌刷新机制。关键差异在于：
-
-1. 服务提供者在应用程序级别创建和管理
-2. 窗体通过服务提供者解析并通过构造函数注入接收依赖
-3. AppState仍用于跟踪认证状态和触发重新登录
-4. 令牌刷新处理器以相同的方式与Microsoft.Extensions.Http.Resilience配合工作
-
-### 弹性方法的优势
-
-使用Microsoft.Extensions.Http.Resilience的方法比传统的拦截器有以下几个优势：
-
-1. **与.NET生态系统紧密集成**：使用Microsoft官方支持的方法实现HTTP客户端弹性
-2. **声明式配置**：清晰、结构良好的弹性行为配置
-3. **线程安全**：使用信号量内置防止令牌刷新风暴的保护
-4. **可组合的策略**：易于与其他弹性策略组合（重试、断路器等）
-5. **可测试性**：比基于拦截器的方法更容易进行单元测试
-6. **性能**：更高效的实现，更少的开销
-7. **可维护性**：HTTP客户端和令牌刷新逻辑之间的明确关注点分离
-
-### 工作流程
-
-1. 当请求返回401 Unauthorized时，弹性处理器会检测到它
-2. 令牌刷新策略被触发并尝试刷新令牌
-3. 如果成功，请求会自动使用新令牌重试
-4. 如果不成功，会触发重新登录事件
-5. 应用程序然后处理重新登录事件（例如，重定向到登录页面）
-
-所有这些都对业务逻辑代码透明，业务代码可以专注于其主要职责，而不是认证关注点。
-
-## 刷新令牌原理
-
+## 刷新令牌工作流程说明
 ### 什么是刷新令牌？
 
 刷新令牌是可用于获取新访问令牌的凭据。当访问令牌过期时，我们可以使用刷新令牌从身份验证组件获取新的访问令牌。
@@ -1162,18 +225,35 @@ public partial class LoginForm : Form
 
 因此，刷新令牌有助于顺利进行身份验证工作流，而无需用户频繁提交其凭据，同时又不会影响应用程序的安全性。
 
+## 安全最佳实践
+- 使用环境变量 SECRET 覆盖配置密钥（长度 ≥ 32）
+- 访问令牌短期 + 刷新令牌较长期，及时撤销
+- 刷新令牌持久化可哈希（防泄露滥用）
+- 记录 jti / iat 便于吊销与审计
+- 失败刷新立即清理本地状态
+
 ## 高级功能
+- jti / iat 声明 → 审计与防重放
+- 自定义 Claims（角色 / 权限 / 租户 / 策略标签）
+- 多存储后端：内存 / 数据库 / 分布式缓存
+- 组合 Resilience：重试 + 刷新 + 断路器 + 超时
 
-### 增强的令牌安全性
+## 故障排查
+| 症状 | 可能原因 | 解决建议 |
+|------|----------|----------|
+| 登录成功后立即 401 | 时间不同步 / 签名失败 | 校准时间；统一 SECRET |
+| 刷新未触发 | 未启用/未注册刷新实现 | 检查 EnableRefreshToken & DI |
+| 刷新风暴 | 并发 401 竞态 | 使用信号量/单次刷新管控 |
+| 刷新成功但仍旧老令牌 | 客户端未更新头部 | 确认事件订阅与 SetToken 调用 |
+| Invalid signature | 多实例密钥不一致 | 配置中心或环境变量统一 |
 
-令牌中添加了以下声明以增强安全性：
+## FAQ
+**Q:** 必须启用刷新令牌吗？  **A:** 否，可仅短期令牌。
 
-1. **唯一标识符(jti)**：每个令牌都有唯一的ID，便于跟踪和撤销
-2. **颁发时间(iat)**：记录令牌的颁发时间，用于验证和审计
+**Q:** 如何吊销用户所有令牌？  **A:** 记录 jti，加入黑名单；删除刷新令牌记录。
 
-这些增强措施可在不修改现有代码的情况下使用，并提供以下优势：
+**Q:** 如何支持多租户？  **A:** 添加租户 Claim，并在授权策略中校验。
 
-- 防止重放攻击
-- 支持精确的令牌撤销
-- 改进日志记录和审计功能
-- 符合安全最佳实践
+**Q:** 可以扩展返回模型吗？  **A:** 可在自定义实现中封装 DTO。
+
+**Q:** 如何防止刷新令牌被窃取？  **A:** 服务端存储哈希，客户端仅持有随机值，启用 HTTPS 与最小持久化。

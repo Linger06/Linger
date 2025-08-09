@@ -6,10 +6,10 @@ Oracle database access library with enhanced security and batch processing.
 
 ## Features
 
-- Security-first: Parameterized queries prevent SQL injection
-- High performance: Intelligent batch processing (1000 items per batch)
-- Async support: Full async/await with CancellationToken
-- Comprehensive operations: Complete CRUD with advanced features
+- Security-first parameterized queries
+- Intelligent batch processing (implemented in core Linger.DataAccess)
+- Async/await with CancellationToken
+- Comprehensive operations & provider-specific helpers
 
 ## Installation
 
@@ -25,53 +25,25 @@ using Linger.DataAccess.Oracle;
 var oracle = new OracleHelper("Data Source=localhost:1521/XE;User Id=hr;Password=password;");
 
 // Parameterized query
-var users = await oracle.QueryAsync<User>("SELECT * FROM users WHERE department = :dept", 
-    new OracleParameter(":dept", "IT"));
+var users = await oracle.QueryAsync<User>("SELECT * FROM users WHERE department = :dept", new OracleParameter(":dept", "IT"));
 
-// Batch processing
-var userIds = new List<string> { "1", "2", "3", ..., "5000" };
-var results = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", userIds);
+// Batch query (delegates to core; default batchSize = 1000)
+var ids = Enumerable.Range(1, 6000).Select(i => i.ToString()).ToList();
+var dt = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", ids);
 
 // Existence check
-bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email",
-    new OracleParameter(":email", "user@example.com"));
+bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email", new OracleParameter(":email", "user@example.com"));
 ```
 
-## Core Methods
+## Oracle Notes
 
-### QueryInBatchesAsync
-```csharp
-public async Task<DataSet> QueryInBatchesAsync(string sql, IEnumerable<string> parameters, 
-    CancellationToken cancellationToken = default)
-```
-Intelligent batch processing for large parameter lists.
-
-### ExistsAsync
-```csharp
-public async Task<bool> ExistsAsync(string sql, params OracleParameter[] parameters)
-```
-Parameterized existence verification.
-
-### QueryAsync
-```csharp
-public async Task<List<T>> QueryAsync<T>(string sql, params OracleParameter[] parameters)
-```
-Strongly typed parameterized queries.
-
-## Security Features
-
-```csharp
-// ❌ Vulnerable
-var sql = $"SELECT * FROM users WHERE name = '{userName}'";
-
-// ✅ Secure
-var sql = "SELECT * FROM users WHERE name = :userName";
-var result = oracle.Query<User>(sql, new OracleParameter(":userName", userName));
-```
+- Parameter prefix uses ':' (e.g., :dept)
+- For very large IN lists you may tune batchSize (core default 1000)
+- Use parameterized versions for safety; Raw variants only for trusted numeric IDs
 
 ## Best Practices
 
-- Always use parameterized queries
-- Use async methods for I/O operations
-- Implement proper disposal patterns
-- Handle cancellation tokens appropriately
+- Always prefer parameterized SQL
+- Tune batchSize only if statement length limits are hit
+- Use async methods for network-bound operations
+- Handle CancellationToken for long-running queries

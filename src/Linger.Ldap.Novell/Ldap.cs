@@ -146,7 +146,7 @@ public class Ldap : ILdap
         var userId = credentials.BindDn;
         var password = credentials.BindCredentials;
 
-        if (userId.IsNotNullAndEmpty() && password.IsNotNullAndEmpty())
+    if (userId.IsNotNullOrEmpty() && password.IsNotNullOrEmpty())
         {
             await _ldapConn.BindAsync($@"{domain}\{userId}", password).ConfigureAwait(false);
         }

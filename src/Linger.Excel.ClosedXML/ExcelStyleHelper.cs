@@ -21,7 +21,7 @@ public static class ExcelStyleHelper
         XLAlignmentVerticalValues? verticalAlignment = null,
         bool applyBorder = false)
     {
-        if (backgroundColor.IsNotNullAndWhiteSpace())
+    if (backgroundColor.IsNotNullOrWhiteSpace())
         {
             try
             {
@@ -33,7 +33,7 @@ public static class ExcelStyleHelper
             }
         }
 
-        if (fontColor.IsNotNullAndWhiteSpace())
+    if (fontColor.IsNotNullOrWhiteSpace())
         {
             try
             {
@@ -51,7 +51,7 @@ public static class ExcelStyleHelper
         if (fontSize.HasValue)
             cell.Style.Font.FontSize = fontSize.Value;
 
-        if (fontName.IsNotNullAndWhiteSpace())
+    if (fontName.IsNotNullOrWhiteSpace())
             cell.Style.Font.FontName = fontName;
 
         if (horizontalAlignment.HasValue)
@@ -82,7 +82,7 @@ public static class ExcelStyleHelper
         XLAlignmentVerticalValues? verticalAlignment = null,
         bool applyBorder = false)
     {
-        if (backgroundColor.IsNotNullAndWhiteSpace())
+    if (backgroundColor.IsNotNullOrWhiteSpace())
         {
             try
             {
@@ -94,7 +94,7 @@ public static class ExcelStyleHelper
             }
         }
 
-        if (fontColor.IsNotNullAndWhiteSpace())
+    if (fontColor.IsNotNullOrWhiteSpace())
         {
             try
             {
@@ -112,7 +112,7 @@ public static class ExcelStyleHelper
         if (fontSize.HasValue)
             range.Style.Font.FontSize = fontSize.Value;
 
-        if (fontName.IsNotNullAndWhiteSpace())
+    if (fontName.IsNotNullOrWhiteSpace())
             range.Style.Font.FontName = fontName;
 
         if (horizontalAlignment.HasValue)

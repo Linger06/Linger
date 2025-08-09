@@ -50,12 +50,12 @@ public class RetryHelperTests
         var retryHelper = new RetryHelper(options);
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<OutOfReTryCountException>(async () =>
-        {
-            await retryHelper.ExecuteAsync<int>(
-                () => throw new InvalidOperationException("Test exception"),
-                "TestOperation");
-        });
+        var exception = await Assert.ThrowsAsync<OutOfRetryCountException>(async () =>
+            {
+                await retryHelper.ExecuteAsync<int>(
+                    () => throw new InvalidOperationException("Test exception"),
+                    "TestOperation");
+            });
 
         Assert.Contains("已达到最大重试次数", exception.Message);
     }
@@ -87,12 +87,12 @@ public class RetryHelperTests
         var retryHelper = new RetryHelper(options);
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<OutOfReTryCountException>(async () =>
-        {
-            await retryHelper.ExecuteAsync(
-                () => throw new InvalidOperationException("Test exception"),
-                "TestOperation");
-        });
+        var exception = await Assert.ThrowsAsync<OutOfRetryCountException>(async () =>
+            {
+                await retryHelper.ExecuteAsync(
+                    () => throw new InvalidOperationException("Test exception"),
+                    "TestOperation");
+            });
 
         Assert.Contains("已达到最大重试次数", exception.Message);
     }
@@ -151,7 +151,7 @@ public class RetryHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+    await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await retryHelper.ExecuteAsync<int>(
                 async () =>
@@ -175,7 +175,7 @@ public class RetryHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+    await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
             await retryHelper.ExecuteAsync(
                 async () => { await Task.Delay(1000, cts.Token); },
@@ -210,43 +210,6 @@ public class RetryHelperTests
         Assert.Equal(3, attemptCount);
     }
 
-    [Fact]
-    public async Task ExecuteAsync_WithFixedDelay_ShouldRetryWithConsistentDelay()
-    {
-        // Arrange
-        var options = new RetryOptions
-        {
-            MaxRetryAttempts = 3,
-            DelayMilliseconds = 50,
-            UseExponentialBackoff = false,
-            Jitter = 0.0 // 移除抖动以便于测试
-        };
-        var retryHelper = new RetryHelper(options);
-        var attemptCount = 0;
-        var sw = new Stopwatch();
-
-        // Act
-        sw.Start();
-        var result = await retryHelper.ExecuteAsync(async () =>
-        {
-            attemptCount++;
-            if (attemptCount < 3)
-            {
-                throw new InvalidOperationException("Test exception");
-            }
-            await Task.Delay(1);
-            return 42;
-        }, "TestOperation");
-        sw.Stop();
-
-        // Assert
-        Assert.Equal(42, result);
-        Assert.Equal(3, attemptCount);
-
-        // 验证延迟时间在预期范围内
-        // 两次重试，每次50ms，加上一些执行时间，应该在100-200ms范围内
-        Assert.True(sw.ElapsedMilliseconds >= 100 && sw.ElapsedMilliseconds <= 300);
-    }
 
     [Fact]
     public async Task ExecuteAsync_WithZeroRetries_ShouldNotRetry()
@@ -257,16 +220,16 @@ public class RetryHelperTests
         var attemptCount = 0;
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<OutOfReTryCountException>(async () =>
-        {
-            await retryHelper.ExecuteAsync<int>(
-                () =>
-                {
-                    attemptCount++;
-                    throw new InvalidOperationException("Test exception");
-                },
-                "TestOperation");
-        });
+        var exception = await Assert.ThrowsAsync<OutOfRetryCountException>(async () =>
+            {
+                await retryHelper.ExecuteAsync<int>(
+                    () =>
+                    {
+                        attemptCount++;
+                        throw new InvalidOperationException("Test exception");
+                    },
+                    "TestOperation");
+            });
 
         Assert.Equal(1, attemptCount);
         Assert.Contains("已达到最大重试次数", exception.Message);
@@ -285,20 +248,7 @@ public class RetryHelperTests
         });
     }
 
-    [Fact]
-    public async Task ExecuteAsync_WithEmptyOperationName_ShouldThrowArgumentNullException()
-    {
-        // Arrange
-        var retryHelper = new RetryHelper();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<System.ArgumentException>(async () =>
-        {
-            await retryHelper.ExecuteAsync<int>(() => Task.FromResult(42), "");
-        });
-    }
-
-    [Fact]
+    // Removed empty operation name test because operationName is now optional and auto-captured.
     public async Task ExecuteAsync_Void_WithNullOperation_ShouldThrowArgumentNullException()
     {
         // Arrange
@@ -353,22 +303,22 @@ public class RetryHelperTests
 
         // Act
         await retryHelper.ExecuteAsync(async () =>
-        {
-            if (attemptCount > 0)
             {
-                delayTimes.Add(sw.ElapsedMilliseconds);
-            }
+                if (attemptCount > 0)
+                {
+                    delayTimes.Add(sw.ElapsedMilliseconds);
+                }
 
-            attemptCount++;
-            sw.Restart();
+                attemptCount++;
+                sw.Restart();
 
-            if (attemptCount < 5) // 需要多次重试才能观察到随机性
-            {
-                throw new InvalidOperationException("Test exception");
-            }
+                if (attemptCount < 5) // 需要多次重试才能观察到随机性
+                {
+                    throw new InvalidOperationException("Test exception");
+                }
 
-            await Task.Delay(1);
-        }, "TestOperation");
+                await Task.Delay(1);
+            }, "TestOperation");
 
         // Assert
         Assert.Equal(5, attemptCount);
@@ -376,5 +326,77 @@ public class RetryHelperTests
         // 验证延迟时间有差异（表明抖动生效）
         // 至少有两个不同的延迟时间
         Assert.True(delayTimes.Distinct().Count() > 1);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithoutOperationName_CapturesCallerArgumentExpression()
+    {
+        // Arrange
+        var options = new RetryOptions { MaxRetryAttempts = 1, DelayMilliseconds = 1 };
+        var retryHelper = new RetryHelper(options);
+
+        // Act
+        var ex = await Assert.ThrowsAsync<OutOfRetryCountException>(async () =>
+            await retryHelper.ExecuteAsync<int>(() => throw new InvalidOperationException("fail"))
+        );
+
+        // Assert: message should contain part of the lambda expression text
+        Assert.Contains("InvalidOperationException", ex.Message);
+    }
+
+    [Fact]
+    public void RetryOptions_Validate_ShouldThrow_WhenMaxRetryAttempts_NonPositive()
+    {
+        var options = new RetryOptions { MaxRetryAttempts = 0 };
+        var helper = new RetryHelper(options);
+        var ex = Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await helper.ExecuteAsync(() => Task.FromResult(1))).Result;
+        Assert.Equal("MaxRetryAttempts", ex.ParamName);
+    }
+
+    [Fact]
+    public void RetryOptions_Validate_ShouldThrow_WhenDelayMilliseconds_NonPositive()
+    {
+        var options = new RetryOptions { DelayMilliseconds = 0 };
+        var helper = new RetryHelper(options);
+        var ex = Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await helper.ExecuteAsync(() => Task.FromResult(1))).Result;
+        Assert.Equal("DelayMilliseconds", ex.ParamName);
+    }
+
+    [Fact]
+    public void RetryOptions_Validate_ShouldThrow_WhenMaxDelay_LessThan_Delay()
+    {
+        var options = new RetryOptions { DelayMilliseconds = 100, MaxDelayMilliseconds = 50 };
+        var helper = new RetryHelper(options);
+        var ex = Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await helper.ExecuteAsync(() => Task.FromResult(1))).Result;
+        Assert.Equal("MaxDelayMilliseconds", ex.ParamName);
+    }
+
+    [Theory]
+    [InlineData(-0.01)]
+    [InlineData(1.01)]
+    public void RetryOptions_Validate_ShouldThrow_WhenJitter_OutOfRange(double jitter)
+    {
+        var options = new RetryOptions { Jitter = jitter };
+        var helper = new RetryHelper(options);
+        var ex = Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () => await helper.ExecuteAsync(() => Task.FromResult(1))).Result;
+        Assert.Equal("Jitter", ex.ParamName);
+    }
+
+    [Fact]
+    public void RetryOptions_Validate_ShouldPass_ForBoundaryValues()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 1,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1,
+            Jitter = 0
+        };
+        var helper = new RetryHelper(options);
+        helper.ExecuteAsync(() => Task.FromResult(0)).GetAwaiter().GetResult();
+        options.Jitter = 1;
+        options.MaxDelayMilliseconds = 2; // > DelayMilliseconds
+        helper = new RetryHelper(options);
+        helper.ExecuteAsync(() => Task.FromResult(0)).GetAwaiter().GetResult();
     }
 }

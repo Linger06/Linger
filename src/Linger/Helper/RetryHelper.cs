@@ -9,7 +9,6 @@ namespace Linger.Helper;
 public sealed class RetryHelper(RetryOptions? options = null)
 {
     private readonly RetryOptions _options = options ?? new RetryOptions();
-    private readonly Random _random = new();
 
     /// <summary>
     /// 执行可重试的异步操作
@@ -23,12 +22,19 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <exception cref="OutOfReTryCountException">超过重试次数时抛出</exception>
     public async Task<T> ExecuteAsync<T>(
         Func<Task<T>> operation,
-        string operationName,
+        string? operationName = null,
         Func<Exception, bool>? shouldRetry = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
-        ArgumentNullException.ThrowIfNullOrEmpty(operationName);
+        operationName ??= operationExpr ?? nameof(operation);
+
+        // Fast-path: if already cancelled, avoid further validation/allocations.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return await Task.FromCanceled<T>(cancellationToken).ConfigureAwait(false);
+        }
 
         return await ExecuteWithRetryAsync(
             async () => await operation().ConfigureAwait(false),
@@ -48,12 +54,19 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <exception cref="OutOfReTryCountException">超过重试次数时抛出</exception>
     public async Task ExecuteAsync(
         Func<Task> operation,
-        string operationName,
+        string? operationName = null,
         Func<Exception, bool>? shouldRetry = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
-        ArgumentNullException.ThrowIfNullOrEmpty(operationName);
+        operationName ??= operationExpr ?? nameof(operation);
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            await Task.FromCanceled(cancellationToken);
+            return;
+        }
 
         await ExecuteWithRetryAsync(
             async () =>
@@ -75,14 +88,19 @@ public sealed class RetryHelper(RetryOptions? options = null)
         Func<Exception, bool>? shouldRetry,
         CancellationToken cancellationToken)
     {
+    // 提前验证配置，确保无效参数尽早抛出（含 MaxRetryAttempts 等）
+    _options.Validate();
         // 添加检查，如果令牌已取消，立即抛出异常
         cancellationToken.ThrowIfCancellationRequested();
 
         Exception? lastException = null;
         shouldRetry ??= _ => true;
 
-        for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
+    var start = DateTime.UtcNow;
+    for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
         {
+            // Per-attempt early cancellation (in addition to delay points) for responsiveness.
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 return await operation().ConfigureAwait(false);
@@ -120,25 +138,31 @@ public sealed class RetryHelper(RetryOptions? options = null)
             }
         }
 
+        var elapsed = DateTime.UtcNow - start;
         // 如果所有重试都失败，抛出统一的异常
-        throw new OutOfReTryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetryAttempts}", lastException);
+        throw new OutOfRetryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetryAttempts}, 耗时: {elapsed.TotalMilliseconds:N0} ms", lastException);
     }
 
     private int CalculateDelayWithJitter(int retryAttempt)
     {
-        // 计算基础延迟
-        var delay = _options.UseExponentialBackoff
-            ? _options.DelayMilliseconds * Math.Pow(2, retryAttempt)
-            : _options.DelayMilliseconds;
+        // 计算基础延迟（指数退避 2^n，避免 Math.Pow 使用位移且防溢出）
+        long baseDelay = _options.DelayMilliseconds;
+        long delay = _options.UseExponentialBackoff ? baseDelay * (1L << retryAttempt) : baseDelay;
+        if (delay > _options.MaxDelayMilliseconds)
+        {
+            delay = _options.MaxDelayMilliseconds;
+        }
 
-        // 限制最大延迟时间
-        delay = Math.Min(delay, _options.MaxDelayMilliseconds);
+        // Full jitter: random between 0 and delay * (1 + Jitter)
+        if (_options.Jitter <= 0)
+        {
+            // 无抖动，返回确定性延迟，便于测试与预测
+            return (int)Math.Min(int.MaxValue, delay);
+        }
 
-        // 添加随机抖动
-        var jitterRange = delay * _options.Jitter;
-        var jitter = _random.NextDouble() * jitterRange;
-
-        return (int)(delay + jitter);
+        var maxWithJitter = delay + (long)(delay * _options.Jitter);
+        var rnd = ThreadSafeRandom.NextLong(0, Math.Max(1, maxWithJitter));
+        return (int)Math.Min(int.MaxValue, rnd);
     }
 }
 
@@ -168,4 +192,33 @@ public class RetryOptions
     /// 抖动因子(0-1之间)
     /// </summary>
     public double Jitter { get; set; } = 0.2;
+
+    internal void Validate()
+    {
+        if (MaxRetryAttempts <= 0)
+            throw new ArgumentOutOfRangeException(nameof(MaxRetryAttempts));
+        if (DelayMilliseconds <= 0)
+            throw new ArgumentOutOfRangeException(nameof(DelayMilliseconds));
+        if (MaxDelayMilliseconds < DelayMilliseconds)
+            throw new ArgumentOutOfRangeException(nameof(MaxDelayMilliseconds), "MaxDelayMilliseconds must be >= DelayMilliseconds");
+        if (Jitter < 0 || Jitter > 1)
+            throw new ArgumentOutOfRangeException(nameof(Jitter));
+    }
+}
+
+internal static class ThreadSafeRandom
+{
+    [ThreadStatic]
+    private static Random? _local;
+
+    private static Random Instance => _local ??= new Random(unchecked(Environment.TickCount * 31 + Environment.CurrentManagedThreadId));
+
+    public static long NextLong(long minInclusive, long maxExclusive)
+    {
+        if (maxExclusive <= minInclusive) return minInclusive;
+        // Use double scaling to cover range
+        var range = (double)maxExclusive - minInclusive;
+        var sample = Instance.NextDouble();
+        return (long)(minInclusive + sample * range);
+    }
 }

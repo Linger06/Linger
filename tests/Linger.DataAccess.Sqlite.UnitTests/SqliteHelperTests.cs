@@ -250,8 +250,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
-            _fileHelper.QueryInBatchesAsync(sql, userIds, cts.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            _fileHelper.QueryInBatchesAsync(sql, userIds, cancellationToken: cts.Token));
     }
 
     #endregion
@@ -338,7 +338,7 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _fileHelper.ExistsAsync(sql, cts.Token));
     }
 
@@ -430,7 +430,7 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _fileHelper.QueryAsync(sql, cts.Token));
     }
 
@@ -604,7 +604,7 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _fileHelper.BackupDatabaseAsync(backupPath, cts.Token));
     }
 
@@ -684,7 +684,7 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _fileHelper.ExecuteInTransactionAsync(statements, cts.Token));
     }
 

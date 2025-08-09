@@ -28,7 +28,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         // 创建连接信息，考虑证书认证选项
         ConnectionInfo connectionInfo;
 
-        if (Setting.CertificatePath.IsNotNullAndEmpty())
+    if (Setting.CertificatePath.IsNotNullOrEmpty())
         {
             var privateKeyFile = new PrivateKeyFile(Setting.CertificatePath, Setting.CertificatePassphrase);
             connectionInfo = new ConnectionInfo(

@@ -252,4 +252,37 @@ public class GuardExtensionsTests
         // Act & Assert
         Assert.Throws<DirectoryNotFoundException>(() => nonExistentDirectory.EnsureDirectoryExist());
     }
+
+    // New naming test coverage
+    [Fact]
+    public void EnsureFileExists_NewName_WithExistingFile_DoesNotThrow()
+    {
+        var tempFile = Path.GetTempFileName();
+        try
+        {
+            tempFile.EnsureFileExists();
+        }
+        finally { if (File.Exists(tempFile)) File.Delete(tempFile); }
+    }
+
+    [Fact]
+    public void EnsureFileExists_NewName_WithMissingFile_Throws()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".tmp");
+        Assert.Throws<FileNotFoundException>(() => missing.EnsureFileExists());
+    }
+
+    [Fact]
+    public void EnsureDirectoryExists_NewName_WithExistingDirectory_DoesNotThrow()
+    {
+        var dir = Path.GetTempPath();
+        dir.EnsureDirectoryExists();
+    }
+
+    [Fact]
+    public void EnsureDirectoryExists_NewName_WithMissingDirectory_Throws()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Assert.Throws<DirectoryNotFoundException>(() => dir.EnsureDirectoryExists());
+    }
 }

@@ -45,7 +45,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     {
         if (ldapCredentials == null)
         {
-            if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullAndEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullAndEmpty())
+            if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
             {
                 ldapCredentials = ldapConfig.Credentials;
             }
@@ -138,7 +138,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     {
         if (ldapCredentials == null)
         {
-            if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullAndEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullAndEmpty())
+            if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
             {
                 ldapCredentials = ldapConfig.Credentials;
             }

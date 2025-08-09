@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Linger.Exceptions;
 using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Local;
@@ -378,7 +378,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new FailingStream(content, 3); // 会连续失败3次
 
             // Act & Assert
-            await Assert.ThrowsAsync<OutOfReTryCountException>(() =>
+            await Assert.ThrowsAsync<OutOfRetryCountException>(() =>
                 _fileSystem.UploadAsync(
                     stream,
                     "test.txt",

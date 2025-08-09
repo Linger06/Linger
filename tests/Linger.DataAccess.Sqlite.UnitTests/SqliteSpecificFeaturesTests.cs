@@ -98,7 +98,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _helper.VacuumDatabaseAsync(cts.Token));
     }
 
@@ -134,7 +134,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _helper.AnalyzeDatabaseAsync(cts.Token));
     }
 
@@ -175,7 +175,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _helper.GetDatabaseSizeAsync(cts.Token));
     }
 
@@ -209,7 +209,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _helper.CheckIntegrityAsync(cts.Token));
     }
 
@@ -249,7 +249,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _helper.GetTableNamesAsync(cts.Token));
     }
 
@@ -294,7 +294,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() =>
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             _helper.TableExistsAsync("test_table", cts.Token));
     }
 

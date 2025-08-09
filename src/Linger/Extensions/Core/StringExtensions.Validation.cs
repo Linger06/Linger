@@ -92,13 +92,13 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="value">The string to check.</param>
     /// <returns>Returns true if the string is not null and not empty; otherwise, false.</returns>
-    public static bool IsNotNullAndEmpty([NotNullWhen(true)] this string? value)
-    {
-        return !string.IsNullOrEmpty(value);
-    }
+    public static bool IsNotNullOrEmpty([NotNullWhen(true)] this string? value) => !string.IsNullOrEmpty(value);
 
-    public static bool IsNotNullAndWhiteSpace([NotNullWhen(true)] this string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value);
-    }
+    public static bool IsNotNullOrWhiteSpace([NotNullWhen(true)] this string? value) => !string.IsNullOrWhiteSpace(value);
+
+    [Obsolete("Use IsNotNullOrEmpty instead.")]
+    public static bool IsNotNullAndEmpty([NotNullWhen(true)] this string? value) => IsNotNullOrEmpty(value);
+
+    [Obsolete("Use IsNotNullOrWhiteSpace instead.")]
+    public static bool IsNotNullAndWhiteSpace([NotNullWhen(true)] this string? value) => IsNotNullOrWhiteSpace(value);
 }

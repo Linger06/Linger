@@ -1,6 +1,6 @@
 using System.Data;
-using Oracle.ManagedDataAccess.Client;
 using Linger.DataAccess.Oracle;
+using Oracle.ManagedDataAccess.Client;
 
 namespace Linger.DataAccess.Oracle.UnitTests;
 
@@ -10,13 +10,13 @@ namespace Linger.DataAccess.Oracle.UnitTests;
 public class OracleHelperTests
 {
     private const string TestConnectionString = "Data Source=localhost:1521/XEPDB1;User Id=test;Password=test;";
-    
+
     [Fact]
     public void Constructor_WithValidConnectionString_ShouldCreateInstance()
     {
         // Arrange & Act
         var helper = new OracleHelper(TestConnectionString);
-        
+
         // Assert
         Assert.NotNull(helper);
         // ConnString属性可能不可访问，这里验证实例创建成功即可
@@ -159,8 +159,8 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() => 
-            helper.QueryInBatchesAsync(sql, parameters, cts.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            helper.QueryInBatchesAsync(sql, parameters, cancellationToken: cts.Token));
     }
 
     [Theory]
@@ -189,8 +189,8 @@ public class OracleHelperTests
         // Arrange
         var helper = new OracleHelper(TestConnectionString);
         const string sql = "SELECT COUNT(*) FROM users WHERE name = :name";
-        var parameters = new OracleParameter[] 
-        { 
+        var parameters = new OracleParameter[]
+        {
             new(":name", OracleDbType.Varchar2) { Value = "TestUser" }
         };
 
@@ -231,7 +231,7 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() => 
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             helper.ExistsAsync(sql, cts.Token));
     }
 
@@ -261,8 +261,8 @@ public class OracleHelperTests
         // Arrange
         var helper = new OracleHelper(TestConnectionString);
         const string sql = "SELECT * FROM products WHERE price > :minPrice AND category = :category";
-        var parameters = new OracleParameter[] 
-        { 
+        var parameters = new OracleParameter[]
+        {
             new(":minPrice", OracleDbType.Decimal) { Value = 100 },
             new(":category", OracleDbType.Varchar2) { Value = "Electronics" }
         };
@@ -306,7 +306,7 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(() => 
+    await Assert.ThrowsAsync<OperationCanceledException>(() =>
             helper.QueryAsync(sql, cts.Token));
     }
 
@@ -344,7 +344,7 @@ public class OracleHelperTests
         var helper = new OracleHelper(TestConnectionString);
         const string maliciousInput = "'; DROP TABLE users; --";
         const string sql = "SELECT * FROM users WHERE name = :name";
-        
+
         // Act - 创建参数化查询
         var parameter = new OracleParameter(":name", OracleDbType.Varchar2) { Value = maliciousInput };
 
@@ -360,7 +360,7 @@ public class OracleHelperTests
     {
         // Arrange
         var parameters = new List<string>();
-        
+
         // 创建1500个参数（超过1000的批次大小）
         for (int i = 1; i <= 1500; i++)
         {

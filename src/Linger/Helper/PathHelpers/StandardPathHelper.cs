@@ -241,7 +241,7 @@ public class StandardPathHelper : PathHelperBase
     /// </summary>
     public static string GetParentDirectory(string? path, int levels)
     {
-        path.EnsureIsNotNullAndWhiteSpace();
+    path.EnsureIsNotNullOrWhiteSpace();
 
         levels = Math.Abs(levels);
         if (levels == 0) return path;

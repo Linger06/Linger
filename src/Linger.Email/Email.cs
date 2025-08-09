@@ -54,7 +54,7 @@ public class Email : IEmail, IDisposable
         var secureOptions = DetermineSecureOptions();
         await _smtpClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, secureOptions).ConfigureAwait(false);
 
-        if (_emailConfig.UserName.IsNotNullAndEmpty())
+    if (_emailConfig.UserName.IsNotNullOrEmpty())
         {
             await _smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password).ConfigureAwait(false);
         }

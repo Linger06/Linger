@@ -225,7 +225,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             {
                 // 检查是否有ExcelColumn特性
                 var excelAttr = prop.GetCustomAttribute<ExcelColumnAttribute>();
-                if (excelAttr != null && excelAttr.ColumnName.IsNotNullAndWhiteSpace())
+                if (excelAttr != null && excelAttr.ColumnName.IsNotNullOrWhiteSpace())
                 {
                     propertyMapping[excelAttr.ColumnName] = prop;
                 }
@@ -422,7 +422,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         // 应用标题
         var startRowIndex = 0;
-        if (title.IsNotNullAndEmpty())
+    if (title.IsNotNullOrEmpty())
         {
             startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
         }
@@ -521,7 +521,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             var startRowIndex = 0;
 
             // 应用标题
-            if (title.IsNotNullAndEmpty())
+            if (title.IsNotNullOrEmpty())
             {
                 startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
             }

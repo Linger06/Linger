@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Collections.Concurrent;
 using Linger.Enums;
 using Linger.Extensions.Core;
 
@@ -16,6 +17,23 @@ namespace Linger.Helper;
 /// </summary>
 public static class ExpressionHelper
 {
+    /// <summary>
+    /// Cache for reflection MethodInfo lookups to reduce repeated reflection cost.
+    /// Key: (DeclaringType, MethodName, ParameterCount)
+    /// Value: MethodInfo (unconstructed generic definition if applicable) or null when not found.
+    /// </summary>
+    private static readonly ConcurrentDictionary<(Type Type, string Name, int ParamCount), MethodInfo?> _methodCache = new();
+
+    private static MethodInfo? GetCachedMethod(Type type, string name, int paramCount)
+    {
+        return _methodCache.GetOrAdd((type, name, paramCount), static key =>
+        {
+            // Search public static/instance methods; for our usage we only target public ones.
+            return key.Type
+                .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)
+                .FirstOrDefault(m => m.Name == key.Name && m.GetParameters().Length == key.ParamCount);
+        });
+    }
     /// <summary>
     /// Creates a lambda expression that always returns true.
     /// </summary>
@@ -150,7 +168,8 @@ public static class ExpressionHelper
         {
             LambdaExpression expr = GetOrderExpression<T>(propertyName);
             PropertyInfo propInfo = typeof(T).GetPropertyInfo(propertyName);
-            MethodInfo method = typeof(Enumerable).GetMethods().First(m => m.Name == sort && m.GetParameters().Length == 2);
+            // Retrieve and cache the base generic definition (OrderBy / OrderByDescending with 2 parameters)
+            MethodInfo method = GetCachedMethod(typeof(Enumerable), sort, 2) ?? throw new MissingMethodException(nameof(Enumerable), sort);
             MethodInfo genericMethod = method.MakeGenericMethod(typeof(T), propInfo.PropertyType);
             var orderBy = genericMethod.Invoke(null, [query, expr.Compile()]);
 
@@ -517,34 +536,58 @@ public static class ExpressionHelper
     /// </example>  
     public static Expression<Func<T, bool>> BuildLambda<T>(IEnumerable<Condition>? conditions)
     {
-        if (conditions.IsNull())
+        if (conditions is null)
         {
             return x => true;
         }
 
-        if (!conditions.Any())
+        // Materialize once to avoid multiple enumeration / Any() cost.
+        var list = conditions as IList<Condition> ?? conditions.ToList();
+        if (list.Count == 0)
         {
             return x => true;
         }
 
         ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
 
-        var simpleExps = conditions
-            .ToList()
-            .FindAll(c => string.IsNullOrEmpty(c.OrGroup))
-            .Select(c => GetExpression(parameter, c))
-            .ToList();
+        // Single pass partition: simple vs grouped.
+        var simpleExpressions = new List<Expression>();
+        var grouped = new Dictionary<string, List<Condition>>(StringComparer.OrdinalIgnoreCase);
+    foreach (var c in list)
+        {
+            if (string.IsNullOrEmpty(c.OrGroup))
+            {
+                simpleExpressions.Add(GetExpression(parameter, c));
+            }
+            else
+            {
+        // c.OrGroup cannot be null here due to IsNullOrEmpty check above; use ! to satisfy nullable flow.
+        if (!grouped.TryGetValue(c.OrGroup!, out var bucket))
+                {
+                    bucket = new List<Condition>();
+            grouped[c.OrGroup!] = bucket;
+                }
+                bucket.Add(c);
+            }
+        }
 
-        var complexExps = conditions
-            .ToList()
-            .FindAll(c => !string.IsNullOrEmpty(c.OrGroup))
-            .GroupBy(x => x.OrGroup)
-            .Select(g => GetGroupExpression(parameter, g.ToList()))
-            .ToList();
+        // Build grouped OR expressions.
+        if (grouped.Count > 0)
+        {
+            foreach (var kvp in grouped)
+            {
+                simpleExpressions.Add(GetGroupExpression(parameter, kvp.Value));
+            }
+        }
 
-        Expression exp = simpleExps.Concat(complexExps)
-            .Aggregate((left, right) => left.IsNull() ? right : Expression.AndAlso(left, right));
-        return Expression.Lambda<Func<T, bool>>(exp, parameter);
+        // Combine with AndAlso (short-circuit building to avoid Aggregate delegate overhead).
+        Expression? combined = null;
+        for (int i = 0; i < simpleExpressions.Count; i++)
+        {
+            combined = combined is null ? simpleExpressions[i] : Expression.AndAlso(combined, simpleExpressions[i]);
+        }
+
+        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
     }
 
     /// <summary>  
@@ -562,22 +605,27 @@ public static class ExpressionHelper
     /// </example>  
     public static Expression<Func<T, bool>> BuildAndAlsoLambda<T>(IEnumerable<Condition>? conditions)
     {
-        if (conditions.IsNull())
+        if (conditions is null)
         {
             return x => true;
         }
 
-        if (!conditions.Any())
+        // Materialize only if needed for count check.
+        var list = conditions as IList<Condition> ?? conditions.ToList();
+        if (list.Count == 0)
         {
             return x => true;
         }
 
         ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-        var simpleExps = conditions
-            .Select(c => GetExpression(parameter, c));
+        Expression? combined = null;
+        foreach (var c in list)
+        {
+            var exp = GetExpression(parameter, c);
+            combined = combined is null ? exp : Expression.AndAlso(combined, exp);
+        }
 
-        Expression exp = simpleExps.Aggregate((left, right) => left.IsNull() ? right : Expression.AndAlso(left, right));
-        return Expression.Lambda<Func<T, bool>>(exp, parameter);
+        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
     }
 
     /// <summary>  
@@ -595,22 +643,26 @@ public static class ExpressionHelper
     /// </example>  
     public static Expression<Func<T, bool>> BuildOrElseLambda<T>(IEnumerable<Condition>? conditions)
     {
-        if (conditions.IsNull())
+        if (conditions is null)
         {
             return x => true;
         }
 
-        if (!conditions.Any())
+        var list = conditions as IList<Condition> ?? conditions.ToList();
+        if (list.Count == 0)
         {
             return x => true;
         }
 
         ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-        var simpleExps = conditions
-            .Select(c => GetExpression(parameter, c));
+        Expression? combined = null;
+        foreach (var c in list)
+        {
+            var exp = GetExpression(parameter, c);
+            combined = combined is null ? exp : Expression.OrElse(combined, exp);
+        }
 
-        Expression exp = simpleExps.Aggregate((left, right) => left.IsNull() ? right : Expression.OrElse(left, right));
-        return Expression.Lambda<Func<T, bool>>(exp, parameter);
+        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
     }
 
     /// <summary>  
@@ -642,8 +694,8 @@ public static class ExpressionHelper
                 Type typeOfList = typeof(IEnumerable<>).MakeGenericType(realPropertyType);
                 if (typeOfValue.IsGenericType && typeOfList.IsAssignableFrom(typeOfValue))
                 {
-                    condition.Value = typeof(Enumerable)
-                        .GetMethod("ToArray", BindingFlags.Public | BindingFlags.Static)
+                    var toArrayDef = GetCachedMethod(typeof(Enumerable), "ToArray", 1);
+                    condition.Value = toArrayDef
                         ?.MakeGenericMethod(realPropertyType)
                         .Invoke(null, [condition.Value]);
                 }
@@ -663,9 +715,20 @@ public static class ExpressionHelper
             CompareOperator.GreaterThanOrEquals => Expression.GreaterThanOrEqual(propertyParam, constantParam),
             CompareOperator.LessThan => Expression.LessThan(propertyParam, constantParam),
             CompareOperator.LessThanOrEquals => Expression.LessThanOrEqual(propertyParam, constantParam),
-            CompareOperator.StdIn => Expression.Call(typeof(Enumerable), "Contains", [realPropertyType], constantParam, propertyParam),
-            CompareOperator.StdNotIn => Expression.Not(Expression.Call(typeof(Enumerable), "Contains", [realPropertyType
-            ], constantParam, propertyParam)),
+            CompareOperator.StdIn =>
+                Expression.Call(
+                    // Use cached generic Contains (2 parameters)
+                    GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
+                        .MakeGenericMethod(realPropertyType),
+                    constantParam,
+                    propertyParam),
+            CompareOperator.StdNotIn =>
+                Expression.Not(
+                    Expression.Call(
+                        GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
+                            .MakeGenericMethod(realPropertyType),
+                        constantParam,
+                        propertyParam)),
             _ => throw new NotSupportedException($"{condition.Op} Not Supported")
         };
     }
@@ -678,8 +741,14 @@ public static class ExpressionHelper
     /// <returns>An expression representing the combined conditions.</returns>  
     private static Expression GetGroupExpression(Expression parameter, IEnumerable<Condition> orConditions)
     {
-        var exps = orConditions.Select(c => GetExpression(parameter, c)).ToList();
-        return exps.Aggregate((left, right) => left.IsNull() ? right : Expression.OrElse(left, right));
+        // Build OR chain iteratively to reduce allocations.
+        Expression? combined = null;
+        foreach (var c in orConditions)
+        {
+            var exp = GetExpression(parameter, c);
+            combined = combined is null ? exp : Expression.OrElse(combined, exp);
+        }
+        return combined ?? Expression.Constant(true);
     }
 
 }

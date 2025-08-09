@@ -293,15 +293,15 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 {
     // 基本验证
     data.EnsureIsNotNull(nameof(data)); // 确保不为 null
-    data.EnsureIsNotNullAndEmpty(nameof(data)); // 确保不为 null 或空
-    data.EnsureIsNotNullAndWhiteSpace(nameof(data)); // 确保不为 null、空或空白
+    data.EnsureIsNotNullOrEmpty(nameof(data)); // 确保不为 null 或空
+    data.EnsureIsNotNullOrWhiteSpace(nameof(data)); // 确保不为 null、空或空白
 
     // 集合验证
     numbers.EnsureIsNotNullOrEmpty(nameof(numbers)); // 确保集合不为 null 或空
 
     // 文件系统验证
-    filePath.EnsureFileExist(nameof(filePath)); // 确保文件存在
-    Path.GetDirectoryName(filePath).EnsureDirectoryExist(); // 确保目录存在
+    filePath.EnsureFileExists(nameof(filePath)); // 确保文件存在
+    Path.GetDirectoryName(filePath).EnsureDirectoryExists(); // 确保目录存在
 
     // 条件验证
     (data.Length > 0).EnsureIsTrue(nameof(data), "数据不能为空");
@@ -427,6 +427,55 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 6. **注意资源管理**: 使用 `using` 语句确保资源得到正确释放
 7. **GUID 操作规范**: 使用 `IsEmpty()`、`IsNotEmpty()` 等方法而不是直接比较
 8. **简化集合操作**: 善用 `ForEach()` 等扩展方法，让集合处理更加简洁
+
+## 迁移说明 (0.8.2 → 下一版本)
+
+为提升命名一致性与可读性，本版本对部分 API 进行了重命名与增强。旧名称均以 `[Obsolete]` 标记并仍可使用（过渡期：0.9.x，计划在首个 1.0 预发布版本移除），建议尽快迁移。
+
+### Guard 方法重命名
+| 旧名称 | 新名称 | 原因 |
+|--------|--------|------|
+| `EnsureIsNotNullAndEmpty` | `EnsureIsNotNullOrEmpty` | 语义更准确（与 .NET 命名模式统一） |
+| `EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | 与 BCL `IsNullOrWhiteSpace` 对齐 |
+| `EnsureFileExist` | `EnsureFileExists` | 语法与命名规范修正 |
+| `EnsureDirectoryExist` | `EnsureDirectoryExists` | 同上 |
+
+字符串扩展同样新增 `IsNotNullOrEmpty` / `IsNotNullOrWhiteSpace`，旧方法保留为过时包装。
+
+### 异常类型重命名
+| 旧类型 | 新类型 | 说明 |
+|--------|--------|------|
+| `OutOfReTryCountException` | `OutOfRetryCountException` | 修正拼写/大小写。旧类型继承新类型并标记过时。 |
+
+### RetryHelper 增强
+| 变化 | 说明 |
+|------|------|
+| 可选 `operationName` | 现在可省略，库会通过 `CallerArgumentExpression` 自动捕获调用表达式。 |
+| 退避策略优化 | 使用 Full Jitter，并对 `RetryOptions` 参数进行有效性验证。 |
+| 异常信息改进 | 最终异常消息中包含总耗时（毫秒）。 |
+
+### 迁移建议
+1. 全局替换旧的 Guard 名称为新名称（一次性脚本或 IDE 重构）。  
+2. 可移除 Retry 调用中纯描述性的 `operationName` 参数（非必需）。  
+3. 捕获重试异常的地方改为 `OutOfRetryCountException`。若需兼容仍在使用旧类型的代码，可暂时 catch 新类型或基类。  
+4. 若短期内无法全部更新，可用 `#pragma warning disable CS0618` 暂时屏蔽过时警告。  
+
+### 前后对比
+```csharp
+// 迁移前
+data.EnsureIsNotNullAndEmpty();
+filePath.EnsureFileExist();
+directory.EnsureDirectoryExist();
+try { await retry.ExecuteAsync(action, "操作"); } catch (OutOfReTryCountException ex) { /* ... */ }
+
+// 迁移后
+data.EnsureIsNotNullOrEmpty();
+filePath.EnsureFileExists();
+directory.EnsureDirectoryExists();
+try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { /* ... */ }
+```
+
+功能行为未改变，仅是命名与诊断信息改进。
 
 ## 依赖项
 

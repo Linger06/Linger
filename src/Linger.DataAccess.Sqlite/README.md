@@ -11,76 +11,40 @@ SQLite database access library with SQLite-specific optimizations and factory me
 - SQLite optimizations: VACUUM, ANALYZE, and performance features
 - Async support: Full async/await with CancellationToken
 - Database management: Backup, restore, and schema operations
+- Supports core batch query helpers from Linger.DataAccess (see core README)
 
 ## Basic Usage
 
 ```csharp
 using Linger.DataAccess.Sqlite;
 
-// Create file database
 var fileDb = SqliteHelper.CreateFileDatabase("myapp.db");
 
-// Parameterized queries
-var users = fileDb.Query("SELECT * FROM users WHERE age > @age", 
-    new SQLiteParameter("@age", 18));
+// Parameterized query
+var users = fileDb.Query("SELECT * FROM users WHERE age > @age", new SQLiteParameter("@age", 18));
 
-// Batch processing
-var userIds = new List<string> { "1", "2", "3", ..., "5000" };
-var results = fileDb.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", userIds);
+// Batch query (delegates to core implementation)
+var ids = Enumerable.Range(1, 3000).Select(i => i.ToString()).ToList();
+var dt = fileDb.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", ids); // default batchSize=1000
 
-// SQLite optimizations
+// SQLite specific maintenance
 await fileDb.VacuumDatabaseAsync();
 await fileDb.AnalyzeDatabaseAsync();
 ```
 
-## Core Methods
+## SQLite Specific APIs
 
-### Factory Method
 ```csharp
-public static SqliteHelper CreateFileDatabase(string filePath, bool createIfNotExists = true)
-```
-Creates file database instance.
-
-### QueryInBatchesAsync
-```csharp
-public async Task<DataSet> QueryInBatchesAsync(string sql, IEnumerable<string> parameters, 
-    CancellationToken cancellationToken = default)
-```
-Intelligent batch processing for large parameter lists.
-
-### SQLite-Specific Features
-```csharp
-// Performance optimization
 await sqlite.VacuumDatabaseAsync();
 await sqlite.AnalyzeDatabaseAsync();
-
-// Database management
 await sqlite.BackupDatabaseAsync("backup.db");
 var tables = await sqlite.GetTableNamesAsync();
 bool exists = await sqlite.TableExistsAsync("users");
-
-// Transaction support
-await sqlite.ExecuteInTransactionAsync(new[]
-{
-    "INSERT INTO users (name) VALUES ('John')",
-    "INSERT INTO logs (action) VALUES ('User created')"
-});
-```
-
-## Security Features
-
-```csharp
-// ❌ Vulnerable
-var sql = $"SELECT * FROM users WHERE name = '{userName}'";
-
-// ✅ Secure
-var sql = "SELECT * FROM users WHERE name = @userName";
-var result = sqlite.Query(sql, new SQLiteParameter("@userName", userName));
 ```
 
 ## Best Practices
 
-- Always use parameterized queries
-- Use connection pooling for file databases
-- Execute VACUUM and ANALYZE regularly for performance
-- Use transactions for batch operations
+- Prefer parameterized queries
+- Run VACUUM / ANALYZE periodically
+- Adjust batchSize only if needed for extremely large IN lists
+- Use transactions for multi-statement changes

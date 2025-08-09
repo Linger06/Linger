@@ -293,15 +293,15 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 {
     // Basic validation
     data.EnsureIsNotNull(nameof(data)); // Ensure not null
-    data.EnsureIsNotNullAndEmpty(nameof(data)); // Ensure not null or empty
-    data.EnsureIsNotNullAndWhiteSpace(nameof(data)); // Ensure not null, empty or whitespace
+    data.EnsureIsNotNullOrEmpty(nameof(data)); // Ensure not null or empty
+    data.EnsureIsNotNullOrWhiteSpace(nameof(data)); // Ensure not null, empty or whitespace
 
     // Collection validation
     numbers.EnsureIsNotNullOrEmpty(nameof(numbers)); // Ensure collection is not null or empty
 
     // File system validation
-    filePath.EnsureFileExist(nameof(filePath)); // Ensure file exists
-    Path.GetDirectoryName(filePath).EnsureDirectoryExist(); // Ensure directory exists
+    filePath.EnsureFileExists(nameof(filePath)); // Ensure file exists
+    Path.GetDirectoryName(filePath).EnsureDirectoryExists(); // Ensure directory exists
 
     // Condition validation
     (data.Length > 0).EnsureIsTrue(nameof(data), "Data must not be empty");
@@ -424,6 +424,55 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 6. **Resource Management**: Use `using` statements for disposable resources
 7. **GUID Operations**: Use extension methods like `IsEmpty()` and `IsNotEmpty()` instead of direct comparison
 8. **Collection Processing**: Use `ForEach()` extension methods to simplify array and collection iteration
+
+## Migration Notes (0.8.2 → Next)
+
+The following API refinements were introduced to improve naming consistency and usability. Old members remain available with `[Obsolete]` for one transitional release cycle (target removal: next minor release after 0.9.x) and still function the same. Plan to remove obsolete aliases in the first 1.0 pre-release.
+
+### Renamed Guard Methods
+| Old Name | New Name | Reason |
+|----------|----------|--------|
+| `EnsureIsNotNullAndEmpty` | `EnsureIsNotNullOrEmpty` | Correct logical conjunction wording (not null OR empty check wording) |
+| `EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | Consistency with BCL `IsNullOrWhiteSpace` naming |
+| `EnsureFileExist` | `EnsureFileExists` | Grammar (plural verb form) & .NET naming consistency |
+| `EnsureDirectoryExist` | `EnsureDirectoryExists` | Same as above |
+
+String extension counterparts also gained the new `IsNotNullOrEmpty` / `IsNotNullOrWhiteSpace` names with old names kept as obsolete shims.
+
+### Exception Renaming
+| Old | New | Notes |
+|-----|-----|-------|
+| `OutOfReTryCountException` | `OutOfRetryCountException` | Typo/casing fix. Old type now inherits from the new type and is marked obsolete. |
+
+### RetryHelper Enhancements
+| Change | Description |
+|--------|-------------|
+| Optional `operationName` | Now optional; if omitted the library captures the caller expression via `CallerArgumentExpression`. |
+| Improved backoff | Uses full jitter strategy and validates `RetryOptions` values. |
+| Timing info | Final aggregated exception message includes total elapsed milliseconds. |
+
+### How to Update Your Code
+1. Replace old Guard method names with the new ones (search & replace is safe).  
+2. Remove explicit `operationName` arguments where they were just descriptive duplicates of the delegate (optional).  
+3. Update exception catch blocks from `OutOfReTryCountException` to `OutOfRetryCountException` (you can temporarily catch the base type if supporting both).  
+4. (Optional) Suppress obsolete warnings temporarily with `#pragma warning disable CS0618` if performing incremental migration.  
+
+### Example Before / After
+```csharp
+// Before
+data.EnsureIsNotNullAndEmpty();
+filePath.EnsureFileExist();
+directory.EnsureDirectoryExist();
+try { await retry.ExecuteAsync(action, "MyAction"); } catch (OutOfReTryCountException ex) { ... }
+
+// After
+data.EnsureIsNotNullOrEmpty();
+filePath.EnsureFileExists();
+directory.EnsureDirectoryExists();
+try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { ... }
+```
+
+No functional behavior changed—this is a surface naming / diagnostics improvement.
 
 ## Dependencies
 

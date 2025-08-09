@@ -431,6 +431,35 @@ public partial class StringExtensionsTests
         Assert.False(result);
     }
 
+    // New naming equivalents
+    [Fact]
+    public void IsNotNullOrEmpty_NewName_WorksSameAsOld()
+    {
+        var value = "abc";
+        Assert.True(value.IsNotNullOrEmpty());
+    }
+
+    [Fact]
+    public void IsNotNullOrWhiteSpace_NewName_WorksSameAsOld()
+    {
+        var value = "abc";
+        Assert.True(value.IsNotNullOrWhiteSpace());
+    }
+
+    [Fact]
+    public void IsNotNullOrEmpty_Null_ReturnsFalse()
+    {
+        string? v = null;
+        Assert.False(v.IsNotNullOrEmpty());
+    }
+
+    [Fact]
+    public void IsNotNullOrWhiteSpace_Whitespace_ReturnsFalse()
+    {
+        var v = "   ";
+        Assert.False(v.IsNotNullOrWhiteSpace());
+    }
+
     [Fact]
     public void IsInt16_ValidInt16String_ReturnsTrue()
     {
