@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Linger.Excel.Contracts.Attributes;
 
@@ -55,7 +55,7 @@ public static class ExcelTemplateGenerator
 
         // 最后尝试使用ExcelColumnAttribute
         var excelColumnAttribute = property.GetCustomAttribute<ExcelColumnAttribute>();
-    if (excelColumnAttribute != null && excelColumnAttribute.ColumnName.IsNotNullOrEmpty())
+        if (excelColumnAttribute != null && excelColumnAttribute.ColumnName.IsNotNullOrEmpty())
             return excelColumnAttribute.ColumnName;
 
         // 默认返回属性名

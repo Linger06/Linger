@@ -39,10 +39,10 @@ public static class ExcelStyleHelper
         if (fontSize.HasValue)
             font.FontHeightInPoints = fontSize.Value;
 
-    if (fontName.IsNotNullOrWhiteSpace())
+        if (fontName.IsNotNullOrWhiteSpace())
             font.FontName = fontName;
 
-    if (fontColor.IsNotNullOrWhiteSpace())
+        if (fontColor.IsNotNullOrWhiteSpace())
         {
             try
             {
@@ -66,7 +66,7 @@ public static class ExcelStyleHelper
 
         style.SetFont(font);
 
-    if (backgroundColor.IsNotNullOrWhiteSpace())
+        if (backgroundColor.IsNotNullOrWhiteSpace())
         {
             try
             {

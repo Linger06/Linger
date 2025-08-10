@@ -367,7 +367,7 @@ public static class ResultExtensions
     private static ProblemDetails CreateProblemDetails(Result result, int? statusCode = null)
     {
         var code = statusCode ?? (result.Status == ResultStatus.NotFound ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest);
-        
+
         var problemDetails = new ProblemDetails
         {
             Status = code,

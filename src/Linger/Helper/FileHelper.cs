@@ -11,7 +11,7 @@ public static class FileHelper
 
     public static string ReadText(string filename, Encoding? encoding = null)
     {
-    filename.EnsureFileExists();
+        filename.EnsureFileExists();
 
         encoding ??= ExtensionMethodSetting.DefaultEncoding;
 
@@ -75,7 +75,7 @@ public static class FileHelper
 
     public static void MoveFile(string sourceFilePath, string destDirectoryPath)
     {
-    sourceFilePath.EnsureFileExists();
+        sourceFilePath.EnsureFileExists();
 
         var sourceFileName = Path.GetFileName(sourceFilePath);
         Directory.CreateDirectory(destDirectoryPath);
@@ -85,7 +85,7 @@ public static class FileHelper
 
     public static void CopyFile(string sourceFile, string destFile)
     {
-    sourceFile.EnsureFileExists();
+        sourceFile.EnsureFileExists();
 
         var normalizedDest = StandardPathHelper.NormalizePath(destFile);
         var directory = Path.GetDirectoryName(normalizedDest);
@@ -266,7 +266,7 @@ public static class FileHelper
 
     public static bool IsEmptyDirectory(string directory)
     {
-    directory.EnsureDirectoryExists();
+        directory.EnsureDirectoryExists();
         return !Directory.EnumerateFileSystemEntries(directory).Any();
     }
 
@@ -279,7 +279,7 @@ public static class FileHelper
         if (string.IsNullOrEmpty(destDirectory))
             throw new ArgumentNullException(nameof(destDirectory));
 
-    srcDirectory.EnsureDirectoryExists();
+        srcDirectory.EnsureDirectoryExists();
 
         // Ensure the destination path ends with a directory separator
         destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar)

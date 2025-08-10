@@ -17,7 +17,7 @@ namespace Linger.Excel.Tests
             _excelService = new Linger.Excel.Npoi.NpoiExcel();
             
             // 创建测试文件
-            _testFilePath = Path.Combine(Path.GetTempPath(), "npoiHeaderIndexTest.xlsx");
+            _testFilePath = Path.Combine(Path.GetTempPath(), $"npoiHeaderIndexTest_{Guid.NewGuid():N}.xlsx");
             CreateTestExcelFile();
         }
         

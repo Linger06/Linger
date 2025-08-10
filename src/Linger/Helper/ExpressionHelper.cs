@@ -553,7 +553,7 @@ public static class ExpressionHelper
         // Single pass partition: simple vs grouped.
         var simpleExpressions = new List<Expression>();
         var grouped = new Dictionary<string, List<Condition>>(StringComparer.OrdinalIgnoreCase);
-    foreach (var c in list)
+        foreach (var c in list)
         {
             if (string.IsNullOrEmpty(c.OrGroup))
             {
@@ -561,11 +561,11 @@ public static class ExpressionHelper
             }
             else
             {
-        // c.OrGroup cannot be null here due to IsNullOrEmpty check above; use ! to satisfy nullable flow.
-        if (!grouped.TryGetValue(c.OrGroup!, out var bucket))
+                // c.OrGroup cannot be null here due to IsNullOrEmpty check above; use ! to satisfy nullable flow.
+                if (!grouped.TryGetValue(c.OrGroup!, out var bucket))
                 {
                     bucket = new List<Condition>();
-            grouped[c.OrGroup!] = bucket;
+                    grouped[c.OrGroup!] = bucket;
                 }
                 bucket.Add(c);
             }

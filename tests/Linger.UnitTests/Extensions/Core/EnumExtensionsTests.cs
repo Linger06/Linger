@@ -116,6 +116,38 @@ public class EnumExtensionsTests
     }
 
     [Fact]
+    public void TryGetEnum_String_Succeeds_ForValidName()
+    {
+        var ok = "ValueOne".TryGetEnum<TestEnum>(out var value);
+        Assert.True(ok);
+        Assert.Equal(TestEnum.ValueOne, value);
+    }
+
+    [Fact]
+    public void TryGetEnum_String_Fails_ForInvalidName()
+    {
+        var ok = "NoSuch".TryGetEnum<TestEnum>(out var value);
+        Assert.False(ok);
+        Assert.Equal(default, value);
+    }
+
+    [Fact]
+    public void TryGetEnum_Int_Succeeds_ForDefinedValue()
+    {
+        var ok = 2.TryGetEnum<TestEnum>(out var value);
+        Assert.True(ok);
+        Assert.Equal(TestEnum.ValueTwo, value);
+    }
+
+    [Fact]
+    public void TryGetEnum_Int_Fails_ForUndefinedValue()
+    {
+        var ok = 123.TryGetEnum<TestEnum>(out var value);
+        Assert.False(ok);
+        Assert.Equal(default, value);
+    }
+
+    [Fact]
     public void GetEnumName_ReturnsCorrectNameForInt()
     {
         var itemValue = 1;

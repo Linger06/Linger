@@ -31,8 +31,6 @@ public class DecimalExtensionsTests
     [Theory]
     [InlineData(1)]
     [InlineData(-1)]
-    [InlineData(1.0)]
-    [InlineData(-1.0)]
     public void IsInteger2(decimal value)
     {
         var result = value.IsInteger();

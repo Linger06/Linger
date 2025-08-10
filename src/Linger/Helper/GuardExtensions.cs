@@ -1,6 +1,6 @@
+using System.Runtime.CompilerServices;
 using Linger.Extensions.Core;
 using Linger.Helper.PathHelpers;
-using System.Runtime.CompilerServices;
 
 namespace Linger.Helper;
 
@@ -80,7 +80,7 @@ public static class GuardExtensions
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static object? EnsureIsNull(this object? value, string? paramName = null, string? message = null)
+    public static object? EnsureIsNull(this object? value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
     {
         if (value != null)
             throw new ArgumentException(message ?? "Value should be null", paramName ?? nameof(value));
@@ -95,7 +95,7 @@ public static class GuardExtensions
     /// <param name="message">The message to include in the exception if the condition is false.</param>
     /// <exception cref="ArgumentException">Thrown when the condition is false.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool EnsureIsTrue(this bool condition, string? paramName = null, string? message = null)
+    public static bool EnsureIsTrue(this bool condition, [CallerArgumentExpression(nameof(condition))] string? paramName = null, string? message = null)
     {
         if (!condition)
             throw new ArgumentException(message ?? "Condition must be true", paramName);
@@ -110,7 +110,7 @@ public static class GuardExtensions
     /// <param name="message">The message to include in the exception if the condition is true.</param>
     /// <exception cref="ArgumentException">Thrown when the condition is true.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static bool EnsureIsFalse(this bool condition, string? paramName = null, string? message = null)
+    public static bool EnsureIsFalse(this bool condition, [CallerArgumentExpression(nameof(condition))] string? paramName = null, string? message = null)
     {
         if (condition)
             throw new ArgumentException(message ?? "Condition must be false", paramName);
@@ -127,7 +127,7 @@ public static class GuardExtensions
     /// <param name="paramName">The name of the parameter.</param>
     /// <param name="message">The message to include in the exception if the value is out of range.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T EnsureIsInRange<T>(this T value, T min, T max, string? paramName = null, string? message = null)
+    public static T EnsureIsInRange<T>(this T value, T min, T max, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
         where T : IComparable<T>
     {
         if (value.CompareTo(min) < 0 || value.CompareTo(max) > 0)
@@ -149,7 +149,7 @@ public static class GuardExtensions
     /// <exception cref="ArgumentException">Thrown when the file path is empty.</exception>
     /// <exception cref="ArgumentNullException">Thrown when the file path is null.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string EnsureFileExists(this string? filePath, string? paramName = null, string? message = null)
+    public static string EnsureFileExists(this string? filePath, [CallerArgumentExpression(nameof(filePath))] string? paramName = null, string? message = null)
     {
         EnsureIsNotNull(filePath);
 
@@ -174,7 +174,7 @@ public static class GuardExtensions
     /// <exception cref="DirectoryNotFoundException">Thrown when the specified directory does not exist.</exception>
     /// <exception cref="ArgumentNullException">Thrown when the directory path is null.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string EnsureDirectoryExists(this string? directory, string? paramName = null, string? message = null)
+    public static string EnsureDirectoryExists(this string? directory, [CallerArgumentExpression(nameof(directory))] string? paramName = null, string? message = null)
     {
         EnsureIsNotNull(directory);
 
@@ -183,7 +183,7 @@ public static class GuardExtensions
             throw new ArgumentException("Directory path cannot be empty", paramName ?? nameof(directory));
         }
 
-    if (!StandardPathHelper.Exists(directory, false))
+        if (!StandardPathHelper.Exists(directory, false))
         {
             throw new DirectoryNotFoundException(message ?? $"Directory not found: {directory}");
         }
@@ -200,10 +200,10 @@ public static class GuardExtensions
     /// <exception cref="ArgumentNullException">Thrown when the collection is null.</exception>
     /// <exception cref="ArgumentException">Thrown when the collection is empty.</exception>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static IEnumerable<T> EnsureIsNotNullOrEmpty<T>(this IEnumerable<T>? collection, string? paramName = null, string? message = null)
+    public static IEnumerable<T> EnsureIsNotNullOrEmpty<T>(this IEnumerable<T>? collection, [CallerArgumentExpression(nameof(collection))] string? paramName = null, string? message = null)
     {
         EnsureIsNotNull(collection, paramName);
-
+        // Fast paths for common collection types with O(1) Count access.
         if (collection is ICollection<T> c)
         {
             if (c.Count == 0)
@@ -212,8 +212,18 @@ public static class GuardExtensions
             }
             return collection;
         }
+        if (collection is IReadOnlyCollection<T> roc)
+        {
+            if (roc.Count == 0)
+            {
+                throw new ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
+            }
+            return collection;
+        }
 
-        if (!collection.Any())
+        // Fall back to enumeration only when necessary.
+        using var e = collection.GetEnumerator();
+        if (!e.MoveNext())
         {
             throw new ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
         }

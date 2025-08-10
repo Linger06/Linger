@@ -64,7 +64,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
 
         if (cancellationToken.IsCancellationRequested)
         {
-            await Task.FromCanceled(cancellationToken);
+            await Task.FromCanceled(cancellationToken).ConfigureAwait(false);
             return;
         }
 
@@ -88,16 +88,16 @@ public sealed class RetryHelper(RetryOptions? options = null)
         Func<Exception, bool>? shouldRetry,
         CancellationToken cancellationToken)
     {
-    // 提前验证配置，确保无效参数尽早抛出（含 MaxRetryAttempts 等）
-    _options.Validate();
+        // 提前验证配置，确保无效参数尽早抛出（含 MaxRetryAttempts 等）
+        _options.Validate();
         // 添加检查，如果令牌已取消，立即抛出异常
         cancellationToken.ThrowIfCancellationRequested();
 
         Exception? lastException = null;
         shouldRetry ??= _ => true;
 
-    var start = DateTime.UtcNow;
-    for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
+        var start = DateTime.UtcNow;
+        for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
         {
             // Per-attempt early cancellation (in addition to delay points) for responsiveness.
             cancellationToken.ThrowIfCancellationRequested();

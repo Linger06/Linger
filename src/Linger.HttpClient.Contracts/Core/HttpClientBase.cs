@@ -204,12 +204,12 @@ public abstract class HttpClientBase : IHttpClient
             {
                 return default!;
             }
-            
+
             if (targetType == typeof(object))
             {
                 return (T)(object)new { };
             }
-            
+
             // 安全地尝试创建默认实例
             try
             {

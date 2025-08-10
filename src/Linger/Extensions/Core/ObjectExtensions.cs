@@ -65,8 +65,13 @@ public static class ObjectExtensions
         {
             return;
         }
-
-        var properties = s_propertyCache.GetOrAdd(typeof(T), static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+        // Use the runtime type instead of the generic parameter type to ensure
+        // that derived or anonymous types referenced through a base/interface
+        // still expose their concrete public instance properties. This avoids
+        // missing properties when the generic method is invoked via a base reference.
+        // Cached by Type to retain performance characteristics.
+        var runtimeType = value.GetType();
+        var properties = s_propertyCache.GetOrAdd(runtimeType, static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
 
         foreach (PropertyInfo property in properties)
         {

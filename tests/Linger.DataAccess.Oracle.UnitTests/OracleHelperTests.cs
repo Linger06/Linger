@@ -159,7 +159,7 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-        await Assert.ThrowsAsync<OperationCanceledException>(() =>
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             helper.QueryInBatchesAsync(sql, parameters, cancellationToken: cts.Token));
     }
 
@@ -231,7 +231,7 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
+    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             helper.ExistsAsync(sql, cts.Token));
     }
 
@@ -306,7 +306,7 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
+    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             helper.QueryAsync(sql, cts.Token));
     }
 

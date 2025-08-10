@@ -17,7 +17,7 @@ namespace Linger.Excel.Tests
             _excelService = new Linger.Excel.ClosedXML.ClosedXmlExcel();
             
             // 创建测试文件
-            _testFilePath = Path.Combine(Path.GetTempPath(), "closedxmlHeaderIndexTest.xlsx");
+            _testFilePath = Path.Combine(Path.GetTempPath(), $"closedxmlHeaderIndexTest_{Guid.NewGuid():N}.xlsx");
             CreateTestExcelFile();
         }
         

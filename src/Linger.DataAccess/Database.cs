@@ -495,7 +495,14 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
+#if NET6_0_OR_GREATER
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+#else
+        if (batchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(batchSize));
+        }
+#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -534,7 +541,14 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
+#if NET6_0_OR_GREATER
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+#else
+        if (batchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(batchSize));
+        }
+#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -575,7 +589,14 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(values);
-        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
+#if NET6_0_OR_GREATER
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+#else
+        if (batchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(batchSize));
+        }
+#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -612,7 +633,14 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(values);
-        if (batchSize <= 0) throw new ArgumentOutOfRangeException(nameof(batchSize));
+#if NET6_0_OR_GREATER
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+#else
+        if (batchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(batchSize));
+        }
+#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;

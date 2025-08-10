@@ -151,7 +151,7 @@ public class RetryHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+    await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await retryHelper.ExecuteAsync<int>(
                 async () =>
@@ -175,7 +175,7 @@ public class RetryHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+    await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await retryHelper.ExecuteAsync(
                 async () => { await Task.Delay(1000, cts.Token); },

@@ -474,6 +474,32 @@ try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { 
 
 No functional behavior changed—this is a surface naming / diagnostics improvement.
 
+### New Additions (Post 0.8.2 Preview)
+
+#### Non-Throwing Enum Parsing
+Use the new `TryGetEnum` helpers to avoid exception-driven flow when converting from string or integer values:
+
+```csharp
+if ("Active".TryGetEnum<Status>(out var status))
+{
+    // use status
+}
+
+if (2.TryGetEnum<Status>(out var status2))
+{
+    // use status2
+}
+```
+
+#### Additional Exception Constructors
+`OutOfRetryCountException` now provides parameterless and message-only constructors:
+```csharp
+throw new OutOfRetryCountException(); // default message
+throw new OutOfRetryCountException("Custom message");
+throw new OutOfRetryCountException("Custom message", innerEx);
+```
+Legacy `OutOfReTryCountException` remains (obsolete) for one transition cycle.
+
 ## Dependencies
 
 The library has minimal external dependencies:

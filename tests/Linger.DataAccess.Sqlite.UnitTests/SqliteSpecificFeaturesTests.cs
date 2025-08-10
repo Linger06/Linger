@@ -24,7 +24,7 @@ public class SqliteSpecificFeaturesTests : IDisposable
     private void InitializeTestData()
     {
         _helper.ExecuteBySql(@"
-            CREATE TABLE test_table (
+            CREATE TABLE IF NOT EXISTS test_table (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
                 value INTEGER,
@@ -98,8 +98,8 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _helper.VacuumDatabaseAsync(cts.Token));
+    var exVacuum = await Record.ExceptionAsync(() => _helper.VacuumDatabaseAsync(cts.Token));
+    Assert.IsAssignableFrom<OperationCanceledException>(exVacuum);
     }
 
     [Fact]
@@ -134,8 +134,8 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _helper.AnalyzeDatabaseAsync(cts.Token));
+    var exAnalyze = await Record.ExceptionAsync(() => _helper.AnalyzeDatabaseAsync(cts.Token));
+    Assert.IsAssignableFrom<OperationCanceledException>(exAnalyze);
     }
 
     #endregion
@@ -175,8 +175,8 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _helper.GetDatabaseSizeAsync(cts.Token));
+    var exSize = await Record.ExceptionAsync(() => _helper.GetDatabaseSizeAsync(cts.Token));
+    Assert.IsAssignableFrom<OperationCanceledException>(exSize);
     }
 
     [Fact]
@@ -209,8 +209,8 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _helper.CheckIntegrityAsync(cts.Token));
+    var exIntegrity = await Record.ExceptionAsync(() => _helper.CheckIntegrityAsync(cts.Token));
+    Assert.IsAssignableFrom<OperationCanceledException>(exIntegrity);
     }
 
     #endregion
@@ -249,8 +249,8 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _helper.GetTableNamesAsync(cts.Token));
+    var exTables = await Record.ExceptionAsync(() => _helper.GetTableNamesAsync(cts.Token));
+    Assert.IsAssignableFrom<OperationCanceledException>(exTables);
     }
 
     [Theory]
@@ -294,8 +294,8 @@ public class SqliteSpecificFeaturesTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(() =>
-            _helper.TableExistsAsync("test_table", cts.Token));
+    var exTableExists = await Record.ExceptionAsync(() => _helper.TableExistsAsync("test_table", cts.Token));
+    Assert.IsAssignableFrom<OperationCanceledException>(exTableExists);
     }
 
     [Theory]

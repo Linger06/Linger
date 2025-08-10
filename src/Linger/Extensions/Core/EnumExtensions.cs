@@ -119,6 +119,37 @@ public static class EnumExtensions
     }
 
     /// <summary>
+    /// Attempts to parse the specified string to the enum value of type <typeparamref name="T"/>.
+    /// A non-throwing alternative to <see cref="GetEnum{T}(string)"/> / <see cref="ToEnum{T}(string)"/>.
+    /// </summary>
+    /// <typeparam name="T">Enum type.</typeparam>
+    /// <param name="itemName">The enum name text.</param>
+    /// <param name="value">When this method returns, contains the parsed enum value if successful; otherwise default.</param>
+    /// <param name="ignoreCase">Whether to ignore case when parsing.</param>
+    /// <returns><c>true</c> if parse succeeded; otherwise <c>false</c>.</returns>
+    /// <example>
+    /// <code>
+    /// if ("Sunday".TryGetEnum(out DayOfWeek day))
+    /// {
+    ///     // use day
+    /// }
+    /// </code>
+    /// </example>
+    public static bool TryGetEnum<T>(this string? itemName, out T value, bool ignoreCase = false) where T : struct, Enum
+    {
+        if (string.IsNullOrWhiteSpace(itemName))
+        {
+            value = default;
+            return false;
+        }
+#if NET8_0_OR_GREATER
+        return Enum.TryParse(itemName, ignoreCase, out value);
+#else
+        return Enum.TryParse<T>(itemName, ignoreCase, out value);
+#endif
+    }
+
+    /// <summary>
     /// Converts the string to the corresponding enum value.
     /// </summary>
     /// <typeparam name="T">The type of the enum.</typeparam>
@@ -145,6 +176,29 @@ public static class EnumExtensions
         return (T)Enum.Parse(typeof(T),
             Enum.GetName(typeof(T), itemValue) ?? throw new InvalidOperationException());
 #endif
+    }
+
+    /// <summary>
+    /// Attempts to convert an integral raw value to the enum <typeparamref name="T"/> without throwing.
+    /// </summary>
+    /// <typeparam name="T">Enum type.</typeparam>
+    /// <param name="itemValue">Underlying integral value.</param>
+    /// <param name="value">Resulting enum value if defined.</param>
+    /// <returns><c>true</c> if <paramref name="itemValue"/> maps to a defined enum member; otherwise <c>false</c>.</returns>
+    /// <example>
+    /// <code>
+    /// if (5.TryGetEnum(out MyFlags flags)) { /* ... */ }
+    /// </code>
+    /// </example>
+    public static bool TryGetEnum<T>(this int itemValue, out T value) where T : struct, Enum
+    {
+        if (Enum.IsDefined(typeof(T), itemValue))
+        {
+            value = (T)Enum.ToObject(typeof(T), itemValue);
+            return true;
+        }
+        value = default;
+        return false;
     }
 
     /// <summary>

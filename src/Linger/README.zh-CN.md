@@ -477,6 +477,32 @@ try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { 
 
 功能行为未改变，仅是命名与诊断信息改进。
 
+### 新增功能 (0.8.2 之后增量)
+
+#### 非抛异常的枚举解析
+新增 `TryGetEnum` 系列方法，避免使用异常控制流程：
+
+```csharp
+if ("Active".TryGetEnum<Status>(out var status))
+{
+    // 使用 status
+}
+
+if (2.TryGetEnum<Status>(out var status2))
+{
+    // 使用 status2
+}
+```
+
+#### 重试异常构造函数扩展
+`OutOfRetryCountException` 现在支持：
+```csharp
+throw new OutOfRetryCountException();              // 默认消息
+throw new OutOfRetryCountException("自定义消息");
+throw new OutOfRetryCountException("自定义消息", innerEx);
+```
+旧类型 `OutOfReTryCountException` 仍保留（标记 `[Obsolete]`，仅过渡期）。
+
 ## 依赖项
 
 这个库保持轻量化设计，只依赖少量必要的外部包：

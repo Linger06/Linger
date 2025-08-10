@@ -40,6 +40,7 @@ public static class ResultAsyncExtensions
     {
         if (result.IsSuccess)
         {
+            // Directly return Task to avoid extra state machine where possible
             return await bindFunc(result.Value).ConfigureAwait(false);
         }
 

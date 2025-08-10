@@ -41,8 +41,8 @@ public class SqlServerHelperTests
         var dataTable = CreateTestDataTable();
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, ""));
-        Assert.Contains("表名不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, ""));
+        Assert.Equal("tableName", ex.ParamName);
     }
 
     [Fact]
@@ -53,8 +53,8 @@ public class SqlServerHelperTests
         var dataTable = CreateTestDataTable();
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, "   "));
-        Assert.Contains("表名不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, "   "));
+        Assert.Equal("tableName", ex.ParamName);
     }
 
     [Fact]
@@ -75,8 +75,8 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId("", "TestTable"));
-        Assert.Contains("字段名不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId("", "TestTable"));
+        Assert.Equal("fieldName", ex.ParamName);
     }
 
     [Fact]
@@ -86,8 +86,8 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId(null!, "TestTable"));
-        Assert.Contains("字段名不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentNullException>(() => sqlHelper.GetMaxId(null!, "TestTable"));
+        Assert.Equal("fieldName", ex.ParamName);
     }
 
     [Fact]
@@ -97,8 +97,8 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId("Id", ""));
-        Assert.Contains("表名不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId("Id", ""));
+        Assert.Equal("tableName", ex.ParamName);
     }
 
     [Fact]
@@ -108,8 +108,8 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId("Id", null!));
-        Assert.Contains("表名不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentNullException>(() => sqlHelper.GetMaxId("Id", null!));
+        Assert.Equal("tableName", ex.ParamName);
     }
 
     [Fact]
@@ -119,8 +119,8 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.Exists(""));
-        Assert.Contains("SQL语句不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.Exists(""));
+        Assert.Equal("sql", ex.ParamName);
     }
 
     [Fact]
@@ -130,8 +130,8 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.Exists(null!));
-        Assert.Contains("SQL语句不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentNullException>(() => sqlHelper.Exists(null!));
+        Assert.Equal("sql", ex.ParamName);
     }
 
     [Fact]
@@ -141,8 +141,8 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => sqlHelper.Exists("   "));
-        Assert.Contains("SQL语句不能为空", exception.Message);
+        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.Exists("   "));
+        Assert.Equal("sql", ex.ParamName);
     }
 
     [Fact]
@@ -164,9 +164,9 @@ public class SqlServerHelperTests
         var dataTable = CreateTestDataTable();
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sqlHelper.AddByBulkCopyAsync(dataTable, ""));
-        Assert.Contains("表名不能为空", exception.Message);
+        Assert.Equal("tableName", ex.ParamName);
     }
 
     [Fact]
@@ -176,9 +176,9 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sqlHelper.GetMaxIdAsync("", "TestTable"));
-        Assert.Contains("字段名不能为空", exception.Message);
+        Assert.Equal("fieldName", ex.ParamName);
     }
 
     [Fact]
@@ -188,9 +188,9 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sqlHelper.GetMaxIdAsync("Id", ""));
-        Assert.Contains("表名不能为空", exception.Message);
+        Assert.Equal("tableName", ex.ParamName);
     }
 
     [Fact]
@@ -200,9 +200,9 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
             sqlHelper.ExistsAsync(""));
-        Assert.Contains("SQL语句不能为空", exception.Message);
+        Assert.Equal("sql", ex.ParamName);
     }
 
     [Fact]
@@ -212,9 +212,9 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() =>
             sqlHelper.ExistsAsync(null!));
-        Assert.Contains("SQL语句不能为空", exception.Message);
+        Assert.Equal("sql", ex.ParamName);
     }
 
     [Fact]
@@ -329,8 +329,9 @@ public class SqlServerHelperPerformanceTests
         {
             tasks.Add(Task.Run(async () =>
             {
-                await Assert.ThrowsAsync<ArgumentException>(() =>
+                var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
                     sqlHelper.ExistsAsync("")).ConfigureAwait(false);
+                Assert.Equal("sql", ex.ParamName);
             }));
         }
 
