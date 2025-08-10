@@ -61,6 +61,7 @@ public static class ObjectExtensions
     public static void ForIn<T>(this T? value, Action<string, object?> action)
         where T : class
     {
+    ArgumentNullException.ThrowIfNull(action);
         if (value is null)
         {
             return;
@@ -98,6 +99,8 @@ public static class ObjectExtensions
     /// </example>
     public static PropertyInfo GetPropertyInfo(this object obj, string propertyName)
     {
+    ArgumentNullException.ThrowIfNull(obj);
+    ArgumentNullException.ThrowIfNull(propertyName);
         // Use cached properties to minimize reflection overhead
         var properties = s_propertyCache.GetOrAdd(obj.GetType(), type => type.GetProperties());
         var matchedProperty = properties.FirstOrDefault(p => p.Name == propertyName);
@@ -133,6 +136,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="short"/> type; otherwise, false.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
     public static bool IsInt16(this object? value) => value is short;
 
     /// <summary>
@@ -143,10 +147,16 @@ public static class ObjectExtensions
     public static bool IsInt(this object? value) => value is int;
 
     /// <summary>
+    /// 判断对象是否为任一有符号整数 (short / int / long)。
+    /// </summary>
+    public static bool IsAnySignedInteger(this object? value) => value is short or int or long;
+
+    /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="long"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="long"/> type; otherwise, false.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
     public static bool IsInt64(this object? value) => value is long;
 
     /// <summary>
@@ -154,6 +164,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="decimal"/> type; otherwise, false.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
     public static bool IsDecimal(this object? value) => value is decimal;
 
     /// <summary>
@@ -161,7 +172,9 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="float"/> type; otherwise, false.</returns>
-    public static bool IsSingle(this object? value) => value is float;
+    [Obsolete("Use IsFloat() instead. Will be removed in 1.0.0.")]
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public static bool IsSingle(this object? value) => IsFloat(value);
 
     /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="float"/> type.
@@ -175,6 +188,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="double"/> type; otherwise, false.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
     public static bool IsDouble(this object? value) => value is double;
 
     /// <summary>
@@ -182,6 +196,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="DateTime"/> type; otherwise, false.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
     public static bool IsDateTime(this object? value) => value is DateTime;
 
     /// <summary>
@@ -189,6 +204,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
     /// <returns>True if the value is of an equivalent <see cref="bool"/> type; otherwise, false.</returns>    
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
     public static bool IsBoolean(this object? value) => value is bool;
 
     #endregion
