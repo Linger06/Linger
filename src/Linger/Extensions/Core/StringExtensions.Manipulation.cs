@@ -67,6 +67,28 @@ public static partial class StringExtensions
     }
 
     /// <summary>
+    /// Removes the specified <paramref name="value"/> as prefix and suffix (一次各移除一次) using the provided <see cref="StringComparison"/>.
+    /// </summary>
+    /// <param name="str">Source string.</param>
+    /// <param name="value">Prefix &amp; suffix token to remove.</param>
+    /// <param name="comparison">Comparison type.</param>
+    /// <returns>Processed string; returns original reference if no change.</returns>
+    [return: NotNullIfNotNull(nameof(str))]
+    public static string? RemovePrefixAndSuffix(this string? str, string value, StringComparison comparison)
+    {
+        if (str is null) return null;
+        if (string.IsNullOrEmpty(str) || string.IsNullOrEmpty(value)) return str;
+        var start = str.StartsWith(value, comparison);
+        var end = str.EndsWith(value, comparison);
+        if (!start && !end) return str;
+        var startIndex = start ? value.Length : 0;
+        var endLength = end ? str.Length - value.Length : str.Length;
+        if (startIndex == 0 && endLength == str.Length) return str; // defensive
+        var len = endLength - startIndex;
+        return len <= 0 ? string.Empty : str.Substring(startIndex, len);
+    }
+
+    /// <summary>
     /// Safely truncates a string to the specified maximum length.
     /// </summary>
     /// <param name="input">The string to truncate.</param>
@@ -117,58 +139,48 @@ public static partial class StringExtensions
     /// <returns>The string without any newline characters.</returns>
     public static string RemoveAllNewLine(this string? value)
     {
-        if (value == null)
-        {
+        if (value is null)
             return string.Empty;
-        }
-
-#if NET6_0_OR_GREATER
         if (value.Length == 0)
             return string.Empty;
 
-        // 先计算结果长度
-        var resultLength = 0;
-        ReadOnlySpan<char> source = value.AsSpan();
-        for (var i = 0; i < source.Length; i++)
+    // 快速检测是否包含换行符，若无则直接返回原引用，避免分配
+    var firstIdx = value.IndexOfAny(WhitespaceChars.NewLineChars);
+        if (firstIdx < 0)
+            return value;
+
+#if NET6_0_OR_GREATER
+        ReadOnlySpan<char> src = value.AsSpan();
+        // 计算非换行字符数
+        var count = 0;
+        for (int i = 0; i < src.Length; i++)
         {
-            if (source[i] != '\r' && source[i] != '\n')
-                resultLength++;
+            var c = src[i];
+            if (c != '\r' && c != '\n')
+                count++;
         }
-
-        if (resultLength == value.Length)
-            return value; // 没有换行符，直接返回原字符串
-
-        if (resultLength == 0)
+        if (count == 0)
             return string.Empty;
-
-        // 创建结果字符串
-        return string.Create(resultLength, value, static (span, str) =>
+        return string.Create(count, value, static (dest, state) =>
         {
-            ReadOnlySpan<char> source = str.AsSpan();
-            var writeIndex = 0;
-
-            for (var i = 0; i < source.Length; i++)
+            ReadOnlySpan<char> s = state.AsSpan();
+            int w = 0;
+            for (int i = 0; i < s.Length; i++)
             {
-                var c = source[i];
+                var c = s[i];
                 if (c != '\r' && c != '\n')
-                {
-                    span[writeIndex++] = c;
-                }
+                    dest[w++] = c;
             }
         });
 #else
-        var result = new StringBuilder(value.Length);
-
-        for (var i = 0; i < value.Length; i++)
+        var sb = new StringBuilder(value.Length - 1); // 已知至少一个换行
+        for (int i = 0; i < value.Length; i++)
         {
             var c = value[i];
             if (c != '\r' && c != '\n')
-            {
-                result.Append(c);
-            }
+                sb.Append(c);
         }
-
-        return result.ToString();
+        return sb.ToString();
 #endif
     }
 
@@ -194,9 +206,49 @@ public static partial class StringExtensions
         {
             return str ?? string.Empty;
         }
-
+        if (character!.Length == 1)
+        {
+            var ch = character[0];
+#if NET6_0_OR_GREATER
+            if (str.Length > 0 && str[^1] == ch)
+                return str[..^1];
+#else
+            if (str.Length > 0 && str[str.Length - 1] == ch)
+                return str.Substring(0, str.Length - 1);
+#endif
+            return str; // 未匹配则返回原引用
+        }
+        // 保留旧语义（作为字符集合裁剪），但避免重复分配：使用内部缓存或临时 span 操作
+        // 当前简化仍调用 ToCharArray，未来可考虑缓存策略
         return str.TrimEnd(character.ToCharArray());
     }
+
+    /// <summary>
+    /// 如果字符串以指定 <paramref name="suffix"/> 结尾，则精确移除一次该后缀（区分大小写可控）。
+    /// </summary>
+    /// <param name="str">源字符串。</param>
+    /// <param name="suffix">要匹配的后缀。</param>
+    /// <param name="comparison">字符串比较方式，默认 Ordinal。</param>
+    /// <returns>去掉一次后缀后的字符串；若不以该后缀结尾则返回原字符串。</returns>
+    public static string RemoveSuffixOnce(this string str, string suffix, StringComparison comparison = StringComparison.Ordinal)
+    {
+        if (string.IsNullOrEmpty(str) || string.IsNullOrEmpty(suffix))
+            return str ?? string.Empty;
+        if (str.EndsWith(suffix, comparison))
+        {
+#if NET6_0_OR_GREATER
+            return str[..^suffix.Length];
+#else
+            return str.Substring(0, str.Length - suffix.Length);
+#endif
+        }
+        return str;
+    }
+
+    /// <summary>
+    /// 若不已包含指定前缀，则以指定比较方式添加该前缀。
+    /// </summary>
+    public static string EnsureStartsWith(this string value, string prefix, StringComparison comparison) => EnsureAffixCore(value, prefix, true, comparison);
 
     /// <summary>
     /// Ensures the string starts with the specified prefix.
@@ -204,24 +256,7 @@ public static partial class StringExtensions
     /// <param name="value">The string value to check.</param>
     /// <param name="prefix">The prefix value to check for.</param>
     /// <returns>The string value including the prefix.</returns>
-    public static string EnsureStartsWith(this string value, string prefix)
-    {
-        if (value == null) return prefix ?? string.Empty;
-        if (prefix == null) return value;
-
-#if NET6_0_OR_GREATER
-        if (value.AsSpan().StartsWith(prefix.AsSpan()))
-            return value;
-
-        return string.Create(value.Length + prefix.Length, (prefix, value), (span, state) =>
-        {
-            state.prefix.AsSpan().CopyTo(span);
-            state.value.AsSpan().CopyTo(span[state.prefix.Length..]);
-        });
-#else
-        return value.StartsWith(prefix) ? value : prefix + value;
-#endif
-    }
+    public static string EnsureStartsWith(this string value, string prefix) => EnsureAffixCore(value, prefix, true, null);
 
     /// <summary>
     /// Ensures the string ends with the specified suffix.
@@ -229,24 +264,12 @@ public static partial class StringExtensions
     /// <param name="value">The string value to check.</param>
     /// <param name="suffix">The suffix value to check for.</param>
     /// <returns>The string value including the suffix.</returns>
-    public static string EnsureEndsWith(this string value, string suffix)
-    {
-        if (value == null) return suffix ?? string.Empty;
-        if (suffix == null) return value;
+    public static string EnsureEndsWith(this string value, string suffix) => EnsureAffixCore(value, suffix, false, null);
 
-#if NET6_0_OR_GREATER
-        if (value.AsSpan().EndsWith(suffix.AsSpan()))
-            return value;
-
-        return string.Create(value.Length + suffix.Length, (value, suffix), (span, state) =>
-        {
-            state.value.AsSpan().CopyTo(span);
-            state.suffix.AsSpan().CopyTo(span[state.value.Length..]);
-        });
-#else
-        return value.EndsWith(suffix) ? value : value + suffix;
-#endif
-    }
+    /// <summary>
+    /// 若不已包含指定后缀，则以指定比较方式添加该后缀。
+    /// </summary>
+    public static string EnsureEndsWith(this string value, string suffix, StringComparison comparison) => EnsureAffixCore(value, suffix, false, comparison);
 
     /// <summary>
     /// Truncates the string to the specified length, or returns the entire string if it is shorter than the specified length.
@@ -297,4 +320,35 @@ public static partial class StringExtensions
     /// <returns>The truncated string.</returns>
     [Obsolete("Use TakeLast instead")]
     public static string Substring3(this string self, int length) => TakeLast(self, length);
+    private static string EnsureAffixCore(string value, string affix, bool isPrefix, StringComparison? comparison)
+    {
+        if (value == null) return affix ?? string.Empty;
+        if (affix == null) return value;
+        bool has = comparison.HasValue
+            ? (isPrefix ? value.StartsWith(affix, comparison.Value) : value.EndsWith(affix, comparison.Value))
+            : (isPrefix ? value.StartsWith(affix) : value.EndsWith(affix));
+        if (has)
+            return value;
+#if NET6_0_OR_GREATER
+        return isPrefix
+            ? string.Create(value.Length + affix.Length, (affix, value), static (span, state) =>
+            {
+                state.affix.AsSpan().CopyTo(span);
+                state.value.AsSpan().CopyTo(span[state.affix.Length..]);
+            })
+            : string.Create(value.Length + affix.Length, (value, affix), static (span, state) =>
+            {
+                state.value.AsSpan().CopyTo(span);
+                state.affix.AsSpan().CopyTo(span[state.value.Length..]);
+            });
+#else
+        return isPrefix ? affix + value : value + affix;
+#endif
+    }
+}
+
+internal static class WhitespaceChars
+{
+    // 复用以避免重复分配数组 (用于 IndexOfAny)
+    public static readonly char[] NewLineChars = ['\r', '\n'];
 }

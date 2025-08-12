@@ -705,5 +705,38 @@
             var result = input.ToGuidOrNull();
             Assert.Equal(expected, result);
         }
+
+        [Theory]
+        [InlineData("123", true, 123)]
+        [InlineData("invalid", false, 0)]
+        [InlineData(null, false, 0)]
+        public void TryInt_ShouldReturnExpected(string? input, bool expectedSuccess, int expectedValue)
+        {
+            var success = input.TryInt(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        [Theory]
+        [InlineData("922337203685", true, 922337203685L)]
+        [InlineData("invalid", false, 0L)]
+        [InlineData(null, false, 0L)]
+        public void TryLong_ShouldReturnExpected(string? input, bool expectedSuccess, long expectedValue)
+        {
+            var success = input.TryLong(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        [Theory]
+        [InlineData("123.45", true, 123.45)]
+        [InlineData("invalid", false, 0)]
+        [InlineData(null, false, 0)]
+        public void TryDecimal_ShouldReturnExpected(string? input, bool expectedSuccess, decimal expectedValue)
+        {
+            var success = input.TryDecimal(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
     }
 }

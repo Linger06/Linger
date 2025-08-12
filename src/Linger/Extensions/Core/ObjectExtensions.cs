@@ -9,6 +9,7 @@ namespace Linger.Extensions.Core;
 public static class ObjectExtensions
 {
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_propertyCache = new();
+    private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, PropertyInfo>> s_propertyMapCache = new();
 
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is not null.
@@ -29,7 +30,13 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The specified <see cref="object"/>.</param>
     /// <returns>true if the object is not null and its string representation is not empty; otherwise, false.</returns>
-    public static bool IsNotNullAndEmpty([NotNullWhen(true)] this object? value) => value is not null && !string.IsNullOrEmpty(value.ToString());
+    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 0.9.0.")]
+    public static bool IsNotNullAndEmpty([NotNullWhen(true)] this object? value) => value.IsNotNullOrEmpty();
+
+    /// <summary>
+    /// Indicates whether the specified <see cref="object"/> is not null and its string representation is not empty.
+    /// </summary>
+    public static bool IsNotNullOrEmpty([NotNullWhen(true)] this object? value) => value is not null && !string.IsNullOrEmpty(value.ToString());
 
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is null or its string representation is empty.
@@ -99,12 +106,24 @@ public static class ObjectExtensions
     /// </example>
     public static PropertyInfo GetPropertyInfo(this object obj, string propertyName)
     {
-    ArgumentNullException.ThrowIfNull(obj);
-    ArgumentNullException.ThrowIfNull(propertyName);
-        // Use cached properties to minimize reflection overhead
-        var properties = s_propertyCache.GetOrAdd(obj.GetType(), type => type.GetProperties());
-        var matchedProperty = properties.FirstOrDefault(p => p.Name == propertyName);
-        return matchedProperty ?? throw new InvalidOperationException($"Property '{propertyName}' does not exist on type '{obj.GetType().Name}'");
+        ArgumentNullException.ThrowIfNull(obj);
+        ArgumentNullException.ThrowIfNull(propertyName);
+        var type = obj.GetType();
+        var map = s_propertyMapCache.GetOrAdd(type, static t =>
+        {
+            var props = s_propertyCache.GetOrAdd(t, static inner => inner.GetProperties(BindingFlags.Public | BindingFlags.Instance));
+            var dict = new Dictionary<string, PropertyInfo>(props.Length, StringComparer.Ordinal);
+            foreach (var p in props)
+            {
+                dict[p.Name] = p;
+            }
+            return (IReadOnlyDictionary<string, PropertyInfo>)dict;
+        });
+        if (map.TryGetValue(propertyName, out var pi))
+        {
+            return pi;
+        }
+        throw new InvalidOperationException($"Property '{propertyName}' does not exist on type '{type.Name}'");
     }
 
     /// <summary>
@@ -353,6 +372,21 @@ public static class ObjectExtensions
     }
 
     /// <summary>
+    /// 尝试转换为 <see cref="long"/>。成功返回 true 并输出值；失败返回 false，输出 0。
+    /// </summary>
+    public static bool TryLong(this object? input, out long value)
+    {
+        var r = input.ToLongOrNull();
+        if (r.HasValue)
+        {
+            value = r.Value;
+            return true;
+        }
+        value = 0;
+        return false;
+    }
+
+    /// <summary>
     /// Converts the input object to a decimal. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -388,6 +422,21 @@ public static class ObjectExtensions
     }
 
     /// <summary>
+    /// 尝试转换为 <see cref="decimal"/>。成功返回 true 并输出值；失败返回 false，输出 0。
+    /// </summary>
+    public static bool TryDecimal(this object? input, out decimal value)
+    {
+        var r = input.ToDecimalOrNull();
+        if (r.HasValue)
+        {
+            value = r.Value;
+            return true;
+        }
+        value = 0m;
+        return false;
+    }
+
+    /// <summary>
     /// Converts the input object to an integer. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -403,6 +452,21 @@ public static class ObjectExtensions
     public static int? ToIntOrNull(this object? input)
     {
         return input.ToStringOrNull().ToIntOrNull();
+    }
+
+    /// <summary>
+    /// 尝试转换为 <see cref="int"/>。成功返回 true 并输出值；失败返回 false，输出 0。
+    /// </summary>
+    public static bool TryInt(this object? input, out int value)
+    {
+        var r = input.ToIntOrNull();
+        if (r.HasValue)
+        {
+            value = r.Value;
+            return true;
+        }
+        value = 0;
+        return false;
     }
 
     /// <summary>

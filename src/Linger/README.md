@@ -189,6 +189,14 @@ bool isDouble = stringValue.IsDouble();
 // Object conversion
 var stringRepresentation = obj.ToStringOrNull();
 
+// Try-style numeric conversions
+if ("123".TryInt(out var parsedInt)) { /* parsedInt = 123 */ }
+if (!"abc".TryDecimal(out var decVal)) { /* failed, decVal = 0 */ }
+
+// Ensure prefix/suffix (idempotent)
+var apiUrl = "api/v1".EnsureStartsWith("/"); // => "/api/v1"
+var folder = "logs".EnsureEndsWith("/");     // => "logs/"
+
 // Range checking (for numeric values)
 int value = 5;
 bool inRange = value.InRange(1, 10); // Check if in range
@@ -473,6 +481,52 @@ try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { 
 ```
 
 No functional behavior changed—this is a surface naming / diagnostics improvement.
+
+### New String & Guid API Enhancements (post 0.8.2)
+| Category | New API | Purpose |
+|----------|---------|---------|
+| String | `RemoveSuffixOnce(string suffix, StringComparison comparison = Ordinal)` | 精确移除单个后缀（大小写可控），避免旧 `RemoveLastChar` 基于字符集合的潜在误解 |
+| String | `EnsureStartsWith(string prefix, StringComparison comparison)` | 基于指定比较方式前缀确保，无需手动大小写判断 |
+| String | `EnsureEndsWith(string suffix, StringComparison comparison)` | 同上（后缀） |
+| String | `RemovePrefixAndSuffix(string token, StringComparison comparison)` | 提供文化/大小写控制的前后对称移除 |
+| Guid | `IsNotNullOrEmpty()` | 语义统一，替代旧 `IsNotNullAndEmpty` |
+| Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
+
+### Deprecated (Obsolete) Members – Scheduled Removal (Target: 0.9.0)
+| Obsolete | Replacement | Notes |
+|----------|-------------|-------|
+| `GuidExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Naming consistency |
+| `ObjectExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Same rationale |
+| `StringExtensions.Substring2` | `Take` | Simpler, clearer verb |
+| `StringExtensions.Substring3` | `TakeLast` | Mirrors new naming |
+| `StringExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Consistency |
+| `StringExtensions.IsNotNullAndWhiteSpace` | `IsNotNullOrWhiteSpace` | Consistency |
+| `GuardExtensions.EnsureIsNotNullAndEmpty` | `EnsureIsNotNullOrEmpty` | Consistency |
+| `GuardExtensions.EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | Consistency |
+| `ObjectExtensions.ToNotSpaceString` | `ToTrimmedString` | Clearer naming |
+| `ObjectExtensions.ToStringOrEmpty` | `ToSafeString` | Consolidated semantics |
+| `RemoveLastChar` (behavioral caveat) | `RemoveSuffixOnce` | 非精确模式将长期保留但建议迁移 |
+
+> Deletion Window: These will be removed after the first 0.9.x stable (or at latest before 1.0.0). Begin migrating now to avoid breaking changes.
+
+### Usage Examples (New APIs)
+```csharp
+// Remove a single suffix ignoring case
+var trimmed = "Report.DOCX".RemoveSuffixOnce(".docx", StringComparison.OrdinalIgnoreCase); // => "Report"
+
+// Ensure prefix (case-insensitive)
+var normalized = "api/values".EnsureStartsWith("/API", StringComparison.OrdinalIgnoreCase); // => "/api/values"
+
+// Symmetric remove
+var inner = "__value__".RemovePrefixAndSuffix("__", StringComparison.Ordinal); // => "value"
+
+Guid? gid = Guid.NewGuid();
+if (gid.IsNotNullOrEmpty()) { /* ... */ }
+```
+
+### 0.9.0 Planned Removal List (Preview)
+Prepare for removal of all obsolete members listed above plus any marked with "Will be removed in 0.9.0" attributes in code. A final confirmation list will be published in the 0.9.0 release notes.
+
 
 ### New Additions (Post 0.8.2 Preview)
 

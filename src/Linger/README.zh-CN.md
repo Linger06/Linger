@@ -189,6 +189,14 @@ bool isDouble = stringValue.IsDouble(); // 是否为浮点数格式
 // 安全转换
 var stringRepresentation = obj.ToStringOrNull(); // 转换失败返回 null
 
+// Try 风格数值转换（避免默认值掩盖失败）
+if ("123".TryInt(out var parsedInt)) { /* parsedInt = 123 */ }
+if (!"坏数据".TryDecimal(out var decVal)) { /* decVal = 0，转换失败 */ }
+
+// 确保前后缀（幂等，不重复添加）
+var apiUrl = "api/v1".EnsureStartsWith("/"); // => "/api/v1"
+var folder = "logs".EnsureEndsWith("/");     // => "logs/"
+
 // 数值范围检查
 int value = 5;
 bool inRange = value.InRange(1, 10); // 检查是否在 1 到 10 之间
@@ -476,6 +484,52 @@ try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { 
 ```
 
 功能行为未改变，仅是命名与诊断信息改进。
+
+### 新增的字符串 / GUID API 增强 (0.8.2 之后)
+| 分类 | 新 API | 作用 |
+|------|--------|------|
+| 字符串 | `RemoveSuffixOnce(string suffix, StringComparison comparison = Ordinal)` | 精确移除单个后缀（可控大小写），避免旧 `RemoveLastChar` 基于字符集合的潜在误解 |
+| 字符串 | `EnsureStartsWith(string prefix, StringComparison comparison)` | 用指定比较方式确保前缀，无需手写大小写判断 |
+| 字符串 | `EnsureEndsWith(string suffix, StringComparison comparison)` | 同上（后缀） |
+| 字符串 | `RemovePrefixAndSuffix(string token, StringComparison comparison)` | 提供文化/大小写控制的前后对称移除 |
+| 字符串 | `RemovePrefixAndSuffix(char)` / `RemovePrefixAndSuffix(string)` | 原有基础版本，继续保留 |
+| Guid | `IsNotNullOrEmpty()` | 统一语义，替代旧 `IsNotNullAndEmpty` |
+| Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
+
+### 已标记过时 (Obsolete) – 计划移除 (目标: 0.9.0)
+| 过时成员 | 替代 | 说明 |
+|----------|------|------|
+| `GuidExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | 语义命名统一 |
+| `ObjectExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | 同上 |
+| `StringExtensions.Substring2` | `Take` | 更清晰的动词命名 |
+| `StringExtensions.Substring3` | `TakeLast` | 与新命名对称 |
+| `StringExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | 命名统一 |
+| `StringExtensions.IsNotNullAndWhiteSpace` | `IsNotNullOrWhiteSpace` | 命名统一 |
+| `GuardExtensions.EnsureIsNotNullAndEmpty` | `EnsureIsNotNullOrEmpty` | 命名统一 |
+| `GuardExtensions.EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | 命名统一 |
+| `ObjectExtensions.ToNotSpaceString` | `ToTrimmedString` | 意义更明确 |
+| `ObjectExtensions.ToStringOrEmpty` | `ToSafeString` | 语义收敛 |
+| `RemoveLastChar` (行为提醒) | `RemoveSuffixOnce` | 非精准模式将保留但建议迁移 |
+
+> 移除窗口：上述成员计划在 0.9.x 稳定版之后（或最迟 1.0.0 之前）删除。请尽早迁移。
+
+### 使用示例（新方法）
+```csharp
+// 精确移除后缀（忽略大小写）
+var trimmed = "Report.DOCX".RemoveSuffixOnce(".docx", StringComparison.OrdinalIgnoreCase); // => "Report"
+
+// 确保前缀（忽略大小写）
+var normalized = "api/values".EnsureStartsWith("/API", StringComparison.OrdinalIgnoreCase); // => "/api/values"
+
+// 对称去除前后缀
+var inner = "__value__".RemovePrefixAndSuffix("__", StringComparison.Ordinal); // => "value"
+
+Guid? gid = Guid.NewGuid();
+if (gid.IsNotNullOrEmpty()) { /* ... */ }
+```
+
+### 0.9.0 预定移除列表 (预览)
+将移除所有上表 Obsolete 成员以及代码内标记 “Will be removed in 0.9.0” 的项。最终确认列表会在 0.9.0 发布说明中公布。
 
 ### 新增功能 (0.8.2 之后增量)
 
