@@ -492,7 +492,7 @@ No functional behavior changed—this is a surface naming / diagnostics improvem
 | Guid | `IsNotNullOrEmpty()` | 语义统一，替代旧 `IsNotNullAndEmpty` |
 | Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
 
-### Deprecated (Obsolete) Members – Scheduled Removal (Target: 0.9.0)
+### Deprecated (Obsolete) Members – Scheduled Removal (Target: 1.0.0)
 | Obsolete | Replacement | Notes |
 |----------|-------------|-------|
 | `GuidExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Naming consistency |
@@ -524,8 +524,8 @@ Guid? gid = Guid.NewGuid();
 if (gid.IsNotNullOrEmpty()) { /* ... */ }
 ```
 
-### 0.9.0 Planned Removal List (Preview)
-Prepare for removal of all obsolete members listed above plus any marked with "Will be removed in 0.9.0" attributes in code. A final confirmation list will be published in the 0.9.0 release notes.
+### 1.0.0 Planned Removal List (Preview)
+Prepare for removal of all obsolete members listed above plus any marked with "Will be removed in 1.0.0" attributes in code. A final confirmation list will be published in the 1.0.0 release notes.
 
 
 ### New Additions (Post 0.8.2 Preview)

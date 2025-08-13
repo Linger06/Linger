@@ -30,7 +30,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The specified <see cref="object"/>.</param>
     /// <returns>true if the object is not null and its string representation is not empty; otherwise, false.</returns>
-    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 0.9.0.")]
+    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
     public static bool IsNotNullAndEmpty([NotNullWhen(true)] this object? value) => value.IsNotNullOrEmpty();
 
     /// <summary>
@@ -41,14 +41,22 @@ public static class ObjectExtensions
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is null or its string representation is empty.
     /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>    /// <returns>true if the object is null or its string representation is empty; otherwise, false.</returns>
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value) => value is null || string.IsNullOrEmpty(value.ToString());
+    /// <param name="value">The specified <see cref="object"/>.</param>
+    /// <returns>true if the object is null or its string representation is empty; otherwise, false.</returns>
+    public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value) 
+    {
+        return value is null || string.IsNullOrEmpty(value.ToString());
+    }
 
     /// <summary>
     /// Indicates whether the specified <see cref="object"/> is null or <see cref="DBNull"/>.
     /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>    /// <returns>true if the object is null or DBNull; otherwise, false.</returns>
-    public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value) => value is DBNull or null;
+    /// <param name="value">The specified <see cref="object"/>.</param>
+    /// <returns>true if the object is null or DBNull; otherwise, false.</returns>
+    public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value) 
+    {
+        return value is DBNull or null;
+    }
 
     /// <summary>
     /// Executes a specified action on each property of the current object.
@@ -68,7 +76,7 @@ public static class ObjectExtensions
     public static void ForIn<T>(this T? value, Action<string, object?> action)
         where T : class
     {
-    ArgumentNullException.ThrowIfNull(action);
+        ArgumentNullException.ThrowIfNull(action);
         if (value is null)
         {
             return;
@@ -129,7 +137,8 @@ public static class ObjectExtensions
     /// <summary>
     /// Gets the value of a specified property.
     /// </summary>
-    /// <param name="obj">The object to get the property value from.</param>    /// <param name="propertyName">The name of the property.</param>
+    /// <param name="obj">The object to get the property value from.</param>
+    /// /// <param name="propertyName">The name of the property.</param>
     /// <returns>The value of the specified property.</returns>
     /// <example>
     /// <code>
@@ -143,7 +152,8 @@ public static class ObjectExtensions
         return obj.GetPropertyInfo(propertyName).GetValue(obj, null);
     }
 
-    #region Type checking methods    /// <summary>
+    #region Type checking methods
+    /// <summary>
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="string"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
@@ -222,7 +232,7 @@ public static class ObjectExtensions
     /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="bool"/> type.
     /// </summary>
     /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="bool"/> type; otherwise, false.</returns>    
+    /// <returns>True if the value is of an equivalent <see cref="bool"/> type; otherwise, false.</returns>
     [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
     public static bool IsBoolean(this object? value) => value is bool;
 
@@ -253,7 +263,7 @@ public static class ObjectExtensions
     /// Console.WriteLine(result); // Output: "Hello World"
     /// </code>
     /// </example>
-    [Obsolete("Use ToTrimmedString() instead. This method will be removed in a future version.")]
+    [Obsolete("Use ToTrimmedString() instead. Will be removed in 1.0.0.")]
     public static string ToNotSpaceString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
 
     /// <summary>
@@ -267,7 +277,8 @@ public static class ObjectExtensions
     /// object? obj = null;
     /// string result = obj.ToSafeString("Default");
     /// Console.WriteLine(result); // Output: "Default"
-    /// </code>    /// </example>
+    /// </code>
+    /// /// </example>
     public static string ToSafeString(this object? input, string defaultValue = "") => input?.ToString() ?? defaultValue;
     /// <summary>
     /// Converts the input object to a string. Returns an empty string if the input is null.
@@ -281,7 +292,7 @@ public static class ObjectExtensions
     /// Console.WriteLine(result); // Output: "42"
     /// </code>
     /// </example>
-    [Obsolete("Use ToSafeString() instead. This method will be removed in a future version.")]
+    [Obsolete("Use ToSafeString() instead. Will be removed in 1.0.0.")]
     public static string ToStringOrEmpty(this object? input) => input?.ToString() ?? string.Empty;
     /// <summary>
     /// Converts the input object to a string. Returns null if the input is null.
@@ -527,11 +538,11 @@ public static class ObjectExtensions
     {
         return input.ToStringOrNull().ToFloatOrNull(defaultValue, digits);
     }    /// <summary>
-         /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
-         /// </summary>
-         /// <param name="input">The input object.</param>
-         /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
-         /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
+    /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
+    /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
     public static DateTime ToDateTime(this object? input, DateTime? defaultValue = null)
     {
         return ToDateTimeOrNull(input) ?? defaultValue ?? DateTime.MinValue;

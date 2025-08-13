@@ -496,7 +496,7 @@ try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { 
 | Guid | `IsNotNullOrEmpty()` | 统一语义，替代旧 `IsNotNullAndEmpty` |
 | Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
 
-### 已标记过时 (Obsolete) – 计划移除 (目标: 0.9.0)
+### 已标记过时 (Obsolete) – 计划移除 (目标: 1.0.0)
 | 过时成员 | 替代 | 说明 |
 |----------|------|------|
 | `GuidExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | 语义命名统一 |
@@ -528,8 +528,8 @@ Guid? gid = Guid.NewGuid();
 if (gid.IsNotNullOrEmpty()) { /* ... */ }
 ```
 
-### 0.9.0 预定移除列表 (预览)
-将移除所有上表 Obsolete 成员以及代码内标记 “Will be removed in 0.9.0” 的项。最终确认列表会在 0.9.0 发布说明中公布。
+### 1.0.0 预定移除列表 (预览)
+将移除所有上表 Obsolete 成员以及代码内标记 “Will be removed in 1.0.0” 的项。最终确认列表会在 1.0.0 发布说明中公布。
 
 ### 新增功能 (0.8.2 之后增量)
 
