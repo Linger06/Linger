@@ -35,7 +35,7 @@ public static class DateTimeExtensions
         return abs ? Math.Abs(dateDiff) : dateDiff;
     }
 
-    [Obsolete("Use GetDateDifference with TimeUnit instead.")]
+    [Obsolete("Use GetDateDifference with TimeUnit instead. Will be removed in 1.0.0.")]
     public static double GetDateDifference(this DateTime dateTime1, DateTime? dateTime2, string unit, bool abs = false)
     {
         var timeUnit = unit?.ToUpperInvariant() switch
@@ -61,7 +61,7 @@ public static class DateTimeExtensions
     /// <remarks>
     /// This method is obsolete. Use ToFormatDate() or ToFormatDateTime() methods instead, or use DateTime.ToString(format) directly.
     /// </remarks>
-    [Obsolete("Use ToFormatDate() or ToFormatDateTime() methods instead, or use DateTime.ToString(format) directly. This method will be removed in a future version.")]
+    [Obsolete("Use ToFormatDate() or ToFormatDateTime() methods instead, or use DateTime.ToString(format) directly. Will be removed in 1.0.0.")]
     public static string ToStringOfMode(this DateTime dateTime, int dateMode)
     {
         return dateMode switch

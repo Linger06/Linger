@@ -102,7 +102,10 @@ public static partial class StringExtensions
     /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
     /// <returns>The resulting char if the conversion is successful, otherwise the result of the default function.</returns>
     public static char? ToCharOrNull(this string? value, Func<char?> defaultValueFunc)
-        => value.TryToChar(out var result) ? result.Value : defaultValueFunc.Invoke();
+    {
+        ArgumentNullException.ThrowIfNull(defaultValueFunc);
+        return value.TryToChar(out var result) ? result.Value : defaultValueFunc.Invoke();
+    }
 
     /// <summary>
     /// Converts the string to a char, returning a default value if the string is null or invalid.

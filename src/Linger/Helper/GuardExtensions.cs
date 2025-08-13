@@ -60,10 +60,10 @@ public static class GuardExtensions
         return value!;
     }
 
-    [Obsolete("Use EnsureIsNotNullOrEmpty instead.")]
+    [Obsolete("Use EnsureIsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
     public static void EnsureIsNotNullAndEmpty([NotNull] this string? value, string? paramName = null) => EnsureIsNotNullOrEmpty(value, paramName);
 
-    [Obsolete("Use EnsureIsNotNullOrWhiteSpace instead.")]
+    [Obsolete("Use EnsureIsNotNullOrWhiteSpace instead. Will be removed in 1.0.0.")]
     public static void EnsureIsNotNullAndWhiteSpace([NotNull] this string? value, string? paramName = null) => EnsureIsNotNullOrWhiteSpace(value, paramName);
 
     /// <summary>
@@ -231,10 +231,10 @@ public static class GuardExtensions
     }
 
     #region Obsolete Backwards Compatibility
-    [Obsolete("Use EnsureFileExists instead.")]
+    [Obsolete("Use EnsureFileExists instead. Will be removed in 1.0.0.")]
     public static string EnsureFileExist(this string? filePath, string? paramName = null, string? message = null) => EnsureFileExists(filePath, paramName, message);
 
-    [Obsolete("Use EnsureDirectoryExists instead.")]
+    [Obsolete("Use EnsureDirectoryExists instead. Will be removed in 1.0.0.")]
     public static string EnsureDirectoryExist(this string? directory, string? paramName = null, string? message = null) => EnsureDirectoryExists(directory, paramName, message);
     #endregion
 }

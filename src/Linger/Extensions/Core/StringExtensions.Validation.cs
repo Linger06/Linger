@@ -30,26 +30,7 @@ public static partial class StringExtensions
     /// <returns>Returns true if the string is null or consists only of white-space characters; otherwise, false.</returns>
     public static bool IsNullOrWhiteSpace([NotNullWhen(false)] this string? value)
     {
-#if NET6_0_OR_GREATER
         return string.IsNullOrWhiteSpace(value);
-#elif NETSTANDARD2_0_OR_GREATER || NETFRAMEWORK
-        return string.IsNullOrWhiteSpace(value);
-#else
-        if (value is null)
-        {
-            return true;
-        }
-
-        for (int i = 0; i < value.Length; i++)
-        {
-            if (!char.IsWhiteSpace(value[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
-#endif
     }
 
     /// <summary>
@@ -96,9 +77,9 @@ public static partial class StringExtensions
 
     public static bool IsNotNullOrWhiteSpace([NotNullWhen(true)] this string? value) => !string.IsNullOrWhiteSpace(value);
 
-    [Obsolete("Use IsNotNullOrEmpty instead.")]
+    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
     public static bool IsNotNullAndEmpty([NotNullWhen(true)] this string? value) => IsNotNullOrEmpty(value);
 
-    [Obsolete("Use IsNotNullOrWhiteSpace instead.")]
+    [Obsolete("Use IsNotNullOrWhiteSpace instead. Will be removed in 1.0.0.")]
     public static bool IsNotNullAndWhiteSpace([NotNullWhen(true)] this string? value) => IsNotNullOrWhiteSpace(value);
 }

@@ -145,9 +145,12 @@ public sealed class RetryHelper(RetryOptions? options = null)
 
     private int CalculateDelayWithJitter(int retryAttempt)
     {
-        // 计算基础延迟（指数退避 2^n，避免 Math.Pow 使用位移且防溢出）
+        // 计算基础延迟（指数退避 2^n，使用Math.Min防止溢出）
         long baseDelay = _options.DelayMilliseconds;
-        long delay = _options.UseExponentialBackoff ? baseDelay * (1L << retryAttempt) : baseDelay;
+        long delay = _options.UseExponentialBackoff 
+            ? Math.Min(baseDelay * (1L << Math.Min(retryAttempt, 30)), _options.MaxDelayMilliseconds)
+            : baseDelay;
+        
         if (delay > _options.MaxDelayMilliseconds)
         {
             delay = _options.MaxDelayMilliseconds;

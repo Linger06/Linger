@@ -60,7 +60,7 @@ public static class GuidExtensions
     /// </summary>
     /// <param name="value">The nullable <see cref="Guid"/> to check.</param>
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is not null and not <see cref="Guid.Empty"/>; otherwise, <c>false</c>.</returns>
-    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 0.9.0.")]
+    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
     public static bool IsNotNullAndEmpty(this Guid? value)
     {
         return !value.IsNullOrEmpty();

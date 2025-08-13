@@ -24,7 +24,7 @@ public static class GuidCode
     /// <summary>
     /// Gets a new identifier based on the current date and time.
     /// </summary>
-    [Obsolete("Use NewId instead. This method generate the same Id in same seconds")]
+    [Obsolete("Use NewId instead. This method generates the same Id in same seconds. Will be removed in 1.0.0.")]
     public static string NewDateTimeId
     {
         get

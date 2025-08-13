@@ -26,7 +26,7 @@ public static class StreamExtensions
     /// }
     /// </code>
     /// </example>
-    [Obsolete("This method is obsolete, use ComputeHashMd5 instead.")]
+    [Obsolete("This method is obsolete, use ComputeHashMd5 instead. Will be removed in 1.0.0.")]
     public static string ToMd5Hash(this Stream inputStream)
     {
         _ = inputStream.Seek(0, SeekOrigin.Begin);
