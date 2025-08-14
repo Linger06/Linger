@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net9.0;net8.0;net462</TargetFrameworks>
+    <TargetFrameworks>net9.0;net8.0;net472</TargetFrameworks>
     <Version>0.8.2-preview</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
@@ -21,8 +21,8 @@
         <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.9.1" />
     </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' == 'net462' ">
-        <PackageReference Include="Oracle.ManagedDataAccess" Version="21.19.0" />
+    <ItemGroup Condition="'$(TargetFramework)' == 'net472' ">
+        <PackageReference Include="Oracle.ManagedDataAccess" Version="23.9.1" />
     </ItemGroup>
 
     <ItemGroup>

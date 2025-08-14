@@ -30,7 +30,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => sqlHelper.AddByBulkCopy(null!, "TestTable"));
+        Assert.Throws<System.ArgumentNullException>(() => sqlHelper.AddByBulkCopy(null!, "TestTable"));
     }
 
     [Fact]
@@ -86,7 +86,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentNullException>(() => sqlHelper.GetMaxId(null!, "TestTable"));
+        var ex = Assert.Throws<System.ArgumentNullException>(() => sqlHelper.GetMaxId(null!, "TestTable"));
         Assert.Equal("fieldName", ex.ParamName);
     }
 
@@ -108,7 +108,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentNullException>(() => sqlHelper.GetMaxId("Id", null!));
+        var ex = Assert.Throws<System.ArgumentNullException>(() => sqlHelper.GetMaxId("Id", null!));
         Assert.Equal("tableName", ex.ParamName);
     }
 
@@ -130,7 +130,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentNullException>(() => sqlHelper.Exists(null!));
+        var ex = Assert.Throws<System.ArgumentNullException>(() => sqlHelper.Exists(null!));
         Assert.Equal("sql", ex.ParamName);
     }
 
@@ -152,7 +152,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+        await Assert.ThrowsAsync<System.ArgumentNullException>(() =>
             sqlHelper.AddByBulkCopyAsync(null!, "TestTable"));
     }
 
@@ -212,7 +212,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<ArgumentNullException>(() =>
+        var ex = await Assert.ThrowsAsync<System.ArgumentNullException>(() =>
             sqlHelper.ExistsAsync(null!));
         Assert.Equal("sql", ex.ParamName);
     }

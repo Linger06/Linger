@@ -7,7 +7,7 @@ namespace Linger.Extensions.Core;
 /// <summary>
 /// Extension methods for the Type class with performance optimizations
 /// </summary>
-public static class TypeExtension
+public static class TypeExtensions
 {
     /// <summary>
     /// Thread-safe property cache for improved performance.

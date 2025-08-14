@@ -42,18 +42,18 @@ public static class FileHelper
 
     #region File Write Operations
 
-    public static void WriteText(string filePath, string text, Encoding encoding)
+    public static void WriteText(string filePath, string text, Encoding? encoding = null)
     {
         if (string.IsNullOrEmpty(filePath))
             throw new ArgumentNullException(nameof(filePath));
-        ArgumentNullException.ThrowIfNull(encoding);
+        encoding ??= ExtensionMethodSetting.DefaultEncoding;
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
         {
             Directory.CreateDirectory(directory);
         }
-        File.WriteAllText(filePath, text, encoding);
+    File.WriteAllText(filePath, text, encoding);
     }
 
     public static void AppendText(string filePath, string content)
@@ -67,6 +67,38 @@ public static class FileHelper
             Directory.CreateDirectory(directory);
         }
         File.AppendAllText(filePath, content);
+    }
+
+    /// <summary>
+    /// 尝试写入文本，失败返回 false 不抛异常。
+    /// </summary>
+    public static bool TryWriteText(string filePath, string text, Encoding? encoding = null)
+    {
+        try
+        {
+            WriteText(filePath, text, encoding);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 尝试追加文本，失败返回 false 不抛异常。
+    /// </summary>
+    public static bool TryAppendText(string filePath, string content)
+    {
+        try
+        {
+            AppendText(filePath, content);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     #endregion

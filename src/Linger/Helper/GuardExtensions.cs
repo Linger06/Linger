@@ -82,7 +82,7 @@ public static class GuardExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? EnsureIsNull(this object? value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
     {
-        if (value != null)
+    if (value is not null)
             throw new ArgumentException(message ?? "Value should be null", paramName ?? nameof(value));
         return value;
     }
@@ -160,7 +160,8 @@ public static class GuardExtensions
 
         if (!StandardPathHelper.Exists(filePath, true))
         {
-            throw new FileNotFoundException(message ?? $"File not found: {filePath}", paramName ?? nameof(filePath));
+            // The FileNotFoundException second parameter is the missing file path, not the parameter name
+            throw new FileNotFoundException(message ?? $"File not found: {filePath}", filePath);
         }
         return filePath!;
     }

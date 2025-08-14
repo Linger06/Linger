@@ -23,6 +23,9 @@ public class SqliteSpecificFeaturesTests : IDisposable
 
     private void InitializeTestData()
     {
+    // 确保使用期望的表结构，先删除可能由其他测试遗留的同名表
+    _helper.ExecuteBySql("DROP TABLE IF EXISTS test_table");
+
         _helper.ExecuteBySql(@"
             CREATE TABLE IF NOT EXISTS test_table (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
 
 namespace Linger.Extensions.Core;
 
@@ -30,7 +31,7 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsEnglish(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         ReadOnlySpan<char> span = input.AsSpan();
@@ -55,9 +56,16 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="input">The string to validate.</param>
     /// <returns>True if the string is a valid URL; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "https://example.com".IsUrl();    // true
+    /// bool ok2 = "http://localhost:8080".IsUrl();  // true
+    /// bool no1 = "ftp://example.com".IsUrl();      // false
+    /// </code>
+    /// </example>
     public static bool IsUrl(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         return UrlRegex().IsMatch(input);
@@ -71,9 +79,15 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="input">The string to validate.</param>
     /// <returns>True if the string is a valid IPv4 address; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok = "192.168.1.1".IsIpv4();   // true
+    /// bool no = "999.1.1.1".IsIpv4();     // false
+    /// </code>
+    /// </example>
     public static bool IsIpv4(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         return Ipv4Regex().IsMatch(input);
@@ -87,9 +101,16 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="str">The string to validate.</param>
     /// <returns>True if the string is a valid domain name; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok = "example.com".IsDomainName();     // true
+    /// bool ok2 = "sub.example.co.uk".IsDomainName(); // true
+    /// bool no = "-bad..domain".IsDomainName();    // false
+    /// </code>
+    /// </example>
     public static bool IsDomainName(this string str)
     {
-        if (str == null)
+        if (str is null)
             return false;
 
         return DomainRegex().IsMatch(str);
@@ -103,9 +124,15 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="input">The string to validate.</param>
     /// <returns>True if the string is a valid email address; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok = "user@example.com".IsEmail();  // true
+    /// bool no = "user@@example.com".IsEmail(); // false
+    /// </code>
+    /// </example>
     public static bool IsEmail(this string? input)
     {
-        if (input == null) return false;
+        if (input is null) return false;
         return EmailRegex().IsMatch(input);
     }
 
@@ -117,9 +144,15 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="input">The string to validate.</param>
     /// <returns>True if the string contains multiple valid email addresses; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok = "a@ex.com; b@ex.com".IsMultipleEmail(); // true
+    /// bool no = "a@ex.com; bad@".IsMultipleEmail();     // false
+    /// </code>
+    /// </example>
     public static bool IsMultipleEmail(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         return MultipleMailRegex().IsMatch(input);
@@ -139,7 +172,7 @@ public static partial class StringExtensions
     /// <returns>True if the string is a valid email address; otherwise, false.</returns>
     public static bool IsEmail(this string? input)
     {
-        if (input == null) return false;
+        if (input is null) return false;
         return s_emailRegex.IsMatch(input);
     }
 
@@ -150,7 +183,7 @@ public static partial class StringExtensions
     /// <returns>True if the string contains multiple valid email addresses; otherwise, false.</returns>
     public static bool IsMultipleEmail(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         return s_multipleMailRegex.IsMatch(input);
@@ -163,7 +196,7 @@ public static partial class StringExtensions
     /// <returns>True if the string is a valid domain name; otherwise, false.</returns>
     public static bool IsDomainName(this string str)
     {
-        if (str == null)
+        if (str is null)
             return false;
 
         return s_domainRegex.IsMatch(str);
@@ -176,7 +209,7 @@ public static partial class StringExtensions
     /// <returns>True if the string is a valid IPv4 address; otherwise, false.</returns>
     public static bool IsIpv4(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         return s_ipv4Regex.IsMatch(input);
@@ -189,7 +222,7 @@ public static partial class StringExtensions
     /// <returns>True if the string is a valid URL; otherwise, false.</returns>
     public static bool IsUrl(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         return s_urlRegex.IsMatch(input);
@@ -211,7 +244,7 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsEnglish(this string input)
     {
-        if (input == null)
+        if (input is null)
             return false;
 
         if (input.Length == 0)
@@ -236,27 +269,18 @@ public static partial class StringExtensions
     /// <param name="minLength">The minimum length of the string.</param>
     /// <param name="maxLength">The maximum length of the string.</param>
     /// <returns>True if the string contains only a combination of English letters and numbers; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "abc123".IsCombinationOfEnglishNumber();        // true
+    /// bool ok2 = "a1".IsCombinationOfEnglishNumber(2, null);     // true (>=2)
+    /// bool no1 = "abcdef".IsCombinationOfEnglishNumber();        // false (no digit)
+    /// bool no2 = "123456".IsCombinationOfEnglishNumber();        // false (no letter)
+    /// </code>
+    /// </example>
     public static bool IsCombinationOfEnglishNumber(this string input, int? minLength = null, int? maxLength = null)
     {
-        var pattern = @"(?=.*\d)(?=.*[a-zA-Z])[a-zA-Z0-9]";
-        if (minLength is null && maxLength is null)
-        {
-            pattern = $"^{pattern}+$";
-        }
-        else if (minLength is not null && maxLength is null)
-        {
-            pattern = $"^{pattern}{{{minLength},}}$";
-        }
-        else if (minLength is null && maxLength is not null)
-        {
-            pattern = $"^{pattern}{{1,{maxLength}}}$";
-        }
-        else
-        {
-            pattern = $"^{pattern}{{{minLength},{maxLength}}}$";
-        }
-
-        return Regex.IsMatch(input, pattern);
+    var regex = GetCombinationRegex(minLength, maxLength, withSymbol: false);
+    return regex.IsMatch(input);
     }
 
     /// <summary>
@@ -266,27 +290,47 @@ public static partial class StringExtensions
     /// <param name="minLength">The minimum length of the string.</param>
     /// <param name="maxLength">The maximum length of the string.</param>
     /// <returns>True if the string contains only a combination of English letters, numbers, and special characters; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok = "Ab1!".IsCombinationOfEnglishNumberSymbol(3, 10); // true
+    /// bool no = "Ab1".IsCombinationOfEnglishNumberSymbol();        // false (no symbol)
+    /// </code>
+    /// </example>
     public static bool IsCombinationOfEnglishNumberSymbol(this string input, int? minLength = null,
         int? maxLength = null)
     {
-        var pattern = @"(?=.*\d)(?=.*[a-zA-Z])(?=.*[^a-zA-Z\d]).";
+        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: true);
+        return regex.IsMatch(input);
+    }
+
+    private static readonly ConcurrentDictionary<string, Regex> s_combinationRegexCache = new();
+
+    private static Regex GetCombinationRegex(int? minLength, int? maxLength, bool withSymbol)
+    {
+        // Base fragments are identical to the previous inline patterns
+        var core = withSymbol
+            ? @"(?=.*\d)(?=.*[a-zA-Z])(?=.*[^a-zA-Z\d])."
+            : @"(?=.*\d)(?=.*[a-zA-Z])[a-zA-Z0-9]";
+
+        string pattern;
         if (minLength is null && maxLength is null)
         {
-            pattern = $"^{pattern}+$";
+            pattern = $"^{core}+$";
         }
         else if (minLength is not null && maxLength is null)
         {
-            pattern = $"^{pattern}{{{minLength},}}$";
+            pattern = $"^{core}{{{minLength},}}$";
         }
         else if (minLength is null && maxLength is not null)
         {
-            pattern = $"^{pattern}{{1,{maxLength}}}$";
+            pattern = $"^{core}{{1,{maxLength}}}$";
         }
         else
         {
-            pattern = $"^{pattern}{{{minLength},{maxLength}}}$";
+            pattern = $"^{core}{{{minLength},{maxLength}}}$";
         }
 
-        return Regex.IsMatch(input, pattern);
+        return s_combinationRegexCache.GetOrAdd(pattern, static p =>
+            new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant));
     }
 }

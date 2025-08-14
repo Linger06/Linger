@@ -26,7 +26,7 @@ public class OracleHelperTests
     public void Constructor_WithNullConnectionString_ShouldThrowArgumentNullException()
     {
         // Arrange, Act & Assert
-        Assert.Throws<ArgumentNullException>(() => new OracleHelper(null!));
+        Assert.Throws<System.ArgumentNullException>(() => new OracleHelper(null!));
     }
 
     [Fact]
@@ -56,7 +56,7 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<ArgumentNullException>(() => helper.QueryInBatches(sql!, parameters));
+            Assert.Throws<System.ArgumentNullException>(() => helper.QueryInBatches(sql!, parameters));
         }
         else
         {
@@ -72,7 +72,7 @@ public class OracleHelperTests
         const string sql = "SELECT * FROM users WHERE id IN ({0})";
 
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => helper.QueryInBatches(sql, null!));
+        Assert.Throws<System.ArgumentNullException>(() => helper.QueryInBatches(sql, null!));
     }
 
     [Fact]
@@ -140,7 +140,7 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => helper.QueryInBatchesAsync(sql!, parameters));
+            await Assert.ThrowsAsync<System.ArgumentNullException>(() => helper.QueryInBatchesAsync(sql!, parameters));
         }
         else
         {
@@ -175,7 +175,7 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<ArgumentNullException>(() => helper.Exists(sql!));
+            Assert.Throws<System.ArgumentNullException>(() => helper.Exists(sql!));
         }
         else
         {
@@ -213,7 +213,7 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => helper.ExistsAsync(sql!));
+            await Assert.ThrowsAsync<System.ArgumentNullException>(() => helper.ExistsAsync(sql!));
         }
         else
         {
@@ -231,8 +231,8 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            helper.ExistsAsync(sql, cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                helper.ExistsAsync(sql, cts.Token));
     }
 
     [Theory]
@@ -247,7 +247,7 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            Assert.Throws<ArgumentNullException>(() => helper.Query(sql!));
+            Assert.Throws<System.ArgumentNullException>(() => helper.Query(sql!));
         }
         else
         {
@@ -288,7 +288,7 @@ public class OracleHelperTests
         // Act & Assert
         if (sql is null)
         {
-            await Assert.ThrowsAsync<ArgumentNullException>(() => helper.QueryAsync(sql!));
+            await Assert.ThrowsAsync<System.ArgumentNullException>(() => helper.QueryAsync(sql!));
         }
         else
         {
@@ -306,8 +306,8 @@ public class OracleHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            helper.QueryAsync(sql, cts.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                helper.QueryAsync(sql, cts.Token));
     }
 
     [Fact]

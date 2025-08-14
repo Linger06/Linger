@@ -1,6 +1,3 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
 using System.Reflection;
 using Linger.Extensions.Core;
 
@@ -98,6 +95,10 @@ public static class IEnumerableExtensions
     /// x =&gt; new { x.PurchaseOrder, x.BusinessPartner, x.Buyer, x.Currency }
     ///</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains distinct elements from the source sequence.</returns>
+    /// <remarks>
+    /// This method keeps the first occurrence for each key as it iterates the <paramref name="source"/>.
+    /// Throws <see cref="ArgumentNullException"/> when <paramref name="source"/> or <paramref name="keySelector"/> is null.
+    /// </remarks>
     /// <example>
     /// <code>
     /// var list = new List&lt;Person&gt; { new Person { Id = 1 }, new Person { Id = 1 }, new Person { Id = 2 } };
@@ -260,7 +261,17 @@ public static class IEnumerableExtensions
     /// </example>
     public static bool IsNullOrEmpty<T>([NotNullWhen(false)] this IEnumerable<T>? query)
     {
-        return query == null || !query.Any();
+        if (query is null)
+            return true;
+
+        // Fast-paths for collections
+        if (query is ICollection<T> c)
+            return c.Count == 0;
+        if (query is IReadOnlyCollection<T> rc)
+            return rc.Count == 0;
+
+        using var e = query.GetEnumerator();
+        return !e.MoveNext();
     }
 
     /// <summary>
@@ -276,12 +287,21 @@ public static class IEnumerableExtensions
     /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
     /// <param name="result">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a left outer join on two sequences.</returns>
+    /// <remarks>
+    /// When no <paramref name="right"/> element matches a <paramref name="left"/> element by key, the result selector receives <c>null</c> for the right value.
+    /// If any argument is <c>null</c>, an exception will be thrown.
+    /// </remarks>
     /// <example>
     /// <code>
     /// var left = new List&lt;int&gt; { 1, 2, 3 };
     /// var right = new List&lt;int&gt; { 3, 4, 5 };
     /// var result = left.LeftOuterJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
     /// // Output: [{ Left = 1, Right = null }, { Left = 2, Right = null }, { Left = 3, Right = 3 }]
+    ///
+    /// // Duplicate key on right results in multiple rows for the same left key
+    /// var rightDup = new List&lt;int&gt; { 2, 2 };
+    /// var r2 = new List&lt;int&gt; { 1, 2 }.LeftOuterJoin(rightDup, l => l, r => r, (l, r) => (l, r)).ToList();
+    /// // Output: [(1, null), (2, 2), (2, 2)]
     /// </code>
     /// </example>
     public static IEnumerable<TResult> LeftOuterJoin<TLeft, TRight, TKey, TResult>(
@@ -307,6 +327,9 @@ public static class IEnumerableExtensions
     /// <param name="leftKey">A function to extract the join key from each element of the first sequence.</param>
     /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains tuples of elements from the first and second sequences.</returns>
+    /// <remarks>
+    /// Same semantics as the selector-overload, with the right value being <c>null</c> when no match exists.
+    /// </remarks>
     /// <example>
     /// <code>
     /// var left = new List&lt;int&gt; { 1, 2, 3 };
@@ -337,12 +360,21 @@ public static class IEnumerableExtensions
     /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
     /// <param name="resultFunc">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a right outer join on two sequences.</returns>
+    /// <remarks>
+    /// When no <paramref name="left"/> element matches a <paramref name="right"/> element by key, the result selector receives <c>null</c> for the left value.
+    /// If any argument is <c>null</c>, an exception will be thrown.
+    /// </remarks>
     /// <example>
     /// <code>
     /// var left = new List&lt;int&gt; { 1, 2, 3 };
     /// var right = new List&lt;int&gt; { 3, 4, 5 };
     /// var result = left.RightOuterJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
     /// // Output: [{ Left = null, Right = 4 }, { Left = null, Right = 5 }, { Left = 3, Right = 3 }]
+    ///
+    /// // Duplicate key on left results in multiple rows for the same right key
+    /// var leftDup = new List&lt;int&gt; { 2, 2 };
+    /// var r2 = leftDup.RightOuterJoin(new List&lt;int&gt; { 2 }, l => l, r => r, (l, r) => (l, r)).ToList();
+    /// // Output: [(2, 2), (2, 2)]
     /// </code>
     /// </example>
     public static IEnumerable<TResult> RightOuterJoin<TLeft, TRight, TKey, TResult>(
@@ -370,12 +402,21 @@ public static class IEnumerableExtensions
     /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
     /// <param name="resultFunc">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing an inner join on two sequences.</returns>
+    /// <remarks>
+    /// Only pairs with matching keys appear in the results. Duplicate keys will produce multiple rows (Cartesian product per key).
+    /// </remarks>
     /// <example>
     /// <code>
     /// var left = new List&lt;int&gt; { 1, 2, 3 };
     /// var right = new List&lt;int&gt; { 3, 4, 5 };
     /// var result = left.InnerJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
     /// // Output: [{ Left = 3, Right = 3 }]
+    ///
+    /// // Duplicate keys
+    /// var l2 = new List&lt;int&gt; { 2, 2 };
+    /// var r2 = new List&lt;int&gt; { 2, 2 };
+    /// var dup = l2.InnerJoin(r2, x => x, y => y, (x, y) => (x, y)).ToList();
+    /// // Output count: 4
     /// </code>
     /// </example>
     public static IEnumerable<TResult> InnerJoin<TLeft, TRight, TKey, TResult>(
@@ -406,12 +447,21 @@ public static class IEnumerableExtensions
     /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
     /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a full outer join on two sequences.</returns>
+    /// <remarks>
+    /// The result contains rows for keys that appear in either sequence. Where no match exists, the corresponding side is <c>null</c>.
+    /// Duplicate keys produce multiple rows.
+    /// </remarks>
     /// <example>
     /// <code>
     /// var left = new List&lt;int&gt; { 1, 2, 3 };
     /// var right = new List&lt;int&gt; { 3, 4, 5 };
     /// var result = left.FullOuterJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
     /// // Output: [{ Left = 1, Right = null }, { Left = 2, Right = null }, { Left = 3, Right = 3 }, { Left = null, Right = 4 }, { Left = null, Right = 5 }]
+    ///
+    /// // Duplicate keys
+    /// var r2 = new List&lt;int&gt; { 2, 2 };
+    /// var all = new List&lt;int&gt; { 2 }.FullOuterJoin(r2, x => x, y => y, (x, y) => (x, y)).ToList();
+    /// // Output: [(2, 2), (2, 2)]
     /// </code>
     /// </example>
     public static IEnumerable<TResult> FullOuterJoin<TLeft, TRight, TKey, TResult>(
@@ -447,11 +497,21 @@ public static class IEnumerableExtensions
     /// <param name="pageIndex">The index of the page to retrieve (1-based).</param>
     /// <param name="pageSize">The size of the page to retrieve.</param>
     /// <returns>A paginated <see cref="IEnumerable{T}"/>.</returns>
+    /// <remarks>
+    /// When <paramref name="source"/> is null, or <paramref name="pageIndex"/> &lt;= 0, or <paramref name="pageSize"/> &lt;= 0,
+    /// this method returns an empty sequence.
+    /// </remarks>
     /// <example>
     /// <code>
     /// var enumerable = new[] { 1, 2, 3, 4, 5 };
     /// var result = enumerable.Paging(2, 2);
     /// // Output: [3, 4]
+    ///
+    /// // boundary cases
+    /// var empty1 = enumerable.Paging(0, 2);     // [] (pageIndex <= 0)
+    /// var empty2 = enumerable.Paging(1, 0);     // [] (pageSize <= 0)
+    /// IEnumerable<int>? none = null;
+    /// var empty3 = none.Paging(1, 10);          // [] (null source)
     /// </code>
     /// </example>
     public static IEnumerable<T> Paging<T>(this IEnumerable<T>? source, int pageIndex, int pageSize)
@@ -459,13 +519,41 @@ public static class IEnumerableExtensions
         if (source is null)
             return [];
 
+        if (pageIndex <= 0)
+            return [];
+
+        if (pageSize <= 0)
+            return [];
+
         return source.Skip((pageIndex - 1) * pageSize).Take(pageSize);
     }
 
+    /// <summary>
+    /// Returns an <see cref="ICollection{T}"/> view for the given sequence.
+    /// </summary>
+    /// <typeparam name="T">Element type.</typeparam>
+    /// <param name="source">Source sequence.</param>
+    /// <returns>
+    /// If the source already implements <see cref="ICollection{T}"/>, it's returned directly;
+    /// otherwise a <see cref="List{T}"/> is materialized. When source is null, returns <see cref="Array.Empty{T}"/>.
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// IEnumerable<int> it = Enumerable.Range(1, 3).Where(x => x > 1);
+    /// ICollection<int> col = it.ToCollection(); // materialized as List<int>
+    /// IReadOnlyCollection<int> empty = ((IEnumerable<int>?)null).ToCollection(); // Array.Empty<int>()
+    /// </code>
+    /// </example>
     public static ICollection<T> ToCollection<T>(this IEnumerable<T>? source)
     {
         if (source is null)
-            return [];
-        return (ICollection<T>)source;
+            return Array.Empty<T>();
+
+        // Avoid invalid cast for non-collection enumerables (e.g., LINQ WhereIterator)
+        if (source is ICollection<T> collection)
+            return collection;
+
+        // Materialize once into a List<T> to provide ICollection semantics
+        return source.ToList();
     }
 }

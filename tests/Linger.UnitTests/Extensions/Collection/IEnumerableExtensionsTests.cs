@@ -301,6 +301,36 @@ public class IEnumerableExtensionsTests
     }
 
     [Fact]
+    public void IsNullOrEmpty_WithNonCollectionIterator_ShouldEnumerateOnce()
+    {
+        // Arrange: Where 返回的迭代器不是 ICollection<T>
+        IEnumerable<int> src = Enumerable.Range(1, 3).Where(x => x > 2);
+
+        // Act + Assert
+        Assert.False(src.IsNullOrEmpty());
+    }
+
+    [Fact]
+    public void ToCollection_ReturnsUnderlyingCollection_WhenAlreadyCollection()
+    {
+        var list = new List<int> { 1, 2, 3 };
+        var collection = list.ToCollection();
+
+        Assert.Same(list, collection);
+        Assert.Equal(3, collection.Count);
+    }
+
+    [Fact]
+    public void ToCollection_MaterializesIterator_WhenNotCollection()
+    {
+        IEnumerable<int> notCollection = Enumerable.Range(1, 3).Where(x => x > 0);
+        var collection = notCollection.ToCollection();
+
+        Assert.Equal(3, collection.Count);
+        Assert.IsAssignableFrom<ICollection<int>>(collection);
+    }
+
+    [Fact]
     public void ToSeparatedString_ShouldReturnSeparatedString()
     {
         var list = new List<int> { 1, 2, 3 };
@@ -406,6 +436,24 @@ public class IEnumerableExtensionsTests
         var result = enumerable.Paging(2, 2).ToList();
 
         Assert.Equal(new List<string> { "C", "D" }, result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmpty_WhenPageIndexIsZeroOrLess()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3 };
+
+        Assert.Empty(enumerable.Paging(0, 2));
+        Assert.Empty(enumerable.Paging(-1, 2));
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmpty_WhenPageSizeIsZeroOrLess()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3 };
+
+        Assert.Empty(enumerable.Paging(1, 0));
+        Assert.Empty(enumerable.Paging(1, -2));
     }
 
     [Sample]

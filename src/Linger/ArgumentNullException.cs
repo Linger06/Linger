@@ -1,5 +1,5 @@
 ﻿#pragma warning disable
-#if NETFRAMEWORK||NETSTANDARD2_0_OR_GREATER||NET6_0
+#if NETFRAMEWORK || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Linger.Extensions.Core;
@@ -10,7 +10,7 @@ public class ArgumentNullException : System.ArgumentNullException
 
     public ArgumentNullException(string? paramName, string? message) : base(paramName, message) { }
 
-#if NETFRAMEWORK || NETSTANDARD2_0_OR_GREATER
+#if NETFRAMEWORK || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
     public static void ThrowIfNull([NotNull] object? argument, [CallerArgumentExpression("argument")] string? paramName = null)
     {
         if (argument == null)

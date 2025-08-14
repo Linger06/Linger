@@ -186,6 +186,38 @@ public class FileHelperTests : IDisposable
     }
 
     [Fact]
+    public void TryWriteText_WithNullEncoding_WritesUsingDefaultEncoding_AndReturnsTrue()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDirectory, "tryWrite.txt");
+        _createdFiles.Add(filePath);
+
+        // Act
+        var ok = FileHelper.TryWriteText(filePath, "hello", null);
+
+        // Assert
+        Assert.True(ok);
+        Assert.True(File.Exists(filePath));
+        Assert.Equal("hello", File.ReadAllText(filePath));
+    }
+
+    [Fact]
+    public void TryAppendText_WithNewFile_CreatesFileAndReturnsTrue()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDirectory, "tryAppend.txt");
+        _createdFiles.Add(filePath);
+
+        // Act
+        var ok = FileHelper.TryAppendText(filePath, "line1");
+
+        // Assert
+        Assert.True(ok);
+        Assert.True(File.Exists(filePath));
+        Assert.Equal("line1", File.ReadAllText(filePath));
+    }
+
+    [Fact]
     public void MoveFile_WithValidPaths_MovesFile()
     {
         // Arrange
@@ -589,11 +621,16 @@ public class FileHelperTests : IDisposable
     [Fact]
     public void WriteText_WithNullEncoding_ThrowsArgumentNullException()
     {
-        // Arrange
-        var filePath = Path.Combine(_testDirectory, "test.txt");
+    // Arrange
+    var filePath = Path.Combine(_testDirectory, "test.txt");
+    _createdFiles.Add(filePath);
 
-        // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => FileHelper.WriteText(filePath, "content", null));
+    // Act: 现在传入 null 编码时应使用默认编码写入而非抛出
+    FileHelper.WriteText(filePath, "content", null);
+
+    // Assert
+    Assert.True(File.Exists(filePath));
+    Assert.Equal("content", File.ReadAllText(filePath));
     }
 
     [Fact]

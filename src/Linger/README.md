@@ -337,8 +337,11 @@ using Linger.Helper;
 // Retry operation with configurable policy
 var options = new RetryOptions 
 {
-    MaxRetries = 3,
-    BaseDelayMs = 1000 // 1 second
+    MaxRetryAttempts = 3,
+    DelayMilliseconds = 1000, // 1 second
+    MaxDelayMilliseconds = 5000,
+    UseExponentialBackoff = true,
+    Jitter = 0.2
 };
 var retryHelper = new RetryHelper(options);
 var result = await retryHelper.ExecuteAsync(
@@ -352,6 +355,13 @@ var result2 = await defaultRetryHelper.ExecuteAsync(
     async () => await AnotherOperationThatMightFail(),
     "Another Operation Name"
 );
+
+// Synchronous variant
+defaultRetryHelper.Execute(() => DoSomething());
+
+// Try-style file writing
+FileHelper.TryWriteText("logs/app.log", "hello world");
+FileHelper.TryAppendText("logs/app.log", "\nnext line");
 ```
 
 ### Expression Helper

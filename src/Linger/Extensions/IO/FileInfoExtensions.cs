@@ -243,8 +243,8 @@ public static class FileInfoExtensions
     /// <exception cref="IOException"></exception>
     public static long GetFileSize(this string filePath)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(filePath));
-        GuardExtensions.EnsureFileExists(filePath);
+    // 由 EnsureFileExists 完整执行 null/empty 与存在性校验
+    GuardExtensions.EnsureFileExists(filePath);
 
         return new FileInfo(filePath).Length;
     }
@@ -277,7 +277,7 @@ public static class FileInfoExtensions
     /// <returns>The file version.</returns>
     public static string? GetFileVersion(this FileInfo fileInfo)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(nameof(fileInfo));
+    ArgumentNullException.ThrowIfNull(fileInfo);
         if (!fileInfo.Exists)
             throw new FileNotFoundException("File not found", fileInfo.FullName);
 

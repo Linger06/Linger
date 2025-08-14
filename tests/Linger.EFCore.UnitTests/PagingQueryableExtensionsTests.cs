@@ -1,4 +1,4 @@
-﻿namespace Linger.EFCore.UnitTests;
+namespace Linger.EFCore.UnitTests;
 
 public class PagingQueryableExtensionsTests
 {
@@ -52,7 +52,7 @@ public class PagingQueryableExtensionsTests
     public void WhereIf_WithNullPredicate_ShouldThrowArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() =>
+        Assert.Throws<System.ArgumentNullException>(() =>
             _testData.WhereIf(true, null!));
     }
 

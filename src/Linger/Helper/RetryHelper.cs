@@ -80,6 +80,67 @@ public sealed class RetryHelper(RetryOptions? options = null)
     }
 
     /// <summary>
+    /// 执行可重试的同步操作（无返回值版本）
+    /// </summary>
+    /// <param name="operation">要执行的操作</param>
+    /// <param name="operationName">操作名称（用于异常信息）</param>
+    /// <param name="shouldRetry">判断是否应该重试的函数</param>
+    /// <exception cref="OutOfReTryCountException">超过重试次数时抛出</exception>
+    public void Execute(
+        Action operation,
+        string? operationName = null,
+        Func<Exception, bool>? shouldRetry = null,
+        [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        operationName ??= operationExpr ?? nameof(operation);
+
+        // 使用同步包装调用通用重试逻辑，避免阻塞异步上下文。
+        // 这里不接受 CancellationToken，保持 API 简洁；如需取消请使用 ExecuteAsync。
+        _options.Validate();
+        Exception? lastException = null;
+        shouldRetry ??= _ => true;
+
+        var start = DateTime.UtcNow;
+        for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
+        {
+            try
+            {
+                operation();
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (ex is OperationCanceledException)
+                {
+                    throw;
+                }
+
+                lastException = ex;
+                if (!shouldRetry(ex))
+                {
+                    ExceptionDispatchInfo.Capture(ex).Throw();
+                }
+
+                if (retry == _options.MaxRetryAttempts - 1)
+                {
+                    continue;
+                }
+
+                var delayMs = CalculateDelayWithJitter(retry);
+#if NET6_0_OR_GREATER
+                System.Threading.Thread.Sleep(TimeSpan.FromMilliseconds(delayMs));
+#else
+                System.Threading.Thread.Sleep(delayMs);
+#endif
+            }
+        }
+
+        var elapsed = DateTime.UtcNow - start;
+        throw new OutOfRetryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetryAttempts}, 耗时: {elapsed.TotalMilliseconds:N0} ms", lastException);
+    }
+
+    /// <summary>
     /// 内部通用重试逻辑实现
     /// </summary>
     private async Task<T> ExecuteWithRetryAsync<T>(
@@ -211,17 +272,31 @@ public class RetryOptions
 
 internal static class ThreadSafeRandom
 {
-    [ThreadStatic]
-    private static Random? _local;
-
-    private static Random Instance => _local ??= new Random(unchecked(Environment.TickCount * 31 + Environment.CurrentManagedThreadId));
-
     public static long NextLong(long minInclusive, long maxExclusive)
     {
         if (maxExclusive <= minInclusive) return minInclusive;
-        // Use double scaling to cover range
-        var range = (double)maxExclusive - minInclusive;
-        var sample = Instance.NextDouble();
-        return (long)(minInclusive + sample * range);
+        #if NET6_0_OR_GREATER
+    return Random.Shared.NextInt64(minInclusive, maxExclusive);
+    #else
+        // Thread-local fallback instance
+    return LocalRandom.NextLong(minInclusive, maxExclusive);
+    #endif
     }
+
+    #if !NET6_0_OR_GREATER
+    private static class LocalRandom
+    {
+        [ThreadStatic]
+        private static Random? _local;
+
+        public static Random Instance => _local ??= new Random(unchecked(Environment.TickCount * 31 + Environment.CurrentManagedThreadId));
+
+        public static long NextLong(long minInclusive, long maxExclusive)
+        {
+            var range = (double)maxExclusive - minInclusive;
+            var sample = Instance.NextDouble();
+            return (long)(minInclusive + sample * range);
+        }
+    }
+    #endif
 }
