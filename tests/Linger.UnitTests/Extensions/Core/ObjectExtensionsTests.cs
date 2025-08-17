@@ -499,6 +499,38 @@
             Assert.Equal(expected, result);
         }
 
+        // New ToIntOrDefault tests for ObjectExtensions
+        public static TheoryData<object, int, int> ToIntOrDefaultData()
+        {
+            return new TheoryData<object, int, int>
+                {
+                    { "123", 0, 123 },
+                    { null, 42, 42 },
+                    { "invalid", 99, 99 },
+                    { 123.45, 88, 88 },
+                    { true, 0, 0 }
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToIntOrDefaultData))]
+        public void ToIntOrDefault_ShouldReturnExpectedResult(object input, int defaultValue, int expected)
+        {
+            var result = input.ToIntOrDefault(defaultValue);
+            Assert.Equal(expected, result);
+        }
+
+        // Test backward compatibility
+        [Theory]
+        [MemberData(nameof(ToIntOrDefaultData))]
+        public void ToInt_BackwardCompatibility_ShouldReturnExpectedResult(object input, int defaultValue, int expected)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var result = input.ToInt(defaultValue);
+#pragma warning restore CS0618 // Type or member is obsolete
+            Assert.Equal(expected, result);
+        }
+
         public static TheoryData<object, int?> ToIntOrNullData()
         {
             return new TheoryData<object, int?>
@@ -609,6 +641,35 @@
         public void ToDateTime_ShouldReturnExpectedResult(object input, DateTime expected)
         {
             var result = input.ToDateTime();
+            Assert.Equal(expected, result);
+        }
+
+        // New ToDateTimeOrDefault tests for ObjectExtensions
+        public static TheoryData<object, DateTime, DateTime> ToDateTimeOrDefaultData()
+        {
+            return new TheoryData<object, DateTime, DateTime>
+                {
+                    { "2023-01-01", DateTime.MinValue, new DateTime(2023, 1, 1) },
+                    { null, new DateTime(2020, 1, 1), new DateTime(2020, 1, 1) },
+                    { "invalid", new DateTime(2020, 1, 1), new DateTime(2020, 1, 1) }
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToDateTimeOrDefaultData))]
+        public void ToDateTimeOrDefault_ShouldReturnExpectedResult(object input, DateTime defaultValue, DateTime expected)
+        {
+            var result = input.ToDateTimeOrDefault(defaultValue);
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [MemberData(nameof(ToDateTimeOrDefaultData))]
+        public void ToDateTime_BackwardCompatibility_ShouldReturnExpectedResult(object input, DateTime defaultValue, DateTime expected)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var result = input.ToDateTime(defaultValue);
+#pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
 

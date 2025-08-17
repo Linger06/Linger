@@ -4,6 +4,12 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Linger.Extensions.Core;
 namespace Linger;
+
+/// <summary>
+/// Enhanced ArgumentNullException with additional validation methods.
+/// This extends the system ArgumentNullException to provide backward compatibility
+/// for older .NET versions that don't have ThrowIfNull methods.
+/// </summary>
 public class ArgumentNullException : System.ArgumentNullException
 {
     public ArgumentNullException(string paramName) : base(paramName) { }

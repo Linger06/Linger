@@ -14,11 +14,20 @@ public static partial class StringExtensions
     /// <example>
     /// <code>
     /// string? nullString = null;
-    /// string result = nullString.ToSafeString("default"); // Returns "default"
-    /// string result2 = "hello".ToSafeString("default");   // Returns "hello"
+    /// string result = nullString.ToStringOrDefault("default"); // Returns "default"
+    /// string result2 = "hello".ToStringOrDefault("default");   // Returns "hello"
     /// </code>
     /// </example>
-    public static string ToSafeString(this string? value, string defaultValue = "") => value ?? defaultValue;
+    public static string ToStringOrDefault(this string? value, string defaultValue = "") => value ?? defaultValue;
+
+    /// <summary>
+    /// Converts the string to a safe string, returning a default value if the string is null.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the string is null.</param>
+    /// <returns>The original string if not null, otherwise the default value.</returns>
+    [Obsolete("Use ToStringOrDefault instead. Will be removed in 1.0.0.")]
+    public static string ToSafeString(this string? value, string defaultValue = "") => ToStringOrDefault(value, defaultValue);
 
     /// <summary>
     /// Converts the string to a safe string, using a function to provide the default value if the string is null.
@@ -29,14 +38,23 @@ public static partial class StringExtensions
     /// <example>
     /// <code>
     /// string? nullString = null;
-    /// string result = nullString.ToSafeString(() => DateTime.Now.ToString()); // Returns current time as string
+    /// string result = nullString.ToStringOrDefault(() => DateTime.Now.ToString()); // Returns current time as string
     /// </code>
     /// </example>
-    public static string ToSafeString(this string? value, Func<string> defaultValueFunc)
+    public static string ToStringOrDefault(this string? value, Func<string> defaultValueFunc)
     {
         ArgumentNullException.ThrowIfNull(defaultValueFunc);
         return value ?? defaultValueFunc.Invoke();
     }
+
+    /// <summary>
+    /// Converts the string to a safe string, using a function to provide the default value if the string is null.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the string is null.</param>
+    /// <returns>The original string if not null, otherwise the result of the default function.</returns>
+    [Obsolete("Use ToStringOrDefault instead. Will be removed in 1.0.0.")]
+    public static string ToSafeString(this string? value, Func<string> defaultValueFunc) => ToStringOrDefault(value, defaultValueFunc);
 
     #region char    
     /// <summary>
@@ -545,7 +563,7 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>The converted integer or the default value.</returns>
-    public static int ToInt(this string? value, int defaultValue = 0)
+    public static int ToIntOrDefault(this string? value, int defaultValue = 0)
         => value.ToValue(int.TryParse, defaultValue);
 
     /// <summary>
@@ -554,8 +572,26 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
     /// <returns>The converted integer or the result of the default value function.</returns>
-    public static int ToInt(this string? value, Func<int>? defaultValueFunc)
+    public static int ToIntOrDefault(this string? value, Func<int>? defaultValueFunc)
         => value.ToValue(int.TryParse, defaultValueFunc);
+
+    /// <summary>
+    /// Converts the string to an integer or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <returns>The converted integer or the default value.</returns>
+    [Obsolete("Use ToIntOrDefault instead. Will be removed in 1.0.0.")]
+    public static int ToInt(this string? value, int defaultValue = 0) => ToIntOrDefault(value, defaultValue);
+
+    /// <summary>
+    /// Converts the string to an integer or returns the result of the default value function if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
+    /// <returns>The converted integer or the result of the default value function.</returns>
+    [Obsolete("Use ToIntOrDefault instead. Will be removed in 1.0.0.")]
+    public static int ToInt(this string? value, Func<int>? defaultValueFunc) => ToIntOrDefault(value, defaultValueFunc);
 
     #endregion
 
@@ -593,7 +629,7 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>The converted long integer or the default value.</returns>
-    public static long ToLong(this string? value, long defaultValue = 0)
+    public static long ToLongOrDefault(this string? value, long defaultValue = 0)
         => value.ToValue(long.TryParse, defaultValue);
 
     /// <summary>
@@ -602,8 +638,26 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
     /// <returns>The converted long integer or the result of the default value function.</returns>
-    public static long ToLong(this string? value, Func<long>? defaultValueFunc)
+    public static long ToLongOrDefault(this string? value, Func<long>? defaultValueFunc)
         => value.ToValue(long.TryParse, defaultValueFunc);
+
+    /// <summary>
+    /// Converts the string to a long integer or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <returns>The converted long integer or the default value.</returns>
+    [Obsolete("Use ToLongOrDefault instead. Will be removed in 1.0.0.")]
+    public static long ToLong(this string? value, long defaultValue = 0) => ToLongOrDefault(value, defaultValue);
+
+    /// <summary>
+    /// Converts the string to a long integer or returns the result of the default value function if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
+    /// <returns>The converted long integer or the result of the default value function.</returns>
+    [Obsolete("Use ToLongOrDefault instead. Will be removed in 1.0.0.")]
+    public static long ToLong(this string? value, Func<long>? defaultValueFunc) => ToLongOrDefault(value, defaultValueFunc);
 
     #endregion
 
@@ -656,8 +710,8 @@ public static partial class StringExtensions
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>The converted decimal or the default value.</returns>
-    public static decimal ToDecimal(this string? value, decimal defaultValue = 0, int? digits = null)
-        => value.ToDecimal(() => defaultValue, digits);
+    public static decimal ToDecimalOrDefault(this string? value, decimal defaultValue = 0, int? digits = null)
+        => value.ToDecimalOrDefault(() => defaultValue, digits);
 
     /// <summary>
     /// Converts the string to a decimal or returns the result of the default value function if the conversion fails.
@@ -666,7 +720,7 @@ public static partial class StringExtensions
     /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>The converted decimal or the result of the default value function.</returns>
-    public static decimal ToDecimal(this string? value, Func<decimal>? defaultValueFunc, int? digits = null)
+    public static decimal ToDecimalOrDefault(this string? value, Func<decimal>? defaultValueFunc, int? digits = null)
     {
         if (value.TryToDecimal(out var result))
         {
@@ -679,6 +733,26 @@ public static partial class StringExtensions
 
         return defaultValueFunc?.Invoke() ?? 0;
     }
+
+    /// <summary>
+    /// Converts the string to a decimal or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>The converted decimal or the default value.</returns>
+    [Obsolete("Use ToDecimalOrDefault instead. Will be removed in 1.0.0.")]
+    public static decimal ToDecimal(this string? value, decimal defaultValue = 0, int? digits = null) => ToDecimalOrDefault(value, defaultValue, digits);
+
+    /// <summary>
+    /// Converts the string to a decimal or returns the result of the default value function if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>The converted decimal or the result of the default value function.</returns>
+    [Obsolete("Use ToDecimalOrDefault instead. Will be removed in 1.0.0.")]
+    public static decimal ToDecimal(this string? value, Func<decimal>? defaultValueFunc, int? digits = null) => ToDecimalOrDefault(value, defaultValueFunc, digits);
 
     #endregion
 
@@ -730,8 +804,8 @@ public static partial class StringExtensions
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>The converted float or the default value.</returns>
-    public static float ToFloat(this string? value, float defaultValue = 0, int? digits = null)
-        => value.ToFloat(() => defaultValue, digits);
+    public static float ToFloatOrDefault(this string? value, float defaultValue = 0f, int? digits = null)
+        => value.ToFloatOrDefault(() => defaultValue, digits);
 
     /// <summary>
     /// Converts the string to a float or returns the result of the default value function if the conversion fails.
@@ -740,7 +814,7 @@ public static partial class StringExtensions
     /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>The converted float or the result of the default value function.</returns>
-    public static float ToFloat(this string? value, Func<float>? defaultValueFunc, int? digits = null)
+    public static float ToFloatOrDefault(this string? value, Func<float>? defaultValueFunc, int? digits = null)
     {
         if (value.TryToFloat(out var result))
         {
@@ -751,8 +825,28 @@ public static partial class StringExtensions
             return (float)Math.Round(result.Value, digits.Value);
         }
 
-        return defaultValueFunc?.Invoke() ?? 0;
+        return defaultValueFunc?.Invoke() ?? 0f;
     }
+
+    /// <summary>
+    /// Converts the string to a float or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>The converted float or the default value.</returns>
+    [Obsolete("Use ToFloatOrDefault instead. Will be removed in 1.0.0.")]
+    public static float ToFloat(this string? value, float defaultValue = 0, int? digits = null) => ToFloatOrDefault(value, defaultValue, digits);
+
+    /// <summary>
+    /// Converts the string to a float or returns the result of the default value function if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>The converted float or the result of the default value function.</returns>
+    [Obsolete("Use ToFloatOrDefault instead. Will be removed in 1.0.0.")]
+    public static float ToFloat(this string? value, Func<float>? defaultValueFunc, int? digits = null) => ToFloatOrDefault(value, defaultValueFunc, digits);
 
     #endregion
 
@@ -804,8 +898,8 @@ public static partial class StringExtensions
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>The converted double or the default value.</returns>
-    public static double ToDouble(this string? value, double defaultValue, int? digits = null)
-        => value.ToDouble(() => defaultValue, digits);
+    public static double ToDoubleOrDefault(this string? value, double defaultValue = 0d, int? digits = null)
+        => value.ToDoubleOrDefault(() => defaultValue, digits);
 
     /// <summary>
     /// Converts the string to a double or returns the result of the default value function if the conversion fails.
@@ -814,7 +908,7 @@ public static partial class StringExtensions
     /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>The converted double or the result of the default value function.</returns>
-    public static double ToDouble(this string? value, Func<double>? defaultValueFunc, int? digits = null)
+    public static double ToDoubleOrDefault(this string? value, Func<double>? defaultValueFunc, int? digits = null)
     {
         if (value.TryToDouble(out var result))
         {
@@ -825,8 +919,28 @@ public static partial class StringExtensions
             return Math.Round(result.Value, digits.Value);
         }
 
-        return defaultValueFunc?.Invoke() ?? 0;
+        return defaultValueFunc?.Invoke() ?? 0d;
     }
+
+    /// <summary>
+    /// Converts the string to a double or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>The converted double or the default value.</returns>
+    [Obsolete("Use ToDoubleOrDefault instead. Will be removed in 1.0.0.")]
+    public static double ToDouble(this string? value, double defaultValue, int? digits = null) => ToDoubleOrDefault(value, defaultValue, digits);
+
+    /// <summary>
+    /// Converts the string to a double or returns the result of the default value function if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>The converted double or the result of the default value function.</returns>
+    [Obsolete("Use ToDoubleOrDefault instead. Will be removed in 1.0.0.")]
+    public static double ToDouble(this string? value, Func<double>? defaultValueFunc, int? digits = null) => ToDoubleOrDefault(value, defaultValueFunc, digits);
 
     #endregion
 
@@ -862,18 +976,10 @@ public static partial class StringExtensions
     /// Converts the string to a DateTime or returns the default value if the conversion fails.
     /// </summary>
     /// <param name="value">The string to convert.</param>
-    /// <returns>The converted DateTime or the default value.</returns>
-    public static DateTime ToDateTime(this string? value)
-        => value.ToDateTime(() => new DateTime());
-
-    /// <summary>
-    /// Converts the string to a DateTime or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>The converted DateTime or the default value.</returns>
-    public static DateTime ToDateTime(this string? value, DateTime defaultValue)
-        => value.ToDateTime(() => defaultValue);
+    public static DateTime ToDateTimeOrDefault(this string? value, DateTime? defaultValue = null)
+        => value.ToDateTimeOrDefault(() => defaultValue ?? DateTime.MinValue);
 
     /// <summary>
     /// Converts the string to a DateTime or returns the result of the default value function if the conversion fails.
@@ -881,30 +987,34 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
     /// <returns>The converted DateTime or the result of the default value function.</returns>
-    public static DateTime ToDateTime(this string? value, Func<DateTime>? defaultValueFunc)
-        => value.TryToDateTime(out var result) ? result.Value : defaultValueFunc?.Invoke() ?? new DateTime();
+    public static DateTime ToDateTimeOrDefault(this string? value, Func<DateTime>? defaultValueFunc)
+        => value.TryToDateTime(out var result) ? result.Value : defaultValueFunc?.Invoke() ?? DateTime.MinValue;
 
-    ///// <summary>
-    ///// Converts the string to a DateTime
-    ///// </summary>
-    ///// <param name="DateString">The date string.</param>
-    ///// <param name="DateFormat">The date format.</param>
-    ///// <returns></returns>
-    //public static DateTime ToDateTime(this string DateString, string DateFormat)
-    //{
-    //    return DateTime.ParseExact(DateString, DateFormat, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault);
-    //}
+    /// <summary>
+    /// Converts the string to a DateTime or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <returns>The converted DateTime or the default value.</returns>
+    [Obsolete("Use ToDateTimeOrDefault instead. Will be removed in 1.0.0.")]
+    public static DateTime ToDateTime(this string? value) => ToDateTimeOrDefault(value);
 
-    ///// <summary>
-    ///// Converts the string to a DateTime
-    ///// </summary>
-    ///// <param name="DateString">The date string.</param>
-    ///// <param name="DateFormats">Array of date formats.</param>
-    ///// <returns></returns>
-    //public static DateTime ToDateTime(this string DateString, string[] DateFormats)
-    //{
-    //    return DateTime.ParseExact(DateString, DateFormats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault);
-    //}
+    /// <summary>
+    /// Converts the string to a DateTime or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <returns>The converted DateTime or the default value.</returns>
+    [Obsolete("Use ToDateTimeOrDefault instead. Will be removed in 1.0.0.")]
+    public static DateTime ToDateTime(this string? value, DateTime defaultValue) => ToDateTimeOrDefault(value, defaultValue);
+
+    /// <summary>
+    /// Converts the string to a DateTime or returns the result of the default value function if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
+    /// <returns>The converted DateTime or the result of the default value function.</returns>
+    [Obsolete("Use ToDateTimeOrDefault instead. Will be removed in 1.0.0.")]
+    public static DateTime ToDateTime(this string? value, Func<DateTime>? defaultValueFunc) => ToDateTimeOrDefault(value, defaultValueFunc);
 
     #endregion
 
@@ -976,7 +1086,7 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>The converted boolean or the default value.</returns>
-    public static bool ToBool(this string? value, bool defaultValue = false)
+    public static bool ToBoolOrDefault(this string? value, bool defaultValue = false)
         => value.ToValue(TryParseBoolExtended, () => defaultValue);
 
     /// <summary>
@@ -985,8 +1095,26 @@ public static partial class StringExtensions
     /// <param name="value">The string to convert.</param>
     /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
     /// <returns>The converted boolean or the result of the default value function.</returns>
-    public static bool ToBool(this string? value, Func<bool>? defaultValueFunc)
+    public static bool ToBoolOrDefault(this string? value, Func<bool>? defaultValueFunc)
         => value.ToValue(TryParseBoolExtended, defaultValueFunc);
+
+    /// <summary>
+    /// Converts the string to a boolean or returns the default value if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <returns>The converted boolean or the default value.</returns>
+    [Obsolete("Use ToBoolOrDefault instead. Will be removed in 1.0.0.")]
+    public static bool ToBool(this string? value, bool defaultValue = false) => ToBoolOrDefault(value, defaultValue);
+
+    /// <summary>
+    /// Converts the string to a boolean or returns the result of the default value function if the conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
+    /// <returns>The converted boolean or the result of the default value function.</returns>
+    [Obsolete("Use ToBoolOrDefault instead. Will be removed in 1.0.0.")]
+    public static bool ToBool(this string? value, Func<bool>? defaultValueFunc) => ToBoolOrDefault(value, defaultValueFunc);
 
     #endregion
 }

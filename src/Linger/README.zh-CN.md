@@ -89,7 +89,7 @@ bool isValid = email.IsEmail();
 
 // 字符串转数字（带默认值）
 string number = "123";
-int result = number.ToInt(0); // 转换成功返回 123，失败则返回 0
+int result = number.ToIntOrDefault(0); // 转换成功返回 123，失败则返回 0
 int? nullableResult = number.ToIntOrNull(); // 返回可为空的整数
 
 // 字符串处理
@@ -178,7 +178,15 @@ using Linger.Extensions.Core;
 
 // 空值安全处理
 object obj = GetSomeObject();
-string result = obj.ToSafeString("default"); // 为 null 时返回默认值
+string result = obj.ToStringOrDefault("default"); // 为 null 时返回默认值
+
+// 类型转换 - 使用新的标准化方法
+int intValue = obj.ToIntOrDefault(0);
+long longValue = obj.ToLongOrDefault(0L);
+double doubleValue = obj.ToDoubleOrDefault(0.0);
+bool boolValue = obj.ToBoolOrDefault(false);
+DateTime dateValue = obj.ToDateTimeOrDefault(DateTime.MinValue);
+Guid guidValue = obj.ToGuidOrDefault();
 
 // 类型判断
 string stringValue = obj.ToString();
@@ -427,7 +435,8 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 ## 最佳实践
 
-1. **优先使用安全方法**: 数据转换时推荐使用 `ToIntOrNull()` 而非 `ToInt()`，避免转换失败时抛出异常
+1. **优先使用安全方法**: 数据转换时推荐使用 `ToIntOrDefault()` 而非异常处理，避免转换失败时的性能开销
+2. **使用可空方法**: 需要可空结果时使用 `ToIntOrNull()` 等方法
 2. **善用空值检查**: 利用 `IsNullOrEmpty()` 等扩展方法，让代码更简洁可靠
 3. **做好参数验证**: 在方法入口使用 `EnsureIsNotNull()`、`EnsureIsNotNullAndEmpty()` 等方法进行参数校验
 4. **合理使用异步**: 文件操作等 I/O 密集型任务建议使用异步版本，提升程序响应性
@@ -470,20 +479,75 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 ### 前后对比
 ```csharp
-// 迁移前
+// 迁移前 (Guard 方法)
 data.EnsureIsNotNullAndEmpty();
 filePath.EnsureFileExist();
 directory.EnsureDirectoryExist();
 try { await retry.ExecuteAsync(action, "操作"); } catch (OutOfReTryCountException ex) { /* ... */ }
 
-// 迁移后
+// 迁移前 (类型转换)
+int value = stringValue.ToInt(0);
+double amount = stringValue.ToDouble(0.0);
+bool flag = stringValue.ToBool(false);
+
+// 迁移后 (Guard 方法)
 data.EnsureIsNotNullOrEmpty();
 filePath.EnsureFileExists();
 directory.EnsureDirectoryExists();
 try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { /* ... */ }
+
+// 迁移后 (类型转换)
+int value = stringValue.ToIntOrDefault(0);
+double amount = stringValue.ToDoubleOrDefault(0.0);
+bool flag = stringValue.ToBoolOrDefault(false);
 ```
 
 功能行为未改变，仅是命名与诊断信息改进。
+
+### 使用示例 (新 API)
+```csharp
+// 类型转换使用新的标准化方法
+string numberStr = "123";
+int result = numberStr.ToIntOrDefault(0);           // 返回 123，失败时返回 0
+long longResult = numberStr.ToLongOrDefault(0L);    // 一致的命名模式
+double doubleResult = "123.45".ToDoubleOrDefault(0.0, digits: 2); // 支持舍入
+
+// 增强的布尔转换解析
+bool success1 = "true".ToBoolOrDefault(false);      // 返回 true
+bool success2 = "是".ToBoolOrDefault(false);        // 返回 true (增强解析)
+bool success3 = "1".ToBoolOrDefault(false);         // 返回 true (数字支持)
+
+// 日期时间转换
+DateTime date = "2024-01-01".ToDateTimeOrDefault(DateTime.MinValue);
+
+// GUID 转换
+Guid guid = "550e8400-e29b-41d4-a716-446655440000".ToGuidOrDefault();
+
+// 精确移除后缀（忽略大小写）
+var trimmed = "报告.DOCX".RemoveSuffixOnce(".docx", StringComparison.OrdinalIgnoreCase); // => "报告"
+
+// 确保前缀（忽略大小写）
+var normalized = "api/values".EnsureStartsWith("/API", StringComparison.OrdinalIgnoreCase); // => "/api/values"
+```
+
+### 迁移示例
+```csharp
+// 迁移前 (已废弃)
+int value1 = stringValue.ToInt(0);
+long value2 = stringValue.ToLong(0L);
+double value3 = stringValue.ToDouble(0.0);
+bool value4 = stringValue.ToBool(false);
+DateTime value5 = stringValue.ToDateTime(DateTime.MinValue);
+Guid value6 = stringValue.ToGuid();
+
+// 迁移后 (当前)
+int value1 = stringValue.ToIntOrDefault(0);
+long value2 = stringValue.ToLongOrDefault(0L);
+double value3 = stringValue.ToDoubleOrDefault(0.0);
+bool value4 = stringValue.ToBoolOrDefault(false);
+DateTime value5 = stringValue.ToDateTimeOrDefault(DateTime.MinValue);
+Guid value6 = stringValue.ToGuidOrDefault();
+```
 
 ### 新增的字符串 / GUID API 增强 (0.8.2 之后)
 | 分类 | 新 API | 作用 |
@@ -496,9 +560,50 @@ try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { 
 | Guid | `IsNotNullOrEmpty()` | 统一语义，替代旧 `IsNotNullAndEmpty` |
 | Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
 
+### 类型转换 API 标准化 (0.8.2+)
+类型转换方法已统一采用 `ToXxxOrDefault` 命名模式：
+
+| 分类 | 新 API | 旧 API (已废弃) | 说明 |
+|------|--------|----------------|------|
+| 字符串 → 整数 | `ToIntOrDefault()` | `ToInt()` | 与 .NET 模式保持一致 |
+| 字符串 → 长整数 | `ToLongOrDefault()` | `ToLong()` | 更好的语义清晰度 |
+| 字符串 → 单精度 | `ToFloatOrDefault()` | `ToFloat()` | 统一参数顺序 |
+| 字符串 → 双精度 | `ToDoubleOrDefault()` | `ToDouble()` | 一致的重载模式 |
+| 字符串 → 高精度 | `ToDecimalOrDefault()` | `ToDecimal()` | 专业 API 设计 |
+| 字符串 → 布尔 | `ToBoolOrDefault()` | `ToBool()` | 增强的布尔解析 |
+| 字符串 → 日期 | `ToDateTimeOrDefault()` | `ToDateTime()` | 改进的空值处理 |
+| 字符串 → GUID | `ToGuidOrDefault()` | `ToGuid()` | 一致的行为表现 |
+| 对象 → 各类型 | 所有对应 `OrDefault` 方法 | 旧方法 | ObjectExtensions 已更新 |
+
+**新 API 的优势：**
+- ✅ 所有转换方法命名一致
+- ✅ 统一的参数顺序：`(value, defaultValue, additionalParams)`
+- ✅ 更好的 IntelliSense 可发现性
+- ✅ 符合行业标准的专业 API 设计
+- ✅ "失败时返回默认值"的语义更清晰
+
 ### 已标记过时 (Obsolete) – 计划移除 (目标: 1.0.0)
 | 过时成员 | 替代 | 说明 |
 |----------|------|------|
+| **类型转换方法** | | |
+| `string.ToInt()` | `ToIntOrDefault()` | 统一命名模式 |
+| `string.ToLong()` | `ToLongOrDefault()` | API 标准化 |
+| `string.ToFloat()` | `ToFloatOrDefault()` | 统一参数顺序 |
+| `string.ToDouble()` | `ToDoubleOrDefault()` | 更好的语义清晰度 |
+| `string.ToDecimal()` | `ToDecimalOrDefault()` | 专业化命名 |
+| `string.ToBool()` | `ToBoolOrDefault()` | 增强的布尔解析 |
+| `string.ToDateTime()` | `ToDateTimeOrDefault()` | 改进的空值处理 |
+| `string.ToGuid()` | `ToGuidOrDefault()` | 一致的行为表现 |
+| `object.ToInt()` | `ToIntOrDefault()` | ObjectExtensions 对齐 |
+| `object.ToLong()` | `ToLongOrDefault()` | 同上 |
+| `object.ToFloat()` | `ToFloatOrDefault()` | 同上 |
+| `object.ToDouble()` | `ToDoubleOrDefault()` | 同上 |
+| `object.ToDecimal()` | `ToDecimalOrDefault()` | 同上 |
+| `object.ToBool()` | `ToBoolOrDefault()` | 同上 |
+| `object.ToDateTime()` | `ToDateTimeOrDefault()` | 同上 |
+| `object.ToGuid()` | `ToGuidOrDefault()` | 同上 |
+| `string.ToSafeString()` | `ToStringOrDefault()` | 命名一致性 |
+| **其他 API 变更** | | |
 | `GuidExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | 语义命名统一 |
 | `ObjectExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | 同上 |
 | `StringExtensions.Substring2` | `Take` | 更清晰的动词命名 |

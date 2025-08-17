@@ -816,6 +816,58 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
+        // New ToIntOrDefault tests
+        public static TheoryData<string?, int, int> ToIntOrDefaultData()
+        {
+            return new TheoryData<string?, int, int>
+                {
+                    { null, 0, 0 },
+                    { " ", 0, 0 },
+                    { "123", 0, 123 },
+                    { "abc", 42, 42 },
+                    { "123", 999, 123 }
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToIntOrDefaultData))]
+        public void ToIntOrDefault_ShouldReturnExpectedResult(string? value, int defaultValue, int expected)
+        {
+            var result = value.ToIntOrDefault(defaultValue);
+            Assert.Equal(expected, result);
+        }
+
+        public static TheoryData<string?, Func<int>?, int> ToIntOrDefaultFuncData()
+        {
+            return new TheoryData<string?, Func<int>?, int>
+                {
+                    { null, null, 0 },
+                    { " ", null, 0 },
+                    { "123", null, 123 },
+                    { "abc", () => 42, 42 },
+                    { "123", () => 999, 123 }
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToIntOrDefaultFuncData))]
+        public void ToIntOrDefault_WithFunction_ShouldReturnExpectedResult(string? value, Func<int>? defaultValueFunc, int expected)
+        {
+            var result = value.ToIntOrDefault(defaultValueFunc);
+            Assert.Equal(expected, result);
+        }
+
+        // Test backward compatibility - ensure old method still works
+        [Theory]
+        [MemberData(nameof(ToIntOrDefaultData))]
+        public void ToInt_BackwardCompatibility_ShouldReturnExpectedResult(string? value, int defaultValue, int expected)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var result = value.ToInt(defaultValue);
+#pragma warning restore CS0618 // Type or member is obsolete
+            Assert.Equal(expected, result);
+        }
+
         public static TheoryData<string?, bool, long?> TryToLongData()
         {
             return new TheoryData<string?, bool, long?>
@@ -868,6 +920,37 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToLong_ShouldReturnExpectedResult(string? value, long defaultValue, long expected)
         {
             var result = value.ToLong(defaultValue);
+            Assert.Equal(expected, result);
+        }
+
+        // New ToLongOrDefault tests
+        public static TheoryData<string?, long, long> ToLongOrDefaultData()
+        {
+            return new TheoryData<string?, long, long>
+                {
+                    { null, 0L, 0L },
+                    { " ", 0L, 0L },
+                    { "123", 0L, 123L },
+                    { "abc", 42L, 42L },
+                    { "9223372036854775807", 0L, 9223372036854775807L }
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToLongOrDefaultData))]
+        public void ToLongOrDefault_ShouldReturnExpectedResult(string? value, long defaultValue, long expected)
+        {
+            var result = value.ToLongOrDefault(defaultValue);
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [MemberData(nameof(ToLongOrDefaultData))]
+        public void ToLong_BackwardCompatibility_ShouldReturnExpectedResult(string? value, long defaultValue, long expected)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var result = value.ToLong(defaultValue);
+#pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
 
@@ -1042,6 +1125,37 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
+        // New ToDoubleOrDefault tests
+        public static TheoryData<string?, double, int?, double> ToDoubleOrDefaultData()
+        {
+            return new TheoryData<string?, double, int?, double>
+                {
+                    { null, 0.0, null, 0.0 },
+                    { " ", 0.0, null, 0.0 },
+                    { "123.456", 0.0, null, 123.456 },
+                    { "123.456", 0.0, 2, 123.46 },
+                    { "abc", 42.5, null, 42.5 }
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToDoubleOrDefaultData))]
+        public void ToDoubleOrDefault_ShouldReturnExpectedResult(string? value, double defaultValue, int? digits, double expected)
+        {
+            var result = value.ToDoubleOrDefault(defaultValue, digits);
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [MemberData(nameof(ToDoubleOrDefaultData))]
+        public void ToDouble_BackwardCompatibility_ShouldReturnExpectedResult(string? value, double defaultValue, int? digits, double expected)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var result = value.ToDouble(defaultValue, digits);
+#pragma warning restore CS0618 // Type or member is obsolete
+            Assert.Equal(expected, result);
+        }
+
         public static TheoryData<string?, bool, DateTime?> TryToDateTimeData()
         {
             return new TheoryData<string?, bool, DateTime?>
@@ -1173,6 +1287,43 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToBool_ShouldReturnExpectedResult(string? value, bool defaultValue, bool expected)
         {
             var result = value.ToBool(defaultValue);
+            Assert.Equal(expected, result);
+        }
+
+        // New ToBoolOrDefault tests
+        public static TheoryData<string?, bool, bool> ToBoolOrDefaultData()
+        {
+            return new TheoryData<string?, bool, bool>
+                {
+                    { null, false, false },
+                    { " ", false, false },
+                    { "true", false, true },
+                    { "false", true, false },
+                    { "1", false, true },
+                    { "0", true, false },
+                    { "yes", false, true },
+                    { "no", true, false },
+                    { "success", false, true },
+                    { "fail", true, false },
+                    { "abc", true, true } // Default when conversion fails
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToBoolOrDefaultData))]
+        public void ToBoolOrDefault_ShouldReturnExpectedResult(string? value, bool defaultValue, bool expected)
+        {
+            var result = value.ToBoolOrDefault(defaultValue);
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [MemberData(nameof(ToBoolOrDefaultData))]
+        public void ToBool_BackwardCompatibility_ShouldReturnExpectedResult(string? value, bool defaultValue, bool expected)
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var result = value.ToBool(defaultValue);
+#pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
     }

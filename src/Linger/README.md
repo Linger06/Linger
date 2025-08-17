@@ -2,7 +2,30 @@
 
 > 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
-A comprehensive .NET utility library providing extensive type conversion extensions, string manipulation utilities, date/time helpers, file system operations, collection extensions, and various helper classes for everyday development tasks.
+A comprehensive .NET utility library providing extensive type conversion exten# Null-safe operations
+object obj = GetSomeObject();
+string result = obj.ToStringOrDefault("default");
+
+# Type conversion with new standardized methods
+int intValue = obj.ToIntOrDefault(0);
+long longValue = obj.ToLongOrDefault(0L);
+double doubleValue = obj.ToDoubleOrDefault(0.0);
+bool boolValue = obj.ToBoolOrDefault(false);
+DateTime dateValue = obj.ToDateTimeOrDefault(DateTime.MinValue);
+Guid guidValue = obj.ToGuidOrDefault();
+
+# Type checking
+string stringValue = obj.ToString(); // .NET native method
+bool isNumber = stringValue.IsNumber();
+bool isInt = stringValue.IsInteger();
+bool isDouble = stringValue.IsDouble();
+
+# Object conversion
+var stringRepresentation = obj.ToStringOrNull();
+
+# Try-style numeric conversions
+if ("123".TryInt(out var parsedInt)) { /* parsedInt = 123 */ }
+if (!"abc".TryDecimal(out var decVal)) { /* failed, decVal = 0 */ }nipulation utilities, date/time helpers, file system operations, collection extensions, and various helper classes for everyday development tasks.
 
 ## Overview
 
@@ -89,7 +112,7 @@ bool isValid = email.IsEmail();
 
 // String conversion
 string number = "123";
-int result = number.ToInt(0); // Returns 123, or 0 if conversion fails
+int result = number.ToIntOrDefault(0); // Returns 123, or 0 if conversion fails
 int? nullableResult = number.ToIntOrNull(); // Returns nullable type
 
 // String manipulation
@@ -434,7 +457,8 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 ## Best Practices
 
-1. **Use Safe Methods**: Prefer `ToIntOrNull()` over `ToInt()` when conversion might fail
+1. **Use Safe Methods**: Prefer `ToIntOrDefault()` over exceptions when conversion might fail
+2. **Use Nullable Methods**: Use `ToIntOrNull()` when you need nullable results
 2. **Null Checking**: Use extension methods like `IsNullOrEmpty()` for validation
 3. **Parameter Validation**: Use `GuardExtensions` methods like `EnsureIsNotNull()`, `EnsureIsNotNullAndEmpty()` for input validation
 4. **Leverage Async**: Use async versions of file operations for better performance
@@ -477,17 +501,27 @@ String extension counterparts also gained the new `IsNotNullOrEmpty` / `IsNotNul
 
 ### Example Before / After
 ```csharp
-// Before
+// Before (Guard methods)
 data.EnsureIsNotNullAndEmpty();
 filePath.EnsureFileExist();
 directory.EnsureDirectoryExist();
 try { await retry.ExecuteAsync(action, "MyAction"); } catch (OutOfReTryCountException ex) { ... }
 
-// After
+// Before (Type conversions)
+int value = stringValue.ToInt(0);
+double amount = stringValue.ToDouble(0.0);
+bool flag = stringValue.ToBool(false);
+
+// After (Guard methods)
 data.EnsureIsNotNullOrEmpty();
 filePath.EnsureFileExists();
 directory.EnsureDirectoryExists();
 try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { ... }
+
+// After (Type conversions)
+int value = stringValue.ToIntOrDefault(0);
+double amount = stringValue.ToDoubleOrDefault(0.0);
+bool flag = stringValue.ToBoolOrDefault(false);
 ```
 
 No functional behavior changed—this is a surface naming / diagnostics improvement.
@@ -502,9 +536,50 @@ No functional behavior changed—this is a surface naming / diagnostics improvem
 | Guid | `IsNotNullOrEmpty()` | 语义统一，替代旧 `IsNotNullAndEmpty` |
 | Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
 
+### Type Conversion API Standardization (0.8.2+)
+The type conversion methods have been standardized to use consistent `ToXxxOrDefault` naming pattern:
+
+| Category | New API | Old API (Obsolete) | Notes |
+|----------|---------|-------------------|-------|
+| String → Int | `ToIntOrDefault()` | `ToInt()` | Consistent with .NET patterns |
+| String → Long | `ToLongOrDefault()` | `ToLong()` | Better semantic clarity |
+| String → Float | `ToFloatOrDefault()` | `ToFloat()` | Unified parameter ordering |
+| String → Double | `ToDoubleOrDefault()` | `ToDouble()` | Consistent overload patterns |
+| String → Decimal | `ToDecimalOrDefault()` | `ToDecimal()` | Professional API design |
+| String → Boolean | `ToBoolOrDefault()` | `ToBool()` | Enhanced bool parsing |
+| String → DateTime | `ToDateTimeOrDefault()` | `ToDateTime()` | Improved null handling |
+| String → Guid | `ToGuidOrDefault()` | `ToGuid()` | Consistent behavior |
+| Object → Types | All corresponding `OrDefault` methods | Old methods | ObjectExtensions updated |
+
+**Benefits of New API:**
+- ✅ Consistent naming across all conversion methods
+- ✅ Unified parameter ordering: `(value, defaultValue, additionalParams)`
+- ✅ Better IntelliSense discoverability
+- ✅ Professional API design aligned with industry standards
+- ✅ Clearer semantic meaning of "default value on failure"
+
 ### Deprecated (Obsolete) Members – Scheduled Removal (Target: 1.0.0)
 | Obsolete | Replacement | Notes |
 |----------|-------------|-------|
+| **Type Conversion Methods** | | |
+| `string.ToInt()` | `ToIntOrDefault()` | Consistent naming pattern |
+| `string.ToLong()` | `ToLongOrDefault()` | API standardization |
+| `string.ToFloat()` | `ToFloatOrDefault()` | Unified parameter ordering |
+| `string.ToDouble()` | `ToDoubleOrDefault()` | Better semantic clarity |
+| `string.ToDecimal()` | `ToDecimalOrDefault()` | Professional naming |
+| `string.ToBool()` | `ToBoolOrDefault()` | Enhanced bool parsing |
+| `string.ToDateTime()` | `ToDateTimeOrDefault()` | Improved null handling |
+| `string.ToGuid()` | `ToGuidOrDefault()` | Consistent behavior |
+| `object.ToInt()` | `ToIntOrDefault()` | ObjectExtensions alignment |
+| `object.ToLong()` | `ToLongOrDefault()` | Same as above |
+| `object.ToFloat()` | `ToFloatOrDefault()` | Same as above |
+| `object.ToDouble()` | `ToDoubleOrDefault()` | Same as above |
+| `object.ToDecimal()` | `ToDecimalOrDefault()` | Same as above |
+| `object.ToBool()` | `ToBoolOrDefault()` | Same as above |
+| `object.ToDateTime()` | `ToDateTimeOrDefault()` | Same as above |
+| `object.ToGuid()` | `ToGuidOrDefault()` | Same as above |
+| `string.ToSafeString()` | `ToStringOrDefault()` | Naming consistency |
+| **Other API Changes** | | |
 | `GuidExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Naming consistency |
 | `ObjectExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Same rationale |
 | `StringExtensions.Substring2` | `Take` | Simpler, clearer verb |
@@ -521,11 +596,48 @@ No functional behavior changed—this is a surface naming / diagnostics improvem
 
 ### Usage Examples (New APIs)
 ```csharp
+// Type conversion with new standardized methods
+string numberStr = "123";
+int result = numberStr.ToIntOrDefault(0);           // Returns 123, or 0 if conversion fails
+long longResult = numberStr.ToLongOrDefault(0L);    // Consistent naming pattern
+double doubleResult = "123.45".ToDoubleOrDefault(0.0, digits: 2); // With rounding support
+
+// Boolean conversion with enhanced parsing
+bool success1 = "true".ToBoolOrDefault(false);      // Returns true
+bool success2 = "yes".ToBoolOrDefault(false);       // Returns true (enhanced parsing)
+bool success3 = "1".ToBoolOrDefault(false);         // Returns true (numeric support)
+
+// DateTime conversion
+DateTime date = "2024-01-01".ToDateTimeOrDefault(DateTime.MinValue);
+
+// GUID conversion
+Guid guid = "550e8400-e29b-41d4-a716-446655440000".ToGuidOrDefault();
+
 // Remove a single suffix ignoring case
 var trimmed = "Report.DOCX".RemoveSuffixOnce(".docx", StringComparison.OrdinalIgnoreCase); // => "Report"
 
 // Ensure prefix (case-insensitive)
 var normalized = "api/values".EnsureStartsWith("/API", StringComparison.OrdinalIgnoreCase); // => "/api/values"
+```
+
+### Migration Examples
+```csharp
+// Before (Obsolete)
+int value1 = stringValue.ToInt(0);
+long value2 = stringValue.ToLong(0L);
+double value3 = stringValue.ToDouble(0.0);
+bool value4 = stringValue.ToBool(false);
+DateTime value5 = stringValue.ToDateTime(DateTime.MinValue);
+Guid value6 = stringValue.ToGuid();
+
+// After (Current)
+int value1 = stringValue.ToIntOrDefault(0);
+long value2 = stringValue.ToLongOrDefault(0L);
+double value3 = stringValue.ToDoubleOrDefault(0.0);
+bool value4 = stringValue.ToBoolOrDefault(false);
+DateTime value5 = stringValue.ToDateTimeOrDefault(DateTime.MinValue);
+Guid value6 = stringValue.ToGuidOrDefault();
+```
 
 // Symmetric remove
 var inner = "__value__".RemovePrefixAndSuffix("__", StringComparison.Ordinal); // => "value"

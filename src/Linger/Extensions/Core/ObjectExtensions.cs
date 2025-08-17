@@ -267,6 +267,7 @@ public static class ObjectExtensions
     public static string ToNotSpaceString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
 
     /// <summary>
+    /// <summary>
     /// Converts the input object to a string. Returns the specified default value if the input is null.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -275,11 +276,20 @@ public static class ObjectExtensions
     /// <example>
     /// <code>
     /// object? obj = null;
-    /// string result = obj.ToSafeString("Default");
+    /// string result = obj.ToStringOrDefault("Default");
     /// Console.WriteLine(result); // Output: "Default"
     /// </code>
-    /// /// </example>
-    public static string ToSafeString(this object? input, string defaultValue = "") => input?.ToString() ?? defaultValue;
+    /// </example>
+    public static string ToStringOrDefault(this object? input, string defaultValue = "") => input?.ToString() ?? defaultValue;
+
+    /// <summary>
+    /// Converts the input object to a string. Returns the specified default value if the input is null.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the input is null.</param>
+    /// <returns>A string representation of the input object, or the specified default value if the input is null.</returns>
+    [Obsolete("Use ToStringOrDefault instead. Will be removed in 1.0.0.")]
+    public static string ToSafeString(this object? input, string defaultValue = "") => ToStringOrDefault(input, defaultValue);
     /// <summary>
     /// Converts the input object to a string. Returns an empty string if the input is null.
     /// </summary>
@@ -370,7 +380,16 @@ public static class ObjectExtensions
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>A long representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static long ToLong(this object? input, long defaultValue = 0) => input.ToLongOrNull() ?? defaultValue;
+    public static long ToLongOrDefault(this object? input, long defaultValue = 0) => input.ToLongOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// Converts the input object to a long. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <returns>A long representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToLongOrDefault instead. Will be removed in 1.0.0.")]
+    public static long ToLong(this object? input, long defaultValue = 0) => ToLongOrDefault(input, defaultValue);
 
     /// <summary>
     /// Converts the input object to a nullable long. Returns null if the conversion fails.
@@ -403,9 +422,21 @@ public static class ObjectExtensions
     /// <param name="input">The input object.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>A decimal representation of the input object, or the specified default value if the conversion fails.</returns>
+    public static decimal ToDecimalOrDefault(this object? input, int? digits = null)
+    {
+        return ToDecimalOrDefault(input, 0, digits);
+    }
+
+    /// <summary>
+    /// Converts the input object to a decimal. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A decimal representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToDecimalOrDefault instead. Will be removed in 1.0.0.")]
     public static decimal ToDecimal(this object? input, int? digits = null)
     {
-        return ToDecimal(input, 0, digits);
+        return ToDecimalOrDefault(input, digits);
     }
 
     /// <summary>
@@ -415,9 +446,22 @@ public static class ObjectExtensions
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>A decimal representation of the input object, or the specified default value if the conversion fails.</returns>
+    public static decimal ToDecimalOrDefault(this object? input, decimal defaultValue, int? digits = null)
+    {
+        return input.ToStringOrNull().ToDecimalOrDefault(defaultValue, digits);
+    }
+
+    /// <summary>
+    /// Converts the input object to a decimal. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A decimal representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToDecimalOrDefault instead. Will be removed in 1.0.0.")]
     public static decimal ToDecimal(this object? input, decimal defaultValue, int? digits = null)
     {
-        return input.ToStringOrNull().ToDecimal(defaultValue, digits);
+        return ToDecimalOrDefault(input, defaultValue, digits);
     }
 
     /// <summary>
@@ -453,7 +497,16 @@ public static class ObjectExtensions
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>An integer representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static int ToInt(this object? input, int defaultValue = 0) => input.ToIntOrNull() ?? defaultValue;
+    public static int ToIntOrDefault(this object? input, int defaultValue = 0) => input.ToIntOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// Converts the input object to an integer. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <returns>An integer representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToIntOrDefault instead. Will be removed in 1.0.0.")]
+    public static int ToInt(this object? input, int defaultValue = 0) => ToIntOrDefault(input, defaultValue);
 
     /// <summary>
     /// Converts the input object to a nullable integer. Returns null if the conversion fails.
@@ -487,9 +540,22 @@ public static class ObjectExtensions
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>A double representation of the input object, or the specified default value if the conversion fails.</returns>
+    public static double ToDoubleOrDefault(this object? input, double defaultValue = 0, int? digits = null)
+    {
+        return input.ToStringOrNull().ToDoubleOrDefault(defaultValue, digits);
+    }
+
+    /// <summary>
+    /// Converts the input object to a double. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A double representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToDoubleOrDefault instead. Will be removed in 1.0.0.")]
     public static double ToDouble(this object? input, double defaultValue = 0, int? digits = null)
     {
-        return input.ToStringOrNull().ToDouble(defaultValue, digits);
+        return ToDoubleOrDefault(input, defaultValue, digits);
     }
 
     /// <summary>
@@ -510,9 +576,21 @@ public static class ObjectExtensions
     /// <param name="input">The input object.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>A float representation of the input object, or the specified default value if the conversion fails.</returns>
+    public static float ToFloatOrDefault(this object? input, int? digits = null)
+    {
+        return ToFloatOrDefault(input, 0, digits);
+    }
+
+    /// <summary>
+    /// Converts the input object to a float. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A float representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToFloatOrDefault instead. Will be removed in 1.0.0.")]
     public static float ToFloat(this object? input, int? digits = null)
     {
-        return ToFloat(input, 0, digits);
+        return ToFloatOrDefault(input, digits);
     }
 
     /// <summary>
@@ -522,9 +600,22 @@ public static class ObjectExtensions
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <param name="digits">The number of decimal places to round to.</param>
     /// <returns>A float representation of the input object, or the specified default value if the conversion fails.</returns>
+    public static float ToFloatOrDefault(this object? input, float defaultValue, int? digits = null)
+    {
+        return input.ToStringOrNull().ToFloatOrDefault(defaultValue, digits);
+    }
+
+    /// <summary>
+    /// Converts the input object to a float. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A float representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToFloatOrDefault instead. Will be removed in 1.0.0.")]
     public static float ToFloat(this object? input, float defaultValue, int? digits = null)
     {
-        return input.ToStringOrNull().ToFloat(defaultValue, digits);
+        return ToFloatOrDefault(input, defaultValue, digits);
     }
 
     /// <summary>
@@ -543,9 +634,21 @@ public static class ObjectExtensions
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
     /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static DateTime ToDateTime(this object? input, DateTime? defaultValue = null)
+    public static DateTime ToDateTimeOrDefault(this object? input, DateTime? defaultValue = null)
     {
         return ToDateTimeOrNull(input) ?? defaultValue ?? DateTime.MinValue;
+    }
+
+    /// <summary>
+    /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
+    /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToDateTimeOrDefault instead. Will be removed in 1.0.0.")]
+    public static DateTime ToDateTime(this object? input, DateTime? defaultValue = null)
+    {
+        return ToDateTimeOrDefault(input, defaultValue);
     }
 
     /// <summary>
@@ -564,7 +667,16 @@ public static class ObjectExtensions
     /// <param name="input">The input object.</param>
     /// <param name="defaultValue">The default value to return if the conversion fails.</param>
     /// <returns>A boolean representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static bool ToBool(this object? input, bool defaultValue = false) => input.ToBoolOrNull() ?? defaultValue;
+    public static bool ToBoolOrDefault(this object? input, bool defaultValue = false) => input.ToBoolOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// Converts the input object to a boolean. Returns the specified default value if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
+    /// <returns>A boolean representation of the input object, or the specified default value if the conversion fails.</returns>
+    [Obsolete("Use ToBoolOrDefault instead. Will be removed in 1.0.0.")]
+    public static bool ToBool(this object? input, bool defaultValue = false) => ToBoolOrDefault(input, defaultValue);
 
     /// <summary>
     /// Converts the input object to a nullable boolean. Returns null if the conversion fails.
@@ -581,9 +693,20 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="input">The input object.</param>
     /// <returns>A Guid representation of the input object, or Guid.Empty if the conversion fails.</returns>
-    public static Guid ToGuid(this object? input)
+    public static Guid ToGuidOrDefault(this object? input)
     {
         return ToGuidOrNull(input) ?? Guid.Empty;
+    }
+
+    /// <summary>
+    /// Converts the input object to a Guid. Returns Guid.Empty if the conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <returns>A Guid representation of the input object, or Guid.Empty if the conversion fails.</returns>
+    [Obsolete("Use ToGuidOrDefault instead. Will be removed in 1.0.0.")]
+    public static Guid ToGuid(this object? input)
+    {
+        return ToGuidOrDefault(input);
     }
 
     /// <summary>
