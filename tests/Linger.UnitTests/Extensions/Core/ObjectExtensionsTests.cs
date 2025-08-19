@@ -1,4 +1,8 @@
-﻿namespace Linger.UnitTests.Extensions.Core
+﻿using System;
+using Linger.Extensions.Core;
+using Xunit;
+
+namespace Linger.UnitTests.Extensions.Core
 {
     public class ObjectExtensionsTests
     {
@@ -290,6 +294,115 @@
         {
             object num = 123;
             Assert.False(num.IsBoolean());
+        }
+
+        [Fact]
+        public void IsGuid_ShouldReturnTrue_WhenObjectIsGuid()
+        {
+            object guid = Guid.NewGuid();
+            Assert.True(guid.IsGuid());
+        }
+
+        [Fact]
+        public void IsGuid_ShouldReturnFalse_WhenObjectIsNotGuid()
+        {
+            object str = "not-a-guid";
+            Assert.False(str.IsGuid());
+        }
+
+        [Fact]
+        public void IsByte_ShouldReturnTrue_WhenObjectIsByte()
+        {
+            object num = (byte)255;
+            Assert.True(num.IsByte());
+        }
+
+        [Fact]
+        public void IsByte_ShouldReturnFalse_WhenObjectIsNotByte()
+        {
+            object num = 256; // int
+            Assert.False(num.IsByte());
+        }
+
+        [Fact]
+        public void IsSByte_ShouldReturnTrue_WhenObjectIsSByte()
+        {
+            object num = (sbyte)-100;
+            Assert.True(num.IsSByte());
+        }
+
+        [Fact]
+        public void IsSByte_ShouldReturnFalse_WhenObjectIsNotSByte()
+        {
+            object num = (byte)100;
+            Assert.False(num.IsSByte());
+        }
+
+        [Fact]
+        public void IsUShort_ShouldReturnTrue_WhenObjectIsUShort()
+        {
+            object num = (ushort)65535;
+            Assert.True(num.IsUShort());
+        }
+
+        [Fact]
+        public void IsUShort_ShouldReturnFalse_WhenObjectIsNotUShort()
+        {
+            object num = (short)32767;
+            Assert.False(num.IsUShort());
+        }
+
+        [Fact]
+        public void IsUInt_ShouldReturnTrue_WhenObjectIsUInt()
+        {
+            object num = (uint)4294967295;
+            Assert.True(num.IsUInt());
+        }
+
+        [Fact]
+        public void IsUInt_ShouldReturnFalse_WhenObjectIsNotUInt()
+        {
+            object num = -1; // int
+            Assert.False(num.IsUInt());
+        }
+
+        [Fact]
+        public void IsULong_ShouldReturnTrue_WhenObjectIsULong()
+        {
+            object num = (ulong)18446744073709551615;
+            Assert.True(num.IsULong());
+        }
+
+        [Fact]
+        public void IsULong_ShouldReturnFalse_WhenObjectIsNotULong()
+        {
+            object num = -1L; // long
+            Assert.False(num.IsULong());
+        }
+
+        [Fact]
+        public void IsNumeric_ShouldReturnTrue_WhenObjectIsUnsignedInteger()
+        {
+            Assert.True(((byte)255).IsNumeric());
+            Assert.True(((ushort)65535).IsNumeric());
+            Assert.True(((uint)4294967295).IsNumeric());
+            Assert.True(((ulong)18446744073709551615).IsNumeric());
+            Assert.True(((sbyte)-100).IsNumeric());
+        }
+
+        [Fact]
+        public void IsAnyUnsignedInteger_ShouldReturnTrue_WhenObjectIsUnsignedInteger()
+        {
+            Assert.True(((byte)255).IsAnyUnsignedInteger());
+            Assert.True(((ushort)65535).IsAnyUnsignedInteger());
+            Assert.True(((uint)4294967295).IsAnyUnsignedInteger());
+            Assert.True(((ulong)18446744073709551615).IsAnyUnsignedInteger());
+            
+            // Should return false for signed integers
+            Assert.False(((sbyte)-100).IsAnyUnsignedInteger());
+            Assert.False(((short)-100).IsAnyUnsignedInteger());
+            Assert.False((-100).IsAnyUnsignedInteger());
+            Assert.False((-100L).IsAnyUnsignedInteger());
         }
 
         public static TheoryData<object, string> ToNotSpaceStringData()
@@ -771,9 +884,9 @@
         [InlineData("123", true, 123)]
         [InlineData("invalid", false, 0)]
         [InlineData(null, false, 0)]
-        public void TryInt_ShouldReturnExpected(string? input, bool expectedSuccess, int expectedValue)
+        public void TryToInt_ShouldReturnExpected(object? input, bool expectedSuccess, int expectedValue)
         {
-            var success = input.TryInt(out var value);
+            var success = input.TryToInt(out var value);
             Assert.Equal(expectedSuccess, success);
             Assert.Equal(expectedValue, value);
         }
@@ -782,9 +895,9 @@
         [InlineData("922337203685", true, 922337203685L)]
         [InlineData("invalid", false, 0L)]
         [InlineData(null, false, 0L)]
-        public void TryLong_ShouldReturnExpected(string? input, bool expectedSuccess, long expectedValue)
+        public void TryToLong_ShouldReturnExpected(object? input, bool expectedSuccess, long expectedValue)
         {
-            var success = input.TryLong(out var value);
+            var success = input.TryToLong(out var value);
             Assert.Equal(expectedSuccess, success);
             Assert.Equal(expectedValue, value);
         }
@@ -793,11 +906,528 @@
         [InlineData("123.45", true, 123.45)]
         [InlineData("invalid", false, 0)]
         [InlineData(null, false, 0)]
-        public void TryDecimal_ShouldReturnExpected(string? input, bool expectedSuccess, decimal expectedValue)
+        public void TryToDecimal_ShouldReturnExpected(object? input, bool expectedSuccess, decimal expectedValue)
         {
-            var success = input.TryDecimal(out var value);
+            var success = input.TryToDecimal(out var value);
             Assert.Equal(expectedSuccess, success);
             Assert.Equal(expectedValue, value);
         }
+
+        #region Byte Tests
+
+        public static TheoryData<object, byte> ToByteOrDefaultData()
+        {
+            return new TheoryData<object, byte>
+            {
+                { "255", 255 },
+                { "0", 0 },
+                { null, 0 },
+                { "invalid", 0 },
+                { "256", 0 }, // Out of range
+                { "-1", 0 },  // Out of range
+                { (byte)100, 100 }, // Direct type
+                { 200, 200 } // Valid conversion from int to byte
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToByteOrDefaultData))]
+        public void ToByteOrDefault_ShouldReturnExpectedResult(object input, byte expected)
+        {
+            var result = input.ToByteOrDefault();
+            Assert.Equal(expected, result);
+        }
+
+        public static TheoryData<object, byte?> ToByteOrNullData()
+        {
+            return new TheoryData<object, byte?>
+            {
+                { "255", (byte?)255 },
+                { "0", (byte?)0 },
+                { null, null },
+                { "invalid", null },
+                { "256", null }, // Out of range
+                { (byte)100, (byte?)100 }, // Direct type
+                { 200, (byte?)200 } // Valid conversion from int to byte
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToByteOrNullData))]
+        public void ToByteOrNull_ShouldReturnExpectedResult(object input, byte? expected)
+        {
+            var result = input.ToByteOrNull();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("255", true, 255)]
+        [InlineData("0", true, 0)]
+        [InlineData("invalid", false, 0)]
+        [InlineData("256", false, 0)] // Out of range
+        [InlineData(null, false, 0)]
+        public void TryToByte_ShouldReturnExpected(object? input, bool expectedSuccess, byte expectedValue)
+        {
+            var success = input.TryToByte(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        [Fact]
+        public void ToByteOrNull_DirectType_ShouldReturnSameValue()
+        {
+            object input = (byte)123;
+            var result = input.ToByteOrNull();
+            Assert.Equal((byte)123, result);
+        }
+
+        #endregion
+
+        #region SByte Tests
+
+        public static TheoryData<object, sbyte> ToSByteOrDefaultData()
+        {
+            return new TheoryData<object, sbyte>
+            {
+                { "127", 127 },
+                { "-128", -128 },
+                { "0", 0 },
+                { null, 0 },
+                { "invalid", 0 },
+                { "128", 0 }, // Out of range
+                { "-129", 0 }, // Out of range
+                { (sbyte)-50, -50 }, // Direct type
+                { 100, 100 } // Valid conversion from int to sbyte
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToSByteOrDefaultData))]
+        public void ToSByteOrDefault_ShouldReturnExpectedResult(object input, sbyte expected)
+        {
+            var result = input.ToSByteOrDefault();
+            Assert.Equal(expected, result);
+        }
+
+        public static TheoryData<object, sbyte?> ToSByteOrNullData()
+        {
+            return new TheoryData<object, sbyte?>
+            {
+                { "127", (sbyte?)127 },
+                { "-128", (sbyte?)-128 },
+                { "0", (sbyte?)0 },
+                { null, null },
+                { "invalid", null },
+                { "128", null }, // Out of range
+                { (sbyte)-50, (sbyte?)-50 }, // Direct type
+                { 100, (sbyte?)100 } // Valid conversion from int to sbyte
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToSByteOrNullData))]
+        public void ToSByteOrNull_ShouldReturnExpectedResult(object input, sbyte? expected)
+        {
+            var result = input.ToSByteOrNull();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("127", true, 127)]
+        [InlineData("-128", true, -128)]
+        [InlineData("invalid", false, 0)]
+        [InlineData("128", false, 0)] // Out of range
+        [InlineData(null, false, 0)]
+        public void TryToSByte_ShouldReturnExpected(object? input, bool expectedSuccess, sbyte expectedValue)
+        {
+            var success = input.TryToSByte(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        #endregion
+
+        #region UShort Tests
+
+        public static TheoryData<object, ushort> ToUShortOrDefaultData()
+        {
+            return new TheoryData<object, ushort>
+            {
+                { "65535", 65535 },
+                { "0", 0 },
+                { null, 0 },
+                { "invalid", 0 },
+                { "65536", 0 }, // Out of range
+                { "-1", 0 }, // Out of range
+                { (ushort)12345, 12345 }, // Direct type
+                { 70000, 0 } // Wrong type
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToUShortOrDefaultData))]
+        public void ToUShortOrDefault_ShouldReturnExpectedResult(object input, ushort expected)
+        {
+            var result = input.ToUShortOrDefault();
+            Assert.Equal(expected, result);
+        }
+
+        public static TheoryData<object, ushort?> ToUShortOrNullData()
+        {
+            return new TheoryData<object, ushort?>
+            {
+                { "65535", (ushort?)65535 },
+                { "0", (ushort?)0 },
+                { null, null },
+                { "invalid", null },
+                { "65536", null }, // Out of range
+                { (ushort)12345, (ushort?)12345 }, // Direct type
+                { 70000, null } // Wrong type
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToUShortOrNullData))]
+        public void ToUShortOrNull_ShouldReturnExpectedResult(object input, ushort? expected)
+        {
+            var result = input.ToUShortOrNull();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("65535", true, 65535)]
+        [InlineData("0", true, 0)]
+        [InlineData("invalid", false, 0)]
+        [InlineData("65536", false, 0)] // Out of range
+        [InlineData(null, false, 0)]
+        public void TryToUShort_ShouldReturnExpected(object? input, bool expectedSuccess, ushort expectedValue)
+        {
+            var success = input.TryToUShort(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        #endregion
+
+        #region UInt Tests
+
+        public static TheoryData<object, uint> ToUIntOrDefaultData()
+        {
+            return new TheoryData<object, uint>
+            {
+                { "4294967295", 4294967295u },
+                { "0", 0u },
+                { null, 0u },
+                { "invalid", 0u },
+                { "4294967296", 0u }, // Out of range
+                { "-1", 0u }, // Out of range
+                { (uint)123456789, 123456789u }, // Direct type
+                { -1, 0u } // Wrong type
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToUIntOrDefaultData))]
+        public void ToUIntOrDefault_ShouldReturnExpectedResult(object input, uint expected)
+        {
+            var result = input.ToUIntOrDefault();
+            Assert.Equal(expected, result);
+        }
+
+        public static TheoryData<object, uint?> ToUIntOrNullData()
+        {
+            return new TheoryData<object, uint?>
+            {
+                { "4294967295", (uint?)4294967295u },
+                { "0", (uint?)0u },
+                { null, null },
+                { "invalid", null },
+                { "4294967296", null }, // Out of range
+                { (uint)123456789, (uint?)123456789u }, // Direct type
+                { -1, null } // Wrong type
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToUIntOrNullData))]
+        public void ToUIntOrNull_ShouldReturnExpectedResult(object input, uint? expected)
+        {
+            var result = input.ToUIntOrNull();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("4294967295", true, 4294967295u)]
+        [InlineData("0", true, 0u)]
+        [InlineData("invalid", false, 0u)]
+        [InlineData("4294967296", false, 0u)] // Out of range
+        [InlineData(null, false, 0u)]
+        public void TryToUInt_ShouldReturnExpected(object? input, bool expectedSuccess, uint expectedValue)
+        {
+            var success = input.TryToUInt(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        #endregion
+
+        #region ULong Tests
+
+        public static TheoryData<object, ulong> ToULongOrDefaultData()
+        {
+            return new TheoryData<object, ulong>
+            {
+                { "18446744073709551615", 18446744073709551615ul },
+                { "0", 0ul },
+                { null, 0ul },
+                { "invalid", 0ul },
+                { "-1", 0ul }, // Out of range
+                { (ulong)1234567890123456789, 1234567890123456789ul }, // Direct type
+                { -1L, 0ul } // Wrong type
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToULongOrDefaultData))]
+        public void ToULongOrDefault_ShouldReturnExpectedResult(object input, ulong expected)
+        {
+            var result = input.ToULongOrDefault();
+            Assert.Equal(expected, result);
+        }
+
+        public static TheoryData<object, ulong?> ToULongOrNullData()
+        {
+            return new TheoryData<object, ulong?>
+            {
+                { "18446744073709551615", (ulong?)18446744073709551615ul },
+                { "0", (ulong?)0ul },
+                { null, null },
+                { "invalid", null },
+                { "-1", null }, // Out of range
+                { (ulong)1234567890123456789, (ulong?)1234567890123456789ul }, // Direct type
+                { -1L, null } // Wrong type
+            };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToULongOrNullData))]
+        public void ToULongOrNull_ShouldReturnExpectedResult(object input, ulong? expected)
+        {
+            var result = input.ToULongOrNull();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("18446744073709551615", true, 18446744073709551615ul)]
+        [InlineData("0", true, 0ul)]
+        [InlineData("invalid", false, 0ul)]
+        [InlineData(null, false, 0ul)]
+        public void TryToULong_ShouldReturnExpected(object? input, bool expectedSuccess, ulong expectedValue)
+        {
+            var success = input.TryToULong(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        #endregion
+
+        #region Performance Tests - Direct Type Conversion
+
+        [Fact]
+        public void ToIntOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            object input = 12345; // Already an int
+            var result = input.ToIntOrNull();
+            Assert.Equal(12345, result);
+        }
+
+        [Fact]
+        public void ToDecimalOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            object input = 123.45m; // Already a decimal
+            var result = input.ToDecimalOrNull();
+            Assert.Equal(123.45m, result);
+        }
+
+        [Fact]
+        public void ToDoubleOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            object input = 123.45; // Already a double
+            var result = input.ToDoubleOrNull();
+            Assert.Equal(123.45, result);
+        }
+
+        [Fact]
+        public void ToFloatOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            object input = 123.45f; // Already a float
+            var result = input.ToFloatOrNull();
+            Assert.Equal(123.45f, result);
+        }
+
+        [Fact]
+        public void ToBoolOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            object input = true; // Already a bool
+            var result = input.ToBoolOrNull();
+            Assert.Equal(true, result);
+        }
+
+        [Fact]
+        public void ToGuidOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            var guid = Guid.NewGuid();
+            object input = guid; // Already a Guid
+            var result = input.ToGuidOrNull();
+            Assert.Equal(guid, result);
+        }
+
+        [Fact]
+        public void ToDateTimeOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            var dateTime = DateTime.Now;
+            object input = dateTime; // Already a DateTime
+            var result = input.ToDateTimeOrNull();
+            Assert.Equal(dateTime, result);
+        }
+
+        #endregion
+
+        #region Type Checking Tests for New Types
+
+        [Theory]
+        [InlineData((byte)255, true)]
+        [InlineData(255, false)] // int, not byte
+        [InlineData("255", false)]
+        [InlineData(null, false)]
+        public void IsByte_ShouldReturnExpectedResult(object input, bool expected)
+        {
+            var result = input.IsByte();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData((sbyte)-100, true)]
+        [InlineData(-100, false)] // int, not sbyte
+        [InlineData("-100", false)]
+        [InlineData(null, false)]
+        public void IsSByte_ShouldReturnExpectedResult(object input, bool expected)
+        {
+            var result = input.IsSByte();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData((ushort)65535, true)]
+        [InlineData(65535, false)] // int, not ushort
+        [InlineData("65535", false)]
+        [InlineData(null, false)]
+        public void IsUShort_ShouldReturnExpectedResult(object input, bool expected)
+        {
+            var result = input.IsUShort();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData((uint)4294967295, true)]
+        [InlineData(4294967295L, false)] // long, not uint
+        [InlineData("4294967295", false)]
+        [InlineData(null, false)]
+        public void IsUInt_ShouldReturnExpectedResult(object input, bool expected)
+        {
+            var result = input.IsUInt();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData((ulong)18446744073709551615, true)]
+        [InlineData(9223372036854775807L, false)] // long, not ulong
+        [InlineData("18446744073709551615", false)]
+        [InlineData(null, false)]
+        public void IsULong_ShouldReturnExpectedResult(object input, bool expected)
+        {
+            var result = input.IsULong();
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void IsAnyUnsignedInteger_ShouldReturnTrue_ForUnsignedTypes()
+        {
+            Assert.True(((byte)255).IsAnyUnsignedInteger());
+            Assert.True(((ushort)65535).IsAnyUnsignedInteger());
+            Assert.True(((uint)4294967295).IsAnyUnsignedInteger());
+            Assert.True(((ulong)18446744073709551615).IsAnyUnsignedInteger());
+        }
+
+        [Fact]
+        public void IsAnyUnsignedInteger_ShouldReturnFalse_ForSignedTypes()
+        {
+            Assert.False(((sbyte)-100).IsAnyUnsignedInteger());
+            Assert.False(((short)-32768).IsAnyUnsignedInteger());
+            Assert.False((-2147483648).IsAnyUnsignedInteger());
+            Assert.False((-9223372036854775808L).IsAnyUnsignedInteger());
+        }
+
+        [Fact]
+        public void IsNumeric_ShouldIncludeAllNewNumericTypes()
+        {
+            // Test that IsNumeric includes all new types
+            Assert.True(((byte)255).IsNumeric());
+            Assert.True(((sbyte)-100).IsNumeric());
+            Assert.True(((ushort)65535).IsNumeric());
+            Assert.True(((uint)4294967295).IsNumeric());
+            Assert.True(((ulong)18446744073709551615).IsNumeric());
+        }
+
+        #endregion
+
+        #region Performance Tests for New Types
+
+        [Fact]
+        public void ToByteOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            byte originalByte = 200;
+            object input = originalByte; // Already a byte
+            var result = input.ToByteOrNull();
+            Assert.Equal(originalByte, result);
+        }
+
+        [Fact]
+        public void ToSByteOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            sbyte originalSByte = -100;
+            object input = originalSByte; // Already a sbyte
+            var result = input.ToSByteOrNull();
+            Assert.Equal(originalSByte, result);
+        }
+
+        [Fact]
+        public void ToUShortOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            ushort originalUShort = 50000;
+            object input = originalUShort; // Already a ushort
+            var result = input.ToUShortOrNull();
+            Assert.Equal(originalUShort, result);
+        }
+
+        [Fact]
+        public void ToUIntOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            uint originalUInt = 3000000000;
+            object input = originalUInt; // Already a uint
+            var result = input.ToUIntOrNull();
+            Assert.Equal(originalUInt, result);
+        }
+
+        [Fact]
+        public void ToULongOrNull_DirectTypeConversion_ShouldBeFast()
+        {
+            ulong originalULong = 15000000000000000000;
+            object input = originalULong; // Already a ulong
+            var result = input.ToULongOrNull();
+            Assert.Equal(originalULong, result);
+        }
+
+        #endregion
     }
 }
