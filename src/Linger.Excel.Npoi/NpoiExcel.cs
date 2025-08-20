@@ -267,7 +267,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 整数类型 - 使用统一的整数格式
             try
             {
-                var longValue = value.ToLong();// Convert.ToInt64(value);
+                var longValue = value.ToLongOrDefault();// Convert.ToInt64(value);
                 cell.SetCellValue(longValue);
 
                 // 应用整数样式
@@ -292,7 +292,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 浮点类型 - 使用统一的小数格式
             try
             {
-                var doubleValue = value.ToDouble();// Convert.ToDouble(value);
+                var doubleValue = value.ToDoubleOrDefault();// Convert.ToDouble(value);
                 cell.SetCellValue(doubleValue);
 
                 // 应用浮点数样式

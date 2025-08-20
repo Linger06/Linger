@@ -53,7 +53,7 @@ public static class FileHelper
         {
             Directory.CreateDirectory(directory);
         }
-    File.WriteAllText(filePath, text, encoding);
+        File.WriteAllText(filePath, text, encoding);
     }
 
     public static void AppendText(string filePath, string content)

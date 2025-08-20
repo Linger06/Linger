@@ -1,6 +1,4 @@
 using System.Data;
-using Linger.Extensions.Collection;
-using Linger.Extensions.Data;
 using Oracle.ManagedDataAccess.Client;
 
 namespace Linger.DataAccess.Oracle;

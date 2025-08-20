@@ -279,8 +279,8 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsCombinationOfEnglishNumber(this string input, int? minLength = null, int? maxLength = null)
     {
-    var regex = GetCombinationRegex(minLength, maxLength, withSymbol: false);
-    return regex.IsMatch(input);
+        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: false);
+        return regex.IsMatch(input);
     }
 
     /// <summary>

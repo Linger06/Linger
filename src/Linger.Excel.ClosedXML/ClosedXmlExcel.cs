@@ -228,7 +228,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
                 break;
             case int or long or short or byte or sbyte or ushort or uint or ulong:
-                cell.Value = value.ToLong();// Convert.ToInt64(value);
+                cell.Value = value.ToLongOrDefault();// Convert.ToInt64(value);
                 cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.IntegerFormat; // 更新为新路径
                 break;
             default:

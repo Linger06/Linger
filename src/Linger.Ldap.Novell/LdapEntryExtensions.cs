@@ -158,7 +158,7 @@ public static class LdapEntryExtensions
 
         try
         {
-            return DateTime.FromFileTime(attribute.StringValue.ToLong())
+            return DateTime.FromFileTime(attribute.StringValue.ToLongOrDefault())
                 .ToString(CultureInfo.InvariantCulture);
         }
         catch
@@ -174,7 +174,7 @@ public static class LdapEntryExtensions
         try
         {
             var userAccountControl = attributeSet.GetAttribute(LdapUserType.UserAccountControl).StringValue;
-            var num = userAccountControl.ToInt();
+            var num = userAccountControl.ToIntOrDefault();
             return (num & 2) > 0 ? "Disabled" : "Enabled";
         }
         catch

@@ -107,19 +107,19 @@ public static class ExcelValueConverter
                 return value.ToString();
 
             if (actualType == typeof(int))
-                return value.ToInt();// Convert.ToInt32(value);
+                return value.ToIntOrDefault();// Convert.ToInt32(value);
 
             if (actualType == typeof(long))
-                return value.ToLong();// Convert.ToInt64(value);
+                return value.ToLongOrDefault();// Convert.ToInt64(value);
 
             if (actualType == typeof(decimal))
-                return value.ToDecimal();// Convert.ToDecimal(value);
+                return value.ToDecimalOrDefault();// Convert.ToDecimal(value);
 
             if (actualType == typeof(double))
-                return value.ToDouble();// Convert.ToDouble(value);
+                return value.ToDoubleOrDefault();// Convert.ToDouble(value);
 
             if (actualType == typeof(float))
-                return value.ToFloat();// Convert.ToSingle(value);
+                return value.ToFloatOrDefault();// Convert.ToSingle(value);
 
             if (actualType == typeof(bool))
             {
@@ -128,7 +128,7 @@ public static class ExcelValueConverter
                 //    str = str.Trim().ToLower();
                 //    return str == "true" || str == "yes" || str == "y" || str == "1";
                 //}
-                return value.ToBool();// Convert.ToBoolean(value);
+                return value.ToBoolOrDefault();// Convert.ToBoolean(value);
             }
 
             if (actualType == typeof(DateTime))
@@ -139,7 +139,7 @@ public static class ExcelValueConverter
                 if (value is string s)
                     return DateTime.Parse(s, CultureInfo.CurrentCulture);
 
-                return value.ToDateTime();// Convert.ToDateTime(value);
+                return value.ToDateTimeOrDefault();// Convert.ToDateTime(value);
             }
 
             if (actualType.IsEnum)
@@ -147,7 +147,7 @@ public static class ExcelValueConverter
                 if (value is string s)
                     return Enum.Parse(actualType, s, true);
 
-                return Enum.ToObject(actualType, value.ToInt());
+                return Enum.ToObject(actualType, value.ToIntOrDefault());
             }
 
             // 其他类型尝试直接转换

@@ -82,7 +82,7 @@ public static class GuardExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static object? EnsureIsNull(this object? value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
     {
-    if (value is not null)
+        if (value is not null)
             throw new ArgumentException(message ?? "Value should be null", paramName ?? nameof(value));
         return value;
     }

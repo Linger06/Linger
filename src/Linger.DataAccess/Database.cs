@@ -399,7 +399,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public int FindCountBySql(string sql)
     {
-        return ExecuteScalar(CommandType.Text, sql).ToInt();
+        return ExecuteScalar(CommandType.Text, sql).ToIntOrDefault();
     }
 
     /// <summary>
@@ -409,7 +409,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<int> FindCountBySqlAsync(string sql)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false)).ToInt();
+        return (await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false)).ToIntOrDefault();
     }
 
     /// <summary>
@@ -420,7 +420,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public int FindCountBySql(string sql, DbParameter[] parameters)
     {
-        return ExecuteScalar(CommandType.Text, sql, parameters).ToInt();
+        return ExecuteScalar(CommandType.Text, sql, parameters).ToIntOrDefault();
     }
 
     /// <summary>
@@ -431,7 +431,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false)).ToInt();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false)).ToIntOrDefault();
     }
 
     #endregion

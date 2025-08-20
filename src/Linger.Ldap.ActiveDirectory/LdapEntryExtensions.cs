@@ -315,7 +315,7 @@ public static class LdapEntryExtensions
         try
         {
             var isAccountLocked = entry.InvokeGet("IsAccountLocked");
-            return isAccountLocked.ToBool();// Convert.ToBoolean(entry.InvokeGet("IsAccountLocked"));
+            return isAccountLocked.ToBoolOrDefault();// Convert.ToBoolean(entry.InvokeGet("IsAccountLocked"));
         }
         catch
         {
@@ -420,7 +420,7 @@ public static class LdapEntryExtensions
     {
         try
         {
-            var accountExpiresLong = accountExpiresValue.ToLong();
+            var accountExpiresLong = accountExpiresValue.ToLongOrDefault();
             if (accountExpiresLong == 0 || accountExpiresLong == TimeConstants.NoExpiryDate)
             {
                 return null;

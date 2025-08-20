@@ -93,7 +93,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             return obj switch
             {
                 null => 1,
-                _ when obj.IsInt() => obj.ToInt(),
+                _ when obj.IsInt() => obj.ToIntOrDefault(),
                 _ => null
             };
         }
@@ -125,7 +125,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             return obj switch
             {
                 null => 1,
-                _ when obj.IsInt() => obj.ToInt(),
+                _ when obj.IsInt() => obj.ToIntOrDefault(),
                 _ => null
             };
         }

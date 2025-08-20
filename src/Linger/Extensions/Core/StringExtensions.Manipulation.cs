@@ -144,8 +144,8 @@ public static partial class StringExtensions
         if (value.Length == 0)
             return string.Empty;
 
-    // 快速检测是否包含换行符，若无则直接返回原引用，避免分配
-    var firstIdx = value.IndexOfAny(WhitespaceChars.NewLineChars);
+        // 快速检测是否包含换行符，若无则直接返回原引用，避免分配
+        var firstIdx = value.IndexOfAny(WhitespaceChars.NewLineChars);
         if (firstIdx < 0)
             return value;
 

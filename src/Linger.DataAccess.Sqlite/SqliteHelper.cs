@@ -1,6 +1,5 @@
 using System.Data;
 using System.Data.SQLite;
-using Linger.Extensions.Collection;
 using Linger.Extensions.Data;
 
 namespace Linger.DataAccess.Sqlite;

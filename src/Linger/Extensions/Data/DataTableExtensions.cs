@@ -156,7 +156,7 @@ public static class DataTableExtensions
 
         foreach (DataRow dr in sourceTable.Rows)
         {
-            sum += dr[columnName].ToDouble();// Convert.ToDouble(dr[columnName]);
+            sum += dr[columnName].ToDoubleOrDefault();
         }
 
         return sum;
@@ -456,20 +456,11 @@ public static class DataTableExtensions
                         if (resultRow[captionValue] != DBNull.Value)
                         {
                             var value = resultRow[captionValue];
-                            currentValue = value.ToDecimal();// Convert.ToDecimal(resultRow[captionValue]);
+                            currentValue = value.ToDecimalOrDefault();
                         }
 
                         // 将新值添加到现有值
-                        decimal newValue = 0;
-                        try
-                        {
-                            newValue = cellValue.ToDecimal();// Convert.ToDecimal(cellValue);
-                        }
-                        catch (InvalidCastException)
-                        {
-                            // 如果无法转换为decimal，尝试使用ToDecimal扩展方法
-                            newValue = cellValue.ToDecimal();
-                        }
+                        decimal newValue = cellValue.ToDecimalOrDefault();
 
                         resultRow[captionValue] = currentValue + newValue;
                     }
@@ -770,16 +761,16 @@ public static class DataTableExtensions
         // Optimized conversion using pattern matching for common types
         return actualType.Name switch
         {
-            nameof(String) => value.ToSafeString(),
-            nameof(Int16) => value.ToShort(),
-            nameof(Int32) => value.ToInt(),
-            nameof(Int64) => value.ToLong(),
-            nameof(Single) => value.ToFloat(),
-            nameof(Double) => value.ToDouble(),
-            nameof(Decimal) => value.ToDecimal(),
-            nameof(Boolean) => value.ToBool(),
-            nameof(DateTime) => value.ToDateTime(),
-            nameof(Guid) => value.ToGuid(),
+            nameof(String) => value.ToStringOrDefault(),
+            nameof(Int16) => value.ToShortOrDefault(),
+            nameof(Int32) => value.ToIntOrDefault(),
+            nameof(Int64) => value.ToLongOrDefault(),
+            nameof(Single) => value.ToFloatOrDefault(),
+            nameof(Double) => value.ToDoubleOrDefault(),
+            nameof(Decimal) => value.ToDecimalOrDefault(),
+            nameof(Boolean) => value.ToBoolOrDefault(),
+            nameof(DateTime) => value.ToDateTimeOrDefault(),
+            nameof(Guid) => value.ToGuidOrDefault(),
             _ => Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture) // Fallback for other types
         };
     }

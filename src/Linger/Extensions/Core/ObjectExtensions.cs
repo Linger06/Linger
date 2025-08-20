@@ -43,7 +43,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The specified <see cref="object"/>.</param>
     /// <returns>true if the object is null or its string representation is empty; otherwise, false.</returns>
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value) 
+    public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value)
     {
         return value is null || string.IsNullOrEmpty(value.ToString());
     }
@@ -53,7 +53,7 @@ public static class ObjectExtensions
     /// </summary>
     /// <param name="value">The specified <see cref="object"/>.</param>
     /// <returns>true if the object is null or DBNull; otherwise, false.</returns>
-    public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value) 
+    public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value)
     {
         return value is DBNull or null;
     }
@@ -446,7 +446,7 @@ public static class ObjectExtensions
         {
             return shortValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToShortOrNull();
     }
@@ -511,7 +511,7 @@ public static class ObjectExtensions
         {
             return longValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToLongOrNull();
     }
@@ -609,7 +609,7 @@ public static class ObjectExtensions
         {
             return digits.HasValue ? Math.Round(decimalValue, digits.Value) : decimalValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToDecimalOrNull(defaultValue, digits);
     }
@@ -674,7 +674,7 @@ public static class ObjectExtensions
         {
             return intValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToIntOrNull();
     }
@@ -749,7 +749,7 @@ public static class ObjectExtensions
         {
             return digits.HasValue ? Math.Round(doubleValue, digits.Value) : doubleValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToDoubleOrNull(defaultValue, digits);
     }
@@ -816,15 +816,15 @@ public static class ObjectExtensions
         {
             return digits.HasValue ? (float)Math.Round(floatValue, digits.Value) : floatValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToFloatOrNull(defaultValue, digits);
     }    /// <summary>
-    /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
-    /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
+         /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
+         /// </summary>
+         /// <param name="input">The input object.</param>
+         /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
+         /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
     public static DateTime ToDateTimeOrDefault(this object? input, DateTime? defaultValue = null)
     {
         return ToDateTimeOrNull(input) ?? defaultValue ?? DateTime.MinValue;
@@ -854,7 +854,7 @@ public static class ObjectExtensions
         {
             return dateTimeValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToDateTimeOrNull();
     }
@@ -919,7 +919,7 @@ public static class ObjectExtensions
         {
             return boolValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToBoolOrNull();
     }
@@ -988,7 +988,7 @@ public static class ObjectExtensions
         {
             return guidValue;
         }
-        
+
         // Fall back to string conversion for other types
         return value.ToStringOrNull().ToGuidOrNull();
     }
@@ -1126,7 +1126,7 @@ public static class ObjectExtensions
         {
             return byteValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToByteOrNull();
     }
@@ -1200,7 +1200,7 @@ public static class ObjectExtensions
         {
             return sbyteValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToSByteOrNull();
     }
@@ -1274,7 +1274,7 @@ public static class ObjectExtensions
         {
             return uintValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToUIntOrNull();
     }
@@ -1348,7 +1348,7 @@ public static class ObjectExtensions
         {
             return ulongValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToULongOrNull();
     }
@@ -1422,7 +1422,7 @@ public static class ObjectExtensions
         {
             return ushortValue;
         }
-        
+
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToUShortOrNull();
     }

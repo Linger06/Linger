@@ -208,10 +208,10 @@ public sealed class RetryHelper(RetryOptions? options = null)
     {
         // 计算基础延迟（指数退避 2^n，使用Math.Min防止溢出）
         long baseDelay = _options.DelayMilliseconds;
-        long delay = _options.UseExponentialBackoff 
+        long delay = _options.UseExponentialBackoff
             ? Math.Min(baseDelay * (1L << Math.Min(retryAttempt, 30)), _options.MaxDelayMilliseconds)
             : baseDelay;
-        
+
         if (delay > _options.MaxDelayMilliseconds)
         {
             delay = _options.MaxDelayMilliseconds;
@@ -275,15 +275,15 @@ internal static class ThreadSafeRandom
     public static long NextLong(long minInclusive, long maxExclusive)
     {
         if (maxExclusive <= minInclusive) return minInclusive;
-        #if NET6_0_OR_GREATER
-    return Random.Shared.NextInt64(minInclusive, maxExclusive);
-    #else
+#if NET6_0_OR_GREATER
+        return Random.Shared.NextInt64(minInclusive, maxExclusive);
+#else
         // Thread-local fallback instance
-    return LocalRandom.NextLong(minInclusive, maxExclusive);
-    #endif
+        return LocalRandom.NextLong(minInclusive, maxExclusive);
+#endif
     }
 
-    #if !NET6_0_OR_GREATER
+#if !NET6_0_OR_GREATER
     private static class LocalRandom
     {
         [ThreadStatic]
@@ -298,5 +298,5 @@ internal static class ThreadSafeRandom
             return (long)(minInclusive + sample * range);
         }
     }
-    #endif
+#endif
 }
