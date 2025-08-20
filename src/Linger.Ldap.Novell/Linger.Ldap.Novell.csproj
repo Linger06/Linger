@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;</TargetFrameworks>
-        <Version>0.8.2-preview</Version>        
+        <Version>0.8.3-preview</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Description>
             Implementation of LDAP client functionality using the Novell.Directory.Ldap provider.
