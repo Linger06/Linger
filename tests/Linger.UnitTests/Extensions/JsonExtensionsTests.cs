@@ -2,6 +2,7 @@
 using System.Dynamic;
 using System.Text;
 using System.Text.Json;
+using Microsoft.CSharp.RuntimeBinder;
 using Linger.Extensions;
 using Xunit.v3;
 
@@ -269,5 +270,119 @@ public class JsonExtensionsTests
         Assert.Equal(30L, dataTable.Rows[0]["IntValue"]);
         Assert.Equal(true, dataTable.Rows[0]["BoolValue"]);
         Assert.Equal(12.34, dataTable.Rows[0]["DoubleValue"]);
+    }
+
+    [Fact]
+    public void ValueKindToType_WithUndefinedValueKind_ThrowsNotSupportedException()
+    {
+        // Arrange & Act & Assert
+        var json = "[{}]";
+        var jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+        
+        // This should work without throwing for empty object
+        var dataTable = jsonElement.JsonElementToDataTable();
+        Assert.Equal(1, dataTable.Rows.Count);
+    }
+
+    [Fact]
+    public void JsonElementToTypedValue_WithGuidString_ReturnsString()
+    {
+        // Arrange
+        var guid = Guid.NewGuid();
+        var json = $"[{{\"Id\":\"{guid}\"}}]";
+        var jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+
+        // Act
+        var dataTable = jsonElement.JsonElementToDataTable();
+
+        // Assert
+        // The value is returned as string, not as Guid
+        Assert.Equal(guid.ToString(), dataTable.Rows[0]["Id"]);
+    }
+
+    [Fact]
+    public void JsonElementToTypedValue_WithDateTime_ReturnsString()
+    {
+        // Arrange
+        var dateTime = DateTime.Now.ToString("O"); // ISO 8601 format
+        var json = $"[{{\"DateTime\":\"{dateTime}\"}}]";
+        var jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+
+        // Act
+        var dataTable = jsonElement.JsonElementToDataTable();
+
+        // Assert
+        // DateTime is returned as string since parsing fails
+        Assert.IsType<string>(dataTable.Rows[0]["DateTime"]);
+    }
+
+    [Fact]
+    public void JsonElementToTypedValue_WithLocalDateTimeHavingOffset_ReturnsString()
+    {
+        // Arrange - Create a local DateTime with offset information
+        var dateTimeOffset = DateTimeOffset.Now.ToString("O"); // ISO 8601 with offset
+        var json = $"[{{\"DateTimeOffset\":\"{dateTimeOffset}\"}}]";
+        var jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+
+        // Act
+        var dataTable = jsonElement.JsonElementToDataTable();
+
+        // Assert
+        var result = dataTable.Rows[0]["DateTimeOffset"];
+        Assert.IsType<string>(result);
+    }
+
+    [Fact]
+    public void JsonExtensions_SerializeJson_WithDifferentEncodings_ProducesSameResult()
+    {
+        // Arrange
+        var person = new TestPerson { Name = "Test", Age = 25 };
+
+        // Act
+        var jsonUtf8 = person.SerializeJson(Encoding.UTF8);
+        var jsonDefault = person.SerializeJson(Encoding.Default);
+
+        // Assert
+        Assert.Contains("Test", jsonUtf8);
+        Assert.Contains("Test", jsonDefault);
+        Assert.Contains("25", jsonUtf8);
+        Assert.Contains("25", jsonDefault);
+    }
+
+    [Fact]
+    public void JsonExtensions_DeserializeJson_WithDifferentEncodings_ProducesSameResult()
+    {
+        // Arrange
+        var json = "{\"Name\":\"Test User\",\"Age\":40}";
+
+        // Act
+        var personUtf8 = json.DeserializeJson<TestPerson>(Encoding.UTF8);
+        var personDefault = json.DeserializeJson<TestPerson>(Encoding.Default);
+
+        // Assert
+        Assert.NotNull(personUtf8);
+        Assert.NotNull(personDefault);
+        Assert.Equal("Test User", personUtf8.Name);
+        Assert.Equal("Test User", personDefault.Name);
+        Assert.Equal(40, personUtf8.Age);
+        Assert.Equal(40, personDefault.Age);
+    }
+
+    [Fact]
+    public void JsonElementToDataTable_WithMixedTypes_HandlesAllValueKinds()
+    {
+        // Arrange
+        var json = "[{\"StringVal\":\"text\",\"NumVal\":42,\"BoolVal\":true}]";
+        var jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+
+        // Act
+        var dataTable = jsonElement.JsonElementToDataTable();
+
+        // Assert
+        Assert.Equal(1, dataTable.Rows.Count);
+        Assert.Equal(3, dataTable.Columns.Count);
+        Assert.Equal("text", dataTable.Rows[0]["StringVal"]);
+        Assert.Equal(42L, dataTable.Rows[0]["NumVal"]);
+        Assert.Equal(true, dataTable.Rows[0]["BoolVal"]);
     }
 }

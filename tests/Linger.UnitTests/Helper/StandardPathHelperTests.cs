@@ -247,4 +247,133 @@ public class StandardPathHelperTests
         var withSeparator = StandardPathHelper.ResolveToAbsolutePath(baseDir, "subdir/", true);
         Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), withSeparator);
     }
+
+    [Fact]
+    public void PathEquals_ShouldHandlePathExceptions()
+    {
+        // 测试包含非法字符的路径，这可能导致Path.GetFullPath异常
+        string invalidPath1 = "C:\\" + new string('\0', 1) + "invalid"; // 包含空字符
+        string invalidPath2 = "normal/path";
+
+        // 应该能够处理异常情况，返回false而不是抛出异常
+        var result = StandardPathHelper.PathEquals(invalidPath1, invalidPath2);
+        Assert.False(result);
+
+        // 测试极长路径
+        var longPath = new string('a', 300);
+        var normalPath = "short/path";
+        var longPathResult = StandardPathHelper.PathEquals(longPath, normalPath);
+        Assert.False(longPathResult);
+    }
+
+    [Fact]
+    public void GetRelativePath_ShouldHandlePathExceptions()
+    {
+        string validPath = Directory.GetCurrentDirectory();
+        
+        // 测试null path参数返回空字符串情况
+        var nullPathResult = StandardPathHelper.GetRelativePath(validPath, null);
+        Assert.Equal(string.Empty, nullPathResult);
+
+        // 测试包含非法字符的路径
+        string invalidPath = "invalid\0path";
+        
+        // 应该抛出ArgumentException而不是其他异常
+        Assert.Throws<ArgumentException>(() => StandardPathHelper.GetRelativePath(validPath, invalidPath));
+    }
+
+    [Fact]
+    public void IsWindowsDriveLetter_ShouldHandleInvalidPathChars()
+    {
+        // 测试包含非法字符但长度大于3的情况
+        string pathWithInvalidChars = "C:\\inv*lid";
+        
+        // 应该检测到非法字符并返回false
+        var result = StandardPathHelper.IsWindowsDriveLetter(pathWithInvalidChars);
+        Assert.False(result);
+
+        // 测试长度为3且第三个字符不是分隔符的情况  
+        var invalidDrive = "C:x";
+        Assert.False(StandardPathHelper.IsWindowsDriveLetter(invalidDrive));
+
+        // 测试有效的较长路径
+        var validLongPath = "D:\\ValidPath\\SubDir";
+        Assert.True(StandardPathHelper.IsWindowsDriveLetter(validLongPath));
+    }
+
+    [Fact] 
+    public void ContainsInvalidPathChars_ShouldCheckNonWindowsPlatforms()
+    {
+        // 这个测试主要是为了覆盖非Windows平台的代码路径
+        // 在Windows上这个测试可能不会执行到Unix分支，但仍然有助于理解代码逻辑
+        
+        // 测试包含null字符的路径（Unix系统中的非法字符）
+        string pathWithNull = "path\0with\0null";
+        
+        // 在所有平台上，包含null字符的路径都应该被认为是非法的
+        var result = StandardPathHelper.ContainsInvalidPathChars(pathWithNull);
+        
+        // 注意：在Windows上这会通过系统非法字符检查捕获，在Unix上通过null字符检查捕获
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void GetParentDirectory_ShouldHandleRootPath()
+    {
+        // 测试根目录情况，Directory.GetParent可能返回null
+        string rootPath;
+        if (OSPlatformHelper.IsWindows)
+        {
+            rootPath = "C:\\";
+        }
+        else
+        {
+            rootPath = "/";
+        }
+
+        // 尝试获取根目录的父目录
+        var result = StandardPathHelper.GetParentDirectory(rootPath, 1);
+        
+        // 如果无法获取父目录，应该返回原路径
+        Assert.NotNull(result);
+    }
+
+    [Fact] 
+    public void GetRelativePathCore_ShouldHandleEmptyResult()
+    {
+        // 这个测试针对GetRelativePathCore方法中result.Count为0的情况
+        string basePath = Directory.GetCurrentDirectory();
+        string samePath = basePath;
+        
+        var result = StandardPathHelper.GetRelativePath(basePath, samePath);
+        
+        // 相同路径应该返回"."
+        Assert.Equal(".", result);
+    }
+
+    [Fact]
+    public void NormalizePath_ShouldHandleNullAndWhitespace()
+    {
+        // 详细测试各种空值情况
+        Assert.Equal(string.Empty, StandardPathHelper.NormalizePath(""));
+        Assert.Equal(string.Empty, StandardPathHelper.NormalizePath("   "));
+        Assert.Equal(string.Empty, StandardPathHelper.NormalizePath("\t\n"));
+        Assert.Null(StandardPathHelper.NormalizePath(null));
+    }
+
+    [Fact]
+    public void Exists_ShouldHandleExceptions()
+    {
+        // 测试非常长的路径，可能导致PathTooLongException
+        var veryLongPath = new string('a', 500);
+        
+        // 应该优雅处理异常，返回false而不是抛出异常
+        var result = StandardPathHelper.Exists(veryLongPath);
+        Assert.False(result);
+
+        // 测试包含非法字符的路径
+        var invalidPath = "path\0with\0null";
+        var invalidResult = StandardPathHelper.Exists(invalidPath);
+        Assert.False(invalidResult);
+    }
 }

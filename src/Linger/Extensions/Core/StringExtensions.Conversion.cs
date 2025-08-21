@@ -296,6 +296,54 @@ public static partial class StringExtensions
 
     #endregion
 
+    #region uint    
+    /// <summary>
+    /// Tries to convert the string to a uint.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="result">The resulting uint if the conversion is successful.</param>
+    /// <returns>True if the conversion is successful, otherwise false.</returns>
+    public static bool TryToUInt(this string? value, [NotNullWhen(true)] out uint? result)
+        => value.TryConvert(uint.TryParse, out result);
+
+    /// <summary>
+    /// Converts the string to a uint or null, returning a default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
+    /// <returns>The resulting uint if the conversion is successful, otherwise the default value.</returns>
+    public static uint? ToUIntOrNull(this string? value, uint? defaultValue = null)
+        => value.ToNullable(uint.TryParse, defaultValue);
+
+    /// <summary>
+    /// Converts the string to a uint or null, using a function to provide the default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
+    /// <returns>The resulting uint if the conversion is successful, otherwise the result of the default function.</returns>
+    public static uint? ToUIntOrNull(this string? value, Func<uint?>? defaultValueFunc)
+        => value.ToNullable(uint.TryParse, defaultValueFunc);
+
+    /// <summary>
+    /// Converts the string to a uint, returning a default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
+    /// <returns>The resulting uint if the conversion is successful, otherwise the default value.</returns>
+    public static uint ToUInt(this string? value, uint defaultValue = 0)
+        => value.ToValue(uint.TryParse, defaultValue);
+
+    /// <summary>
+    /// Converts the string to a uint, using a function to provide the default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
+    /// <returns>The resulting uint if the conversion is successful, otherwise the result of the default function.</returns>
+    public static uint ToUInt(this string? value, Func<uint>? defaultValueFunc)
+        => value.ToValue(uint.TryParse, defaultValueFunc);
+
+    #endregion
+
     #region short    
     /// <summary>
     /// Tries to convert the string to a short.
@@ -658,6 +706,54 @@ public static partial class StringExtensions
     /// <returns>The converted long integer or the result of the default value function.</returns>
     [Obsolete("Use ToLongOrDefault instead. Will be removed in 1.0.0.")]
     public static long ToLong(this string? value, Func<long>? defaultValueFunc) => ToLongOrDefault(value, defaultValueFunc);
+
+    #endregion
+
+    #region ulong    
+    /// <summary>
+    /// Tries to convert the string to a ulong.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="result">The resulting ulong if the conversion is successful.</param>
+    /// <returns>True if the conversion is successful, otherwise false.</returns>
+    public static bool TryToULong(this string? value, [NotNullWhen(true)] out ulong? result)
+        => value.TryConvert(ulong.TryParse, out result);
+
+    /// <summary>
+    /// Converts the string to a ulong or null, returning a default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
+    /// <returns>The resulting ulong if the conversion is successful, otherwise the default value.</returns>
+    public static ulong? ToULongOrNull(this string? value, ulong? defaultValue = null)
+        => value.ToNullable(ulong.TryParse, defaultValue);
+
+    /// <summary>
+    /// Converts the string to a ulong or null, using a function to provide the default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
+    /// <returns>The resulting ulong if the conversion is successful, otherwise the result of the default function.</returns>
+    public static ulong? ToULongOrNull(this string? value, Func<ulong?>? defaultValueFunc)
+        => value.ToNullable(ulong.TryParse, defaultValueFunc);
+
+    /// <summary>
+    /// Converts the string to a ulong, returning a default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
+    /// <returns>The resulting ulong if the conversion is successful, otherwise the default value.</returns>
+    public static ulong ToULong(this string? value, ulong defaultValue = 0)
+        => value.ToValue(ulong.TryParse, defaultValue);
+
+    /// <summary>
+    /// Converts the string to a ulong, using a function to provide the default value if the string is null or invalid.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
+    /// <returns>The resulting ulong if the conversion is successful, otherwise the result of the default function.</returns>
+    public static ulong ToULong(this string? value, Func<ulong>? defaultValueFunc)
+        => value.ToValue(ulong.TryParse, defaultValueFunc);
 
     #endregion
 
