@@ -1,4 +1,4 @@
-﻿#if NET5_0_OR_GREATER
+#if NET5_0_OR_GREATER
 
 namespace Linger.UnitTests;
 
@@ -82,7 +82,7 @@ public class IOrderQueryableExtensionsTests
         new SampleClass { Id = 2, Name = "B" }
     }.AsQueryable().OrderBy(x => x.Id);
 
-        Assert.Throws<ArgumentException>(() => list.ThenBy("InvalidProperty", true).ToList());
+        Assert.Throws<System.ArgumentException>(() => list.ThenBy("InvalidProperty", true).ToList());
     }
 
     private class SampleClass

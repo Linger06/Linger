@@ -6,7 +6,7 @@ namespace Linger.DataAccess;
 
 public class BaseDatabase : IBaseDatabase
 {
-    #region 构造函数
+    #region 构造函�?
 
     protected readonly IProvider Provider;
 
@@ -15,14 +15,14 @@ public class BaseDatabase : IBaseDatabase
     public BaseDatabase(IProvider provider, string strConnection)
     {
         ArgumentNullException.ThrowIfNull(provider);
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(strConnection);
+        Linger.ArgumentException.ThrowIfNullOrWhiteSpace(strConnection);
 
         Provider = provider;
         ConnString = strConnection;
     }
 
     /// <summary>
-    /// 数据库连接对象
+    /// 数据库连接对�?
     /// </summary>
     private DbConnection? Connection { get; set; }
 
@@ -37,7 +37,7 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     public bool InTransaction { get; set; }
     /// <summary>
-    /// 事务开始
+    /// 事务开�?
     /// </summary>
     /// <returns></returns>
     public DbTransaction BeginTrans()
@@ -79,7 +79,7 @@ public class BaseDatabase : IBaseDatabase
         }
     }
     /// <summary>
-    /// 关闭数据库连接
+    /// 关闭数据库连�?
     /// </summary>
     public void Close()
     {
@@ -111,10 +111,10 @@ public class BaseDatabase : IBaseDatabase
     #endregion
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
     public int ExecuteNonQuery(CommandType cmdType, string cmdText, params DbParameter[] parameters)
@@ -129,10 +129,10 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText,
@@ -148,10 +148,10 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns></returns>
     public int ExecuteNonQuery(CommandType cmdType, string cmdText)
     {
@@ -165,10 +165,10 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText)
     {
@@ -182,11 +182,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
     public int ExecuteNonQuery(DbConnection connection, CommandType cmdType, string cmdText,
@@ -201,11 +201,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText,
@@ -220,11 +220,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns></returns>
     public int ExecuteNonQuery(DbConnection connection, CommandType cmdType, string cmdText)
     {
@@ -237,11 +237,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText)
     {
@@ -254,11 +254,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="isOpenTrans">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
     public int ExecuteNonQuery(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
@@ -284,11 +284,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="isOpenTrans">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
@@ -315,11 +315,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="isOpenTrans">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns></returns>
     public int ExecuteNonQuery(DbTransaction isOpenTrans, CommandType cmdType, string cmdText)
     {
@@ -335,11 +335,11 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    ///     执行 SQL 语句，并返回受影响的行数�?
     /// </summary>
     /// <param name="isOpenTrans">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(DbTransaction isOpenTrans, CommandType cmdType, string cmdText)
     {
@@ -359,7 +359,7 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="isOpenTrans">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText"> 存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
     public IDataReader ExecuteReader(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
@@ -387,7 +387,7 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="isOpenTrans">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText"> 存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
     public async Task<IDataReader> ExecuteReaderAsync(DbTransaction isOpenTrans, CommandType cmdType,
@@ -415,7 +415,7 @@ public class BaseDatabase : IBaseDatabase
     ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
     public IDataReader ExecuteReader(CommandType cmdType, string cmdText, params DbParameter[] parameters)
@@ -441,7 +441,7 @@ public class BaseDatabase : IBaseDatabase
     ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
     public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText,
@@ -468,7 +468,7 @@ public class BaseDatabase : IBaseDatabase
     ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns>返回SqlDataReader对象</returns>
     public IDataReader ExecuteReader(CommandType cmdType, string cmdText)
     {
@@ -493,7 +493,7 @@ public class BaseDatabase : IBaseDatabase
     ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <returns>返回SqlDataReader对象</returns>
     public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText)
     {
@@ -515,7 +515,7 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     查询数据填充到数据集DataSet中
+    ///     查询数据填充到数据集DataSet�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">命令文本</param>
@@ -542,7 +542,7 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     查询数据填充到数据集DataSet中
+    ///     查询数据填充到数据集DataSet�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">命令文本</param>
@@ -570,7 +570,7 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     查询数据填充到数据集DataSet中
+    ///     查询数据填充到数据集DataSet�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">命令文本</param>
@@ -596,7 +596,7 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     查询数据填充到数据集DataSet中
+    ///     查询数据填充到数据集DataSet�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">命令文本</param>
@@ -623,12 +623,12 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public object? ExecuteScalar(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
@@ -641,12 +641,12 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
@@ -660,11 +660,11 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public object? ExecuteScalar(CommandType cmdType, string cmdText)
     {
         DbCommand cmd = Provider.CreateCommand();
@@ -677,11 +677,11 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText)
     {
         DbCommand cmd = Provider.CreateCommand();
@@ -694,13 +694,13 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public object? ExecuteScalar(DbConnection connection, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
@@ -713,13 +713,13 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
@@ -732,12 +732,12 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public object? ExecuteScalar(DbConnection connection, CommandType cmdType, string cmdText)
     {
         DbCommand cmd = Provider.CreateCommand();
@@ -749,12 +749,12 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText)
     {
         DbCommand cmd = Provider.CreateCommand();
@@ -766,13 +766,13 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType"></param>
     /// <param name="cmdText">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="parameters">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <param name="parameters">存储过程名称或者T-SQL命令�?/param>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public object? ExecuteScalar(DbConnection connection, DbTransaction cmdType, CommandType cmdText,
         string parameters)
     {
@@ -785,13 +785,13 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
+    /// <param name="connection">数据库连接对�?/param>
     /// <param name="cmdType"></param>
     /// <param name="cmdText">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="parameters">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <param name="parameters">存储过程名称或者T-SQL命令�?/param>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public async Task<object?> ExecuteScalarAsync(DbConnection connection, DbTransaction cmdType,
         CommandType cmdText,
         string parameters)
@@ -805,13 +805,13 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
     /// <param name="isOpenTrans">事务</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public object? ExecuteScalar(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
@@ -828,13 +828,13 @@ public class BaseDatabase : IBaseDatabase
 
     /// <summary>
     ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    ///     使用所提供参数，执行返回首行首列命�?
     /// </summary>
     /// <param name="isOpenTrans">事务</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令�?/param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型�?/returns>
     public async Task<object?> ExecuteScalarAsync(DbTransaction isOpenTrans, CommandType cmdType,
         string cmdText,
         params DbParameter[] parameters)
@@ -850,15 +850,15 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     为即将执行准备一个命令
+    ///     为即将执行准备一个命�?
     /// </summary>
     /// <param name="cmd">SqlCommand对象</param>
     /// <param name="conn">SqlConnection对象</param>
     /// <param name="isOpenTrans">DbTransaction对象</param>
     /// <param name="commandType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="commandText">存储过程名称或者T-SQL命令行, e.g. Select * from Products</param>
+    /// <param name="commandText">存储过程名称或者T-SQL命令�? e.g. Select * from Products</param>
     /// <param name="parameters">SqlParameters to use in the command</param>
-    /// <param name="times">超时时间 秒</param>
+    /// <param name="times">超时时间 �?/param>
     protected void PrepareCommand(DbCommand cmd, DbConnection conn, DbTransaction? isOpenTrans, CommandType commandType,
         string commandText, DbParameter[]? parameters, int? times = null)
     {
@@ -888,15 +888,15 @@ public class BaseDatabase : IBaseDatabase
     }
 
     /// <summary>
-    ///     为即将执行准备一个命令
+    ///     为即将执行准备一个命�?
     /// </summary>
     /// <param name="cmd">SqlCommand对象</param>
     /// <param name="conn">SqlConnection对象</param>
     /// <param name="isOpenTrans">DbTransaction对象</param>
     /// <param name="commandType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="commandText">存储过程名称或者T-SQL命令行, e.g. Select * from Products</param>
+    /// <param name="commandText">存储过程名称或者T-SQL命令�? e.g. Select * from Products</param>
     /// <param name="parameters">SqlParameters to use in the command</param>
-    /// <param name="times">超时时间 秒</param>
+    /// <param name="times">超时时间 �?/param>
     protected async Task PrepareCommandAsync(DbCommand cmd, DbConnection conn, DbTransaction? isOpenTrans,
         CommandType commandType,
         string commandText, DbParameter[]? parameters, int? times = null)

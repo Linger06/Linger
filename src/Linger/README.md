@@ -15,6 +15,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - [Target Frameworks](#target-frameworks)
 - [Quick Start](#quick-start)
   - [String Extensions](#string-extensions)
+  - [String Cryptography Extensions](#string-cryptography-extensions)
   - [DateTime Extensions](#datetime-extensions)
   - [File Operations](#file-operations)
   - [Collection Extensions](#collection-extensions)
@@ -33,6 +34,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 
 ### 🚀 Core Extensions
 - **String Extensions**: Rich string operations, validation, conversion, and formatting utilities
+- **String Cryptography Extensions**: Secure AES encryption/decryption functionality for data protection
 - **DateTime Extensions**: Date and time manipulation, formatting, and calculations
 - **Numeric Extensions**: Type-safe numeric conversions with **strict type safety principles**, **complete support for all .NET basic numeric types**
 - **Enum Extensions**: Enhanced enum handling and conversion
@@ -108,6 +110,55 @@ string part = longText.SafeSubstring(0, 20); // Won't throw if length exceeds
 bool isEmpty = text.IsNullOrEmpty();
 bool isNumber = number.IsNumber(); // Check if it's a number
 bool isInt = number.IsInteger(); // Check if it's an integer
+```
+
+### String Cryptography Extensions
+
+```csharp
+using Linger.Extensions.Core;
+
+// AES Encryption/Decryption (Recommended - High Security)
+string data = "Sensitive data to encrypt";
+string aesKey = "mySecretKey12345"; // AES key, variable length
+
+try 
+{
+    // AES Encryption - Uses AES-256-CBC mode with automatic random IV generation
+    string aesEncrypted = data.AesEncrypt(aesKey);
+    Console.WriteLine($"AES Encrypted: {aesEncrypted}");
+    
+    // AES Decryption - Automatically extracts IV from encrypted data
+    string aesDecrypted = aesEncrypted.AesDecrypt(aesKey);
+    Console.WriteLine($"AES Decrypted: {aesDecrypted}"); // Output: Sensitive data to encrypt
+}
+catch (ArgumentException ex)
+{
+    Console.WriteLine($"Parameter Error: {ex.Message}");
+}
+catch (CryptographicException ex)
+{
+    Console.WriteLine($"Encryption/Decryption Error: {ex.Message}");
+}
+
+// AES Multiple Encryption Test (Each result is different, more secure)
+for (int i = 1; i <= 3; i++)
+{
+    string encrypted = data.AesEncrypt(aesKey);
+    Console.WriteLine($"Encryption {i}: {encrypted}");
+    // Each output is different due to random IV generation
+}
+
+// 🔐 Security Features:
+// 1. AES uses AES-256-CBC mode with random IV generation for each encryption
+// 2. IV is automatically included in encrypted result and extracted during decryption
+// 3. Same plaintext produces different encrypted results each time, enhancing security
+// 4. DES algorithm is deprecated, recommended only for legacy system compatibility
+
+// ⚠️ Security Recommendations:
+// 1. DES algorithm is not recommended for new projects, use AES instead
+// 2. Keys should be stored securely, not hard-coded in source code
+// 3. Use stronger key management mechanisms in production environments
+// 4. AES key length is variable, internally processed using SHA256 to 32 bytes
 ```
 
 ### DateTime Extensions

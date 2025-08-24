@@ -20,9 +20,9 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     protected RemoteFileSystemBase(RemoteSystemSetting setting, RetryOptions? retryOptions = null)
         : base(retryOptions)
     {
-        Setting = setting ?? throw new ArgumentNullException(nameof(setting));
+        Setting = setting ?? throw new System.ArgumentNullException(nameof(setting));
         if (string.IsNullOrEmpty(setting.Host))
-            throw new ArgumentException($"Host cannot be null or empty: {nameof(setting.Host)}");
+            throw new System.ArgumentException($"Host cannot be null or empty: {nameof(setting.Host)}");
 
         ServerDetailsString = FormatServerDetails();
     }

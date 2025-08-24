@@ -16,7 +16,7 @@ public class Email : IEmail, IDisposable
 
     public Email(EmailConfig emailConfig)
     {
-        _emailConfig = emailConfig ?? throw new ArgumentNullException(nameof(emailConfig));
+        _emailConfig = emailConfig ?? throw new System.ArgumentNullException(nameof(emailConfig));
         _smtpClient = new SmtpClient();
         _smtpClient.MessageSent += SmtpClient_MessageSent;
     }

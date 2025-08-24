@@ -170,17 +170,6 @@ public static class StreamExtensions
 }
 
 /// <summary>
-/// Represents information about a file being uploaded.
-/// </summary>
-public class CustomFileInfo : CustomExistFileInfo
-{
-    /// <summary>
-    /// Gets or sets the new file name.
-    /// </summary>
-    public string? NewFileName { get; set; }
-}
-
-/// <summary>
 /// Represents information about an existing file.
 /// </summary>
 public class CustomExistFileInfo : BaseFileInfo

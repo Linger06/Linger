@@ -74,7 +74,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     /// <param name="logger">日志记录器，可选</param>
     public StandardHttpClient(System.Net.Http.HttpClient httpClient, HttpClientOptions options, ILogger<StandardHttpClient>? logger = null)
     {
-        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _httpClient = httpClient ?? throw new System.ArgumentNullException(nameof(httpClient));
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
 
         // 复制选项

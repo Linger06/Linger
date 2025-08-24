@@ -1,4 +1,4 @@
-﻿namespace Linger;
+namespace Linger;
 
 /// <summary>
 /// Represents a list of parameters.
@@ -34,7 +34,7 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     {
         if (keyArray.Length != dataArray.Length)
         {
-            throw new ArgumentException("Key array length does not match data array length.");
+            throw new System.ArgumentException("Key array length does not match data array length.");
         }
 
         for (var i = 0; i < keyArray.Length; i++)
@@ -83,7 +83,7 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     {
         if (Parameters.ContainsKey(key))
         {
-            throw new ArgumentException($"The key '{key}' already exists in the parameter list.");
+            throw new System.ArgumentException($"The key '{key}' already exists in the parameter list.");
         }
 
         Parameters.Add(key, data);

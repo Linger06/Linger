@@ -1,15 +1,15 @@
-ï»¿using Xunit.v3;
+using Xunit.v3;
 
 namespace Linger.UnitTests;
 
 public class ParameterListTests
 {
-    #region å‚æ•°åŒ–æµ‹è¯•
+    #region ²ÎÊı»¯²âÊÔ
     
     [Theory]
-    [InlineData(true, "value1", null, "value1")]  // å­˜åœ¨çš„é”®, è¿”å›å®é™…å€¼
-    [InlineData(false, null, "default", "default")]  // ä¸å­˜åœ¨çš„é”®, è¿”å›é»˜è®¤å€¼
-    [InlineData(false, null, null, null)]  // ä¸å­˜åœ¨çš„é”®, æ— é»˜è®¤å€¼, è¿”å›null
+    [InlineData(true, "value1", null, "value1")]  // ´æÔÚµÄ¼ü, ·µ»ØÊµ¼ÊÖµ
+    [InlineData(false, null, "default", "default")]  // ²»´æÔÚµÄ¼ü, ·µ»ØÄ¬ÈÏÖµ
+    [InlineData(false, null, null, null)]  // ²»´æÔÚµÄ¼ü, ÎŞÄ¬ÈÏÖµ, ·µ»Ønull
     public void GetOrDefault_ShouldReturnCorrectValue(bool addKey, string keyValue, string defaultValue, string expected)
     {
         // Arrange
@@ -27,9 +27,9 @@ public class ParameterListTests
     }
     
     [Theory]
-    [InlineData(true, 42, 0, 42)]  // å­˜åœ¨çš„é”®, è¿”å›å®é™…å€¼
-    [InlineData(false, 0, 99, 99)]  // ä¸å­˜åœ¨çš„é”®, è¿”å›é»˜è®¤å€¼
-    [InlineData(false, 0, 0, 0)]  // ä¸å­˜åœ¨çš„é”®, è¿”å›ç±»å‹é»˜è®¤å€¼
+    [InlineData(true, 42, 0, 42)]  // ´æÔÚµÄ¼ü, ·µ»ØÊµ¼ÊÖµ
+    [InlineData(false, 0, 99, 99)]  // ²»´æÔÚµÄ¼ü, ·µ»ØÄ¬ÈÏÖµ
+    [InlineData(false, 0, 0, 0)]  // ²»´æÔÚµÄ¼ü, ·µ»ØÀàĞÍÄ¬ÈÏÖµ
     public void GetValueOrDefault_ShouldReturnCorrectValue(bool addKey, int keyValue, int defaultValue, int expected)
     {
         // Arrange
@@ -47,8 +47,8 @@ public class ParameterListTests
     }
     
     [Theory]
-    [InlineData(true, "value1", true, "value1")]  // å­˜åœ¨çš„é”®, è¿”å›trueå’Œæ­£ç¡®çš„å€¼
-    [InlineData(false, null, false, null)]  // ä¸å­˜åœ¨çš„é”®, è¿”å›falseå’Œnull
+    [InlineData(true, "value1", true, "value1")]  // ´æÔÚµÄ¼ü, ·µ»ØtrueºÍÕıÈ·µÄÖµ
+    [InlineData(false, null, false, null)]  // ²»´æÔÚµÄ¼ü, ·µ»ØfalseºÍnull
     public void TryGet_ShouldReturnCorrectResult(bool addKey, string keyValue, bool expectedResult, string expectedValue)
     {
         // Arrange
@@ -67,8 +67,8 @@ public class ParameterListTests
     }
     
     [Theory]
-    [InlineData(true, 42, true, 42)]  // å­˜åœ¨çš„é”®, è¿”å›trueå’Œæ­£ç¡®çš„å€¼
-    [InlineData(false, 0, false, 0)]  // ä¸å­˜åœ¨çš„é”®, è¿”å›falseå’Œé»˜è®¤å€¼0
+    [InlineData(true, 42, true, 42)]  // ´æÔÚµÄ¼ü, ·µ»ØtrueºÍÕıÈ·µÄÖµ
+    [InlineData(false, 0, false, 0)]  // ²»´æÔÚµÄ¼ü, ·µ»ØfalseºÍÄ¬ÈÏÖµ0
     public void TryGetValue_ShouldReturnCorrectResult(bool addKey, int keyValue, bool expectedResult, int expectedValue)
     {
         // Arrange
@@ -87,8 +87,8 @@ public class ParameterListTests
     }
     
     [Theory]
-    [InlineData("key1", "value1", true)]  // å­˜åœ¨çš„é”®
-    [InlineData("key2", "value2", false)]  // ä¸å­˜åœ¨çš„é”®
+    [InlineData("key1", "value1", true)]  // ´æÔÚµÄ¼ü
+    [InlineData("key2", "value2", false)]  // ²»´æÔÚµÄ¼ü
     public void ContainsKey_ShouldReturnCorrectResult(string addKey, string value, bool expectedResult)
     {
         // Arrange
@@ -102,8 +102,8 @@ public class ParameterListTests
     }
     
     [Theory]
-    [InlineData("key1", "value1", "key1", true, 0)]  // ç§»é™¤å­˜åœ¨çš„é”®
-    [InlineData("key1", "value1", "key2", false, 1)]  // ç§»é™¤ä¸å­˜åœ¨çš„é”®
+    [InlineData("key1", "value1", "key1", true, 0)]  // ÒÆ³ı´æÔÚµÄ¼ü
+    [InlineData("key1", "value1", "key2", false, 1)]  // ÒÆ³ı²»´æÔÚµÄ¼ü
     public void Remove_ShouldReturnCorrectResult(string addKey, string value, string removeKey, 
         bool expectedResult, int expectedCount)
     {
@@ -119,8 +119,8 @@ public class ParameterListTests
     }
     
     [Theory]
-    [InlineData("key1", "initial", "updated")]  // æ›´æ–°ç°æœ‰é”®
-    [InlineData("key2", "initial", "updated")]  // æ·»åŠ æ–°é”®
+    [InlineData("key1", "initial", "updated")]  // ¸üĞÂÏÖÓĞ¼ü
+    [InlineData("key2", "initial", "updated")]  // Ìí¼ÓĞÂ¼ü
     public void SetValue_ShouldUpdateOrAddParameter(string initialKey, string initialValue, string newValue)
     {
         // Arrange
@@ -134,9 +134,9 @@ public class ParameterListTests
     }
     
     [Theory]
-    [InlineData(0)]  // ç©ºå‚æ•°åˆ—è¡¨
-    [InlineData(1)]  // 1ä¸ªå‚æ•°
-    [InlineData(3)]  // å¤šä¸ªå‚æ•°
+    [InlineData(0)]  // ¿Õ²ÎÊıÁĞ±í
+    [InlineData(1)]  // 1¸ö²ÎÊı
+    [InlineData(3)]  // ¶à¸ö²ÎÊı
     public void GetEnumerator_ShouldEnumerateCorrectNumberOfParameters(int parameterCount)
     {
         // Arrange
@@ -193,7 +193,7 @@ public class ParameterListTests
         var values = new object[] { "value1", 42 };
         
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => new ParameterList(keys, values));
+        Assert.Throws<System.ArgumentException>(() => new ParameterList(keys, values));
     }
     
     [Fact]
@@ -203,7 +203,7 @@ public class ParameterListTests
         var parameterList = new ParameterList("key1", "value1");
         
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => parameterList.Add("key1", "value2"));
+        Assert.Throws<System.ArgumentException>(() => parameterList.Add("key1", "value2"));
     }
     
     [Fact]

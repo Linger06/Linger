@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using Linger.Helper;
 using Xunit.v3;
 
@@ -22,7 +22,7 @@ public class GuardExtensionsTests
         // Arrange
         object obj = new object();
 
-        // Act & Assert (不应抛出异常)
+        // Act & Assert (不应该抛出异常)
         obj.EnsureIsNotNull("testParam");
     }
 
@@ -43,7 +43,7 @@ public class GuardExtensionsTests
         string str = string.Empty;
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => str.EnsureIsNotNullAndEmpty("testParam"));
+        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullAndEmpty("testParam"));
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public class GuardExtensionsTests
         string str = "   ";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => str.EnsureIsNotNullAndWhiteSpace("testParam"));
+        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullAndWhiteSpace("testParam"));
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class GuardExtensionsTests
         object obj = new object();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => obj.EnsureIsNull("testParam"));
+        Assert.Throws<System.ArgumentException>(() => obj.EnsureIsNull("testParam"));
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class GuardExtensionsTests
         bool condition = false;
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => condition.EnsureIsTrue("testParam"));
+        Assert.Throws<System.ArgumentException>(() => condition.EnsureIsTrue("testParam"));
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class GuardExtensionsTests
         bool condition = true;
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => condition.EnsureIsFalse("testParam"));
+        Assert.Throws<System.ArgumentException>(() => condition.EnsureIsFalse("testParam"));
     }
 
     [Fact]
@@ -193,7 +193,7 @@ public class GuardExtensionsTests
         var collection = Array.Empty<int>();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => collection.EnsureIsNotNullOrEmpty("testParam"));
+        Assert.Throws<System.ArgumentException>(() => collection.EnsureIsNotNullOrEmpty("testParam"));
     }
 
     [Fact]

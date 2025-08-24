@@ -104,7 +104,7 @@ public static class TypeExtensions
     /// </example>
     public static PropertyInfo? GetSingleProperty(this Type self, string name)
     {
-        var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
+        var fullName = self.FullName ?? throw new System.ArgumentException(nameof(self.FullName));
 
         var properties = s_propertyCache.GetOrAdd(fullName, _ => self.GetProperties());
         return properties.FirstOrDefault(x => x.Name == name);

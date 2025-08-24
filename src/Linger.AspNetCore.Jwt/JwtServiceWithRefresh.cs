@@ -36,7 +36,7 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtSer
     {
         if (string.IsNullOrEmpty(token.RefreshToken))
         {
-            throw new ArgumentException("Token不包含有效的刷新令牌");
+            throw new System.ArgumentException("Token不包含有效的刷新令牌");
         }
 
         ClaimsPrincipal principal = GetPrincipalFromExpiredToken(token.AccessToken);

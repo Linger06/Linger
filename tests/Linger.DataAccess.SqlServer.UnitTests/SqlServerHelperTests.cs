@@ -7,7 +7,7 @@ using Xunit;
 namespace Linger.DataAccess.SqlServer.UnitTests;
 
 /// <summary>
-/// SqlServerHelper 单元测试类 - 仅测试不涉及数据库连接的逻辑
+/// SqlServerHelper 单元测试�?- 仅测试不涉及数据库连接的逻辑
 /// </summary>
 public class SqlServerHelperTests
 {
@@ -41,7 +41,7 @@ public class SqlServerHelperTests
         var dataTable = CreateTestDataTable();
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, ""));
+        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, ""));
         Assert.Equal("tableName", ex.ParamName);
     }
 
@@ -53,7 +53,7 @@ public class SqlServerHelperTests
         var dataTable = CreateTestDataTable();
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, "   "));
+        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, "   "));
         Assert.Equal("tableName", ex.ParamName);
     }
 
@@ -75,7 +75,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId("", "TestTable"));
+        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.GetMaxId("", "TestTable"));
         Assert.Equal("fieldName", ex.ParamName);
     }
 
@@ -97,7 +97,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.GetMaxId("Id", ""));
+        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.GetMaxId("Id", ""));
         Assert.Equal("tableName", ex.ParamName);
     }
 
@@ -119,7 +119,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.Exists(""));
+        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.Exists(""));
         Assert.Equal("sql", ex.ParamName);
     }
 
@@ -141,7 +141,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = Assert.Throws<ArgumentException>(() => sqlHelper.Exists("   "));
+        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.Exists("   "));
         Assert.Equal("sql", ex.ParamName);
     }
 
@@ -164,7 +164,7 @@ public class SqlServerHelperTests
         var dataTable = CreateTestDataTable();
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
             sqlHelper.AddByBulkCopyAsync(dataTable, ""));
         Assert.Equal("tableName", ex.ParamName);
     }
@@ -176,7 +176,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
             sqlHelper.GetMaxIdAsync("", "TestTable"));
         Assert.Equal("fieldName", ex.ParamName);
     }
@@ -188,7 +188,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
             sqlHelper.GetMaxIdAsync("Id", ""));
         Assert.Equal("tableName", ex.ParamName);
     }
@@ -200,7 +200,7 @@ public class SqlServerHelperTests
         var sqlHelper = new SqlServerHelper(TestConnectionString);
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
             sqlHelper.ExistsAsync(""));
         Assert.Equal("sql", ex.ParamName);
     }
@@ -329,7 +329,7 @@ public class SqlServerHelperPerformanceTests
         {
             tasks.Add(Task.Run(async () =>
             {
-                var ex = await Assert.ThrowsAsync<ArgumentException>(() =>
+                var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
                     sqlHelper.ExistsAsync("")).ConfigureAwait(false);
                 Assert.Equal("sql", ex.ParamName);
             }));

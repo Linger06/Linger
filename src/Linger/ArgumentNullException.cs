@@ -1,22 +1,28 @@
 ﻿#pragma warning disable
-#if NETFRAMEWORK || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+// Only define custom ArgumentNullException for frameworks that don't have ThrowIfNull
+#if NETFRAMEWORK || NETSTANDARD2_0 || NET5_0
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Linger.Extensions.Core;
+
 namespace Linger;
 
 /// <summary>
-/// Enhanced ArgumentNullException with additional validation methods.
-/// This extends the system ArgumentNullException to provide backward compatibility
-/// for older .NET versions that don't have ThrowIfNull methods.
+/// Polyfill ArgumentNullException with ThrowIfNull method for older .NET frameworks.
+/// This provides backward compatibility for .NET Framework, .NET Standard 2.0, and .NET 5 
+/// that don't have ThrowIfNull method. In .NET 6+, use the built-in System.ArgumentNullException.ThrowIfNull instead.
 /// </summary>
-public class ArgumentNullException : System.ArgumentNullException
+/// <remarks>
+/// This class only provides ThrowIfNull polyfill. For string validation methods
+/// (ThrowIfNullOrEmpty/ThrowIfNullOrWhiteSpace), use Linger.ArgumentException class.
+/// </remarks>
+public static class ArgumentNullException
 {
-    public ArgumentNullException(string paramName) : base(paramName) { }
-
-    public ArgumentNullException(string? paramName, string? message) : base(paramName, message) { }
-
-#if NETFRAMEWORK || NETSTANDARD2_0_OR_GREATER || NET5_0_OR_GREATER
+    /// <summary>
+    /// Throws an ArgumentNullException if the argument is null.
+    /// This is a polyfill for .NET 6+'s ArgumentNullException.ThrowIfNull method.
+    /// </summary>
+    /// <param name="argument">The argument to check.</param>
+    /// <param name="paramName">The name of the parameter (automatically captured).</param>
     public static void ThrowIfNull([NotNull] object? argument, [CallerArgumentExpression("argument")] string? paramName = null)
     {
         if (argument == null)
@@ -26,21 +32,6 @@ public class ArgumentNullException : System.ArgumentNullException
     [DoesNotReturn]
     static void Throw(string? paramName) =>
         throw new System.ArgumentNullException(paramName);
-#endif
-
-    public static void ThrowIfNullOrEmpty([NotNull] string? argument, [CallerArgumentExpression("argument")] string? paramName = null)
-    {
-        ThrowIfNull(argument, paramName);
-        if (argument.IsEmpty())
-            throw new System.ArgumentException("The value cannot be an empty string.", paramName);
-    }
-
-    public static void ThrowIfNullOrWhiteSpace([NotNull] string? argument, [CallerArgumentExpression("argument")] string? paramName = null)
-    {
-        ThrowIfNull(argument, paramName);
-        if (argument.IsWhiteSpace())
-            throw new System.ArgumentException("The value cannot be a white space", paramName);
-    }
 }
 #endif
 

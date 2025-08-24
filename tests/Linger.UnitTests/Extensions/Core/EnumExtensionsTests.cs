@@ -1,4 +1,4 @@
-﻿using System.ComponentModel;
+using System.ComponentModel;
 
 #if NET5_0_OR_GREATER
 
@@ -89,7 +89,7 @@ public class EnumExtensionsTests
     public void GetEnum_ThrowsExceptionForInvalidString()
     {
         var itemName = "InvalidValue";
-        Assert.Throws<ArgumentException>(() => itemName.GetEnum<TestEnum>());
+        Assert.Throws<System.ArgumentException>(() => itemName.GetEnum<TestEnum>());
     }
 
     [Fact]

@@ -254,7 +254,7 @@ public static class DataTableExtensions
         {
             if (!left.ContainAllColumns(x.ColumnName))
             {
-                throw new ArgumentException($"{nameof(leftCols)} have columns not in {nameof(left)}");
+                throw new System.ArgumentException($"{nameof(leftCols)} have columns not in {nameof(left)}");
             }
         });
 
@@ -262,7 +262,7 @@ public static class DataTableExtensions
         {
             if (!right.ContainAllColumns(x.ColumnName))
             {
-                throw new ArgumentException($"{nameof(rightCols)} have columns not in {nameof(right)}");
+                throw new System.ArgumentException($"{nameof(rightCols)} have columns not in {nameof(right)}");
             }
         });
 
@@ -377,7 +377,7 @@ public static class DataTableExtensions
         {
             if (!source.Columns.Contains(column.ColumnName))
             {
-                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
+                throw new System.ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
             }
         }
 

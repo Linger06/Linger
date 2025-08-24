@@ -46,13 +46,13 @@ public class StandardPathHelper : PathHelperBase
             basePath ??= Environment.CurrentDirectory;
 
             if (!Path.IsPathRooted(basePath))
-                throw new ArgumentException("Base path must be absolute", nameof(basePath));
+                throw new System.ArgumentException("Base path must be absolute", nameof(basePath));
 
             return NormalizePath(Path.Combine(basePath, relativePath), preserveEndingSeparator);
         }
         catch (Exception ex) when (IsPathException(ex))
         {
-            throw new ArgumentException(
+            throw new System.ArgumentException(
                 $"Invalid path. Base: {basePath ?? "<null>"}, Relative: {relativePath ?? "<null>"}",
                 nameof(relativePath),
                 ex);
@@ -146,7 +146,7 @@ public class StandardPathHelper : PathHelperBase
     public static string GetRelativePath(string relativeTo, string path)
     {
         if (relativeTo.IsNullOrWhiteSpace())
-            throw new ArgumentException("Base path cannot be null or empty", nameof(relativeTo));
+            throw new System.ArgumentException("Base path cannot be null or empty", nameof(relativeTo));
 
         if (path.IsNullOrWhiteSpace())
             return path ?? string.Empty;
@@ -168,7 +168,7 @@ public class StandardPathHelper : PathHelperBase
         }
         catch (Exception ex) when (IsPathException(ex))
         {
-            throw new ArgumentException($"Invalid path. Path: {path}, Base: {relativeTo}", ex);
+            throw new System.ArgumentException($"Invalid path. Path: {path}, Base: {relativeTo}", ex);
         }
     }
 
@@ -311,6 +311,10 @@ public class StandardPathHelper : PathHelperBase
         try
         {
             if (string.IsNullOrWhiteSpace(path))
+                return false;
+
+            // 检查是否包含空字符，如果有则直接返回 false
+            if (path.Contains('\0'))
                 return false;
 
             var fullPath = Path.GetFullPath(path);

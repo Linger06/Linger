@@ -5,7 +5,7 @@ using Oracle.ManagedDataAccess.Client;
 namespace Linger.DataAccess.Oracle.UnitTests;
 
 /// <summary>
-/// Oracle数据库操作助手类的单元测试
+/// Oracle数据库操作助手类的单元测�?
 /// </summary>
 public class OracleHelperTests
 {
@@ -33,14 +33,14 @@ public class OracleHelperTests
     public void Constructor_WithEmptyConnectionString_ShouldThrowArgumentException()
     {
         // Arrange, Act & Assert
-        Assert.Throws<ArgumentException>(() => new OracleHelper(""));
+        Assert.Throws<System.ArgumentException>(() => new OracleHelper(""));
     }
 
     [Fact]
     public void Constructor_WithWhitespaceConnectionString_ShouldThrowArgumentException()
     {
         // Arrange, Act & Assert
-        Assert.Throws<ArgumentException>(() => new OracleHelper("   "));
+        Assert.Throws<System.ArgumentException>(() => new OracleHelper("   "));
     }
 
     [Theory]
@@ -60,7 +60,7 @@ public class OracleHelperTests
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => helper.QueryInBatches(sql, parameters));
+            Assert.Throws<System.ArgumentException>(() => helper.QueryInBatches(sql, parameters));
         }
     }
 
@@ -104,7 +104,7 @@ public class OracleHelperTests
         // Act & Assert - 这里主要测试参数化查询的构建逻辑
         // 由于没有真实数据库连接，我们主要验证参数处理逻辑
         Assert.Equal(500, parameters.Count);
-        Assert.True(parameters.Count <= 1000); // 验证在单批次范围内
+        Assert.True(parameters.Count <= 1000); // 验证在单批次范围�?
     }
 
     [Fact]
@@ -123,8 +123,8 @@ public class OracleHelperTests
 
         // Assert
         Assert.Equal(2500, parameters.Count);
-        Assert.Equal(3, totalBatches); // 应该分为3批
-        Assert.Equal(1000, batches.Count); // 第一批应该有1000个
+        Assert.Equal(3, totalBatches); // 应该分为3�?
+        Assert.Equal(1000, batches.Count); // 第一批应该有1000�?
     }
 
     [Theory]
@@ -144,7 +144,7 @@ public class OracleHelperTests
         }
         else
         {
-            await Assert.ThrowsAsync<ArgumentException>(() => helper.QueryInBatchesAsync(sql, parameters));
+            await Assert.ThrowsAsync<System.ArgumentException>(() => helper.QueryInBatchesAsync(sql, parameters));
         }
     }
 
@@ -179,7 +179,7 @@ public class OracleHelperTests
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => helper.Exists(sql));
+            Assert.Throws<System.ArgumentException>(() => helper.Exists(sql));
         }
     }
 
@@ -194,7 +194,7 @@ public class OracleHelperTests
             new(":name", OracleDbType.Varchar2) { Value = "TestUser" }
         };
 
-        // Act & Assert - 验证参数类型和结构
+        // Act & Assert - 验证参数类型和结�?
         Assert.NotNull(parameters);
         Assert.Single(parameters);
         Assert.Equal(":name", parameters[0].ParameterName);
@@ -217,7 +217,7 @@ public class OracleHelperTests
         }
         else
         {
-            await Assert.ThrowsAsync<ArgumentException>(() => helper.ExistsAsync(sql));
+            await Assert.ThrowsAsync<System.ArgumentException>(() => helper.ExistsAsync(sql));
         }
     }
 
@@ -251,7 +251,7 @@ public class OracleHelperTests
         }
         else
         {
-            Assert.Throws<ArgumentException>(() => helper.Query(sql));
+            Assert.Throws<System.ArgumentException>(() => helper.Query(sql));
         }
     }
 
@@ -292,7 +292,7 @@ public class OracleHelperTests
         }
         else
         {
-            await Assert.ThrowsAsync<ArgumentException>(() => helper.QueryAsync(sql));
+            await Assert.ThrowsAsync<System.ArgumentException>(() => helper.QueryAsync(sql));
         }
     }
 
@@ -345,14 +345,14 @@ public class OracleHelperTests
         const string maliciousInput = "'; DROP TABLE users; --";
         const string sql = "SELECT * FROM users WHERE name = :name";
 
-        // Act - 创建参数化查询
+        // Act - 创建参数化查�?
         var parameter = new OracleParameter(":name", OracleDbType.Varchar2) { Value = maliciousInput };
 
         // Assert - 验证恶意输入被正确参数化
         Assert.Equal(":name", parameter.ParameterName);
         Assert.Equal(maliciousInput, parameter.Value);
         // 参数化查询会将恶意输入作为字面值处理，而不是SQL代码
-        Assert.DoesNotContain("DROP TABLE", sql); // SQL语句本身不包含恶意代码
+        Assert.DoesNotContain("DROP TABLE", sql); // SQL语句本身不包含恶意代�?
     }
 
     [Fact]

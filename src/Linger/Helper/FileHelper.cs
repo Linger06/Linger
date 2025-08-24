@@ -45,7 +45,7 @@ public static class FileHelper
     public static void WriteText(string filePath, string text, Encoding? encoding = null)
     {
         if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
+            throw new System.ArgumentNullException(nameof(filePath));
         encoding ??= ExtensionMethodSetting.DefaultEncoding;
 
         var directory = Path.GetDirectoryName(filePath);
@@ -59,7 +59,7 @@ public static class FileHelper
     public static void AppendText(string filePath, string content)
     {
         if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
+            throw new System.ArgumentNullException(nameof(filePath));
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
@@ -70,7 +70,7 @@ public static class FileHelper
     }
 
     /// <summary>
-    /// 尝试写入文本，失败返回 false 不抛异常。
+    /// 尝试写入文本，失败返�?false 不抛异常�?
     /// </summary>
     public static bool TryWriteText(string filePath, string text, Encoding? encoding = null)
     {
@@ -86,7 +86,7 @@ public static class FileHelper
     }
 
     /// <summary>
-    /// 尝试追加文本，失败返回 false 不抛异常。
+    /// 尝试追加文本，失败返�?false 不抛异常�?
     /// </summary>
     public static bool TryAppendText(string filePath, string content)
     {
@@ -144,7 +144,7 @@ public static class FileHelper
     public static void ClearFile(string filePath)
     {
         if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
+            throw new System.ArgumentNullException(nameof(filePath));
 
         File.WriteAllBytes(filePath, []);
     }
@@ -152,7 +152,7 @@ public static class FileHelper
     public static void CreateFile(string filePath, string? content = null, byte[]? buffer = null, Encoding? encoding = null)
     {
         if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
+            throw new System.ArgumentNullException(nameof(filePath));
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
@@ -242,7 +242,7 @@ public static class FileHelper
         SearchOption searchOption = SearchOption.TopDirectoryOnly,
         Func<DirectoryInfo, bool>? filter = null)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(directoryPath);
+        ArgumentException.ThrowIfNullOrEmpty(directoryPath);
 
         var directories = Directory.GetDirectories(directoryPath, searchPattern, searchOption);
 
@@ -262,11 +262,11 @@ public static class FileHelper
     /// 获取指定目录下的所有文件名
     /// </summary>
     /// <param name="directoryPath">目录路径</param>
-    /// <param name="searchPattern">搜索模式 (默认为 "*.*")</param>
+    /// <param name="searchPattern">搜索模式 (默认�?"*.*")</param>
     /// <param name="containPath">是否包含完整路径</param>
-    /// <param name="containExtension">是否包含扩展名</param>
+    /// <param name="containExtension">是否包含扩展�?/param>
     /// <param name="searchOption">搜索选项，是否包含子目录</param>
-    /// <returns>文件名列表</returns>
+    /// <returns>文件名列�?/returns>
     public static List<string> GetFileNames(
         string directoryPath,
         string searchPattern = "*.*",
@@ -275,7 +275,7 @@ public static class FileHelper
         SearchOption searchOption = SearchOption.TopDirectoryOnly)
     {
         if (string.IsNullOrEmpty(directoryPath))
-            throw new ArgumentNullException(nameof(directoryPath));
+            throw new System.ArgumentNullException(nameof(directoryPath));
 
         if (!Directory.Exists(directoryPath))
             throw new DirectoryNotFoundException($"Directory not found: {directoryPath}");
@@ -307,9 +307,9 @@ public static class FileHelper
     public static void CopyDir(string srcDirectory, string destDirectory)
     {
         if (string.IsNullOrEmpty(srcDirectory))
-            throw new ArgumentNullException(nameof(srcDirectory));
+            throw new System.ArgumentNullException(nameof(srcDirectory));
         if (string.IsNullOrEmpty(destDirectory))
-            throw new ArgumentNullException(nameof(destDirectory));
+            throw new System.ArgumentNullException(nameof(destDirectory));
 
         srcDirectory.EnsureDirectoryExists();
 
@@ -345,7 +345,7 @@ public static class FileHelper
     public static void ClearDirectory(string directoryPath)
     {
         if (string.IsNullOrEmpty(directoryPath))
-            throw new ArgumentNullException(nameof(directoryPath));
+            throw new System.ArgumentNullException(nameof(directoryPath));
 
         if (!Directory.Exists(directoryPath))
         {

@@ -185,117 +185,6 @@ public class FileInfoClassesTests
 
     #endregion
 
-    #region CustomFileInfo Tests
-
-    [Fact]
-    public void CustomFileInfo_Constructor_ShouldInitializeWithDefaults()
-    {
-        // Act
-        var fileInfo = new CustomFileInfo();
-
-        // Assert
-        Assert.NotNull(fileInfo);
-        Assert.Null(fileInfo.HashData);
-        Assert.Null(fileInfo.FileName);
-        Assert.Null(fileInfo.FullFilePath);
-        Assert.Null(fileInfo.FileSize);
-        Assert.Equal(0, fileInfo.Length);
-        Assert.Null(fileInfo.RelativeFilePath);
-        Assert.Null(fileInfo.NewFileName);
-    }
-
-    [Fact]
-    public void CustomFileInfo_InheritsFromCustomExistFileInfo()
-    {
-        // Act
-        var fileInfo = new CustomFileInfo();
-
-        // Assert
-        Assert.IsAssignableFrom<CustomExistFileInfo>(fileInfo);
-        Assert.IsAssignableFrom<BaseFileInfo>(fileInfo);
-    }
-
-    [Fact]
-    public void CustomFileInfo_Properties_ShouldGetAndSetCorrectly()
-    {
-        // Arrange
-        var fileInfo = new CustomFileInfo();
-        const string newFileName = "renamed_file.txt";
-        const string relativeFilePath = @"uploads\temp.txt";
-        const string hashData = "DEF456";
-        const string fileName = "upload.txt";
-
-        // Act
-        fileInfo.NewFileName = newFileName;
-        fileInfo.RelativeFilePath = relativeFilePath;
-        fileInfo.HashData = hashData;
-        fileInfo.FileName = fileName;
-
-        // Assert
-        Assert.Equal(newFileName, fileInfo.NewFileName);
-        Assert.Equal(relativeFilePath, fileInfo.RelativeFilePath);
-        Assert.Equal(hashData, fileInfo.HashData);
-        Assert.Equal(fileName, fileInfo.FileName);
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("new_file.txt")]
-    [InlineData("renamed document.pdf")]
-    [InlineData("file_with_new_name.doc")]
-    [InlineData("特殊字符文件名.txt")]
-    public void CustomFileInfo_NewFileName_ShouldAcceptVariousValues(string newFileName)
-    {
-        // Arrange
-        var fileInfo = new CustomFileInfo();
-
-        // Act
-        fileInfo.NewFileName = newFileName;
-
-        // Assert
-        Assert.Equal(newFileName, fileInfo.NewFileName);
-    }
-
-    [Fact]
-    public void CustomFileInfo_ShouldAllowNullNewFileName()
-    {
-        // Arrange
-        var fileInfo = new CustomFileInfo();
-
-        // Act
-        fileInfo.NewFileName = null;
-
-        // Assert
-        Assert.Null(fileInfo.NewFileName);
-    }
-
-    [Fact]
-    public void CustomFileInfo_CompleteFileInfoScenario_ShouldWorkCorrectly()
-    {
-        // Arrange
-        var fileInfo = new CustomFileInfo();
-
-        // Act - Simulate a file upload scenario
-        fileInfo.FileName = "original.jpg";
-        fileInfo.NewFileName = "processed_image.jpg";
-        fileInfo.FullFilePath = @"C:\uploads\original.jpg";
-        fileInfo.RelativeFilePath = @"uploads\original.jpg";
-        fileInfo.HashData = "MD5:A1B2C3D4E5F6";
-        fileInfo.FileSize = "2.5 MB";
-        fileInfo.Length = 2621440; // 2.5 MB in bytes
-
-        // Assert
-        Assert.Equal("original.jpg", fileInfo.FileName);
-        Assert.Equal("processed_image.jpg", fileInfo.NewFileName);
-        Assert.Equal(@"C:\uploads\original.jpg", fileInfo.FullFilePath);
-        Assert.Equal(@"uploads\original.jpg", fileInfo.RelativeFilePath);
-        Assert.Equal("MD5:A1B2C3D4E5F6", fileInfo.HashData);
-        Assert.Equal("2.5 MB", fileInfo.FileSize);
-        Assert.Equal(2621440, fileInfo.Length);
-    }
-
-    #endregion
-
     #region Integration Tests
 
     [Fact]
@@ -304,17 +193,13 @@ public class FileInfoClassesTests
         // Arrange & Act
         var baseFileInfo = new BaseFileInfo();
         var customExistFileInfo = new CustomExistFileInfo();
-        var customFileInfo = new CustomFileInfo();
 
         // Assert inheritance chain
         Assert.True(customExistFileInfo is BaseFileInfo);
-        Assert.True(customFileInfo is CustomExistFileInfo);
-        Assert.True(customFileInfo is BaseFileInfo);
 
         // Assert types
         Assert.IsType<BaseFileInfo>(baseFileInfo);
         Assert.IsType<CustomExistFileInfo>(customExistFileInfo);
-        Assert.IsType<CustomFileInfo>(customFileInfo);
     }
 
     [Fact]
@@ -324,7 +209,6 @@ public class FileInfoClassesTests
         BaseFileInfo[] fileInfos = {
             new BaseFileInfo { FileName = "base.txt" },
             new CustomExistFileInfo { FileName = "exist.txt", RelativeFilePath = "folder/exist.txt" },
-            new CustomFileInfo { FileName = "custom.txt", NewFileName = "new_custom.txt" }
         };
 
         // Act & Assert
@@ -332,15 +216,10 @@ public class FileInfoClassesTests
         {
             Assert.NotNull(fileInfo);
             Assert.NotNull(fileInfo.FileName);
-            
+
             if (fileInfo is CustomExistFileInfo existFileInfo)
             {
                 Assert.NotNull(existFileInfo.RelativeFilePath);
-            }
-            
-            if (fileInfo is CustomFileInfo customFileInfo)
-            {
-                Assert.True(!string.IsNullOrEmpty(customFileInfo.NewFileName));
             }
         }
     }
@@ -348,7 +227,6 @@ public class FileInfoClassesTests
     [Theory]
     [InlineData(typeof(BaseFileInfo))]
     [InlineData(typeof(CustomExistFileInfo))]
-    [InlineData(typeof(CustomFileInfo))]
     public void FileInfoClasses_CanBeInstantiated(Type fileInfoType)
     {
         // Act

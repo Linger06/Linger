@@ -109,8 +109,8 @@ public static class IEnumerableExtensions
     public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source,
         Func<TSource, TKey> keySelector)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
+        if (source == null) throw new System.ArgumentNullException(nameof(source));
+        if (keySelector == null) throw new System.ArgumentNullException(nameof(keySelector));
 
         var hash = new HashSet<TKey>();
         return source.Where(p => hash.Add(keySelector(p)));

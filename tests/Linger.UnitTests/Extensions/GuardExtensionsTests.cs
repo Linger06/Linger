@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 
 namespace Linger.UnitTests.Extensions;
 
@@ -41,7 +41,7 @@ public class GuardExtensionsTests
         var str = "";
 
         // Act & Assert
-        ArgumentException? exception = Assert.Throws<ArgumentException>(() => str.EnsureIsNotNullAndEmpty());
+        System.ArgumentException? exception = Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullAndEmpty());
         Assert.Equal("The value cannot be an empty string.", exception.Message);
     }
 
@@ -72,7 +72,7 @@ public class GuardExtensionsTests
         var obj = new object();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => obj.EnsureIsNull());
+        Assert.Throws<System.ArgumentException>(() => obj.EnsureIsNull());
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class GuardExtensionsTests
         var obj = new object();
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => obj.EnsureIsNull("customParam"));
+        var exception = Assert.Throws<System.ArgumentException>(() => obj.EnsureIsNull("customParam"));
         Assert.Contains("customParam", exception.Message);
     }
 
@@ -93,7 +93,7 @@ public class GuardExtensionsTests
         var obj = new object();
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => obj.EnsureIsNull(message: "Custom error message"));
+        var exception = Assert.Throws<System.ArgumentException>(() => obj.EnsureIsNull(message: "Custom error message"));
         Assert.Contains("Custom error message", exception.Message);
     }
 
@@ -127,7 +127,7 @@ public class GuardExtensionsTests
         var str = "";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => str.EnsureIsNotNullOrEmpty());
+        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullOrEmpty());
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class GuardExtensionsTests
         var str = "   ";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => str.EnsureIsNotNullOrWhiteSpace());
+        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullOrWhiteSpace());
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public class GuardExtensionsTests
         var condition = false;
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => condition.EnsureIsTrue());
+        Assert.Throws<System.ArgumentException>(() => condition.EnsureIsTrue());
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public class GuardExtensionsTests
         var condition = true;
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => condition.EnsureIsFalse());
+        Assert.Throws<System.ArgumentException>(() => condition.EnsureIsFalse());
     }
 
     [Fact]
@@ -301,7 +301,7 @@ public class GuardExtensionsTests
         var filePath = "";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => filePath.EnsureFileExists());
+        Assert.Throws<System.ArgumentException>(() => filePath.EnsureFileExists());
     }
 
     [Fact]
@@ -344,7 +344,7 @@ public class GuardExtensionsTests
         var directoryPath = "";
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => directoryPath.EnsureDirectoryExists());
+        Assert.Throws<System.ArgumentException>(() => directoryPath.EnsureDirectoryExists());
     }
 
     [Fact]
@@ -377,7 +377,7 @@ public class GuardExtensionsTests
         var collection = new List<int>();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
+        Assert.Throws<System.ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
     }
 
     [Fact]
@@ -387,7 +387,7 @@ public class GuardExtensionsTests
         var collection = new int[0];
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
+        Assert.Throws<System.ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
     }
 
     [Fact]
@@ -410,7 +410,7 @@ public class GuardExtensionsTests
         var collection = new ReadOnlyCollection<int>(new List<int>());
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
+        Assert.Throws<System.ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
     }
 
     [Fact]
@@ -433,7 +433,7 @@ public class GuardExtensionsTests
         var collection = new CustomEnumerable<int>(new int[0]);
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
+        Assert.Throws<System.ArgumentException>(() => collection.EnsureIsNotNullOrEmpty());
     }
 
     [Fact]
@@ -443,7 +443,7 @@ public class GuardExtensionsTests
         var collection = new List<int>();
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => collection.EnsureIsNotNullOrEmpty(message: "Custom empty collection error"));
+        var exception = Assert.Throws<System.ArgumentException>(() => collection.EnsureIsNotNullOrEmpty(message: "Custom empty collection error"));
         Assert.Contains("Custom empty collection error", exception.Message);
     }
 
@@ -454,7 +454,7 @@ public class GuardExtensionsTests
         var collection = new List<int>();
 
         // Act & Assert
-        var exception = Assert.Throws<ArgumentException>(() => collection.EnsureIsNotNullOrEmpty("customParam"));
+        var exception = Assert.Throws<System.ArgumentException>(() => collection.EnsureIsNotNullOrEmpty("customParam"));
         Assert.Contains("customParam", exception.Message);
     }
 

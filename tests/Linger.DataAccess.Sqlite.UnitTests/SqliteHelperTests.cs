@@ -250,8 +250,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    var exPage = await Record.ExceptionAsync(() => _fileHelper.QueryInBatchesAsync(sql, userIds, cancellationToken: cts.Token));
-    Assert.IsAssignableFrom<OperationCanceledException>(exPage);
+        var exPage = await Record.ExceptionAsync(() => _fileHelper.QueryInBatchesAsync(sql, userIds, cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exPage);
     }
 
     #endregion
@@ -338,8 +338,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    var exExists = await Record.ExceptionAsync(() => _fileHelper.ExistsAsync(sql, cts.Token));
-    Assert.IsAssignableFrom<OperationCanceledException>(exExists);
+        var exExists = await Record.ExceptionAsync(() => _fileHelper.ExistsAsync(sql, cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exExists);
     }
 
     #endregion
@@ -430,8 +430,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    var exQuery = await Record.ExceptionAsync(() => _fileHelper.QueryAsync(sql, cts.Token));
-    Assert.IsAssignableFrom<OperationCanceledException>(exQuery);
+        var exQuery = await Record.ExceptionAsync(() => _fileHelper.QueryAsync(sql, cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exQuery);
     }
 
     #endregion
@@ -604,8 +604,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    var exBackup = await Record.ExceptionAsync(() => _fileHelper.BackupDatabaseAsync(backupPath, cts.Token));
-    Assert.IsAssignableFrom<OperationCanceledException>(exBackup);
+        var exBackup = await Record.ExceptionAsync(() => _fileHelper.BackupDatabaseAsync(backupPath, cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exBackup);
     }
 
     #endregion
@@ -684,8 +684,8 @@ public class SqliteHelperTests : IDisposable
         cts.Cancel();
 
         // Act & Assert
-    var exTran = await Record.ExceptionAsync(() => _fileHelper.ExecuteInTransactionAsync(statements, cts.Token));
-    Assert.IsAssignableFrom<OperationCanceledException>(exTran);
+        var exTran = await Record.ExceptionAsync(() => _fileHelper.ExecuteInTransactionAsync(statements, cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exTran);
     }
 
     #endregion

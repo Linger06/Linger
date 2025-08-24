@@ -161,8 +161,8 @@ public static class ExpressionHelper
     public static IEnumerable<T> OrderBy<T>(this IEnumerable<T> query, string propertyName, string sort)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (string.IsNullOrEmpty(propertyName)) throw new ArgumentException("Property name cannot be null or empty", nameof(propertyName));
-        if (string.IsNullOrEmpty(sort)) throw new ArgumentException("Sort direction cannot be null or empty", nameof(sort));
+        if (string.IsNullOrEmpty(propertyName)) throw new System.ArgumentException("Property name cannot be null or empty", nameof(propertyName));
+        if (string.IsNullOrEmpty(sort)) throw new System.ArgumentException("Sort direction cannot be null or empty", nameof(sort));
 
         try
         {

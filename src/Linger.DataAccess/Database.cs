@@ -493,7 +493,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns>查询结果DataTable</returns>
     public virtual DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000)
     {
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        Linger.ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
 #if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
@@ -539,7 +539,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns>查询结果DataTable</returns>
     public virtual async Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, int batchSize = 1000, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
 #if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
@@ -587,7 +587,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <remarks>仅适用于受信任数据来源。若 values 来自用户输入，请使用参数化方法。</remarks>
     public virtual DataTable QueryInBatchesRaw(string sql, List<string> values, int batchSize = 1000, bool quote = true)
     {
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(values);
 #if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
@@ -631,7 +631,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns>查询结果DataTable</returns>
     public virtual async Task<DataTable> QueryInBatchesRawAsync(string sql, List<string> values, int batchSize = 1000, bool quote = true, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(values);
 #if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);

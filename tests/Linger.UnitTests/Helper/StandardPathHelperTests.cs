@@ -1,4 +1,4 @@
-ï»¿using System;
+using System;
 using System.IO;
 using Linger.Helper.PathHelpers;
 using Xunit;
@@ -10,7 +10,7 @@ public class StandardPathHelperTests
     [Fact]
     public void NormalizePath_ShouldStandardizePaths()
     {
-        // åŸºæœ¬è·¯å¾„æµ‹è¯•
+        // »ù±¾Â·¾¶²âÊÔ
         string path1 = "path/to/file";
         string path2 = "path\\to\\file";
         string path3 = "path//to\\\\file";
@@ -26,7 +26,7 @@ public class StandardPathHelperTests
         Assert.Equal(expected, result2);
         Assert.Equal(expected, result3);
 
-        // è¾¹ç•Œæ¡ä»¶æµ‹è¯•
+        // ±ß½çÌõ¼ş²âÊÔ
         Assert.Equal(null, StandardPathHelper.NormalizePath(null));
         Assert.Equal(string.Empty, StandardPathHelper.NormalizePath(string.Empty));
         Assert.Equal(string.Empty, StandardPathHelper.NormalizePath("   "));
@@ -35,7 +35,7 @@ public class StandardPathHelperTests
     [Fact]
     public void NormalizePath_WithEndingSeparator_ShouldPreserveEnding()
     {
-        // æµ‹è¯•ä¿ç•™æœ«å°¾åˆ†éš”ç¬¦
+        // ²âÊÔ±£ÁôÄ©Î²·Ö¸ô·û
         string path1 = "path/to/folder";
         string path2 = "path/to/folder/";
 
@@ -51,60 +51,60 @@ public class StandardPathHelperTests
     [Fact]
     public void PathEquals_ShouldComparePathsCorrectly()
     {
-        // åŸºæœ¬ç›¸ç­‰æµ‹è¯•
+        // »ù±¾ÏàµÈ²âÊÔ
         Assert.True(StandardPathHelper.PathEquals("path/to/file", "path\\to\\file"));
         Assert.True(StandardPathHelper.PathEquals("path/to/file/", "path\\to\\file"));
 
-        // å¤§å°å†™æµ‹è¯•
+        // ´óĞ¡Ğ´²âÊÔ
         Assert.True(StandardPathHelper.PathEquals("Path/To/File", "path\\to\\file"));
         Assert.False(StandardPathHelper.PathEquals("Path/To/File", "path\\to\\file", false));
 
-        // nullå’Œç©ºå­—ç¬¦ä¸²æµ‹è¯•
+        // nullºÍ¿Õ×Ö·û´®²âÊÔ
         Assert.True(StandardPathHelper.PathEquals(null, null));
         Assert.False(StandardPathHelper.PathEquals(null, ""));
         Assert.False(StandardPathHelper.PathEquals("path", null));
 
-        // è·¯å¾„ä¸åŒæµ‹è¯•
+        // Â·¾¶²»Í¬²âÊÔ
         Assert.False(StandardPathHelper.PathEquals("path1", "path2"));
     }
 
     [Fact]
     public void IsWindowsDriveLetter_ShouldIdentifyDriveLettersCorrectly()
     {
-        // æœ‰æ•ˆçš„Windowsç›˜ç¬¦
+        // ÓĞĞ§µÄWindowsÅÌ·û
         Assert.True(StandardPathHelper.IsWindowsDriveLetter("C:"));
         Assert.True(StandardPathHelper.IsWindowsDriveLetter("Z:"));
         Assert.True(StandardPathHelper.IsWindowsDriveLetter("C:\\"));
         Assert.True(StandardPathHelper.IsWindowsDriveLetter("D:/"));
         Assert.True(StandardPathHelper.IsWindowsDriveLetter("E:\\path"));
 
-        // æ— æ•ˆçš„Windowsç›˜ç¬¦
+        // ÎŞĞ§µÄWindowsÅÌ·û
         Assert.False(StandardPathHelper.IsWindowsDriveLetter(null));
         Assert.False(StandardPathHelper.IsWindowsDriveLetter(""));
         Assert.False(StandardPathHelper.IsWindowsDriveLetter("C"));
         Assert.False(StandardPathHelper.IsWindowsDriveLetter(":C"));
         Assert.False(StandardPathHelper.IsWindowsDriveLetter("1:"));
-        Assert.False(StandardPathHelper.IsWindowsDriveLetter("C:*")); // éæ³•å­—ç¬¦
+        Assert.False(StandardPathHelper.IsWindowsDriveLetter("C:*")); // ·Ç·¨×Ö·û
     }
 
     [Fact]
     public void GetRelativePath_ShouldCalculateRelativePaths()
     {
-        // è·å–åŸºå‡†è·¯å¾„å’Œç›®æ ‡è·¯å¾„
+        // »ñÈ¡»ù×¼Â·¾¶ºÍÄ¿±êÂ·¾¶
         string baseDir = OSPlatformHelper.IsWindows ? "C:\\base\\path" : "/base/path";
         string targetSameLevel = OSPlatformHelper.IsWindows ? "C:\\base\\other" : "/base/other";
         string targetSubDir = OSPlatformHelper.IsWindows ? "C:\\base\\path\\subdir" : "/base/path/subdir";
         string targetParentDir = OSPlatformHelper.IsWindows ? "C:\\base" : "/base";
         string targetDifferentRoot = OSPlatformHelper.IsWindows ? "D:\\other\\path" : "/other/path";
 
-        // æµ‹è¯•ä»basePathåˆ°targetsçš„ç›¸å¯¹è·¯å¾„
+        // ²âÊÔ´ÓbasePathµ½targetsµÄÏà¶ÔÂ·¾¶
 #if NETCOREAPP
-        // .NET Coreç¯å¢ƒä¸­ä½¿ç”¨Path.GetRelativePathç›´æ¥æµ‹è¯•
+        // .NET Core»·¾³ÖĞÊ¹ÓÃPath.GetRelativePathÖ±½Ó²âÊÔ
         var relSameLevel = StandardPathHelper.GetRelativePath(baseDir, targetSameLevel);
         var relSubDir = StandardPathHelper.GetRelativePath(baseDir, targetSubDir);
         var relParent = StandardPathHelper.GetRelativePath(baseDir, targetParentDir);
 
-        // æ ¹æ®å¹³å°æœŸæœ›çš„ç»“æœ
+        // ¸ù¾İÆ½Ì¨ÆÚÍûµÄ½á¹û
         string expectedSameLevel = OSPlatformHelper.IsWindows ? "..\\other" : "../other";
         string expectedSubDir = "subdir";
         string expectedParent = "..";
@@ -113,39 +113,39 @@ public class StandardPathHelperTests
         Assert.Equal(expectedSubDir, relSubDir);
         Assert.Equal(expectedParent, relParent);
 #else
-        // å¦‚æœä¸åœ¨.NET Coreç¯å¢ƒï¼Œè¿˜æ˜¯éªŒè¯å‡½æ•°ä¸æŠ›å¼‚å¸¸ä¸”è¿”å›éç©ºç»“æœ
+        // Èç¹û²»ÔÚ.NET Core»·¾³£¬»¹ÊÇÑéÖ¤º¯Êı²»Å×Òì³£ÇÒ·µ»Ø·Ç¿Õ½á¹û
         Assert.NotNull(StandardPathHelper.GetRelativePath(baseDir, targetSameLevel));
         Assert.NotNull(StandardPathHelper.GetRelativePath(baseDir, targetSubDir));
         Assert.NotNull(StandardPathHelper.GetRelativePath(baseDir, targetParentDir));
 #endif
 
-        // è¾¹ç¼˜æƒ…å†µæµ‹è¯•
+        // ±ßÔµÇé¿ö²âÊÔ
         Assert.Equal(".", StandardPathHelper.GetRelativePath(baseDir, baseDir));
-        Assert.Throws<ArgumentException>(() => StandardPathHelper.GetRelativePath("", targetSubDir));
+        Assert.Throws<System.ArgumentException>(() => StandardPathHelper.GetRelativePath("", targetSubDir));
         Assert.Equal(string.Empty, StandardPathHelper.GetRelativePath(baseDir, ""));
     }
 
     [Fact]
     public void ContainsInvalidPathChars_ShouldDetectInvalidCharacters()
     {
-        // åˆ›å»ºåŒ…å«Windowséæ³•å­—ç¬¦çš„è·¯å¾„
+        // ´´½¨°üº¬Windows·Ç·¨×Ö·ûµÄÂ·¾¶
         string invalidWinChars = OSPlatformHelper.IsWindows ? "path*to?file" : null;
 
-        // åˆ›å»ºåŒ…å«ç³»ç»Ÿéæ³•å­—ç¬¦çš„è·¯å¾„
+        // ´´½¨°üº¬ÏµÍ³·Ç·¨×Ö·ûµÄÂ·¾¶
         string invalidPath = $"path{Path.GetInvalidPathChars()[0]}file";
         string validPath = "path/to/file";
 
-        // æµ‹è¯•éæ³•å­—ç¬¦æ£€æµ‹
+        // ²âÊÔ·Ç·¨×Ö·û¼ì²â
         Assert.True(StandardPathHelper.ContainsInvalidPathChars(invalidPath));
         Assert.False(StandardPathHelper.ContainsInvalidPathChars(validPath));
 
-        // Windowsç‰¹å®šæµ‹è¯•
+        // WindowsÌØ¶¨²âÊÔ
         if (OSPlatformHelper.IsWindows && invalidWinChars != null)
         {
             Assert.True(StandardPathHelper.ContainsInvalidPathChars(invalidWinChars));
         }
 
-        // æ£€æŸ¥Windowsä¿ç•™å
+        // ¼ì²éWindows±£ÁôÃû
         if (OSPlatformHelper.IsWindows)
         {
             Assert.True(StandardPathHelper.ContainsInvalidPathChars("C:\\CON\\file.txt"));
@@ -153,7 +153,7 @@ public class StandardPathHelperTests
             Assert.True(StandardPathHelper.ContainsInvalidPathChars("LPT1.txt"));
         }
 
-        // nullå’Œç©ºå­—ç¬¦ä¸²æµ‹è¯•
+        // nullºÍ¿Õ×Ö·û´®²âÊÔ
         Assert.False(StandardPathHelper.ContainsInvalidPathChars(null));
         Assert.False(StandardPathHelper.ContainsInvalidPathChars(string.Empty));
     }
@@ -161,25 +161,25 @@ public class StandardPathHelperTests
     [Fact]
     public void GetParentDirectory_ShouldReturnCorrectParentPath()
     {
-        // åˆ›å»ºæµ‹è¯•è·¯å¾„
+        // ´´½¨²âÊÔÂ·¾¶
         string testPath = Path.Combine("dir1", "dir2", "dir3");
         var fullPath = Path.GetFullPath(testPath);
 
-        // è·å–ä¸€çº§çˆ¶ç›®å½•
+        // »ñÈ¡Ò»¼¶¸¸Ä¿Â¼
         var parentDir = StandardPathHelper.GetParentDirectory(fullPath, 1);
         var expectedParent = Directory.GetParent(fullPath).FullName;
         Assert.Equal(expectedParent, parentDir);
 
-        // è·å–ä¸¤çº§çˆ¶ç›®å½•
+        // »ñÈ¡Á½¼¶¸¸Ä¿Â¼
         var parentOfParent = StandardPathHelper.GetParentDirectory(fullPath, 2);
         var expectedGrandParent = Directory.GetParent(Directory.GetParent(fullPath).FullName).FullName;
         Assert.Equal(expectedGrandParent, parentOfParent);
 
-        // è¾¹ç¼˜æƒ…å†µæµ‹è¯•
+        // ±ßÔµÇé¿ö²âÊÔ
         var noChange = StandardPathHelper.GetParentDirectory(fullPath, 0);
         Assert.Equal(fullPath, noChange);
 
-        // æµ‹è¯•è´Ÿå€¼çº§åˆ«ï¼ˆåº”è¯¥å–ç»å¯¹å€¼ï¼‰
+        // ²âÊÔ¸ºÖµ¼¶±ğ£¨Ó¦¸ÃÈ¡¾ø¶ÔÖµ£©
         var negativeLevel = StandardPathHelper.GetParentDirectory(fullPath, -1);
         Assert.Equal(expectedParent, negativeLevel);
     }
@@ -187,34 +187,34 @@ public class StandardPathHelperTests
     [Fact]
     public void Exists_ShouldDetectFileAndDirectoryExistence()
     {
-        // è·å–å½“å‰ç›®å½•ï¼ˆè‚¯å®šå­˜åœ¨çš„ç›®å½•ï¼‰
+        // »ñÈ¡µ±Ç°Ä¿Â¼£¨¿Ï¶¨´æÔÚµÄÄ¿Â¼£©
         string currentDir = Directory.GetCurrentDirectory();
 
-        // æµ‹è¯•ç›®å½•å­˜åœ¨æ£€æŸ¥
+        // ²âÊÔÄ¿Â¼´æÔÚ¼ì²é
         Assert.True(StandardPathHelper.Exists(currentDir, false));
 
-        // åˆ›å»ºä¸€ä¸ªä¸´æ—¶æ–‡ä»¶ç”¨äºæµ‹è¯•
+        // ´´½¨Ò»¸öÁÙÊ±ÎÄ¼şÓÃÓÚ²âÊÔ
         string tempFile = Path.GetTempFileName();
         try
         {
-            // æµ‹è¯•æ–‡ä»¶å­˜åœ¨æ£€æŸ¥
+            // ²âÊÔÎÄ¼ş´æÔÚ¼ì²é
             Assert.True(StandardPathHelper.Exists(tempFile, true));
 
-            // æµ‹è¯•ä¸å­˜åœ¨çš„è·¯å¾„
+            // ²âÊÔ²»´æÔÚµÄÂ·¾¶
             Assert.False(StandardPathHelper.Exists(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()), true));
             Assert.False(StandardPathHelper.Exists(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()), false));
 
-            // æµ‹è¯•æ— æ•ˆè·¯å¾„
+            // ²âÊÔÎŞĞ§Â·¾¶
             Assert.False(StandardPathHelper.Exists("||invalid||path||"));
 
-            // æµ‹è¯•ç©ºè·¯å¾„
+            // ²âÊÔ¿ÕÂ·¾¶
             Assert.False(StandardPathHelper.Exists(null));
             Assert.False(StandardPathHelper.Exists(""));
             Assert.False(StandardPathHelper.Exists("   "));
         }
         finally
         {
-            // æ¸…ç†ä¸´æ—¶æ–‡ä»¶
+            // ÇåÀíÁÙÊ±ÎÄ¼ş
             if (File.Exists(tempFile))
             {
                 File.Delete(tempFile);
@@ -225,7 +225,7 @@ public class StandardPathHelperTests
     [Fact]
     public void ResolveToAbsolutePath_ShouldResolveRelativePaths()
     {
-        // æµ‹è¯•åŸºç¡€è·¯å¾„å’Œç›¸å¯¹è·¯å¾„
+        // ²âÊÔ»ù´¡Â·¾¶ºÍÏà¶ÔÂ·¾¶
         string baseDir = Directory.GetCurrentDirectory();
         string relativePath = "subdir/file.txt";
 
@@ -234,16 +234,16 @@ public class StandardPathHelperTests
 
         Assert.Equal(expected, result);
 
-        // æµ‹è¯•ç»å¯¹è·¯å¾„
+        // ²âÊÔ¾ø¶ÔÂ·¾¶
         string absolutePath = Path.GetFullPath("file.txt");
         var absoluteResult = StandardPathHelper.ResolveToAbsolutePath(baseDir, absolutePath);
         Assert.Equal(absolutePath, absoluteResult);
 
-        // æµ‹è¯•è¾¹ç¼˜æƒ…å†µ
+        // ²âÊÔ±ßÔµÇé¿ö
         Assert.Equal(string.Empty, StandardPathHelper.ResolveToAbsolutePath(baseDir, ""));
         Assert.Equal(string.Empty, StandardPathHelper.ResolveToAbsolutePath(baseDir, null));
 
-        // æµ‹è¯•ä¿ç•™æœ«å°¾åˆ†éš”ç¬¦
+        // ²âÊÔ±£ÁôÄ©Î²·Ö¸ô·û
         var withSeparator = StandardPathHelper.ResolveToAbsolutePath(baseDir, "subdir/", true);
         Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), withSeparator);
     }
@@ -251,15 +251,15 @@ public class StandardPathHelperTests
     [Fact]
     public void PathEquals_ShouldHandlePathExceptions()
     {
-        // æµ‹è¯•åŒ…å«éæ³•å­—ç¬¦çš„è·¯å¾„ï¼Œè¿™å¯èƒ½å¯¼è‡´Path.GetFullPathå¼‚å¸¸
-        string invalidPath1 = "C:\\" + new string('\0', 1) + "invalid"; // åŒ…å«ç©ºå­—ç¬¦
+        // ²âÊÔ°üº¬·Ç·¨×Ö·ûµÄÂ·¾¶£¬Õâ¿ÉÄÜµ¼ÖÂPath.GetFullPathÒì³£
+        string invalidPath1 = "C:\\" + new string('\0', 1) + "invalid"; // °üº¬¿Õ×Ö·û
         string invalidPath2 = "normal/path";
 
-        // åº”è¯¥èƒ½å¤Ÿå¤„ç†å¼‚å¸¸æƒ…å†µï¼Œè¿”å›falseè€Œä¸æ˜¯æŠ›å‡ºå¼‚å¸¸
+        // Ó¦¸ÃÄÜ¹»´¦ÀíÒì³£Çé¿ö£¬·µ»Øfalse¶ø²»ÊÇÅ×³öÒì³£
         var result = StandardPathHelper.PathEquals(invalidPath1, invalidPath2);
         Assert.False(result);
 
-        // æµ‹è¯•æé•¿è·¯å¾„
+        // ²âÊÔ¼«³¤Â·¾¶
         var longPath = new string('a', 300);
         var normalPath = "short/path";
         var longPathResult = StandardPathHelper.PathEquals(longPath, normalPath);
@@ -271,32 +271,32 @@ public class StandardPathHelperTests
     {
         string validPath = Directory.GetCurrentDirectory();
         
-        // æµ‹è¯•null pathå‚æ•°è¿”å›ç©ºå­—ç¬¦ä¸²æƒ…å†µ
+        // ²âÊÔnull path²ÎÊı·µ»Ø¿Õ×Ö·û´®Çé¿ö
         var nullPathResult = StandardPathHelper.GetRelativePath(validPath, null);
         Assert.Equal(string.Empty, nullPathResult);
 
-        // æµ‹è¯•åŒ…å«éæ³•å­—ç¬¦çš„è·¯å¾„
+        // ²âÊÔ°üº¬·Ç·¨×Ö·ûµÄÂ·¾¶
         string invalidPath = "invalid\0path";
         
-        // åº”è¯¥æŠ›å‡ºArgumentExceptionè€Œä¸æ˜¯å…¶ä»–å¼‚å¸¸
-        Assert.Throws<ArgumentException>(() => StandardPathHelper.GetRelativePath(validPath, invalidPath));
+        // Ó¦¸ÃÅ×³öArgumentException¶ø²»ÊÇÆäËûÒì³£
+        Assert.Throws<System.ArgumentException>(() => StandardPathHelper.GetRelativePath(validPath, invalidPath));
     }
 
     [Fact]
     public void IsWindowsDriveLetter_ShouldHandleInvalidPathChars()
     {
-        // æµ‹è¯•åŒ…å«éæ³•å­—ç¬¦ä½†é•¿åº¦å¤§äº3çš„æƒ…å†µ
+        // ²âÊÔ°üº¬·Ç·¨×Ö·ûµ«³¤¶È´óÓÚ3µÄÇé¿ö
         string pathWithInvalidChars = "C:\\inv*lid";
         
-        // åº”è¯¥æ£€æµ‹åˆ°éæ³•å­—ç¬¦å¹¶è¿”å›false
+        // Ó¦¸Ã¼ì²âµ½·Ç·¨×Ö·û²¢·µ»Øfalse
         var result = StandardPathHelper.IsWindowsDriveLetter(pathWithInvalidChars);
         Assert.False(result);
 
-        // æµ‹è¯•é•¿åº¦ä¸º3ä¸”ç¬¬ä¸‰ä¸ªå­—ç¬¦ä¸æ˜¯åˆ†éš”ç¬¦çš„æƒ…å†µ  
+        // ²âÊÔ³¤¶ÈÎª3ÇÒµÚÈı¸ö×Ö·û²»ÊÇ·Ö¸ô·ûµÄÇé¿ö  
         var invalidDrive = "C:x";
         Assert.False(StandardPathHelper.IsWindowsDriveLetter(invalidDrive));
 
-        // æµ‹è¯•æœ‰æ•ˆçš„è¾ƒé•¿è·¯å¾„
+        // ²âÊÔÓĞĞ§µÄ½Ï³¤Â·¾¶
         var validLongPath = "D:\\ValidPath\\SubDir";
         Assert.True(StandardPathHelper.IsWindowsDriveLetter(validLongPath));
     }
@@ -304,23 +304,23 @@ public class StandardPathHelperTests
     [Fact] 
     public void ContainsInvalidPathChars_ShouldCheckNonWindowsPlatforms()
     {
-        // è¿™ä¸ªæµ‹è¯•ä¸»è¦æ˜¯ä¸ºäº†è¦†ç›–éWindowså¹³å°çš„ä»£ç è·¯å¾„
-        // åœ¨Windowsä¸Šè¿™ä¸ªæµ‹è¯•å¯èƒ½ä¸ä¼šæ‰§è¡Œåˆ°Unixåˆ†æ”¯ï¼Œä½†ä»ç„¶æœ‰åŠ©äºç†è§£ä»£ç é€»è¾‘
+        // Õâ¸ö²âÊÔÖ÷ÒªÊÇÎªÁË¸²¸Ç·ÇWindowsÆ½Ì¨µÄ´úÂëÂ·¾¶
+        // ÔÚWindowsÉÏÕâ¸ö²âÊÔ¿ÉÄÜ²»»áÖ´ĞĞµ½Unix·ÖÖ§£¬µ«ÈÔÈ»ÓĞÖúÓÚÀí½â´úÂëÂß¼­
         
-        // æµ‹è¯•åŒ…å«nullå­—ç¬¦çš„è·¯å¾„ï¼ˆUnixç³»ç»Ÿä¸­çš„éæ³•å­—ç¬¦ï¼‰
+        // ²âÊÔ°üº¬null×Ö·ûµÄÂ·¾¶£¨UnixÏµÍ³ÖĞµÄ·Ç·¨×Ö·û£©
         string pathWithNull = "path\0with\0null";
         
-        // åœ¨æ‰€æœ‰å¹³å°ä¸Šï¼ŒåŒ…å«nullå­—ç¬¦çš„è·¯å¾„éƒ½åº”è¯¥è¢«è®¤ä¸ºæ˜¯éæ³•çš„
+        // ÔÚËùÓĞÆ½Ì¨ÉÏ£¬°üº¬null×Ö·ûµÄÂ·¾¶¶¼Ó¦¸Ã±»ÈÏÎªÊÇ·Ç·¨µÄ
         var result = StandardPathHelper.ContainsInvalidPathChars(pathWithNull);
         
-        // æ³¨æ„ï¼šåœ¨Windowsä¸Šè¿™ä¼šé€šè¿‡ç³»ç»Ÿéæ³•å­—ç¬¦æ£€æŸ¥æ•è·ï¼Œåœ¨Unixä¸Šé€šè¿‡nullå­—ç¬¦æ£€æŸ¥æ•è·
+        // ×¢Òâ£ºÔÚWindowsÉÏÕâ»áÍ¨¹ıÏµÍ³·Ç·¨×Ö·û¼ì²é²¶»ñ£¬ÔÚUnixÉÏÍ¨¹ınull×Ö·û¼ì²é²¶»ñ
         Assert.True(result);
     }
 
     [Fact]
     public void GetParentDirectory_ShouldHandleRootPath()
     {
-        // æµ‹è¯•æ ¹ç›®å½•æƒ…å†µï¼ŒDirectory.GetParentå¯èƒ½è¿”å›null
+        // ²âÊÔ¸ùÄ¿Â¼Çé¿ö£¬Directory.GetParent¿ÉÄÜ·µ»Ønull
         string rootPath;
         if (OSPlatformHelper.IsWindows)
         {
@@ -331,30 +331,30 @@ public class StandardPathHelperTests
             rootPath = "/";
         }
 
-        // å°è¯•è·å–æ ¹ç›®å½•çš„çˆ¶ç›®å½•
+        // ³¢ÊÔ»ñÈ¡¸ùÄ¿Â¼µÄ¸¸Ä¿Â¼
         var result = StandardPathHelper.GetParentDirectory(rootPath, 1);
         
-        // å¦‚æœæ— æ³•è·å–çˆ¶ç›®å½•ï¼Œåº”è¯¥è¿”å›åŸè·¯å¾„
+        // Èç¹ûÎŞ·¨»ñÈ¡¸¸Ä¿Â¼£¬Ó¦¸Ã·µ»ØÔ­Â·¾¶
         Assert.NotNull(result);
     }
 
     [Fact] 
     public void GetRelativePathCore_ShouldHandleEmptyResult()
     {
-        // è¿™ä¸ªæµ‹è¯•é’ˆå¯¹GetRelativePathCoreæ–¹æ³•ä¸­result.Countä¸º0çš„æƒ…å†µ
+        // Õâ¸ö²âÊÔÕë¶ÔGetRelativePathCore·½·¨ÖĞresult.CountÎª0µÄÇé¿ö
         string basePath = Directory.GetCurrentDirectory();
         string samePath = basePath;
         
         var result = StandardPathHelper.GetRelativePath(basePath, samePath);
         
-        // ç›¸åŒè·¯å¾„åº”è¯¥è¿”å›"."
+        // ÏàÍ¬Â·¾¶Ó¦¸Ã·µ»Ø"."
         Assert.Equal(".", result);
     }
 
     [Fact]
     public void NormalizePath_ShouldHandleNullAndWhitespace()
     {
-        // è¯¦ç»†æµ‹è¯•å„ç§ç©ºå€¼æƒ…å†µ
+        // ÏêÏ¸²âÊÔ¸÷ÖÖ¿ÕÖµÇé¿ö
         Assert.Equal(string.Empty, StandardPathHelper.NormalizePath(""));
         Assert.Equal(string.Empty, StandardPathHelper.NormalizePath("   "));
         Assert.Equal(string.Empty, StandardPathHelper.NormalizePath("\t\n"));
@@ -364,14 +364,14 @@ public class StandardPathHelperTests
     [Fact]
     public void Exists_ShouldHandleExceptions()
     {
-        // æµ‹è¯•éå¸¸é•¿çš„è·¯å¾„ï¼Œå¯èƒ½å¯¼è‡´PathTooLongException
+        // ²âÊÔ·Ç³£³¤µÄÂ·¾¶£¬¿ÉÄÜµ¼ÖÂPathTooLongException
         var veryLongPath = new string('a', 500);
         
-        // åº”è¯¥ä¼˜é›…å¤„ç†å¼‚å¸¸ï¼Œè¿”å›falseè€Œä¸æ˜¯æŠ›å‡ºå¼‚å¸¸
+        // Ó¦¸ÃÓÅÑÅ´¦ÀíÒì³££¬·µ»Øfalse¶ø²»ÊÇÅ×³öÒì³£
         var result = StandardPathHelper.Exists(veryLongPath);
         Assert.False(result);
 
-        // æµ‹è¯•åŒ…å«éæ³•å­—ç¬¦çš„è·¯å¾„
+        // ²âÊÔ°üº¬·Ç·¨×Ö·ûµÄÂ·¾¶
         var invalidPath = "path\0with\0null";
         var invalidResult = StandardPathHelper.Exists(invalidPath);
         Assert.False(invalidResult);

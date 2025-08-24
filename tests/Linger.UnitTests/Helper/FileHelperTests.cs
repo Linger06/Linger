@@ -1,4 +1,4 @@
-ï»¿using System.Text;
+using System.Text;
 using Linger.Helper;
 using Xunit.v3;
 
@@ -12,7 +12,7 @@ public class FileHelperTests : IDisposable
 
     public FileHelperTests()
     {
-        // åˆ›å»ºä¸´æ—¶æµ‹è¯•ç›®å½•
+        // ´´½¨ÁÙÊ±²âÊÔÄ¿Â¼
         _testDirectory = Path.Combine(Path.GetTempPath(), $"LingerTests_{Guid.NewGuid()}");
         Directory.CreateDirectory(_testDirectory);
         _createdDirectories.Add(_testDirectory);
@@ -20,7 +20,7 @@ public class FileHelperTests : IDisposable
 
     public void Dispose()
     {
-        // æ¸…ç†æµ‹è¯•æ–‡ä»¶å’Œç›®å½•
+        // ÇåÀí²âÊÔÎÄ¼şºÍÄ¿Â¼
         try
         {
             foreach (var file in _createdFiles)
@@ -31,7 +31,7 @@ public class FileHelperTests : IDisposable
                 }
             }
 
-            // å€’åºæ¸…ç†ç›®å½•ï¼ˆå…ˆæ¸…ç†å­ç›®å½•ï¼‰
+            // µ¹ĞòÇåÀíÄ¿Â¼£¨ÏÈÇåÀí×ÓÄ¿Â¼£©
             foreach (var dir in _createdDirectories.OrderByDescending(d => d.Length))
             {
                 if (Directory.Exists(dir))
@@ -42,7 +42,7 @@ public class FileHelperTests : IDisposable
         }
         catch
         {
-            // å¿½ç•¥æ¸…ç†è¿‡ç¨‹ä¸­çš„é”™è¯¯
+            // ºöÂÔÇåÀí¹ı³ÌÖĞµÄ´íÎó
         }
     }
 
@@ -80,7 +80,7 @@ public class FileHelperTests : IDisposable
     public void ReadText_WithExistingFileAndEncoding_ReturnsContent()
     {
         // Arrange
-        var content = "æµ‹è¯•å†…å®¹";
+        var content = "²âÊÔÄÚÈİ";
         var filePath = CreateTestFile("test.txt", content);
 
         // Act
@@ -247,8 +247,8 @@ public class FileHelperTests : IDisposable
         FileHelper.CopyFile(sourceFilePath, destFilePath);
 
         // Assert
-        Assert.True(File.Exists(sourceFilePath)); // æºæ–‡ä»¶ä»å­˜åœ¨
-        Assert.True(File.Exists(destFilePath));   // ç›®æ ‡æ–‡ä»¶å·²åˆ›å»º
+        Assert.True(File.Exists(sourceFilePath)); // Ô´ÎÄ¼şÈÔ´æÔÚ
+        Assert.True(File.Exists(destFilePath));   // Ä¿±êÎÄ¼şÒÑ´´½¨
         Assert.Equal(content, File.ReadAllText(destFilePath));
     }
 
@@ -291,7 +291,7 @@ public class FileHelperTests : IDisposable
         // Arrange
         var nonExistentPath = Path.Combine(_testDirectory, "nonexistent.txt");
 
-        // Act & Assert (ä¸åº”æŠ›å‡ºå¼‚å¸¸)
+        // Act & Assert (²»Ó¦Å×³öÒì³£)
         FileHelper.DeleteFileIfExists(nonExistentPath);
     }
 
@@ -516,8 +516,8 @@ public class FileHelperTests : IDisposable
         FileHelper.ClearDirectory(dir);
 
         // Assert
-        Assert.True(Directory.Exists(dir)); // ç›®å½•è‡ªèº«åº”è¯¥ä»å­˜åœ¨
-        Assert.Empty(Directory.GetFileSystemEntries(dir)); // ä½†åº”è¯¥æ˜¯ç©ºçš„
+        Assert.True(Directory.Exists(dir)); // Ä¿Â¼×ÔÉíÓ¦¸ÃÈÔ´æÔÚ
+        Assert.Empty(Directory.GetFileSystemEntries(dir)); // µ«Ó¦¸ÃÊÇ¿ÕµÄ
     }
 
     [Fact]
@@ -539,7 +539,7 @@ public class FileHelperTests : IDisposable
         // Arrange
         var nonExistentDir = Path.Combine(_testDirectory, "nonexistent");
 
-        // Act & Assert (ä¸åº”æŠ›å‡ºå¼‚å¸¸)
+        // Act & Assert (²»Ó¦Å×³öÒì³£)
         FileHelper.DeleteDirectory(nonExistentDir);
     }
 
@@ -574,8 +574,8 @@ public class FileHelperTests : IDisposable
         Assert.Equal(fileName, fileInfo.FileName);
         Assert.Equal(filePath, fileInfo.FullFilePath);
         Assert.Equal(content.Length, fileInfo.Length);
-        Assert.NotNull(fileInfo.HashData); // MD5å“ˆå¸Œå€¼åº”è¯¥å­˜åœ¨
-        Assert.NotNull(fileInfo.FileSize);  // æ–‡ä»¶å¤§å°æ ¼å¼åŒ–å­—ç¬¦ä¸²åº”è¯¥å­˜åœ¨
+        Assert.NotNull(fileInfo.HashData); // MD5¹şÏ£ÖµÓ¦¸Ã´æÔÚ
+        Assert.NotNull(fileInfo.FileSize);  // ÎÄ¼ş´óĞ¡¸ñÊ½»¯×Ö·û´®Ó¦¸Ã´æÔÚ
     }
 
     [Fact]
@@ -615,7 +615,7 @@ public class FileHelperTests : IDisposable
     public void WriteText_WithNullPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.WriteText(null, "content", Encoding.UTF8));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.WriteText(null, "content", Encoding.UTF8));
     }
 
     [Fact]
@@ -625,7 +625,7 @@ public class FileHelperTests : IDisposable
     var filePath = Path.Combine(_testDirectory, "test.txt");
     _createdFiles.Add(filePath);
 
-    // Act: ç°åœ¨ä¼ å…¥ null ç¼–ç æ—¶åº”ä½¿ç”¨é»˜è®¤ç¼–ç å†™å…¥è€ŒéæŠ›å‡º
+    // Act: ÏÖÔÚ´«Èë null ±àÂëÊ±Ó¦Ê¹ÓÃÄ¬ÈÏ±àÂëĞ´Èë¶ø·ÇÅ×³ö
     FileHelper.WriteText(filePath, "content", null);
 
     // Assert
@@ -637,7 +637,7 @@ public class FileHelperTests : IDisposable
     public void AppendText_WithNullPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.AppendText(null, "content"));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.AppendText(null, "content"));
     }
 
     [Fact]
@@ -666,14 +666,14 @@ public class FileHelperTests : IDisposable
     public void ClearFile_WithNullPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.ClearFile(null));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.ClearFile(null));
     }
 
     [Fact]
     public void CreateFile_WithNullPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.CreateFile(null));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.CreateFile(null));
     }
 
     [Fact]
@@ -699,12 +699,12 @@ public class FileHelperTests : IDisposable
     [Fact]
     public void Contains_WithUnauthorizedAccess_ReturnsFalse()
     {
-        // Arrange - åˆ›å»ºä¸€ä¸ªæ¨¡æ‹Ÿçš„å—é™ç›®å½•ï¼ˆè¿™åœ¨æ™®é€šæµ‹è¯•ç¯å¢ƒå¯èƒ½æ— æ³•çœŸæ­£æµ‹è¯•ï¼‰
+        // Arrange - ´´½¨Ò»¸öÄ£ÄâµÄÊÜÏŞÄ¿Â¼£¨ÕâÔÚÆÕÍ¨²âÊÔ»·¾³¿ÉÄÜÎŞ·¨ÕæÕı²âÊÔ£©
         var mockPath = Path.Combine(_testDirectory, "restrictedFolder");
         Directory.CreateDirectory(mockPath);
         _createdDirectories.Add(mockPath);
 
-        // Act - æˆ‘ä»¬å‡è®¾ä½¿ç”¨ä¸€ä¸ªä¸å­˜åœ¨çš„æ¨¡å¼å¯ä»¥é¿å…å®é™…è®¿é—®
+        // Act - ÎÒÃÇ¼ÙÉèÊ¹ÓÃÒ»¸ö²»´æÔÚµÄÄ£Ê½¿ÉÒÔ±ÜÃâÊµ¼Ê·ÃÎÊ
         var result = FileHelper.Contains(mockPath, "*.xyz");
 
         // Assert
@@ -739,7 +739,7 @@ public class FileHelperTests : IDisposable
     public void GetFileNames_WithNullDirectoryPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.GetFileNames(null));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.GetFileNames(null));
     }
 
     [Fact]
@@ -781,14 +781,14 @@ public class FileHelperTests : IDisposable
     public void CopyDir_WithNullSourceDirectory_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.CopyDir(null, "dest"));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.CopyDir(null, "dest"));
     }
 
     [Fact]
     public void CopyDir_WithNullDestinationDirectory_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.CopyDir("source", null));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.CopyDir("source", null));
     }
 
     [Fact]
@@ -806,7 +806,7 @@ public class FileHelperTests : IDisposable
     public void ClearDirectory_WithNullDirectoryPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<ArgumentNullException>(() => FileHelper.ClearDirectory(null));
+        Assert.Throws<System.ArgumentNullException>(() => FileHelper.ClearDirectory(null));
     }
 
     [Fact]
@@ -815,7 +815,7 @@ public class FileHelperTests : IDisposable
         // Arrange
         var nonExistentDir = Path.Combine(_testDirectory, "nonExistentDir");
 
-        // Act & Assert (ä¸åº”æŠ›å‡ºå¼‚å¸¸)
+        // Act & Assert (²»Ó¦Å×³öÒì³£)
         FileHelper.ClearDirectory(nonExistentDir);
     }
 

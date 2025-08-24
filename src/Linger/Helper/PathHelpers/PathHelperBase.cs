@@ -18,7 +18,7 @@ public abstract class PathHelperBase
     /// </summary>
     protected static bool IsPathException(Exception ex) =>
         ex is UriFormatException ||
-        ex is ArgumentException ||
+        ex is System.ArgumentException ||
         ex is System.Security.SecurityException ||
         ex is NotSupportedException ||
         ex is PathTooLongException ||

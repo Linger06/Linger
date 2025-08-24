@@ -12,7 +12,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     public LocalFileSystem(LocalFileSystemOptions options)
         : base(options.RetryOptions)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _options = options ?? throw new System.ArgumentNullException(nameof(options));
         RootDirectoryPath = options.RootDirectoryPath;
 
         // 确保根目录存在
@@ -96,7 +96,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         bool? useSequencedName = null)
     {
         ArgumentNullException.ThrowIfNull(inputStream);
-        ArgumentNullException.ThrowIfNullOrEmpty(sourceFileName);
+        ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
 
         // 使用传入的值或默认值
         var effectiveNamingRule = namingRule ?? _options.DefaultNamingRule;
@@ -271,7 +271,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         ArgumentNullException.ThrowIfNull(inputStream);
-        ArgumentNullException.ThrowIfNullOrEmpty(sourceFileName);
+        Linger.ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
 
         var fileExtension = Path.GetExtension(sourceFileName);
 
@@ -434,8 +434,8 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// </example>
     public async Task<string> DownloadAsync(string sourceFilePath, string localDestinationPath, bool overwrite = false, bool useSequencedName = true)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(sourceFilePath);
-        ArgumentNullException.ThrowIfNullOrEmpty(localDestinationPath);
+        Linger.ArgumentException.ThrowIfNullOrEmpty(sourceFilePath);
+        Linger.ArgumentException.ThrowIfNullOrEmpty(localDestinationPath);
 
         return await RetryHelper.ExecuteAsync(
             async () =>
@@ -482,7 +482,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <exception cref="FileNotFoundException">源文件不存在时抛出</exception>
     public async Task DownloadToStreamAsync(string filePath, Stream destStream)
     {
-        ArgumentNullException.ThrowIfNullOrEmpty(filePath);
+        Linger.ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(destStream);
 
         var sourceFilePath = GetRealPath(filePath);
@@ -684,8 +684,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     }
 }
 
-public class UploadedInfo : CustomFileInfo
+public class UploadedInfo : CustomExistFileInfo
 {
+    /// <summary>
+    /// Gets or sets the new file name.
+    /// </summary>
+    public string? NewFileName { get; set; }
+
     /// <summary>
     /// 除 destRootPath 以外的存储位置
     /// </summary>

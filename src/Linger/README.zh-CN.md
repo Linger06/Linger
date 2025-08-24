@@ -15,6 +15,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 - [目标框架](#目标框架)
 - [快速开始](#快速开始)
   - [字符串扩展](#字符串扩展)
+  - [字符串加密扩展](#字符串加密扩展)
   - [日期时间扩展](#日期时间扩展)
   - [文件操作](#文件操作)
   - [集合扩展](#集合扩展)
@@ -33,6 +34,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 
 ### 🚀 核心扩展
 - **字符串扩展**: 提供丰富的字符串处理功能，包括验证、转换、格式化等实用方法
+- **字符串加密扩展**: 提供安全的 AES 加密解密功能，保护数据安全
 - **日期时间扩展**: 简化日期时间的计算、格式化和各种常用操作
 - **数值扩展**: 安全可靠的数值类型转换，**严格的类型安全原则**，**完整支持所有 .NET 基本数值类型**
 - **枚举扩展**: 让枚举操作更加便捷，支持字符串转换和描述获取
@@ -108,6 +110,55 @@ string part = longText.SafeSubstring(0, 20); // 安全截取，超长不会报�
 bool isEmpty = text.IsNullOrEmpty(); // 检查是否为空
 bool isNumber = number.IsNumber(); // 检查是否为数字
 bool isInt = number.IsInteger(); // 检查是否为整数
+```
+
+### 字符串加密扩展
+
+```csharp
+using Linger.Extensions.Core;
+
+// AES 加密解密（推荐使用，安全性高）
+string data = "敏感数据需要加密";
+string aesKey = "mySecretKey12345"; // AES 密钥，长度可变
+
+try 
+{
+    // AES 加密 - 使用 AES-256-CBC 模式，自动生成随机 IV
+    string aesEncrypted = data.AesEncrypt(aesKey);
+    Console.WriteLine($"AES 加密结果: {aesEncrypted}");
+    
+    // AES 解密 - 自动从加密数据中提取 IV
+    string aesDecrypted = aesEncrypted.AesDecrypt(aesKey);
+    Console.WriteLine($"AES 解密结果: {aesDecrypted}"); // 输出: 敏感数据需要加密
+}
+catch (ArgumentException ex)
+{
+    Console.WriteLine($"参数错误: {ex.Message}");
+}
+catch (CryptographicException ex)
+{
+    Console.WriteLine($"加密/解密错误: {ex.Message}");
+}
+
+// AES 多次加密测试（每次结果不同，更安全）
+for (int i = 1; i <= 3; i++)
+{
+    string encrypted = data.AesEncrypt(aesKey);
+    Console.WriteLine($"第{i}次加密: {encrypted}");
+    // 每次输出都不同，因为使用了随机 IV
+}
+
+// 🔐 安全特性说明：
+// 1. AES 使用 AES-256-CBC 模式，每次加密都生成随机 IV
+// 2. IV 自动包含在加密结果中，解密时自动提取
+// 3. 相同明文每次加密结果都不同，提高安全性
+// 4. DES 算法已过时，建议仅用于兼容旧系统
+
+// ⚠️ 安全提示：
+// 1. DES 算法已不建议用于新项目，推荐使用 AES
+// 2. 密钥应该安全存储，不要硬编码在代码中
+// 3. 在生产环境中应使用更强的密钥管理机制
+// 4. AES 密钥长度可变，内部会自动使用 SHA256 处理为 32 字节
 ```
 
 ### 日期时间扩展
@@ -526,16 +577,7 @@ int result3 = doubleObj.ToIntOrDefault(0); // 返回：0（"123.45" 无法转换
 ```csharp
 // 字符串扩展方法（推荐用法）
 string numberStr = "123";
-int result = numberStr.ToIntOrDefault(0);           // 成功：123
-long longResult = numberStr.ToLongOrDefault(0L);    // 成功：123
 double doubleResult = "123.45".ToDoubleOrDefault(0.0); // 成功：123.45
-
-// 对象扩展方法（类型安全）
-object validObj = "456";
-int validResult = validObj.ToIntOrDefault(0);       // 成功：456
-
-object invalidObj = 789.12; // 非字符串类型
-int invalidResult = invalidObj.ToIntOrDefault(0);   // 返回：0（默认值）
 
 // 增强的布尔转换
 bool success1 = "true".ToBoolOrDefault(false);      // true
@@ -619,15 +661,6 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true（字母支持）
 
 ```csharp
 // 🆕 新行为（性能优化 + 类型安全）
-object intObj = 123;
-int result = intObj.ToIntOrDefault(0); // 返回 123（直接类型匹配，零开销）
-
-object doubleObj = 123.45;
-int result2 = doubleObj.ToIntOrDefault(0); // 返回 0（"123.45" 无法解析为 int）
-
-object stringObj = "123";
-int result3 = stringObj.ToIntOrDefault(0); // 返回 123（字符串解析）
-
 // 🆕 新增无符号整数类型支持
 object byteObj = (byte)255;
 byte byteResult = byteObj.ToByteOrDefault(0); // 直接返回 255（零开销）
