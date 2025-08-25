@@ -74,7 +74,7 @@ public class IEnumerableExtensionsTests
             new SampleClass { Id = 4, Name = "D" }
         };
 
-        var result = left.LeftOuterJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
+        var result = left.LeftJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
 
         Assert.Equal(3, result.Count);
         Assert.Contains(result, x => x.l.Id == 1 && x.r == null);
@@ -88,7 +88,7 @@ public class IEnumerableExtensionsTests
         var list1 = new int?[] { 1, 2, 3 };
         var list2 = new int?[] { 3, 4, 5 };
 
-        var jointList = list1.LeftOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
+        var jointList = list1.LeftJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
         Assert.Equal(3, jointList.Count());
 
@@ -118,7 +118,7 @@ public class IEnumerableExtensionsTests
             new SampleClass { Id = 4, Name = "D" }
         };
 
-        var result = left.RightOuterJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
+        var result = left.RightJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
 
         Assert.Equal(3, result.Count);
         Assert.Contains(result, x => x.l == null && x.r.Id == 4);
@@ -132,7 +132,7 @@ public class IEnumerableExtensionsTests
         var list1 = new int?[] { 1, 2, 3 };
         var list2 = new int?[] { 3, 4, 5 };
 
-        var jointList = list1.RightOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
+        var jointList = list1.RightJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
         Assert.Equal(3, jointList.Count());
 
@@ -144,43 +144,6 @@ public class IEnumerableExtensionsTests
 
         Assert.Null(jointList.ElementAt(2).x);
         Assert.Equal(5, jointList.ElementAt(2).y);
-    }
-
-    [Fact]
-    public void InnerJoin_ShouldReturnInnerJoin()
-    {
-        var left = new List<SampleClass>
-        {
-            new SampleClass { Id = 1, Name = "A" },
-            new SampleClass { Id = 2, Name = "B" },
-            new SampleClass { Id = 3, Name = "C" }
-        };
-        var right = new List<SampleClass>
-        {
-            new SampleClass { Id = 2, Name = "B" },
-            new SampleClass { Id = 3, Name = "C" },
-            new SampleClass { Id = 4, Name = "D" }
-        };
-
-        var result = left.InnerJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
-
-        Assert.Equal(2, result.Count);
-        Assert.Contains(result, x => x.l.Id == 2 && x.r.Id == 2);
-        Assert.Contains(result, x => x.l.Id == 3 && x.r.Id == 3);
-    }
-
-    [Fact]
-    public void InnerJoin_ShouldReturnLeftOuterJoinWihtIntType()
-    {
-        var list1 = new int?[] { 1, 2, 3 };
-        var list2 = new int?[] { 3, 4, 5 };
-
-        var jointList = list1.InnerJoin(list2, x => x, y => y, (x, y) => new { x, y });
-
-        Assert.Single(jointList);
-
-        Assert.Equal(3, jointList.ElementAt(0).x);
-        Assert.Equal(3, jointList.ElementAt(0).y);
     }
 
     [Fact]
@@ -199,7 +162,7 @@ public class IEnumerableExtensionsTests
             new SampleClass { Id = 4, Name = "D" }
         };
 
-        var result = left.FullOuterJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
+        var result = left.FullJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
 
         Assert.Equal(4, result.Count);
         Assert.Contains(result, x => x.l!.Id == 1 && x.r == null);
@@ -214,7 +177,7 @@ public class IEnumerableExtensionsTests
         var list1 = new int?[] { 1, 2, 3 };
         var list2 = new int?[] { 3, 4, 5 };
 
-        var jointList = list1.FullOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
+        var jointList = list1.FullJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
         Assert.Equal(5, jointList.Count());
 

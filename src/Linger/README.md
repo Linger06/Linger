@@ -28,7 +28,10 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - [Advanced Features](#advanced-features)
 - [Best Practices](#best-practices)
 - [API Standardization & Type Safety](#api-standardization--type-safety)
+  - [.NET 10 Forward-Compatible Design](#net-10-forward-compatible-design)
+  - [Strict Type Safety Principles](#strict-type-safety-principles)
 - [Migration Notes](#migration-notes)
+  - [Join Method Standardization & .NET 10 Compatibility](#join-method-standardization--net-10-compatibility)
 
 ## Features
 
@@ -222,6 +225,83 @@ list.ForEach(Console.WriteLine); // Print each element
 
 // Convert to DataTable
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
+
+// 🔗 .NET 10 Compatible Join Operations - Future-Ready Features Today
+// ⚠️ Note: These are polyfill implementations for .NET 10+ built-in methods
+
+// Left Join (Left Outer Join)
+var employees = new List<Employee> 
+{
+    new Employee { Id = 1, Name = "John", DeptId = 1 },
+    new Employee { Id = 2, Name = "Jane", DeptId = 2 },
+    new Employee { Id = 3, Name = "Bob", DeptId = 99 } // No matching department
+};
+
+var departments = new List<Department>
+{
+    new Department { Id = 1, Name = "Development" },
+    new Department { Id = 2, Name = "Testing" }
+};
+
+// Left Join: Keep all employees, show null for unmatched departments
+var leftJoinResult = employees.LeftJoin(
+    departments,
+    emp => emp.DeptId,           // Outer key selector
+    dept => dept.Id,             // Inner key selector
+    (emp, dept) => new { 
+        Employee = emp.Name, 
+        Department = dept?.Name ?? "No Department" 
+    }
+);
+// Output: [{ Employee = "John", Department = "Development" }, 
+//          { Employee = "Jane", Department = "Testing" }, 
+//          { Employee = "Bob", Department = "No Department" }]
+
+// Right Join (Right Outer Join)
+var rightJoinResult = employees.RightJoin(
+    departments,
+    emp => emp.DeptId,
+    dept => dept.Id,
+    (emp, dept) => new {
+        Employee = emp?.Name ?? "No Employee",
+        Department = dept.Name
+    }
+);
+// Output: [{ Employee = "John", Department = "Development" },
+//          { Employee = "Jane", Department = "Testing" }]
+
+// Full Join (Full Outer Join)
+var fullJoinResult = employees.FullJoin(
+    departments,
+    emp => emp.DeptId,
+    dept => dept.Id,
+    (emp, dept) => new {
+        Employee = emp?.Name ?? "No Employee",
+        Department = dept?.Name ?? "No Department"
+    }
+);
+// Output: Contains records for all employees and all departments, 
+//         with default values for unmatched sides
+
+// 🎯 Simplified version: Returns tuples
+var tupleResult = employees.LeftJoin(departments, e => e.DeptId, d => d.Id);
+// Returns IEnumerable<Tuple<Employee, Department?>>
+
+// 🔧 Support for custom equality comparers
+var caseInsensitiveJoin = stringList1.LeftJoin(
+    stringList2,
+    s => s,
+    s => s,
+    (s1, s2) => new { Left = s1, Right = s2 },
+    StringComparer.OrdinalIgnoreCase  // Case-insensitive comparison
+);
+
+// 📊 .NET 10 Compatibility Notes:
+// - In .NET 10+, these methods will be provided natively by System.Linq.Enumerable
+// - Current implementation signatures are fully compatible with .NET 10 standard
+// - Seamless migration to built-in implementation when upgrading to .NET 10
+// - Parameter names: outer/inner, outerKeySelector/innerKeySelector, resultSelector
+// - Generic parameters: TOuter, TInner, TKey, TResult
 ```
 
 ### Object Extensions
@@ -402,21 +482,59 @@ string description = status.GetDescription(); // Get description text
 ### Parameter Validation
 
 ```csharp
-using Linger.Helper;
+using Linger;
 
 public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 {
-    // Basic validation
-    data.EnsureIsNotNull(nameof(data)); // Ensure not null
-    data.EnsureIsNotNullOrEmpty(nameof(data)); // Ensure not null or empty
-    data.EnsureIsNotNullOrWhiteSpace(nameof(data)); // Ensure not null, empty or whitespace
+    // 🆕 New parameter validation methods (.NET 8 polyfill for earlier versions)
+    // These methods are identical to .NET 8+ built-in methods, providing seamless upgrade experience
+    
+    // Parameter null and content validation
+    ArgumentNullException.ThrowIfNull(data);                    // Ensure not null
+    ArgumentException.ThrowIfNullOrEmpty(data);                 // Ensure not null or empty string
+    ArgumentException.ThrowIfNullOrWhiteSpace(data);            // Ensure not null, empty or whitespace
+
+    // Collection parameter validation  
+    ArgumentNullException.ThrowIfNull(numbers);                 // Ensure collection is not null
+    
+    // 🔍 Framework support details:
+    // - .NET 5 and below: Uses Linger.ArgumentNullException.ThrowIfNull (polyfill)
+    // - .NET 6+: Uses built-in System.ArgumentNullException.ThrowIfNull
+    // - .NET 7 and below: Uses Linger.ArgumentException.ThrowIfNullOrEmpty (polyfill) 
+    // - .NET 8+: Uses built-in System.ArgumentException.ThrowIfNullOrEmpty
+    
+    // 📦 Usage:
+    using Linger;  // Only need this one using statement
+    
+    // When upgrading to .NET 8+, just remove "using Linger;" 
+    // All other code remains unchanged!
+    
+    // ⚠️ Important: These are utility classes, cannot be instantiated
+    // var ex = new ArgumentException();           // ❌ Compile error (this is good!)
+    // throw new System.ArgumentException("msg");  // ✅ Correct: manually throw standard exception
+    
+    // 🎯 Exception types thrown:
+    // ArgumentNullException.ThrowIfNull() → throws System.ArgumentNullException
+    // ArgumentException.ThrowIfNullOrEmpty() → throws System.ArgumentException or System.ArgumentNullException
+    // ArgumentException.ThrowIfNullOrWhiteSpace() → throws System.ArgumentException or System.ArgumentNullException
+}
+
+// 🔄 Traditional approach (still supported)
+public void ProcessDataTraditional(string data, IEnumerable<int> numbers, string filePath)
+{
+    using Linger.Helper;
+    
+    // Basic validation (traditional Guard methods)
+    data.EnsureIsNotNull(nameof(data));                        // Ensure not null
+    data.EnsureIsNotNullOrEmpty(nameof(data));                 // Ensure not null or empty
+    data.EnsureIsNotNullOrWhiteSpace(nameof(data));            // Ensure not null, empty or whitespace
 
     // Collection validation
-    numbers.EnsureIsNotNullOrEmpty(nameof(numbers)); // Ensure collection is not null or empty
+    numbers.EnsureIsNotNullOrEmpty(nameof(numbers));           // Ensure collection is not null or empty
 
     // File system validation
-    filePath.EnsureFileExists(nameof(filePath)); // Ensure file exists
-    Path.GetDirectoryName(filePath).EnsureDirectoryExists(); // Ensure directory exists
+    filePath.EnsureFileExists(nameof(filePath));               // Ensure file exists
+    Path.GetDirectoryName(filePath).EnsureDirectoryExists();   // Ensure directory exists
 
     // Condition validation
     (data.Length > 0).EnsureIsTrue(nameof(data), "Data must not be empty");
@@ -424,14 +542,20 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 
     // Range validation
     int value = 5;
-    value.EnsureIsInRange(1, 10, nameof(value)); // Ensure value is in range
+    value.EnsureIsInRange(1, 10, nameof(value));               // Ensure value is in range
 
     // Null checking
     object? obj = GetSomeObject();
-    obj.EnsureIsNotNull(nameof(obj)); // If object should not be null
+    obj.EnsureIsNotNull(nameof(obj));                          // If object should not be null
     // or
-    obj.EnsureIsNull(nameof(obj)); // If object should be null
+    obj.EnsureIsNull(nameof(obj));                             // If object should be null
 }
+
+// 💡 Best practice recommendations:
+// 1. New projects: Prefer new ArgumentException/ArgumentNullException static methods
+// 2. Existing projects: Can continue using traditional Guard methods or migrate gradually
+// 3. .NET 8+ projects: Remove "using Linger;" when upgrading to use built-in methods
+// 4. Library development: Use new methods to ensure perfect compatibility with future .NET versions
 ```
 
 ## Advanced Features
@@ -543,7 +667,52 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 Starting from version 0.8.2, Linger.Utils has undergone significant API standardization with a strong emphasis on type safety and consistency.
 
-### 🔒 Strict Type Safety Principles
+### � .NET 10 Forward-Compatible Design
+
+Linger.Utils is already prepared for the upcoming .NET 10, especially regarding Join methods:
+
+#### 🚀 Future-Ready Join Operations
+```csharp
+// 🎯 Current code (Linger polyfill)
+var result = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+
+// 🔮 After .NET 10 release (automatically switches to built-in implementation)
+var result = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+// Exactly the same code, but using System.Linq.Enumerable.LeftJoin
+
+// 🎉 No code changes required!
+```
+
+#### 📊 Complete Method Compatibility Matrix
+| Method | Linger Polyfill | .NET 10 Built-in | Compatibility Status |
+|--------|----------------|-------------------|---------------------|
+| `LeftJoin` | ✅ Implemented | 🔮 Coming Soon | 💯 Fully Compatible |
+| `RightJoin` | ✅ Implemented | 🔮 Coming Soon | 💯 Fully Compatible |
+| `FullJoin` | ✅ Implemented | ❓ TBD | 📋 Monitoring |
+
+#### 🔧 Technical Implementation Details
+```csharp
+// Conditional compilation ensures seamless transition
+#if !NET10_0_OR_GREATER
+    // Linger's polyfill implementation
+    public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(...)
+    {
+        // High-performance implementation consistent with .NET 10 behavior
+    }
+#endif
+
+// In .NET 10+ environments, automatically uses built-in methods
+// Better performance, fully consistent functionality
+```
+
+#### 🎁 Benefits of Early .NET 10 Feature Access
+1. **Reduced Learning Curve**: Get familiar with .NET 10 APIs early
+2. **Future-Proof Code**: Use new features without waiting for framework upgrades  
+3. **Seamless Migration**: Zero code changes when upgrading frameworks
+4. **Consistent Performance**: Polyfill implementation performs comparably to future built-in versions
+5. **Standardization**: Unified parameter naming and behavior patterns
+
+### �🔒 Strict Type Safety Principles
 
 **ObjectExtensions Performance-Optimized Conversion Strategy:**
 - **First: Direct type matching** - If the object is already the target type, return directly (zero overhead)
@@ -712,7 +881,78 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true (letter support)
 
 To improve naming consistency, type safety, and readability, this version has made important API standardization improvements. Old names are marked with `[Obsolete]` and remain usable (transition period: 0.9.x, planned removal in the first 1.0 pre-release), but migration is strongly recommended.
 
-### 🔒 Important: Type Safety Enhancement
+### � Join Method Standardization & .NET 10 Compatibility
+
+To align with the upcoming .NET 10 standard, Join methods have undergone major refactoring:
+
+#### Join Method Renaming
+| Old Method Name | New Method Name | Status | Notes |
+|----------------|-----------------|--------|-------|
+| `LeftOuterJoin` | `LeftJoin` | ✅ Complete | Aligns with .NET 10 built-in method name |
+| `RightOuterJoin` | `RightJoin` | ✅ Complete | Aligns with .NET 10 built-in method name |
+| `FullOuterJoin` | `FullJoin` | ✅ Complete | Simplified naming for consistency |
+| `InnerJoin` | *Removed* | ❌ Removed | Functionality duplicates built-in `Join` |
+
+#### Parameter Name Standardization
+All Join methods now use parameter names fully consistent with .NET 10:
+
+```csharp
+// ✅ New standardized parameter names (consistent with .NET 10)
+public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(
+    this IEnumerable<TOuter> outer,           // Outer sequence
+    IEnumerable<TInner> inner,                // Inner sequence  
+    Func<TOuter, TKey> outerKeySelector,      // Outer key selector
+    Func<TInner, TKey> innerKeySelector,      // Inner key selector
+    Func<TOuter, TInner?, TResult> resultSelector  // Result selector
+)
+
+// ❌ Old parameter names (deprecated)
+// left, right, leftKeySelector, rightKeySelector, resultSelector
+```
+
+#### .NET 10 Polyfill Strategy
+Current implementation uses conditional compilation to prepare for future .NET 10 upgrades:
+
+```csharp
+#if !NET10_0_OR_GREATER
+// Linger's polyfill implementation
+public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(...) { ... }
+#endif
+
+// 🔄 Migration path when upgrading to .NET 10:
+// 1. Upgrade project target framework to .NET 10
+// 2. Code automatically uses System.Linq.Enumerable.LeftJoin
+// 3. No need to modify any calling code due to identical method signatures
+```
+
+#### Migration Examples
+
+```csharp
+// 🔄 Before migration (deprecated methods)
+var result1 = employees.LeftOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result2 = employees.RightOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result3 = employees.FullOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result4 = employees.InnerJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+
+// ✅ After migration (.NET 10 compatible)
+var result1 = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result2 = employees.RightJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result3 = employees.FullJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result4 = employees.Join(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d }); // Use built-in Join
+```
+
+#### Join Method Benefits Comparison
+
+| Feature | Old Implementation | New Implementation (.NET 10 Compatible) |
+|---------|-------------------|----------------------------------------|
+| Method Names | Non-standard long names | .NET 10 standard short names |
+| Parameter Naming | left/right pattern | outer/inner standard pattern |
+| Generic Parameters | TLeft/TRight pattern | TOuter/TInner standard pattern |
+| Future Compatibility | Manual migration required | Automatic built-in method usage |
+| IntelliSense | Verbose method names | Concise standard method names |
+| Performance | Same | Same (identical underlying implementation) |
+
+### �🔒 Important: Type Safety Enhancement
 
 **ObjectExtensions Behavior Change:**
 - All type conversion methods now **use performance-optimized conversion strategy**

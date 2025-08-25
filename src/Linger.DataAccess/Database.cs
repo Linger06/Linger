@@ -493,7 +493,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns>查询结果DataTable</returns>
     public virtual DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000)
     {
-        Linger.ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
 #if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);

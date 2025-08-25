@@ -274,177 +274,227 @@ public static class IEnumerableExtensions
         return !e.MoveNext();
     }
 
+#if !NET10_0_OR_GREATER
+
     /// <summary>
     /// Performs a left outer join on two sequences.
     /// </summary>
-    /// <typeparam name="TLeft">The type of the elements of the first sequence.</typeparam>
-    /// <typeparam name="TRight">The type of the elements of the second sequence.</typeparam>
+    /// <typeparam name="TOuter">The type of the elements of the first sequence.</typeparam>
+    /// <typeparam name="TInner">The type of the elements of the second sequence.</typeparam>
     /// <typeparam name="TKey">The type of the key returned by the key selector functions.</typeparam>
     /// <typeparam name="TResult">The type of the result elements.</typeparam>
-    /// <param name="left">The first sequence to join.</param>
-    /// <param name="right">The second sequence to join.</param>
-    /// <param name="leftKey">A function to extract the join key from each element of the first sequence.</param>
-    /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
-    /// <param name="result">A function to create a result element from two matching elements.</param>
+    /// <param name="outer">The first sequence to join.</param>
+    /// <param name="inner">The second sequence to join.</param>
+    /// <param name="outerKeySelector">A function to extract the join key from each element of the first sequence.</param>
+    /// <param name="innerKeySelector">A function to extract the join key from each element of the second sequence.</param>
+    /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a left outer join on two sequences.</returns>
     /// <remarks>
-    /// When no <paramref name="right"/> element matches a <paramref name="left"/> element by key, the result selector receives <c>null</c> for the right value.
+    /// When no <paramref name="inner"/> element matches an <paramref name="outer"/> element by key, the result selector receives <c>null</c> for the inner value.
     /// If any argument is <c>null</c>, an exception will be thrown.
+    /// 
+    /// ⚠️ Note: This is a polyfill for .NET 10+ built-in LeftJoin method.
+    /// In .NET 10+, use the built-in System.Linq.Enumerable.LeftJoin instead.
     /// </remarks>
     /// <example>
     /// <code>
-    /// var left = new List&lt;int&gt; { 1, 2, 3 };
-    /// var right = new List&lt;int&gt; { 3, 4, 5 };
-    /// var result = left.LeftOuterJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
-    /// // Output: [{ Left = 1, Right = null }, { Left = 2, Right = null }, { Left = 3, Right = 3 }]
+    /// var outer = new List&lt;int&gt; { 1, 2, 3 };
+    /// var inner = new List&lt;int&gt; { 3, 4, 5 };
+    /// var result = outer.LeftJoin(inner, o => o, i => i, (o, i) => new { Outer = o, Inner = i });
+    /// // Output: [{ Outer = 1, Inner = null }, { Outer = 2, Inner = null }, { Outer = 3, Inner = 3 }]
     ///
-    /// // Duplicate key on right results in multiple rows for the same left key
-    /// var rightDup = new List&lt;int&gt; { 2, 2 };
-    /// var r2 = new List&lt;int&gt; { 1, 2 }.LeftOuterJoin(rightDup, l => l, r => r, (l, r) => (l, r)).ToList();
+    /// // Duplicate key on inner results in multiple rows for the same outer key
+    /// var innerDup = new List&lt;int&gt; { 2, 2 };
+    /// var r2 = new List&lt;int&gt; { 1, 2 }.LeftJoin(innerDup, o => o, i => i, (o, i) => (o, i)).ToList();
     /// // Output: [(1, null), (2, 2), (2, 2)]
     /// </code>
     /// </example>
-    public static IEnumerable<TResult> LeftOuterJoin<TLeft, TRight, TKey, TResult>(
-        this IEnumerable<TLeft> left,
-        IEnumerable<TRight> right,
-        Func<TLeft, TKey> leftKey,
-        Func<TRight, TKey> rightKey,
-        Func<TLeft, TRight?, TResult> result)
+    public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(
+        this IEnumerable<TOuter> outer,
+        IEnumerable<TInner> inner,
+        Func<TOuter, TKey> outerKeySelector,
+        Func<TInner, TKey> innerKeySelector,
+        Func<TOuter, TInner?, TResult> resultSelector)
     {
-        return left.GroupJoin(right, leftKey, rightKey, (l, r) => new { l, r })
-            .SelectMany(o => o.r.DefaultIfEmpty(), (l, r) => new { lft = l.l, rght = r })
-            .Select(o => result(o.lft, o.rght));
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+        ArgumentNullException.ThrowIfNull(resultSelector);
+
+        return outer.GroupJoin(inner, outerKeySelector, innerKeySelector, (o, i) => new { o, i })
+            .SelectMany(x => x.i.DefaultIfEmpty(), (o, i) => new { outer = o.o, inner = i })
+            .Select(x => resultSelector(x.outer, x.inner));
+    }
+
+    /// <summary>
+    /// Performs a left outer join on two sequences using a specified equality comparer.
+    /// </summary>
+    /// <typeparam name="TOuter">The type of the elements of the first sequence.</typeparam>
+    /// <typeparam name="TInner">The type of the elements of the second sequence.</typeparam>
+    /// <typeparam name="TKey">The type of the key returned by the key selector functions.</typeparam>
+    /// <typeparam name="TResult">The type of the result elements.</typeparam>
+    /// <param name="outer">The first sequence to join.</param>
+    /// <param name="inner">The second sequence to join.</param>
+    /// <param name="outerKeySelector">A function to extract the join key from each element of the first sequence.</param>
+    /// <param name="innerKeySelector">A function to extract the join key from each element of the second sequence.</param>
+    /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
+    /// <param name="comparer">An equality comparer to compare keys.</param>
+    /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a left outer join on two sequences.</returns>
+    /// <remarks>
+    /// When no <paramref name="inner"/> element matches an <paramref name="outer"/> element by key, the result selector receives <c>null</c> for the inner value.
+    /// If any argument is <c>null</c>, an exception will be thrown.
+    /// 
+    /// ⚠️ Note: This is a polyfill for .NET 10+ built-in LeftJoin method.
+    /// In .NET 10+, use the built-in System.Linq.Enumerable.LeftJoin instead.
+    /// </remarks>
+    public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(
+        this IEnumerable<TOuter> outer,
+        IEnumerable<TInner> inner,
+        Func<TOuter, TKey> outerKeySelector,
+        Func<TInner, TKey> innerKeySelector,
+        Func<TOuter, TInner?, TResult> resultSelector,
+        IEqualityComparer<TKey>? comparer)
+    {
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+        ArgumentNullException.ThrowIfNull(resultSelector);
+
+        return outer.GroupJoin(inner, outerKeySelector, innerKeySelector, (o, i) => new { o, i }, comparer)
+            .SelectMany(x => x.i.DefaultIfEmpty(), (o, i) => new { outer = o.o, inner = i })
+            .Select(x => resultSelector(x.outer, x.inner));
     }
 
     /// <summary>
     /// Performs a left outer join on two sequences and returns a sequence of tuples.
     /// </summary>
-    /// <typeparam name="TLeft">The type of the elements of the first sequence.</typeparam>
-    /// <typeparam name="TRight">The type of the elements of the second sequence.</typeparam>
+    /// <typeparam name="TOuter">The type of the elements of the first sequence.</typeparam>
+    /// <typeparam name="TInner">The type of the elements of the second sequence.</typeparam>
     /// <typeparam name="TKey">The type of the key returned by the key selector functions.</typeparam>
-    /// <param name="left">The first sequence to join.</param>
-    /// <param name="right">The second sequence to join.</param>
-    /// <param name="leftKey">A function to extract the join key from each element of the first sequence.</param>
-    /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
+    /// <param name="outer">The first sequence to join.</param>
+    /// <param name="inner">The second sequence to join.</param>
+    /// <param name="outerKeySelector">A function to extract the join key from each element of the first sequence.</param>
+    /// <param name="innerKeySelector">A function to extract the join key from each element of the second sequence.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains tuples of elements from the first and second sequences.</returns>
     /// <remarks>
-    /// Same semantics as the selector-overload, with the right value being <c>null</c> when no match exists.
+    /// Same semantics as the selector-overload, with the inner value being <c>null</c> when no match exists.
     /// </remarks>
     /// <example>
     /// <code>
-    /// var left = new List&lt;int&gt; { 1, 2, 3 };
-    /// var right = new List&lt;int&gt; { 3, 4, 5 };
-    /// var result = left.LeftOuterJoin(right, l => l, r => r);
+    /// var outer = new List&lt;int&gt; { 1, 2, 3 };
+    /// var inner = new List&lt;int&gt; { 3, 4, 5 };
+    /// var result = outer.LeftJoin(inner, o => o, i => i);
     /// // Output: [(1, null), (2, null), (3, 3)]
     /// </code>
     /// </example>
-    public static IEnumerable<Tuple<TLeft, TRight?>> LeftOuterJoin<TLeft, TRight, TKey>(
-        this IEnumerable<TLeft> left,
-        IEnumerable<TRight> right,
-        Func<TLeft, TKey> leftKey,
-        Func<TRight, TKey> rightKey)
+    public static IEnumerable<Tuple<TOuter, TInner?>> LeftJoin<TOuter, TInner, TKey>(
+        this IEnumerable<TOuter> outer,
+        IEnumerable<TInner> inner,
+        Func<TOuter, TKey> outerKeySelector,
+        Func<TInner, TKey> innerKeySelector)
     {
-        return LeftOuterJoin(left, right, leftKey, rightKey, (l, r) => new Tuple<TLeft, TRight?>(l, r));
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+
+        return LeftJoin(outer, inner, outerKeySelector, innerKeySelector, (o, i) => new Tuple<TOuter, TInner?>(o, i));
     }
+
+#endif
 
     /// <summary>
     /// Performs a right outer join on two sequences.
     /// </summary>
-    /// <typeparam name="TLeft">The type of the elements of the first sequence.</typeparam>
-    /// <typeparam name="TRight">The type of the elements of the second sequence.</typeparam>
+    /// <typeparam name="TOuter">The type of the elements of the first sequence.</typeparam>
+    /// <typeparam name="TInner">The type of the elements of the second sequence.</typeparam>
     /// <typeparam name="TKey">The type of the key returned by the key selector functions.</typeparam>
     /// <typeparam name="TResult">The type of the result elements.</typeparam>
-    /// <param name="left">The first sequence to join.</param>
-    /// <param name="right">The second sequence to join.</param>
-    /// <param name="leftKey">A function to extract the join key from each element of the first sequence.</param>
-    /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
-    /// <param name="resultFunc">A function to create a result element from two matching elements.</param>
+    /// <param name="outer">The first sequence to join.</param>
+    /// <param name="inner">The second sequence to join.</param>
+    /// <param name="outerKeySelector">A function to extract the join key from each element of the first sequence.</param>
+    /// <param name="innerKeySelector">A function to extract the join key from each element of the second sequence.</param>
+    /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a right outer join on two sequences.</returns>
     /// <remarks>
-    /// When no <paramref name="left"/> element matches a <paramref name="right"/> element by key, the result selector receives <c>null</c> for the left value.
+    /// When no <paramref name="outer"/> element matches an <paramref name="inner"/> element by key, the result selector receives <c>null</c> for the outer value.
     /// If any argument is <c>null</c>, an exception will be thrown.
+    /// 
+    /// ⚠️ Note: This is a polyfill for .NET 10+ built-in RightJoin method.
+    /// In .NET 10+, use the built-in System.Linq.Enumerable.RightJoin instead.
     /// </remarks>
     /// <example>
     /// <code>
-    /// var left = new List&lt;int&gt; { 1, 2, 3 };
-    /// var right = new List&lt;int&gt; { 3, 4, 5 };
-    /// var result = left.RightOuterJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
-    /// // Output: [{ Left = null, Right = 4 }, { Left = null, Right = 5 }, { Left = 3, Right = 3 }]
+    /// var outer = new List&lt;int&gt; { 1, 2, 3 };
+    /// var inner = new List&lt;int&gt; { 3, 4, 5 };
+    /// var result = outer.RightJoin(inner, o => o, i => i, (o, i) => new { Outer = o, Inner = i });
+    /// // Output: [{ Outer = null, Inner = 4 }, { Outer = null, Inner = 5 }, { Outer = 3, Inner = 3 }]
     ///
-    /// // Duplicate key on left results in multiple rows for the same right key
-    /// var leftDup = new List&lt;int&gt; { 2, 2 };
-    /// var r2 = leftDup.RightOuterJoin(new List&lt;int&gt; { 2 }, l => l, r => r, (l, r) => (l, r)).ToList();
+    /// // Duplicate key on outer results in multiple rows for the same inner key
+    /// var outerDup = new List&lt;int&gt; { 2, 2 };
+    /// var r2 = outerDup.RightJoin(new List&lt;int&gt; { 2 }, o => o, i => i, (o, i) => (o, i)).ToList();
     /// // Output: [(2, 2), (2, 2)]
     /// </code>
     /// </example>
-    public static IEnumerable<TResult> RightOuterJoin<TLeft, TRight, TKey, TResult>(
-            this IEnumerable<TLeft> left,
-            IEnumerable<TRight> right,
-            Func<TLeft, TKey> leftKey,
-            Func<TRight, TKey> rightKey,
-            Func<TLeft?, TRight, TResult> resultFunc
+    public static IEnumerable<TResult> RightJoin<TOuter, TInner, TKey, TResult>(
+            this IEnumerable<TOuter> outer,
+            IEnumerable<TInner> inner,
+            Func<TOuter, TKey> outerKeySelector,
+            Func<TInner, TKey> innerKeySelector,
+            Func<TOuter?, TInner, TResult> resultSelector
         )
     {
-        IEnumerable<TResult> query = LeftOuterJoin(right, left, rightKey, leftKey, (i, o) => resultFunc(o, i));
+        IEnumerable<TResult> query = LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i));
         return query;
     }
 
     /// <summary>
-    /// Performs an inner join on two sequences.
+    /// Performs a right outer join on two sequences using a specified equality comparer.
     /// </summary>
-    /// <typeparam name="TLeft">The type of the elements of the first sequence.</typeparam>
-    /// <typeparam name="TRight">The type of the elements of the second sequence.</typeparam>
+    /// <typeparam name="TOuter">The type of the elements of the first sequence.</typeparam>
+    /// <typeparam name="TInner">The type of the elements of the second sequence.</typeparam>
     /// <typeparam name="TKey">The type of the key returned by the key selector functions.</typeparam>
     /// <typeparam name="TResult">The type of the result elements.</typeparam>
-    /// <param name="left">The first sequence to join.</param>
-    /// <param name="right">The second sequence to join.</param>
-    /// <param name="leftKey">A function to extract the join key from each element of the first sequence.</param>
-    /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
-    /// <param name="resultFunc">A function to create a result element from two matching elements.</param>
-    /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing an inner join on two sequences.</returns>
+    /// <param name="outer">The first sequence to join.</param>
+    /// <param name="inner">The second sequence to join.</param>
+    /// <param name="outerKeySelector">A function to extract the join key from each element of the first sequence.</param>
+    /// <param name="innerKeySelector">A function to extract the join key from each element of the second sequence.</param>
+    /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
+    /// <param name="comparer">An equality comparer to compare keys.</param>
+    /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a right outer join on two sequences.</returns>
     /// <remarks>
-    /// Only pairs with matching keys appear in the results. Duplicate keys will produce multiple rows (Cartesian product per key).
+    /// When no <paramref name="outer"/> element matches an <paramref name="inner"/> element by key, the result selector receives <c>null</c> for the outer value.
+    /// If any argument is <c>null</c>, an exception will be thrown.
+    /// 
+    /// ⚠️ Note: This is a polyfill for .NET 10+ built-in RightJoin method.
+    /// In .NET 10+, use the built-in System.Linq.Enumerable.RightJoin instead.
     /// </remarks>
-    /// <example>
-    /// <code>
-    /// var left = new List&lt;int&gt; { 1, 2, 3 };
-    /// var right = new List&lt;int&gt; { 3, 4, 5 };
-    /// var result = left.InnerJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
-    /// // Output: [{ Left = 3, Right = 3 }]
-    ///
-    /// // Duplicate keys
-    /// var l2 = new List&lt;int&gt; { 2, 2 };
-    /// var r2 = new List&lt;int&gt; { 2, 2 };
-    /// var dup = l2.InnerJoin(r2, x => x, y => y, (x, y) => (x, y)).ToList();
-    /// // Output count: 4
-    /// </code>
-    /// </example>
-    public static IEnumerable<TResult> InnerJoin<TLeft, TRight, TKey, TResult>(
-            this IEnumerable<TLeft> left,
-            IEnumerable<TRight> right,
-            Func<TLeft, TKey> leftKey,
-            Func<TRight, TKey> rightKey,
-            Func<TLeft, TRight, TResult> resultFunc
+    public static IEnumerable<TResult> RightJoin<TOuter, TInner, TKey, TResult>(
+            this IEnumerable<TOuter> outer,
+            IEnumerable<TInner> inner,
+            Func<TOuter, TKey> outerKeySelector,
+            Func<TInner, TKey> innerKeySelector,
+            Func<TOuter?, TInner, TResult> resultSelector,
+            IEqualityComparer<TKey>? comparer
         )
     {
-        IEnumerable<TResult> result = LeftOuterJoin(left, right, leftKey, rightKey)
-                .Where(a => a.Item2 != null)
-                .Select(a => resultFunc(a.Item1, a.Item2!))
-            ;
-        return result;
+        IEnumerable<TResult> query = LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i), comparer);
+        return query;
     }
 
     /// <summary>
     /// Performs a full outer join on two sequences.
     /// </summary>
-    /// <typeparam name="TLeft">The type of the elements of the first sequence.</typeparam>
-    /// <typeparam name="TRight">The type of the elements of the second sequence.</typeparam>
+    /// <typeparam name="TOuter">The type of the elements of the first sequence.</typeparam>
+    /// <typeparam name="TInner">The type of the elements of the second sequence.</typeparam>
     /// <typeparam name="TKey">The type of the key returned by the key selector functions.</typeparam>
     /// <typeparam name="TResult">The type of the result elements.</typeparam>
-    /// <param name="left">The first sequence to join.</param>
-    /// <param name="right">The second sequence to join.</param>
-    /// <param name="leftKey">A function to extract the join key from each element of the first sequence.</param>
-    /// <param name="rightKey">A function to extract the join key from each element of the second sequence.</param>
+    /// <param name="outer">The first sequence to join.</param>
+    /// <param name="inner">The second sequence to join.</param>
+    /// <param name="outerKeySelector">A function to extract the join key from each element of the first sequence.</param>
+    /// <param name="innerKeySelector">A function to extract the join key from each element of the second sequence.</param>
     /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a full outer join on two sequences.</returns>
     /// <remarks>
@@ -453,38 +503,38 @@ public static class IEnumerableExtensions
     /// </remarks>
     /// <example>
     /// <code>
-    /// var left = new List&lt;int&gt; { 1, 2, 3 };
-    /// var right = new List&lt;int&gt; { 3, 4, 5 };
-    /// var result = left.FullOuterJoin(right, l => l, r => r, (l, r) => new { Left = l, Right = r });
-    /// // Output: [{ Left = 1, Right = null }, { Left = 2, Right = null }, { Left = 3, Right = 3 }, { Left = null, Right = 4 }, { Left = null, Right = 5 }]
+    /// var outer = new List&lt;int&gt; { 1, 2, 3 };
+    /// var inner = new List&lt;int&gt; { 3, 4, 5 };
+    /// var result = outer.FullJoin(inner, o => o, i => i, (o, i) => new { Outer = o, Inner = i });
+    /// // Output: [{ Outer = 1, Inner = null }, { Outer = 2, Inner = null }, { Outer = 3, Inner = 3 }, { Outer = null, Inner = 4 }, { Outer = null, Inner = 5 }]
     ///
     /// // Duplicate keys
-    /// var r2 = new List&lt;int&gt; { 2, 2 };
-    /// var all = new List&lt;int&gt; { 2 }.FullOuterJoin(r2, x => x, y => y, (x, y) => (x, y)).ToList();
+    /// var i2 = new List&lt;int&gt; { 2, 2 };
+    /// var all = new List&lt;int&gt; { 2 }.FullJoin(i2, x => x, y => y, (x, y) => (x, y)).ToList();
     /// // Output: [(2, 2), (2, 2)]
     /// </code>
     /// </example>
-    public static IEnumerable<TResult> FullOuterJoin<TLeft, TRight, TKey, TResult>(
-            this IEnumerable<TLeft> left,
-            IEnumerable<TRight> right,
-            Func<TLeft, TKey> leftKey,
-            Func<TRight, TKey> rightKey,
-            Func<TLeft?, TRight?, TResult> resultSelector)
+    public static IEnumerable<TResult> FullJoin<TOuter, TInner, TKey, TResult>(
+            this IEnumerable<TOuter> outer,
+            IEnumerable<TInner> inner,
+            Func<TOuter, TKey> outerKeySelector,
+            Func<TInner, TKey> innerKeySelector,
+            Func<TOuter?, TInner?, TResult> resultSelector)
     {
         //IEnumerable<TResult>? leftResult = LeftOuterJoin(left, right, leftKey, rightKey, result);
         //IEnumerable<TResult>? rightResult = RightOuterJoin(left, right, leftKey, rightKey, result);
         //return leftResult.Union(rightResult);
 
-        var leftLookup = left.ToLookup(leftKey);
-        var rightLookup = right.ToLookup(rightKey);
+        var outerLookup = outer.ToLookup(outerKeySelector);
+        var innerLookup = inner.ToLookup(innerKeySelector);
 
-        var keys = new HashSet<TKey>(leftLookup.Select(p => p.Key));
-        keys.UnionWith(rightLookup.Select(p => p.Key));
+        var keys = new HashSet<TKey>(outerLookup.Select(p => p.Key));
+        keys.UnionWith(innerLookup.Select(p => p.Key));
 
         IEnumerable<TResult> result = from key in keys
-                                      from xLeft in leftLookup[key].DefaultIfEmpty()
-                                      from xRight in rightLookup[key].DefaultIfEmpty()
-                                      select resultSelector(xLeft, xRight);
+                                      from xOuter in outerLookup[key].DefaultIfEmpty()
+                                      from xInner in innerLookup[key].DefaultIfEmpty()
+                                      select resultSelector(xOuter, xInner);
 
         return result;
     }

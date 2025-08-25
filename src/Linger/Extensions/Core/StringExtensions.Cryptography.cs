@@ -57,7 +57,7 @@ public static partial class StringExtensions
             using var aes = Aes.Create();
 
             // 使用 SHA256 哈希确保密钥长度为 32 字节（AES-256）
-            aes.Key = ComputeKeyHash(key);
+            aes.Key = key.ToSha256HashByte();
             aes.Mode = CipherMode.CBC; // 使用更安全的 CBC 模式
             aes.Padding = PaddingMode.PKCS7;
             aes.GenerateIV(); // 生成随机 IV
@@ -128,7 +128,7 @@ public static partial class StringExtensions
             using var aes = Aes.Create();
 
             // 使用相同的密钥处理方法
-            aes.Key = ComputeKeyHash(key);
+            aes.Key = key.ToSha256HashByte();
             aes.Mode = CipherMode.CBC;
             aes.Padding = PaddingMode.PKCS7;
 
@@ -146,22 +146,13 @@ public static partial class StringExtensions
         {
             throw new CryptographicException("无效的Base64编码格式", ex);
         }
-        catch (Exception ex) when (!(ex is CryptographicException))
+        catch (Exception ex) when (ex is not CryptographicException)
         {
             throw new CryptographicException($"AES解密失败: {ex.Message}", ex);
         }
     }
 
     #region Private Helper Methods
-
-    /// <summary>
-    /// 计算密钥的SHA256哈希（缓存优化）
-    /// </summary>
-    private static byte[] ComputeKeyHash(string key)
-    {
-        using var sha256 = SHA256.Create();
-        return sha256.ComputeHash(Encoding.UTF8.GetBytes(key));
-    }
 
     /// <summary>
     /// 为AES执行加密操作（返回字节数组）

@@ -13,11 +13,11 @@ namespace Linger.FileSystem.Tests.Local
 
         public LocalFileSystemTests()
         {
-            // 设置测试根目�?
+            // 设置测试根目录
             _testRootPath = Path.Combine("TestTempDir", $"testDir-{Guid.NewGuid().ToString()}");
             _fileSystem = new LocalFileSystem(_testRootPath);
 
-            // 确保测试目录存在且为�?
+            // 确保测试目录存在且为空
             if (Directory.Exists(_testRootPath))
                 Directory.Delete(_testRootPath, true);
             Directory.CreateDirectory(_testRootPath);
@@ -355,7 +355,7 @@ namespace Linger.FileSystem.Tests.Local
         {
             // Arrange
             var content = Encoding.UTF8.GetBytes("Test Content");
-            using var stream = new FailingStream(content, 1); // 第一次失败，第二次成�?
+            using var stream = new FailingStream(content, 1); // 第一次失败，第二次成功
 
             // Act
             var result = await _fileSystem.UploadAsync(
@@ -375,7 +375,7 @@ namespace Linger.FileSystem.Tests.Local
         {
             // Arrange
             var content = Encoding.UTF8.GetBytes("Test Content");
-            using var stream = new FailingStream(content, 3); // 会连续失�?�?
+            using var stream = new FailingStream(content, 3); // 会连续失败3次
 
             // Act & Assert
             await Assert.ThrowsAsync<OutOfRetryCountException>(() =>

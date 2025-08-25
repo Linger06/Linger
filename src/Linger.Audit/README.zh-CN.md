@@ -8,6 +8,24 @@
 
 一个轻量级的 .NET 审计库，提供实体审计的基类和接口。
 
+## 📖 目录
+
+- [✨ 功能特点](#-功能特点)
+- [📦 安装](#-安装)
+- [🚀 快速开始](#-快速开始)
+  - [基础实体](#基础实体)
+  - [创建审计实体](#创建审计实体)
+  - [完整审计实体](#完整审计实体)
+- [💡 使用示例](#-使用示例)
+  - [设置当前用户上下文](#设置当前用户上下文)
+  - [与 EF Core 集成](#与-ef-core-集成)
+  - [软删除过滤](#软删除过滤)
+- [🔧 高级配置](#-高级配置)
+  - [处理遗留数据库的 DateTime 类型](#处理遗留数据库的-datetime-类型)
+- [🧩 类图概览](#-类图概览)
+- [📋 接口和基类参考](#-接口和基类参考)
+- [📜 许可证](#-许可证)
+
 ## ✨ 功能特点
 
 - 支持多目标框架 (.NET 9.0/.NET 8.0/.NET 6.0/NetStandard 2.0)
@@ -113,7 +131,7 @@ public class User : FullAuditEntity<Guid>
 
 ### 设置当前用户上下文
 
-在您的应用程序中设置当前用户信息，以便自动填充审计字段：
+在应用程序服务中使用审计实体，系统会自动填充审计字段：
 
 ```csharp
 // 在您的应用服务中
@@ -146,6 +164,8 @@ public class ProductService : IProductService
 ```
 
 ### 与 EF Core 集成
+
+配置 EF Core DbContext 以自动处理审计字段：
 
 ```csharp
 // EF Core 中处理审计字段的示例
@@ -230,6 +250,77 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
     }
 }
 ```
+
+## 🔧 高级配置
+
+### 处理遗留数据库的 DateTime 类型
+
+在实际项目中，您可能需要与现有的数据库集成，而这些数据库使用的是 `datetime` 类型而不是 `datetimeoffset`。在这种情况下，如果无法修改数据库表结构，您需要在 EF Core 中配置数据类型转换。
+
+**使用场景**：
+- 数据库表已存在，使用 `datetime` 类型
+- 无法修改现有表结构
+- 需要在应用程序中使用 `DateTimeOffset` 类型进行审计
+
+**解决方案**：
+
+```csharp
+public class UserEntityConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> entity)
+    {
+        // 配置 CreationTime 字段
+        entity.Property(e => e.CreationTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                // 保存到数据库时：DateTimeOffset -> DateTime
+                v => v.ToDateTime(), 
+                // 从数据库读取时：DateTime -> DateTimeOffset
+                v => new DateTimeOffset(v)
+            );
+        
+        // 配置 LastModificationTime 字段（可空类型）
+        entity.Property(e => e.LastModificationTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                // 保存到数据库时：DateTimeOffset? -> DateTime?
+                v => v.HasValue ? v.Value.ToDateTime() : (DateTime?)null,
+                // 从数据库读取时：DateTime? -> DateTimeOffset?
+                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
+            );
+        
+        // 配置 DeletionTime 字段（如果使用 FullAuditEntity）
+        entity.Property(e => e.DeletionTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                v => v.HasValue ? v.Value.ToDateTime() : (DateTime?)null,
+                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
+            );
+        
+        // 配置审计用户字段
+        entity.Property(e => e.CreatorId)
+            .HasMaxLength(30)
+            .IsUnicode(false);
+        
+        entity.Property(e => e.LastModifierId)
+            .HasMaxLength(30)
+            .IsUnicode(false);
+        
+        entity.Property(e => e.DeleterId)
+            .HasMaxLength(30)
+            .IsUnicode(false);
+
+        OnConfigurePartial(entity);
+    }
+    
+    partial void OnConfigurePartial(EntityTypeBuilder<User> entity);
+}
+```
+
+**注意事项**：
+- 转换时会丢失时区信息，建议在应用程序中统一使用 UTC 时间
+- `TimeSpan.Zero` 表示 UTC 时区偏移量
+- 确保数据库中存储的时间都是 UTC 时间，以避免时区混乱
 
 ## 🧩 类图概览
 

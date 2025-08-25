@@ -28,7 +28,10 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 - [高级功能](#高级功能)
 - [最佳实践](#最佳实践)
 - [API 标准化与类型安全](#api-标准化与类型安全)
+  - [.NET 10 前瞻性兼容设计](#net-10-前瞻性兼容设计)
+  - [严格类型安全原则](#严格类型安全原则)
 - [迁移说明](#迁移说明)
+  - [Join 方法标准化与 .NET 10 兼容性](#join-方法标准化与-net-10-兼容性)
 
 ## 功能特性
 
@@ -222,6 +225,82 @@ list.ForEach(Console.WriteLine); // 对每个元素执行操作
 
 // 转换为数据表
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
+
+// 🔗 .NET 10 兼容的 Join 操作 - 提前享受未来功能
+// ⚠️ 注意：这些是 .NET 10+ 内置方法的 Polyfill 实现
+
+// Left Join（左外连接）
+var employees = new List<Employee> 
+{
+    new Employee { Id = 1, Name = "张三", DeptId = 1 },
+    new Employee { Id = 2, Name = "李四", DeptId = 2 },
+    new Employee { Id = 3, Name = "王五", DeptId = 99 } // 没有对应部门
+};
+
+var departments = new List<Department>
+{
+    new Department { Id = 1, Name = "开发部" },
+    new Department { Id = 2, Name = "测试部" }
+};
+
+// Left Join：保留所有员工，没有部门的显示 null
+var leftJoinResult = employees.LeftJoin(
+    departments,
+    emp => emp.DeptId,           // 外部键选择器
+    dept => dept.Id,             // 内部键选择器
+    (emp, dept) => new { 
+        Employee = emp.Name, 
+        Department = dept?.Name ?? "无部门" 
+    }
+);
+// 输出: [{ Employee = "张三", Department = "开发部" }, 
+//        { Employee = "李四", Department = "测试部" }, 
+//        { Employee = "王五", Department = "无部门" }]
+
+// Right Join（右外连接）
+var rightJoinResult = employees.RightJoin(
+    departments,
+    emp => emp.DeptId,
+    dept => dept.Id,
+    (emp, dept) => new {
+        Employee = emp?.Name ?? "暂无员工",
+        Department = dept.Name
+    }
+);
+// 输出: [{ Employee = "张三", Department = "开发部" },
+//        { Employee = "李四", Department = "测试部" }]
+
+// Full Join（全外连接）
+var fullJoinResult = employees.FullJoin(
+    departments,
+    emp => emp.DeptId,
+    dept => dept.Id,
+    (emp, dept) => new {
+        Employee = emp?.Name ?? "暂无员工",
+        Department = dept?.Name ?? "无部门"
+    }
+);
+// 输出: 包含所有员工和所有部门的记录，不匹配的部分显示默认值
+
+// 🎯 简化版本：返回元组
+var tupleResult = employees.LeftJoin(departments, e => e.DeptId, d => d.Id);
+// 返回 IEnumerable<Tuple<Employee, Department?>>
+
+// 🔧 支持自定义比较器
+var caseInsensitiveJoin = stringList1.LeftJoin(
+    stringList2,
+    s => s,
+    s => s,
+    (s1, s2) => new { Left = s1, Right = s2 },
+    StringComparer.OrdinalIgnoreCase  // 忽略大小写比较
+);
+
+// 📊 .NET 10 兼容性说明:
+// - 在 .NET 10+ 中，这些方法将由 System.Linq.Enumerable 内置提供
+// - 当前实现的方法签名与 .NET 10 标准完全一致
+// - 升级到 .NET 10 时，可以无缝切换到内置实现
+// - 参数名称: outer/inner, outerKeySelector/innerKeySelector, resultSelector
+// - 泛型参数: TOuter, TInner, TKey, TResult
 ```
 
 ### 对象扩展
@@ -401,21 +480,59 @@ string description = status.GetDescription(); // 获取描述文本
 ### 参数验证
 
 ```csharp
-using Linger.Helper;
+using Linger;
 
 public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 {
-    // 基本验证
-    data.EnsureIsNotNull(nameof(data)); // 确保不为 null
-    data.EnsureIsNotNullOrEmpty(nameof(data)); // 确保不为 null 或空
-    data.EnsureIsNotNullOrWhiteSpace(nameof(data)); // 确保不为 null、空或空白
+    // 🆕 新的参数验证方法（.NET 8 之前版本的 Polyfill）
+    // 这些方法与 .NET 8+ 内置方法完全一致，提供无缝升级体验
+    
+    // 参数空值和内容验证
+    ArgumentNullException.ThrowIfNull(data);                    // 确保不为 null
+    ArgumentException.ThrowIfNullOrEmpty(data);                 // 确保不为 null 或空字符串
+    ArgumentException.ThrowIfNullOrWhiteSpace(data);            // 确保不为 null、空或纯空白字符
+
+    // 集合参数验证  
+    ArgumentNullException.ThrowIfNull(numbers);                 // 确保集合不为 null
+    
+    // 🔍 框架支持说明：
+    // - .NET 5 及以下：使用 Linger.ArgumentNullException.ThrowIfNull (polyfill)
+    // - .NET 6+：使用内置 System.ArgumentNullException.ThrowIfNull
+    // - .NET 7 及以下：使用 Linger.ArgumentException.ThrowIfNullOrEmpty (polyfill) 
+    // - .NET 8+：使用内置 System.ArgumentException.ThrowIfNullOrEmpty
+    
+    // 📦 使用方式：
+    using Linger;  // 只需要这一行 using
+    
+    // 在 .NET 8+ 项目中，升级时只需移除 using Linger; 即可
+    // 其他代码完全不需要修改！
+    
+    // ⚠️ 重要：这些是工具类，不能实例化
+    // var ex = new ArgumentException();           // ❌ 编译错误（这是好事！）
+    // throw new System.ArgumentException("msg");  // ✅ 正确：手动抛出标准异常
+    
+    // 🎯 抛出的异常类型：
+    // ArgumentNullException.ThrowIfNull() → 抛出 System.ArgumentNullException
+    // ArgumentException.ThrowIfNullOrEmpty() → 抛出 System.ArgumentException 或 System.ArgumentNullException
+    // ArgumentException.ThrowIfNullOrWhiteSpace() → 抛出 System.ArgumentException 或 System.ArgumentNullException
+}
+
+// 🔄 传统方式（仍然支持）
+public void ProcessDataTraditional(string data, IEnumerable<int> numbers, string filePath)
+{
+    using Linger.Helper;
+    
+    // 基本验证（传统 Guard 方法）
+    data.EnsureIsNotNull(nameof(data));                        // 确保不为 null
+    data.EnsureIsNotNullOrEmpty(nameof(data));                 // 确保不为 null 或空
+    data.EnsureIsNotNullOrWhiteSpace(nameof(data));            // 确保不为 null、空或空白
 
     // 集合验证
-    numbers.EnsureIsNotNullOrEmpty(nameof(numbers)); // 确保集合不为 null 或空
+    numbers.EnsureIsNotNullOrEmpty(nameof(numbers));           // 确保集合不为 null 或空
 
     // 文件系统验证
-    filePath.EnsureFileExists(nameof(filePath)); // 确保文件存在
-    Path.GetDirectoryName(filePath).EnsureDirectoryExists(); // 确保目录存在
+    filePath.EnsureFileExists(nameof(filePath));               // 确保文件存在
+    Path.GetDirectoryName(filePath).EnsureDirectoryExists();   // 确保目录存在
 
     // 条件验证
     (data.Length > 0).EnsureIsTrue(nameof(data), "数据不能为空");
@@ -423,14 +540,20 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
 
     // 范围验证
     int value = 5;
-    value.EnsureIsInRange(1, 10, nameof(value)); // 确保值在范围内
+    value.EnsureIsInRange(1, 10, nameof(value));               // 确保值在范围内
 
     // 空值检查
     object? obj = GetSomeObject();
-    obj.EnsureIsNotNull(nameof(obj)); // 如果对象不应为 null
+    obj.EnsureIsNotNull(nameof(obj));                          // 如果对象不应为 null
     // 或
-    obj.EnsureIsNull(nameof(obj)); // 如果对象应为 null
+    obj.EnsureIsNull(nameof(obj));                             // 如果对象应为 null
 }
+
+// 💡 最佳实践建议：
+// 1. 新项目：优先使用新的 ArgumentException/ArgumentNullException 静态方法
+// 2. 现有项目：可以继续使用传统 Guard 方法，或逐步迁移
+// 3. .NET 8+ 项目：升级时移除 using Linger; 即可使用内置方法
+// 4. 库开发：使用新方法确保与未来 .NET 版本的完美兼容性
 ```
 
 ## 高级功能
@@ -535,7 +658,52 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 从 0.8.2 版本开始，Linger.Utils 进行了重要的 API 标准化，强调类型安全和一致性。
 
-### 🔒 严格类型安全原则
+### � .NET 10 前瞻性兼容设计
+
+Linger.Utils 已经为即将到来的 .NET 10 做好了准备，特别是在 Join 方法方面：
+
+#### 🚀 未来就绪的 Join 操作
+```csharp
+// 🎯 当前代码（Linger polyfill）
+var result = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+
+// 🔮 .NET 10 发布后（自动切换到内置实现）
+var result = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+// 完全相同的代码，但使用 System.Linq.Enumerable.LeftJoin
+
+// 🎉 无需任何代码修改！
+```
+
+#### 📊 完整的方法兼容性矩阵
+| 方法 | Linger Polyfill | .NET 10 内置 | 兼容性状态 |
+|------|----------------|--------------|------------|
+| `LeftJoin` | ✅ 已实现 | 🔮 即将提供 | 💯 完全兼容 |
+| `RightJoin` | ✅ 已实现 | 🔮 即将提供 | 💯 完全兼容 |
+| `FullJoin` | ✅ 已实现 | ❓ 待确认 | 📋 保持监控 |
+
+#### 🔧 技术实现细节
+```csharp
+// 条件编译确保无缝过渡
+#if !NET10_0_OR_GREATER
+    // Linger 的 polyfill 实现
+    public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(...)
+    {
+        // 高性能实现，与 .NET 10 行为一致
+    }
+#endif
+
+// .NET 10+ 环境下，自动使用内置方法
+// 性能更优，功能完全一致
+```
+
+#### 🎁 提前享受 .NET 10 功能的好处
+1. **学习成本降低**: 提前熟悉 .NET 10 API
+2. **代码前瞻性**: 无需等待框架升级即可使用新功能  
+3. **无缝迁移**: 升级框架时零代码修改
+4. **性能一致**: polyfill 实现与未来内置版本性能相当
+5. **标准化**: 统一的参数命名和行为模式
+
+### �🔒 严格类型安全原则
 
 **ObjectExtensions 类型安全策略:**
 - 所有 `ToXxxOrDefault()` 和 `ToXxxOrNull()` 方法**采用性能优化的类型转换策略**
@@ -650,7 +818,78 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true（字母支持）
 
 为提升命名一致性、类型安全与可读性，本版本对 API 进行了重要的标准化改进。旧名称均以 `[Obsolete]` 标记并仍可使用（过渡期：0.9.x，计划在首个 1.0 预发布版本移除），建议尽快迁移。
 
-### 🔒 重要：类型安全增强
+### � Join 方法标准化与 .NET 10 兼容性
+
+为了与即将发布的 .NET 10 标准保持一致，Join 方法已进行重大重构：
+
+#### Join 方法重命名
+| 旧方法名 | 新方法名 | 状态 | 说明 |
+|---------|---------|------|------|
+| `LeftOuterJoin` | `LeftJoin` | ✅ 完成 | 与 .NET 10 内置方法名称一致 |
+| `RightOuterJoin` | `RightJoin` | ✅ 完成 | 与 .NET 10 内置方法名称一致 |
+| `FullOuterJoin` | `FullJoin` | ✅ 完成 | 简化命名，保持一致性 |
+| `InnerJoin` | *已移除* | ❌ 移除 | 功能与内置 `Join` 重复 |
+
+#### 参数名称标准化
+所有 Join 方法现在使用与 .NET 10 完全一致的参数名称：
+
+```csharp
+// ✅ 新的标准化参数名称（与 .NET 10 一致）
+public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(
+    this IEnumerable<TOuter> outer,           // 外部序列
+    IEnumerable<TInner> inner,                // 内部序列  
+    Func<TOuter, TKey> outerKeySelector,      // 外部键选择器
+    Func<TInner, TKey> innerKeySelector,      // 内部键选择器
+    Func<TOuter, TInner?, TResult> resultSelector  // 结果选择器
+)
+
+// ❌ 旧的参数名称（已废弃）
+// left, right, leftKeySelector, rightKeySelector, resultSelector
+```
+
+#### .NET 10 Polyfill 策略
+当前实现采用条件编译，为未来 .NET 10 升级做好准备：
+
+```csharp
+#if !NET10_0_OR_GREATER
+// Linger 提供的 polyfill 实现
+public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(...) { ... }
+#endif
+
+// 🔄 升级到 .NET 10 时的迁移路径：
+// 1. 升级项目目标框架到 .NET 10
+// 2. 代码自动使用 System.Linq.Enumerable.LeftJoin
+// 3. 无需修改任何调用代码，因为方法签名完全一致
+```
+
+#### 迁移示例
+
+```csharp
+// 🔄 迁移前（已废弃的方法）
+var result1 = employees.LeftOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result2 = employees.RightOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result3 = employees.FullOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result4 = employees.InnerJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+
+// ✅ 迁移后（.NET 10 兼容）
+var result1 = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result2 = employees.RightJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result3 = employees.FullJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
+var result4 = employees.Join(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d }); // 使用内置 Join
+```
+
+#### Join 方法优势对比
+
+| 特性 | 旧实现 | 新实现 (.NET 10 兼容) |
+|------|--------|----------------------|
+| 方法名称 | 非标准长名称 | .NET 10 标准短名称 |
+| 参数命名 | left/right 模式 | outer/inner 标准模式 |
+| 泛型参数 | TLeft/TRight 模式 | TOuter/TInner 标准模式 |
+| 未来兼容性 | 需要手动迁移 | 自动使用内置方法 |
+| IntelliSense | 冗长的方法名 | 简洁标准的方法名 |
+| 性能 | 相同 | 相同（底层实现一致） |
+
+### �🔒 重要：类型安全增强
 
 **ObjectExtensions 行为变更:**
 - 所有类型转换方法现在**采用性能优化的转换策略**

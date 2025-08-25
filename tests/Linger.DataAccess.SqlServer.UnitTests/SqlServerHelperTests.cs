@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Threading.Tasks;
@@ -7,7 +6,7 @@ using Xunit;
 namespace Linger.DataAccess.SqlServer.UnitTests;
 
 /// <summary>
-/// SqlServerHelper 单元测试�?- 仅测试不涉及数据库连接的逻辑
+/// SqlServerHelper 鍗曞厓娴嬭瘯绫?- 浠呮祴璇曚笉娑夊強鏁版嵁搴撹繛鎺ョ殑閫昏緫
 /// </summary>
 public class SqlServerHelperTests
 {
@@ -283,7 +282,7 @@ public class SqlServerHelperTests
 }
 
 /// <summary>
-/// 性能和边界测试类
+/// 鎬ц兘鍜岃竟鐣屾祴璇曠被
 /// </summary>
 public class SqlServerHelperPerformanceTests
 {

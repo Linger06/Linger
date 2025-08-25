@@ -7,13 +7,18 @@ using System.Runtime.CompilerServices;
 namespace Linger;
 
 /// <summary>
-/// Polyfill ArgumentNullException with ThrowIfNull method for older .NET frameworks.
+/// Polyfill for ArgumentNullException validation methods for older .NET frameworks.
 /// This provides backward compatibility for .NET Framework, .NET Standard 2.0, and .NET 5 
 /// that don't have ThrowIfNull method. In .NET 6+, use the built-in System.ArgumentNullException.ThrowIfNull instead.
 /// </summary>
 /// <remarks>
-/// This class only provides ThrowIfNull polyfill. For string validation methods
-/// (ThrowIfNullOrEmpty/ThrowIfNullOrWhiteSpace), use Linger.ArgumentException class.
+/// This class provides static validation methods that mirror Microsoft's API:
+/// - ThrowIfNull method
+/// - Always throws standard System.ArgumentNullException
+/// - Consistent API with System.ArgumentNullException in .NET 6+
+/// 
+/// Note: This is a utility class, not an exception class.
+/// For throwing exceptions, use: throw new System.ArgumentNullException(paramName, message)
 /// </remarks>
 public static class ArgumentNullException
 {

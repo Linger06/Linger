@@ -1,4 +1,4 @@
-﻿# Linger.EFCore.Audit
+# Linger.EFCore.Audit
 
 > 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
 
@@ -206,8 +206,4 @@ The `AuditTrailEntry` captures:
 - Creation audit: CreatorId, CreationTime
 - Modification audit: LastModifierId, LastModificationTime
 - Soft delete: IsDeleted, DeleterId, DeletionTime
-
-## 📝 License
-
-This project is licensed under the MIT License.
 

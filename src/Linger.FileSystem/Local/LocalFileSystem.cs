@@ -271,7 +271,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         ArgumentNullException.ThrowIfNull(inputStream);
-        Linger.ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
+        ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
 
         var fileExtension = Path.GetExtension(sourceFileName);
 
@@ -434,8 +434,8 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// </example>
     public async Task<string> DownloadAsync(string sourceFilePath, string localDestinationPath, bool overwrite = false, bool useSequencedName = true)
     {
-        Linger.ArgumentException.ThrowIfNullOrEmpty(sourceFilePath);
-        Linger.ArgumentException.ThrowIfNullOrEmpty(localDestinationPath);
+        ArgumentException.ThrowIfNullOrEmpty(sourceFilePath);
+        ArgumentException.ThrowIfNullOrEmpty(localDestinationPath);
 
         return await RetryHelper.ExecuteAsync(
             async () =>
@@ -482,7 +482,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <exception cref="FileNotFoundException">源文件不存在时抛出</exception>
     public async Task DownloadToStreamAsync(string filePath, Stream destStream)
     {
-        Linger.ArgumentException.ThrowIfNullOrEmpty(filePath);
+        ArgumentException.ThrowIfNullOrEmpty(filePath);
         ArgumentNullException.ThrowIfNull(destStream);
 
         var sourceFilePath = GetRealPath(filePath);
