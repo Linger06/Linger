@@ -105,9 +105,9 @@ string cleaned = text.Trim(); // 去除首尾空格
 
 // 字符串截取
 string longText = "Hello World";
-string leftPart = longText.Left(5); // 取前 5 个字符："Hello"
-string rightPart = longText.Right(5); // 取后 5 个字符："World"
-string part = longText.SafeSubstring(0, 20); // 安全截取，超长不会报错
+string leftPart = longText.Take(5); // 取前 5 个字符："Hello"
+string rightPart = longText.TakeLast(5); // 取后 5 个字符："World"
+string part = longText.Truncate(20, ""); // 安全截取，超长不会报错
 
 // 字符串检查
 bool isEmpty = text.IsNullOrEmpty(); // 检查是否为空
@@ -382,9 +382,31 @@ if ("-100".TryToSByte(out var sbyteResult)) { /* sbyteResult = -100 */ }
 var apiUrl = "api/v1".EnsureStartsWith("/"); // => "/api/v1"
 var folder = "logs".EnsureEndsWith("/");     // => "logs/"
 
-// 数值范围检查
+// 数值范围验证（使用 Guard 扩展）
 int value = 5;
-bool inRange = value.InRange(1, 10); // 检查是否在 1 到 10 之间
+try 
+{
+    // 使用 EnsureIsInRange 进行范围验证（推荐方式）
+    int validatedValue = value.EnsureIsInRange(1, 10); // 验证值在 1-10 范围内
+    Console.WriteLine($"验证通过，值为: {validatedValue}"); // 输出: 验证通过，值为: 5
+}
+catch (ArgumentOutOfRangeException ex)
+{
+    Console.WriteLine($"数值超出范围: {ex.Message}");
+}
+
+// 💡 范围验证说明：
+// - EnsureIsInRange() 是 Guard 方法，验证失败时抛出 ArgumentOutOfRangeException
+// - 验证成功时返回原值，可以链式调用
+// - 支持所有实现 IComparable<T> 的类型（int, double, DateTime 等）
+// - 范围是包含边界值的（闭区间）[min, max]
+
+// 🔍 其他数值范围应用示例：
+double price = 99.99;
+double validPrice = price.EnsureIsInRange(0.0, 1000.0); // 价格验证
+
+DateTime date = DateTime.Now;
+DateTime validDate = date.EnsureIsInRange(DateTime.Today, DateTime.Today.AddDays(30)); // 日期范围验证
 ```
 
 ### JSON 扩展
@@ -423,7 +445,7 @@ Guid? nullableGuid = null;
 bool isNull = nullableGuid.IsNull(); // 检查是否为 null
 bool isNotNull = nullableGuid.IsNotNull(); // 检查是否不为 null
 bool isNullOrEmpty = nullableGuid.IsNullOrEmpty(); // 检查是否为 null 或空
-bool isNotNullAndEmpty = nullableGuid.IsNotNullAndEmpty(); // 检查是否既不为 null 也不为空
+bool isNotNullOrEmpty = nullableGuid.IsNotNullOrEmpty(); // 检查是否既不为 null 也不为空
 
 // GUID 转换
 long longValue = guid.ToInt64(); // 转换为 Int64

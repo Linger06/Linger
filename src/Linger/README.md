@@ -105,9 +105,9 @@ string cleaned = text.Trim(); // Removes whitespace from both ends (.NET native 
 
 // String extraction
 string longText = "Hello World";
-string leftPart = longText.Left(5); // Get left 5 characters: Hello
-string rightPart = longText.Right(5); // Get right 5 characters: World
-string part = longText.SafeSubstring(0, 20); // Won't throw if length exceeds
+string leftPart = longText.Take(5); // Get left 5 characters: Hello
+string rightPart = longText.TakeLast(5); // Get right 5 characters: World
+string part = longText.Truncate(20); // Won't throw if length exceeds
 
 // String checks
 bool isEmpty = text.IsNullOrEmpty();
@@ -425,7 +425,7 @@ Guid? nullableGuid = null;
 bool isNull = nullableGuid.IsNull(); // Check if null
 bool isNotNull = nullableGuid.IsNotNull(); // Check if not null
 bool isNullOrEmpty = nullableGuid.IsNullOrEmpty(); // Check if null or empty
-bool isNotNullAndEmpty = nullableGuid.IsNotNullAndEmpty(); // Check if neither null nor empty
+bool isNotNullOrEmpty = nullableGuid.IsNotNullOrEmpty(); // Check if neither null nor empty
 
 // GUID conversion
 long longValue = guid.ToInt64(); // Convert to Int64
