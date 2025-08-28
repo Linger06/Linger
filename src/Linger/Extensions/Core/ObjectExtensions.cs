@@ -356,7 +356,7 @@ public static class ObjectExtensions
     /// Console.WriteLine(result); // Output: "42"
     /// </code>
     /// </example>
-    [Obsolete("Use ToSafeString() instead. Will be removed in 1.0.0.")]
+    [Obsolete("Use ToStringOrDefault() instead. Will be removed in 1.0.0.")]
     public static string ToStringOrEmpty(this object? input) => input?.ToString() ?? string.Empty;
     /// <summary>
     /// Converts the input object to a string. Returns null if the input is null.

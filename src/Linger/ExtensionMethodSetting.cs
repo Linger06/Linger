@@ -90,7 +90,8 @@ public static class ExtensionMethodSetting
         var jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            // Safer-by-default encoding to avoid over-escaping relaxations that could be abused in certain contexts.
+            Encoder = JavaScriptEncoder.Default,
             PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
@@ -99,7 +100,6 @@ public static class ExtensionMethodSetting
             IgnoreReadOnlyFields = true,
             AllowTrailingCommas = false,
             ReadCommentHandling = JsonCommentHandling.Disallow,
-            NumberHandling = JsonNumberHandling.AllowReadingFromString,
             ReferenceHandler = ReferenceHandler.IgnoreCycles
         };
 
@@ -124,6 +124,35 @@ public static class ExtensionMethodSetting
         };
 
         jsonOptions.Converters.Add(new DateTimeConverter());
+        return jsonOptions;
+    }
+
+    /// <summary>
+    /// Creates a permissive JSON options instance for interop scenarios where inputs may be non-standard.
+    /// Includes relaxed escaping and number handling similar to older defaults.
+    /// </summary>
+    public static JsonSerializerOptions CreatePermissiveJsonOptions()
+    {
+        var jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            IgnoreReadOnlyProperties = true,
+            IgnoreReadOnlyFields = true,
+            AllowTrailingCommas = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString,
+            ReferenceHandler = ReferenceHandler.IgnoreCycles
+        };
+
+        jsonOptions.Converters.Add(new JsonObjectConverter());
+        jsonOptions.Converters.Add(new DateTimeConverter());
+        jsonOptions.Converters.Add(new DateTimeNullConverter());
+        jsonOptions.Converters.Add(new DataTableJsonConverter());
         return jsonOptions;
     }
 #endif

@@ -191,7 +191,7 @@ public static partial class StringExtensions
     /// <returns>The string without the last comma.</returns>
     public static string RemoveLastComma(this string str)
     {
-        return str.RemoveLastChar(",");
+    return str.RemoveLastChar(',');
     }
 
     /// <summary>
@@ -200,6 +200,52 @@ public static partial class StringExtensions
     /// <param name="str">The string to remove the character from.</param>
     /// <param name="character">The character to remove.</param>
     /// <returns>The string without the specified character at the end.</returns>
+    /// <remarks>
+    /// This overload precisely removes one character if and only if the last character of <paramref name="str"/> equals <paramref name="character"/>.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// "abc".RemoveLastChar('c') // => "ab"
+    /// "abc".RemoveLastChar('x') // => "abc"
+    /// </code>
+    /// </example>
+    public static string RemoveLastChar(this string str, char character)
+    {
+        if (string.IsNullOrEmpty(str))
+            return str ?? string.Empty;
+#if NET6_0_OR_GREATER
+        return str[^1] == character ? str[..^1] : str;
+#else
+        return str[str.Length - 1] == character ? str.Substring(0, str.Length - 1) : str;
+#endif
+    }
+
+    /// <summary>
+    /// Removes the specified character(s) from the end of the string.
+    /// </summary>
+    /// <param name="str">The string to remove the character from.</param>
+    /// <param name="character">The character(s) to remove.</param>
+    /// <returns>The string without the specified character(s) at the end.</returns>
+    /// <remarks>
+    /// Behavioral note for multi-character tokens: when <paramref name="character"/> has length greater than 1, this method trims by character set semantics
+    /// (equivalent to <see cref="string.TrimEnd(char[])"/>), which can be surprising for callers expecting exact suffix removal.
+    /// Prefer <see cref="RemoveSuffixOnce(string, StringComparison)"/> for precise single-suffix removal with comparison control.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// // Single-char: precise one-character removal
+    /// "abc".RemoveLastChar("c")    // => "ab"
+    /// "abc".RemoveLastChar("x")    // => "abc"
+    ///
+    /// // Multi-char: trims by character set (legacy behavior)
+    /// "abcc".RemoveLastChar("bc")  // => "a"   (because both 'b' and 'c' are trimmed from the end)
+    ///
+    /// // Prefer precise API for exact suffix once
+    /// "abcc".RemoveSuffixOnce("bc") // => "abcc" (no exact "bc" suffix)
+    /// "hello.txt".RemoveSuffixOnce(".txt") // => "hello"
+    /// </code>
+    /// </example>
+    [Obsolete("For single-character removal prefer RemoveLastChar(char). For multi-character exact suffix removal use RemoveSuffixOnce(string, StringComparison). The multi-character overload trims by character set (legacy).", false)]
     public static string RemoveLastChar(this string str, string character)
     {
         if (str.IsNullOrEmpty() || character.IsNullOrEmpty())

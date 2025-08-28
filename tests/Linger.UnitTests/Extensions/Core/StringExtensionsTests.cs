@@ -1025,9 +1025,9 @@ public partial class StringExtensionsTests
         var result = input.ToMd5HashCode();
 
         // Assert
-        Assert.NotNull(result);
-        Assert.Equal(32, result.Length); // MD5 hash string is always 32 characters (16 bytes * 2 hex digits)
-        Assert.True(result.All(c => (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F'))); // Only uppercase hex characters
+    Assert.NotNull(result);
+    Assert.Equal(32, result.Length); // MD5 hash string is always 32 characters (16 bytes * 2 hex digits)
+    Assert.True(result.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))); // Only lower-case hex characters
     }
 
     [Fact]

@@ -86,6 +86,20 @@ public class DateTimeConverterTests
         // Assert
         Assert.Equal("null", json);
     }
+
+    [Fact]
+    public void DateTimeNullConverter_ReadWrite_RoundTrip_Null()
+    {
+        // Arrange
+        DateTime? value = null;
+
+        // Act
+        var json = JsonSerializer.Serialize(value, _nullableOptions);
+        var back = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+
+        // Assert
+        Assert.Null(back);
+    }
     
     [Fact]
     public void DateTimeNullConverter_Write_WithDateOnly_WritesDateFormat()

@@ -377,8 +377,10 @@ bool isInt2 = stringValue.IsInteger(); // Check if it's an integer format
 bool isDouble2 = stringValue.IsDouble(); // Check if it's a double format
 
 // Try-style numeric conversions (to avoid masking failures with defaults)
-if ("123".TryInt(out var parsedInt)) { /* parsedInt = 123 */ }
-if (!"bad data".TryDecimal(out var decVal)) { /* decVal = 0, conversion failed */ }
+if ("123".TryToInt(out var parsedInt)) { /* parsedInt = 123 */ }
+if (!"bad data".TryToDecimal(out var decVal)) { /* decVal = 0, conversion failed */ }
+
+> Naming convention: All Try-style methods use `TryToXxx(out T)` and return `bool`. For string extensions the `out` parameter is a nullable value type (e.g., `out int?`), while for object extensions it is non-nullable (e.g., `out int`).
 
 // Ensure prefix/suffix (idempotent, won't duplicate)
 var apiUrl = "api/v1".EnsureStartsWith("/"); // => "/api/v1"
@@ -409,6 +411,22 @@ string name = dynamicObj.Name; // Access properties
 string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
 DataTable? dataTable = jsonArray.ToDataTable();
 ```
+
+#### JSON Options & Secure Defaults
+
+Default JSON settings follow a "secure-by-default" stance:
+
+- `ExtensionMethodSetting.DefaultJsonSerializerOptions`
+    - Encoder: `JavaScriptEncoder.Default` (safer escaping strategy)
+    - Number handling: strict (does not allow numbers encoded as strings by default)
+    - Others: case-insensitive properties, CamelCase naming, ignore nulls, disallow trailing commas and comments, ignore cycles
+    - Built-in converters: `JsonObjectConverter`, `DateTimeConverter`, `DateTimeNullConverter`, `DataTableJsonConverter`
+
+- Interop/permissive scenarios
+    - Outbound default: `ExtensionMethodSetting.DefaultPostJsonOption` (allows trailing commas and writing numbers as strings for broader interoperability)
+    - Inbound optional: when you must accept non-standard inputs (comments, trailing commas, numbers-as-strings), use `ExtensionMethodSetting.CreatePermissiveJsonOptions()` explicitly.
+
+Recommendation: use strict options for in-process/server code; opt into permissive options only when interacting with non-conformant external systems.
 
 ### GUID Extensions
 
@@ -826,18 +844,6 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true (letter support)
 - **Type Safety**: Ensures type safety at both compile-time and runtime
 - **Consistency**: Unified naming and behavior patterns reduce learning costs
 
-**Performance Benchmarks** (1 million operations):
-- Same-type object conversion: ~14ms (**71M ops/sec**) 🚀 *(Direct type matching, zero string allocation)*
-- String object conversion: ~42ms (24M ops/sec) *(String parsing required)*
-- Non-compatible type conversion: ~119ms (8M ops/sec) *(ToString + parsing)*
-
-**New Type Performance** (All unsigned integer and sbyte types enjoy the same optimization):
-- Byte direct conversion: **71M ops/sec** 🚀
-- UShort direct conversion: **71M ops/sec** 🚀  
-- UInt direct conversion: **71M ops/sec** 🚀
-- ULong direct conversion: **71M ops/sec** 🚀
-- SByte direct conversion: **71M ops/sec** 🚀
-
 ## Best Practices
 
 1. **Follow Type Safety Principles**: 
@@ -1048,12 +1054,12 @@ No functional behavior changed—this is a surface naming / diagnostics improvem
 ### New String & Guid API Enhancements (post 0.8.2)
 | Category | New API | Purpose |
 |----------|---------|---------|
-| String | `RemoveSuffixOnce(string suffix, StringComparison comparison = Ordinal)` | 精确移除单个后缀（大小写可控），避免旧 `RemoveLastChar` 基于字符集合的潜在误解 |
-| String | `EnsureStartsWith(string prefix, StringComparison comparison)` | 基于指定比较方式前缀确保，无需手动大小写判断 |
-| String | `EnsureEndsWith(string suffix, StringComparison comparison)` | 同上（后缀） |
-| String | `RemovePrefixAndSuffix(string token, StringComparison comparison)` | 提供文化/大小写控制的前后对称移除 |
-| Guid | `IsNotNullOrEmpty()` | 语义统一，替代旧 `IsNotNullAndEmpty` |
-| Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
+| String | `RemoveSuffixOnce(string suffix, StringComparison comparison = Ordinal)` | Precisely remove a single suffix (with case-comparison control), avoiding legacy `RemoveLastChar` character-set trimming ambiguity |
+| String | `EnsureStartsWith(string prefix, StringComparison comparison)` | Ensure prefix using the specified comparison without manual case checks |
+| String | `EnsureEndsWith(string suffix, StringComparison comparison)` | Same as above (suffix) |
+| String | `RemovePrefixAndSuffix(string token, StringComparison comparison)` | Symmetric removal with culture/case comparison control |
+| Guid | `IsNotNullOrEmpty()` | Unified semantics, replaces legacy `IsNotNullAndEmpty` |
+| Object | `IsNotNullOrEmpty()` | Consistent with Guid/String |
 
 ### Type Conversion API Standardization (0.8.2+)
 The type conversion methods have been standardized to use consistent `ToXxxOrDefault` naming pattern with **complete .NET numeric type support**:
@@ -1145,7 +1151,7 @@ The type conversion methods have been standardized to use consistent `ToXxxOrDef
 | `GuardExtensions.EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | Consistency |
 | `ObjectExtensions.ToNotSpaceString` | `ToTrimmedString` | Clearer naming |
 | `ObjectExtensions.ToStringOrEmpty` | `ToSafeString` | Consolidated semantics |
-| `RemoveLastChar` (behavioral caveat) | `RemoveSuffixOnce` | Non-exact mode will remain but migration recommended |
+| `RemoveLastChar(string)` | `RemoveLastChar(char)` / `RemoveSuffixOnce` | Multi-character parameter trims by character set (legacy `TrimEnd(char[])` semantics); prefer precise APIs |
 
 > Deletion Window: These will be removed after the first 0.9.x stable (or at latest before 1.0.0). Begin migrating now to avoid breaking changes.
 

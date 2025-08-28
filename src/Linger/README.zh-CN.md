@@ -21,6 +21,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
   - [集合扩展](#集合扩展)
   - [对象扩展](#对象扩展)
   - [JSON 扩展](#json-扩展)
+    - [JSON 选项与安全默认](#json-选项与安全默认)
   - [GUID 扩展](#guid-扩展)
   - [数组扩展](#数组扩展)
   - [枚举扩展](#枚举扩展)  
@@ -430,6 +431,22 @@ string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
 DataTable? dataTable = jsonArray.ToDataTable();
 ```
 
+#### JSON 选项与安全默认
+
+默认 JSON 采用“安全为先”的配置：
+
+- `ExtensionMethodSetting.DefaultJsonSerializerOptions`
+    - Encoder: `JavaScriptEncoder.Default`（更安全的转义策略）
+    - 数字解析：严格（不默认允许字符串形式的数字）
+    - 其他：大小写不敏感、CamelCase、忽略 null、禁止尾逗号、禁止注释、忽略循环引用
+    - 自带转换器：`JsonObjectConverter`、`DateTimeConverter`、`DateTimeNullConverter`、`DataTableJsonConverter`
+
+- 互通/宽松场景
+    - 出站默认：`ExtensionMethodSetting.DefaultPostJsonOption`（允许尾逗号与数字写为字符串，便于对端兼容）
+    - 入站可选：如需兼容不规范输入（注释、尾逗号、数字以字符串等），使用 `ExtensionMethodSetting.CreatePermissiveJsonOptions()` 显式获取宽松选项。
+
+建议：库内与服务器默认使用严格选项；面向外部的非标准交互才显式选择宽松选项。
+
 ### GUID 扩展
 
 ```csharp
@@ -680,7 +697,7 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 从 0.8.2 版本开始，Linger.Utils 进行了重要的 API 标准化，强调类型安全和一致性。
 
-### � .NET 10 前瞻性兼容设计
+### .NET 10 前瞻性兼容设计
 
 Linger.Utils 已经为即将到来的 .NET 10 做好了准备，特别是在 Join 方法方面：
 
@@ -725,7 +742,7 @@ var result = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) =>
 4. **性能一致**: polyfill 实现与未来内置版本性能相当
 5. **标准化**: 统一的参数命名和行为模式
 
-### �🔒 严格类型安全原则
+### 🔒 严格类型安全原则
 
 **ObjectExtensions 类型安全策略:**
 - 所有 `ToXxxOrDefault()` 和 `ToXxxOrNull()` 方法**采用性能优化的类型转换策略**
@@ -785,18 +802,6 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true（字母支持）
 - **类型安全**: 编译时和运行时都确保类型安全
 - **一致性**: 统一的命名和行为模式，降低学习成本
 
-**性能基准测试**（100万次调用）：
-- 同类型对象转换: ~14ms (**71M ops/sec**) 🚀 *（直接类型匹配，零字符串分配）*
-- 字符串对象转换: ~42ms (24M ops/sec) *（需要字符串解析）*
-- 非兼容类型转换: ~119ms (8M ops/sec) *（ToString + 解析）*
-
-**新增类型性能表现**（所有无符号整数和sbyte类型均享受相同优化）：
-- Byte 直接转换: **71M ops/sec** 🚀
-- UShort 直接转换: **71M ops/sec** 🚀  
-- UInt 直接转换: **71M ops/sec** 🚀
-- ULong 直接转换: **71M ops/sec** 🚀
-- SByte 直接转换: **71M ops/sec** 🚀
-
 ## 最佳实践
 
 1. **遵循类型安全原则**: 
@@ -840,7 +845,7 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true（字母支持）
 
 为提升命名一致性、类型安全与可读性，本版本对 API 进行了重要的标准化改进。旧名称均以 `[Obsolete]` 标记并仍可使用（过渡期：0.9.x，计划在首个 1.0 预发布版本移除），建议尽快迁移。
 
-### � Join 方法标准化与 .NET 10 兼容性
+### Join 方法标准化与 .NET 10 兼容性
 
 为了与即将发布的 .NET 10 标准保持一致，Join 方法已进行重大重构：
 
@@ -911,7 +916,7 @@ var result4 = employees.Join(departments, e => e.DeptId, d => d.Id, (e, d) => ne
 | IntelliSense | 冗长的方法名 | 简洁标准的方法名 |
 | 性能 | 相同 | 相同（底层实现一致） |
 
-### �🔒 重要：类型安全增强
+### 🔒 重要：类型安全增强
 
 **ObjectExtensions 行为变更:**
 - 所有类型转换方法现在**采用性能优化的转换策略**
@@ -1051,6 +1056,18 @@ Guid value6 = stringValue.ToGuidOrDefault();
 | Guid | `IsNotNullOrEmpty()` | 统一语义，替代旧 `IsNotNullAndEmpty` |
 | Object | `IsNotNullOrEmpty()` | 与 Guid / String 一致化 |
 
+> 行为提醒：`RemoveLastChar(string)` 的多字符参数按“字符集合裁剪”（等同 `TrimEnd(char[])`），可能与“精确后缀删除”的预期不同。
+>
+> 示例：
+> 
+> ```csharp
+> "abc".RemoveLastChar("c")   // => "ab" （单字符：精确移除一次）
+> "abc".RemoveLastChar("x")   // => "abc"
+> "abcc".RemoveLastChar("bc") // => "a"   （多字符：‘b’与‘c’均作为裁剪集合被移除）
+> // 精确删除单字符：用 RemoveLastChar('c')
+> // 精确删除多字符后缀：用 RemoveSuffixOnce(".ext", StringComparison.OrdinalIgnoreCase)
+> ```
+
 ### 类型转换 API 标准化 (0.8.2+)
 类型转换方法已统一采用 `ToXxxOrDefault` 命名模式，并新增完整的数值类型支持：
 
@@ -1097,6 +1114,8 @@ Guid value6 = stringValue.ToGuidOrDefault();
 | 无符号短整数转换 | `TryToUShort(out ushort value)` | 安全转换到 ushort 类型 |
 | 无符号整数转换 | `TryToUInt(out uint value)` | 安全转换到 uint 类型 |
 | 无符号长整数转换 | `TryToULong(out ulong value)` | 安全转换到 ulong 类型 |
+
+> 命名约定：Try 风格方法统一采用 `TryToXxx(out T)` 并返回 `bool`。字符串扩展使用 `out` 可空值类型（如 `out int?`），对象扩展使用 `out` 非可空值类型（如 `out int`）。
 
 **新 API 的优势：**
 - ✅ 完整的 .NET 数值类型支持（所有基本数值类型）
@@ -1158,24 +1177,9 @@ Guid value6 = stringValue.ToGuidOrDefault();
 | `GuardExtensions.EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | 命名统一 |
 | `ObjectExtensions.ToNotSpaceString` | `ToTrimmedString` | 意义更明确 |
 | `ObjectExtensions.ToStringOrEmpty` | `ToSafeString` | 语义收敛 |
-| `RemoveLastChar` (行为提醒) | `RemoveSuffixOnce` | 非精准模式将保留但建议迁移 |
+| `RemoveLastChar(string)` | `RemoveLastChar(char)` / `RemoveSuffixOnce` | 多字符参数按字符集合 TrimEnd 的旧语义；推荐迁移到精确 API |
 
 > 移除窗口：上述成员计划在 0.9.x 稳定版之后（或最迟 1.0.0 之前）删除。请尽早迁移。
-
-### 使用示例（新方法）
-```csharp
-// 精确移除后缀（忽略大小写）
-var trimmed = "Report.DOCX".RemoveSuffixOnce(".docx", StringComparison.OrdinalIgnoreCase); // => "Report"
-
-// 确保前缀（忽略大小写）
-var normalized = "api/values".EnsureStartsWith("/API", StringComparison.OrdinalIgnoreCase); // => "/api/values"
-
-// 对称去除前后缀
-var inner = "__value__".RemovePrefixAndSuffix("__", StringComparison.Ordinal); // => "value"
-
-Guid? gid = Guid.NewGuid();
-if (gid.IsNotNullOrEmpty()) { /* ... */ }
-```
 
 ### 1.0.0 预定移除列表 (预览)
 将移除所有上表 Obsolete 成员以及代码内标记 “Will be removed in 1.0.0” 的项。最终确认列表会在 1.0.0 发布说明中公布。

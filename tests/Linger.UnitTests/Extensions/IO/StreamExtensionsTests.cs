@@ -12,14 +12,14 @@ public class StreamExtensionsTests : IDisposable
 
     public StreamExtensionsTests()
     {
-        // ´´½¨Ò»¸öÁÙÊ±Ä¿Â¼½øÐÐ²âÊÔ
+        // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ê±Ä¿Â¼ï¿½ï¿½ï¿½Ð²ï¿½ï¿½ï¿½
         _testDirectory = Path.Combine(Path.GetTempPath(), "StreamExtensionsTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testDirectory);
     }
 
     public void Dispose()
     {
-        // ÇåÀí´´½¨µÄËùÓÐÎÄ¼þ
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½
         foreach (var file in _createdFiles)
         {
             try
@@ -31,11 +31,11 @@ public class StreamExtensionsTests : IDisposable
             }
             catch
             {
-                // ºöÂÔÇåÀí¹ý³ÌÖÐµÄ´íÎó
+                // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÐµÄ´ï¿½ï¿½ï¿½
             }
         }
 
-        // ³¢ÊÔÉ¾³ý²âÊÔÄ¿Â¼
+        // ï¿½ï¿½ï¿½ï¿½É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿Â¼
         try
         {
             if (Directory.Exists(_testDirectory))
@@ -45,7 +45,7 @@ public class StreamExtensionsTests : IDisposable
         }
         catch
         {
-            // ºöÂÔÇåÀí¹ý³ÌÖÐµÄ´íÎó
+            // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÐµÄ´ï¿½ï¿½ï¿½
         }
     }
 
@@ -59,32 +59,32 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToMd5HashByte_ShouldCalculateCorrectHash()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "Test data for MD5 calculation";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ¼ÆËãÔ¤ÆÚµÄ MD5 ¹þÏ£
+        // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½Úµï¿½ MD5 ï¿½ï¿½Ï£
         using var md5 = MD5.Create();
         byte[] expectedHash = md5.ComputeHash(testBytes);
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         memoryStream.Position = 0;
         byte[] actualHash = memoryStream.ToMd5HashByte();
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.Equal(expectedHash, actualHash);
     }
 
     [Fact]
     public void ToMd5Hash_ShouldCalculateCorrectHashString()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "Test data for MD5 string calculation";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ¼ÆËãÔ¤ÆÚµÄ MD5 ¹þÏ£
+        // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½Úµï¿½ MD5 ï¿½ï¿½Ï£
         using var md5 = MD5.Create();
         byte[] hashBytes = md5.ComputeHash(testBytes);
         var sb = new StringBuilder();
@@ -94,34 +94,34 @@ public class StreamExtensionsTests : IDisposable
         }
         string expectedHash = sb.ToString();
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         memoryStream.Position = 0;
-#pragma warning disable CS0618 // ÀàÐÍ»ò³ÉÔ±ÒÑ¹ýÊ±
+#pragma warning disable CS0618 // ï¿½ï¿½ï¿½Í»ï¿½ï¿½Ô±ï¿½Ñ¹ï¿½Ê±
         string actualHash = memoryStream.ToMd5Hash();
-#pragma warning restore CS0618 // ÀàÐÍ»ò³ÉÔ±ÒÑ¹ýÊ±
+#pragma warning restore CS0618 // ï¿½ï¿½ï¿½Í»ï¿½ï¿½Ô±ï¿½Ñ¹ï¿½Ê±
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.Equal(expectedHash, actualHash);
     }
 
     [Fact]
     public void ComputeHashMd5_ShouldCalculateCorrectHash()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "Test data for ComputeHashMd5";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ¼ÆËãÔ¤ÆÚµÄ MD5 ¹þÏ£
+        // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½Úµï¿½ MD5 ï¿½ï¿½Ï£
         using var md5 = MD5.Create();
         byte[] hashBytes = md5.ComputeHash(testBytes);
-        string expectedHash = BitConverter.ToString(hashBytes).Replace("-", "");
+    string expectedHash = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         memoryStream.Position = 0;
         string actualHash = memoryStream.ComputeHashMd5();
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.Equal(expectedHash, actualHash);
     }
 
@@ -129,20 +129,20 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public async Task ToMd5HashByteAsync_ShouldCalculateCorrectHash()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "Test data for MD5 async calculation";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ¼ÆËãÔ¤ÆÚµÄ MD5 ¹þÏ£
+        // ï¿½ï¿½ï¿½ï¿½Ô¤ï¿½Úµï¿½ MD5 ï¿½ï¿½Ï£
         using var md5 = MD5.Create();
         byte[] expectedHash = md5.ComputeHash(testBytes);
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         memoryStream.Position = 0;
         byte[] actualHash = await memoryStream.ToMd5HashByteAsync();
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.Equal(expectedHash, actualHash);
     }
 #endif
@@ -150,16 +150,16 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_ShouldWriteStreamContentToFile()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "This is test content for file writing";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
         string outputFilePath = GetTestFilePath("stream_output.txt");
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         memoryStream.ToFile(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
         Assert.Equal(testData, fileContent);
@@ -168,17 +168,17 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_MemoryStream_ShouldWriteToFile()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "This is a test for MemoryStream.ToFile method";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
         string outputFilePath = GetTestFilePath("memory_stream_output.txt");
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         memoryStream.Position = 0;
         memoryStream.ToFile(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
         Assert.Equal(testData, fileContent);
@@ -187,20 +187,20 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_ShouldCreateDirectoriesIfNeeded()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "Test content for directory creation";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ´´½¨Ò»¸öÇ¶Ì×µÄÂ·¾¶
+        // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ç¶ï¿½×µï¿½Â·ï¿½ï¿½
         string nestedDir = Path.Combine(_testDirectory, "nested", "dirs");
         string outputFilePath = Path.Combine(nestedDir, "output.txt");
         _createdFiles.Add(outputFilePath);
 
-        // Ö´ÐÐ²âÊÔ - Ó¦¸Ã´´½¨±ØÒªµÄÄ¿Â¼
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½ - Ó¦ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ä¿Â¼
         memoryStream.ToFile(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(Directory.Exists(nestedDir));
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
@@ -210,16 +210,16 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public async Task ToFileAsync_ShouldWriteMemoryStreamToFile()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "This is async test content";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
         string outputFilePath = GetTestFilePath("async_output.txt");
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         await memoryStream.ToFileAsync(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
         Assert.Equal(testData, fileContent);
@@ -228,20 +228,20 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public async Task ToFileAsync_ShouldCreateDirectoriesIfNeeded()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "Test content for async directory creation";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ´´½¨Ò»¸öÇ¶Ì×µÄÂ·¾¶
+        // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ç¶ï¿½×µï¿½Â·ï¿½ï¿½
         string nestedDir = Path.Combine(_testDirectory, "nested", "async", "dirs");
         string outputFilePath = Path.Combine(nestedDir, "async_output.txt");
         _createdFiles.Add(outputFilePath);
 
-        // Ö´ÐÐ²âÊÔ - Ó¦¸Ã´´½¨±ØÒªµÄÄ¿Â¼
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½ - Ó¦ï¿½Ã´ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½Ä¿Â¼
         await memoryStream.ToFileAsync(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(Directory.Exists(nestedDir));
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
@@ -251,14 +251,14 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_WithEmptyStream_ShouldCreateEmptyFile()
     {
-        // ´´½¨¿ÕÁ÷
+        // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         using var emptyStream = new MemoryStream();
         string outputFilePath = GetTestFilePath("empty_stream_output.txt");
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         emptyStream.ToFile(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(File.Exists(outputFilePath));
         Assert.Equal(0, new FileInfo(outputFilePath).Length);
     }
@@ -266,26 +266,26 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_WithLargeStream_ShouldWriteCorrectly()
     {
-        // ´´½¨Ò»¸ö½Ï´óµÄÁ÷ (1MB)
+        // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ï´ï¿½ï¿½ï¿½ï¿½ (1MB)
         int sizeMB = 1;
         int size = sizeMB * 1024 * 1024;
         byte[] largeData = new byte[size];
 
-        // Ìî³äÒ»Ð©Ëæ»úÊý¾Ý
-        var random = new Random(42); // Ê¹ÓÃ¹Ì¶¨ÖÖ×ÓÒÔ±ã²âÊÔ¿ÉÖØ¸´
+        // ï¿½ï¿½ï¿½Ò»Ð©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+        var random = new Random(42); // Ê¹ï¿½Ã¹Ì¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½Ô¿ï¿½ï¿½Ø¸ï¿½
         random.NextBytes(largeData);
 
         using var largeStream = new MemoryStream(largeData);
         string outputFilePath = GetTestFilePath("large_stream_output.bin");
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         largeStream.ToFile(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(File.Exists(outputFilePath));
         Assert.Equal(size, new FileInfo(outputFilePath).Length);
 
-        // ÑéÖ¤ÎÄ¼þÄÚÈÝÓëÔ­Ê¼Êý¾ÝÆ¥Åä
+        // ï¿½ï¿½Ö¤ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô­Ê¼ï¿½ï¿½ï¿½ï¿½Æ¥ï¿½ï¿½
         byte[] fileContent = File.ReadAllBytes(outputFilePath);
         Assert.Equal(largeData, fileContent);
     }
@@ -293,19 +293,19 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_WithExistingFile_ShouldOverwrite()
     {
-        // ÏÈ´´½¨Ò»¸öÒÑ´æÔÚµÄÎÄ¼þ
+        // ï¿½È´ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ñ´ï¿½ï¿½Úµï¿½ï¿½Ä¼ï¿½
         string outputFilePath = GetTestFilePath("existing_file.txt");
         File.WriteAllText(outputFilePath, "Original content");
 
-        // ×¼±¸ÐÂÄÚÈÝ
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string newContent = "New content that should overwrite the original";
         byte[] newContentBytes = Encoding.UTF8.GetBytes(newContent);
         using var stream = new MemoryStream(newContentBytes);
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         stream.ToFile(outputFilePath);
 
-        // ÑéÖ¤ÎÄ¼þ±»¸²¸Ç
+        // ï¿½ï¿½Ö¤ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
         Assert.Equal(newContent, fileContent);
@@ -314,20 +314,20 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_WithNonSeekableStream_ShouldWorkCorrectly()
     {
-        // ´´½¨Ò»¸ö²»¿É²éÕÒµÄÁ÷
+        // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½É²ï¿½ï¿½Òµï¿½ï¿½ï¿½
         string testData = "This is test content for non-seekable stream";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
 
-        // Ê¹ÓÃNetworkStreamÄ£Äâ²»¿É²éÕÒÁ÷ (´´½¨Ò»¶ÔÁ¬½ÓµÄÄÚ´æÁ÷)
+        // Ê¹ï¿½ï¿½NetworkStreamÄ£ï¿½â²»ï¿½É²ï¿½ï¿½ï¿½ï¿½ï¿½ (ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Óµï¿½ï¿½Ú´ï¿½ï¿½ï¿½)
         using var sourceStream = new MemoryStream(testBytes);
         using var nonSeekableStream = new NonSeekableStreamWrapper(sourceStream);
 
         string outputFilePath = GetTestFilePath("non_seekable_output.txt");
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         nonSeekableStream.ToFile(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
         Assert.Equal(testData, fileContent);
@@ -336,40 +336,40 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_WithInvalidPath_ShouldThrowException()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "Test content for invalid path test";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ÑéÖ¤Òì³£±»Å×³ö
+        // ï¿½ï¿½Ö¤ï¿½ì³£ï¿½ï¿½ï¿½×³ï¿½
         Assert.Throws<System.ArgumentException>(() => memoryStream.ToFile(Path.Combine(_testDirectory, "invalid_chars", "?*:|<>\0", "file.txt")));
     }
 
     [Fact]
     public void ToFile_WithReadOnlyFile_ShouldThrowException()
     {
-        // ´´½¨Ò»¸öÎÄ¼þ²¢ÉèÖÃÎªÖ»¶Á
+        // ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÎªÖ»ï¿½ï¿½
         string filePath = GetTestFilePath("readonly_file.txt");
         File.WriteAllText(filePath, "Initial content");
         File.SetAttributes(filePath, FileAttributes.ReadOnly);
 
         try
         {
-            // ÑéÖ¤ÎÄ¼þÊÇÖ»¶ÁµÄ
+            // ï¿½ï¿½Ö¤ï¿½Ä¼ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½
             Assert.True((File.GetAttributes(filePath) & FileAttributes.ReadOnly) == FileAttributes.ReadOnly,
-                "ÎÄ¼þÎ´³É¹¦ÉèÖÃÎªÖ»¶ÁÄ£Ê½");
+                "ï¿½Ä¼ï¿½Î´ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ÎªÖ»ï¿½ï¿½Ä£Ê½");
 
-            // ×¼±¸²âÊÔÊý¾Ý
+            // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
             string testData = "New content for read-only file";
             byte[] testBytes = Encoding.UTF8.GetBytes(testData);
             using var memoryStream = new MemoryStream(testBytes);
 
-            // ³¢ÊÔÐ´ÈëÖ»¶ÁÎÄ¼þ£¬Ó¦¸ÃÅ×³öÒì³£
+            // ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ï¿½Ö»ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½×³ï¿½ï¿½ì³£
             Assert.Throws<UnauthorizedAccessException>(() => memoryStream.ToFile(filePath));
         }
         finally
         {
-            // »Ö¸´ÎÄ¼þÊôÐÔÒÔ±ãÇåÀí
+            // ï¿½Ö¸ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½
             File.SetAttributes(filePath, FileAttributes.Normal);
         }
     }
@@ -377,20 +377,20 @@ public class StreamExtensionsTests : IDisposable
     [Fact]
     public void ToFile_WithStreamPositionAtEnd_ShouldSeekToBeginningAndWriteCorrectly()
     {
-        // ×¼±¸²âÊÔÊý¾Ý
+        // ×¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
         string testData = "This is test content for stream position test";
         byte[] testBytes = Encoding.UTF8.GetBytes(testData);
         using var memoryStream = new MemoryStream(testBytes);
 
-        // ½«Á÷Î»ÖÃÒÆ¶¯µ½Ä©Î²
+        // ï¿½ï¿½ï¿½ï¿½Î»ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½Ä©Î²
         memoryStream.Position = memoryStream.Length;
 
         string outputFilePath = GetTestFilePath("stream_position_test.txt");
 
-        // Ö´ÐÐ²âÊÔ
+        // Ö´ï¿½Ð²ï¿½ï¿½ï¿½
         memoryStream.ToFile(outputFilePath);
 
-        // ÑéÖ¤
+        // ï¿½ï¿½Ö¤
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
         Assert.Equal(testData, fileContent);
@@ -402,7 +402,7 @@ public class StreamExtensionsTests : IDisposable
     {
         try
         {
-            // ³¢ÊÔ´´½¨Ò»¸öÏµÍ³Ä¿Â¼ÏÂµÄÎÄ¼þ
+            // ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ÏµÍ³Ä¿Â¼ï¿½Âµï¿½ï¿½Ä¼ï¿½
             string adminTestPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
                                                $"test_{Guid.NewGuid()}.tmp");
             using (FileStream fs = File.Create(adminTestPath, 1, FileOptions.DeleteOnClose))
@@ -433,7 +433,7 @@ public class StreamExtensionsTests : IDisposable
 }
 
 /// <summary>
-/// ²»¿É²éÕÒÁ÷µÄ°ü×°Æ÷Àà£¬ÓÃÓÚ²âÊÔ
+/// ï¿½ï¿½ï¿½É²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä°ï¿½×°ï¿½ï¿½ï¿½à£¬ï¿½ï¿½ï¿½Ú²ï¿½ï¿½ï¿½
 /// </summary>
 internal class NonSeekableStreamWrapper : Stream
 {
@@ -445,7 +445,7 @@ internal class NonSeekableStreamWrapper : Stream
     }
 
     public override bool CanRead => _innerStream.CanRead;
-    public override bool CanSeek => false; // Ç¿ÖÆÉèÎª²»¿É²éÕÒ
+    public override bool CanSeek => false; // Ç¿ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½É²ï¿½ï¿½ï¿½
     public override bool CanWrite => _innerStream.CanWrite;
     public override long Length => _innerStream.Length;
 

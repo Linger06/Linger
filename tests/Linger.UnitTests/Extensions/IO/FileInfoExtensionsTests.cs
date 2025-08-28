@@ -546,7 +546,7 @@ public class FileInfoExtensionsTests : IDisposable
         byte[] contentBytes = Encoding.UTF8.GetBytes(content);
         using var md5 = MD5.Create();
         byte[] expectedHashBytes = md5.ComputeHash(contentBytes);
-        string expectedHash = BitConverter.ToString(expectedHashBytes).Replace("-", "");
+    string expectedHash = BitConverter.ToString(expectedHashBytes).Replace("-", "").ToLowerInvariant();
 
         // 执行测试
         string hash = fileInfo.ComputeHashMd5();

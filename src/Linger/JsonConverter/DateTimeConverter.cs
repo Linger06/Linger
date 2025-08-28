@@ -98,13 +98,19 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
     /// <param name="options">The serializer options.</param>
     public override void Write(Utf8JsonWriter writer, DateTime? value, JsonSerializerOptions options)
     {
-        if (value is { Hour: 0, Minute: 0, Second: 0 })
+        if (value is null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        if (value.Value is { Hour: 0, Minute: 0, Second: 0 })
         {
             writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture));
         }
         else
         {
-            writer.WriteStringValue(value?.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture));
+            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture));
         }
     }
 }

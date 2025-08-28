@@ -51,4 +51,13 @@ public partial class ArrayExtensionsTests
         var result = array.ToList();
         Assert.Equal(array, result);
     }
+
+    [Fact]
+    public void ToList_WithNull_ReturnsEmptyList()
+    {
+        string[]? array = null;
+        var result = array.ToList();
+        Assert.NotNull(result);
+        Assert.Empty(result);
+    }
 }

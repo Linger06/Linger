@@ -395,7 +395,8 @@ public static class ArrayExtensions
     /// </example>
     public static List<string> ToList(this string[]? value)
     {
-        return (List<string>)value.ToEnumerable();
+        // Avoid invalid cast when value is null; construct a List directly
+        return new List<string>(value ?? []);
     }
 
     /// <summary>
@@ -405,12 +406,20 @@ public static class ArrayExtensions
     /// <returns>The MD5 hash code string.</returns>
     public static string ToMd5HashCode(this byte[] inputHashBytes)
     {
-#if NET5_0_OR_GREATER
-        return Convert.ToHexString(inputHashBytes);
+#if NET9_0_OR_GREATER
+        // Lowercase hex without separators for consistency
+        return Convert.ToHexStringLower(inputHashBytes);
+#elif NET5_0_OR_GREATER
+        // Convert.ToHexString returns uppercase; normalize to lowercase
+        return Convert.ToHexString(inputHashBytes).ToLowerInvariant();
 #elif NETFRAMEWORK || NETSTANDARD2_0
-        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty);
+        // BitConverter uses hyphens and uppercase; remove hyphens and normalize to lowercase
+        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty).ToLowerInvariant();
 #else
-        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty, StringComparison.Ordinal);
+        return BitConverter
+            .ToString(inputHashBytes)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
 #endif
     }
 
