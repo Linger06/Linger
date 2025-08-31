@@ -71,7 +71,7 @@ public static partial class StringExtensions
 #if NET9_0_OR_GREATER
         return Convert.ToHexStringLower(hashBytes);
 #else
-    return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
 #endif
     }
 

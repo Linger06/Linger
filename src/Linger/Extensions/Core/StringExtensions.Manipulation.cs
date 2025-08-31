@@ -191,7 +191,7 @@ public static partial class StringExtensions
     /// <returns>The string without the last comma.</returns>
     public static string RemoveLastComma(this string str)
     {
-    return str.RemoveLastChar(',');
+        return str.RemoveLastChar(',');
     }
 
     /// <summary>

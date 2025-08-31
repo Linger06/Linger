@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net9.0;net8.0;netstandard2.0;</TargetFrameworks>
-        <Version>0.8.4-preview</Version>
+        <Version>0.8.5-preview</Version>
         <Description>
             Core abstractions and interfaces for Excel manipulation in .NET applications.
             Provides a common API for Excel operations that can be implemented by various

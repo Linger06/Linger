@@ -1,4 +1,4 @@
-﻿#pragma warning disable
+#pragma warning disable
 // Only define custom ArgumentNullException for frameworks that don't have ThrowIfNull
 #if NETFRAMEWORK || NETSTANDARD2_0 || NET5_0
 using System.Diagnostics.CodeAnalysis;
@@ -39,4 +39,3 @@ public static class ArgumentNullException
         throw new System.ArgumentNullException(paramName);
 }
 #endif
-

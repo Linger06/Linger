@@ -1255,6 +1255,80 @@ throw new OutOfRetryCountException("自定义消息", innerEx);
 ```
 旧类型 `OutOfReTryCountException` 仍保留（标记 `[Obsolete]`，仅过渡期）。
 
+## Polyfill 汇总（BCL 与语言特性）
+
+本库对常用的 BCL API 以及部分语言特性提供了前向兼容的 Polyfill，以便在较旧的目标框架（例如 .NET Framework、.NET Standard 2.0、.NET 5）上获得一致的编译与运行体验。所有 Polyfill 都采用条件编译，升级到新 TFM 后将自动让位于框架内置实现。
+
+### BCL 级 Polyfill（按来源组织）
+
+- 参数验证
+    - `ArgumentNullException.ThrowIfNull(object? argument, string? paramName = null)` 兼容 .NET 6 之前
+        - 源码：`src/Linger/Polyfills/ArgumentNullException.cs`
+    - `ArgumentException.ThrowIfNullOrEmpty(string? argument, string? paramName = null)` 兼容 .NET 8 之前
+    - `ArgumentException.ThrowIfNullOrWhiteSpace(string? argument, string? paramName = null)` 兼容 .NET 8 之前
+        - 源码：`src/Linger/Polyfills/ArgumentException.cs`
+- 调用方参数名捕获
+    - `System.Runtime.CompilerServices.CallerArgumentExpressionAttribute`（用于改进异常参数名与 Guard 体验）
+        - 源码：`src/Linger/Polyfills/CallerArgumentExpressionAttribute.cs`
+
+以上均为“静态工具方法/属性/特性”的 Polyfill，调用表现与内置版本一致；当目标框架满足条件（如 .NET 8+）时，这些 Polyfill 将被条件编译排除，代码自动转用框架内置实现。
+
+### 语言特性 Polyfill：required 成员（旧 TFM 支持）
+
+为在 .NET Framework / .NET Standard 上使用 C# 11 的 `required` 关键字并获得正确的编译器诊断与元数据，本库提供以下特性与支持类型：
+
+- `System.Runtime.CompilerServices.RequiredMemberAttribute`
+- `System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute`
+- `System.Runtime.CompilerServices.CompilerFeatureRequiredAttribute`（包含 `IsExternalInit` 支持，用于 `init` 访问器）
+        - 源码：
+            - `src/Linger/Polyfills/RequiredMemberAttribute.cs`
+            - `src/Linger/Polyfills/SetsRequiredMembersAttribute.cs`
+            - `src/Linger/Polyfills/CompilerFeatureRequiredAttribute.cs`
+
+这些文件均使用条件编译保护（如 `#if !NET7_0_OR_GREATER`），在新框架下将自动失效，避免与内置类型重复。
+
+使用示例（适用于 .NET Framework/.NET Standard，仅需确保 C# 语言版本 >= 11）：
+
+```csharp
+// 示例：在旧 TFM 下使用 required 成员（编译器会正确提示未赋值的 required 成员）
+public class Person
+{
+        public required string Name { get; init; }
+        public required int Age { get; init; }
+
+        [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
+        public Person()
+        {
+                Name = "Unknown";
+                Age = 0;
+        }
+}
+
+var ok = new Person { Name = "Alice", Age = 28 }; // ✅ 正常
+var error = new Person(); // ❌ 编译器诊断：未设置 required 成员
+```
+
+注意事项：
+- 语言版本需为 C# 11+（本仓库 `Directory.Build.props` 已设置 `LangVersion=latest`）。
+- Polyfill 仅提供编译所需的特性定义与 `init` 支持，不改变运行时语义；required 的赋值检查由编译器负责。
+- 迁移到 .NET 7+ 后，无需改动业务代码；Polyfill 将自动停用，继续使用框架内置特性。
+
+### 可空性注解（CodeAnalysis）Polyfill
+
+为较老的目标框架提供 `System.Diagnostics.CodeAnalysis` 可空性/流分析特性，确保注解在编译期可用并与新框架行为一致：
+
+- 提供的特性：`AllowNull`、`DisallowNull`、`MaybeNull`、`NotNull`、`MaybeNullWhen`、`NotNullWhen`、`NotNullIfNotNull`、`DoesNotReturn`、`DoesNotReturnIf`、`MemberNotNull`、`MemberNotNullWhen`
+- 源码位置：`src/Linger/Polyfills/NullableAttributes.cs`
+- 适用范围：针对 `netstandard2.0`、`net4x`、`netcoreapp2.x/3.x` 等较老 TFM 启用；在较新框架（具备内置实现）下通过条件编译自动让位，避免重复定义。
+
+### IEnumerable 扩展 Polyfill（面向未来的 .NET 10）
+
+为提前对齐 .NET 10 API，本库提供 `LeftJoin` / `RightJoin` / `FullJoin` 等扩展方法的 Polyfill：
+
+- 源码：`src/Linger/Extensions/Collection/IEnumerableExtensions.Polyfills.cs`
+- 条件编译：`#if !NET10_0_OR_GREATER`，升级到 .NET 10 后自动切换为 `System.Linq.Enumerable` 内置实现
+- 参数与泛型命名已与 .NET 10 对齐（outer/inner，outerKeySelector/innerKeySelector 等）
+
 ## 依赖项
 
 这个库保持轻量化设计，只依赖少量必要的外部包：

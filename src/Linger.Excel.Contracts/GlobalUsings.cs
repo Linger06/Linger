@@ -1,7 +1,3 @@
-﻿#if NETSTANDARD2_0
-global using System.Linq;
-global using System.IO;
-#endif
 global using System.Data;
 global using System.Reflection;
 global using Linger.Excel.Contracts.Utils;

@@ -1,4 +1,4 @@
-﻿#pragma warning disable
+#pragma warning disable
 // Provide shim only for targets that don't include CallerArgumentExpressionAttribute (.NET 6+ has it in System.Runtime.CompilerServices)
 #if NETSTANDARD2_0 || NET462 || NET472 || NETFRAMEWORK
 namespace System.Runtime.CompilerServices;

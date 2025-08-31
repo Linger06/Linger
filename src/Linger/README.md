@@ -1271,6 +1271,79 @@ throw new OutOfRetryCountException("Custom message", innerEx);
 ```
 Legacy `OutOfReTryCountException` remains (obsolete) for one transition cycle.
 
+## Polyfills Summary (BCL & Language Features)
+
+This library provides forward-compatible polyfills for common BCL APIs and select language features to ensure consistent compilation and behavior on older target frameworks (e.g., .NET Framework, .NET Standard 2.0, .NET 5). All polyfills use conditional compilation so they automatically defer to in-box implementations when you upgrade your TFM.
+
+### BCL Polyfills (by source)
+
+- Parameter validation
+    - `ArgumentNullException.ThrowIfNull(object? argument, string? paramName = null)` — compatibility for pre-.NET 6
+        - Source: `src/Linger/Polyfills/ArgumentNullException.cs`
+    - `ArgumentException.ThrowIfNullOrEmpty(string? argument, string? paramName = null)` — compatibility for pre-.NET 8
+    - `ArgumentException.ThrowIfNullOrWhiteSpace(string? argument, string? paramName = null)` — compatibility for pre-.NET 8
+        - Source: `src/Linger/Polyfills/ArgumentException.cs`
+- Caller argument capture
+    - `System.Runtime.CompilerServices.CallerArgumentExpressionAttribute` (improves parameter name capture for diagnostics/Guards)
+        - Source: `src/Linger/Polyfills/CallerArgumentExpressionAttribute.cs`
+
+These are static utility methods/attributes mirroring the in-box APIs; once the TFM meets the version requirements (e.g., .NET 8+), the polyfills are excluded and your code uses the framework implementation automatically.
+
+### Language Feature Polyfill: required members (legacy TFMs)
+
+To use C# 11 `required` members and get correct compiler diagnostics/metadata on .NET Framework / .NET Standard, the following attributes are provided:
+
+- `System.Runtime.CompilerServices.RequiredMemberAttribute`
+- `System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute`
+- `System.Runtime.CompilerServices.CompilerFeatureRequiredAttribute` (includes `IsExternalInit` support for `init` accessors)
+        - Sources:
+            - `src/Linger/Polyfills/RequiredMemberAttribute.cs`
+            - `src/Linger/Polyfills/SetsRequiredMembersAttribute.cs`
+            - `src/Linger/Polyfills/CompilerFeatureRequiredAttribute.cs`
+
+These files are guarded (e.g., `#if !NET7_0_OR_GREATER`) so they won’t conflict with newer TFMs.
+
+Usage example (works on .NET Framework/.NET Standard; ensure C# language version ≥ 11):
+
+```csharp
+public class Person
+{
+        public required string Name { get; init; }
+        public required int Age { get; init; }
+
+        [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
+        public Person()
+        {
+                Name = "Unknown";
+                Age = 0;
+        }
+}
+
+var ok = new Person { Name = "Alice", Age = 28 }; // ✅ OK
+var error = new Person(); // ❌ Compiler diagnostic: required members not set
+```
+
+Notes:
+- Language version must be C# 11+ (this repo sets `LangVersion=latest` in `Directory.Build.props`).
+- Polyfills provide the attributes and `init` plumbing only; required-member checks are performed by the compiler.
+- After upgrading to .NET 7+, no code changes are needed; the polyfills compile out.
+
+### CodeAnalysis Nullable Annotations Polyfill
+
+Provides `System.Diagnostics.CodeAnalysis` nullability/flow analysis attributes for older target frameworks so that annotations are available at compile time and behave consistently with newer TFMs:
+
+- Provided attributes: `AllowNull`, `DisallowNull`, `MaybeNull`, `NotNull`, `MaybeNullWhen`, `NotNullWhen`, `NotNullIfNotNull`, `DoesNotReturn`, `DoesNotReturnIf`, `MemberNotNull`, `MemberNotNullWhen`
+- Source: `src/Linger/Polyfills/NullableAttributes.cs`
+- Applicability: enabled for older TFMs such as `netstandard2.0`, `net4x`, and `netcoreapp2.x/3.x`; automatically excluded on newer frameworks that include these attributes inbox via conditional compilation, preventing duplicate definitions.
+
+### IEnumerable Extension Polyfills (future .NET 10)
+
+To align early with .NET 10 APIs, this library ships polyfills for `LeftJoin` / `RightJoin` / `FullJoin`:
+
+- Source: `src/Linger/Extensions/Collection/IEnumerableExtensions.Polyfills.cs`
+- Conditional compilation: `#if !NET10_0_OR_GREATER` — automatically switches to `System.Linq.Enumerable` built-ins on .NET 10+
+- Parameter and generic naming matches .NET 10 (outer/inner, outerKeySelector/innerKeySelector, etc.)
+
 ## Dependencies
 
 The library has minimal external dependencies:
