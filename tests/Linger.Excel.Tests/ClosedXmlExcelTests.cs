@@ -221,7 +221,7 @@ namespace Linger.Excel.Tests
             var emptyFilePath = Path.Combine(TestFilesDir, "ClosedXmlExport_CompletelyEmptyDataSet.xlsx");
 
             // 2. 包含一个空的DataTable（无列无行）
-            var emptyTable = GenerateCustomDataTable("", 0, table => { });
+            var emptyTable = GenerateCustomDataTable("", 0, _ => { });
             var dataSetWithEmptyTable = new DataSet();
             dataSetWithEmptyTable.Tables.Add(emptyTable);
             var emptyTableFilePath = Path.Combine(TestFilesDir, "ClosedXmlExport_EmptyTableDataSet.xlsx");

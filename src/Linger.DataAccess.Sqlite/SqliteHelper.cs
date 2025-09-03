@@ -325,7 +325,7 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
             {
                 foreach (DataRow row in dataSet.Tables[0].Rows)
                 {
-                    tableNames.Add(row["name"].ToString()!);
+                    tableNames.Add(row["name"].ToString());
                 }
             }
 

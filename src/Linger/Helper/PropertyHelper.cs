@@ -122,7 +122,7 @@ public static class PropertyHelper
         Func<TValue> valueFactory,
         params Type[] ignoreAttributeTypes)
     {
-        TrySetProperty(obj, propertySelector, x => valueFactory(), ignoreAttributeTypes);
+        TrySetProperty(obj, propertySelector, _ => valueFactory(), ignoreAttributeTypes);
     }
 
     /// <summary>

@@ -39,7 +39,7 @@ public class TokenRefreshHandler(AppState appState, IServiceProvider serviceProv
                 return ValueTask.FromResult(shouldRetry);
             },
             // 在重试前执行令牌刷新
-            OnRetry = async context =>
+            OnRetry = async _ =>
             {
                 // 使用信号量防止多个请求同时尝试刷新令牌
                 await _semaphore.WaitAsync();

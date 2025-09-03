@@ -18,7 +18,7 @@ public static class GuardExtensions
     public static T EnsureIsNotNull<T>([NotNull] this T? value, string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
-        return value!;
+        return value;
     }
 
     /// <summary>
@@ -37,7 +37,7 @@ public static class GuardExtensions
     public static string EnsureIsNotNullOrEmpty([NotNull] this string? value, string? paramName = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(value, paramName);
-        return value!;
+        return value;
     }
 
     /// <summary>
@@ -57,7 +57,7 @@ public static class GuardExtensions
     public static string EnsureIsNotNullOrWhiteSpace([NotNull] this string? value, string? paramName = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
-        return value!;
+        return value;
     }
 
     [Obsolete("Use EnsureIsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
@@ -163,7 +163,7 @@ public static class GuardExtensions
             // The FileNotFoundException second parameter is the missing file path, not the parameter name
             throw new FileNotFoundException(message ?? $"File not found: {filePath}", filePath);
         }
-        return filePath!;
+        return filePath;
     }
 
     /// <summary>
@@ -188,7 +188,7 @@ public static class GuardExtensions
         {
             throw new DirectoryNotFoundException(message ?? $"Directory not found: {directory}");
         }
-        return directory!;
+        return directory;
     }
 
     /// <summary>

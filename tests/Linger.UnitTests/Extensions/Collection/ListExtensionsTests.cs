@@ -163,7 +163,7 @@ public class ListExtensionsTests
         };
 
         List<SampleClass>? result = list.ToTree(
-            (parent, child) => child.ParentId == 0,
+            (_, child) => child.ParentId == 0,
             (parent, child) => parent.Id == child.ParentId,
             (parent, children) =>
             {
@@ -182,7 +182,7 @@ public class ListExtensionsTests
         var list = new List<SampleClass>();
 
         List<SampleClass>? result = list.ToTree(
-            (parent, child) => child.ParentId == 0,
+            (_, child) => child.ParentId == 0,
             (parent, child) => parent.Id == child.ParentId,
             (parent, children) =>
             {

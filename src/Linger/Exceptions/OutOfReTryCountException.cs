@@ -27,7 +27,8 @@ public class OutOfRetryCountException : Exception
 [Obsolete("Use OutOfRetryCountException instead. Will be removed in 1.0.0.")]
 public class OutOfReTryCountException : OutOfRetryCountException
 {
-    public OutOfReTryCountException() : base() { }
+    public OutOfReTryCountException()
+    { }
     public OutOfReTryCountException(string? message) : base(message) { }
     public OutOfReTryCountException(string? message, Exception? innerException) : base(message, innerException) { }
 }

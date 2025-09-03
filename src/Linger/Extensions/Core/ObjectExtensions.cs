@@ -125,7 +125,7 @@ public static class ObjectExtensions
             {
                 dict[p.Name] = p;
             }
-            return (IReadOnlyDictionary<string, PropertyInfo>)dict;
+            return dict;
         });
         if (map.TryGetValue(propertyName, out var pi))
         {
@@ -1098,7 +1098,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// byte result = obj.ToByteOrDefault(0); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// byte result2 = invalid.ToByteOrDefault(0); // result2 is 0
     /// </code>
@@ -1114,7 +1114,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// byte? result = obj.ToByteOrNull(); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// byte? result2 = invalid.ToByteOrNull(); // result2 is null
     /// </code>
@@ -1172,7 +1172,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// sbyte result = obj.ToSByteOrDefault(0); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// sbyte result2 = invalid.ToSByteOrDefault(0); // result2 is 0
     /// </code>
@@ -1188,7 +1188,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// sbyte? result = obj.ToSByteOrNull(); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// sbyte? result2 = invalid.ToSByteOrNull(); // result2 is null
     /// </code>
@@ -1246,7 +1246,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// uint result = obj.ToUIntOrDefault(0); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// uint result2 = invalid.ToUIntOrDefault(0); // result2 is 0
     /// </code>
@@ -1262,7 +1262,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// uint? result = obj.ToUIntOrNull(); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// uint? result2 = invalid.ToUIntOrNull(); // result2 is null
     /// </code>
@@ -1320,7 +1320,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// ulong result = obj.ToULongOrDefault(0); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// ulong result2 = invalid.ToULongOrDefault(0); // result2 is 0
     /// </code>
@@ -1336,7 +1336,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// ulong? result = obj.ToULongOrNull(); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// ulong? result2 = invalid.ToULongOrNull(); // result2 is null
     /// </code>
@@ -1394,7 +1394,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// ushort result = obj.ToUShortOrDefault(0); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// ushort result2 = invalid.ToUShortOrDefault(0); // result2 is 0
     /// </code>
@@ -1410,7 +1410,7 @@ public static class ObjectExtensions
     /// <code>
     /// object obj = "123";
     /// ushort? result = obj.ToUShortOrNull(); // result is 123
-    /// 
+    ///
     /// object invalid = "abc";
     /// ushort? result2 = invalid.ToUShortOrNull(); // result2 is null
     /// </code>

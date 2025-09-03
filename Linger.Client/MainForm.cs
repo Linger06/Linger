@@ -118,7 +118,7 @@ public partial class MainForm : Form
 
         blazorWebView.Services = services.BuildServiceProvider();
         blazorWebView.RootComponents.Add<Blazor.App>("#app");
-        blazorWebView.WebView.CoreWebView2InitializationCompleted += (s, e) =>
+        blazorWebView.WebView.CoreWebView2InitializationCompleted += (_, _) =>
         {
             blazorWebView.WebView.CoreWebView2.AddHostObjectToScript("winFormHost", new WinFormInterop(this));
         };
@@ -131,12 +131,12 @@ public partial class MainForm : Form
         _tokenRefreshHandler = blazorWebView.Services.GetRequiredService<TokenRefreshHandler>();
 
         // 订阅令牌刷新事件
-        _tokenRefreshHandler.TokenRefreshed += (sender, newToken) =>
+        _tokenRefreshHandler.TokenRefreshed += (_, newToken) =>
         {
             _appState.Token = newToken;
         };
 
-        _tokenRefreshHandler.TokenRefreshFailed += (sender, args) =>
+        _tokenRefreshHandler.TokenRefreshFailed += (_, _) =>
         {
             // 令牌刷新失败，无需额外操作，TokenRefreshHandler中会自动触发RequireRelogin
         };
@@ -145,7 +145,7 @@ public partial class MainForm : Form
     private void RegisterHotKey()
     {
         KeyPreview = true;
-        KeyDown += (sender, e) =>
+        KeyDown += (_, e) =>
         {
             if (e.KeyCode == Keys.F11)
             {

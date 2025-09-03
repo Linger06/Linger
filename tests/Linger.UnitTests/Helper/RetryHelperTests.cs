@@ -36,7 +36,7 @@ public class RetryHelperTests
             await retryHelper.ExecuteAsync<int>(
                 () => throw exception,
                 "TestOperation",
-                ex => false);
+                _ => false);
         });
 
         Assert.Same(exception, actualException);

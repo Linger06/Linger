@@ -94,7 +94,7 @@
                                        "border-radius: 4px; overflow: hidden;");
         builder.AddAttribute(3, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, () => OnCellClicked(item)));
         // 添加鼠标事件处理以保持选中状态
-        builder.AddAttribute(4, "onmouseover", EventCallback.Factory.Create<MouseEventArgs>(this, e => PreserveSelection(isSelected)));
+        builder.AddAttribute(4, "onmouseover", EventCallback.Factory.Create<MouseEventArgs>(this, _ => PreserveSelection(isSelected)));
         
         builder.OpenElement(5, "div");
         builder.AddAttribute(6, "class", "grid-cell-content");

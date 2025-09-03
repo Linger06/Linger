@@ -55,7 +55,7 @@ public static class DictionaryExtension
         TKey key,
         Func<TValue> factory)
     {
-        return dictionary.GetOrAdd(key, k => factory());
+        return dictionary.GetOrAdd(key, _ => factory());
     }
 
     /// <summary>
@@ -121,6 +121,6 @@ public static class DictionaryExtension
         Func<TValue> addFactory,
         Func<TValue, TValue> updateFactory)
     {
-        return dictionary.AddOrUpdate(key, k => addFactory(), (k, v) => updateFactory(v));
+        return dictionary.AddOrUpdate(key, _ => addFactory(), (_, v) => updateFactory(v));
     }
 }

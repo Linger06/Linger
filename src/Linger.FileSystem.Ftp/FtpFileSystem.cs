@@ -167,20 +167,17 @@ public class FtpFileSystem : RemoteFileSystemBase
         {
             // 使用适合FTP的路径分隔逻辑
             string remoteDirectory;
-            string fileName;
 
             // FTP路径始终使用正斜杠
             if (filePath.Contains('/'))
             {
                 var lastSlashIndex = filePath.LastIndexOf('/');
                 remoteDirectory = filePath.Take(lastSlashIndex);
-                fileName = filePath.Substring(lastSlashIndex + 1);
             }
             else
             {
                 // 没有找到斜杠，整个路径被视为文件名，目录为空
                 remoteDirectory = string.Empty;
-                fileName = filePath;
             }
 
             // 确保目录存在

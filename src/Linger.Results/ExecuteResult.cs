@@ -119,7 +119,7 @@ public class ExecuteResult
 [Obsolete("This class is obsolete and will be removed in a future version.")]
 public class ExecuteResult<TValue> : ExecuteResult
 {
-    public ExecuteResult() : base()
+    public ExecuteResult()
     {
     }
 

@@ -258,7 +258,7 @@ public class ResultTTests
                 called = true;
                 calledWithName = user.Name;
             },
-            errors => { }
+            _ => { }
         );
 
         // Assert
@@ -276,7 +276,7 @@ public class ResultTTests
 
         // Act
         result.Match(
-            user => { },
+            _ => { },
             errors =>
             {
                 called = true;

@@ -118,7 +118,7 @@ namespace Linger.Results
 
         public static implicit operator Result(Result<TValue> result)
         {
-            return result.Match(p => Result.Success(), Result.Failure);
+            return result.Match(_ => Result.Success(), Result.Failure);
         }
 
         public static implicit operator Result<TValue>(TValue? value) => Create(value);

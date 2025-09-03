@@ -23,7 +23,7 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="str">The input string.</param>
     /// <param name="value">The string to remove.</param>
-    /// <returns>The string without the specified prefix and suffix.</returns>    
+    /// <returns>The string without the specified prefix and suffix.</returns>
     [return: NotNullIfNotNull(nameof(str))]
     public static string? RemovePrefixAndSuffix(this string? str, string value)
     {
@@ -139,9 +139,7 @@ public static partial class StringExtensions
     /// <returns>The string without any newline characters.</returns>
     public static string RemoveAllNewLine(this string? value)
     {
-        if (value is null)
-            return string.Empty;
-        if (value.Length == 0)
+        if (value is null || value.Length == 0)
             return string.Empty;
 
         // 快速检测是否包含换行符，若无则直接返回原引用，避免分配
@@ -252,7 +250,7 @@ public static partial class StringExtensions
         {
             return str ?? string.Empty;
         }
-        if (character!.Length == 1)
+        if (character.Length == 1)
         {
             var ch = character[0];
 #if NET6_0_OR_GREATER

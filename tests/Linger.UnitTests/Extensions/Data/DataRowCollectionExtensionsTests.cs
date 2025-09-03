@@ -15,7 +15,7 @@ public class DataRowCollectionExtensionsTests
         DataRowCollection? dataRowCollection = table.Rows;
 
         var rowCount = 0;
-        dataRowCollection.ForEach(row => rowCount++);
+        dataRowCollection.ForEach(_ => rowCount++);
 
         Assert.Equal(2, rowCount);
     }
@@ -29,7 +29,7 @@ public class DataRowCollectionExtensionsTests
         DataRowCollection? dataRowCollection = table.Rows;
 
         var rowIndices = new List<int>();
-        dataRowCollection.ForEach((row, index) => rowIndices.Add(index));
+        dataRowCollection.ForEach((_, index) => rowIndices.Add(index));
 
         Assert.Contains(0, rowIndices);
         Assert.Contains(1, rowIndices);
@@ -41,7 +41,7 @@ public class DataRowCollectionExtensionsTests
         var table = new DataTable();
         DataRowCollection? dataRowCollection = table.Rows;
 
-        Exception? exception = Record.Exception(() => dataRowCollection.ForEach(row => { }));
+        Exception? exception = Record.Exception(() => dataRowCollection.ForEach(_ => { }));
         Assert.Null(exception);
     }
 
@@ -51,7 +51,7 @@ public class DataRowCollectionExtensionsTests
         var table = new DataTable();
         DataRowCollection? dataRowCollection = table.Rows;
 
-        Exception? exception = Record.Exception(() => dataRowCollection.ForEach((row, index) => { }));
+        Exception? exception = Record.Exception(() => dataRowCollection.ForEach((_, _) => { }));
         Assert.Null(exception);
     }
 }
