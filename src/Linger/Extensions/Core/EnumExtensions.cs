@@ -71,7 +71,13 @@ public static class EnumExtensions
         if (item == null)
             return string.Empty;
 
-        // Use cached result if available
+        // Prefer source-generated provider when available
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(item.GetType(), out var provider))
+        {
+            return provider.GetDisplayName(item);
+        }
+
+        // Fallback: cached reflection path
         return s_descriptionCache.GetOrAdd(item, GetDescriptionInternal);
     }
 
@@ -97,7 +103,13 @@ public static class EnumExtensions
         if (item == null)
             return string.Empty;
 
-        // Use cached result if available
+        // Prefer source-generated provider when available
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(item.GetType(), out var provider))
+        {
+            return provider.GetDisplayName(item);
+        }
+
+        // Fallback
         return s_displayCache.GetOrAdd(item, GetDisplayInternal);
     }
 #endif
@@ -111,9 +123,20 @@ public static class EnumExtensions
     public static T GetEnum<T>(this string itemName) where T : struct, Enum
     {
 #if NET8_0_OR_GREATER
-        // Use Enum.Parse<T> for better type safety and performance in .NET 8+
+        // Prefer source-generated provider
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
+        {
+            var (ok, v) = provider.TryGetByName(itemName);
+            if (ok && v is T t) return t;
+        }
+        // Fallback
         return Enum.Parse<T>(itemName);
 #else
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
+        {
+            var (ok, v) = provider.TryGetByName(itemName);
+            if (ok && v is T t) return t;
+        }
         return (T)Enum.Parse(typeof(T), itemName);
 #endif
     }
@@ -143,8 +166,20 @@ public static class EnumExtensions
             return false;
         }
 #if NET8_0_OR_GREATER
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider) && !ignoreCase)
+        {
+            System.Diagnostics.Debug.Assert(itemName is not null);
+            var (ok, v) = provider.TryGetByName(itemName!);
+            if (ok && v is T t) { value = t; return true; }
+        }
         return Enum.TryParse(itemName, ignoreCase, out value);
 #else
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider) && !ignoreCase)
+        {
+            System.Diagnostics.Debug.Assert(itemName is not null);
+            var (ok, v) = provider.TryGetByName(itemName!);
+            if (ok && v is T t) { value = t; return true; }
+        }
         return Enum.TryParse<T>(itemName, ignoreCase, out value);
 #endif
     }
@@ -169,12 +204,20 @@ public static class EnumExtensions
     public static T GetEnum<T>(this int itemValue) where T : struct, Enum
     {
 #if NET8_0_OR_GREATER
-        // Use Enum.GetName and Enum.Parse<T> for better type safety in .NET 8+
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
+        {
+            var (ok, v) = provider.TryGetByInt(itemValue);
+            if (ok && v is T t) return t;
+        }
         var name = Enum.GetName(typeof(T), itemValue) ?? throw new InvalidOperationException();
         return Enum.Parse<T>(name);
 #else
-        return (T)Enum.Parse(typeof(T),
-            Enum.GetName(typeof(T), itemValue) ?? throw new InvalidOperationException());
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
+        {
+            var (ok, v) = provider.TryGetByInt(itemValue);
+            if (ok && v is T t) return t;
+        }
+        return (T)Enum.Parse(typeof(T), Enum.GetName(typeof(T), itemValue) ?? throw new InvalidOperationException());
 #endif
     }
 
@@ -192,6 +235,12 @@ public static class EnumExtensions
     /// </example>
     public static bool TryGetEnum<T>(this int itemValue, out T value) where T : struct, Enum
     {
+        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
+        {
+            var (ok, v) = provider.TryGetByInt(itemValue);
+            if (ok && v is T t) { value = t; return true; }
+        }
+
         if (Enum.IsDefined(typeof(T), itemValue))
         {
             value = (T)Enum.ToObject(typeof(T), itemValue);
