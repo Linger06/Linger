@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Concurrent;
 using System.ComponentModel;
+using System.Globalization;
 #if NET5_0_OR_GREATER
 using System.ComponentModel.DataAnnotations;
 #endif
@@ -19,9 +21,6 @@ public static class EnumExtensions
     // Cache for Display attributes (NET5+ only)
     private static readonly ConcurrentDictionary<Enum, string> s_displayCache = new();
 #endif
-
-    // Cache for enum member info to reduce reflection overhead
-    private static readonly ConcurrentDictionary<(Type, string), MemberInfo[]> s_memberInfoCache = new();
 
     /// <summary>
     /// Determines if the enum value has the specified flag.
@@ -51,7 +50,8 @@ public static class EnumExtensions
     }
 
     /// <summary>
-    /// Gets the <see cref="DescriptionAttribute"/> of the enum value with caching for performance.
+    /// Gets the description attribute of the enum value with caching for performance.
+    /// If no description attribute is found, returns the enum name.
     /// </summary>
     /// <param name="item">The enum value.</param>
     /// <returns>The description of the enum value, or the enum name if no description is found.</returns>
@@ -59,11 +59,11 @@ public static class EnumExtensions
     /// <code>
     /// enum Status 
     /// { 
-    ///     [Description("Processing data")]
-    ///     Processing,
-    ///     Complete 
+    ///     [Description("Currently Active")]
+    ///     Active,
+    ///     Inactive 
     /// }
-    /// string desc = Status.Processing.GetDescription(); // Returns "Processing data"
+    /// string desc = Status.Active.GetDescription(); // Returns "Currently Active"
     /// </code>
     /// </example>
     public static string GetDescription(this Enum item)
@@ -71,13 +71,7 @@ public static class EnumExtensions
         if (item == null)
             return string.Empty;
 
-        // Prefer source-generated provider when available
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(item.GetType(), out var provider))
-        {
-            return provider.GetDisplayName(item);
-        }
-
-        // Fallback: cached reflection path
+        // Use cached reflection path
         return s_descriptionCache.GetOrAdd(item, GetDescriptionInternal);
     }
 
@@ -103,204 +97,124 @@ public static class EnumExtensions
         if (item == null)
             return string.Empty;
 
-        // Prefer source-generated provider when available
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(item.GetType(), out var provider))
-        {
-            return provider.GetDisplayName(item);
-        }
-
-        // Fallback
+        // Use cached reflection path
         return s_displayCache.GetOrAdd(item, GetDisplayInternal);
     }
 #endif
 
     /// <summary>
-    /// Gets the enum value based on the name.
+    /// Gets the enum value based on the name (extension method version).
     /// </summary>
     /// <typeparam name="T">The type of the enum.</typeparam>
     /// <param name="itemName">The name of the enum value.</param>
-    /// <returns>The enum value corresponding to the name.</returns>
+    /// <returns>The enum value.</returns>
+    /// <exception cref="ArgumentException">Thrown when the name is not found.</exception>
     public static T GetEnum<T>(this string itemName) where T : struct, Enum
     {
-#if NET8_0_OR_GREATER
-        // Prefer source-generated provider
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
-        {
-            var (ok, v) = provider.TryGetByName(itemName);
-            if (ok && v is T t) return t;
-        }
-        // Fallback
-        return Enum.Parse<T>(itemName);
-#else
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
-        {
-            var (ok, v) = provider.TryGetByName(itemName);
-            if (ok && v is T t) return t;
-        }
-        return (T)Enum.Parse(typeof(T), itemName);
-#endif
+        if (string.IsNullOrEmpty(itemName))
+            throw new System.ArgumentException("Enum name cannot be null or empty", nameof(itemName));
+
+        return (T)Enum.Parse(typeof(T), itemName, true);
     }
 
     /// <summary>
-    /// Attempts to parse the specified string to the enum value of type <typeparamref name="T"/>.
-    /// A non-throwing alternative to <see cref="GetEnum{T}(string)"/> / <see cref="ToEnum{T}(string)"/>.
-    /// </summary>
-    /// <typeparam name="T">Enum type.</typeparam>
-    /// <param name="itemName">The enum name text.</param>
-    /// <param name="value">When this method returns, contains the parsed enum value if successful; otherwise default.</param>
-    /// <param name="ignoreCase">Whether to ignore case when parsing.</param>
-    /// <returns><c>true</c> if parse succeeded; otherwise <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if ("Sunday".TryGetEnum(out DayOfWeek day))
-    /// {
-    ///     // use day
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryGetEnum<T>(this string? itemName, out T value, bool ignoreCase = false) where T : struct, Enum
-    {
-        if (string.IsNullOrWhiteSpace(itemName))
-        {
-            value = default;
-            return false;
-        }
-#if NET8_0_OR_GREATER
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider) && !ignoreCase)
-        {
-            System.Diagnostics.Debug.Assert(itemName is not null);
-            var (ok, v) = provider.TryGetByName(itemName!);
-            if (ok && v is T t) { value = t; return true; }
-        }
-        return Enum.TryParse(itemName, ignoreCase, out value);
-#else
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider) && !ignoreCase)
-        {
-            System.Diagnostics.Debug.Assert(itemName is not null);
-            var (ok, v) = provider.TryGetByName(itemName!);
-            if (ok && v is T t) { value = t; return true; }
-        }
-        return Enum.TryParse<T>(itemName, ignoreCase, out value);
-#endif
-    }
-
-    /// <summary>
-    /// Converts the string to the corresponding enum value.
+    /// Gets the enum value based on the name (alias for GetEnum).
     /// </summary>
     /// <typeparam name="T">The type of the enum.</typeparam>
     /// <param name="itemName">The name of the enum value.</param>
-    /// <returns>The enum value corresponding to the name.</returns>
+    /// <returns>The enum value.</returns>
     public static T ToEnum<T>(this string itemName) where T : struct, Enum
     {
         return itemName.GetEnum<T>();
     }
 
     /// <summary>
-    /// Gets the enum value based on the integer value.
+    /// Gets the enum value based on the integer value (extension method version).
     /// </summary>
     /// <typeparam name="T">The type of the enum.</typeparam>
     /// <param name="itemValue">The integer value of the enum.</param>
-    /// <returns>The enum value corresponding to the integer value.</returns>
+    /// <returns>The enum value.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the value is not valid for the enum type.</exception>
     public static T GetEnum<T>(this int itemValue) where T : struct, Enum
     {
-#if NET8_0_OR_GREATER
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
-        {
-            var (ok, v) = provider.TryGetByInt(itemValue);
-            if (ok && v is T t) return t;
-        }
-        var name = Enum.GetName(typeof(T), itemValue) ?? throw new InvalidOperationException();
-        return Enum.Parse<T>(name);
-#else
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
-        {
-            var (ok, v) = provider.TryGetByInt(itemValue);
-            if (ok && v is T t) return t;
-        }
-        return (T)Enum.Parse(typeof(T), Enum.GetName(typeof(T), itemValue) ?? throw new InvalidOperationException());
-#endif
+        if (!Enum.IsDefined(typeof(T), itemValue))
+            throw new InvalidOperationException($"Value {itemValue} is not defined for enum {typeof(T).Name}");
+
+        return (T)Enum.ToObject(typeof(T), itemValue);
     }
 
     /// <summary>
-    /// Attempts to convert an integral raw value to the enum <typeparamref name="T"/> without throwing.
-    /// </summary>
-    /// <typeparam name="T">Enum type.</typeparam>
-    /// <param name="itemValue">Underlying integral value.</param>
-    /// <param name="value">Resulting enum value if defined.</param>
-    /// <returns><c>true</c> if <paramref name="itemValue"/> maps to a defined enum member; otherwise <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if (5.TryGetEnum(out MyFlags flags)) { /* ... */ }
-    /// </code>
-    /// </example>
-    public static bool TryGetEnum<T>(this int itemValue, out T value) where T : struct, Enum
-    {
-        if (Linger.Enums.EnumGeneratedRegistry.TryGetProvider(typeof(T), out var provider))
-        {
-            var (ok, v) = provider.TryGetByInt(itemValue);
-            if (ok && v is T t) { value = t; return true; }
-        }
-
-        if (Enum.IsDefined(typeof(T), itemValue))
-        {
-            value = (T)Enum.ToObject(typeof(T), itemValue);
-            return true;
-        }
-        value = default;
-        return false;
-    }
-
-    /// <summary>
-    /// Gets the name of the enum value based on the integer value.
+    /// Gets the enum name based on the integer value.
     /// </summary>
     /// <typeparam name="T">The type of the enum.</typeparam>
     /// <param name="itemValue">The integer value of the enum.</param>
-    /// <returns>The name of the enum value corresponding to the integer value.</returns>
+    /// <returns>The enum name, or null if not found.</returns>
     public static string? GetEnumName<T>(this int itemValue) where T : struct, Enum
     {
-        return Enum.GetName(typeof(T), itemValue);
+        if (!Enum.IsDefined(typeof(T), itemValue))
+            return null;
+
+        var enumValue = (T)Enum.ToObject(typeof(T), itemValue);
+        return enumValue.ToString();
     }
 
-    // Private helper methods for cache implementation
-    private static string GetDescriptionInternal(Enum item)
+    /// <summary>
+    /// Tries to get the enum value based on the name (extension method version).
+    /// </summary>
+    /// <typeparam name="T">The type of the enum.</typeparam>
+    /// <param name="itemName">The name of the enum value.</param>
+    /// <param name="value">The parsed enum value.</param>
+    /// <returns>True if parsing succeeded; otherwise, false.</returns>
+    public static bool TryGetEnum<T>(this string? itemName, out T value) where T : struct, Enum
     {
-        var type = item.GetType();
-        var memberName = item.ToString();
+        value = default;
+        if (string.IsNullOrEmpty(itemName))
+            return false;
 
-        // Use cached member info if available
-        var memInfo = s_memberInfoCache.GetOrAdd((type, memberName),
-            key => key.Item1.GetMember(key.Item2));
+        return Enum.TryParse<T>(itemName, true, out value);
+    }
 
-        if (memInfo.Length > 0)
-        {
-            var attrs = memInfo[0].GetCustomAttributes(typeof(DescriptionAttribute), false);
-            if (attrs.Length > 0 && attrs[0] is DescriptionAttribute descAttr)
-            {
-                return descAttr.Description;
-            }
-        }
-        return memberName;
+    /// <summary>
+    /// Tries to get the enum value based on the integer value (extension method version).
+    /// </summary>
+    /// <typeparam name="T">The type of the enum.</typeparam>
+    /// <param name="itemValue">The integer value of the enum.</param>
+    /// <param name="value">The parsed enum value.</param>
+    /// <returns>True if the value is valid for the enum type; otherwise, false.</returns>
+    public static bool TryGetEnum<T>(this int itemValue, out T value) where T : struct, Enum
+    {
+        value = default;
+        
+        if (!Enum.IsDefined(typeof(T), itemValue))
+            return false;
+
+        value = (T)Enum.ToObject(typeof(T), itemValue);
+        return true;
+    }
+
+    /// <summary>
+    /// Internal method to get description using reflection.
+    /// </summary>
+    /// <param name="enumValue">The enum value.</param>
+    /// <returns>The description or enum name.</returns>
+    private static string GetDescriptionInternal(Enum enumValue)
+    {
+        var fieldInfo = enumValue.GetType().GetField(enumValue.ToString());
+        var descriptionAttribute = fieldInfo?.GetCustomAttribute<DescriptionAttribute>();
+        return descriptionAttribute?.Description ?? enumValue.ToString();
     }
 
 #if NET5_0_OR_GREATER
-    private static string GetDisplayInternal(Enum item)
+    /// <summary>
+    /// Internal method to get display name using reflection.
+    /// </summary>
+    /// <param name="enumValue">The enum value.</param>
+    /// <returns>The display name or enum name.</returns>
+    private static string GetDisplayInternal(Enum enumValue)
     {
-        var type = item.GetType();
-        var memberName = item.ToString();
-
-        // Use cached member info if available
-        var memInfo = s_memberInfoCache.GetOrAdd((type, memberName),
-            key => key.Item1.GetMember(key.Item2));
-
-        if (memInfo.Length > 0)
-        {
-            var attrs = memInfo[0].GetCustomAttributes(typeof(DisplayAttribute), false);
-            if (attrs.Length > 0 && attrs[0] is DisplayAttribute displayAttr)
-            {
-                return displayAttr.Name ?? memberName;
-            }
-        }
-        return memberName;
+        var fieldInfo = enumValue.GetType().GetField(enumValue.ToString());
+        var displayAttribute = fieldInfo?.GetCustomAttribute<DisplayAttribute>();
+        return displayAttribute?.Name ?? enumValue.ToString();
     }
 #endif
 }

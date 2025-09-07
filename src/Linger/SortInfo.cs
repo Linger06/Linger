@@ -1,5 +1,4 @@
-﻿using Linger.SourceGen;
-namespace Linger;
+﻿namespace Linger;
 
 /// <summary>
 /// Represents sorting information.
@@ -34,7 +33,6 @@ public class SortInfo
 /// <summary>
 /// Specifies the sort direction.
 /// </summary>
-[GenerateEnumExtensions]
 public enum SortDir
 {
     /// <summary>

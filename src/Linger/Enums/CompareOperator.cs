@@ -1,11 +1,10 @@
 ﻿using System.ComponentModel;
-using Linger.SourceGen;
+
 namespace Linger.Enums;
 
 /// <summary>
 /// Specifies the comparison operators.
 /// </summary>
-[GenerateEnumExtensions]
 public enum CompareOperator
 {
     /// <summary>
