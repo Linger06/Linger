@@ -1,12 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net9.0;net8.0;netstandard2.0;net472</TargetFrameworks>
+        <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472</TargetFrameworks>
         <PackageId>Linger.Utils</PackageId>
         <AssemblyTitle>Linger.Utils</AssemblyTitle>
         <Description>
             A comprehensive .NET utility library providing extensive type conversion extensions, string manipulation utilities,
             date/time helpers, file system operations, collection extensions, and various helper classes for everyday development tasks.
-            Supports multiple .NET frameworks including .NET Standard 2.0, .NET Framework 4.7.2, .NET 8.0 and .NET 9.0.
+            Supports multiple .NET frameworks including .NET Standard 2.0, .NET Framework 4.7.2, .NET 8.0, .NET 9.0, and .NET 10.0 (RC).
         </Description>
         <Version>0.8.5-preview</Version>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -25,15 +25,21 @@
         <Deterministic>true</Deterministic>
     </PropertyGroup>
 
+    <!-- Stable frameworks using .NET 9.0 compatible packages (向下兼容) -->
     <ItemGroup Condition="'$(TargetFramework)'=='net472'">
         <Reference Include="System.Net.Http" />
         <Reference Include="System.Data.DataSetExtensions" />
-        <PackageReference Include="System.Text.Json" Version="9.0.8" />
+        <PackageReference Include="System.Text.Json" Version="9.0.9" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
         <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
-        <PackageReference Include="System.Text.Json" Version="9.0.8" />
+        <PackageReference Include="System.Text.Json" Version="9.0.9" />
+    </ItemGroup>
+
+    <!-- Development and quality packages -->
+    <ItemGroup>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
     </ItemGroup>
 
     <ItemGroup>

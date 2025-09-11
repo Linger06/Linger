@@ -6,7 +6,7 @@ using Xunit;
 namespace Linger.DataAccess.SqlServer.UnitTests;
 
 /// <summary>
-/// SqlServerHelper 鍗曞厓娴嬭瘯绫?- 浠呮祴璇曚笉娑夊強鏁版嵁搴撹繛鎺ョ殑閫昏緫
+/// SqlServerHelper 单元测试类 - 仅测试不涉及数据库连接的逻辑
 /// </summary>
 public class SqlServerHelperTests
 {
@@ -282,7 +282,7 @@ public class SqlServerHelperTests
 }
 
 /// <summary>
-/// 鎬ц兘鍜岃竟鐣屾祴璇曠被
+/// 性能和边界测试类
 /// </summary>
 public class SqlServerHelperPerformanceTests
 {

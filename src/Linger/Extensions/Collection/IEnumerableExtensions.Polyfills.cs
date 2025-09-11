@@ -80,7 +80,7 @@ public static partial class IEnumerableExtensions
 
         return LeftJoin(outer, inner, outerKeySelector, innerKeySelector, (o, i) => new Tuple<TOuter, TInner?>(o, i));
     }
-#endif
+
 
     /// <summary>
     /// Performs a right outer join on two sequences.
@@ -112,4 +112,5 @@ public static partial class IEnumerableExtensions
         IEnumerable<TResult> query = LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i), comparer);
         return query;
     }
+#endif
 }
