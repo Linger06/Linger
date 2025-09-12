@@ -1,7 +1,5 @@
-using System;
 using System.Collections.Concurrent;
 using System.ComponentModel;
-using System.Globalization;
 #if NET5_0_OR_GREATER
 using System.ComponentModel.DataAnnotations;
 #endif
@@ -113,8 +111,11 @@ public static class EnumExtensions
     {
         if (string.IsNullOrEmpty(itemName))
             throw new System.ArgumentException("Enum name cannot be null or empty", nameof(itemName));
-
+#if NET9_0_OR_GREATER
+        return Enum.Parse<T>(itemName, true);
+#else
         return (T)Enum.Parse(typeof(T), itemName, true);
+#endif
     }
 
     /// <summary>
@@ -184,7 +185,7 @@ public static class EnumExtensions
     public static bool TryGetEnum<T>(this int itemValue, out T value) where T : struct, Enum
     {
         value = default;
-        
+
         if (!Enum.IsDefined(typeof(T), itemValue))
             return false;
 
