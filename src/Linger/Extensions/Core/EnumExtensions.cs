@@ -21,33 +21,6 @@ public static class EnumExtensions
 #endif
 
     /// <summary>
-    /// Determines if the enum value has the specified flag.
-    /// </summary>
-    /// <param name="variable">The enum value to check.</param>
-    /// <param name="value">The flag to check for.</param>
-    /// <returns>True if the enum has the flag; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// [Flags]
-    /// enum MyFlags { A = 1, B = 2, C = 4 }
-    /// var flags = MyFlags.A | MyFlags.B;
-    /// bool hasA = flags.HasFlag(MyFlags.A); // Returns true
-    /// </code>
-    /// </example>
-    public static bool HasFlag(this Enum variable, Enum value)
-    {
-        // Performance optimization: Use bitwise operations instead of Enum.HasFlag for better performance
-        if (variable == null || value == null)
-            return false;
-
-        // Convert to underlying type for bitwise operations (avoids boxing)
-        var variableValue = Convert.ToUInt64(variable, CultureInfo.InvariantCulture);
-        var flagValue = Convert.ToUInt64(value, CultureInfo.InvariantCulture);
-
-        return (variableValue & flagValue) == flagValue;
-    }
-
-    /// <summary>
     /// Gets the description attribute of the enum value with caching for performance.
     /// If no description attribute is found, returns the enum name.
     /// </summary>

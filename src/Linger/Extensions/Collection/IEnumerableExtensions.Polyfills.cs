@@ -37,9 +37,7 @@ public static partial class IEnumerableExtensions
         ArgumentNullException.ThrowIfNull(innerKeySelector);
         ArgumentNullException.ThrowIfNull(resultSelector);
 
-        return outer.GroupJoin(inner, outerKeySelector, innerKeySelector, (o, i) => new { o, i })
-            .SelectMany(x => x.i.DefaultIfEmpty(), (o, i) => new { outer = o.o, inner = i })
-            .Select(x => resultSelector(x.outer, x.inner));
+        return LeftJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, null);
     }
 
     /// <summary>
@@ -92,8 +90,7 @@ public static partial class IEnumerableExtensions
             Func<TOuter?, TInner, TResult> resultSelector
         )
     {
-        IEnumerable<TResult> query = LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i));
-        return query;
+        return RightJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, null);
     }
 
     /// <summary>
@@ -108,8 +105,7 @@ public static partial class IEnumerableExtensions
             IEqualityComparer<TKey>? comparer
         )
     {
-        IEnumerable<TResult> query = LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i), comparer);
-        return query;
+        return LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i), comparer);
     }
 #endif
 }

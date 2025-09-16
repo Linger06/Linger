@@ -387,7 +387,9 @@ public static class DataTableExtensions
         // 添加分组列作为结果表的列
         foreach (DataColumn groupColumn in groupColumns)
         {
-            resultTable.Columns.Add(groupColumn.ColumnName, groupColumn.DataType);
+            var sourceColumn = source.Columns[groupColumn.ColumnName];
+            ArgumentNullException.ThrowIfNull(sourceColumn);
+            resultTable.Columns.Add(sourceColumn.ColumnName, sourceColumn.DataType);
         }
 
         // 如果源表没有数据，直接返回只包含列定义的空表
@@ -447,7 +449,7 @@ public static class DataTableExtensions
                 try
                 {
                     // 获取值并设置到对应单元格
-                    var cellValue = sourceRow[valueColumn];
+                    var cellValue = sourceRow[valueColumn.ColumnName];
                     if (cellValue != DBNull.Value)
                     {
                         decimal currentValue = 0;
@@ -482,7 +484,7 @@ public static class DataTableExtensions
         var keyParts = new List<string>();
         foreach (DataColumn column in groupColumns)
         {
-            var value = row[column];
+            var value = row[column.ColumnName];
             // 确保null和DBNull值也能生成唯一键
             var stringValue = value == DBNull.Value ? "<NULL>" : value?.ToString() ?? "<NULL>";
             keyParts.Add(stringValue);
@@ -498,7 +500,7 @@ public static class DataTableExtensions
         var captionParts = new List<string>();
         foreach (DataColumn column in captionColumns)
         {
-            var value = row[column];
+            var value = row[column.ColumnName];
             // 确保null和DBNull值也能生成有效的列名
             var stringValue = value == DBNull.Value ? "NULL" : value?.ToString() ?? "NULL";
 
