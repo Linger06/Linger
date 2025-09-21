@@ -5,7 +5,7 @@ using Linger.Helper.PathHelpers;
 
 namespace Linger.Helper;
 
-public static class FileHelper
+public static partial class FileHelper
 {
     #region File Read Operations
 

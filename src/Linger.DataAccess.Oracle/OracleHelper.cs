@@ -99,7 +99,7 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     public DataSet Query(string sqlString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
-        return GetDataSet(CommandType.Text, sqlString);
+        return base.Query(sqlString);
     }
 
     /// <summary>
@@ -114,8 +114,7 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        return GetDataSet(CommandType.Text, sqlString, parameters);
+        return base.Query(sqlString, parameters);
     }
 
     /// <summary>
@@ -129,12 +128,7 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
-
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return GetDataSet(CommandType.Text, sqlString);
-        }, cancellationToken);
+        return base.QueryAsync(sqlString, null, cancellationToken);
     }
 
     /// <summary>
@@ -150,11 +144,6 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);
-
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return GetDataSet(CommandType.Text, sqlString, parameters);
-        }, cancellationToken);
+        return base.QueryAsync(sqlString, parameters, cancellationToken);
     }
 }

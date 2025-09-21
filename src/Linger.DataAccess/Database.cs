@@ -14,6 +14,61 @@ namespace Linger.DataAccess;
 public class Database(IProvider provider, string connectionString) : BaseDatabase(provider, connectionString), IDatabase
 {
 
+    /// <summary>
+    /// 通用同步查询，返回DataSet
+    /// </summary>
+    /// <param name="sql">SQL语句</param>
+    /// <param name="parameters">参数数组</param>
+    /// <returns>DataSet</returns>
+    public DataSet Query(string sql, params DbParameter[] parameters)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        return GetDataSet(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>());
+    }
+
+    /// <summary>
+    /// 通用同步查询，返回DataTable
+    /// </summary>
+    /// <param name="sql">SQL语句</param>
+    /// <param name="parameters">参数数组</param>
+    /// <returns>DataTable</returns>
+    public DataTable QueryTable(string sql, params DbParameter[] parameters)
+    {
+        var ds = Query(sql, parameters);
+        return ds.Tables.Count > 0 ? ds.Tables[0] : new DataTable();
+    }
+
+    /// <summary>
+    /// 通用异步查询，返回DataSet
+    /// </summary>
+    /// <param name="sql">SQL语句</param>
+    /// <param name="parameters">参数数组</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>DataSet</returns>
+    public Task<DataSet> QueryAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        return Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return GetDataSet(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>());
+        }, cancellationToken);
+    }
+
+    /// <summary>
+    /// 通用异步查询，返回DataTable
+    /// </summary>
+    /// <param name="sql">SQL语句</param>
+    /// <param name="parameters">参数数组</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>DataTable</returns>
+    public async Task<DataTable> QueryTableAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
+    {
+        var ds = await QueryAsync(sql, parameters, cancellationToken).ConfigureAwait(false);
+        return ds.Tables.Count > 0 ? ds.Tables[0] : new DataTable();
+    }
+    
+
     #region SqlBulkCopy大批量数据插入
 
     /// <summary>

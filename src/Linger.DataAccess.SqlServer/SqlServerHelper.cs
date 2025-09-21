@@ -11,6 +11,43 @@ namespace Linger.DataAccess.SqlServer;
 public class SqlServerHelper(string connectionString) : Database(new SqlServerProvider(), connectionString)
 {
     /// <summary>
+    /// 执行 SQL 查询并返回 DataTable（与 Oracle/SqliteHelper 风格一致）
+    /// </summary>
+    /// <param name="sql">SQL 查询语句</param>
+    /// <param name="parameters">可选参数</param>
+    /// <returns>查询结果 DataTable</returns>
+    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var dt = helper.Query("SELECT * FROM Users WHERE Id = @Id", new SqlParameter("@Id", 1));
+    /// </code>
+    /// </example>
+    public DataTable Query(string sql, params SqlParameter[] parameters)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
+        return QueryTable(sql, parameters);
+    }
+
+    /// <summary>
+    /// 异步执行 SQL 查询并返回 DataTable（与 Oracle/SqliteHelper 风格一致）
+    /// </summary>
+    /// <param name="sql">SQL 查询语句</param>
+    /// <param name="parameters">可选参数</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>查询结果 DataTable</returns>
+    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var dt = await helper.QueryAsync("SELECT * FROM Users WHERE Name = @Name", new SqlParameter("@Name", "张三"));
+    /// </code>
+    /// </example>
+    public Task<DataTable> QueryAsync(string sql, SqlParameter[]? parameters = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
+        return QueryTableAsync(sql, parameters, cancellationToken);
+    }
+    
+    /// <summary>
     /// 海量数据插入方法
     /// (调用该方法需要注意，DataTable中的字段名称必须和数据库中的字段名称一一对应)
     /// </summary>
@@ -202,5 +239,97 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    ///     执行SQL语句，返回影响的记录数
+    /// </summary>
+    /// <param name="sqlString">SQL语句</param>
+    /// <returns>影响的记录数</returns>
+    public int ExecuteSql(string sqlString)
+    {
+        using var connection = new SqlConnection(ConnString);
+        using var cmd = new SqlCommand(sqlString, connection);
+        try
+        {
+            connection.Open();
+            var rows = cmd.ExecuteNonQuery();
+            return rows;
+        }
+        catch (SqlException)
+        {
+            connection.Close();
+            throw;
+        }
+    }
+
+    /// <summary>
+    ///     执行一条计算查询结果语句，返回查询结果（object）。
+    /// </summary>
+    /// <param name="sqlString">计算查询结果语句</param>
+    /// <returns>查询结果（object）</returns>
+    public object? GetSingle(string sqlString)
+    {
+        using var connection = new SqlConnection(ConnString);
+        using var cmd = new SqlCommand(sqlString, connection);
+        try
+        {
+            connection.Open();
+            var obj = cmd.ExecuteScalar();
+            if (obj.IsNullOrDbNull())
+            {
+                return null;
+            }
+
+            return obj;
+        }
+        catch (SqlException)
+        {
+            connection.Close();
+            throw;
+        }
+    }
+
+    /// <summary>
+    ///     执行查询语句，返回SqlDataReader ( 注意：调用该方法后，一定要对SqlDataReader进行Close )
+    /// </summary>
+    /// <param name="strSql">查询语句</param>
+    /// <returns>SqlDataReader</returns>
+    public SqlDataReader ExecuteReader(string strSql)
+    {
+        var connection = new SqlConnection(ConnString);
+        var cmd = new SqlCommand(strSql, connection);
+        connection.Open();
+        SqlDataReader myReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+        return myReader;
+    }
+
+    /// <summary>
+    ///     执行查询语句，返回DataSet
+    /// </summary>
+    /// <param name="sqlString">查询语句</param>
+    /// <param name="times">超时时间(秒)</param>
+    /// <returns>DataSet</returns>
+    public DataSet Query(string sqlString, int? times = null)
+    {
+        using var connection = new SqlConnection(ConnString);
+        var ds = new DataSet();
+        try
+        {
+            connection.Open();
+            var command = new SqlDataAdapter(sqlString, connection);
+            if (times != null)
+            {
+                command.SelectCommand.CommandTimeout = (int)times;
+            }
+
+            _ = command.Fill(ds, "ds");
+        }
+        catch (SqlException ex)
+        {
+            throw new Exception(ex.Message);
+        }
+
+        return ds;
     }
 }

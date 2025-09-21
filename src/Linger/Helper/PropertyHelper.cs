@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
 using Linger.Extensions.Core;
@@ -34,6 +34,87 @@ public static class PropertyHelper
         {
             rv = Expression.PropertyOrField(rv, names[i]);
         }
+        return rv;
+    }
+
+    /// <summary>
+    /// 获取属性名
+    /// </summary>
+    /// <param name="expression">属性表达式</param>
+    /// <param name="getAll">是否获取全部级别名称，比如a.b.c</param>
+    /// <returns>属性名</returns>
+    public static string GetPropertyName(this Expression expression, bool getAll = true)
+    {
+        if (expression.IsNull())
+        {
+            return string.Empty;
+        }
+
+        MemberExpression? me = null;
+        if (expression is MemberExpression memberExpression)
+        {
+            me = memberExpression;
+        }
+
+        if (expression is LambdaExpression le)
+        {
+            if (le.Body is MemberExpression body)
+            {
+                me = body;
+            }
+
+            if (le.Body is UnaryExpression unaryExpression)
+            {
+                me = unaryExpression.Operand as MemberExpression;
+            }
+        }
+
+        var rv = string.Empty;
+        if (me != null)
+        {
+            rv = me.Member.Name;
+        }
+
+        while (me != null && getAll && me.NodeType == ExpressionType.MemberAccess)
+        {
+            Expression? exp = me.Expression;
+            if (exp is MemberExpression exp1)
+            {
+                rv = exp1.Member.Name + "." + rv;
+                me = exp1;
+            }
+            else if (exp is MethodCallExpression mexp)
+            {
+                if (mexp.Method.Name == "get_Item")
+                {
+                    object? index = default;
+                    if (mexp.Arguments[0] is MemberExpression memberExpression1)
+                    {
+                        if (memberExpression1.Expression is ConstantExpression constantExpression)
+                        {
+                            var obj = constantExpression.Value!;
+                            FieldInfo? field = obj.GetType().GetField(memberExpression1.Member.Name);
+                            index = field!.GetValue(obj);
+                        }
+                    }
+                    else if (mexp.Arguments[0] is ConstantExpression constantExpression)
+                    {
+                        index = constantExpression.Value;
+                    }
+
+                    if (mexp.Object is MemberExpression member)
+                    {
+                        rv = member.Member.Name + "[" + index + "]." + rv;
+                        me = member;
+                    }
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+
         return rv;
     }
 
