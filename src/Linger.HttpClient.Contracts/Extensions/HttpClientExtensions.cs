@@ -57,12 +57,12 @@ public static class HttpClientExtensions
     public static async Task<ApiResult<T>> PostAsync<T>(
         this IHttpClient client,
         string url,
-        object postData,
+        object requestBody,
         object? queryParams = null,
         int? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<T>(url, HttpMethodEnum.Post, postData, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return await client.CallApi<T>(url, HttpMethodEnum.Post, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -71,12 +71,12 @@ public static class HttpClientExtensions
     public static async Task<ApiResult<T>> PutAsync<T>(
         this IHttpClient client,
         string url,
-        object postData,
+        object requestBody,
         object? queryParams = null,
         int? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<T>(url, HttpMethodEnum.Put, postData, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return await client.CallApi<T>(url, HttpMethodEnum.Put, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

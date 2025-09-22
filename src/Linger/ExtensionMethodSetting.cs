@@ -25,7 +25,7 @@ public static class ExtensionMethodSetting
 
 #if !NETFRAMEWORK || NET462_OR_GREATER
         DefaultJsonSerializerOptions = CreateDefaultJsonOptions();
-        DefaultPostJsonOption = CreateDefaultPostJsonOptions();
+        DefaultRequestJsonOptions = CreateDefaultRequestJsonOptions();
 #endif
     }
 
@@ -60,7 +60,10 @@ public static class ExtensionMethodSetting
     /// To customize options, create a new JsonSerializerOptions instance based on this one.
     /// </summary>
     /// <value>The default JSON serializer options for POST requests.</value>
-    public static JsonSerializerOptions DefaultPostJsonOption { get; }
+    public static JsonSerializerOptions DefaultRequestJsonOptions { get; }
+
+    [Obsolete("Use DefaultRequestJsonOptions instead.", false)]
+    public static JsonSerializerOptions DefaultPostJsonOption => DefaultRequestJsonOptions;
 
     /// <summary>
     /// Creates a copy of the default JSON serializer options for customization.
@@ -79,7 +82,12 @@ public static class ExtensionMethodSetting
     /// <returns>A new JsonSerializerOptions instance based on the POST defaults.</returns>
     public static JsonSerializerOptions CreateCustomPostJsonOptions()
     {
-        return new JsonSerializerOptions(DefaultPostJsonOption);
+        return new JsonSerializerOptions(DefaultRequestJsonOptions);
+    }
+
+    public static JsonSerializerOptions CreateCustomRequestJsonOptions()
+    {
+        return new JsonSerializerOptions(DefaultRequestJsonOptions);
     }
 
     /// <summary>
@@ -87,22 +95,18 @@ public static class ExtensionMethodSetting
     /// </summary>
     private static JsonSerializerOptions CreateDefaultJsonOptions()
     {
-        var jsonOptions = new JsonSerializerOptions
+        // Base on standard Web defaults, then harden and enable read-only leniency for numbers
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            WriteIndented = true,
-            // Safer-by-default encoding to avoid over-escaping relaxations that could be abused in certain contexts.
+            // Security hardening and consistency
             Encoder = JavaScriptEncoder.Default,
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DictionaryKeyPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            IgnoreReadOnlyProperties = true,
-            IgnoreReadOnlyFields = true,
-            AllowTrailingCommas = false,
-            ReadCommentHandling = JsonCommentHandling.Disallow,
-            ReferenceHandler = ReferenceHandler.IgnoreCycles
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
+            // Read-only leniency for interop: accept numeric strings on deserialization
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
         };
 
+        // Keep project-specific converters
         jsonOptions.Converters.Add(new JsonObjectConverter());
         jsonOptions.Converters.Add(new DateTimeConverter());
         jsonOptions.Converters.Add(new DateTimeNullConverter());
@@ -114,15 +118,16 @@ public static class ExtensionMethodSetting
     /// <summary>
     /// Creates the default JSON serializer options for POST requests.
     /// </summary>
-    private static JsonSerializerOptions CreateDefaultPostJsonOptions()
+    private static JsonSerializerOptions CreateDefaultRequestJsonOptions()
     {
-        var jsonOptions = new JsonSerializerOptions
+        // Base on standard Web defaults for outgoing request bodies.
+        // Do NOT globally write numbers as strings; keep standard numeric outputs.
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            PropertyNamingPolicy = null,
-            NumberHandling = JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString,
-            AllowTrailingCommas = true
+            Encoder = JavaScriptEncoder.Default
         };
 
+        // Keep only essential converters for request serialization
         jsonOptions.Converters.Add(new DateTimeConverter());
         return jsonOptions;
     }

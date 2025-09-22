@@ -49,18 +49,24 @@ public abstract class HttpClientBase : IHttpClient
     /// <typeparam name="T">返回数据类型</typeparam>
     /// <param name="url">调用地址</param>
     /// <param name="method">HTTP方法</param>
-    /// <param name="postData">提交的数据，会被转换为HttpContent</param>
+    /// <param name="requestBody">
+    /// 请求体（body）。
+    /// 当为 <see cref="HttpContent"/> 时将直接使用；
+    /// 当为 <see cref="IDictionary{TKey, TValue}"/>（如 <see cref="IDictionary{String, String}"/>）时将作为表单（<see cref="FormUrlEncodedContent"/>）发送；
+    /// 其他类型将被序列化为 JSON（使用 <see cref="ExtensionMethodSetting.DefaultRequestJsonOptions"/>）。
+    /// 一般用于 POST/PUT/PATCH 等含有请求体的方法；对 GET 调用会被忽略。
+    /// </param>
     /// <param name="queryParams">查询参数</param>
     /// <param name="timeout">超时时间,单位秒</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>API调用结果</returns>
-    public virtual async Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, object? postData = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default)
+    public virtual async Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, object? requestBody = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default)
     {
         HttpContent? content = null;
 
-        if (postData is not null)
+        if (requestBody is not null)
         {
-            content = CreateHttpContent(postData);
+            content = CreateHttpContent(requestBody);
         }
 
         return await CallApi<T>(url, method, content, queryParams, timeout, cancellationToken).ConfigureAwait(false);
@@ -69,16 +75,16 @@ public abstract class HttpClientBase : IHttpClient
     /// <summary>
     /// 根据数据类型创建HttpContent
     /// </summary>
-    /// <param name="postData">要转换的数据</param>
+    /// <param name="requestBody">请求体对象（payload），根据其类型转换为合适的 <see cref="HttpContent"/>。</param>
     /// <returns>HttpContent实例</returns>
-    protected virtual HttpContent CreateHttpContent(object postData)
+    protected virtual HttpContent CreateHttpContent(object requestBody)
     {
-        return postData switch
+        return requestBody switch
         {
             IDictionary<string, string> dictionary => new FormUrlEncodedContent(dictionary),
             HttpContent httpContent => httpContent,
             _ => new StringContent(
-                JsonSerializer.Serialize(postData, ExtensionMethodSetting.DefaultPostJsonOption),
+                JsonSerializer.Serialize(requestBody, ExtensionMethodSetting.DefaultRequestJsonOptions),
                 Encoding.UTF8,
                 "application/json")
         };
@@ -90,13 +96,13 @@ public abstract class HttpClientBase : IHttpClient
     /// <typeparam name="T">返回数据类型</typeparam>
     /// <param name="url">调用地址</param>
     /// <param name="method">HTTP方法</param>
-    /// <param name="postData">表单数据</param>
+    /// <param name="formData">表单数据</param>
     /// <param name="timeout">超时时间,单位秒</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>API调用结果</returns>
-    public virtual Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, int? timeout = null, CancellationToken cancellationToken = default)
+    public virtual Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? formData, int? timeout = null, CancellationToken cancellationToken = default)
     {
-        var content = new FormUrlEncodedContent(postData ?? new Dictionary<string, string>());
+        var content = new FormUrlEncodedContent(formData ?? new Dictionary<string, string>());
         return CallApi<T>(url, method, content, null, timeout, cancellationToken);
     }
 
@@ -106,16 +112,16 @@ public abstract class HttpClientBase : IHttpClient
     /// <typeparam name="T">返回数据类型</typeparam>
     /// <param name="url">调用地址</param>
     /// <param name="method">HTTP方法</param>
-    /// <param name="postData">表单数据</param>
+    /// <param name="formData">表单数据</param>
     /// <param name="fileData">文件数据</param>
     /// <param name="filename">文件名</param>
     /// <param name="timeout">超时时间,单位秒</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>API调用结果</returns>
-    public virtual Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? postData, byte[] fileData, string filename, int? timeout = null, CancellationToken cancellationToken = default)
+    public virtual Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? formData, byte[] fileData, string filename, int? timeout = null, CancellationToken cancellationToken = default)
     {
         // 使用统一的辅助方法创建MultipartFormDataContent
-        var content = MultipartHelper.CreateMultipartContent(postData, fileData, filename);
+        var content = MultipartHelper.CreateMultipartContent(formData, fileData, filename);
         return CallApi<T>(url, method, content, null, timeout, cancellationToken);
     }
 

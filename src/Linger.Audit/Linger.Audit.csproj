@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0</TargetFrameworks>
-        <Version>0.9.1-preview</Version>
+        <Version>0.9.3-preview</Version>
         <Description>
             A lightweight .NET auditing library that provides base classes and interfaces for entity auditing.
             Includes audit trail tracking for creation, modification, and deletion events with built-in timestamps and user tracking.

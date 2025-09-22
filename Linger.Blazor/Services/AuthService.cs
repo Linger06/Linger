@@ -25,8 +25,8 @@ public class AuthService(IHttpClient httpClient, AppState appState, ILogger<Auth
             var result = await httpClient.CallApi<LoginResponse>(
                 "api/auth/login",
                 HttpMethodEnum.Post,
-                postData: loginRequest,
-                cancellationToken: cancellationToken);
+                requestBody: loginRequest,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result.IsSuccess)
             {
@@ -93,7 +93,7 @@ public class AuthService(IHttpClient httpClient, AppState appState, ILogger<Auth
             var response = await httpClient.CallApi<TokenResponse>(
                 "api/auth/refresh",
                 HttpMethodEnum.Post,
-                refreshRequest);
+                refreshRequest).ConfigureAwait(false);
 
             if (response.IsSuccess && response.Data != null)
             {
