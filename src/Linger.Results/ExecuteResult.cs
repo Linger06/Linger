@@ -139,7 +139,7 @@ public class ExecuteResult<TValue> : ExecuteResult
     /// <summary>
     ///     结果的值，只有在IsSucceed=true时才能访问
     /// </summary>
-    public TValue Value { get; private set; } = default!;
+    public TValue Value { get; set; } = default!;
 
     /// <summary>
     ///     设置执行结果的状态、消息和数据

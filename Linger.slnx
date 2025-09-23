@@ -15,6 +15,10 @@
     <Project Path="src/Linger.Audit/Linger.Audit.csproj" />
     <Project Path="src/Linger.Background/Linger.Background.csproj" />
     <Project Path="src/Linger.Configuration/Linger.Configuration.csproj" />
+    <Project Path="src/Linger.Dapper.Oracle/Linger.Dapper.Oracle.csproj" />
+    <Project Path="src/Linger.Dapper.Sqlite/Linger.Dapper.Sqlite.csproj" />
+    <Project Path="src/Linger.Dapper.SqlServer/Linger.Dapper.SqlServer.csproj" />
+    <Project Path="src/Linger.Dapper/Linger.Dapper.csproj" />
     <Project Path="src/Linger.DataAccess.Oracle/Linger.DataAccess.Oracle.csproj" />
     <Project Path="src/Linger.DataAccess.Sqlite/Linger.DataAccess.Sqlite.csproj" />
     <Project Path="src/Linger.DataAccess.SqlServer/Linger.DataAccess.SqlServer.csproj" />
