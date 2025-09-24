@@ -259,8 +259,13 @@ public abstract class HttpClientBase : IHttpClient
                 if (problemDetails is not null && problemDetails.Errors.Count > 0)
                 {
                     var errors = problemDetails.Errors.Select(kvp => new Error(kvp.Key, kvp.Value)).ToList();
-                    var firstError = errors.FirstOrDefault();
-                    var errorMsg = firstError?.Message ?? "An unknown error occurred";
+                    // 将所有字段错误消息合并为全局错误消息；若 key 非空，包含在消息中："key: value"
+                    var mergedMsg = string.Join("\n", problemDetails.Errors
+                        .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
+                        .Select(kvp => string.IsNullOrWhiteSpace(kvp.Key) ? kvp.Value : $"{kvp.Key}: {kvp.Value}"));
+                    var errorMsg = !string.IsNullOrWhiteSpace(mergedMsg)
+                        ? mergedMsg
+                        : (!string.IsNullOrWhiteSpace(problemDetails.Title) ? problemDetails.Title : "An unknown error occurred");
                     return (errorMsg, errors);
                 }
             }
@@ -275,8 +280,11 @@ public abstract class HttpClientBase : IHttpClient
                 var errorList = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
                 if (errorList is not null && errorList.Any())
                 {
-                    var firstError = errorList.FirstOrDefault();
-                    var errorMsg = firstError?.Message ?? "An unknown error occurred";
+                    // 合并所有错误项的消息为全局错误消息；若 Code 非空，包含在消息中："Code: Message"
+                    var mergedMsg = string.Join("\n", errorList
+                        .Where(e => !string.IsNullOrWhiteSpace(e?.Message))
+                        .Select(e => string.IsNullOrWhiteSpace(e!.Code) ? e!.Message : $"{e.Code}: {e.Message}"));
+                    var errorMsg = !string.IsNullOrWhiteSpace(mergedMsg) ? mergedMsg : "An unknown error occurred";
                     return (errorMsg, errorList);
                 }
             }

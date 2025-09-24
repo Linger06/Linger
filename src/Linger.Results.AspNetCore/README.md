@@ -123,14 +123,14 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
   "title": "One or more validation errors occurred",
   "status": 400,
   "detail": "Email format is invalid; Password strength is insufficient",
-  "extensions": {
-    "errors": {
-      "User.InvalidEmail": "Email format is invalid",
-      "User.WeakPassword": "Password strength is insufficient"
-    }
+  "errors": {
+    "User.InvalidEmail": "Email format is invalid",
+    "User.WeakPassword": "Password strength is insufficient"
   }
 }
 ```
+
+Note: `errors` is an RFC 7807 extension member. The server adds it via `ProblemDetails.Extensions["errors"]`. ASP.NET Core serializes `Extensions` entries as top-level properties, so you will see a top-level `errors` field. This is compliant with RFC 7807's extension mechanism.
 
 ## Status Code Mapping
 

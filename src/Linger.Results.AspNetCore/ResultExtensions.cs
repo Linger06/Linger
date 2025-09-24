@@ -383,6 +383,8 @@ public static class ResultExtensions
             Detail = string.Join("; ", result.Errors.Select(e => e.Message))
         };
 
+        // 说明：ProblemDetails.Extensions 使用 JsonExtensionData，序列化时会将键值对展开为顶层属性。
+        // 因此设置 Extensions["errors"] 会在 JSON 顶层得到 "errors": { ... }，而非嵌套在 "extensions" 下。
         if (result.Errors.Any())
         {
             problemDetails.Extensions["errors"] = result.Errors.ToDictionary(e => e.Code, e => e.Message);
@@ -405,6 +407,5 @@ public static class ResultExtensions
             _ => Microsoft.AspNetCore.Http.Results.BadRequest(problemDetails)
         };
     }
-
     #endregion
 }

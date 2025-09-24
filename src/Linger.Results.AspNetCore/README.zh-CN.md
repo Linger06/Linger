@@ -123,14 +123,14 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
   "title": "One or more validation errors occurred",
   "status": 400,
   "detail": "邮箱格式不正确; 密码强度不足",
-  "extensions": {
-    "errors": {
-      "User.InvalidEmail": "邮箱格式不正确",
-      "User.WeakPassword": "密码强度不足"
-    }
+  "errors": {
+    "User.InvalidEmail": "邮箱格式不正确",
+    "User.WeakPassword": "密码强度不足"
   }
 }
 ```
+
+说明：`errors` 为 RFC 7807 的扩展成员，服务端通过在 `ProblemDetails.Extensions["errors"]` 中添加键值对实现。ASP.NET Core 在序列化时会将 `Extensions` 中的条目作为顶层属性输出，因此你会看到顶层的 `errors` 字段。这种做法符合 RFC 7807 对扩展成员的规范。
 
 ## 状态码映射
 
