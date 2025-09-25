@@ -176,6 +176,11 @@ public static partial class FileHelper
 
     #region Search Operations
 
+    /// <summary>
+    /// 检测指定目录中是否存在指定的文件,若要搜索子目录请使用重载方法.
+    /// </summary>
+    /// <param name="directoryPath">指定目录的绝对路径</param>
+    /// <param name="searchPattern">模式字符串，"*"代表0或N个字符，"?"代表1个字符。 范例："Log*.xml"表示搜索所有以Log开头的Xml文件。</param>
     public static bool Contains(string directoryPath, string searchPattern, bool isSearchChild = false)
     {
         if (string.IsNullOrEmpty(directoryPath) || string.IsNullOrEmpty(searchPattern))
@@ -198,10 +203,34 @@ public static partial class FileHelper
 
     #region File Information
 
-    public static CustomExistFileInfo? GetCustomFileInfo(string fullFileName)
+    /// <summary>
+    /// 获取指定文件的扩展信息，包括哈希、路径和文件大小等元数据。
+    /// </summary>
+    /// <param name="fullFileName">目标文件的完整路径。</param>
+    /// <param name="relativeTo">用于计算相对路径的基准目录，默认为当前工作目录。</param>
+    /// <returns>返回包含文件元数据的 <see cref="ExtendedFileInfo"/> 实例；若文件不存在或路径无效则返回 <see langword="null"/>。</returns>
+    /// <example>
+    /// <code>
+    /// var fileInfo = FileHelper.GetExistingFileInfo(@"C:\\logs\\app.log");
+    /// if (fileInfo is not null)
+    /// {
+    ///     Console.WriteLine($"哈希值: {fileInfo.HashData}");
+    /// }
+    /// </code>
+    /// </example>
+    public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName, string? relativeTo = null)
     {
         if (string.IsNullOrEmpty(fullFileName))
             return null;
+
+        var basePath = string.IsNullOrEmpty(relativeTo)
+            ? Environment.CurrentDirectory
+            : relativeTo;
+
+        if (basePath is null)
+        {
+            return null;
+        }
 
         var absolutePath = StandardPathHelper.ResolveToAbsolutePath(null, fullFileName);
         var file = new FileInfo(absolutePath);
@@ -209,11 +238,11 @@ public static partial class FileHelper
         {
             using var memoryStream = file.ToMemoryStream();
             var strHashData = memoryStream.ComputeHashMd5();
-            return new CustomExistFileInfo
+            return new ExtendedFileInfo
             {
                 HashData = strHashData,
                 FileName = file.Name,
-                RelativeFilePath = StandardPathHelper.GetRelativePath(absolutePath, Environment.CurrentDirectory),
+                RelativeFilePath = StandardPathHelper.GetRelativePath(basePath, absolutePath),
                 FullFilePath = file.FullName,
                 FileSize = file.Length.FormatFileSize(),
                 Length = file.Length

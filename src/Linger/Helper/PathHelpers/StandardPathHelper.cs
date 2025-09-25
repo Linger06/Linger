@@ -140,8 +140,8 @@ public class StandardPathHelper : PathHelperBase
     /// <summary>
     /// 获取相对路径
     /// </summary>
-    /// <param name="relativeTo">源路径，始终被视为目录</param>
-    /// <param name="path">目标路径</param>
+    /// <param name="relativeTo">相对于结果的源路径。 此路径始终被视为目录</param>
+    /// <param name="path">要计算相对路径的目标路径</param>
     /// <returns>从relativeTo到path的相对路径，如果无法计算则返回原路径</returns>
     public static string GetRelativePath(string relativeTo, string path)
     {

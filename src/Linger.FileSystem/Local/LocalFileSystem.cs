@@ -1,3 +1,4 @@
+using Linger.Extensions.IO;
 using Linger.Helper.PathHelpers;
 
 namespace Linger.FileSystem.Local;
@@ -224,8 +225,8 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         // 验证文件元数据
         if (_options.ValidateFileMetadata)
         {
-            var customFileInfo = FileHelper.GetCustomFileInfo(fileInfo.FullName);
-            if (customFileInfo?.HashData != null && customFileInfo.HashData != sourceHashData)
+            var metadata = FileHelper.GetExistingFileInfo(fileInfo.FullName);
+            if (metadata?.HashData != null && metadata.HashData != sourceHashData)
             {
                 var ex = new InvalidOperationException($"File integrity check failed: Metadata hash mismatch for {fileInfo.FullName}");
 
@@ -684,7 +685,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     }
 }
 
-public class UploadedInfo : CustomExistFileInfo
+public class UploadedInfo : ExtendedFileInfo
 {
     /// <summary>
     /// Gets or sets the new file name.

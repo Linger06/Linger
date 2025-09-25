@@ -170,9 +170,9 @@ public static class StreamExtensions
 }
 
 /// <summary>
-/// Represents information about an existing file.
+/// Represents extended metadata about an existing file.
 /// </summary>
-public class CustomExistFileInfo : BaseFileInfo
+public class ExtendedFileInfo : BaseFileInfo
 {
     /// <summary>
     /// Gets or sets the relative file path.

@@ -103,13 +103,13 @@ public class FileInfoClassesTests
 
     #endregion
 
-    #region CustomExistFileInfo Tests
+    #region ExtendedFileInfo Tests
 
     [Fact]
-    public void CustomExistFileInfo_Constructor_ShouldInitializeWithDefaults()
+    public void ExtendedFileInfo_Constructor_ShouldInitializeWithDefaults()
     {
         // Act
-        var fileInfo = new CustomExistFileInfo();
+        var fileInfo = new ExtendedFileInfo();
 
         // Assert
         Assert.NotNull(fileInfo);
@@ -122,20 +122,20 @@ public class FileInfoClassesTests
     }
 
     [Fact]
-    public void CustomExistFileInfo_InheritsFromBaseFileInfo()
+    public void ExtendedFileInfo_InheritsFromBaseFileInfo()
     {
         // Act
-        var fileInfo = new CustomExistFileInfo();
+        var fileInfo = new ExtendedFileInfo();
 
         // Assert
         Assert.IsAssignableFrom<BaseFileInfo>(fileInfo);
     }
 
     [Fact]
-    public void CustomExistFileInfo_Properties_ShouldGetAndSetCorrectly()
+    public void ExtendedFileInfo_Properties_ShouldGetAndSetCorrectly()
     {
         // Arrange
-        var fileInfo = new CustomExistFileInfo();
+        var fileInfo = new ExtendedFileInfo();
         const string relativeFilePath = @"subfolder\test.txt";
         const string hashData = "XYZ789";
         const string fileName = "existing.txt";
@@ -158,10 +158,10 @@ public class FileInfoClassesTests
     [InlineData(@"folder\subfolder\file.txt")]
     [InlineData(@"..\parent\file.txt")]
     [InlineData("./unix/style/path.txt")]
-    public void CustomExistFileInfo_RelativeFilePath_ShouldAcceptVariousValues(string relativeFilePath)
+    public void ExtendedFileInfo_RelativeFilePath_ShouldAcceptVariousValues(string relativeFilePath)
     {
         // Arrange
-        var fileInfo = new CustomExistFileInfo();
+        var fileInfo = new ExtendedFileInfo();
 
         // Act
         fileInfo.RelativeFilePath = relativeFilePath;
@@ -171,10 +171,10 @@ public class FileInfoClassesTests
     }
 
     [Fact]
-    public void CustomExistFileInfo_ShouldAllowNullRelativeFilePath()
+    public void ExtendedFileInfo_ShouldAllowNullRelativeFilePath()
     {
         // Arrange
-        var fileInfo = new CustomExistFileInfo();
+        var fileInfo = new ExtendedFileInfo();
 
         // Act
         fileInfo.RelativeFilePath = null!;
@@ -192,14 +192,14 @@ public class FileInfoClassesTests
     {
         // Arrange & Act
         var baseFileInfo = new BaseFileInfo();
-        var customExistFileInfo = new CustomExistFileInfo();
+        var extendedFileInfo = new ExtendedFileInfo();
 
         // Assert inheritance chain
-        Assert.True(customExistFileInfo is BaseFileInfo);
+        Assert.True(extendedFileInfo is BaseFileInfo);
 
         // Assert types
         Assert.IsType<BaseFileInfo>(baseFileInfo);
-        Assert.IsType<CustomExistFileInfo>(customExistFileInfo);
+        Assert.IsType<ExtendedFileInfo>(extendedFileInfo);
     }
 
     [Fact]
@@ -208,7 +208,7 @@ public class FileInfoClassesTests
         // Arrange
         BaseFileInfo[] fileInfos = {
             new BaseFileInfo { FileName = "base.txt" },
-            new CustomExistFileInfo { FileName = "exist.txt", RelativeFilePath = "folder/exist.txt" },
+            new ExtendedFileInfo { FileName = "exist.txt", RelativeFilePath = "folder/exist.txt" },
         };
 
         // Act & Assert
@@ -217,7 +217,7 @@ public class FileInfoClassesTests
             Assert.NotNull(fileInfo);
             Assert.NotNull(fileInfo.FileName);
 
-            if (fileInfo is CustomExistFileInfo existFileInfo)
+            if (fileInfo is ExtendedFileInfo existFileInfo)
             {
                 Assert.NotNull(existFileInfo.RelativeFilePath);
             }
@@ -226,7 +226,7 @@ public class FileInfoClassesTests
 
     [Theory]
     [InlineData(typeof(BaseFileInfo))]
-    [InlineData(typeof(CustomExistFileInfo))]
+    [InlineData(typeof(ExtendedFileInfo))]
     public void FileInfoClasses_CanBeInstantiated(Type fileInfoType)
     {
         // Act

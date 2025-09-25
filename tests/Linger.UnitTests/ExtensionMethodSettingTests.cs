@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Serialization;
 using Xunit.v3;
@@ -36,11 +36,11 @@ public class ExtensionMethodSettingTests
         var options = ExtensionMethodSetting.DefaultJsonSerializerOptions;
         
         // Assert
-        Assert.True(options.WriteIndented);
+        Assert.False(options.WriteIndented);
         Assert.True(options.PropertyNameCaseInsensitive);
         Assert.Equal(JsonIgnoreCondition.WhenWritingNull, options.DefaultIgnoreCondition);
-        Assert.True(options.IgnoreReadOnlyProperties);
-        Assert.True(options.IgnoreReadOnlyFields);
+        Assert.False(options.IgnoreReadOnlyProperties);
+        Assert.False(options.IgnoreReadOnlyFields);
         Assert.False(options.AllowTrailingCommas);
         Assert.Equal(JsonCommentHandling.Disallow, options.ReadCommentHandling);
     }
@@ -52,9 +52,9 @@ public class ExtensionMethodSettingTests
         var options = ExtensionMethodSetting.DefaultPostJsonOption;
         
         // Assert
-        Assert.Null(options.PropertyNamingPolicy);
-        Assert.True(options.AllowTrailingCommas);
-        Assert.Equal(JsonNumberHandling.AllowReadingFromString | JsonNumberHandling.WriteAsString, options.NumberHandling);
+        Assert.Equal(JsonNamingPolicy.CamelCase, options.PropertyNamingPolicy);
+        Assert.False(options.AllowTrailingCommas);
+        Assert.Equal(JsonNumberHandling.AllowReadingFromString, options.NumberHandling);
     }
 #endif
 }

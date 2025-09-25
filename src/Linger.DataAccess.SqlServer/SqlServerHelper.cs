@@ -325,9 +325,9 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
 
             _ = command.Fill(ds, "ds");
         }
-        catch (SqlException ex)
+        catch
         {
-            throw new Exception(ex.Message);
+            throw;
         }
 
         return ds;

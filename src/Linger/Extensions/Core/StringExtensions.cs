@@ -1,4 +1,4 @@
-﻿// This file contains string extension methods that have been split into multiple files by functionality.
+// This file contains string extension methods that have been split into multiple files by functionality.
 // The actual implementations are in the following files:
 //   - StringExtensions.Validation.cs    : String null/empty/whitespace validation methods
 //   - StringExtensions.Numeric.cs       : Numeric type validation methods
@@ -31,7 +31,6 @@ public static partial class StringExtensions
         var str = value.Replace("（", "(").Replace("）", ")");
         return Regex.Replace(str.Replace("（", "(").Replace("）", ")"), @"\([^\(]*\)", "");
     }
-
 
     /// <summary>
     /// 将当前 <see cref="string"/> 转换为 List&lt; <see cref="string"/>&gt;
