@@ -1,35 +1,35 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-        <Version>0.9.4-preview</Version>
-        <Description>
-            A lightweight implementation of Linger.HttpClient.Contracts using standard .NET HttpClient.
-            Provides robust HTTP request handling with automatic retries, timeout management, and typed response parsing.
-            Seamlessly integrates with .NET's HttpClientFactory for optimal connection management.
-        </Description>        
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
+    <Version>0.9.5</Version>
+    <Description>
+      A lightweight implementation of Linger.HttpClient.Contracts using standard .NET HttpClient.
+      Provides robust HTTP request handling with automatic retries, timeout management, and typed response parsing.
+      Seamlessly integrates with .NET's HttpClientFactory for optimal connection management.
+    </Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
 
-    <ItemGroup>
-        <None Include="README.md">
-            <Pack>True</Pack>
-            <PackagePath>\</PackagePath>
-        </None>
-    </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
-    <!-- Stable frameworks using latest stable packages -->
-    <ItemGroup Condition="'$(TargetFramework)'=='net8.0' OR '$(TargetFramework)'=='net9.0' OR '$(TargetFramework)'=='netstandard2.0' OR '$(TargetFramework)'=='net472'">
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.9" />
-    </ItemGroup>
+  <!-- Stable frameworks using latest stable packages -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net8.0' OR '$(TargetFramework)'=='net9.0' OR '$(TargetFramework)'=='netstandard2.0' OR '$(TargetFramework)'=='net472'">
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.9" />
+  </ItemGroup>
 
-    <!-- .NET 10.0 RC using latest preview packages -->
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-rc.1.25451.107" />
-    </ItemGroup>
+  <!-- .NET 10.0 RC using latest preview packages -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-rc.1.25451.107" />
+  </ItemGroup>
 
-    <ItemGroup>
-        <ProjectReference Include="..\Linger.HttpClient.Contracts\Linger.HttpClient.Contracts.csproj" />
-    </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Linger.HttpClient.Contracts\Linger.HttpClient.Contracts.csproj" />
+  </ItemGroup>
 
 </Project>

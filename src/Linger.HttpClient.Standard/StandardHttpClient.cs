@@ -148,8 +148,17 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 
             url = url.AppendQuery("culture=" + CultureInfo.CurrentUICulture.Name);
 
-            _logger.LogInformation("[{RequestId}] Starting HTTP {Method} request to {Url}",
-                requestId, method, url);
+            // 处理查询参数
+            if (queryParams != null)
+            {
+                var queryString = HttpClientBase.BuildQueryString(queryParams);
+                if (!string.IsNullOrEmpty(queryString))
+                {
+                    url = url.Contains('?') ? $"{url}&{queryString}" : $"{url}?{queryString}";
+                    _logger.LogDebug("[{RequestId}] Query parameters added: {QueryString}",
+                        requestId, queryString);
+                }
+            }
 
             if (timeout.HasValue)
             {
@@ -177,7 +186,6 @@ public class StandardHttpClient : HttpClientBase, IDisposable
                 throw new ProtocolViolationException("Cannot send a content-body with this verb-type.");
             }
 #endif
-
             var request = new HttpRequestMessage(httpMethod, url)
             {
                 Content = content
@@ -189,17 +197,8 @@ public class StandardHttpClient : HttpClientBase, IDisposable
                 request.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
 
-            // 处理查询参数
-            if (queryParams != null)
-            {
-                var queryString = HttpClientBase.BuildQueryString(queryParams);
-                if (!string.IsNullOrEmpty(queryString))
-                {
-                    url = url.Contains('?') ? $"{url}&{queryString}" : $"{url}?{queryString}";
-                    _logger.LogDebug("[{RequestId}] Query parameters added: {QueryString}",
-                        requestId, queryString);
-                }
-            }
+            _logger.LogInformation("[{RequestId}] Starting HTTP {Method} request to {Url}",
+                requestId, method, request.RequestUri);
 
             // 记录请求详情
             if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
@@ -223,7 +222,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             stopwatch.Stop();
 
             _logger.LogInformation("[{RequestId}] HTTP {Method} request to {Url} completed in {ElapsedMs}ms with status {StatusCode}",
-                requestId, method, url, stopwatch.ElapsedMilliseconds, (int)res.StatusCode);
+                requestId, method, request.RequestUri, stopwatch.ElapsedMilliseconds, (int)res.StatusCode);
 
             rv = await HandleResponseMessage<T>(res).ConfigureAwait(false);
 

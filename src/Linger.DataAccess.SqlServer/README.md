@@ -12,8 +12,8 @@ SQL Server data access library with high-performance bulk operations.
 
 ## Installation
 
-```xml
-<PackageReference Include="Linger.DataAccess.SqlServer" Version="0.8.0-preview" />
+```powershell
+dotnet add package Linger.DataAccess.SqlServer
 ```
 
 ## Basic Usage

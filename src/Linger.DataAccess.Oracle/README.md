@@ -13,8 +13,8 @@ Oracle database access library with enhanced security and batch processing.
 
 ## Installation
 
-```xml
-<PackageReference Include="Linger.DataAccess.Oracle" Version="0.8.0-preview" />
+```powershell
+dotnet add package Linger.DataAccess.Oracle
 ```
 
 ## Basic Usage
