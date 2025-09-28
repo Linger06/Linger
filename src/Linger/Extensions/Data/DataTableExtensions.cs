@@ -1,15 +1,24 @@
-﻿using Linger.Extensions.Core;
+using System.Collections.Concurrent;
+using System.Reflection;
+using Linger.Extensions.Core;
+using Linger.JsonConverter;
 
 namespace Linger.Extensions.Data;
 
 /// <summary>
-/// Extensions for <see cref="DataTable"/>.
+/// Extensions for <see cref="DataTable"/> with performance optimizations.
 /// </summary>
-public static partial class DataTableExtensions
+public static class DataTableExtensions
 {
+    // Performance optimization: Cache property mappings to avoid repeated reflection calls
+    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> s_propertyMappingCache = new();
+
+    // Cache for type property arrays to reduce reflection overhead
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
+
 #if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
     /// <summary>
-    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/>.
+    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with performance optimizations.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
@@ -20,10 +29,12 @@ public static partial class DataTableExtensions
     /// List&lt;MyClass&gt; list = await table.ToListAsync&lt;MyClass&gt;();
     /// </code>
     /// </example>
-    public static async Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
+    public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
-        return await Task.Run(dt.ToList<T>).ConfigureAwait(false);
+        return Task.FromResult(dt.ToList<T>());
+        //return await Task.Run(dt.ToList<T>).ConfigureAwait(false);
     }
+
 #endif
 
     /// <summary>
@@ -145,7 +156,7 @@ public static partial class DataTableExtensions
 
         foreach (DataRow dr in sourceTable.Rows)
         {
-            sum += Convert.ToDouble(dr[columnName]);
+            sum += dr[columnName].ToDoubleOrDefault();
         }
 
         return sum;
@@ -235,7 +246,7 @@ public static partial class DataTableExtensions
     /// DataTable joinedTable = table1.Join(table2, new DataColumn[] { table1.Columns["Id"] }, new DataColumn[] { table2.Columns["Id"] }, true, false);
     /// </code>
     /// </example>
-    /// <exception cref="System.Exception">Thrown when the specified columns are not found in the respective tables.</exception>
+    /// <exception cref="Exception">Thrown when the specified columns are not found in the respective tables.</exception>
     public static DataTable Join(this DataTable left, DataTable right, DataColumn[] leftCols, DataColumn[] rightCols,
         bool includeLeftJoin, bool includeRightJoin)
     {
@@ -243,7 +254,7 @@ public static partial class DataTableExtensions
         {
             if (!left.ContainAllColumns(x.ColumnName))
             {
-                throw new System.Exception($"{nameof(leftCols)} have columns not in {nameof(left)}");
+                throw new System.ArgumentException($"{nameof(leftCols)} have columns not in {nameof(left)}");
             }
         });
 
@@ -251,7 +262,7 @@ public static partial class DataTableExtensions
         {
             if (!right.ContainAllColumns(x.ColumnName))
             {
-                throw new System.Exception($"{nameof(rightCols)} have columns not in {nameof(right)}");
+                throw new System.ArgumentException($"{nameof(rightCols)} have columns not in {nameof(right)}");
             }
         });
 
@@ -343,5 +354,426 @@ public static partial class DataTableExtensions
         result.EndLoadData();
 
         return result;
+    }
+
+    /// <summary>
+    /// Converts rows to columns in the <see cref="DataTable"/>.
+    /// </summary>
+    /// <param name="source">The source <see cref="DataTable"/>.</param>
+    /// <param name="groupColumns">The columns to group by.</param>
+    /// <param name="captionColumns">The columns to use as new column names.</param>
+    /// <param name="valueColumn">The column containing the values.</param>
+    /// <returns>A new <see cref="DataTable"/> with rows converted to columns.</returns>
+    public static DataTable TableRowTurnToColumn(this DataTable source, DataColumn[] groupColumns,
+        DataColumn[] captionColumns, DataColumn valueColumn)
+    {
+        ArgumentNullException.ThrowIfNull(source, nameof(source));
+        ArgumentNullException.ThrowIfNull(groupColumns, nameof(groupColumns));
+        ArgumentNullException.ThrowIfNull(captionColumns, nameof(captionColumns));
+        ArgumentNullException.ThrowIfNull(valueColumn, nameof(valueColumn));
+
+        // 验证所有列都属于源表
+        foreach (var column in groupColumns.Concat(captionColumns).Append(valueColumn))
+        {
+            if (!source.Columns.Contains(column.ColumnName))
+            {
+                throw new System.ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
+            }
+        }
+
+        // 创建结果表
+        var resultTable = new DataTable();
+
+        // 添加分组列作为结果表的列
+        foreach (DataColumn groupColumn in groupColumns)
+        {
+            var sourceColumn = source.Columns[groupColumn.ColumnName];
+            ArgumentNullException.ThrowIfNull(sourceColumn);
+            resultTable.Columns.Add(sourceColumn.ColumnName, sourceColumn.DataType);
+        }
+
+        // 如果源表没有数据，直接返回只包含列定义的空表
+        if (source.Rows.Count == 0)
+        {
+            return resultTable;
+        }
+
+        // 获取不同的列标题
+        var distinctCaptionValues = new HashSet<string>();
+        foreach (DataRow row in source.Rows)
+        {
+            var captionValue = FormatCaptionValue(row, captionColumns);
+            distinctCaptionValues.Add(captionValue);
+        }
+
+        // 添加列标题作为新列
+        foreach (var captionValue in distinctCaptionValues)
+        {
+            if (!resultTable.Columns.Contains(captionValue) &&
+                !string.IsNullOrEmpty(captionValue))
+            {
+                var newColumn = resultTable.Columns.Add(captionValue, typeof(decimal));
+                newColumn.AllowDBNull = true;
+            }
+        }
+
+        // 使用字典存储分组键与其对应的数据行
+        var groupedRows = new Dictionary<string, DataRow>();
+
+        // 分组处理数据
+        foreach (DataRow sourceRow in source.Rows)
+        {
+            // 使用分隔符生成分组键，避免歧义
+            var groupKey = GenerateGroupKey(sourceRow, groupColumns);
+
+            // 获取或创建分组对应的结果行
+            if (!groupedRows.TryGetValue(groupKey, out DataRow? resultRow))
+            {
+                resultRow = resultTable.NewRow();
+
+                // 设置分组列的值
+                foreach (DataColumn groupColumn in groupColumns)
+                {
+                    resultRow[groupColumn.ColumnName] = sourceRow[groupColumn.ColumnName];
+                }
+
+                resultTable.Rows.Add(resultRow);
+                groupedRows[groupKey] = resultRow;
+            }
+
+            // 获取列标题和值
+            var captionValue = FormatCaptionValue(sourceRow, captionColumns);
+
+            if (resultTable.Columns.Contains(captionValue))
+            {
+                try
+                {
+                    // 获取值并设置到对应单元格
+                    var cellValue = sourceRow[valueColumn.ColumnName];
+                    if (cellValue != DBNull.Value)
+                    {
+                        decimal currentValue = 0;
+
+                        // 如果单元格已有值，则获取现有值
+                        if (resultRow[captionValue] != DBNull.Value)
+                        {
+                            var value = resultRow[captionValue];
+                            currentValue = value.ToDecimalOrDefault();
+                        }
+
+                        // 将新值添加到现有值
+                        decimal newValue = cellValue.ToDecimalOrDefault();
+
+                        resultRow[captionValue] = currentValue + newValue;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // 记录异常但继续处理其他行
+                    Console.WriteLine($"处理值时出错: {ex.Message}");
+                }
+            }
+        }
+
+        return resultTable;
+    }
+
+    // 生成唯一的分组键，使用特殊分隔符避免歧义
+    private static string GenerateGroupKey(DataRow row, DataColumn[] groupColumns)
+    {
+        var keyParts = new List<string>();
+        foreach (DataColumn column in groupColumns)
+        {
+            var value = row[column.ColumnName];
+            // 确保null和DBNull值也能生成唯一键
+            var stringValue = value == DBNull.Value ? "<NULL>" : value?.ToString() ?? "<NULL>";
+            keyParts.Add(stringValue);
+        }
+
+        // 使用不太可能出现在数据中的分隔符
+        return string.Join("||:||", keyParts);
+    }
+
+    // 格式化列标题值
+    private static string FormatCaptionValue(DataRow row, DataColumn[] captionColumns)
+    {
+        var captionParts = new List<string>();
+        foreach (DataColumn column in captionColumns)
+        {
+            var value = row[column.ColumnName];
+            // 确保null和DBNull值也能生成有效的列名
+            var stringValue = value == DBNull.Value ? "NULL" : value?.ToString() ?? "NULL";
+
+            // 替换可能导致列名无效的字符
+            stringValue = SanitizeColumnName(stringValue);
+            captionParts.Add(stringValue);
+        }
+
+        return string.Join("_", captionParts);
+    }
+
+    // 净化列名，替换无效字符
+    private static string SanitizeColumnName(string columnName)
+    {
+        // 替换常见的无效列名字符
+        return columnName
+            .Replace("/", "_")
+            .Replace("\\", "_")
+            .Replace(":", "_")
+            .Replace("*", "_")
+            .Replace("?", "_")
+            .Replace("\"", "_")
+            .Replace("<", "_")
+            .Replace(">", "_")
+            .Replace("|", "_")
+            .Replace(" ", "_");
+    }
+
+    /// <summary>
+    /// Paginates the <see cref="DataTable"/>.
+    /// </summary>
+    /// <param name="dt">The <see cref="DataTable"/> to paginate.</param>
+    /// <param name="pageIndex">The page index (1-based).</param>
+    /// <param name="pageSize">The number of rows per page.</param>
+    /// <returns>A new <see cref="DataTable"/> containing the paginated rows.</returns>
+    public static DataTable? Paging(this DataTable? dt, int pageIndex, int pageSize)
+    {
+        if (dt.IsNull())
+        {
+            return null;
+        }
+        if (dt.Rows.Count == 0)
+        {
+            return dt;
+        }
+        DataTable result = dt.Clone();
+        IEnumerable<DataRow> rows = dt.AsEnumerable().Skip((pageIndex - 1) * pageSize).Take(pageSize);
+        foreach (DataRow item in rows)
+        {
+            result.ImportRow(item);
+        }
+        return result;
+    }
+
+#if !NETFRAMEWORK || NET462_OR_GREATER
+    /// <summary>
+    /// Converts the current <see cref="DataTable"/> to a JSON string.
+    /// </summary>
+    /// <param name="dataTable">The <see cref="DataTable"/> to convert.</param>
+    /// <returns>A JSON string representing the <see cref="DataTable"/>.</returns>
+    public static string ToJsonString(this DataTable? dataTable)
+    {
+        var options = new JsonSerializerOptions
+        {
+            Converters = { new DataTableJsonConverter(), new DateTimeConverter() }
+        };
+
+        return dataTable.ToJsonString(options);
+    }
+#endif
+
+    /// <summary>
+    /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with advanced performance optimizations.
+    /// Uses caching to minimize reflection overhead and supports parallel processing for large datasets.
+    /// </summary>
+    /// <typeparam name="T">The type of elements to convert to.</typeparam>
+    /// <param name="dataTable">The current <see cref="DataTable"/>.</param>
+    /// <param name="parallelProcessingThreshold">The minimum number of rows to enable parallel processing (default: 1000).</param>
+    /// <returns>A <see cref="List{T}"/> representing the rows.</returns>
+    /// <example>
+    /// <code>
+    /// DataTable table = GetDataTable();
+    /// List&lt;MyClass&gt; list = table.ToList&lt;MyClass&gt;(500); // Enable parallel processing for 500+ rows
+    /// </code>
+    /// </example>
+    public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000) where T : class, new()
+    {
+        if (dataTable?.Rows.Count == 0)
+        {
+            return [];
+        }
+
+        if (dataTable is null)
+        {
+            return null;
+        }
+
+        var result = new List<T>(dataTable.Rows.Count);
+
+        // Get cached property mapping for the type
+        var propertyMap = GetCachedPropertyMapping<T>();
+
+        // Build column to property mappings
+        var columnMappings = new Dictionary<int, PropertyInfo>();
+        for (var i = 0; i < dataTable.Columns.Count; i++)
+        {
+            if (propertyMap.TryGetValue(dataTable.Columns[i].ColumnName, out var property))
+            {
+                columnMappings[i] = property;
+            }
+        }
+
+        if (columnMappings.Count == 0)
+        {
+            //Logger?.LogWarning("未找到任何列名与类型 {Type} 的属性匹配", typeof(T).Name);
+            return result;
+        }
+
+        // 判断是否使用并行处理
+        var useParallel = dataTable.Rows.Count > parallelProcessingThreshold;
+
+        if (useParallel)
+        {
+            //Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dataTable.Rows.Count);
+
+            var items = new T[dataTable.Rows.Count];
+
+            Parallel.For(0, dataTable.Rows.Count, i =>
+            {
+                var item = new T();
+                var row = dataTable.Rows[i];
+
+                foreach (var mapping in columnMappings)
+                {
+                    var colIndex = mapping.Key;
+                    PropertyInfo property = mapping.Value;
+                    var value = row[colIndex];
+
+                    if (value != DBNull.Value)
+                    {
+                        SetPropertySafely(item, property, value);
+                    }
+                }
+
+                items[i] = item;
+            });
+
+            result.AddRange(items);
+        }
+        else
+        {
+            foreach (DataRow row in dataTable.Rows)
+            {
+                var item = new T();
+
+                foreach (var mapping in columnMappings)
+                {
+                    var colIndex = mapping.Key;
+                    PropertyInfo property = mapping.Value;
+                    var value = row[colIndex];
+
+                    if (value != DBNull.Value)
+                    {
+                        SetPropertySafely(item, property, value);
+                    }
+                }
+
+                result.Add(item);
+            }
+        }
+
+        return result;
+    }    /// <summary>
+         /// Gets cached property mapping for the specified type to minimize reflection overhead.
+         /// Only includes properties that have public setters.
+         /// </summary>
+         /// <typeparam name="T">The type to get property mapping for.</typeparam>
+         /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
+    private static Dictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
+    {
+        return s_propertyMappingCache.GetOrAdd(typeof(T), type =>
+        {
+            var properties = GetCachedTypeProperties(type);
+            // Only include properties with public setters
+            var writableProperties = properties.Where(p => p.CanWrite && p.SetMethod?.IsPublic == true);
+            return writableProperties.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
+        });
+    }
+
+    /// <summary>
+    /// Gets cached type properties to minimize reflection overhead.
+    /// </summary>
+    /// <param name="type">The type to get properties for.</param>
+    /// <returns>An array of PropertyInfo objects.</returns>
+    private static PropertyInfo[] GetCachedTypeProperties(Type type)
+    {
+        return s_typePropertiesCache.GetOrAdd(type, t => t.GetProperties());
+    }
+
+    /// <summary>
+    /// Safely sets a property value with type conversion and error handling.
+    /// </summary>
+    /// <typeparam name="T">The target object type.</typeparam>
+    /// <param name="obj">The target object.</param>
+    /// <param name="property">The property to set.</param>
+    /// <param name="value">The value to set.</param>
+    private static void SetPropertySafely<T>(T obj, PropertyInfo property, object? value) where T : class
+    {
+        if (!property.CanWrite || value == DBNull.Value)
+            return;
+
+        try
+        {
+            // Performance optimization: Use type-specific conversion based on property type
+            var convertedValue = ConvertValueToPropertyType(value, property.PropertyType);
+            property.SetValue(obj, convertedValue);
+        }
+        catch
+        {
+            // Silent fail for incompatible conversions to maintain compatibility
+            // In production, you might want to log this or use a different strategy
+        }
+    }
+
+    /// <summary>
+    /// Optimized value conversion that minimizes boxing and uses efficient conversion paths.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <param name="targetType">The target type.</param>
+    /// <returns>The converted value.</returns>
+    private static object? ConvertValueToPropertyType(object? value, Type targetType)
+    {
+        if (value is null || value == DBNull.Value)
+            return null;
+
+        // Fast path for exact type matches (avoids conversion overhead)
+        if (value.GetType() == targetType)
+            return value;        // Handle nullable types
+        Type actualType = Nullable.GetUnderlyingType(targetType) ?? targetType;        // Handle enums specifically
+        if (actualType.IsEnum)
+        {
+            if (value == null || value == DBNull.Value)
+                return Enum.ToObject(actualType, 0);
+
+            if (value is string stringValue)
+            {
+                return Enum.Parse(actualType, stringValue, true);
+            }
+
+            // For numeric values, convert to the enum
+            return Enum.ToObject(actualType, value);
+        }
+
+        // Special case: Converting double to DateTime (assume OADate)
+        if (actualType == typeof(DateTime) && value is double doubleValue)
+        {
+            return DateTime.FromOADate(doubleValue);
+        }
+
+        // Optimized conversion using pattern matching for common types
+        return actualType.Name switch
+        {
+            nameof(String) => value.ToStringOrDefault(),
+            nameof(Int16) => value.ToShortOrDefault(),
+            nameof(Int32) => value.ToIntOrDefault(),
+            nameof(Int64) => value.ToLongOrDefault(),
+            nameof(Single) => value.ToFloatOrDefault(),
+            nameof(Double) => value.ToDoubleOrDefault(),
+            nameof(Decimal) => value.ToDecimalOrDefault(),
+            nameof(Boolean) => value.ToBoolOrDefault(),
+            nameof(DateTime) => value.ToDateTimeOrDefault(),
+            nameof(Guid) => value.ToGuidOrDefault(),
+            _ => Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture) // Fallback for other types
+        };
     }
 }

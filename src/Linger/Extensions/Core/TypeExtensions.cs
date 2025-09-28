@@ -1,17 +1,29 @@
-﻿using System.Reflection;
+using System.Collections.Concurrent;
+using System.Reflection;
+using Linger.Attributes;
 
 namespace Linger.Extensions.Core;
 
 /// <summary>
-/// Extension methods for the Type class
+/// Extension methods for the Type class with performance optimizations
 /// </summary>
-public static partial class TypeExtension
+public static class TypeExtensions
 {
     /// <summary>
-    /// Gets or sets the property cache.
+    /// Thread-safe property cache for improved performance.
     /// </summary>
     /// <value>The property cache.</value>
-    public static Dictionary<string, List<PropertyInfo>> PropertyCache { get; set; } = [];
+    private static readonly ConcurrentDictionary<string, PropertyInfo[]> s_propertyCache = new();
+
+    /// <summary>
+    /// Cache for type properties to minimize reflection overhead.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertyCache = new();
+
+    /// <summary>
+    /// Cache for column information to minimize reflection overhead.
+    /// </summary>
+    private static readonly ConcurrentDictionary<Type, IEnumerable<ColumnInfo>> s_columnInfoCache = new();
 
     /// <summary>
     /// Determines if the type is a generic type.
@@ -80,21 +92,22 @@ public static partial class TypeExtension
     }
 
     /// <summary>
-    /// Gets a single property by name.
+    /// Gets a single property by name with thread-safe caching.
     /// </summary>
     /// <param name="self">The type to check.</param>
     /// <param name="name">The name of the property.</param>
     /// <returns>The property info if found, otherwise null.</returns>
+    /// <example>
+    /// <code>
+    /// PropertyInfo? prop = typeof(Person).GetSingleProperty("Name");
+    /// </code>
+    /// </example>
     public static PropertyInfo? GetSingleProperty(this Type self, string name)
     {
-        var fullName = self.FullName ?? throw new NullReferenceException(nameof(self.FullName));
+        var fullName = self.FullName ?? throw new System.ArgumentException(nameof(self.FullName));
 
-        if (!PropertyCache.ContainsKey(fullName))
-        {
-            PropertyCache[fullName] = self.GetProperties().ToList();
-        }
-
-        return PropertyCache[fullName].FirstOrDefault(x => x.Name == name);
+        var properties = s_propertyCache.GetOrAdd(fullName, _ => self.GetProperties());
+        return properties.FirstOrDefault(x => x.Name == name);
     }
 
     /// <summary>
@@ -141,7 +154,7 @@ public static partial class TypeExtension
     /// <typeparam name="T">The type of the attribute.</typeparam>
     /// <param name="field">The type to get the attribute from.</param>
     /// <returns>The attribute if found, otherwise null.</returns>
-    public static T? GetDescriptionValue<T>(this Type field) where T : System.Attribute
+    public static T? GetDescriptionValue<T>(this Type field) where T : Attribute
     {
         var customAttributes = field.GetCustomAttributes(typeof(T), false);
         return customAttributes.Length > 0 ? (T)customAttributes[0] : null;
@@ -153,31 +166,42 @@ public static partial class TypeExtension
     /// <typeparam name="T">The type of the attribute.</typeparam>
     /// <param name="field">The field to get the attribute from.</param>
     /// <returns>The attribute if found, otherwise null.</returns>
-    public static T? GetDescriptionValue<T>(this FieldInfo field) where T : System.Attribute
+    public static T? GetDescriptionValue<T>(this FieldInfo field) where T : Attribute
     {
         var customAttributes = field.GetCustomAttributes(typeof(T), false);
         return customAttributes.Length > 0 ? (T)customAttributes[0] : null;
     }
 
     /// <summary>
-    /// Gets the properties of a type.
+    /// Gets the properties of a type with caching for performance.
     /// </summary>
     /// <param name="type">The type to get the properties of.</param>
     /// <returns>The properties of the type.</returns>
+    /// <example>
+    /// <code>
+    /// PropertyInfo[] properties = typeof(Person).Props().ToArray();
+    /// </code>
+    /// </example>
     public static IEnumerable<PropertyInfo> Props(this Type type)
     {
-        return type.GetProperties();
+        return s_typePropertyCache.GetOrAdd(type, t => t.GetProperties());
     }
 
     /// <summary>
-    /// Gets the properties of an object.
+    /// Gets the properties of an object with caching for performance.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
     /// <param name="obj">The object to get the properties of.</param>
     /// <returns>The properties of the object.</returns>
+    /// <example>
+    /// <code>
+    /// var person = new Person();
+    /// PropertyInfo[] properties = person.Props()?.ToArray();
+    /// </code>
+    /// </example>
     public static IEnumerable<PropertyInfo>? Props<T>(this T obj)
     {
-        return obj?.GetType().GetProperties();
+        return obj?.GetType().Props();
     }
 
     /// <summary>
@@ -211,7 +235,7 @@ public static partial class TypeExtension
     /// <param name="type">The type to check.</param>
     /// <param name="predicate">The predicate to apply to the attribute.</param>
     /// <returns>True if the type has a matching attribute, otherwise false.</returns>
-    public static bool HasAttribute<TAttr>(this Type type, Func<TAttr, bool> predicate) where TAttr : System.Attribute
+    public static bool HasAttribute<TAttr>(this Type type, Func<TAttr, bool> predicate) where TAttr : Attribute
     {
         return ((TAttr[])type.GetCustomAttributes(typeof(TAttr), true)).Any(predicate);
     }
@@ -235,7 +259,7 @@ public static partial class TypeExtension
     /// <typeparam name="E">The type of the attribute.</typeparam>
     /// <param name="type">The type to check.</param>
     /// <returns>The properties that have the specified attribute.</returns>
-    public static IEnumerable<PropertyInfo> AttrProps<E>(this Type type) where E : System.Attribute
+    public static IEnumerable<PropertyInfo> AttrProps<E>(this Type type) where E : Attribute
     {
         return type.AttrProps(typeof(E));
     }
@@ -280,7 +304,7 @@ public static partial class TypeExtension
     /// <param name="type">The type to check.</param>
     /// <returns>A dictionary of properties and their attribute values.</returns>
 #if NET5_0_OR_GREATER
-    public static Dictionary<PropertyInfo, E?> AttrValues<E>(this Type type) where E : System.Attribute
+    public static Dictionary<PropertyInfo, E?> AttrValues<E>(this Type type) where E : Attribute
 #else
     public static Dictionary<PropertyInfo, E> AttrValues<E>(this Type type) where E : System.Attribute
 #endif
@@ -295,7 +319,7 @@ public static partial class TypeExtension
     /// <param name="type">The type to check.</param>
     /// <returns>A dictionary of properties and their attribute values.</returns>
 #if NET5_0_OR_GREATER
-    public static Dictionary<PropertyInfo, E?> AttrPropValues<E>(this Type type) where E : System.Attribute
+    public static Dictionary<PropertyInfo, E?> AttrPropValues<E>(this Type type) where E : Attribute
 #else
     public static Dictionary<PropertyInfo, E> AttrPropValues<E>(this Type type) where E : System.Attribute
 #endif
@@ -304,4 +328,174 @@ public static partial class TypeExtension
         return props.ToDictionary(item => item, item => item.GetCustomAttribute<E>());
     }
 #endif
+
+    /// <summary>
+    /// Determines if the type is an enum.
+    /// </summary>
+    /// <param name="self">The type to check.</param>
+    /// <returns>True if the type is an enum, otherwise false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result = typeof(DayOfWeek).IsEnum();
+    /// // Output: true
+    /// </code>
+    /// </example>
+    public static bool IsEnum(this Type self)
+    {
+#if NET40
+        return self.IsEnum;
+#else
+        return self.GetTypeInfo().IsEnum;
+#endif
+    }
+
+    /// <summary>
+    /// Determines if the type is an enum or a nullable enum.
+    /// </summary>
+    /// <param name="self">The type to check.</param>
+    /// <returns>True if the type is an enum or a nullable enum, otherwise false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result = typeof(DayOfWeek?).IsEnumOrNullableEnum();
+    /// // Output: true
+    /// </code>
+    /// </example>
+    public static bool IsEnumOrNullableEnum(this Type self)
+    {
+        return self.IsEnum || (self.IsGenericType && self.GetGenericTypeDefinition() == typeof(Nullable<>) && self.GetGenericArguments()[0].IsEnum);
+    }
+
+    /// <summary>
+    /// Determines if the type is a boolean.
+    /// </summary>
+    /// <param name="self">The type to check.</param>
+    /// <returns>True if the type is a boolean, otherwise false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result = typeof(bool).IsBool();
+    /// // Output: true
+    /// </code>
+    /// </example>
+    public static bool IsBool(this Type self)
+    {
+        return self == typeof(bool);
+    }
+
+    /// <summary>
+    /// Determines if the type is a boolean or a nullable boolean.
+    /// </summary>
+    /// <param name="self">The type to check.</param>
+    /// <returns>True if the type is a boolean or a nullable boolean, otherwise false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result = typeof(bool?).IsBoolOrNullableBool();
+    /// // Output: true
+    /// </code>
+    /// </example>
+    public static bool IsBoolOrNullableBool(this Type self)
+    {
+        return self == typeof(bool) || self == typeof(bool?);
+    }
+
+    /// <summary>
+    /// Gets a property info by name with caching for performance.
+    /// </summary>
+    /// <param name="objType">The type to get the property from.</param>
+    /// <param name="name">The name of the property.</param>
+    /// <returns>The property info.</returns>
+    /// <exception cref="ArgumentNullException">Thrown if the objType or name is null.</exception>
+    /// <exception cref="NullReferenceException">Thrown if the property is not found.</exception>
+    /// <example>
+    /// <code>
+    /// PropertyInfo property = typeof(Person).GetPropertyInfo("Name");
+    /// // Output: PropertyInfo object for "Name" property
+    /// </code>
+    /// </example>
+    public static PropertyInfo GetPropertyInfo(this Type objType, string name)
+    {
+        ArgumentNullException.ThrowIfNull(objType);
+        ArgumentNullException.ThrowIfNull(name);
+
+        // Use cached properties for better performance
+        var properties = s_typePropertyCache.GetOrAdd(objType, t => t.GetProperties());
+        PropertyInfo? matchedProperty = properties.FirstOrDefault(p => p.Name == name);
+        return matchedProperty ?? throw new InvalidOperationException($"Property '{name}' not found on type '{objType.FullName}'.");
+    }
+
+    /// <summary>
+    /// Gets the column information for the specified type with caching for performance.
+    /// </summary>
+    /// <param name="type">The type to get column information for.</param>
+    /// <returns>A list of <see cref="ColumnInfo"/> objects that represent the columns of the specified type.</returns>
+    /// <example>
+    /// <code>
+    /// var columns = GetColumnsInfo(typeof(Person));
+    /// // Output: List of ColumnInfo objects for properties of Person class
+    /// </code>
+    /// </example>
+    public static IEnumerable<ColumnInfo> GetColumnsInfo(this Type type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+
+        return s_columnInfoCache.GetOrAdd(type, t =>
+        {
+            var columns = new List<ColumnInfo>();
+            var counter = 0;
+
+            // 使用缓存的属性信息以提高性能
+            var properties = s_typePropertyCache.GetOrAdd(t, pt => pt.GetProperties());
+
+            foreach (var propertyInfo in properties)
+            {
+                counter++;
+
+                // 使用GetCustomAttribute<T>方法直接获取特性，避免使用反射
+                var attribute = propertyInfo.GetCustomAttribute<UserDefinedTableTypeColumnAttribute>(true);
+
+                // 创建并添加列信息
+                var column = new ColumnInfo
+                {
+                    PropertyName = attribute?.Name ?? propertyInfo.Name,
+                    PropertyOrder = attribute?.Order > 0 ? attribute.Order : counter,
+                    Property = propertyInfo,
+                    PropertyType = propertyInfo.PropertyType
+                };
+
+                columns.Add(column);
+            }
+
+            // 按照PropertyOrder排序
+            return columns.OrderBy(info => info.PropertyOrder).ToList();
+        });
+    }
+}
+
+/// <summary>
+/// Represents information about a column.
+/// </summary>
+public class ColumnInfo
+{
+    /// <summary>
+    /// Gets or sets the name of the property.
+    /// </summary>
+    /// <value>The name of the property.</value>
+    public string PropertyName { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the order of the property.
+    /// </summary>
+    /// <value>The order of the property.</value>
+    public int PropertyOrder { get; set; }
+
+    /// <summary>
+    /// Gets or sets the property information.
+    /// </summary>
+    /// <value>The property information.</value>
+    public PropertyInfo Property { get; set; } = null!;
+
+    /// <summary>
+    /// Gets or sets the type of the property.
+    /// </summary>
+    /// <value>The type of the property.</value>
+    public Type PropertyType { get; set; } = null!;
 }

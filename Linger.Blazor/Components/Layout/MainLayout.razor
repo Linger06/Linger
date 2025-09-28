@@ -1,0 +1,176 @@
+@using Microsoft.AspNetCore.Components.Routing
+@inherits LayoutComponentBase
+@inject Linger.Blazor.Services.AppState AppState
+@inject Linger.Blazor.Services.AuthService AuthService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
+
+<MudLayout>
+    <AuthorizeView>
+        <Authorized>
+            <MudAppBar Elevation="1">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                    OnClick="@((_) => DrawerToggle())" />
+                <MudText Typo="Typo.h6" Class="ml-3">Linger</MudText>
+                <MudSpacer />
+                <FullScreenToggleButton OnFullScreenChanged="OnFullScreenChanged" />
+                <DarkModeToggleButton Mode="_themeMode" ModeChanged="OnThemeModeChanged" />
+
+                <MudText Typo="Typo.body1" Class="mr-4">欢迎, @context.User.Identity?.Name</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="Logout">注销</MudButton>
+            </MudAppBar>
+
+            <MudDrawer id="nav-drawer" @bind-Open="@_drawerOpen" ClipMode="DrawerClipMode.Always" Elevation="2">
+                <MudDrawerHeader>
+                    <MudText Typo="Typo.h6">Linger</MudText>
+                </MudDrawerHeader>
+                <MudNavMenu>
+                    <NavMenu />
+                </MudNavMenu>
+            </MudDrawer>
+        </Authorized>
+    </AuthorizeView>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="my-4 pt-4">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+<MudThemeProvider @ref="_mudThemeProvider" @bind-IsDarkMode="_isDarkMode" Theme="@_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool _drawerOpen = false;
+    private bool _isDarkMode = false;
+    private MudTheme? _theme = null;
+    // 将初始主题模式设置为System
+    private DarkModeToggleButton.ThemeMode _themeMode = DarkModeToggleButton.ThemeMode.System;
+    private MudThemeProvider _mudThemeProvider;
+
+    private void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private async Task OnThemeModeChanged(DarkModeToggleButton.ThemeMode mode)
+    {
+        _themeMode = mode;
+
+        if (mode == DarkModeToggleButton.ThemeMode.System)
+        {
+            // 使用系统偏好
+            _isDarkMode = await _mudThemeProvider.GetSystemPreference();
+        }
+        else
+        {
+            // 如果不是系统模式，直接设置
+            _isDarkMode = mode == DarkModeToggleButton.ThemeMode.Dark;
+        }
+
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // 设置系统主题变化的监听
+            await _mudThemeProvider.WatchSystemPreference(OnSystemPreferenceChanged);
+
+            // 首次加载时，由于默认是System模式，调用OnThemeModeChanged来设置当前主题
+            await OnThemeModeChanged(_themeMode);
+        }
+
+        await base.OnAfterRenderAsync(firstRender);
+    }
+
+    private Task OnSystemPreferenceChanged(bool isDarkMode)
+    {
+        // 只有在系统模式下才响应系统主题变化
+        if (_themeMode == DarkModeToggleButton.ThemeMode.System)
+        {
+            _isDarkMode = isDarkMode;
+            InvokeAsync(StateHasChanged);
+        }
+        return Task.CompletedTask;
+    }
+
+    private readonly PaletteLight _lightPalette = new()
+    {
+        Black = "#110e2d",
+        AppbarText = "#424242",
+        AppbarBackground = "rgba(255,255,255,0.8)",
+        DrawerBackground = "#ffffff",
+        GrayLight = "#e8e8e8",
+        GrayLighter = "#f9f9f9",
+    };
+
+    private readonly PaletteDark _darkPalette = new()
+    {
+        Primary = "#7e6fff",
+        Surface = "#1e1e2d",
+        Background = "#1a1a27",
+        BackgroundGray = "#151521",
+        AppbarText = "#92929f",
+        AppbarBackground = "rgba(26,26,39,0.8)",
+        DrawerBackground = "#1a1a27",
+        ActionDefault = "#74718e",
+        ActionDisabled = "#9999994d",
+        ActionDisabledBackground = "#605f6d4d",
+        TextPrimary = "#b2b0bf",
+        TextSecondary = "#92929f",
+        TextDisabled = "#ffffff33",
+        DrawerIcon = "#92929f",
+        DrawerText = "#92929f",
+        GrayLight = "#2a2833",
+        GrayLighter = "#1e1e2d",
+        Info = "#4a86ff",
+        Success = "#3dcb6c",
+        Warning = "#ffb545",
+        Error = "#ff3f5f",
+        LinesDefault = "#33323e",
+        TableLines = "#33323e",
+        Divider = "#292838",
+        OverlayLight = "#1e1e2d80",
+    };
+
+    private void OnFullScreenChanged(bool isFullScreen)
+    {
+        // Do layout adjustment or logging here
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.Logout();
+        NavigationManager.NavigateTo("/login", true);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        AppState.OnChange += StateHasChanged;
+        _theme = new()
+        {
+            PaletteLight = _lightPalette,
+            PaletteDark = _darkPalette,
+            LayoutProperties = new LayoutProperties()
+        };
+
+        await base.OnInitializedAsync();
+    }
+
+    public void Dispose()
+    {
+        AppState.OnChange -= StateHasChanged;
+    }
+}

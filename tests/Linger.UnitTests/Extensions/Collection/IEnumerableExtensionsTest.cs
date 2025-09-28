@@ -75,21 +75,21 @@ public class IEnumerableExtensionsTest
             }
         };
         var dataTable = class2.ToDataTable();
-        _ = dataTable.Columns.Count.Should().Be(11);
+        Assert.Equal(11, dataTable.Columns.Count);
     }
 
     [Fact]
     public void ColumnCountIsCorrect()
     {
         var dataTable = _class.ToDataTable();
-        _ = dataTable.Columns.Count.Should().Be(14);
+        Assert.Equal(14, dataTable.Columns.Count);
     }
 
     [Fact]
     public void ColumnNamesAreCorrect()
     {
         var dataTable = _class.ToDataTable();
-        _ = dataTable.Columns[0].ColumnName.Should().Be("Int");
+        Assert.Equal("Int", dataTable.Columns[0].ColumnName);
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[7].Should().Be(testEnumerable.First().Binary);
+        Assert.Equal(testEnumerable.First().Binary, dataRow[7]);
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[8].Should().Be(testEnumerable.First().Boolean);
+        Assert.Equal(testEnumerable.First().Boolean, dataRow[8]);
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[5].Should().Be(testEnumerable.First().DateTime);
+        Assert.Equal(testEnumerable.First().DateTime, dataRow[5]);
     }
 
     [Fact]
@@ -125,7 +125,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[11].Should().Be(testEnumerable.First().Decimal);
+        Assert.Equal(testEnumerable.First().Decimal, dataRow[11]);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[13].Should().Be(testEnumerable.First().Double);
+        Assert.Equal(testEnumerable.First().Double, dataRow[13]);
     }
 
     [Fact]
@@ -143,7 +143,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[3].Should().Be(testEnumerable.First().Guid);
+        Assert.Equal(testEnumerable.First().Guid, dataRow[3]);
     }
 
     [Fact]
@@ -151,7 +151,7 @@ public class IEnumerableExtensionsTest
     {
         var dataTable = _class.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[0].Should().Be(1);
+        Assert.Equal(1, dataRow[0]);
     }
 
     [Fact]
@@ -160,7 +160,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[9].Should().Be(testEnumerable.First().Int16);
+        Assert.Equal(testEnumerable.First().Int16, dataRow[9]);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[10].Should().Be(testEnumerable.First().Int64);
+        Assert.Equal(testEnumerable.First().Int64, dataRow[10]);
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public class IEnumerableExtensionsTest
     {
         var dataTable = _class.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[4].Should().Be(DBNull.Value);
+        Assert.Equal(DBNull.Value, dataRow[4]);
     }
 
     [Fact]
@@ -197,7 +197,7 @@ public class IEnumerableExtensionsTest
     {
         var dataTable = _class.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[1].Should().Be(DBNull.Value);
+        Assert.Equal(DBNull.Value, dataRow[1]);
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[12].Should().Be(testEnumerable.First().Single);
+        Assert.Equal(testEnumerable.First().Single, dataRow[12]);
     }
 
     [Fact]
@@ -215,13 +215,13 @@ public class IEnumerableExtensionsTest
         IEnumerable<TestClass> testEnumerable = _class;
         var dataTable = testEnumerable.ToDataTable();
         DataRow dataRow = dataTable.Rows[0];
-        _ = dataRow[2].Should().Be(testEnumerable.First().String);
+        Assert.Equal(testEnumerable.First().String, dataRow[2]);
     }
 
     [Fact]
     public void HasCorrectNumberOfRows()
     {
         var dataTable = _class.ToDataTable();
-        _ = dataTable.Rows.Count.Should().Be(2);
+        Assert.Equal(2, dataTable.Rows.Count);
     }
 }

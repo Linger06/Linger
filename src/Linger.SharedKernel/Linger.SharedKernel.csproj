@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+      <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
+      <Version>0.9.5</Version>      
+      <PackageReadmeFile>README.md</PackageReadmeFile>
+      <Description>
+          Core domain primitives and shared components for Linger applications.
+          Provides base search models, pagination support, and essential building blocks
+          for implementing domain-driven design patterns across multiple projects.
+      </Description>
+  </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Linger\Linger.csproj" />
+  </ItemGroup>
+
+</Project>

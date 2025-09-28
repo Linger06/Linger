@@ -1,5 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Linger.Extensions.Core;
+using Linger.Helper.PathHelpers;
 
 namespace Linger.Helper;
 
@@ -13,39 +14,57 @@ public static class GuardExtensions
     /// </summary>
     /// <param name="value">The value to check.</param>
     /// <param name="paramName">The name of the parameter.</param>
-    /// <param name="message">The message to include in the exception if the value is null.</param>
-    /// <example>
-    /// <code>
-    /// object obj = null;
-    /// obj.EnsureIsNotNull(nameof(obj), "Object cannot be null");
-    /// // Output: Throws ArgumentNullException
-    /// </code>
-    /// </example>
-    public static void EnsureIsNotNull([NotNull] this object? value, string? paramName = null, string? message = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static T EnsureIsNotNull<T>([NotNull] this T? value, string? paramName = null)
     {
-        if (value == null)
-            throw new ArgumentNullException(paramName ?? nameof(value), message);
+        ArgumentNullException.ThrowIfNull(value, paramName);
+        return value;
     }
 
     /// <summary>
     /// Ensures that the specified string is not null or empty.
     /// </summary>
     /// <param name="value">The string to check.</param>
-    /// <param name="message">The message to include in the exception if the string is null or empty.</param>
     /// <param name="paramName">The name of the parameter.</param>
     /// <example>
     /// <code>
     /// string str = "";
-    /// str.EnsureStringIsNotNullOrEmpty("String cannot be empty", nameof(str));
+    /// str.EnsureIsNotNullOrEmpty(nameof(str));
     /// // Output: Throws ArgumentException
     /// </code>
     /// </example>
-    public static void EnsureStringIsNotNullAndEmpty(this string? value, string? message = null, string? paramName = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string EnsureIsNotNullOrEmpty([NotNull] this string? value, string? paramName = null)
     {
-        EnsureIsNotNull(value, paramName);
-        if (value.IsEmpty())
-            throw new ArgumentException(message ?? "Value cannot be an empty string", paramName);
+        ArgumentException.ThrowIfNullOrEmpty(value, paramName);
+        return value;
     }
+
+    /// <summary>
+    /// Ensures that the specified string is not null or whitespace.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <param name="paramName">The name of the parameter.</param>
+    /// <exception cref="ArgumentNullException">Thrown when the string is null, empty, or consists only of white-space characters.</exception>
+    /// <example>
+    /// <code>
+    /// string str = "   ";
+    /// str.EnsureIsNotNullOrWhiteSpace(nameof(str));
+    /// // Output: Throws ArgumentException
+    /// </code>
+    /// </example>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string EnsureIsNotNullOrWhiteSpace([NotNull] this string? value, string? paramName = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
+        return value;
+    }
+
+    [Obsolete("Use EnsureIsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
+    public static void EnsureIsNotNullAndEmpty([NotNull] this string? value, string? paramName = null) => EnsureIsNotNullOrEmpty(value, paramName);
+
+    [Obsolete("Use EnsureIsNotNullOrWhiteSpace instead. Will be removed in 1.0.0.")]
+    public static void EnsureIsNotNullAndWhiteSpace([NotNull] this string? value, string? paramName = null) => EnsureIsNotNullOrWhiteSpace(value, paramName);
 
     /// <summary>
     /// Ensures that the specified value is null.
@@ -60,10 +79,64 @@ public static class GuardExtensions
     /// // Output: Throws ArgumentException
     /// </code>
     /// </example>
-    public static void EnsureIsNull(this object? value, string? paramName = null, string? message = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static object? EnsureIsNull(this object? value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
     {
-        if (value != null)
-            throw new ArgumentException(paramName ?? nameof(value), message);
+        if (value is not null)
+            throw new System.ArgumentException(message ?? "Value should be null", paramName ?? nameof(value));
+        return value;
+    }
+
+    /// <summary>
+    /// Ensures that the specified condition is true.
+    /// </summary>
+    /// <param name="condition">The condition to check.</param>
+    /// <param name="paramName">The name of the parameter.</param>
+    /// <param name="message">The message to include in the exception if the condition is false.</param>
+    /// <exception cref="ArgumentException">Thrown when the condition is false.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool EnsureIsTrue(this bool condition, [CallerArgumentExpression(nameof(condition))] string? paramName = null, string? message = null)
+    {
+        if (!condition)
+            throw new System.ArgumentException(message ?? "Condition must be true", paramName);
+        return condition;
+    }
+
+    /// <summary>
+    /// Ensures that the specified condition is false.
+    /// </summary>
+    /// <param name="condition">The condition to check.</param>
+    /// <param name="paramName">The name of the parameter.</param>
+    /// <param name="message">The message to include in the exception if the condition is true.</param>
+    /// <exception cref="ArgumentException">Thrown when the condition is true.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool EnsureIsFalse(this bool condition, [CallerArgumentExpression(nameof(condition))] string? paramName = null, string? message = null)
+    {
+        if (condition)
+            throw new System.ArgumentException(message ?? "Condition must be false", paramName);
+        return condition;
+    }
+
+    /// <summary>
+    /// Ensures that the specified value is in the given range (inclusive).
+    /// </summary>
+    /// <typeparam name="T">The type of the value.</typeparam>
+    /// <param name="value">The value to check.</param>
+    /// <param name="min">The minimum acceptable value (inclusive).</param>
+    /// <param name="max">The maximum acceptable value (inclusive).</param>
+    /// <param name="paramName">The name of the parameter.</param>
+    /// <param name="message">The message to include in the exception if the value is out of range.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static T EnsureIsInRange<T>(this T value, T min, T max, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
+        where T : IComparable<T>
+    {
+        if (value.CompareTo(min) < 0 || value.CompareTo(max) > 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                paramName ?? nameof(value),
+                message ?? $"Value must be between {min} and {max} (inclusive)");
+        }
+        return value;
     }
 
     /// <summary>
@@ -75,26 +148,22 @@ public static class GuardExtensions
     /// <exception cref="FileNotFoundException">Thrown when the specified file does not exist.</exception>
     /// <exception cref="ArgumentException">Thrown when the file path is empty.</exception>
     /// <exception cref="ArgumentNullException">Thrown when the file path is null.</exception>
-    /// <example>
-    /// <code>
-    /// string path = "nonexistent.txt";
-    /// path.EnsureFileExist(nameof(path), "File must exist");
-    /// // Output: Throws FileNotFoundException
-    /// </code>
-    /// </example>
-    public static void EnsureFileExist(this string? filePath, string? paramName = null, string? message = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string EnsureFileExists(this string? filePath, [CallerArgumentExpression(nameof(filePath))] string? paramName = null, string? message = null)
     {
         EnsureIsNotNull(filePath);
 
         if (filePath.IsEmpty())
         {
-            throw new ArgumentException("File path cannot be empty", paramName ?? nameof(filePath));
+            throw new System.ArgumentException("File path cannot be empty", paramName ?? nameof(filePath));
         }
 
-        if (!FileHelper.IsExistFile(filePath))
+        if (!StandardPathHelper.Exists(filePath, true))
         {
-            throw new FileNotFoundException(message ?? "File Not Found", paramName ?? nameof(filePath));
+            // The FileNotFoundException second parameter is the missing file path, not the parameter name
+            throw new FileNotFoundException(message ?? $"File not found: {filePath}", filePath);
         }
+        return filePath;
     }
 
     /// <summary>
@@ -105,19 +174,68 @@ public static class GuardExtensions
     /// <param name="message">The message to include in the exception if the directory does not exist.</param>
     /// <exception cref="DirectoryNotFoundException">Thrown when the specified directory does not exist.</exception>
     /// <exception cref="ArgumentNullException">Thrown when the directory path is null.</exception>
-    /// <example>
-    /// <code>
-    /// string path = "nonexistent/directory";
-    /// path.EnsureDirectoryExist(nameof(path), "Directory must exist");
-    /// // Output: Throws DirectoryNotFoundException
-    /// </code>
-    /// </example>
-    public static void EnsureDirectoryExist(this string? directory, string? paramName = null, string? message = null)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static string EnsureDirectoryExists(this string? directory, [CallerArgumentExpression(nameof(directory))] string? paramName = null, string? message = null)
     {
         EnsureIsNotNull(directory);
-        if (!FileHelper.IsExistDirectory(directory))
+
+        if (directory.IsEmpty())
         {
-            throw new DirectoryNotFoundException(message ?? $"Directory Not Found:{paramName}");
+            throw new System.ArgumentException("Directory path cannot be empty", paramName ?? nameof(directory));
         }
+
+        if (!StandardPathHelper.Exists(directory, false))
+        {
+            throw new DirectoryNotFoundException(message ?? $"Directory not found: {directory}");
+        }
+        return directory;
     }
+
+    /// <summary>
+    /// Ensures that the specified collection is not null or empty.
+    /// </summary>
+    /// <typeparam name="T">The type of elements in the collection.</typeparam>
+    /// <param name="collection">The collection to check.</param>
+    /// <param name="paramName">The name of the parameter.</param>
+    /// <param name="message">The message to include in the exception if the collection is null or empty.</param>
+    /// <exception cref="ArgumentNullException">Thrown when the collection is null.</exception>
+    /// <exception cref="ArgumentException">Thrown when the collection is empty.</exception>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static IEnumerable<T> EnsureIsNotNullOrEmpty<T>(this IEnumerable<T>? collection, [CallerArgumentExpression(nameof(collection))] string? paramName = null, string? message = null)
+    {
+        EnsureIsNotNull(collection, paramName);
+        // Fast paths for common collection types with O(1) Count access.
+        if (collection is ICollection<T> c)
+        {
+            if (c.Count == 0)
+            {
+                throw new System.ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
+            }
+            return collection;
+        }
+        if (collection is IReadOnlyCollection<T> roc)
+        {
+            if (roc.Count == 0)
+            {
+                throw new System.ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
+            }
+            return collection;
+        }
+
+        // Fall back to enumeration only when necessary.
+        using var e = collection.GetEnumerator();
+        if (!e.MoveNext())
+        {
+            throw new System.ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
+        }
+        return collection;
+    }
+
+    #region Obsolete Backwards Compatibility
+    [Obsolete("Use EnsureFileExists instead. Will be removed in 1.0.0.")]
+    public static string EnsureFileExist(this string? filePath, string? paramName = null, string? message = null) => EnsureFileExists(filePath, paramName, message);
+
+    [Obsolete("Use EnsureDirectoryExists instead. Will be removed in 1.0.0.")]
+    public static string EnsureDirectoryExist(this string? directory, string? paramName = null, string? message = null) => EnsureDirectoryExists(directory, paramName, message);
+    #endregion
 }

@@ -1,4 +1,4 @@
-﻿using Linger.Extensions.Core;
+using Linger.Extensions.Core;
 
 namespace Linger.Helper;
 
@@ -14,9 +14,9 @@ public static class GuidCode
     {
         get
         {
-            var id = DateTime.Now.ToString("yyyyMMddHHmmssfffffff");
+            var id = DateTime.Now.ToString("yyyyMMddHHmmssfffffff", ExtensionMethodSetting.DefaultCulture);
             var guid = Guid.NewGuid().ToString().Replace("-", string.Empty);
-            id += guid.Substring(0, 10);
+            id += guid.Take(10);
             return id;
         }
     }
@@ -24,12 +24,12 @@ public static class GuidCode
     /// <summary>
     /// Gets a new identifier based on the current date and time.
     /// </summary>
-    [Obsolete("Use NewId instead. This method generate the same Id in same seconds")]
+    [Obsolete("Use NewId instead. This method generates the same Id in same seconds. Will be removed in 1.0.0.")]
     public static string NewDateTimeId
     {
         get
         {
-            var id = DateTime.Now.ToString("yyyyMMddHHmmssfffffff");
+            var id = DateTime.Now.ToString("yyyyMMddHHmmssfffffff", ExtensionMethodSetting.DefaultCulture);
             return id;
         }
     }
@@ -41,9 +41,9 @@ public static class GuidCode
     {
         get
         {
-            var id = DateTime.Now.ToString("yyMMdd");
+            var id = DateTime.Now.ToString("yyMMdd", ExtensionMethodSetting.DefaultCulture);
             var guid = Guid.NewGuid().ToString().Replace("-", string.Empty);
-            id += guid.Substring(0, 4);
+            id += guid.Take(4);
             return id;
         }
     }

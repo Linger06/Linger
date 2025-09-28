@@ -1,28 +1,16 @@
-﻿using Linger.Helper;
-
 namespace Linger.Extensions.IO;
 
-/// <summary>
-/// Provides Extension methods for path.
-/// </summary>
 public static class PathExtensions
 {
 #if NETCOREAPP
 
     /// <summary>
-    /// Gets the relative path from a specified base path.
+    /// 获取相对路径
     /// </summary>
-    /// <param name="path">The target path.</param>
-    /// <param name="relativeTo">The base path. If null, the current directory is used.</param>
-    /// <returns>The relative path.</returns>
-    /// <example>
-    /// <code>
-    /// string path = @"C:\Projects\MyProject\file.txt";
-    /// string basePath = @"C:\Projects";
-    /// string relativePath = path.GetRelativePath(basePath);
-    /// // relativePath is "MyProject\file.txt"
-    /// </code>
-    /// </example>
+    /// <param name="path"></param>
+    /// <param name="relativeTo"></param>
+    /// <returns></returns>
+    [Obsolete("Use StandardPathHelper.GetRelativePath intead of this method. Please note the order of those parameters is important!")]
     public static string GetRelativePath(this string path, string? relativeTo = null)
     {
         relativeTo ??= Environment.CurrentDirectory;
@@ -31,19 +19,12 @@ public static class PathExtensions
 
 #elif NETFRAMEWORK || NETSTANDARD
     /// <summary>
-    /// Gets the relative path from a specified base path.
+    /// 获取相对路径
     /// </summary>
-    /// <param name="path">The target path.</param>
-    /// <param name="relativeTo">The base path. If null, the current directory is used.</param>
-    /// <returns>The relative path.</returns>
-    /// <example>
-    /// <code>
-    /// string path = @"C:\Projects\MyProject\file.txt";
-    /// string basePath = @"C:\Projects";
-    /// string relativePath = path.GetRelativePath(basePath);
-    /// // relativePath is "MyProject\file.txt"
-    /// </code>
-    /// </example>
+    /// <param name="path"></param>
+    /// <param name="relativeTo"></param>
+    /// <returns></returns>
+    [Obsolete("Use StandardPathHelper.GetRelativePath intead of this method. Please note the order of those parameters is important!")]
     public static string GetRelativePath(this string path, string? relativeTo = null)
     {
         relativeTo ??= Environment.CurrentDirectory;
@@ -53,23 +34,14 @@ public static class PathExtensions
 #endif
 
     /// <summary>
-    /// Gets the absolute path from a specified base path.
+    /// 获取绝对路径
     /// </summary>
-    /// <param name="path">The target path, which can be relative or absolute.</param>
-    /// <param name="basePath">The base path. If null, the current directory is used.</param>
-    /// <returns>The absolute path.</returns>
-    /// <example>
-    /// <code>
-    /// string relativePath = @"..\MyProject\file.txt";
-    /// string basePath = @"C:\Projects";
-    /// string absolutePath = relativePath.GetAbsolutePath(basePath);
-    /// // absolutePath is "C:\Projects\MyProject\file.txt"
-    /// </code>
-    /// </example>
+    /// <param name="path">"..\Test" or "C:\Test"</param>
+    /// <param name="basePath"></param>
+    /// <returns>如果 path 为绝对路径，直接返回，若path为相对路径，就需要basePath</returns>
+    [Obsolete("Use StandardPathHelper.ResolveToAbsolutePath intead of this method. Please note the order of those parameters is important!")]
     public static string GetAbsolutePath(this string path, string? basePath = null)
     {
-        path.EnsureIsNotNull();
-
         if (path.IsAbsolutePath())
         {
             return Path.GetFullPath(path);
@@ -77,54 +49,30 @@ public static class PathExtensions
 
         basePath ??= Environment.CurrentDirectory;
 
-        if (!basePath.IsAbsolutePath())
-        {
-            throw new ArgumentException("Base path must be an absolute path.", nameof(basePath));
-        }
-
         var combined = Path.Combine(basePath, path);
         combined = Path.GetFullPath(combined);
         return combined;
     }
 
     /// <summary>
-    /// Determines whether the specified path is an absolute path.
+    /// 判断此路径是否为绝对路径
     /// </summary>
-    /// <param name="path">The path to check.</param>
-    /// <returns>True if the path is absolute; otherwise, false.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the path is null or empty.</exception>
-    /// <example>
-    /// <code>
-    /// string path = @"C:\Projects\MyProject\file.txt";
-    /// bool isAbsolute = path.IsAbsolutePath();
-    /// // isAbsolute is true
-    /// </code>
-    /// </example>
+    /// <param name="path"></param>
+    /// <returns></returns>
+    /// <exception cref="ArgumentNullException"></exception>
+    [Obsolete]
     public static bool IsAbsolutePath(this string path)
     {
-        path.EnsureStringIsNotNullAndEmpty();
+        ArgumentException.ThrowIfNullOrEmpty(path);
+
         return Path.IsPathRooted(path);
     }
 
-    /// <summary>
-    /// Gets the relative path from the specified source path to the specified folder.
-    /// </summary>
-    /// <param name="sourcePath">The source path.</param>
-    /// <param name="folder">The folder to which the relative path is calculated.</param>
-    /// <returns>The relative path.</returns>
-    /// <exception cref="ArgumentNullException">Thrown when the sourcePath or folder is null or empty.</exception>
-    /// <example>
-    /// <code>
-    /// string sourcePath = @"C:\Projects\MyProject\file.txt";
-    /// string folder = @"C:\Projects";
-    /// string relativePath = sourcePath.RelativeTo(folder);
-    /// // relativePath is "MyProject\file.txt"
-    /// </code>
-    /// </example>
+    [Obsolete]
     public static string RelativeTo(this string sourcePath, string folder)
     {
-        sourcePath = PathHelper.NormalizePath(sourcePath);
-        folder = PathHelper.NormalizePath(folder);
+        ArgumentException.ThrowIfNullOrEmpty(sourcePath);
+        ArgumentException.ThrowIfNullOrEmpty(folder);
 
         var pathUri = new Uri(sourcePath);
 

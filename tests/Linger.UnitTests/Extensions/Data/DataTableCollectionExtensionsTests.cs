@@ -42,7 +42,7 @@ public class DataTableCollectionExtensionsTests
         var dataSet = new DataSet();
         DataTableCollection? dataTableCollection = dataSet.Tables;
 
-        Exception? exception = Record.Exception(() => dataTableCollection.ForEach(table => { }));
+        Exception? exception = Record.Exception(() => dataTableCollection.ForEach(_ => { }));
         Assert.Null(exception);
     }
 
@@ -52,7 +52,7 @@ public class DataTableCollectionExtensionsTests
         var dataSet = new DataSet();
         DataTableCollection? dataTableCollection = dataSet.Tables;
 
-        Exception? exception = Record.Exception(() => dataTableCollection.ForEach((table, index) => { }));
+        Exception? exception = Record.Exception(() => dataTableCollection.ForEach((_, _) => { }));
         Assert.Null(exception);
     }
 }

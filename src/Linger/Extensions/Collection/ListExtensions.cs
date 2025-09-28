@@ -1,4 +1,4 @@
-﻿using Linger.Extensions.Core;
+using Linger.Extensions.Core;
 
 namespace Linger.Extensions.Collection;
 
@@ -10,27 +10,21 @@ public static class ListExtensions
     /// <summary>
     /// Paginates the <see cref="List{T}"/> based on the specified page index and page size.
     /// </summary>
+    /// <typeparam name="T">The type of the elements in the list.</typeparam>
     /// <param name="list">The <see cref="List{T}"/> to paginate.</param>
-    /// <param name="pageIndex">The index of the page to retrieve.</param>
+    /// <param name="pageIndex">The index of the page to retrieve (1-based).</param>
     /// <param name="pageSize">The size of the page to retrieve.</param>
     /// <returns>A paginated <see cref="List{T}"/>.</returns>
     /// <example>
     /// <code>
-    /// var list = new List&lt;string&gt; { "a", "b", "c", "d" };
+    /// var list = new List&lt;int&gt; { 1, 2, 3, 4, 5 };
     /// var result = list.Paging(2, 2);
-    /// // Output: ["c", "d"]
+    /// // Output: [3, 4]
     /// </code>
     /// </example>
-    public static List<string> Paging(this List<string>? list, int pageIndex, int pageSize)
+    public static IEnumerable<T> Paging<T>(this List<T>? list, int pageIndex, int pageSize)
     {
-        var result = new List<string>();
-        if (list?.Count > 0)
-        {
-            var rows = list.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToArray();
-            result.AddRange(rows);
-        }
-
-        return result;
+        return ((IEnumerable<T>?)list).Paging(pageIndex, pageSize);
     }
 
     /// <summary>
@@ -50,8 +44,10 @@ public static class ListExtensions
     /// </example>
     public static string ToSeparatedString(this List<string> list, string separator = ",", bool singleQuoted = true, bool notSpace = false)
     {
-        if (list == null) throw new ArgumentNullException(nameof(list));
-        if (separator == null) throw new ArgumentNullException(nameof(separator));
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(separator);
+
+        return list.ToSeparatedString(separator, Format);
 
         string Format(string item)
         {
@@ -59,10 +55,7 @@ public static class ListExtensions
             var newItem = notSpace ? item.Replace(" ", string.Empty) : item;
             return $"{quote}{newItem}{quote}";
         }
-
-        return list.ToSeparatedString(separator, Format);
     }
-
 
     /// <summary>
     /// Converts the <see cref="List{T}"/> to a tree structure based on the specified conditions.

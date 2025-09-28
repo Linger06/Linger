@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0</TargetFrameworks>
+        <Version>0.9.5</Version>        
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <Description>
+            Core abstractions and interfaces for LDAP directory operations in .NET applications.
+            Defines data contracts, configuration models, and service interfaces for user authentication,
+            information retrieval, and directory operations independent of LDAP provider implementation.
+        </Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+</Project>

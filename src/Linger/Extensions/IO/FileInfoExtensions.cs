@@ -1,4 +1,6 @@
-﻿using Linger.Extensions.Core;
+using System.Diagnostics;
+using Linger.Extensions.Core;
+using Linger.Helper;
 
 namespace Linger.Extensions.IO;
 
@@ -8,104 +10,11 @@ namespace Linger.Extensions.IO;
 public static partial class FileInfoExtensions
 {
     /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <param name="deleteFile">Whether to delete the file after conversion.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// using var memoryStream = file.ToMemoryStream();
-    /// </code>
-    /// </example>
-    public static MemoryStream ToMemoryStream(this FileInfo fileInfo, bool deleteFile = false)
-    {
-        var memoryStream = new MemoryStream();
-        FileStream fileStream = fileInfo.OpenRead();
-        var bytes = new byte[fileStream.Length];
-        _ = fileStream.Read(bytes, 0, (int)fileStream.Length);
-        memoryStream.Write(bytes, 0, (int)fileStream.Length);
-        fileStream.Close();
-        if (deleteFile)
-        {
-            fileInfo.Delete();
-        }
-        _ = memoryStream.Seek(0, SeekOrigin.Begin);
-        return memoryStream;
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object. This method sets the position to 0.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// using var memoryStream = file.ToMemoryStream2();
-    /// </code>
-    /// </example>
-    public static MemoryStream ToMemoryStream2(this FileInfo fileInfo)
-    {
-        FileStream fileStream = fileInfo.OpenRead();
-        var bytes = new byte[fileStream.Length];
-        _ = fileStream.Read(bytes, 0, bytes.Length);
-        fileStream.Close();
-        var stream = new MemoryStream(bytes);
-        return stream;
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
-    /// <returns>A <see cref="MemoryStream"/> object.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// using var memoryStream = file.ToMemoryStream3();
-    /// </code>
-    /// </example>
-    public static MemoryStream ToMemoryStream3(this FileInfo fileInfo)
-    {
-        var memoryStream = new MemoryStream();
-        using FileStream fileStream = fileInfo.OpenRead();
-        fileStream.CopyTo(memoryStream);
-        _ = memoryStream.Seek(0, SeekOrigin.Begin);
-        return memoryStream;
-    }
-
-    /// <summary>
-    /// Computes the MD5 hash of the file.
-    /// </summary>
-    /// <param name="fileInfo">The <see cref="FileInfo"/> object.</param>
-    /// <returns>The MD5 hash as a string.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// string hash = file.ComputeHashMd5();
-    /// </code>
-    /// </example>
-    public static string ComputeHashMd5(this FileInfo fileInfo)
-    {
-        using var fileStream = fileInfo.OpenRead();
-        var arrayHashValue = fileStream.ToMd5HashByte();
-        return BitConverter.ToString(arrayHashValue).Replace("-", string.Empty);
-    }
-
-    /// <summary>
     /// Renames a file.
     /// </summary>
     /// <param name="file">The file.</param>
     /// <param name="newName">The new name.</param>
     /// <returns>The renamed file.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// file.Rename("test2.txt");
-    /// </code>
-    /// </example>
     public static FileInfo Rename(this FileInfo file, string newName)
     {
         if (!file.Exists)
@@ -125,12 +34,6 @@ public static partial class FileInfoExtensions
     /// <param name="file">The file.</param>
     /// <param name="newName">The new name.</param>
     /// <returns>The renamed file.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// file.RenameFileWithoutExtension("test3");
-    /// </code>
-    /// </example>
     public static FileInfo RenameFileWithoutExtension(this FileInfo file, string newName)
     {
         var fileName = string.Concat(newName, file.Extension);
@@ -143,12 +46,6 @@ public static partial class FileInfoExtensions
     /// <param name="file">The file.</param>
     /// <param name="newExtension">The new extension.</param>
     /// <returns>The renamed file.</returns>
-    /// <example>
-    /// <code>
-    /// var file = new FileInfo(@"c:\test.txt");
-    /// file.ChangeExtension("xml");
-    /// </code>
-    /// </example>
     public static FileInfo ChangeExtension(this FileInfo file, string newExtension)
     {
         newExtension = newExtension.EnsureStartsWith(".");
@@ -162,12 +59,6 @@ public static partial class FileInfoExtensions
     /// <param name="files">The files.</param>
     /// <param name="newExtension">The new extension.</param>
     /// <returns>The renamed files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.ChangeExtensions("tmp");
-    /// </code>
-    /// </example>
     public static FileInfo[] ChangeExtensions(this FileInfo[] files, string newExtension)
     {
         ArrayExtensions.ForEach(files, f => f.ChangeExtension(newExtension));
@@ -181,43 +72,33 @@ public static partial class FileInfoExtensions
     /// <param name="consolidateExceptions">
     /// If set to <c>true</c>, exceptions are consolidated and the processing is not interrupted.
     /// </param>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.Delete();
-    /// </code>
-    /// </example>
-    public static void Delete(this FileInfo[] files, bool consolidateExceptions = true)
+    public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions = true)
     {
-        if (consolidateExceptions)
+        var exceptions = new List<Exception>();
+        foreach (FileInfo file in files)
         {
-            var exceptions = new List<System.Exception>();
-
-            foreach (FileInfo file in files)
-            {
-                try
-                {
-                    file.Delete();
-                }
-                catch (System.Exception e)
-                {
-                    exceptions.Add(e);
-                }
-            }
-
-            if (exceptions.Count != 0)
-            {
-                throw new AggregateException(
-                    "Error while deleting one or several files, see InnerExceptions array for details.",
-                    exceptions);
-            }
-        }
-        else
-        {
-            foreach (FileInfo file in files)
+            try
             {
                 file.Delete();
             }
+            catch (Exception e)
+            {
+                if (consolidateExceptions)
+                {
+                    exceptions.Add(e);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        if (exceptions is { Count: > 0 })
+        {
+            throw new AggregateException(
+                "Error while deleting one or several files, see InnerExceptions array for details.",
+                exceptions);
         }
     }
 
@@ -227,12 +108,6 @@ public static partial class FileInfoExtensions
     /// <param name="files">The files.</param>
     /// <param name="targetPath">The target path.</param>
     /// <returns>The newly created file copies.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// var copiedFiles = files.CopyTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] CopyTo(this FileInfo[] files, string targetPath)
     {
         return files.CopyTo(targetPath, true);
@@ -247,16 +122,10 @@ public static partial class FileInfoExtensions
     /// If set to <c>true</c>, exceptions are consolidated and the processing is not interrupted.
     /// </param>
     /// <returns>The newly created file copies.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// var copiedFiles = files.CopyTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] CopyTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
         var copiedFiles = new List<FileInfo>();
-        List<System.Exception>? exceptions = null;
+        List<Exception>? exceptions = null;
 
         foreach (FileInfo file in files)
         {
@@ -265,11 +134,11 @@ public static partial class FileInfoExtensions
                 var fileName = Path.Combine(targetPath, file.Name);
                 copiedFiles.Add(file.CopyTo(fileName));
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 if (consolidateExceptions)
                 {
-                    exceptions ??= new List<System.Exception>();
+                    exceptions ??= [];
                     exceptions.Add(e);
                 }
                 else
@@ -295,12 +164,6 @@ public static partial class FileInfoExtensions
     /// <param name="files">The files.</param>
     /// <param name="targetPath">The target path.</param>
     /// <returns>The moved files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.MoveTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] MoveTo(this FileInfo[] files, string targetPath)
     {
         return files.MoveTo(targetPath, true);
@@ -315,15 +178,9 @@ public static partial class FileInfoExtensions
     /// If set to <c>true</c>, exceptions are consolidated and the processing is not interrupted.
     /// </param>
     /// <returns>The moved files.</returns>
-    /// <example>
-    /// <code>
-    /// var files = directory.GetFiles("*.txt", "*.xml");
-    /// files.MoveTo(@"c:\temp\");
-    /// </code>
-    /// </example>
     public static FileInfo[] MoveTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
-        List<System.Exception>? exceptions = null;
+        List<Exception>? exceptions = null;
 
         foreach (FileInfo file in files)
         {
@@ -332,11 +189,11 @@ public static partial class FileInfoExtensions
                 var fileName = Path.Combine(targetPath, file.Name);
                 file.MoveTo(fileName);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 if (consolidateExceptions)
                 {
-                    exceptions ??= new List<System.Exception>();
+                    exceptions ??= [];
                     exceptions.Add(e);
                 }
                 else
@@ -355,4 +212,125 @@ public static partial class FileInfoExtensions
 
         return files;
     }
+
+    /// <summary>
+    /// Formats a byte count as a string for display (e.g., "1K", "1M", "1G").
+    /// </summary>
+    /// <param name="bytes">The byte count.</param>
+    /// <returns>A formatted string representing the byte count.</returns>
+    /// <example>
+    /// <code>
+    /// int size = 1024;
+    /// string formattedSize = size.ToFileSizeBytesString();
+    /// </code>
+    /// </example>
+    public static string ToFileSizeBytesString(this int bytes)
+    {
+        return bytes switch
+        {
+            >= 1073741824 => (bytes / (double)1073741824).ToString("0", ExtensionMethodSetting.DefaultCulture) + "G",
+            >= 1048576 => (bytes / (double)1048576).ToString("0", ExtensionMethodSetting.DefaultCulture) + "M",
+            >= 1024 => (bytes / (double)1024).ToString("0", ExtensionMethodSetting.DefaultCulture) + "K",
+            _ => bytes + "Bytes"
+        };
+    }
+
+    /// <summary>
+    /// Gets the file size in bytes from a file path
+    /// </summary>
+    /// <param name="filePath"></param>
+    /// <returns></returns>
+    /// <exception cref="IOException"></exception>
+    public static long GetFileSize(this string filePath)
+    {
+        // 由 EnsureFileExists 完整执行 null/empty 与存在性校验
+        GuardExtensions.EnsureFileExists(filePath);
+
+        return new FileInfo(filePath).Length;
+    }
+
+    /// <summary>
+    /// Gets formated file size string (e.g. "1.5 MB" from a file path)
+    /// </summary>
+    /// <param name="filePath">The file path.</param>
+    /// <returns>The file size.</returns>
+    public static string GetFileSizeFormatted(this string filePath)
+    {
+        var bytes = GetFileSize(filePath);
+        return bytes.FormatFileSize();
+    }
+
+    /// <summary>
+    /// Retrieves the size of the specified file.
+    /// </summary>
+    /// <param name="fileInfo">The file.</param>
+    /// <returns>The file size.</returns>
+    public static string GetFileSizeFormatted(this FileInfo fileInfo)
+    {
+        return fileInfo.Length.FormatFileSize();
+    }
+
+    /// <summary>
+    /// Gets the file version from a FileInfo object.
+    /// </summary>
+    /// <param name="fileInfo">The file.</param>
+    /// <returns>The file version.</returns>
+    public static string? GetFileVersion(this FileInfo fileInfo)
+    {
+        ArgumentNullException.ThrowIfNull(fileInfo);
+        if (!fileInfo.Exists)
+            throw new FileNotFoundException("File not found", fileInfo.FullName);
+
+        var versionInfo = FileVersionInfo.GetVersionInfo(fileInfo.FullName);
+        return versionInfo.FileVersion;
+    }
+
+    /// <summary>
+    /// Converts the current <see cref="FileInfo"/> object to a <see cref="MemoryStream"/> object.
+    /// </summary>
+    /// <param name="fileInfo">The <see cref="FileInfo"/> object to convert.</param>
+    /// <returns>A <see cref="MemoryStream"/> object.</returns>
+    /// <example>
+    /// <code>
+    /// FileInfo file = new FileInfo("path/to/file.txt");
+    /// using MemoryStream stream = file.ToMemoryStream();
+    /// </code>
+    /// </example>
+    public static MemoryStream ToMemoryStream(this FileInfo fileInfo)
+    {
+        ArgumentNullException.ThrowIfNull(fileInfo);
+
+        var memoryStream = new MemoryStream();
+        using FileStream fileStream = fileInfo.OpenRead();
+        fileStream.CopyTo(memoryStream);
+        _ = memoryStream.Seek(0, SeekOrigin.Begin);
+        return memoryStream;
+    }
+
+    /// <summary>
+    /// Computes the MD5 hash of the file.
+    /// </summary>
+    /// <param name="fileInfo">The <see cref="FileInfo"/> object.</param>
+    /// <returns>The MD5 hash as a string.</returns>
+    public static string ComputeHashMd5(this FileInfo fileInfo)
+    {
+        using var fileStream = fileInfo.OpenRead();
+        var arrayHashValue = fileStream.ToMd5HashByte();
+        return arrayHashValue.ToMd5HashCode();
+    }
+
+#if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
+    /// <summary>
+    /// Asynchronously retrieves the file data as a byte array.
+    /// </summary>
+    /// <param name="filePath">The file path.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the file data as a byte array.</returns>
+    public static async Task<byte[]> GetFileDataAsync(this string filePath)
+    {
+        using FileStream fs = File.OpenRead(filePath);
+        using var ms = new MemoryStream(ExtensionMethodSetting.DefaultBufferSize);
+        await fs.CopyToAsync(ms).ConfigureAwait(false);
+        return ms.ToArray();
+    }
+#endif
 }

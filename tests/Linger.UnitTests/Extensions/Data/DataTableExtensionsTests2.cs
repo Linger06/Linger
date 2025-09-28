@@ -64,8 +64,6 @@ public partial class DataTableExtensionsTests
         DataTable? table = CreateTestDataTable();
         table.Rows[0]["Decimal"] = DBNull.Value;
 
-        DBNull? dfd = DBNull.Value;
-
         DataColumn[]? groupColumns = new[] { table.Columns["Int"]! };
         DataColumn[]? captionColumns = new[] { table.Columns["Name"]! };
         DataColumn? valueColumn = table.Columns["Decimal"]!;

@@ -1,59 +1,28 @@
-﻿using System.Text;
+using System.Text;
 using Linger.Extensions.Core;
 using Linger.Extensions.IO;
+using Linger.Helper.PathHelpers;
 
 namespace Linger.Helper;
 
 public static partial class FileHelper
 {
-    #region File Existence & Information
-
-    public static bool IsExistFile(string filePath)
-    {
-        return !string.IsNullOrEmpty(filePath) && File.Exists(filePath);
-    }
-
-    public static long GetFileSize(string filePath)
-    {
-        GuardExtensions.EnsureFileExist(filePath);
-        return new FileInfo(filePath).Length;
-    }
-
-    public static int GetLineCount(string filePath)
-    {
-        GuardExtensions.EnsureFileExist(filePath);
-
-        var count = 0;
-        using (var reader = new StreamReader(filePath))
-        {
-            while (reader.ReadLine() != null)
-            {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    #endregion
-
     #region File Read Operations
 
     public static string ReadText(string filename, Encoding? encoding = null)
     {
-        GuardExtensions.EnsureFileExist(filename);
+        filename.EnsureFileExists();
 
         encoding ??= ExtensionMethodSetting.DefaultEncoding;
 
-        using (var sr = new StreamReader(filename, encoding))
-        {
-            return sr.ReadToEnd();
-        }
+        using var sr = new StreamReader(filename, encoding);
+        return sr.ReadToEnd();
     }
 
     public static bool TryReadText(string filename, out string content, Encoding? encoding = null)
     {
         content = string.Empty;
-        if (!IsExistFile(filename))
+        if (!File.Exists(filename))
         {
             return false;
         }
@@ -73,32 +42,61 @@ public static partial class FileHelper
 
     #region File Write Operations
 
-    public static void WriteText(string filePath, string text, Encoding encoding)
+    public static void WriteText(string filePath, string text, Encoding? encoding = null)
     {
-        if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
-        if (encoding == null)
-            throw new ArgumentNullException(nameof(encoding));
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        encoding ??= ExtensionMethodSetting.DefaultEncoding;
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
         {
-            CreateDirectoryIfNotExists(directory);
+            Directory.CreateDirectory(directory);
         }
         File.WriteAllText(filePath, text, encoding);
     }
 
     public static void AppendText(string filePath, string content)
     {
-        if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
         {
-            CreateDirectoryIfNotExists(directory);
+            Directory.CreateDirectory(directory);
         }
         File.AppendAllText(filePath, content);
+    }
+
+    /// <summary>
+    /// 尝试写入文本，失败返回 false 不抛异常。
+    /// </summary>
+    public static bool TryWriteText(string filePath, string text, Encoding? encoding = null)
+    {
+        try
+        {
+            WriteText(filePath, text, encoding);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 尝试追加文本，失败返回 false 不抛异常。
+    /// </summary>
+    public static bool TryAppendText(string filePath, string content)
+    {
+        try
+        {
+            AppendText(filePath, content);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     #endregion
@@ -107,24 +105,27 @@ public static partial class FileHelper
 
     public static void MoveFile(string sourceFilePath, string destDirectoryPath)
     {
-        GuardExtensions.EnsureFileExist(sourceFilePath);
+        sourceFilePath.EnsureFileExists();
 
         var sourceFileName = Path.GetFileName(sourceFilePath);
-        CreateDirectoryIfNotExists(destDirectoryPath);
+        Directory.CreateDirectory(destDirectoryPath);
         var destFileName = Path.Combine(destDirectoryPath, sourceFileName);
         File.Move(sourceFilePath, destFileName);
     }
 
-    public static void CopyFile(string originFile, string newFile)
+    public static void CopyFile(string sourceFile, string destFile)
     {
-        GuardExtensions.EnsureFileExist(originFile);
+        sourceFile.EnsureFileExists();
 
-        var directory = Path.GetDirectoryName(newFile);
+        var normalizedDest = StandardPathHelper.NormalizePath(destFile);
+        var directory = Path.GetDirectoryName(normalizedDest);
+
         if (!string.IsNullOrEmpty(directory))
         {
-            CreateDirectoryIfNotExists(directory);
+            Directory.CreateDirectory(directory);
         }
-        File.Copy(originFile, newFile, true);
+
+        File.Copy(sourceFile, normalizedDest, true);
     }
 
     public static void DeleteFileIfExists(string file)
@@ -138,246 +139,208 @@ public static partial class FileHelper
         }
     }
 
-    public static string GetFileName(string filePath)
-    {
-        return string.IsNullOrEmpty(filePath) ? string.Empty : Path.GetFileName(filePath);
-    }
-
     public static void ClearFile(string filePath)
     {
-        if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         File.WriteAllBytes(filePath, []);
     }
 
-    public static void CreateFile(string filePath, string content, Encoding? encoding = null)
+    public static void CreateFile(string filePath, string? content = null, byte[]? buffer = null, Encoding? encoding = null)
     {
-        if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
         {
-            CreateDirectoryIfNotExists(directory);
+            Directory.CreateDirectory(directory);
         }
 
-        encoding ??= ExtensionMethodSetting.DefaultEncoding;
-        File.WriteAllText(filePath, content, encoding);
-    }
-
-    public static void CreateFile(string filePath)
-    {
-        if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
-
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory))
+        if (content != null)
         {
-            CreateDirectoryIfNotExists(directory);
+            encoding ??= ExtensionMethodSetting.DefaultEncoding;
+            File.WriteAllText(filePath, content, encoding);
         }
-
-        if (!IsExistFile(filePath))
+        else if (buffer != null)
         {
-            using (File.Create(filePath))
-            {
-                // File is automatically closed by using statement
-            }
+            using var fs = File.Create(filePath);
+            fs.Write(buffer, 0, buffer.Length);
         }
-    }
-
-    public static void CreateFile(string filePath, byte[] buffer)
-    {
-        if (string.IsNullOrEmpty(filePath))
-            throw new ArgumentNullException(nameof(filePath));
-        if (buffer == null)
-            throw new ArgumentNullException(nameof(buffer));
-
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory))
+        else
         {
-            CreateDirectoryIfNotExists(directory);
+            using (File.Create(filePath)) { }
         }
-
-        if (!IsExistFile(filePath))
-        {
-            using (var fs = File.Create(filePath))
-            {
-                fs.Write(buffer, 0, buffer.Length);
-            }
-        }
-    }
-
-    #endregion
-
-    #region Path & Extension Operations
-
-    public static string GetExtension(string filename)
-    {
-        return string.IsNullOrEmpty(filename) ? string.Empty : Path.GetExtension(filename);
-    }
-
-    public static string GetPostfixStr(string filename)
-    {
-        return GetExtension(filename);
     }
 
     #endregion
 
     #region Search Operations
 
-    public static bool Contains(string directoryPath, string searchPattern)
-    {
-        return Contains(directoryPath, searchPattern, false);
-    }
-
-    public static bool Contains(string directoryPath, string searchPattern, bool isSearchChild)
+    /// <summary>
+    /// 检测指定目录中是否存在指定的文件,若要搜索子目录请使用重载方法.
+    /// </summary>
+    /// <param name="directoryPath">指定目录的绝对路径</param>
+    /// <param name="searchPattern">模式字符串，"*"代表0或N个字符，"?"代表1个字符。 范例："Log*.xml"表示搜索所有以Log开头的Xml文件。</param>
+    public static bool Contains(string directoryPath, string searchPattern, bool isSearchChild = false)
     {
         if (string.IsNullOrEmpty(directoryPath) || string.IsNullOrEmpty(searchPattern))
             return false;
 
-        var fileNames = GetFileNames(directoryPath, searchPattern, isSearchChild);
-        return fileNames.Length > 0;
+        try
+        {
+            var searchOption = isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+            return Directory.EnumerateFiles(directoryPath, searchPattern, searchOption).Any();
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException
+                                 || ex is DirectoryNotFoundException
+                                 || ex is PathTooLongException)
+        {
+            return false;
+        }
     }
 
     #endregion
 
     #region File Information
 
-    public static CustomExistFileInfo? GetCustomFileInfo(string fullFileName)
+    /// <summary>
+    /// 获取指定文件的扩展信息，包括哈希、路径和文件大小等元数据。
+    /// </summary>
+    /// <param name="fullFileName">目标文件的完整路径。</param>
+    /// <param name="relativeTo">用于计算相对路径的基准目录，默认为当前工作目录。</param>
+    /// <returns>返回包含文件元数据的 <see cref="ExtendedFileInfo"/> 实例；若文件不存在或路径无效则返回 <see langword="null"/>。</returns>
+    /// <example>
+    /// <code>
+    /// var fileInfo = FileHelper.GetExistingFileInfo(@"C:\\logs\\app.log");
+    /// if (fileInfo is not null)
+    /// {
+    ///     Console.WriteLine($"哈希值: {fileInfo.HashData}");
+    /// }
+    /// </code>
+    /// </example>
+    public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName, string? relativeTo = null)
     {
         if (string.IsNullOrEmpty(fullFileName))
             return null;
 
-        var absolutePath = fullFileName.GetAbsolutePath();
+        var basePath = string.IsNullOrEmpty(relativeTo)
+            ? Environment.CurrentDirectory
+            : relativeTo;
+
+        if (basePath is null)
+        {
+            return null;
+        }
+
+        var absolutePath = StandardPathHelper.ResolveToAbsolutePath(null, fullFileName);
         var file = new FileInfo(absolutePath);
         if (file.Exists)
         {
-            using (var memoryStream = file.ToMemoryStream2())
+            using var memoryStream = file.ToMemoryStream();
+            var strHashData = memoryStream.ComputeHashMd5();
+            return new ExtendedFileInfo
             {
-                var strHashData = memoryStream.ComputeHashMd5();
-                return new CustomExistFileInfo
-                {
-                    HashData = strHashData,
-                    FileName = file.Name,
-                    RelativeFilePath = absolutePath.GetRelativePath(),
-                    FullFilePath = file.FullName,
-                    FileSize = file.Length.FileSize(),
-                    Length = file.Length
-                };
-            }
+                HashData = strHashData,
+                FileName = file.Name,
+                RelativeFilePath = StandardPathHelper.GetRelativePath(basePath, absolutePath),
+                FullFilePath = file.FullName,
+                FileSize = file.Length.FormatFileSize(),
+                Length = file.Length
+            };
         }
         return null;
     }
 
     #endregion
 
-    #region Directory Existence & Creation
-
-    public static bool IsExistDirectory(string directoryPath)
+    /// <summary>
+    /// 获取指定目录下的所有子目录
+    /// </summary>
+    /// <param name="directoryPath">目录路径</param>
+    /// <param name="searchPattern">搜索模式，默认为"*"</param>
+    /// <param name="searchOption">搜索选项，是否包含子目录</param>
+    /// <param name="filter">自定义过滤器</param>
+    /// <returns>目录路径数组</returns>
+    public static string[] GetDirectories(
+        string directoryPath,
+        string searchPattern = "*",
+        SearchOption searchOption = SearchOption.TopDirectoryOnly,
+        Func<DirectoryInfo, bool>? filter = null)
     {
-        return !string.IsNullOrEmpty(directoryPath) && Directory.Exists(directoryPath);
-    }
+        ArgumentException.ThrowIfNullOrEmpty(directoryPath);
 
-    public static DirectoryInfo CreateDirectoryIfNotExists(string directoryPath)
-    {
-        if (string.IsNullOrEmpty(directoryPath))
-            throw new ArgumentNullException(nameof(directoryPath));
+        var directories = Directory.GetDirectories(directoryPath, searchPattern, searchOption);
 
-        return Directory.CreateDirectory(directoryPath);
-    }
-
-    #endregion
-
-    #region Directory Content Operations
-
-    public static List<string> GetFileNames(string directoryPath, bool containPath = true, bool containExtension = true)
-    {
-        GuardExtensions.EnsureDirectoryExist(directoryPath);
-        var fileArray = Directory.GetFiles(directoryPath);
-        var fileList = new List<string>(fileArray);
-
-        if (containPath && containExtension)
+        if (filter != null)
         {
-            return fileList;
+            return directories
+                .Select(dir => new DirectoryInfo(dir))
+                .Where(filter)
+                .Select(dir => dir.FullName)
+                .ToArray();
         }
 
-        return fileList.Select(file =>
-        {
-            if (!containPath && containExtension)
-                return file.GetFileNameString();
-            if (!containPath && !containExtension)
-                return file.GetFileNameNoExtensionString();
-            return file;
-        }).ToList();
+        return directories;
     }
 
-    public static string[] GetDirectories(string directoryPath)
+    /// <summary>
+    /// 获取指定目录下的所有文件名
+    /// </summary>
+    /// <param name="directoryPath">目录路径</param>
+    /// <param name="searchPattern">搜索模式 (默认为 "*.*")</param>
+    /// <param name="containPath">是否包含完整路径</param>
+    /// <param name="containExtension">是否包含扩展名</param>
+    /// <param name="searchOption">搜索选项，是否包含子目录</param>
+    /// <returns>文件名列表</returns>
+    public static List<string> GetFileNames(
+        string directoryPath,
+        string searchPattern = "*.*",
+        bool containPath = true,
+        bool containExtension = true,
+        SearchOption searchOption = SearchOption.TopDirectoryOnly)
     {
-        if (string.IsNullOrEmpty(directoryPath))
-            throw new ArgumentNullException(nameof(directoryPath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
 
-        return Directory.GetDirectories(directoryPath);
-    }
-
-    public static string[] GetDirectories(string directoryPath, string searchPattern, bool isSearchChild)
-    {
-        if (string.IsNullOrEmpty(directoryPath))
-            throw new ArgumentNullException(nameof(directoryPath));
-        if (string.IsNullOrEmpty(searchPattern))
-            throw new ArgumentNullException(nameof(searchPattern));
-
-        return Directory.GetDirectories(
-            directoryPath,
-            searchPattern,
-            isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly
-        );
-    }
-
-    public static string[] GetFileNames(string directoryPath, string searchPattern, bool isSearchChild)
-    {
-        if (string.IsNullOrEmpty(directoryPath))
-            throw new ArgumentNullException(nameof(directoryPath));
-        if (string.IsNullOrEmpty(searchPattern))
-            throw new ArgumentNullException(nameof(searchPattern));
-
-        if (!IsExistDirectory(directoryPath))
-        {
+        if (!Directory.Exists(directoryPath))
             throw new DirectoryNotFoundException($"Directory not found: {directoryPath}");
+
+        var files = Directory.GetFiles(directoryPath, searchPattern, searchOption);
+        var result = new List<string>();
+
+        foreach (var file in files)
+        {
+            var fileName = file;
+            if (!containPath)
+                fileName = Path.GetFileName(file);
+            if (!containExtension)
+                fileName = Path.GetFileNameWithoutExtension(fileName);
+            result.Add(fileName);
         }
 
-        return Directory.GetFiles(
-            directoryPath,
-            searchPattern,
-            isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly
-        );
+        return result;
     }
 
     public static bool IsEmptyDirectory(string directory)
     {
-        GuardExtensions.EnsureDirectoryExist(directory);
+        directory.EnsureDirectoryExists();
         return !Directory.EnumerateFileSystemEntries(directory).Any();
     }
-
-    #endregion
 
     #region Directory Copy Operations
 
     public static void CopyDir(string srcDirectory, string destDirectory)
     {
-        if (string.IsNullOrEmpty(srcDirectory))
-            throw new ArgumentNullException(nameof(srcDirectory));
-        if (string.IsNullOrEmpty(destDirectory))
-            throw new ArgumentNullException(nameof(destDirectory));
+        ArgumentException.ThrowIfNullOrWhiteSpace(srcDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destDirectory);
 
-        GuardExtensions.EnsureDirectoryExist(srcDirectory);
+        srcDirectory.EnsureDirectoryExists();
 
         // Ensure the destination path ends with a directory separator
         destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar)
             + Path.DirectorySeparatorChar);
 
         // Create destination directory if it doesn't exist
-        CreateDirectoryIfNotExists(destDirectory);
+        Directory.CreateDirectory(destDirectory);
 
         // Get all entries (files and directories)
         var fileList = Directory.GetFileSystemEntries(srcDirectory);
@@ -401,43 +364,11 @@ public static partial class FileHelper
 
     #region Directory Operations
 
-    public static void DeleteFolderFiles(string srcDirectory, string destDirectory)
-    {
-        if (string.IsNullOrEmpty(srcDirectory))
-            throw new ArgumentNullException(nameof(srcDirectory));
-        if (string.IsNullOrEmpty(destDirectory))
-            throw new ArgumentNullException(nameof(destDirectory));
-
-        if (!Directory.Exists(srcDirectory))
-        {
-            return;
-        }
-
-        CreateDirectoryIfNotExists(destDirectory);
-
-        // Process subdirectories recursively
-        foreach (var directory in Directory.GetDirectories(srcDirectory))
-        {
-            var targetSubDir = Path.Combine(destDirectory,
-                Path.GetFileName(directory));
-            DeleteFolderFiles(directory, targetSubDir);
-        }
-
-        // Delete files in target directory
-        foreach (var file in Directory.GetFiles(srcDirectory))
-        {
-            var targetFile = Path.Combine(destDirectory,
-                Path.GetFileName(file));
-            DeleteFileIfExists(targetFile);
-        }
-    }
-
     public static void ClearDirectory(string directoryPath)
     {
-        if (string.IsNullOrEmpty(directoryPath))
-            throw new ArgumentNullException(nameof(directoryPath));
+        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
 
-        if (!IsExistDirectory(directoryPath))
+        if (!Directory.Exists(directoryPath))
         {
             return;
         }
@@ -461,6 +392,19 @@ public static partial class FileHelper
         if (Directory.Exists(directoryPath))
         {
             Directory.Delete(directoryPath, true);
+        }
+    }
+
+    /// <summary>
+    /// 确保目录存在
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    public static void EnsureDirectoryExists(string filePath)
+    {
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
         }
     }
 

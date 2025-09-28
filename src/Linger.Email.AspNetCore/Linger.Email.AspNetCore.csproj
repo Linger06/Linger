@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
+        <Version>0.9.5</Version>
+        <Description>
+            ASP.NET Core integration for the Linger.Email library.
+            Provides dependency injection extensions and configuration integration for email services.
+            Simplifies email sending in modern ASP.NET Core applications.
+        </Description>        
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+    <!-- Stable frameworks using latest stable packages -->
+    <ItemGroup Condition="'$(TargetFramework)'=='net8.0' OR '$(TargetFramework)'=='net9.0'">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.9" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="9.0.9" />
+    </ItemGroup>
+
+    <!-- .NET 10.0 RC using latest preview packages -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-rc.1.25451.107" />
+        <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.0-rc.1.25451.107" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Linger.Configuration\Linger.Configuration.csproj" />
+      <ProjectReference Include="..\Linger.Email\Linger.Email.csproj" />
+    </ItemGroup>
+
+</Project>

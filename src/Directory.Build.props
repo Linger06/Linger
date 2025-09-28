@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <PackageId>$(MSBuildProjectName)</PackageId>
+    <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Authors>Linger</Authors>
+    <Copyright>Copyright © Linger 2024</Copyright>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>    
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+  </PropertyGroup>  
+</Project>

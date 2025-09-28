@@ -1,11 +1,9 @@
-﻿using Linger.Helper;
-
 namespace Linger.Extensions.Core;
 
 /// <summary>
 /// Provides extension methods for array manipulation.
 /// </summary>
-public static partial class ArrayExtensions
+public static class ArrayExtensions
 {
     /// <summary>
     /// Executes the specified action on each element of the array.
@@ -22,7 +20,7 @@ public static partial class ArrayExtensions
     /// </example>
     public static void ForEach<T>(this T[] array, Action<T> action)
     {
-        action.EnsureIsNotNull(nameof(action));
+        ArgumentNullException.ThrowIfNull(action);
         Array.ForEach(array, action);
     }
 
@@ -39,9 +37,9 @@ public static partial class ArrayExtensions
     /// // Output: 0: 1 1: 2 2: 3
     /// </code>
     /// </example>
-    public static void ForEach<T>(this T[] array, Action<T, int> action)
+    public static void ForEach<T>(this T[] array, [NotNull] Action<T, int> action)
     {
-        action.EnsureIsNotNull(nameof(action));
+        ArgumentNullException.ThrowIfNull(action);
         for (var i = 0; i < array.Length; i++)
         {
             action(array[i], i);
@@ -64,6 +62,8 @@ public static partial class ArrayExtensions
     /// </example>
     public static bool Exists<T>(this T[] array, T value)
     {
+        return Array.Exists(array, Predicate);
+
         bool Predicate(T item)
         {
             if (item == null)
@@ -78,27 +78,6 @@ public static partial class ArrayExtensions
 
             return item.Equals(value);
         }
-
-        return Array.Exists(array, Predicate);
-    }
-
-    /// <summary>
-    /// Determines whether the array contains elements that match the conditions defined by the specified predicate.
-    /// </summary>
-    /// <typeparam name="T">The type of the elements in the array.</typeparam>
-    /// <param name="array">The array to search.</param>
-    /// <param name="match">The predicate that defines the conditions of the elements to search for.</param>
-    /// <returns><value>true</value> if one or more elements match the conditions defined by the specified predicate; otherwise, <value>false</value>.</returns>
-    /// <example>
-    /// <code>
-    /// int[] numbers = { 1, 2, 3 };
-    /// bool exists = numbers.Exists(n => n > 2);
-    /// // exists is true
-    /// </code>
-    /// </example>
-    public static bool Exists<T>(this T[] array, Predicate<T> match)
-    {
-        return Array.Exists(array, match);
     }
 
     /// <summary>
@@ -165,6 +144,8 @@ public static partial class ArrayExtensions
     /// </example>
     public static T[] Remove<T>(this T[] array, T value)
     {
+        return Array.FindAll(array, Predicate);
+
         bool Predicate(T item)
         {
             if (item == null)
@@ -179,8 +160,6 @@ public static partial class ArrayExtensions
 
             return !item.Equals(value);
         }
-
-        return Array.FindAll(array, Predicate);
     }
 
     /// <summary>
@@ -235,7 +214,7 @@ public static partial class ArrayExtensions
     {
         if (startIndex < 0 || startIndex >= array.Length)
         {
-            throw new IndexOutOfRangeException("The specified index is out of the array bounds.");
+            throw new ArgumentOutOfRangeException(nameof(startIndex), "The specified index is out of the array bounds.");
         }
 
         var newArray = new T[startIndex];
@@ -266,12 +245,12 @@ public static partial class ArrayExtensions
     {
         if (startIndex < 0 || startIndex >= array.Length)
         {
-            throw new IndexOutOfRangeException("The specified index is out of the array bounds.");
+            throw new ArgumentOutOfRangeException(nameof(startIndex), "The specified index is out of the array bounds.");
         }
 
         if (startIndex + length > array.Length)
         {
-            throw new IndexOutOfRangeException("The range at the specified index is out of the array bounds.");
+            throw new ArgumentOutOfRangeException(nameof(length), "The range at the specified index is out of the array bounds.");
         }
 
         var arr = new T[array.Length - length];
@@ -288,4 +267,142 @@ public static partial class ArrayExtensions
 
         return arr;
     }
+
+    #region 转换方法
+
+    /// <summary>
+    /// Converts the current Byte[] sequence to a Base64 encoded string.
+    /// </summary>
+    /// <param name="value">The Byte[] to convert.</param>
+    /// <returns>The converted string representation in Base64.</returns>
+    /// <example>
+    /// <code>
+    /// byte[] bytes = { 1, 2, 3, 4, 5 };
+    /// string base64String = bytes.ToBase64String();
+    /// // base64String is "AQIDBAU="
+    /// </code>
+    /// </example>
+    public static string ToBase64String(this byte[] value)
+    {
+        return Convert.ToBase64String(value, 0, value.Length);
+    }
+
+    /// <summary>
+    /// Converts the current Byte[] sequence to a Base64 encoded string for an image.
+    /// </summary>
+    /// <param name="value">The Byte[] to convert.</param>
+    /// <returns>The converted string representation of the image in Base64.</returns>
+    /// <example>
+    /// <code>
+    /// byte[] imageBytes = { 1, 2, 3, 4, 5 };
+    /// string imageBase64String = imageBytes.ToImageBase64String();
+    /// // imageBase64String is "data:image/jpeg;base64,AQIDBAU="
+    /// </code>
+    /// </example>
+    public static string ToImageBase64String(this byte[] value)
+    {
+        return $"data:image/jpeg;base64,{Convert.ToBase64String(value, 0, value.Length)}";
+    }
+
+    /// <summary>
+    /// Converts the current Byte[] sequence to a MemoryStream.
+    /// </summary>
+    /// <param name="value">The Byte[] to convert.</param>
+    /// <returns>A MemoryStream created from the Byte[].</returns>
+    /// <example>
+    /// <code>
+    /// byte[] bytes = { 1, 2, 3, 4, 5 };
+    /// MemoryStream stream = bytes.ToMemoryStream();
+    /// // stream is a MemoryStream containing the bytes
+    /// </code>
+    /// </example>
+    public static MemoryStream ToMemoryStream(this byte[] value)
+    {
+        return new MemoryStream(value);
+    }
+
+    /// <summary>
+    /// Converts the current System.String[] to DataTable columns.
+    /// </summary>
+    /// <param name="stringArray">The string array to convert.</param>
+    /// <returns>A DataTable with columns named after the strings in the array.</returns>
+    /// <example>
+    /// <code>
+    /// string[] columns = { "Name", "Age", "Gender" };
+    /// DataTable table = columns.ToDataTableColumns();
+    /// // table has columns "Name", "Age", "Gender"
+    /// </code>
+    /// </example>
+    public static DataTable ToDataTableColumns(this string[] stringArray)
+    {
+        var table = new DataTable();
+
+        foreach (var item in stringArray)
+        {
+            table.Columns.Add(new DataColumn(item));
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    /// Converts the current <see cref="string"/>[] to an <see cref="IEnumerable{String}"/>.
+    /// </summary>
+    /// <param name="value">The <see cref="string"/>[] to convert.</param>
+    /// <returns>An <see cref="IEnumerable{String}"/> created from the array.</returns>
+    /// <example>
+    /// <code>
+    /// string[] array = { "one", "two", "three" };
+    /// IEnumerable&lt;string&gt; enumerable = array.ToEnumerable();
+    /// // enumerable contains "one", "two", "three"
+    /// </code>
+    /// </example>
+    public static IEnumerable<string> ToEnumerable(this string[]? value)
+    {
+        return value.IsNull() ? [] : new List<string>(value);
+    }
+
+    /// <summary>
+    /// Converts the current <see cref="string"/>[] to a <see cref="List{String}"/>.
+    /// </summary>
+    /// <param name="value">The <see cref="string"/>[] to convert.</param>
+    /// <returns>A <see cref="List{String}"/> created from the array.</returns>
+    /// <example>
+    /// <code>
+    /// string[] array = { "one", "two", "three" };
+    /// List&lt;string&gt; list = array.ToList();
+    /// // list contains "one", "two", "three"
+    /// </code>
+    /// </example>
+    public static List<string> ToList(this string[]? value)
+    {
+        // Avoid invalid cast when value is null; construct a List directly
+        return new List<string>(value ?? []);
+    }
+
+    /// <summary>
+    /// Converts a byte array to an MD5 hash code string.
+    /// </summary>
+    /// <param name="inputHashBytes">The byte array to convert.</param>
+    /// <returns>The MD5 hash code string.</returns>
+    public static string ToMd5HashCode(this byte[] inputHashBytes)
+    {
+#if NET9_0_OR_GREATER
+        // Lowercase hex without separators for consistency
+        return Convert.ToHexStringLower(inputHashBytes);
+#elif NET5_0_OR_GREATER
+        // Convert.ToHexString returns uppercase; normalize to lowercase
+        return Convert.ToHexString(inputHashBytes).ToLowerInvariant();
+#elif NETFRAMEWORK || NETSTANDARD2_0
+        // BitConverter uses hyphens and uppercase; remove hyphens and normalize to lowercase
+        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty).ToLowerInvariant();
+#else
+        return BitConverter
+            .ToString(inputHashBytes)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+#endif
+    }
+
+    #endregion
 }

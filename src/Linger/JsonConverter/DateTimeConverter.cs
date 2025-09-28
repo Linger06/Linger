@@ -1,6 +1,5 @@
-﻿#if !NETFRAMEWORK || NET462_OR_GREATER
+#if !NETFRAMEWORK || NET462_OR_GREATER
 
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Linger.JsonConverter;
@@ -52,11 +51,11 @@ public class DateTimeConverter : JsonConverter<DateTime>
     {
         if (value.Hour == 0 && value is { Minute: 0, Second: 0 })
         {
-            writer.WriteStringValue(value.ToString("yyyy-MM-dd"));
+            writer.WriteStringValue(value.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture));
         }
         else
         {
-            writer.WriteStringValue(value.ToString("yyyy-MM-dd HH:mm:ss"));
+            writer.WriteStringValue(value.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture));
         }
     }
 }
@@ -88,7 +87,7 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
     public override DateTime? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
         var dateTime = reader.GetString();
-        return string.IsNullOrEmpty(dateTime) ? null : DateTime.Parse(dateTime);
+        return string.IsNullOrEmpty(dateTime) ? null : DateTime.Parse(dateTime, ExtensionMethodSetting.DefaultCulture);
     }
 
     /// <summary>
@@ -99,13 +98,19 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
     /// <param name="options">The serializer options.</param>
     public override void Write(Utf8JsonWriter writer, DateTime? value, JsonSerializerOptions options)
     {
-        if (value is { Hour: 0, Minute: 0, Second: 0 })
+        if (value is null)
         {
-            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd"));
+            writer.WriteNullValue();
+            return;
+        }
+
+        if (value.Value is { Hour: 0, Minute: 0, Second: 0 })
+        {
+            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture));
         }
         else
         {
-            writer.WriteStringValue(value?.ToString("yyyy-MM-dd HH:mm:ss"));
+            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture));
         }
     }
 }

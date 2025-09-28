@@ -5,14 +5,6 @@ using Xunit;
 public class GuidExtensionsTests
 {
     [Fact]
-    public void NewId_ReturnsUniqueGuid()
-    {
-        Guid id1 = GuidExtensions.NewId;
-        Guid id2 = GuidExtensions.NewId;
-        Assert.NotEqual(id1, id2);
-    }
-
-    [Fact]
     public void IsEmpty_ReturnsTrueForEmptyGuid()
     {
         Guid value = Guid.Empty;

@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 
 namespace Linger.Extensions;
 
@@ -69,7 +69,7 @@ public static class ExpressionExtensions
     public static Expression<Func<T, bool>> And<T>(this Expression<Func<T, bool>> first,
         Expression<Func<T, bool>> second)
     {
-        return first.Compose(second, Expression.AndAlso);
+        return first.CombineExpressions(second, Expression.AndAlso);
     }
 
     /// <summary>
@@ -90,32 +90,32 @@ public static class ExpressionExtensions
     public static Expression<Func<T, bool>> Or<T>(this Expression<Func<T, bool>> first,
         Expression<Func<T, bool>> second)
     {
-        return first.Compose(second, Expression.OrElse);
+        return first.CombineExpressions(second, Expression.OrElse);
     }
 
     /// <summary>
-    /// Combines the first expression with the second using the specified merge function.
+    /// 将两个表达式组合成一个新的表达式，使用指定的合并函数。
     /// </summary>
-    /// <typeparam name="T">The type of the delegate.</typeparam>
-    /// <param name="first">The first expression.</param>
-    /// <param name="second">The second expression.</param>
-    /// <param name="merge">The merge function to combine the expressions.</param>
-    /// <returns>The combined expression.</returns>
+    /// <typeparam name="T">表达式委托的类型。</typeparam>
+    /// <param name="firstExpression">第一个表达式。</param>
+    /// <param name="secondExpression">第二个表达式。</param>
+    /// <param name="combineFunction">用于组合表达式的合并函数。</param>
+    /// <returns>组合后的表达式。</returns>
     /// <example>
     /// <code>
     /// var expr1 = x => x > 5;
     /// var expr2 = x => x &lt; 10;
-    /// var result = expr1.Compose(expr2, Expression.AndAlso);
+    /// var result = expr1.CombineExpressions(expr2, Expression.AndAlso);
     /// // result: x => (x > 5) <![CDATA[&&]]> (x &lt; 10)
     /// </code>
     /// </example>
-    public static Expression<T> Compose<T>(this Expression<T> first, Expression<T> second,
-        Func<Expression, Expression, Expression> merge)
+    public static Expression<T> CombineExpressions<T>(this Expression<T> firstExpression, Expression<T> secondExpression,
+        Func<Expression, Expression, Expression> combineFunction)
     {
-        var map = first.Parameters.Select((f, i) => new { f, s = second.Parameters[i] })
-            .ToDictionary(p => p.s, p => p.f);
-        Expression secondBody = ParameterRebindVisitor.ReplaceParameters(map, second.Body);
-        return Expression.Lambda<T>(merge(first.Body, secondBody), first.Parameters);
+        var parameterMap = firstExpression.Parameters.Select((firstParam, i) => new { firstParam, secondParam = secondExpression.Parameters[i] })
+            .ToDictionary(p => p.secondParam, p => p.firstParam);
+        Expression mappedSecondBody = ParameterRebindVisitor.ReplaceParameters(parameterMap, secondExpression.Body);
+        return Expression.Lambda<T>(combineFunction(firstExpression.Body, mappedSecondBody), firstExpression.Parameters);
     }
 
 #if !NETFRAMEWORK || NET40_OR_GREATER
@@ -135,17 +135,28 @@ public static class ExpressionExtensions
     /// </example>
     public static bool HasOrderBy<T>(this IQueryable<T> query)
     {
+        if (query == null)
+        {
+            return false;
+        }
+
+        // 不能直接依赖IOrderedQueryable接口检查，因为许多LINQ提供程序都实现了这个接口
+        // 即使查询没有排序操作
+        // if (query is IOrderedQueryable)
+        // {
+        //     return true;
+        // }
+
+        // 通过表达式树分析，查找排序方法调用
         var visitor = new OrderByVisitor();
-
-        _ = visitor.Visit(query.Expression);
-
+        visitor.Visit(query.Expression);
         return visitor.HasOrderBy;
     }
 
     /// <summary>
     /// Replaces parameters in an expression with the specified map.
     /// </summary>
-    private class ParameterRebindVisitor : ExpressionVisitor
+    private sealed class ParameterRebindVisitor : ExpressionVisitor
     {
         /// <summary>
         /// The ParameterExpression map.
@@ -158,7 +169,7 @@ public static class ExpressionExtensions
         /// <param name="map">The map of parameters to replace.</param>
         private ParameterRebindVisitor(Dictionary<ParameterExpression, ParameterExpression>? map)
         {
-            _map = map ?? new Dictionary<ParameterExpression, ParameterExpression>();
+            _map = map ?? [];
         }
 
         /// <summary>
@@ -200,7 +211,7 @@ public static class ExpressionExtensions
     /// <summary>
     /// Visits expressions to determine if an OrderBy clause is present.
     /// </summary>
-    private class OrderByVisitor : ExpressionVisitor
+    private sealed class OrderByVisitor : ExpressionVisitor
     {
         /// <summary>
         /// Gets a value indicating whether the query has an OrderBy clause.
@@ -215,12 +226,40 @@ public static class ExpressionExtensions
         /// <returns>The visited expression.</returns>
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
-            if (node.Method.DeclaringType == typeof(Queryable) && node.Method.Name is "OrderBy" or "OrderByDescending")
+            // 如果已经找到排序操作，就不再继续查找
+            if (HasOrderBy)
+            {
+                return node;
+            }
+
+            // 判断是否为 Queryable 的排序方法
+            if (node.Method.DeclaringType == typeof(Queryable))
+            {
+                if (IsOrderByMethod(node.Method.Name))
+                {
+                    HasOrderBy = true;
+                    return node;
+                }
+            }
+
+            // 检查自定义扩展方法或 EF Core 扩展
+            else if (node.Method.Name.Contains("OrderBy"))
             {
                 HasOrderBy = true;
+                return node;
             }
 
             return base.VisitMethodCall(node);
+        }
+
+        /// <summary>
+        /// 判断方法名是否为排序相关方法
+        /// </summary>
+        /// <param name="methodName">方法名</param>
+        /// <returns>如果是排序方法则返回 true，否则返回 false</returns>
+        private static bool IsOrderByMethod(string methodName)
+        {
+            return methodName is "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending";
         }
     }
 

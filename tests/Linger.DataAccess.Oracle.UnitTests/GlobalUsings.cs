@@ -1,0 +1,9 @@
+global using System.Data;
+global using Linger.DataAccess.Oracle;
+global using Linger.Extensions;
+global using Linger.Extensions.Collection;
+global using Linger.Extensions.Core;
+global using Linger.Extensions.Data;
+global using Moq;
+global using Oracle.ManagedDataAccess.Client;
+global using Xunit;

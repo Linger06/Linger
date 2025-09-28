@@ -1,0 +1,15 @@
+﻿namespace Linger.Results;
+public class ErrorObj
+{
+    public ErrorObj()
+    {
+    }
+
+    public ErrorObj(string errorMsg)
+    {
+        Message = [errorMsg];
+    }
+
+    public Dictionary<string, string> Form { get; set; } = [];
+    public List<string> Message { get; set; } = [];
+}

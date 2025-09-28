@@ -1,11 +1,9 @@
-﻿#if !NETFRAMEWORK || NET462_OR_GREATER
-
-using System;
+#if !NETFRAMEWORK || NET462_OR_GREATER
 using System.Dynamic;
 using System.Runtime.Serialization.Json;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Serialization;
+using Linger.Extensions.Core;
 
 namespace Linger.Extensions;
 
@@ -58,7 +56,7 @@ public static class JsonExtensions
     /// Serializes an object to a JSON string.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The object to serialize.</param>
+    /// <param name="value">The object to serialize.</param>
     /// <returns>A JSON string representation of the object.</returns>
     /// <example>
     /// <code>
@@ -67,16 +65,16 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
-    public static string SerializeJson<T>(this T @this)
+    public static string SerializeJson<T>(this T value)
     {
-        return @this.SerializeJson(Encoding.Default);
+        return value.SerializeJson(Encoding.Default);
     }
 
     /// <summary>
     /// Serializes an object to a JSON string using the specified encoding.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The object to serialize.</param>
+    /// <param name="value">The object to serialize.</param>
     /// <param name="encoding">The encoding to use.</param>
     /// <returns>A JSON string representation of the object.</returns>
     /// <example>
@@ -86,16 +84,16 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
-    public static string SerializeJson<T>(this T @this, Encoding encoding)
+    public static string SerializeJson<T>(this T value, Encoding encoding)
     {
-        if (@this == null)
+        if (value == null)
         {
             return string.Empty;
         }
 
         var serializer = new DataContractJsonSerializer(typeof(T));
         using var memoryStream = new MemoryStream();
-        serializer.WriteObject(memoryStream, @this);
+        serializer.WriteObject(memoryStream, value);
         return encoding.GetString(memoryStream.ToArray());
     }
 
@@ -103,7 +101,7 @@ public static class JsonExtensions
     /// Serializes an object to a JSON string using the specified JsonSerializerOptions.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The object to serialize.</param>
+    /// <param name="value">The object to serialize.</param>
     /// <param name="jsonSerializerOptions">The options to use for serialization.</param>
     /// <returns>A JSON string representation of the object.</returns>
     /// <example>
@@ -113,16 +111,16 @@ public static class JsonExtensions
     /// // json: "{\n  \"Name\": \"John\",\n  \"Age\": 30\n}"
     /// </code>
     /// </example>
-    public static string? Serialize<T>(this T @this, JsonSerializerOptions? jsonSerializerOptions = null)
+    public static string? Serialize<T>(this T value, JsonSerializerOptions? jsonSerializerOptions = null)
     {
-        return @this?.ToJsonString(jsonSerializerOptions);
+        return value?.ToJsonString(jsonSerializerOptions);
     }
 
     /// <summary>
     /// Deserializes a JSON string to an object of type T.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The JSON string to deserialize.</param>
+    /// <param name="value">The JSON string to deserialize.</param>
     /// <returns>The deserialized object.</returns>
     /// <example>
     /// <code>
@@ -131,11 +129,11 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    public static T? DeserializeJson<T>(this string @this)
+    public static T? DeserializeJson<T>(this string value)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
 
-        using var stream = new MemoryStream(Encoding.Default.GetBytes(@this));
+        using var stream = new MemoryStream(Encoding.Default.GetBytes(value));
         return (T?)serializer.ReadObject(stream);
     }
 
@@ -143,7 +141,7 @@ public static class JsonExtensions
     /// Deserializes a JSON string to an object of type T using the specified encoding.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The JSON string to deserialize.</param>
+    /// <param name="value">The JSON string to deserialize.</param>
     /// <param name="encoding">The encoding to use.</param>
     /// <returns>The deserialized object.</returns>
     /// <example>
@@ -153,11 +151,11 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    public static T? DeserializeJson<T>(this string @this, Encoding encoding)
+    public static T? DeserializeJson<T>(this string value, Encoding encoding)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
 
-        using var stream = new MemoryStream(encoding.GetBytes(@this));
+        using var stream = new MemoryStream(encoding.GetBytes(value));
         return (T?)serializer.ReadObject(stream);
     }
 
@@ -165,7 +163,7 @@ public static class JsonExtensions
     /// Deserializes a JSON string to an object of type T using the specified JsonSerializerOptions.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="this">The JSON string to deserialize.</param>
+    /// <param name="value">The JSON string to deserialize.</param>
     /// <param name="jsonSerializerOptions">The options to use for deserialization.</param>
     /// <returns>The deserialized object.</returns>
     /// <example>
@@ -175,9 +173,9 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    public static T? Deserialize<T>(this string @this, JsonSerializerOptions? jsonSerializerOptions = null)
+    public static T? Deserialize<T>(this string value, JsonSerializerOptions? jsonSerializerOptions = null)
     {
-        return JsonSerializer.Deserialize<T>(@this, jsonSerializerOptions);
+        return JsonSerializer.Deserialize<T>(value, jsonSerializerOptions);
     }
 
     /// <summary>
@@ -198,129 +196,68 @@ public static class JsonExtensions
         return new JsonTextAccessor(JsonSerializer.Deserialize<JsonElement>(data));
     }
 
-    /// <summary>
-    /// Converts a JsonElement to a DataTable.
-    /// </summary>
-    /// <param name="dataRoot">The JsonElement to convert.</param>
-    /// <returns>A DataTable representation of the JsonElement.</returns>
-    /// <example>
-    /// <code>
-    /// var json = "[{\"Name\":\"John\",\"Age\":30},{\"Name\":\"Jane\",\"Age\":25}]";
-    /// var element = JsonSerializer.Deserialize&lt;JsonElement&gt;(json);
-    /// var dataTable = element.JsonElementToDataTable();
-    /// // dataTable: DataTable with columns "Name" and "Age"
-    /// </code>
-    /// </example>
     public static DataTable JsonElementToDataTable(this JsonElement dataRoot)
     {
         var dataTable = new DataTable();
         var firstPass = true;
         foreach (JsonElement element in dataRoot.EnumerateArray())
         {
-            if (firstPass)
-            {
-                foreach (JsonProperty col in element.EnumerateObject())
-                {
-                    JsonElement colValue = col.Value;
-                    Type? type = colValue.ValueKind.ValueKindToType(colValue.ToString());
-                    //if (type != null)
-                    //{
-                    dataTable.Columns.Add(new DataColumn(col.Name, type!));
-                    //}
-                    //else
-                    //{
-                    //    dataTable.Columns.Add(new DataColumn(col.Name, typeof(DBNull)));
-                    //}
-                }
-
-                firstPass = false;
-            }
-
             DataRow row = dataTable.NewRow();
+            dataTable.Rows.Add(row);
             foreach (JsonProperty col in element.EnumerateObject())
             {
+                if (firstPass)
+                {
+                    JsonElement colValue = col.Value;
+                    dataTable.Columns.Add(new DataColumn(col.Name, colValue.ValueKind.ValueKindToType(colValue.ToString())));
+                }
                 row[col.Name] = col.Value.JsonElementToTypedValue();
             }
-
-            dataTable.Rows.Add(row);
+            firstPass = false;
         }
 
         return dataTable;
     }
 
-    /// <summary>
-    /// Converts a JsonElement to a DataSet.
-    /// </summary>
-    /// <param name="dataRoot">The JsonElement to convert.</param>
-    /// <returns>A DataSet representation of the JsonElement.</returns>
-    /// <example>
-    /// <code>
-    /// var json = "{\"Table1\":[{\"Name\":\"John\",\"Age\":30}],\"Table2\":[{\"Name\":\"Jane\",\"Age\":25}]}";
-    /// var element = JsonSerializer.Deserialize&lt;JsonElement&gt;(json);
-    /// var dataSet = element.JsonElementToDataSet();
-    /// // dataSet: DataSet with tables "Table1" and "Table2"
-    /// </code>
-    /// </example>
-    public static DataSet JsonElementToDataSet(this JsonElement dataRoot)
+    private static Type ValueKindToType(this JsonValueKind valueKind, string value)
     {
-        var dataSet = new DataSet();
-        foreach (JsonProperty item in dataRoot.EnumerateObject())
+        switch (valueKind)
         {
-            DataTable dataTable = item.Value.JsonElementToDataTable();
-            dataTable.TableName = item.Name;
-            dataSet.Tables.Add(dataTable);
+            case JsonValueKind.String:
+                return typeof(string);
+            case JsonValueKind.Number:
+                if (long.TryParse(value, out _))
+                {
+                    return typeof(long);
+                }
+                else
+                {
+                    return typeof(double);
+                }
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                return typeof(bool);
+            case JsonValueKind.Undefined:
+                throw new NotSupportedException();
+            case JsonValueKind.Object:
+                return typeof(object);
+            case JsonValueKind.Array:
+                return typeof(Array);
+            case JsonValueKind.Null:
+                throw new NotSupportedException();
+            default:
+                return typeof(object);
         }
-
-        return dataSet;
     }
 
-    /// <summary>
-    /// Converts a JsonValueKind to a .NET Type.
-    /// </summary>
-    /// <param name="valueKind">The JsonValueKind to convert.</param>
-    /// <param name="value">The value to use for conversion.</param>
-    /// <returns>The corresponding .NET Type.</returns>
-    /// <example>
-    /// <code>
-    /// var type = JsonValueKind.String.ValueKindToType("example");
-    /// // type: typeof(string)
-    /// </code>
-    /// </example>
-    private static Type? ValueKindToType(this JsonValueKind valueKind, string value)
-    {
-        return valueKind switch
-        {
-            JsonValueKind.String => typeof(string),
-            JsonValueKind.Number => long.TryParse(value, out _) ? typeof(long) : typeof(double),
-            JsonValueKind.True or JsonValueKind.False => typeof(bool),
-            JsonValueKind.Undefined => null,
-            JsonValueKind.Object => typeof(object),
-            JsonValueKind.Array => typeof(Array),
-            JsonValueKind.Null => null,
-            _ => typeof(object)
-        };
-    }
-
-    /// <summary>
-    /// Converts a JsonElement to a typed value.
-    /// </summary>
-    /// <param name="jsonElement">The JsonElement to convert.</param>
-    /// <returns>The corresponding typed value.</returns>
-    /// <example>
-    /// <code>
-    /// var json = "{\"Name\":\"John\",\"Age\":30}";
-    /// var element = JsonSerializer.Deserialize&lt;JsonElement&gt;(json);
-    /// var value = element.GetProperty("Name").JsonElementToTypedValue();
-    /// // value: "John"
-    /// </code>
-    /// </example>
     private static object? JsonElementToTypedValue(this JsonElement jsonElement)
     {
         switch (jsonElement.ValueKind)
         {
-            case JsonValueKind.Object: // 1  (these need special handling)?
-            case JsonValueKind.Array: // 2
-            case JsonValueKind.String: // 3
+            case JsonValueKind.Object:
+            case JsonValueKind.Array:
+                throw new NotSupportedException();
+            case JsonValueKind.String:
                 if (jsonElement.TryGetGuid(out Guid guidValue))
                 {
                     return guidValue;
@@ -336,28 +273,24 @@ public static class JsonExtensions
                             return datetimeOffset;
                         }
                     }
-
                     return datetime;
                 }
-
                 return jsonElement.ToString();
-
-            case JsonValueKind.Number: // 4
+            case JsonValueKind.Number:
                 if (jsonElement.TryGetInt64(out var longValue))
                 {
                     return longValue;
                 }
-
-                return jsonElement.GetDouble();
-
-            case JsonValueKind.True: // 5
-            case JsonValueKind.False: // 6
+                else
+                {
+                    return jsonElement.GetDouble();
+                }
+            case JsonValueKind.True:
+            case JsonValueKind.False:
                 return jsonElement.GetBoolean();
-
-            case JsonValueKind.Undefined: // 0
-            case JsonValueKind.Null: // 7
+            case JsonValueKind.Undefined:
+            case JsonValueKind.Null:
                 return null;
-
             default:
                 return jsonElement.ToString();
         }
@@ -405,7 +338,7 @@ public static class JsonExtensions
         /// </summary>
         /// <param name="element">The JsonElement to obtain the value from.</param>
         /// <returns>The corresponding value.</returns>
-        private object? Obtain(in JsonElement element)
+        private static object? Obtain(in JsonElement element)
         {
             return element.ValueKind switch
             {

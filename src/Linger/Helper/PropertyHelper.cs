@@ -6,11 +6,12 @@ using Linger.Extensions.Core;
 namespace Linger.Helper;
 
 /// <summary>
-/// Helper class for property operations.
+/// Helper class for property operations with performance optimizations.
 /// </summary>
 public static class PropertyHelper
 {
     private static readonly ConcurrentDictionary<string, PropertyInfo?> s_cachedObjectProperties = new();
+    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
 
     /// <summary>
     /// Gets the member expression for the specified member name.
@@ -37,17 +38,11 @@ public static class PropertyHelper
     }
 
     /// <summary>
-    /// Gets the property name from the expression.
+    /// 获取属性名
     /// </summary>
-    /// <param name="expression">The property expression.</param>
-    /// <param name="getAll">Whether to get the full property path, e.g., a.b.c.</param>
-    /// <returns>The property name.</returns>
-    /// <example>
-    /// <code>
-    /// string propName = ExpressionHelper.GetPropertyName((MyClass x) => x.MyProperty);
-    /// // returns "MyProperty"
-    /// </code>
-    /// </example>
+    /// <param name="expression">属性表达式</param>
+    /// <param name="getAll">是否获取全部级别名称，比如a.b.c</param>
+    /// <returns>属性名</returns>
     public static string GetPropertyName(this Expression expression, bool getAll = true)
     {
         if (expression.IsNull())
@@ -92,7 +87,7 @@ public static class PropertyHelper
             {
                 if (mexp.Method.Name == "get_Item")
                 {
-                    object? index = null;
+                    object? index = default;
                     if (mexp.Arguments[0] is MemberExpression memberExpression1)
                     {
                         if (memberExpression1.Expression is ConstantExpression constantExpression)
@@ -158,7 +153,13 @@ public static class PropertyHelper
         PropertyInfo? rv = null;
         if (me != null)
         {
-            rv = me.Member.DeclaringType?.GetProperties().FirstOrDefault(x => x.Name == me.Member.Name);
+            var declaringType = me.Member.DeclaringType;
+            if (declaringType != null)
+            {
+                // Use cached properties for better performance
+                var properties = s_typePropertiesCache.GetOrAdd(declaringType, t => t.GetProperties());
+                rv = properties.FirstOrDefault(x => x.Name == me.Member.Name);
+            }
         }
 
         return rv;
@@ -202,7 +203,7 @@ public static class PropertyHelper
         Func<TValue> valueFactory,
         params Type[] ignoreAttributeTypes)
     {
-        TrySetProperty(obj, propertySelector, x => valueFactory(), ignoreAttributeTypes);
+        TrySetProperty(obj, propertySelector, _ => valueFactory(), ignoreAttributeTypes);
     }
 
     /// <summary>
@@ -238,8 +239,13 @@ public static class PropertyHelper
             }
 
             var memberExpression = (MemberExpression)propertySelector.Body;
+            var objType = obj?.GetType();
 
-            PropertyInfo? propertyInfo = obj?.GetType().GetProperties().FirstOrDefault(x =>
+            if (objType == null) return null;
+
+            // Use cached properties for better performance
+            var properties = s_typePropertiesCache.GetOrAdd(objType, t => t.GetProperties());
+            PropertyInfo? propertyInfo = properties.FirstOrDefault(x =>
                 x.Name == memberExpression.Member.Name &&
                 x.GetSetMethod(true) != null);
 

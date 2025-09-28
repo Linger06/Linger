@@ -1,4 +1,4 @@
-﻿namespace Linger.UnitTests.Extensions.Collection;
+namespace Linger.UnitTests.Extensions.Collection;
 
 public class IQueryableExtensionsTests
 {
@@ -51,7 +51,7 @@ public class IQueryableExtensionsTests
         IQueryable<TestEntity>? data = new List<TestEntity>().AsQueryable();
 
         // Act & Assert
-        Assert.Throws<ArgumentException>(() => data.CreateOrderBy("NonExistentProperty"));
+        Assert.Throws<System.ArgumentException>(() => data.CreateOrderBy("NonExistentProperty"));
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public class IQueryableExtensionsTests
         KeyValuePair<string, bool>[]? orderByPropertyList = Array.Empty<KeyValuePair<string, bool>>();
 
         // Assert
-        Assert.Throws<ArgumentException>(() => data.CreateOrderBy(orderByPropertyList));
+        Assert.Throws<System.ArgumentException>(() => data.CreateOrderBy(orderByPropertyList));
     }
 
 #endif

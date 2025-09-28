@@ -1,88 +1,168 @@
-﻿namespace Linger.UnitTests.JsonConverter;
+﻿using System.Text.Json;
+using Linger.JsonConverter;
+using Xunit.v3;
 
-public partial class DateTimeConverterTests
-{
-    [Fact]
-    public void Read_ValidDateString_ReturnsDateTime()
-    {
-        var json = "\"2023-10-01\"";
-        DateTime result = JsonSerializer.Deserialize<DateTime>(json, _options);
-        Assert.Equal(new DateTime(2023, 10, 1), result);
-    }
+namespace Linger.UnitTests.JsonConverter;
 
-    [Fact]
-    public void Read_InvalidDateString_ThrowsException()
-    {
-        var json = "\"invalid-date\"";
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<DateTime>(json, _options));
-    }
-
-    [Fact]
-    public void Write_DateTimeWithoutTime_WritesCorrectString()
-    {
-        var date = new DateTime(2023, 10, 1);
-        var json = JsonSerializer.Serialize(date, _options);
-        Assert.Equal("\"2023-10-01\"", json);
-    }
-
-    [Fact]
-    public void Write_DateTimeWithTime_WritesCorrectString()
-    {
-        var date = new DateTime(2023, 10, 1, 14, 30, 0);
-        var json = JsonSerializer.Serialize(date, _options);
-        Assert.Equal("\"2023-10-01 14:30:00\"", json);
-    }
-}
-
-public class DateTimeNullConverterTests
+public class DateTimeConverterTests
 {
     private readonly JsonSerializerOptions _options;
-
-    public DateTimeNullConverterTests()
+    private readonly JsonSerializerOptions _nullableOptions;
+    
+    public DateTimeConverterTests()
     {
         _options = new JsonSerializerOptions
+        {
+            Converters = { new DateTimeConverter() }
+        };
+        
+        _nullableOptions = new JsonSerializerOptions
         {
             Converters = { new DateTimeNullConverter() }
         };
     }
-
+    
     [Fact]
-    public void Read_ValidDateString_ReturnsNullableDateTime()
+    public void DateTimeConverter_Write_WithDateOnly_WritesDateFormat()
     {
-        var json = "\"2023-10-01\"";
-        DateTime? result = JsonSerializer.Deserialize<DateTime?>(json, _options);
-        Assert.Equal(new DateTime(2023, 10, 1), result);
+        // Arrange
+        var date = new DateTime(2025, 4, 11, 0, 0, 0);
+        
+        // Act
+        var json = JsonSerializer.Serialize(date, _options);
+        
+        // Assert
+        Assert.Equal("\"2025-04-11\"", json);
+    }
+    
+    [Fact]
+    public void DateTimeConverter_Write_WithTime_WritesDateTimeFormat()
+    {
+        // Arrange
+        var dateTime = new DateTime(2025, 4, 11, 14, 30, 45);
+        
+        // Act
+        var json = JsonSerializer.Serialize(dateTime, _options);
+        
+        // Assert
+        Assert.Equal("\"2025-04-11 14:30:45\"", json);
+    }
+    
+    [Fact]
+    public void DateTimeConverter_Read_WithDateFormat_ReturnsDateTime()
+    {
+        // Arrange
+        var json = "\"2025-04-11\"";
+        
+        // Act
+        var result = JsonSerializer.Deserialize<DateTime>(json, _options);
+        
+        // Assert
+        Assert.Equal(new DateTime(2025, 4, 11), result);
+    }
+    
+    [Fact]
+    public void DateTimeConverter_Read_WithDateTimeFormat_ReturnsDateTime()
+    {
+        // Arrange
+        var json = "\"2025-04-11 14:30:45\"";
+        
+        // Act
+        var result = JsonSerializer.Deserialize<DateTime>(json, _options);
+        
+        // Assert
+        Assert.Equal(new DateTime(2025, 4, 11, 14, 30, 45), result);
+    }
+    
+    [Fact]
+    public void DateTimeNullConverter_Write_WithNull_WritesNull()
+    {
+        // Arrange
+        DateTime? value = null;
+        
+        // Act
+        var json = JsonSerializer.Serialize<DateTime?>(value, _nullableOptions);
+        
+        // Assert
+        Assert.Equal("null", json);
     }
 
     [Fact]
-    public void Read_NullString_ReturnsNull()
+    public void DateTimeNullConverter_ReadWrite_RoundTrip_Null()
     {
+        // Arrange
+        DateTime? value = null;
+
+        // Act
+        var json = JsonSerializer.Serialize(value, _nullableOptions);
+        var back = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+
+        // Assert
+        Assert.Null(back);
+    }
+    
+    [Fact]
+    public void DateTimeNullConverter_Write_WithDateOnly_WritesDateFormat()
+    {
+        // Arrange
+        DateTime? date = new DateTime(2025, 4, 11, 0, 0, 0);
+        
+        // Act
+        var json = JsonSerializer.Serialize<DateTime?>(date, _nullableOptions);
+        
+        // Assert
+        Assert.Equal("\"2025-04-11\"", json);
+    }
+    
+    [Fact]
+    public void DateTimeNullConverter_Write_WithTime_WritesDateTimeFormat()
+    {
+        // Arrange
+        DateTime? dateTime = new DateTime(2025, 4, 11, 14, 30, 45);
+        
+        // Act
+        var json = JsonSerializer.Serialize<DateTime?>(dateTime, _nullableOptions);
+        
+        // Assert
+        Assert.Equal("\"2025-04-11 14:30:45\"", json);
+    }
+    
+    [Fact]
+    public void DateTimeNullConverter_Read_WithNull_ReturnsNull()
+    {
+        // Arrange
         var json = "null";
-        DateTime? result = JsonSerializer.Deserialize<DateTime?>(json, _options);
+        
+        // Act
+        var result = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+        
+        // Assert
         Assert.Null(result);
     }
-
+    
     [Fact]
-    public void Write_NullableDateTimeWithoutTime_WritesCorrectString()
+    public void DateTimeNullConverter_Read_WithEmptyString_ReturnsNull()
     {
-        DateTime? date = new DateTime(2023, 10, 1);
-        var json = JsonSerializer.Serialize(date, _options);
-        Assert.Equal("\"2023-10-01\"", json);
+        // Arrange
+        var json = "\"\"";
+        
+        // Act
+        var result = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+        
+        // Assert
+        Assert.Null(result);
     }
-
+    
     [Fact]
-    public void Write_NullableDateTimeWithTime_WritesCorrectString()
+    public void DateTimeNullConverter_Read_WithDateFormat_ReturnsDateTime()
     {
-        DateTime? date = new DateTime(2023, 10, 1, 14, 30, 0);
-        var json = JsonSerializer.Serialize(date, _options);
-        Assert.Equal("\"2023-10-01 14:30:00\"", json);
-    }
-
-    [Fact]
-    public void Write_NullableDateTimeNull_WritesNullString()
-    {
-        DateTime? date = null;
-        var json = JsonSerializer.Serialize(date, _options);
-        Assert.Equal("null", json);
+        // Arrange
+        var json = "\"2025-04-11\"";
+        
+        // Act
+        var result = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+        
+        // Assert
+        Assert.Equal(new DateTime(2025, 4, 11), result);
     }
 }

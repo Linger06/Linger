@@ -1,42 +1,10 @@
-﻿namespace Linger.Extensions.Core;
+namespace Linger.Extensions.Core;
 
 /// <summary>
 /// Provides extension methods for the <see cref="Guid"/> struct.
 /// </summary>
 public static class GuidExtensions
 {
-    /// <summary>
-    /// Generates a new <see cref="Guid"/> for database use.
-    /// </summary>
-    /// <remarks>
-    /// The generated <see cref="Guid"/> is based on the current date and time, 
-    /// ensuring uniqueness and suitability for database operations.
-    /// </remarks>
-    public static Guid NewId
-    {
-        get
-        {
-            var guidArray = Guid.NewGuid().ToByteArray();
-            DateTime dbMinDate = DateTimeExtensions.MsSqlDateTimeInitial;
-            DateTime nowDate = DateTime.Now;
-
-            var days = new TimeSpan(nowDate.Ticks - dbMinDate.Ticks);
-            var msSecond =
-                new TimeSpan(nowDate.Ticks - new DateTime(nowDate.Year, nowDate.Month, nowDate.Day).Ticks);
-
-            var daysArray = BitConverter.GetBytes(days.Days);
-            var msSecondArray = BitConverter.GetBytes((long)(msSecond.TotalMilliseconds / 3.333333));
-
-            Array.Reverse(daysArray);
-            Array.Reverse(msSecondArray);
-
-            Array.Copy(daysArray, daysArray.Length - 2, guidArray, guidArray.Length - 6, 2);
-            Array.Copy(msSecondArray, daysArray.Length - 4, guidArray, guidArray.Length - 4, 4);
-
-            return new Guid(guidArray);
-        }
-    }
-
     /// <summary>
     /// Check if the specified <see cref="Guid"/> is <see cref="Guid.Empty"/>.
     /// </summary>
@@ -64,7 +32,7 @@ public static class GuidExtensions
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is null; otherwise, <c>false</c>.</returns>
     public static bool IsNull(this Guid? value)
     {
-        return value == null;
+        return value is null;
     }
 
     /// <summary>
@@ -74,7 +42,7 @@ public static class GuidExtensions
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is not null; otherwise, <c>false</c>.</returns>
     public static bool IsNotNull(this Guid? value)
     {
-        return value != null;
+        return value is not null;
     }
 
     /// <summary>
@@ -84,17 +52,7 @@ public static class GuidExtensions
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is null or <see cref="Guid.Empty"/>; otherwise, <c>false</c>.</returns>
     public static bool IsNullOrEmpty(this Guid? value)
     {
-        if (value == null)
-        {
-            return true;
-        }
-
-        if (value.Value == Guid.Empty)
-        {
-            return true;
-        }
-
-        return false;
+        return value is null || value.Value == Guid.Empty;
     }
 
     /// <summary>
@@ -102,10 +60,18 @@ public static class GuidExtensions
     /// </summary>
     /// <param name="value">The nullable <see cref="Guid"/> to check.</param>
     /// <returns><c>true</c> if the nullable <see cref="Guid"/> is not null and not <see cref="Guid.Empty"/>; otherwise, <c>false</c>.</returns>
+    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
     public static bool IsNotNullAndEmpty(this Guid? value)
     {
         return !value.IsNullOrEmpty();
     }
+
+    /// <summary>
+    /// Determines whether the specified nullable <see cref="Guid"/> is neither null nor <see cref="Guid.Empty"/>.
+    /// </summary>
+    /// <param name="value">The nullable Guid.</param>
+    /// <returns><c>true</c> if value has a non-empty Guid; otherwise, <c>false</c>.</returns>
+    public static bool IsNotNullOrEmpty(this Guid? value) => !value.IsNullOrEmpty();
 
     /// <summary>
     /// Converts the specified <see cref="Guid"/> to a 64-bit integer.
@@ -145,15 +111,13 @@ public static class GuidExtensions
     {
         if (guid.Version == 7)
         {
-            string str = guid.ToString("N")[..12];
-            long milliseconds = Convert.ToInt64(str, 16);
-            DateTimeOffset timestamp = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
+            var str = guid.ToString("N")[..12];
+            var milliseconds = Convert.ToInt64(str, 16);
+            var timestamp = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds);
             return timestamp;
         }
-        else
-        {
-            throw new NotSupportedException("This method is only supported for GUIDs with version 7.");
-        }
+
+        throw new NotSupportedException("This method is only supported for GUIDs with version 7.");
     }
 #endif
 }

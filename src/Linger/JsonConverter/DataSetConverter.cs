@@ -1,7 +1,5 @@
-﻿#if !NETFRAMEWORK || NET462_OR_GREATER
+#if !NETFRAMEWORK || NET462_OR_GREATER
 
-using System.Data;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Linger.Extensions;
 
@@ -37,17 +35,17 @@ public class DataSetConverter : JsonConverter<DataSet>
     /// <summary>
     /// Writes a <see cref="DataSet"/> as JSON.
     /// </summary>
-    /// <param name="jsonWriter">The writer.</param>
+    /// <param name="writer">The writer.</param>
     /// <param name="value">The value to write.</param>
     /// <param name="options">The serializer options.</param>
-    public override void Write(Utf8JsonWriter jsonWriter, DataSet value, JsonSerializerOptions options)
+    public override void Write(Utf8JsonWriter writer, DataSet value, JsonSerializerOptions options)
     {
-        jsonWriter.WriteStartArray();
+        writer.WriteStartArray();
         foreach (DataTable table in value.Tables)
         {
-            DataTableJsonHelper.WriteDataTable(jsonWriter, table);
+            DataTableJsonHelper.WriteDataTable(writer, table);
         }
-        jsonWriter.WriteEndArray();
+        writer.WriteEndArray();
     }
 }
 

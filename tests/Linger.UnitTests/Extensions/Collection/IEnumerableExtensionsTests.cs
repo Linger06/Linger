@@ -74,7 +74,7 @@ public class IEnumerableExtensionsTests
             new SampleClass { Id = 4, Name = "D" }
         };
 
-        var result = left.LeftOuterJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
+        var result = left.LeftJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
 
         Assert.Equal(3, result.Count);
         Assert.Contains(result, x => x.l.Id == 1 && x.r == null);
@@ -88,18 +88,18 @@ public class IEnumerableExtensionsTests
         var list1 = new int?[] { 1, 2, 3 };
         var list2 = new int?[] { 3, 4, 5 };
 
-        var jointList = list1.LeftOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
+        var jointList = list1.LeftJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
-        jointList.Should().HaveCount(3);
+        Assert.Equal(3, jointList.Count());
 
-        jointList.ElementAt(0).x.Should().Be(1);
-        jointList.ElementAt(0).y.Should().BeNull();
+        Assert.Equal(1, jointList.ElementAt(0).x);
+        Assert.Null(jointList.ElementAt(0).y);
 
-        jointList.ElementAt(1).x.Should().Be(2);
-        jointList.ElementAt(1).y.Should().BeNull();
+        Assert.Equal(2, jointList.ElementAt(1).x);
+        Assert.Null(jointList.ElementAt(1).y);
 
-        jointList.ElementAt(2).x.Should().Be(3);
-        jointList.ElementAt(2).y.Should().Be(3);
+        Assert.Equal(3, jointList.ElementAt(2).x);
+        Assert.Equal(3, jointList.ElementAt(2).y);
     }
 
     [Fact]
@@ -118,7 +118,7 @@ public class IEnumerableExtensionsTests
             new SampleClass { Id = 4, Name = "D" }
         };
 
-        var result = left.RightOuterJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
+        var result = left.RightJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
 
         Assert.Equal(3, result.Count);
         Assert.Contains(result, x => x.l == null && x.r.Id == 4);
@@ -132,55 +132,18 @@ public class IEnumerableExtensionsTests
         var list1 = new int?[] { 1, 2, 3 };
         var list2 = new int?[] { 3, 4, 5 };
 
-        var jointList = list1.RightOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
+        var jointList = list1.RightJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
-        jointList.Should().HaveCount(3);
+        Assert.Equal(3, jointList.Count());
 
-        jointList.ElementAt(0).x.Should().Be(3);
-        jointList.ElementAt(0).y.Should().Be(3);
+        Assert.Equal(3, jointList.ElementAt(0).x);
+        Assert.Equal(3, jointList.ElementAt(0).y);
 
-        jointList.ElementAt(1).x.Should().BeNull();
-        jointList.ElementAt(1).y.Should().Be(4);
+        Assert.Null(jointList.ElementAt(1).x);
+        Assert.Equal(4, jointList.ElementAt(1).y);
 
-        jointList.ElementAt(2).x.Should().BeNull();
-        jointList.ElementAt(2).y.Should().Be(5);
-    }
-
-    [Fact]
-    public void InnerJoin_ShouldReturnInnerJoin()
-    {
-        var left = new List<SampleClass>
-        {
-            new SampleClass { Id = 1, Name = "A" },
-            new SampleClass { Id = 2, Name = "B" },
-            new SampleClass { Id = 3, Name = "C" }
-        };
-        var right = new List<SampleClass>
-        {
-            new SampleClass { Id = 2, Name = "B" },
-            new SampleClass { Id = 3, Name = "C" },
-            new SampleClass { Id = 4, Name = "D" }
-        };
-
-        var result = left.InnerJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
-
-        Assert.Equal(2, result.Count);
-        Assert.Contains(result, x => x.l.Id == 2 && x.r.Id == 2);
-        Assert.Contains(result, x => x.l.Id == 3 && x.r.Id == 3);
-    }
-
-    [Fact]
-    public void InnerJoin_ShouldReturnLeftOuterJoinWihtIntType()
-    {
-        var list1 = new int?[] { 1, 2, 3 };
-        var list2 = new int?[] { 3, 4, 5 };
-
-        var jointList = list1.InnerJoin(list2, x => x, y => y, (x, y) => new { x, y });
-
-        jointList.Should().HaveCount(1);
-
-        jointList.ElementAt(0).x.Should().Be(3);
-        jointList.ElementAt(0).y.Should().Be(3);
+        Assert.Null(jointList.ElementAt(2).x);
+        Assert.Equal(5, jointList.ElementAt(2).y);
     }
 
     [Fact]
@@ -199,7 +162,7 @@ public class IEnumerableExtensionsTests
             new SampleClass { Id = 4, Name = "D" }
         };
 
-        var result = left.FullOuterJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
+        var result = left.FullJoin(right, l => l.Id, r => r.Id, (l, r) => new { l, r }).ToList();
 
         Assert.Equal(4, result.Count);
         Assert.Contains(result, x => x.l!.Id == 1 && x.r == null);
@@ -214,24 +177,24 @@ public class IEnumerableExtensionsTests
         var list1 = new int?[] { 1, 2, 3 };
         var list2 = new int?[] { 3, 4, 5 };
 
-        var jointList = list1.FullOuterJoin(list2, x => x, y => y, (x, y) => new { x, y });
+        var jointList = list1.FullJoin(list2, x => x, y => y, (x, y) => new { x, y });
 
-        jointList.Should().HaveCount(5);
+        Assert.Equal(5, jointList.Count());
 
-        jointList.ElementAt(0).x.Should().Be(1);
-        jointList.ElementAt(0).y.Should().BeNull();
+        Assert.Equal(1, jointList.ElementAt(0).x);
+        Assert.Null(jointList.ElementAt(0).y);
 
-        jointList.ElementAt(1).x.Should().Be(2);
-        jointList.ElementAt(1).y.Should().BeNull();
+        Assert.Equal(2, jointList.ElementAt(1).x);
+        Assert.Null(jointList.ElementAt(1).y);
 
-        jointList.ElementAt(2).x.Should().Be(3);
-        jointList.ElementAt(2).y.Should().Be(3);
+        Assert.Equal(3, jointList.ElementAt(2).x);
+        Assert.Equal(3, jointList.ElementAt(2).y);
 
-        jointList.ElementAt(3).x.Should().BeNull();
-        jointList.ElementAt(3).y.Should().Be(4);
+        Assert.Null(jointList.ElementAt(3).x);
+        Assert.Equal(4, jointList.ElementAt(3).y);
 
-        jointList.ElementAt(4).x.Should().BeNull();
-        jointList.ElementAt(4).y.Should().Be(5);
+        Assert.Null(jointList.ElementAt(4).x);
+        Assert.Equal(5, jointList.ElementAt(4).y);
     }
 
     [Fact]
@@ -301,6 +264,36 @@ public class IEnumerableExtensionsTests
     }
 
     [Fact]
+    public void IsNullOrEmpty_WithNonCollectionIterator_ShouldEnumerateOnce()
+    {
+        // Arrange: Where 返回的迭代器不是 ICollection<T>
+        IEnumerable<int> src = Enumerable.Range(1, 3).Where(x => x > 2);
+
+        // Act + Assert
+        Assert.False(src.IsNullOrEmpty());
+    }
+
+    [Fact]
+    public void ToCollection_ReturnsUnderlyingCollection_WhenAlreadyCollection()
+    {
+        var list = new List<int> { 1, 2, 3 };
+        var collection = list.ToCollection();
+
+        Assert.Same(list, collection);
+        Assert.Equal(3, collection.Count);
+    }
+
+    [Fact]
+    public void ToCollection_MaterializesIterator_WhenNotCollection()
+    {
+        IEnumerable<int> notCollection = Enumerable.Range(1, 3).Where(x => x > 0);
+        var collection = notCollection.ToCollection();
+
+        Assert.Equal(3, collection.Count);
+        Assert.IsAssignableFrom<ICollection<int>>(collection);
+    }
+
+    [Fact]
     public void ToSeparatedString_ShouldReturnSeparatedString()
     {
         var list = new List<int> { 1, 2, 3 };
@@ -346,6 +339,84 @@ public class IEnumerableExtensionsTests
         var list = new List<string?> { "a", null, "b" };
         var result = list.ToSeparatedString(format: null);
         Assert.Equal("a,,b", result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsCorrectPageForIntegers()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3, 4, 5 };
+
+        var result = enumerable.Paging(2, 2).ToList();
+
+        Assert.Equal(new List<int> { 3, 4 }, result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmptyForOutOfRangePage()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3 };
+
+        var result = enumerable.Paging(4, 2).ToList();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsPartialPageForLastPage()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3, 4 };
+
+        var result = enumerable.Paging(2, 3).ToList();
+
+        Assert.Equal(new List<int> { 4 }, result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmptyForEmptyEnumerable()
+    {
+        IEnumerable<int> enumerable = Array.Empty<int>();
+
+        var result = enumerable.Paging(1, 2).ToList();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmptyForNullEnumerable()
+    {
+        IEnumerable<int>? enumerable = null;
+
+        var result = enumerable.Paging(1, 2).ToList();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Paging_WorksWithStrings()
+    {
+        IEnumerable<string> enumerable = new[] { "A", "B", "C", "D", "E" };
+
+        var result = enumerable.Paging(2, 2).ToList();
+
+        Assert.Equal(new List<string> { "C", "D" }, result);
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmpty_WhenPageIndexIsZeroOrLess()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3 };
+
+        Assert.Empty(enumerable.Paging(0, 2));
+        Assert.Empty(enumerable.Paging(-1, 2));
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmpty_WhenPageSizeIsZeroOrLess()
+    {
+        IEnumerable<int> enumerable = new[] { 1, 2, 3 };
+
+        Assert.Empty(enumerable.Paging(1, 0));
+        Assert.Empty(enumerable.Paging(1, -2));
     }
 
     [Sample]

@@ -1,4 +1,3 @@
-﻿using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Linger.Extensions.Core;
 
@@ -24,8 +23,8 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (action == null) throw new ArgumentNullException(nameof(action));
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(action);
 
         foreach (T item in source)
         {
@@ -48,8 +47,8 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static void ForEach<T>(this IEnumerable<T> source, Action<T, int> action)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (action == null) throw new ArgumentNullException(nameof(action));
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(action);
 
         var index = 0;
         foreach (T item in source)
@@ -76,41 +75,10 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static bool HasAttribute(this IEnumerable<CustomAttributeData> customs, Type type)
     {
-        if (customs == null) throw new ArgumentNullException(nameof(customs));
-        if (type == null) throw new ArgumentNullException(nameof(type));
+        ArgumentNullException.ThrowIfNull(customs);
+        ArgumentNullException.ThrowIfNull(type);
 
         return customs.Any(a => a.AttributeType == type);
-    }
-
-#endif
-
-#if !NET6_0_OR_GREATER
-
-    /// <summary>
-    /// Returns distinct elements from a sequence by using a specified key selector.
-    /// </summary>
-    /// <typeparam name="TSource">The type of the elements in the source sequence.</typeparam>
-    /// <typeparam name="TKey">The type of the key returned by the key selector.</typeparam>
-    /// <param name="source">The source sequence.</param>
-    /// <param name="keySelector">A function to extract the key for each element.
-    /// x =&gt; new { x.PurchaseOrder, x.BusinessPartner, x.Buyer, x.Currency }
-    ///</param>
-    /// <returns>An <see cref="IEnumerable{T}"/> that contains distinct elements from the source sequence.</returns>
-    /// <example>
-    /// <code>
-    /// var list = new List&lt;Person&gt; { new Person { Id = 1 }, new Person { Id = 1 }, new Person { Id = 2 } };
-    /// var distinctList = list.DistinctBy(p => p.Id);
-    /// // Output: [{ Id = 1 }, { Id = 2 }]
-    /// </code>
-    /// </example>
-    public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source,
-        Func<TSource, TKey> keySelector)
-    {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
-
-        var hash = new HashSet<TKey>();
-        return source.Where(p => hash.Add(keySelector(p)));
     }
 
 #endif
@@ -133,10 +101,10 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static DataTable ToDataTable<T>(this IEnumerable<T> recordList, Action<DataColumn, ColumnInfo>? actionColumn = null, Action<DataRow, ColumnInfo, T>? actionRow = null) // where T : new()
     {
-        if (recordList == null) throw new ArgumentNullException(nameof(recordList));
+        ArgumentNullException.ThrowIfNull(recordList);
 
         Type type = typeof(T);
-        List<ColumnInfo> columns = type.GetColumnsInfo();
+        var columns = type.GetColumnsInfo();
         DataTable dt = new DataTable()
             .AddColumns(columns, actionColumn)
             .AddRows(columns, recordList, actionRow);
@@ -236,13 +204,12 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static string ToSeparatedString<T>(this IEnumerable<T>? self, string separator = ",", Func<T, string>? format = null)
     {
-        if (separator == null) throw new ArgumentNullException(nameof(separator));
+        ArgumentNullException.ThrowIfNull(separator);
         if (self == null) return string.Empty;
 
         var formattedList = self.Select(item => format?.Invoke(item) ?? item?.ToString() ?? string.Empty);
         return string.Join(separator, formattedList);
     }
-
 
     /// <summary>
     /// Determines whether the enumerable is null or empty.
@@ -259,6 +226,139 @@ public static partial class IEnumerableExtensions
     /// </example>
     public static bool IsNullOrEmpty<T>([NotNullWhen(false)] this IEnumerable<T>? query)
     {
-        return query == null || !query.Any();
+        if (query is null)
+            return true;
+
+        // Fast-paths for collections
+        if (query is ICollection<T> c)
+            return c.Count == 0;
+        if (query is IReadOnlyCollection<T> rc)
+            return rc.Count == 0;
+
+        using var e = query.GetEnumerator();
+        return !e.MoveNext();
+    }
+
+    /// <summary>
+    /// Performs a full outer join on two sequences.
+    /// </summary>
+    /// <typeparam name="TOuter">The type of the elements of the first sequence.</typeparam>
+    /// <typeparam name="TInner">The type of the elements of the second sequence.</typeparam>
+    /// <typeparam name="TKey">The type of the key returned by the key selector functions.</typeparam>
+    /// <typeparam name="TResult">The type of the result elements.</typeparam>
+    /// <param name="outer">The first sequence to join.</param>
+    /// <param name="inner">The second sequence to join.</param>
+    /// <param name="outerKeySelector">A function to extract the join key from each element of the first sequence.</param>
+    /// <param name="innerKeySelector">A function to extract the join key from each element of the second sequence.</param>
+    /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
+    /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a full outer join on two sequences.</returns>
+    /// <remarks>
+    /// The result contains rows for keys that appear in either sequence. Where no match exists, the corresponding side is <c>null</c>.
+    /// Duplicate keys produce multiple rows.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var outer = new List&lt;int&gt; { 1, 2, 3 };
+    /// var inner = new List&lt;int&gt; { 3, 4, 5 };
+    /// var result = outer.FullJoin(inner, o => o, i => i, (o, i) => new { Outer = o, Inner = i });
+    /// // Output: [{ Outer = 1, Inner = null }, { Outer = 2, Inner = null }, { Outer = 3, Inner = 3 }, { Outer = null, Inner = 4 }, { Outer = null, Inner = 5 }]
+    ///
+    /// // Duplicate keys
+    /// var i2 = new List&lt;int&gt; { 2, 2 };
+    /// var all = new List&lt;int&gt; { 2 }.FullJoin(i2, x => x, y => y, (x, y) => (x, y)).ToList();
+    /// // Output: [(2, 2), (2, 2)]
+    /// </code>
+    /// </example>
+    public static IEnumerable<TResult> FullJoin<TOuter, TInner, TKey, TResult>(
+            this IEnumerable<TOuter> outer,
+            IEnumerable<TInner> inner,
+            Func<TOuter, TKey> outerKeySelector,
+            Func<TInner, TKey> innerKeySelector,
+            Func<TOuter?, TInner?, TResult> resultSelector)
+    {
+        //IEnumerable<TResult>? leftResult = LeftOuterJoin(left, right, leftKey, rightKey, result);
+        //IEnumerable<TResult>? rightResult = RightOuterJoin(left, right, leftKey, rightKey, result);
+        //return leftResult.Union(rightResult);
+
+        var outerLookup = outer.ToLookup(outerKeySelector);
+        var innerLookup = inner.ToLookup(innerKeySelector);
+
+        var keys = new HashSet<TKey>(outerLookup.Select(p => p.Key));
+        keys.UnionWith(innerLookup.Select(p => p.Key));
+
+        IEnumerable<TResult> result = from key in keys
+                                      from xOuter in outerLookup[key].DefaultIfEmpty()
+                                      from xInner in innerLookup[key].DefaultIfEmpty()
+                                      select resultSelector(xOuter, xInner);
+
+        return result;
+    }
+
+    /// <summary>
+    /// Paginates the <see cref="IEnumerable{T}"/> based on the specified page index and page size.
+    /// </summary>
+    /// <typeparam name="T">The type of the elements in the enumerable.</typeparam>
+    /// <param name="source">The <see cref="IEnumerable{T}"/> to paginate.</param>
+    /// <param name="pageIndex">The index of the page to retrieve (1-based).</param>
+    /// <param name="pageSize">The size of the page to retrieve.</param>
+    /// <returns>A paginated <see cref="IEnumerable{T}"/>.</returns>
+    /// <remarks>
+    /// When <paramref name="source"/> is null, or <paramref name="pageIndex"/> &lt;= 0, or <paramref name="pageSize"/> &lt;= 0,
+    /// this method returns an empty sequence.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// var enumerable = new[] { 1, 2, 3, 4, 5 };
+    /// var result = enumerable.Paging(2, 2);
+    /// // Output: [3, 4]
+    ///
+    /// // boundary cases
+    /// var empty1 = enumerable.Paging(0, 2);     // [] (pageIndex <= 0)
+    /// var empty2 = enumerable.Paging(1, 0);     // [] (pageSize <= 0)
+    /// IEnumerable<int>? none = null;
+    /// var empty3 = none.Paging(1, 10);          // [] (null source)
+    /// </code>
+    /// </example>
+    public static IEnumerable<T> Paging<T>(this IEnumerable<T>? source, int pageIndex, int pageSize)
+    {
+        if (source is null)
+            return [];
+
+        if (pageIndex <= 0)
+            return [];
+
+        if (pageSize <= 0)
+            return [];
+
+        return source.Skip((pageIndex - 1) * pageSize).Take(pageSize);
+    }
+
+    /// <summary>
+    /// Returns an <see cref="ICollection{T}"/> view for the given sequence.
+    /// </summary>
+    /// <typeparam name="T">Element type.</typeparam>
+    /// <param name="source">Source sequence.</param>
+    /// <returns>
+    /// If the source already implements <see cref="ICollection{T}"/>, it's returned directly;
+    /// otherwise a <see cref="List{T}"/> is materialized. When source is null, returns <see cref="Array.Empty{T}"/>.
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// IEnumerable<int> it = Enumerable.Range(1, 3).Where(x => x > 1);
+    /// ICollection<int> col = it.ToCollection(); // materialized as List<int>
+    /// IReadOnlyCollection<int> empty = ((IEnumerable<int>?)null).ToCollection(); // Array.Empty<int>()
+    /// </code>
+    /// </example>
+    public static ICollection<T> ToCollection<T>(this IEnumerable<T>? source)
+    {
+        if (source is null)
+            return Array.Empty<T>();
+
+        // Avoid invalid cast for non-collection enumerables (e.g., LINQ WhereIterator)
+        if (source is ICollection<T> collection)
+            return collection;
+
+        // Materialize once into a List<T> to provide ICollection semantics
+        return source.ToList();
     }
 }

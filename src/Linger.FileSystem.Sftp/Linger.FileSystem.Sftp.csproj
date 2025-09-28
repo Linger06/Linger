@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0</TargetFrameworks>
+        <Version>0.9.5</Version>
+        <Description>
+            An SFTP implementation of the Linger FileSystem abstraction.
+            Provides a secure file transfer protocol client using SSH.NET for file operations.
+            Supports both password and certificate-based authentication with configurable retry capabilities.
+        </Description>        
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="SSH.NET" Version="2025.0.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Linger.FileSystem\Linger.FileSystem.csproj" />
+    </ItemGroup>
+
+</Project>

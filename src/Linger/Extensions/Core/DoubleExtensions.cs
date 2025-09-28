@@ -1,4 +1,4 @@
-﻿namespace Linger.Extensions.Core;
+namespace Linger.Extensions.Core;
 
 /// <summary>
 /// <see cref="double"/> extensions
@@ -8,30 +8,20 @@ public static class DoubleExtensions
     /// <summary>
     /// Returns the size corresponding to the ContentLength.
     /// </summary>
-    /// <param name="length">The length of the ContentLength.</param>
+    /// <param name="contentLength">The length of the ContentLength.</param>
     /// <returns>The size in Bytes/KB/MB/GB/TB/PB.</returns>
-    public static string FileSize(this double length)
+    public static string FormatFileSize(this double contentLength)
     {
-        string[] units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
+        ReadOnlySpan<string> units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
         const double Mod = 1024.0;
         var i = 0;
-        while (length >= Mod)
+        while (contentLength >= Mod && i < units.Length - 1)
         {
-            length /= Mod;
+            contentLength /= Mod;
             i++;
         }
 
-        return Math.Round(length) + units[i];
-    }
-
-    /// <summary>
-    /// Converts the value of this instance to its string representation with thousand separators.
-    /// </summary>
-    /// <param name="value">The <see cref="double"/> to convert.</param>
-    /// <returns>A string representation of the value with thousand separators.</returns>
-    public static string ToThousand(this double value)
-    {
-        return $"{value:N}";
+        return $"{Math.Round(contentLength)}{units[i]}";
     }
 
     /// <summary>

@@ -1,6 +1,5 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using System.Reflection;
-
 #if NET5_0_OR_GREATER
 
 using Linger.Extensions.Core;
@@ -34,12 +33,7 @@ public static class IQueryableExtensions
     {
         var command = isOrderByAsc ? "OrderBy" : "OrderByDescending";
         Type type = typeof(T);
-        PropertyInfo? property = type.GetProperty(orderByPropertyName);
-        if (property == null)
-        {
-            throw new ArgumentException($"Cannot find Property:{nameof(orderByPropertyName)} in {nameof(T)}");
-        }
-
+        PropertyInfo property = type.GetProperty(orderByPropertyName) ?? throw new System.ArgumentException($"Cannot find Property:{nameof(orderByPropertyName)} in {nameof(T)}");
         ParameterExpression parameter = Expression.Parameter(type, "p");
         MemberExpression propertyAccess = Expression.MakeMemberAccess(parameter, property);
         LambdaExpression orderByExpression = Expression.Lambda(propertyAccess, parameter);
@@ -125,11 +119,11 @@ public static class IQueryableExtensions
     public static IQueryable<T> CreateOrderBy<T>(this IQueryable<T> source,
         params KeyValuePair<string, bool>[] orderByPropertyList)
     {
-        orderByPropertyList.EnsureIsNotNull();
+        ArgumentNullException.ThrowIfNull(source, nameof(source));
 
         if (orderByPropertyList.Length == 0)
         {
-            throw new ArgumentException("The length of params cannot be zero", nameof(orderByPropertyList));
+            throw new System.ArgumentException("The length of params cannot be zero", nameof(orderByPropertyList));
         }
 
         if (orderByPropertyList.Length == 1)
@@ -142,7 +136,7 @@ public static class IQueryableExtensions
 
         Expression<Func<T, object>> KeySelectorFunc(string propertyName)
         {
-            propertyName.EnsureStringIsNotNullAndEmpty(message: "The parameter cannot be null or empty");
+            ArgumentException.ThrowIfNullOrEmpty(propertyName, nameof(propertyName));
             MemberExpression property = Expression.Property(param, propertyName);
             UnaryExpression converted = Expression.Convert(property, typeof(object));
             return Expression.Lambda<Func<T, object>>(converted, param);

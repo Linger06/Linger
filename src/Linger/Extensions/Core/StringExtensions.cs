@@ -1,241 +1,83 @@
-﻿using System.Diagnostics.CodeAnalysis;
+// This file contains string extension methods that have been split into multiple files by functionality.
+// The actual implementations are in the following files:
+//   - StringExtensions.Validation.cs    : String null/empty/whitespace validation methods
+//   - StringExtensions.Numeric.cs       : Numeric type validation methods
+//   - StringExtensions.Manipulation.cs  : String manipulation and transformation methods
+//   - StringExtensions.Split.cs         : String splitting and query appending methods
+//   - StringExtensions.Encoding.cs      : Hash and Base64 encoding methods
+//   - StringExtensions.Regex.cs         : Regular expression validation methods
+//   - StringExtensions.Special.cs       : Special utility methods
+
 using System.Text.RegularExpressions;
 
 namespace Linger.Extensions.Core;
 
+/// <summary>
+/// Provides extension methods for string operations including validation, manipulation, encoding, and regex validation.
+/// This is a partial class with implementations distributed across multiple files for better organization.
+/// </summary>
 public static partial class StringExtensions
 {
+    // All methods are implemented in separate files based on functionality.
+    // This main file serves as documentation for the class structure.
+
     /// <summary>
-    /// Check if the specified string is null.
+    /// 删除圆括号和括号里的内容
     /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is null; otherwise, false.</returns>
-    public static bool IsNull([NotNullWhen(false)] this string? value)
+    /// <param name="value"></param>
+    /// <returns></returns>
+    public static string DeleteBrackets(this string value)
     {
-        return value == null;
+        var str = value.Replace("（", "(").Replace("）", ")");
+        return Regex.Replace(str.Replace("（", "(").Replace("）", ")"), @"\([^\(]*\)", "");
     }
 
     /// <summary>
-    /// Check if the specified string is empty.
+    /// 将当前 <see cref="string"/> 转换为 List&lt; <see cref="string"/>&gt;
     /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is empty; otherwise, false.</returns>
-    public static bool IsEmpty(this string value)
+    /// <param name="value"><see cref="string"/></param>
+    /// <param name="symbol">分隔符，默认为回车换行</param>
+    /// <returns>List&lt;string&gt;</returns>
+    public static List<string> ToSplitList(this string value, string symbol = "\r\n")
     {
-        return value == string.Empty;
-    }
-
-    /// <summary>
-    /// Check if the specified string is null or empty.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is null or empty; otherwise, false.</returns>
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this string? value)
-    {
-        return string.IsNullOrEmpty(value);
-    }
-
-    /// <summary>
-    /// Check if the specified string is null or consists only of white-space characters.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is null or consists only of white-space characters; otherwise, false.</returns>
-    public static bool IsNullOrWhiteSpace([NotNullWhen(false)] this string? value)
-    {
-#if !NETFRAMEWORK || NET40_OR_GREATER
-        return string.IsNullOrWhiteSpace(value);
-#else
-        if ((object)value == null)
+        if (value.IsNullOrEmpty())
         {
-            return true;
+            return Enumerable.Empty<string>().ToList();
         }
 
-        for (int i = 0; i < value.Length; i++)
+        return Regex.Split(value, symbol, RegexOptions.IgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// 将当前 <see cref="string"/> 转换为 List&lt; <see cref="string"/>&gt;
+    /// </summary>
+    /// <param name="value"><see cref="string"/></param>
+    /// <param name="symbol">分隔符，默认为英文逗号 <see cref="char"/></param>
+    /// <returns>List&lt; <see cref="string"/>&gt;</returns>
+    public static IEnumerable<string> ToSplitList(this string value, char symbol = ',')
+    {
+        var value2 = value.ToSplitArray(symbol);
+        return value2.ToEnumerable();
+    }
+
+    public static string[] ToSplitArrayByCrlf(this string value)
+    {
+        if (value.IsNullOrEmpty())
         {
-            if (!char.IsWhiteSpace(value[i]))
-            {
-                return false;
-            }
+            return [];
         }
 
-        return true;
-#endif
+        return Regex.Split(value, Environment.NewLine, RegexOptions.IgnoreCase);
     }
 
-    /// <summary>
-    /// Check if the specified string is not null.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is not null; otherwise, false.</returns>
-    public static bool IsNotNull([NotNullWhen(true)] this string? value)
+    public static string[] ToSplitArray(this string value, char symbol = ',')
     {
-        return value != null;
-    }
-
-    /// <summary>
-    /// Check if the specified string is not empty.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is not empty; otherwise, false.</returns>
-    public static bool IsNotEmpty(this string value)
-    {
-        return value != string.Empty;
-    }
-
-    /// <summary>
-    /// Check if the specified string is not null and not empty.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is not null and not empty; otherwise, false.</returns>
-    public static bool IsNotNullAndEmpty([NotNullWhen(true)] this string? value)
-    {
-        return !string.IsNullOrEmpty(value);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="short"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="short"/> type; otherwise, false.</returns>
-    public static bool IsInt16(this string value)
-    {
-        return short.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to an <see cref="int"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to an <see cref="int"/> type; otherwise, false.</returns>
-    public static bool IsInt(this string value)
-    {
-        return int.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="long"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="long"/> type; otherwise, false.</returns>
-    public static bool IsInt64(this string value)
-    {
-        return long.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="decimal"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="decimal"/> type; otherwise, false.</returns>
-    public static bool IsDecimal(this string value)
-    {
-        return decimal.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="float"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="float"/> type; otherwise, false.</returns>
-    public static bool IsSingle(this string value)
-    {
-        return float.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="double"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="double"/> type; otherwise, false.</returns>
-    public static bool IsDouble(this string value)
-    {
-        return double.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="DateTime"/> object.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="DateTime"/> object; otherwise, false.</returns>
-    public static bool IsDateTime(this string value)
-    {
-        return DateTime.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="bool"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="bool"/> type; otherwise, false.</returns>
-    public static bool IsBoolean(this string value)
-    {
-        return bool.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="Guid"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="Guid"/> type; otherwise, false.</returns>
-    public static bool IsGuid(this string value)
-    {
-        return Guid.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="Guid"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <param name="format">The exact format to use when interpreting the input: "N", "D", "B", "P", or "X".</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="Guid"/> type; otherwise, false.</returns>
-    public static bool IsGuid(this string value, string format)
-    {
-        return Guid.TryParseExact(value, format, out _);
-    }
-
-    /// <summary>
-    /// Determines whether the specified string is a positive integer.
-    /// </summary>
-    /// <param name="s">The string to validate.</param>
-    /// <returns>True if the string is a positive integer; otherwise, false.</returns>
-    public static bool IsPositiveInteger(this string s)
-    {
-        var pattern = @"^\d*$";
-        return Regex.IsMatch(s, pattern);
-    }
-
-    /// <summary>
-    /// Determines whether the specified string is an integer.
-    /// </summary>
-    /// <param name="s">The string to validate.</param>
-    /// <returns>True if the string is an integer; otherwise, false.</returns>
-    public static bool IsInteger(this string s)
-    {
-        var pattern = @"^-?\d+$";
-        return Regex.IsMatch(s, pattern);
-    }
-
-    /// <summary>
-    /// Determines whether the specified string is a valid number with the specified precision and scale.
-    /// </summary>
-    /// <param name="s">The string to validate.</param>
-    /// <param name="precision">The maximum number of digits.</param>
-    /// <param name="scale">The maximum number of decimal places.</param>
-    /// <returns>True if the string is a valid number; otherwise, false.</returns>
-    public static bool IsNumber(this string s, int precision = 32, int scale = 0)
-    {
-        if (precision == 0 && scale == 0)
+        if (value.IsNullOrEmpty())
         {
-            return false;
+            return [];
         }
 
-        var pattern = @"(^\d{1," + precision + "}";
-        if (scale > 0)
-        {
-            pattern += @"\.\d{0," + scale + "}$)|" + pattern;
-        }
-
-        pattern += "$)";
-        return Regex.IsMatch(s, pattern);
+        return value.Split(symbol);
     }
+
 }

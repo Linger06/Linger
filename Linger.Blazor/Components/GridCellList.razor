@@ -1,0 +1,120 @@
+@typeparam TItem
+@using MudBlazor
+
+<div class="grid-container @Class" style="display: grid; grid-template-columns: repeat(@ColumnsCount, @(CellWidth)px); gap: @GapSize; @Style">
+    @if (Items != null)
+    {
+        @foreach (var item in Items)
+        {
+            @RenderGridCell(item)
+        }
+    }
+    else if (LoadingTemplate != null)
+    {
+        <div class="grid-loading">
+            @LoadingTemplate
+        </div>
+    }
+    else if (EmptyTemplate != null && (Items == null || Items.Count == 0))
+    {
+        <div class="grid-empty">
+            @EmptyTemplate
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<TItem>? Items { get; set; }
+
+    [Parameter]
+    public int CellWidth { get; set; } = 100;
+
+    [Parameter]
+    public int CellHeight { get; set; } = 100;
+
+    /// <summary>
+    /// 网格列数，没有最大值限制，可以根据需要设置任意值
+    /// </summary>
+    [Parameter]
+    public int ColumnsCount { get; set; } = 3;
+
+    [Parameter]
+    public Func<TItem, string>? ColorSelector { get; set; }
+
+    [Parameter]
+    public Func<TItem, bool>? IsSelectedSelector { get; set; }
+
+    [Parameter]
+    public EventCallback<TItem> OnCellClick { get; set; }
+
+    [Parameter]
+    public RenderFragment<TItem>? CellTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? LoadingTemplate { get; set; }
+
+    [Parameter]
+    public RenderFragment? EmptyTemplate { get; set; }
+
+    [Parameter]
+    public string GapSize { get; set; } = "4px";
+
+    [Parameter]
+    public string Class { get; set; } = "";
+
+    [Parameter]
+    public string Style { get; set; } = "";
+
+    [Parameter]
+    public string CellClass { get; set; } = "";
+
+    [Parameter]
+    public bool EnableHoverEffect { get; set; } = true;
+
+    private async Task OnCellClicked(TItem item)
+    {
+        if (OnCellClick.HasDelegate)
+        {
+            await OnCellClick.InvokeAsync(item);
+        }
+    }
+
+    private RenderFragment RenderGridCell(TItem item) => builder =>
+    {
+        var backgroundColor = ColorSelector?.Invoke(item) ?? "#ffffff";
+        var isSelected = IsSelectedSelector?.Invoke(item) ?? false;
+        var selectedClass = isSelected ? "grid-cell-selected" : "";
+        var hoverClass = EnableHoverEffect ? "grid-cell-hover" : "";
+        
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", $"grid-cell {selectedClass} {hoverClass} {CellClass}");
+        builder.AddAttribute(2, "style", $"width: {CellWidth}px; height: {CellHeight}px; background-color: {backgroundColor}; " +
+                                       "display: flex; justify-content: center; align-items: center; cursor: pointer; " + 
+                                       "border-radius: 4px; overflow: hidden;");
+        builder.AddAttribute(3, "onclick", EventCallback.Factory.Create<MouseEventArgs>(this, () => OnCellClicked(item)));
+        // 添加鼠标事件处理以保持选中状态
+        builder.AddAttribute(4, "onmouseover", EventCallback.Factory.Create<MouseEventArgs>(this, _ => PreserveSelection(isSelected)));
+        
+        builder.OpenElement(5, "div");
+        builder.AddAttribute(6, "class", "grid-cell-content");
+        
+        if (CellTemplate != null)
+        {
+            builder.AddContent(7, CellTemplate(item));
+        }
+        else
+        {
+            builder.AddContent(7, item?.ToString());
+        }
+        
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    // 添加方法确保选中状态在鼠标悬停时不会消失
+    private void PreserveSelection(bool isSelected)
+    {
+        // 这个方法为空，但确保了DOM事件不会导致重新渲染时丢失状态
+    }
+}

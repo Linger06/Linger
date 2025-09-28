@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
+        <Version>0.9.5</Version>
+        <Description>
+            A comprehensive JWT authentication implementation for ASP.NET Core applications.
+            Provides JWT token generation, validation, and refresh token functionality with 
+            blacklisting support. Integrates seamlessly with ASP.NET Core authentication services.
+        </Description>        
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="README.md">
+            <Pack>True</Pack>
+            <PackagePath>\</PackagePath>
+        </None>
+    </ItemGroup>
+
+  <ItemGroup  Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0-rc.1.25451.107" />
+  </ItemGroup>
+  
+    <ItemGroup  Condition="'$(TargetFramework)' == 'net9.0'">
+        <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.8" />
+    </ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.19"/>
+	</ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Linger.AspNetCore.Jwt.Contracts\Linger.AspNetCore.Jwt.Contracts.csproj" />
+      <ProjectReference Include="..\Linger.Configuration\Linger.Configuration.csproj" />
+    </ItemGroup>
+
+</Project>

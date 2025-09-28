@@ -1,0 +1,483 @@
+using Linger.Extensions.Core.Internal;
+
+namespace Linger.Extensions.Core;
+
+public static partial class StringExtensions
+{
+    /// <summary>
+    /// Check if the specified string is equivalent to a <see cref="short"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is equivalent to a <see cref="short"/> type; otherwise, false.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
+    public static bool IsInt16(this string? value) => value.IsType<short>(short.TryParse);
+
+    /// <summary>
+    /// Check if the specified string is equivalent to an <see cref="int"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is equivalent to an <see cref="int"/> type; otherwise, false.</returns>
+    public static bool IsInt(this string? value) => value.IsType<int>(int.TryParse);
+
+    /// <summary>
+    /// 判断字符串是否可以解析为任一有符号整数 (short/int/long)。
+    /// </summary>
+    public static bool IsAnySignedInteger(this string? value) => value.IsInt16() || value.IsInt() || value.IsInt64();
+
+    /// <summary>
+    /// Check if the specified string is equivalent to a <see cref="long"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is equivalent to a <see cref="long"/> type; otherwise, false.</returns>
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
+    public static bool IsInt64(this string? value) => value.IsType<long>(long.TryParse);
+
+    /// <summary>
+    /// Check if the specified string is equivalent to a <see cref="decimal"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is equivalent to a <see cref="decimal"/> type; otherwise, false.</returns>
+    public static bool IsDecimal(this string? value) => value.IsType<decimal>(decimal.TryParse);
+
+    /// <summary>
+    /// 判断字符串是否可以解析为 <see cref="float"/>。首选此方法，替代早期的 <c>IsSingle</c>。
+    /// </summary>
+    /// <param name="value">待检测字符串。</param>
+    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c>。</returns>
+    public static bool IsFloat(this string? value) => value.IsType<float>(float.TryParse);
+
+    /// <summary>
+    /// (已弃用) 判断字符串是否可以解析为 <see cref="float"/>。请使用 <see cref="IsFloat(string?)"/>。
+    /// </summary>
+    /// <remarks>将在 1.0.0 版本移除。</remarks>
+    /// <param name="value">待检测字符串。</param>
+    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c>。</returns>
+    [Obsolete("Use IsFloat() instead. Will be removed in 1.0.0.")]
+    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
+    public static bool IsSingle(this string? value) => IsFloat(value);
+
+    /// <summary>
+    /// Check if the specified string is equivalent to a <see cref="double"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is equivalent to a <see cref="double"/> type; otherwise, false.</returns>
+    public static bool IsDouble(this string? value) => value.IsType<double>(double.TryParse);
+
+    /// <summary>
+    /// Determines whether the specified date string is a datetime.
+    /// </summary>
+    /// <param name="value">The date string.</param>
+    /// <param name="format">Array of date formats.</param>
+    /// <returns>
+    ///   <c>true</c> if the specified date string is a date; otherwise, <c>false</c>.
+    /// </returns>
+    public static bool IsDateTime(this string value, string[] format)
+    {
+        if (value == null) return false;
+        return (DateTime.TryParseExact(value, format, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _));
+    }
+
+    /// <summary>
+    /// Determines whether the specified date string is datetime.
+    /// </summary>
+    /// <param name="value">The date string.</param>
+    /// <param name="format">The date format.</param>
+    /// <returns>
+    ///   <c>true</c> if the specified date string is a date; otherwise, <c>false</c>.
+    /// </returns>
+    public static bool IsDateTime(this string value, string format)
+    {
+        if (value == null) return false;
+        return (DateTime.TryParseExact(value, format, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _));
+    }
+
+    /// <summary>
+    /// Check if the specified string is equivalent to a <see cref="bool"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is equivalent to a <see cref="bool"/> type; otherwise, false.</returns>
+    public static bool IsBoolean(this string value)
+    {
+        return bool.TryParse(value, out _);
+    }
+
+    /// <summary>
+    /// Check if the specified string is equivalent to a <see cref="Guid"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is equivalent to a <see cref="Guid"/> type; otherwise, false.</returns>
+    public static bool IsGuid(this string value)
+    {
+        return Guid.TryParse(value, out _);
+    }
+
+    /// <summary>
+    /// Check if the specified string is equivalent to a <see cref="Guid"/> type.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <param name="format">The exact format to use when interpreting the input: "N", "D", "B", "P", or "X".</param>
+    /// <returns>Returns true if the string is equivalent to a <see cref="Guid"/> type; otherwise, false.</returns>
+    public static bool IsGuid(this string value, string format)
+    {
+        return Guid.TryParseExact(value, format, out _);
+    }
+
+    /// <summary>
+    /// Determines whether the specified string is a positive integer.
+    /// </summary>
+    /// <param name="s">The string to validate.</param>
+    /// <returns>True if the string is a positive integer; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result1 = "123".IsPositiveInteger(); // true
+    /// bool result2 = "0".IsPositiveInteger(); // true
+    /// bool result3 = "-123".IsPositiveInteger(); // false
+    /// bool result4 = "abc".IsPositiveInteger(); // false
+    /// </code>
+    /// </example>
+    public static bool IsPositiveInteger(this string s)
+    {
+        if (s.IsNullOrWhiteSpace())
+            return false;
+
+#if NET8_0_OR_GREATER
+        ReadOnlySpan<char> span = s.AsSpan();
+        if (span.IsEmpty)
+            return false;
+
+        // 检查每个字符是否都是数字
+        foreach (var c in span)
+        {
+            if (!char.IsDigit(c))
+                return false;
+        }
+
+        return true;
+#else
+        if (s.Length == 0)
+            return false;
+
+        // 检查每个字符是否都是数字
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (!char.IsDigit(s[i]))
+                return false;
+        }
+
+        return true;
+#endif
+    }
+
+    /// <summary>
+    /// Determines whether the specified string is an integer.
+    /// </summary>
+    /// <param name="s">The string to validate.</param>
+    /// <returns>True if the string is an integer; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result1 = "123".IsInteger(); // true
+    /// bool result2 = "-123".IsInteger(); // true
+    /// bool result3 = "12.3".IsInteger(); // false
+    /// bool result4 = "abc".IsInteger(); // false
+    /// </code>
+    /// </example>
+    public static bool IsInteger(this string s)
+    {
+        if (s.IsNullOrWhiteSpace())
+            return false;
+
+#if NET8_0_OR_GREATER
+        ReadOnlySpan<char> span = s.AsSpan();
+        if (span.IsEmpty)
+            return false;
+
+        var startIndex = 0;
+
+        // 检查可选的负号
+        if (span[0] == '-')
+        {
+            if (span.Length == 1) // 只有一个负号
+                return false;
+            startIndex = 1;
+        }
+
+        // 检查剩余字符是否都是数字
+        for (var i = startIndex; i < span.Length; i++)
+        {
+            if (!char.IsDigit(span[i]))
+                return false;
+        }
+
+        return true;
+#else
+        if (s.Length == 0)
+            return false;
+
+        var startIndex = 0;
+
+        // 检查可选的负号
+        if (s[0] == '-')
+        {
+            if (s.Length == 1) // 只有一个负号
+                return false;
+            startIndex = 1;
+        }
+
+        // 检查剩余字符是否都是数字
+        for (var i = startIndex; i < s.Length; i++)
+        {
+            if (!char.IsDigit(s[i]))
+                return false;
+        }
+
+        return true;
+#endif
+    }
+
+    /// <summary>
+    /// Determines whether the specified string is a valid number with the specified precision and scale.
+    /// </summary>
+    /// <param name="s">The string to validate.</param>
+    /// <param name="precision">The maximum number of digits before the decimal point.</param>
+    /// <param name="scale">The maximum number of decimal places.</param>
+    /// <returns>True if the string is a valid number; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result1 = "123".IsNumber(5, 0); // true (3位整数，小于等于5位)
+    /// bool result2 = "123.45".IsNumber(3, 2); // true (3位整数，2位小数)
+    /// bool result3 = "123.456".IsNumber(3, 2); // false (超过小数位数)
+    /// bool result4 = "1234567".IsNumber(5, 0); // false (超过整数位数)
+    /// </code>
+    /// </example>
+    public static bool IsNumber(this string s, int precision = 32, int scale = 0)
+    {
+        if (s.IsNullOrWhiteSpace())
+            return false;
+
+        if (precision == 0 && scale == 0)
+            return false;
+
+#if NET8_0_OR_GREATER
+        ReadOnlySpan<char> span = s.AsSpan();
+        if (span.IsEmpty)
+            return false;
+
+        var integerDigits = 0;  // 小数点前的位数
+        var decimalPlaces = 0;  // 小数点后的位数
+        var foundDecimal = false;
+
+        foreach (var c in span)
+        {
+            if (char.IsDigit(c))
+            {
+                if (foundDecimal)
+                {
+                    decimalPlaces++;
+                    if (decimalPlaces > scale)
+                        return false;
+                }
+                else
+                {
+                    integerDigits++;
+                    if (integerDigits > precision)
+                        return false;
+                }
+            }
+            else if (c == '.' && !foundDecimal)
+            {
+                foundDecimal = true;
+            }
+            else
+            {
+                return false; // 无效字符
+            }
+        }
+
+        // 检查整数位数和小数位数是否符合要求
+        return integerDigits <= precision && decimalPlaces <= scale;
+#else
+        if (s.Length == 0)
+            return false;
+
+        var integerDigits = 0;  // 小数点前的位数
+        var decimalPlaces = 0;  // 小数点后的位数
+        var foundDecimal = false;
+
+        for (var i = 0; i < s.Length; i++)
+        {
+            var c = s[i];
+            if (char.IsDigit(c))
+            {
+                if (foundDecimal)
+                {
+                    decimalPlaces++;
+                    if (decimalPlaces > scale)
+                        return false;
+                }
+                else
+                {
+                    integerDigits++;
+                    if (integerDigits > precision)
+                        return false;
+                }
+            }
+            else if (c == '.' && !foundDecimal)
+            {
+                foundDecimal = true;
+            }
+            else
+            {
+                return false; // 无效字符
+            }
+        }
+
+        // 检查整数位数和小数位数是否符合要求
+        return integerDigits <= precision && decimalPlaces <= scale;
+#endif
+    }
+
+    /// <summary>
+    /// Determines whether the specified string is in scientific notation format.
+    /// </summary>
+    /// <param name="input">The string to validate.</param>
+    /// <returns>True if the string is in scientific notation format; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool result1 = "1.23e10".IsScientificNotation(); // true
+    /// bool result2 = "1.23E-5".IsScientificNotation(); // true
+    /// bool result3 = "-3.14e+2".IsScientificNotation(); // true
+    /// bool result4 = "123".IsScientificNotation(); // false
+    /// bool result5 = "1.23".IsScientificNotation(); // false
+    /// </code>
+    /// </example>
+    public static bool IsScientificNotation(this string input)
+    {
+        if (input == null)
+            return false;
+
+#if NET8_0_OR_GREATER
+        ReadOnlySpan<char> span = input.AsSpan();
+        if (span.IsEmpty)
+            return false;
+
+        var pos = 0;
+
+        // 检查可选的符号
+        if (span[pos] is '+' or '-')
+            pos++;
+
+        if (pos >= span.Length)
+            return false;
+
+        // 检查至少一个数字
+        if (!char.IsDigit(span[pos]))
+            return false;
+
+        // 跳过数字
+        while (pos < span.Length && char.IsDigit(span[pos]))
+            pos++;
+
+        // 可选的小数部分
+        if (pos < span.Length && span[pos] == '.')
+        {
+            pos++;
+            // 小数点后必须有至少一个数字
+            if (pos >= span.Length || !char.IsDigit(span[pos]))
+                return false;
+            while (pos < span.Length && char.IsDigit(span[pos]))
+                pos++;
+        }
+
+        // 必须有E或e
+        if (pos >= span.Length || (span[pos] != 'e' && span[pos] != 'E'))
+            return false;
+        pos++;
+
+        // E后可选的符号
+        if (pos < span.Length && (span[pos] is '+' or '-'))
+            pos++;
+
+        // E后必须有至少一个数字
+        if (pos >= span.Length || !char.IsDigit(span[pos]))
+            return false;
+
+        // 跳过指数部分的数字
+        while (pos < span.Length && char.IsDigit(span[pos]))
+            pos++;
+
+        // 确保没有多余字符
+        return pos == span.Length;
+#else
+        if (input.Length == 0)
+            return false;
+
+        var pos = 0;
+
+        // 检查可选的符号
+        if (input[pos] == '+' || input[pos] == '-')
+            pos++;
+
+        if (pos >= input.Length)
+            return false;
+
+        // 检查至少一个数字
+        if (!char.IsDigit(input[pos]))
+            return false;
+
+        // 跳过数字
+        while (pos < input.Length && char.IsDigit(input[pos]))
+            pos++;
+
+        // 可选的小数部分
+        if (pos < input.Length && input[pos] == '.')
+        {
+            pos++;
+            // 小数点后必须有至少一个数字
+            if (pos >= input.Length || !char.IsDigit(input[pos]))
+                return false;
+            while (pos < input.Length && char.IsDigit(input[pos]))
+                pos++;
+        }
+
+        // 必须有E或e
+        if (pos >= input.Length || (input[pos] != 'e' && input[pos] != 'E'))
+            return false;
+        pos++;
+
+        // E后可选的符号
+        if (pos < input.Length && (input[pos] == '+' || input[pos] == '-'))
+            pos++;
+
+        // E后必须有至少一个数字
+        if (pos >= input.Length || !char.IsDigit(input[pos]))
+            return false;
+
+        // 跳过指数部分的数字
+        while (pos < input.Length && char.IsDigit(input[pos]))
+            pos++;
+
+        // 确保没有多余字符
+        return pos == input.Length;
+#endif
+    }
+
+    /// <summary>
+    /// Converts a scientific notation string to its equivalent <see cref="decimal"/> value.
+    /// </summary>
+    /// <param name="input">The input string in scientific notation.</param>
+    /// <returns>The equivalent <see cref="decimal"/> value.</returns>
+    /// <exception cref="FormatException">Thrown when the input string is not in scientific notation.</exception>
+    public static decimal ToDecimalForScientificNotation(this string input)
+    {
+        decimal dData;
+        if (input.IsScientificNotation())
+        {
+            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float, ExtensionMethodSetting.DefaultCulture));
+        }
+        else
+        {
+            throw new FormatException(nameof(input));
+        }
+        return dData;
+    }
+}

@@ -1,6 +1,7 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using System.Text;
-
+using Linger.Extensions.Core;
+using Linger.Helper;
 #if NET6_0_OR_GREATER
 #endif
 
@@ -25,6 +26,7 @@ public static class StreamExtensions
     /// }
     /// </code>
     /// </example>
+    [Obsolete("This method is obsolete, use ComputeHashMd5 instead. Will be removed in 1.0.0.")]
     public static string ToMd5Hash(this Stream inputStream)
     {
         _ = inputStream.Seek(0, SeekOrigin.Begin);
@@ -32,7 +34,7 @@ public static class StreamExtensions
         var sb = new StringBuilder();
         foreach (var bytes in hashBytes)
         {
-            _ = sb.Append(bytes.ToString("X2"));
+            _ = sb.Append(bytes.ToString("X2", ExtensionMethodSetting.DefaultCulture));
         }
 
         return sb.ToString();
@@ -78,7 +80,7 @@ public static class StreamExtensions
     public static async Task<byte[]> ToMd5HashByteAsync(this Stream stream)
     {
         using var md5 = MD5.Create();
-        var hashBytes = await md5.ComputeHashAsync(stream);
+        var hashBytes = await md5.ComputeHashAsync(stream).ConfigureAwait(false);
         return hashBytes;
     }
 
@@ -102,15 +104,14 @@ public static class StreamExtensions
     {
         _ = inputStream.Seek(0, SeekOrigin.Begin);
         var arrayHashValue = inputStream.ToMd5HashByte();
-        var strHashData = BitConverter.ToString(arrayHashValue).Replace("-", string.Empty);
-        return strHashData;
+        return arrayHashValue.ToMd5HashCode();
     }
 
     /// <summary>
-    /// Writes the current Stream to a file.
+    /// 将流写入到文件
     /// </summary>
-    /// <param name="stream">The input stream.</param>
-    /// <param name="filePath">The file path to write to.</param>
+    /// <param name="stream">要写入的流</param>
+    /// <param name="filePath">文件路径</param>
     /// <example>
     /// <code>
     /// using (var stream = File.OpenRead("example.txt"))
@@ -121,35 +122,57 @@ public static class StreamExtensions
     /// </example>
     public static void ToFile(this Stream stream, string filePath)
     {
-        // Convert Stream to byte[]
-        var bytes = new byte[stream.Length];
-        _ = stream.Read(bytes, 0, bytes.Length);
-        // Set the current position of the stream to the beginning
-        _ = stream.Seek(0, SeekOrigin.Begin);
-        // Write byte[] to file
-        var fs = new FileStream(filePath, FileMode.Create);
-        var bw = new BinaryWriter(fs);
-        bw.Write(bytes);
-        bw.Close();
-        fs.Close();
+        FileHelper.EnsureDirectoryExists(filePath);
+
+        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+
+        // 对于可查找的流，尝试将位置重置到开始
+        if (stream.CanSeek)
+        {
+            stream.Position = 0;
+        }
+
+        // 使用CopyTo方法进行流复制，适用于所有类型的流
+        stream.CopyTo(fs);
+        fs.Flush();
+    }
+
+    /// <summary>
+    /// 异步将流写入到文件
+    /// </summary>
+    /// <param name="stream">要写入的流</param>
+    /// <param name="filePath">文件路径</param>
+    /// <returns>表示异步操作的任务</returns>
+    /// <example>
+    /// <code>
+    /// using (var stream = File.OpenRead("example.txt"))
+    /// {
+    ///     await stream.ToFileAsync("output.txt");
+    /// }
+    /// </code>
+    /// </example>
+    public static async Task ToFileAsync(this Stream stream, string filePath)
+    {
+        FileHelper.EnsureDirectoryExists(filePath);
+
+        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+
+        // 对于可查找的流，尝试将位置重置到开始
+        if (stream.CanSeek)
+        {
+            stream.Position = 0;
+        }
+
+        // 使用CopyToAsync方法进行异步流复制
+        await stream.CopyToAsync(fs).ConfigureAwait(false);
+        await fs.FlushAsync().ConfigureAwait(false);
     }
 }
 
 /// <summary>
-/// Represents information about a file being uploaded.
+/// Represents extended metadata about an existing file.
 /// </summary>
-public class CustomFileInfo : CustomExistFileInfo
-{
-    /// <summary>
-    /// Gets or sets the new file name.
-    /// </summary>
-    public string? NewFileName { get; set; }
-}
-
-/// <summary>
-/// Represents information about an existing file.
-/// </summary>
-public class CustomExistFileInfo : BaseFileInfo
+public class ExtendedFileInfo : BaseFileInfo
 {
     /// <summary>
     /// Gets or sets the relative file path.

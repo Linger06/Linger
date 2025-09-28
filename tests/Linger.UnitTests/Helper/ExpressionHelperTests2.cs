@@ -267,7 +267,7 @@ public class ExpressionHelperTests2
         var orderColumns0 = new List<string> { "Parent", "Age" };
         var orderDirs0 = new List<string> { "asc", "desc" };
 
-        Assert.Throws<NullReferenceException>(() => ExpressionHelper.GetOrderBy<Student>(orderColumns0, orderDirs0));
+        Assert.Throws<InvalidOperationException>(() => ExpressionHelper.GetOrderBy<Student>(orderColumns0, orderDirs0));
     }
 
     [Fact]

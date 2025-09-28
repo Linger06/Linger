@@ -1,5 +1,6 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using System.Reflection;
+using System.Collections.Concurrent;
 using Linger.Enums;
 using Linger.Extensions.Core;
 
@@ -14,8 +15,25 @@ namespace Linger.Helper;
 /// </code>
 /// </example>
 /// </summary>
-public static partial class ExpressionHelper
+public static class ExpressionHelper
 {
+    /// <summary>
+    /// Cache for reflection MethodInfo lookups to reduce repeated reflection cost.
+    /// Key: (DeclaringType, MethodName, ParameterCount)
+    /// Value: MethodInfo (unconstructed generic definition if applicable) or null when not found.
+    /// </summary>
+    private static readonly ConcurrentDictionary<(Type Type, string Name, int ParamCount), MethodInfo?> _methodCache = new();
+
+    private static MethodInfo? GetCachedMethod(Type type, string name, int paramCount)
+    {
+        return _methodCache.GetOrAdd((type, name, paramCount), static key =>
+        {
+            // Search public static/instance methods; for our usage we only target public ones.
+            return key.Type
+                .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance)
+                .FirstOrDefault(m => m.Name == key.Name && m.GetParameters().Length == key.ParamCount);
+        });
+    }
     /// <summary>
     /// Creates a lambda expression that always returns true.
     /// </summary>
@@ -142,16 +160,27 @@ public static partial class ExpressionHelper
     /// </example>
     public static IEnumerable<T> OrderBy<T>(this IEnumerable<T> query, string propertyName, string sort)
     {
-        LambdaExpression expr = GetOrderExpression<T>(propertyName);
-        PropertyInfo propInfo = typeof(T).GetPropertyInfo(propertyName);
-        MethodInfo method = typeof(Enumerable).GetMethods().First(m => m.Name == sort && m.GetParameters().Length == 2);
-        MethodInfo genericMethod = method.MakeGenericMethod(typeof(T), propInfo.PropertyType);
-        var orderBy = genericMethod.Invoke(null, [query, expr.Compile()]);
-        if (orderBy == null)
+        ArgumentNullException.ThrowIfNull(query);
+        if (string.IsNullOrEmpty(propertyName)) throw new System.ArgumentException("Property name cannot be null or empty", nameof(propertyName));
+        if (string.IsNullOrEmpty(sort)) throw new System.ArgumentException("Sort direction cannot be null or empty", nameof(sort));
+
+        try
         {
-            throw new Exception("Unable to find the corresponding sorting property.");
+            LambdaExpression expr = GetOrderExpression<T>(propertyName);
+            PropertyInfo propInfo = typeof(T).GetPropertyInfo(propertyName);
+            // Retrieve and cache the base generic definition (OrderBy / OrderByDescending with 2 parameters)
+            MethodInfo method = GetCachedMethod(typeof(Enumerable), sort, 2) ?? throw new MissingMethodException(nameof(Enumerable), sort);
+            MethodInfo genericMethod = method.MakeGenericMethod(typeof(T), propInfo.PropertyType);
+            var orderBy = genericMethod.Invoke(null, [query, expr.Compile()]);
+
+            return orderBy as IEnumerable<T> ?? throw new InvalidOperationException(
+                $"Failed to sort by property '{propertyName}' using direction '{sort}'.");
         }
-        return (IEnumerable<T>)orderBy;
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            throw new InvalidOperationException(
+                $"Failed to perform ordering operation on property '{propertyName}'.", ex);
+        }
     }
 
     /// <summary>
@@ -399,6 +428,329 @@ public static partial class ExpressionHelper
         Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.StdNotIn, Value = arrayValue });
         return Expression.Lambda<Func<T, bool>>(expression, parameter);
     }
+
+    /// <summary>  
+    /// Generates a function to order a queryable collection based on a list of sort information.  
+    /// </summary>  
+    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
+    /// <param name="sortList">A list of <see cref="SortInfo"/> objects containing the sorting information.</param>  
+    /// <returns>A function that orders a queryable collection, or null if the sort list is null or empty.</returns>  
+    /// <example>  
+    /// <code>  
+    /// var sortList = new List&lt;SortInfo&gt; { new SortInfo { Property = "Name", Direction = SortDirection.Ascending } };  
+    /// var orderByFunc = ExpressionHelper.GetOrderBy&lt;MyClass&gt;(sortList);  
+    /// var orderedQueryable = orderByFunc(myQueryable);  
+    /// </code>  
+    /// </example>  
+    public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<SortInfo>? sortList)
+    {
+        if (sortList == null)
+            return null;
+
+        if (sortList.Count == 0)
+            return null;
+
+        var propertyList = new List<string>();
+        var dirList = new List<string>();
+        foreach (SortInfo sortInfo in sortList)
+        {
+            var propertyName = sortInfo.Property;
+            var dir = sortInfo.Direction.ToString();
+            propertyList.Add(propertyName);
+            dirList.Add(dir);
+        }
+
+        return GetOrderBy<T>(propertyList, dirList);
+    }
+
+    /// <summary>  
+    /// Generates a function to order a queryable collection based on specified columns and directions.  
+    /// </summary>  
+    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
+    /// <param name="orderColumn">A list of column names to sort by.</param>  
+    /// <param name="orderDir">A list of sort directions corresponding to the columns.</param>  
+    /// <returns>A function that orders a queryable collection.</returns>  
+    /// <example>  
+    /// <code>  
+    /// var orderColumns = new List&lt;string&gt; { "Name", "Age" };  
+    /// var orderDirs = new List&lt;string&gt; { "asc", "desc" };  
+    /// var orderByFunc = ExpressionHelper.GetOrderBy&lt;MyClass&gt;(orderColumns, orderDirs);  
+    /// var orderedQueryable = orderByFunc(myQueryable);  
+    /// </code>  
+    /// </example>  
+    public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<string> orderColumn, List<string> orderDir)
+    {
+        var ascKey = "OrderBy";
+        var descKey = "OrderByDescending";
+
+        Type typeQueryable = typeof(IQueryable<T>);
+        ParameterExpression argQueryable = Expression.Parameter(typeQueryable, "jk");
+        LambdaExpression outerExpression = Expression.Lambda(argQueryable, argQueryable);
+
+        for (var i = 0; i < orderColumn.Count; i++)
+        {
+            var columnName = orderColumn[i];
+            var dirKey = orderDir[i].ToLower();
+            var props = columnName.Split('.');
+            Type type = typeof(T);
+            ParameterExpression arg = Expression.Parameter(type, "uf");
+            Expression expr = arg;
+
+            foreach (var prop in props)
+            {
+                PropertyInfo? pi = type.GetProperty(prop, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
+                if (pi == null)
+                {
+                    throw new InvalidOperationException(nameof(pi));
+                }
+
+                expr = Expression.Property(expr, pi);
+                type = pi.PropertyType;
+            }
+
+            LambdaExpression lambda = Expression.Lambda(expr, arg);
+            var methodName = dirKey == "asc" ? ascKey : descKey;
+            MethodCallExpression resultExp = Expression.Call(typeof(Queryable), methodName, [typeof(T), type], outerExpression.Body, Expression.Quote(lambda));
+
+            outerExpression = Expression.Lambda(resultExp, argQueryable);
+
+            ascKey = "ThenBy";
+            descKey = "ThenByDescending";
+        }
+
+        return (Func<IQueryable<T>, IOrderedQueryable<T>>?)outerExpression.Compile();
+    }
+
+    /// <summary>  
+    /// Builds a lambda expression for filtering a queryable collection based on a set of conditions.  
+    /// </summary>  
+    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
+    /// <param name="conditions">A collection of <see cref="Condition"/> objects representing the filter conditions.</param>  
+    /// <returns>A lambda expression for filtering the collection.</returns>  
+    /// <example>  
+    /// <code>  
+    /// var conditions = new List&lt;Condition&gt; { new Condition { Field = "Name", Op = CompareOperator.Equals, Value = "John" } };  
+    /// var filterLambda = ExpressionHelper.BuildLambda&lt;MyClass&gt;(conditions);  
+    /// var filteredQueryable = myQueryable.Where(filterLambda);  
+    /// </code>  
+    /// </example>  
+    public static Expression<Func<T, bool>> BuildLambda<T>(IEnumerable<Condition>? conditions)
+    {
+        if (conditions is null)
+        {
+            return x => true;
+        }
+
+        // Materialize once to avoid multiple enumeration / Any() cost.
+        var list = conditions as IList<Condition> ?? conditions.ToList();
+        if (list.Count == 0)
+        {
+            return x => true;
+        }
+
+        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
+
+        // Single pass partition: simple vs grouped.
+        var simpleExpressions = new List<Expression>();
+        var grouped = new Dictionary<string, List<Condition>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var c in list)
+        {
+            if (string.IsNullOrEmpty(c.OrGroup))
+            {
+                simpleExpressions.Add(GetExpression(parameter, c));
+            }
+            else
+            {
+                // c.OrGroup cannot be null here due to IsNullOrEmpty check above; use ! to satisfy nullable flow.
+                if (!grouped.TryGetValue(c.OrGroup!, out var bucket))
+                {
+                    bucket = new List<Condition>();
+                    grouped[c.OrGroup!] = bucket;
+                }
+                bucket.Add(c);
+            }
+        }
+
+        // Build grouped OR expressions.
+        if (grouped.Count > 0)
+        {
+            foreach (var kvp in grouped)
+            {
+                simpleExpressions.Add(GetGroupExpression(parameter, kvp.Value));
+            }
+        }
+
+        // Combine with AndAlso (short-circuit building to avoid Aggregate delegate overhead).
+        Expression? combined = null;
+        for (int i = 0; i < simpleExpressions.Count; i++)
+        {
+            combined = combined is null ? simpleExpressions[i] : Expression.AndAlso(combined, simpleExpressions[i]);
+        }
+
+        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
+    }
+
+    /// <summary>  
+    /// Builds a lambda expression for filtering a queryable collection using the AndAlso operator.  
+    /// </summary>  
+    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
+    /// <param name="conditions">A collection of <see cref="Condition"/> objects representing the filter conditions.</param>  
+    /// <returns>A lambda expression for filtering the collection using the AndAlso operator.</returns>  
+    /// <example>  
+    /// <code>  
+    /// var conditions = new List&lt;Condition&gt; { new Condition { Field = "Age", Op = CompareOperator.GreaterThan, Value = 30 } };  
+    /// var filterLambda = ExpressionHelper.BuildAndAlsoLambda&lt;MyClass&gt;(conditions);  
+    /// var filteredQueryable = myQueryable.Where(filterLambda);  
+    /// </code>  
+    /// </example>  
+    public static Expression<Func<T, bool>> BuildAndAlsoLambda<T>(IEnumerable<Condition>? conditions)
+    {
+        if (conditions is null)
+        {
+            return x => true;
+        }
+
+        // Materialize only if needed for count check.
+        var list = conditions as IList<Condition> ?? conditions.ToList();
+        if (list.Count == 0)
+        {
+            return x => true;
+        }
+
+        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
+        Expression? combined = null;
+        foreach (var c in list)
+        {
+            var exp = GetExpression(parameter, c);
+            combined = combined is null ? exp : Expression.AndAlso(combined, exp);
+        }
+
+        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
+    }
+
+    /// <summary>  
+    /// Builds a lambda expression for filtering a queryable collection using the OrElse operator.  
+    /// </summary>  
+    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
+    /// <param name="conditions">A collection of <see cref="Condition"/> objects representing the filter conditions.</param>  
+    /// <returns>A lambda expression for filtering the collection using the OrElse operator.</returns>  
+    /// <example>  
+    /// <code>  
+    /// var conditions = new List&lt;Condition&gt; { new Condition { Field = "Age", Op = CompareOperator.LessThan, Value = 20 } };  
+    /// var filterLambda = ExpressionHelper.BuildOrElseLambda&lt;MyClass&gt;(conditions);  
+    /// var filteredQueryable = myQueryable.Where(filterLambda);  
+    /// </code>  
+    /// </example>  
+    public static Expression<Func<T, bool>> BuildOrElseLambda<T>(IEnumerable<Condition>? conditions)
+    {
+        if (conditions is null)
+        {
+            return x => true;
+        }
+
+        var list = conditions as IList<Condition> ?? conditions.ToList();
+        if (list.Count == 0)
+        {
+            return x => true;
+        }
+
+        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
+        Expression? combined = null;
+        foreach (var c in list)
+        {
+            var exp = GetExpression(parameter, c);
+            combined = combined is null ? exp : Expression.OrElse(combined, exp);
+        }
+
+        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
+    }
+
+    /// <summary>  
+    /// Generates an expression for a single condition.  
+    /// </summary>  
+    /// <param name="parameter">The parameter expression representing the element.</param>  
+    /// <param name="condition">The condition to be applied.</param>  
+    /// <returns>An expression representing the condition.</returns>  
+    private static Expression GetExpression(Expression parameter, Condition condition)
+    {
+        MemberExpression propertyParam = Expression.Property(parameter, condition.Field);
+
+        var propertyInfo = propertyParam.Member as PropertyInfo ?? throw new MissingMemberException(nameof(Condition), condition.Field);
+        Type realPropertyType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
+        if (propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+        {
+            propertyParam = Expression.Property(propertyParam, "Value");
+        }
+
+        if (condition.Op is not CompareOperator.StdIn and not CompareOperator.StdNotIn)
+        {
+            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, ExtensionMethodSetting.DefaultCulture);
+        }
+        else
+        {
+            if (condition.Value != null)
+            {
+                Type typeOfValue = condition.Value.GetType();
+                Type typeOfList = typeof(IEnumerable<>).MakeGenericType(realPropertyType);
+                if (typeOfValue.IsGenericType && typeOfList.IsAssignableFrom(typeOfValue))
+                {
+                    var toArrayDef = GetCachedMethod(typeof(Enumerable), "ToArray", 1);
+                    condition.Value = toArrayDef
+                        ?.MakeGenericMethod(realPropertyType)
+                        .Invoke(null, [condition.Value]);
+                }
+            }
+        }
+
+        ConstantExpression constantParam = Expression.Constant(condition.Value);
+        return condition.Op switch
+        {
+            CompareOperator.Equals => Expression.Equal(propertyParam, constantParam),
+            CompareOperator.NotEquals => Expression.NotEqual(propertyParam, constantParam),
+            CompareOperator.Contains => Expression.Call(propertyParam, "Contains", null, constantParam),
+            CompareOperator.NotContains => Expression.Not(Expression.Call(propertyParam, "Contains", null, constantParam)),
+            CompareOperator.StartsWith => Expression.Call(propertyParam, "StartsWith", null, constantParam),
+            CompareOperator.EndsWith => Expression.Call(propertyParam, "EndsWith", null, constantParam),
+            CompareOperator.GreaterThan => Expression.GreaterThan(propertyParam, constantParam),
+            CompareOperator.GreaterThanOrEquals => Expression.GreaterThanOrEqual(propertyParam, constantParam),
+            CompareOperator.LessThan => Expression.LessThan(propertyParam, constantParam),
+            CompareOperator.LessThanOrEquals => Expression.LessThanOrEqual(propertyParam, constantParam),
+            CompareOperator.StdIn =>
+                Expression.Call(
+                    // Use cached generic Contains (2 parameters)
+                    GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
+                        .MakeGenericMethod(realPropertyType),
+                    constantParam,
+                    propertyParam),
+            CompareOperator.StdNotIn =>
+                Expression.Not(
+                    Expression.Call(
+                        GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
+                            .MakeGenericMethod(realPropertyType),
+                        constantParam,
+                        propertyParam)),
+            _ => throw new NotSupportedException($"{condition.Op} Not Supported")
+        };
+    }
+
+    /// <summary>  
+    /// Generates an expression for a group of conditions combined with the OrElse operator.  
+    /// </summary>  
+    /// <param name="parameter">The parameter expression representing the element.</param>  
+    /// <param name="orConditions">A collection of conditions to be combined.</param>  
+    /// <returns>An expression representing the combined conditions.</returns>  
+    private static Expression GetGroupExpression(Expression parameter, IEnumerable<Condition> orConditions)
+    {
+        // Build OR chain iteratively to reduce allocations.
+        Expression? combined = null;
+        foreach (var c in orConditions)
+        {
+            var exp = GetExpression(parameter, c);
+            combined = combined is null ? exp : Expression.OrElse(combined, exp);
+        }
+        return combined ?? Expression.Constant(true);
+    }
+
 }
 
 /// <summary>
