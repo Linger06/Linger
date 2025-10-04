@@ -160,7 +160,7 @@
         }
       }
     }
-    return $visited.ToArray()
+  return @($visited)
   }
 
   # 1) 计算 diff 文件
