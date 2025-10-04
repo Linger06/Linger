@@ -197,7 +197,7 @@
   $graphs = Get-GraphsFromDg -dgPath $dgOut
 
   # 4) 计算候选集合
-  $candidates = $directAffected.ToArray()
+  $candidates = @($directAffected)
   if ($IncludeReverse.IsPresent) {
     $candidates = Get-ReverseClosure -seeds $candidates -revGraph $graphs.rev
   }
