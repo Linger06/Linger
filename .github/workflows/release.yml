@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  pack_and_publish:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 10 (preview)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: preview
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+
+      - name: Restore solution
+        shell: pwsh
+        run: |
+          dotnet restore .\Linger.slnx
+
+      - name: Pack solution (Release)
+        shell: pwsh
+        run: |
+          $outDir = "${{ github.workspace }}\artifacts\nupkg"
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          dotnet pack .\Linger.slnx -c Release -o $outDir /p:ContinuousIntegrationBuild=true
+
+      # Packages are already in the output directory due to dotnet pack
+
+      - name: Upload packages artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/nupkg/**
+          if-no-files-found: error
+
+      - name: Push to NuGet.org
+        if: success()
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        shell: pwsh
+        run: |
+          if (-not "$env:NUGET_API_KEY") { throw 'NUGET_API_KEY secret is missing.' }
+          $pkgDir = "${{ github.workspace }}\artifacts\nupkg"
+          Get-ChildItem -Path $pkgDir -Filter *.nupkg | ForEach-Object {
+            dotnet nuget push $_.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          }
+          Get-ChildItem -Path $pkgDir -Filter *.snupkg | ForEach-Object {
+            dotnet nuget push $_.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          }
+
+      - name: Create GitHub Release and attach packages
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-preview') || contains(github.ref_name, '-rc') || contains(github.ref_name, '-beta') }}
+          files: |
+            artifacts/nupkg/*.nupkg
+            artifacts/nupkg/*.snupkg

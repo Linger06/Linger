@@ -15,4 +15,11 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>    
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>  
+
+  <!-- Enable building .NET Framework targets (e.g., net472) on non-Windows runners -->
+  <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3">
+      <PrivateAssets>All</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
 </Project>

@@ -1,0 +1,67 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Git base ref for diff (default origin/develop)
+        required: false
+        default: origin/develop
+      level:
+        description: Bump level (major/minor/patch)
+        required: false
+        default: patch
+      propagate:
+        description: Include upstream dependents (none|reverse)
+        required: false
+        default: none
+
+jobs:
+  prepare:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Compute affected
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $base = '${{ inputs.base }}'
+          if ([string]::IsNullOrWhiteSpace($base)) { $base = 'origin/develop' }
+          $prop = '${{ inputs.propagate }}'
+          if ($prop -and $prop.ToLower() -eq 'reverse') {
+            pwsh ./scripts/compute-affected.ps1 -Base $base -Head HEAD -IncludeReverse | Out-File -FilePath artifacts/affected.json -Encoding utf8
+          } else {
+            pwsh ./scripts/compute-affected.ps1 -Base $base -Head HEAD | Out-File -FilePath artifacts/affected.json -Encoding utf8
+          }
+          Get-Content artifacts/affected.json
+
+      - name: Bump versions (no commit)
+        shell: pwsh
+        run: |
+          $level = '${{ inputs.level }}'
+          if ([string]::IsNullOrWhiteSpace($level)) { $level = 'patch' }
+          pwsh ./scripts/bump-versions.ps1 -AffectedJson artifacts/affected.json -Level $level -Commit $false
+          if (Test-Path artifacts/bumped.json) { Get-Content artifacts/bumped.json } else { Write-Host 'No versions bumped.' }
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: 'chore(release): bump versions for affected projects'
+          title: 'chore(release): bump versions'
+          body: |
+            This PR bumps versions for affected projects based on changes and the selected level.
+          branch: chore/bump-versions
+          delete-branch: true
+          add-paths: |
+            **/*.csproj
+            artifacts/bumped.json

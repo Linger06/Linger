@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ develop, main, master, release/** ]
+  pull_request:
+    branches: [ develop, main, master ]
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build_and_test:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            testFrameworkArg: ''
+          - os: ubuntu-latest
+            testFrameworkArg: '-f net9.0'
+          - os: macos-latest
+            testFrameworkArg: '-f net9.0'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10 (preview)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: preview
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore solution
+        shell: pwsh
+        run: |
+          dotnet restore ./Linger.slnx
+
+      - name: Build solution (Release)
+        shell: pwsh
+        run: |
+          dotnet build ./Linger.slnx -c Release --no-restore
+
+      - name: Test solution
+        shell: pwsh
+        run: |
+          $resultsDir = Join-Path $env:GITHUB_WORKSPACE 'artifacts/TestResults'
+          New-Item -ItemType Directory -Force -Path $resultsDir | Out-Null
+          dotnet test ./Linger.slnx -c Release --no-build ${{ matrix.testFrameworkArg }} --logger "trx;LogFileName=test-results.trx" --results-directory "$resultsDir" --collect "XPlat Code Coverage"
+
+      - name: Generate coverage HTML report
+        uses: danielpalme/ReportGenerator-GitHub-Action@v5
+        with:
+          reports: artifacts/TestResults/**/coverage.cobertura.xml
+          targetdir: artifacts/CoverageReport
+          reporttypes: HtmlInline;Cobertura
+
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            artifacts/TestResults/**
+            tests/**/TestResults/**
+          if-no-files-found: warn
+
+      - name: Upload coverage report (HTML)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.os }}
+          path: |
+            artifacts/CoverageReport/**
+          if-no-files-found: warn
