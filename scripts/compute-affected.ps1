@@ -91,22 +91,54 @@
     $deps = @{}
     $rev = @{}
     if (-not $json.projects) { return @{ deps = $deps; rev = $rev } }
+    
+    function Get-Prop($obj, [string]$name) {
+      if ($null -eq $obj) { return $null }
+      $p = $obj.PSObject.Properties[$name]
+      if ($p) { return $p.Value }
+      return $null
+    }
+
     foreach ($entry in $json.projects.PSObject.Properties) {
       $projNode = $entry.Value
-      $projPath = if ($projNode.projectPath) { $projNode.projectPath } else { $entry.Name }
+      $projPath = Get-Prop $projNode 'projectPath'
+      if (-not $projPath) { $projPath = $entry.Name }
       if (-not $projPath) { continue }
       $projFull = [System.IO.Path]::GetFullPath($projPath)
       if (-not $deps.ContainsKey($projFull)) { $deps[$projFull] = @() }
       $refs = @()
-      if ($projNode.projectReferences) {
-        foreach ($r in $projNode.projectReferences) {
-          $rPath = if ($r.projectPath) { $r.projectPath } else { $r.projectUniqueName }
-          if ($rPath) {
-            $rFull = [System.IO.Path]::GetFullPath($rPath)
-            $refs += $rFull
+
+      $projRefsNode = Get-Prop $projNode 'projectReferences'
+      if ($projRefsNode) {
+        # Case 1: projectReferences is a dictionary/object: keys are referenced project paths
+        if ($projRefsNode -is [System.Collections.IDictionary]) {
+          foreach ($rp in $projRefsNode.PSObject.Properties) {
+            $rPath = $rp.Name
+            if ([string]::IsNullOrWhiteSpace($rPath)) { continue }
+            $refs += [System.IO.Path]::GetFullPath($rPath)
+          }
+        }
+        # Case 2: projectReferences is an array of objects
+        elseif ($projRefsNode -is [System.Array]) {
+          foreach ($r in $projRefsNode) {
+            $rPath = Get-Prop $r 'projectPath'
+            if (-not $rPath) { $rPath = Get-Prop $r 'projectUniqueName' }
+            if (-not [string]::IsNullOrWhiteSpace($rPath)) {
+              $refs += [System.IO.Path]::GetFullPath($rPath)
+            }
+          }
+        }
+        # Case 3: PSCustomObject but not IDictionary (treat properties as keys)
+        else {
+          foreach ($rp in $projRefsNode.PSObject.Properties) {
+            $rPath = $rp.Name
+            if (-not [string]::IsNullOrWhiteSpace($rPath)) {
+              $refs += [System.IO.Path]::GetFullPath($rPath)
+            }
           }
         }
       }
+
       $deps[$projFull] = $refs
       foreach ($r in $refs) {
         if (-not $rev.ContainsKey($r)) { $rev[$r] = @() }
