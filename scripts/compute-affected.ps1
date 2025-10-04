@@ -151,7 +151,7 @@
   $allCsprojs = Get-AllCsprojInSrc
   $directAffected = New-Object System.Collections.Generic.HashSet[string]
   foreach ($f in $diffFiles) {
-    if ($f -notmatch '^src(/|\\\)') { continue }
+    if ($f -notmatch '^src[\\/]') { continue }
     $cs = Get-NearestCsprojInSrc -filePath $f -allCsprojs $allCsprojs
     if ($cs) { $directAffected.Add([System.IO.Path]::GetFullPath($cs)) | Out-Null }
   }
