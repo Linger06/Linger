@@ -1,7 +1,5 @@
 # Linger.Utils
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A comprehensive .NET utility library providing extensive extension methods and helper classes for everyday development tasks.
 
 ## Overview
