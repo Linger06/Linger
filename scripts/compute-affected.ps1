@@ -11,7 +11,7 @@
     - 基于 git diff 定位 src/** 下受影响的 .csproj（直接受影响）。
     - 通过 dotnet msbuild -t:GenerateRestoreGraphFile 生成 DGSpec（JSON），从中读取项目依赖，构建反向依赖图。
     - 可选包含反向依赖闭包（-IncludeReverse）：把“依赖改动项目”的上游项目也纳入受影响集合。
-    - 过滤仅保留 src/** 下 IsPackable != false 且非测试项目（IsTestProject != true）。
+  - 过滤仅保留 src/** 下的项目（统一视为可打包）。
     - 以 JSON 数组输出：[{ Name, CsprojPath, Directory }]
 
   .PARAMETER Base
@@ -56,28 +56,8 @@
   }
 
   function Get-IsPackable([string]$csprojPath) {
-    try { [xml]$xml = Get-Content -Path $csprojPath -Raw } catch { return $true }
-
-    # Safely scan PropertyGroup nodes for IsTestProject
-    $isTestText = $null
-    foreach ($pg in @($xml.Project.PropertyGroup)) {
-      if ($null -ne $pg) {
-        $n = $pg.IsTestProject
-        if ($n -and $n.'#text') { $isTestText = $n.'#text'; break }
-      }
-    }
-    if ($isTestText -and [System.String]::Compare($isTestText, 'true', $true) -eq 0) { return $false }
-
-    # Safely scan PropertyGroup nodes for IsPackable (default = true when absent)
-    $isPackableText = $null
-    foreach ($pg in @($xml.Project.PropertyGroup)) {
-      if ($null -ne $pg) {
-        $n2 = $pg.IsPackable
-        if ($n2 -and $n2.'#text') { $isPackableText = $n2.'#text'; break }
-      }
-    }
-    if ([string]::IsNullOrWhiteSpace($isPackableText)) { return $true }
-    return [System.String]::Compare($isPackableText, 'false', $true) -ne 0
+    # 简化：src 下的项目统一视为可打包
+    return $true
   }
 
   function Get-SolutionPath {
@@ -218,7 +198,7 @@
     $candidates = Get-ReverseClosure -seeds $candidates -revGraph $graphs.rev
   }
 
-  # 5) 仅保留可打包项目（IsPackable != false & 非测试）
+  # 5) 仅保留 src 下项目（统一视为可打包）
   $packable = @()
   foreach ($p in $candidates) { if (Get-IsPackable $p) { $packable += $p } }
 

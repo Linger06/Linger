@@ -6,6 +6,7 @@ namespace Linger;
 [Serializable]
 public class ParameterList : IEnumerable<KeyValuePair<string, object>>
 {
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ParameterList"/> class.
     /// </summary>
