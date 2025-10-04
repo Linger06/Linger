@@ -136,11 +136,22 @@
   try { git rev-parse --verify $baseRef *> $null } catch { $baseRef = 'HEAD~1' }
   $diffFiles = (git diff --name-only $baseRef $Head) -split "`n" | Where-Object { $_ -and $_.Trim() -ne '' }
 
+  # If no diffs found, fail fast per policy (no fallback)
+  if (-not $diffFiles -or $diffFiles.Count -eq 0) {
+    Write-Host "Changed files considered (final):"
+    Write-Host "  <none>"
+    throw "No changes detected between $baseRef and $Head. Aborting as requested."
+  }
+
+    # Print diff files for diagnostics (Write-Host won't pollute the JSON pipeline)
+    Write-Host "Changed files considered (final):"
+    foreach ($f in $diffFiles) { Write-Host "  $f" }
+
   # 2) 列出 src 下所有 csproj，映射改动文件到直接受影响 csproj
   $allCsprojs = Get-AllCsprojInSrc
   $directAffected = New-Object System.Collections.Generic.HashSet[string]
   foreach ($f in $diffFiles) {
-    if ($f -notlike 'src/*') { continue }
+    if ($f -notmatch '^src(/|\\\)') { continue }
     $cs = Get-NearestCsprojInSrc -filePath $f -allCsprojs $allCsprojs
     if ($cs) { $directAffected.Add([System.IO.Path]::GetFullPath($cs)) | Out-Null }
   }

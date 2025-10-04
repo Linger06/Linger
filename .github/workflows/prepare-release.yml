@@ -3,10 +3,6 @@ name: Prepare Release
 on:
   workflow_dispatch:
     inputs:
-      base:
-        description: Git base ref for diff (default origin/develop)
-        required: false
-        default: origin/VerifyAction
       level:
         description: Bump level (major/minor/patch)
         required: false
@@ -54,13 +50,13 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          $base = '${{ inputs.base }}'
-          if ([string]::IsNullOrWhiteSpace($base)) { $base = 'origin/develop' }
+          $base = 'HEAD~1'
+          $head = 'HEAD'
           $prop = '${{ inputs.propagate }}'
           if ($prop -and $prop.ToLower() -eq 'reverse') {
-            pwsh ./scripts/compute-affected.ps1 -Base $base -Head HEAD -IncludeReverse | Out-File -FilePath artifacts/affected.json -Encoding utf8
+            pwsh ./scripts/compute-affected.ps1 -Base $base -Head $head -IncludeReverse | Out-File -FilePath artifacts/affected.json -Encoding utf8
           } else {
-            pwsh ./scripts/compute-affected.ps1 -Base $base -Head HEAD | Out-File -FilePath artifacts/affected.json -Encoding utf8
+            pwsh ./scripts/compute-affected.ps1 -Base $base -Head $head | Out-File -FilePath artifacts/affected.json -Encoding utf8
           }
           Get-Content artifacts/affected.json
 
