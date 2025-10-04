@@ -57,11 +57,27 @@
 
   function Get-IsPackable([string]$csprojPath) {
     try { [xml]$xml = Get-Content -Path $csprojPath -Raw } catch { return $true }
-    $isTest = $xml.Project.PropertyGroup.IsTestProject | Select-Object -First 1
-    if ($isTest -and $isTest.'#text' -and [System.String]::Compare($isTest.'#text','true',$true) -eq 0) { return $false }
-    $val = $xml.Project.PropertyGroup.IsPackable | Select-Object -First 1
-    if ($null -eq $val -or [string]::IsNullOrWhiteSpace($val.'#text')) { return $true }
-    return [System.String]::Compare($val.'#text','false',$true) -ne 0
+
+    # Safely scan PropertyGroup nodes for IsTestProject
+    $isTestText = $null
+    foreach ($pg in @($xml.Project.PropertyGroup)) {
+      if ($null -ne $pg) {
+        $n = $pg.IsTestProject
+        if ($n -and $n.'#text') { $isTestText = $n.'#text'; break }
+      }
+    }
+    if ($isTestText -and [System.String]::Compare($isTestText, 'true', $true) -eq 0) { return $false }
+
+    # Safely scan PropertyGroup nodes for IsPackable (default = true when absent)
+    $isPackableText = $null
+    foreach ($pg in @($xml.Project.PropertyGroup)) {
+      if ($null -ne $pg) {
+        $n2 = $pg.IsPackable
+        if ($n2 -and $n2.'#text') { $isPackableText = $n2.'#text'; break }
+      }
+    }
+    if ([string]::IsNullOrWhiteSpace($isPackableText)) { return $true }
+    return [System.String]::Compare($isPackableText, 'false', $true) -ne 0
   }
 
   function Get-SolutionPath {
