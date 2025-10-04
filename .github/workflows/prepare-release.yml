@@ -15,6 +15,10 @@ on:
         description: Include upstream dependents (none|reverse)
         required: false
         default: none
+      commit:
+        description: Commit changes directly on a new branch (true/false)
+        required: false
+        default: 'false'
 
 jobs:
   prepare:
@@ -31,6 +35,21 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
+      - name: Configure Git author
+        if: ${{ inputs.commit == 'true' }}
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create working branch (commit mode)
+        if: ${{ inputs.commit == 'true' }}
+        shell: pwsh
+        run: |
+          $branch = "chore/bump-versions-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+          echo "BRANCH=$branch" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          git checkout -b $branch
+
       - name: Compute affected
         shell: pwsh
         run: |
@@ -45,15 +64,32 @@ jobs:
           }
           Get-Content artifacts/affected.json
 
-      - name: Bump versions (no commit)
+      - name: Bump versions
         shell: pwsh
         run: |
           $level = '${{ inputs.level }}'
           if ([string]::IsNullOrWhiteSpace($level)) { $level = 'patch' }
-          pwsh ./scripts/bump-versions.ps1 -AffectedJson artifacts/affected.json -Level $level -Commit $false
+          if ('${{ inputs.commit }}' -eq 'true') {
+            pwsh ./scripts/bump-versions.ps1 -AffectedJson artifacts/affected.json -Level $level -Commit
+          } else {
+            pwsh ./scripts/bump-versions.ps1 -AffectedJson artifacts/affected.json -Level $level
+          }
           if (Test-Path artifacts/bumped.json) { Get-Content artifacts/bumped.json } else { Write-Host 'No versions bumped.' }
 
+      - name: Push branch and open PR (commit mode)
+        if: ${{ inputs.commit == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          if (-not (Test-Path artifacts/bumped.json)) { Write-Host 'No versions bumped, skip PR.'; exit 0 }
+          $branch = "$env:BRANCH"
+          if (-not $branch) { throw 'Working branch not set' }
+          git push --set-upstream origin $branch
+          gh pr create --title "chore(release): bump versions" --body "This PR bumps versions for affected projects based on changes and the selected level." --head $branch
+
       - name: Create Pull Request
+        if: ${{ inputs.commit != 'true' }}
         uses: peter-evans/create-pull-request@v6
         with:
           commit-message: 'chore(release): bump versions for affected projects'

@@ -20,7 +20,7 @@ param(
   [string]$AffectedJson,
   [ValidateSet('major','minor','patch')]
   [string]$Level = 'patch',
-  [bool]$Commit = $false
+  [switch]$Commit
 )
 
 Set-StrictMode -Version Latest
@@ -89,13 +89,13 @@ foreach ($p in $affected) {
     $xml.Save($csproj)
     Write-Host "Bumped $($p.Name): $old -> $new"
     $bumped += [pscustomobject]@{ Name=$p.Name; CsprojPath=$csproj; OldVersion=$old; NewVersion=$new }
-    if ($Commit) {
+    if ($Commit.IsPresent) {
       git add -- $csproj | Out-Null
     }
   }
 }
 
-if ($Commit -and $bumped.Count -gt 0) {
+if ($Commit.IsPresent -and $bumped.Count -gt 0) {
   git commit -m "chore(release): bump versions ($Level) for affected projects" | Out-Null
 }
 
