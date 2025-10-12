@@ -1,6 +1,7 @@
-﻿using Linger.Audit.Contracts;
+using Linger.Audit.Contracts;
 
 namespace Linger.Audit;
+
 public abstract class CreationAuditEntity<T> : CreationAuditEntity, IEntity<T>
 {
     public T Id { get; set; } = default!;

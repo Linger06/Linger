@@ -1,4 +1,5 @@
-﻿namespace Linger.EFCore.Audit;
+namespace Linger.EFCore.Audit;
+
 public enum AuditType
 {
     Added,

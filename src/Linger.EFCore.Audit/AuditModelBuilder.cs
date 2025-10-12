@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace Linger.EFCore.Audit;
+
 public static class AuditModelBuilder
 {
     public static void ApplyAudit(this ModelBuilder modelBuilder)

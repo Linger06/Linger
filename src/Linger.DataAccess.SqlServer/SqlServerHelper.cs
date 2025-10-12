@@ -46,7 +46,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
         return QueryTableAsync(sql, parameters, cancellationToken);
     }
-    
+
     /// <summary>
     /// 海量数据插入方法
     /// (调用该方法需要注意，DataTable中的字段名称必须和数据库中的字段名称一一对应)

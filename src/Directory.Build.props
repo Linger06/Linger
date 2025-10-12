@@ -9,7 +9,7 @@
     <AssemblyTitle>$(MSBuildProjectName)</AssemblyTitle>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <Authors>Linger</Authors>
-    <Copyright>Copyright © Linger 2024</Copyright>
+    <Copyright>Copyright © Linger 2025</Copyright>
     <NeutralLanguage>en-US</NeutralLanguage>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>    

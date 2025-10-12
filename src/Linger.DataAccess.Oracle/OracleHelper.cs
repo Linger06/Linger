@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Oracle.ManagedDataAccess.Client;
 
 namespace Linger.DataAccess.Oracle;
@@ -14,7 +14,7 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     {
         return $":param{index}";
     }
-    
+
     /// <summary>
     ///     检查数据是否存在
     /// </summary>
