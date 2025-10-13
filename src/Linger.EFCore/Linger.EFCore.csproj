@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
-        <Version>0.9.6-preview</Version>
+        <Version>0.9.7-preview</Version>
         <Description>
             An Entity Framework Core extension library providing enhanced capabilities.
             Includes global query filters, property conversions for complex types, and pagination utilities.

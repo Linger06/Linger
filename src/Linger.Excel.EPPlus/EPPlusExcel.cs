@@ -41,6 +41,20 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return worksheet.Name;
     }
 
+    protected override List<string> GetAllSheetNames(ExcelPackage workbook)
+    {
+        var sheetNames = new List<string>();
+        foreach (var worksheet in workbook.Workbook.Worksheets)
+        {
+            if (!string.IsNullOrWhiteSpace(worksheet.Name))
+            {
+                sheetNames.Add(worksheet.Name);
+            }
+        }
+
+        return sheetNames;
+    }
+
     protected override bool HasData(ExcelWorksheet worksheet)
     {
         var excelWorksheet = worksheet;

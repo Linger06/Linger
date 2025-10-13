@@ -43,6 +43,21 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         return worksheet.SheetName;
     }
 
+    protected override List<string> GetAllSheetNames(IWorkbook workbook)
+    {
+        var sheetNames = new List<string>();
+        for (var i = 0; i < workbook.NumberOfSheets; i++)
+        {
+            var sheetName = workbook.GetSheetName(i);
+            if (!string.IsNullOrWhiteSpace(sheetName))
+            {
+                sheetNames.Add(sheetName);
+            }
+        }
+
+        return sheetNames;
+    }
+
     protected override bool HasData(ISheet worksheet)
     {
         return worksheet.PhysicalNumberOfRows > 0;
