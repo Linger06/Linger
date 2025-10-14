@@ -2,6 +2,7 @@ using System.Text;
 using Linger.Extensions.IO;
 
 namespace Linger.Helper;
+
 public static partial class FileHelper
 {
     /// <summary>
@@ -144,7 +145,7 @@ public static partial class FileHelper
     /// <param name="isSearchChild">是否搜索子目录</param>
     public static string[] GetFileNames(string directoryPath, string searchPattern, bool isSearchChild)
     {
-      return GetFileNames(directoryPath, searchPattern, searchOption: isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).ToArray();
+        return GetFileNames(directoryPath, searchPattern, searchOption: isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).ToArray();
     }
 
     /// <summary>

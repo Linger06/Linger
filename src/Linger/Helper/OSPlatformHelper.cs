@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 
 namespace Linger.Helper;
+
 public static class OSPlatformHelper
 {
     /// <summary>
@@ -144,7 +145,7 @@ public static class OSPlatformHelper
         var platform = GetCurrentPlatformName();
         var arch = ProcessArchitecture.ToString();
         var framework = RuntimeInformation.FrameworkDescription;
-        
+
         return $"{platform} ({arch}) - {framework}";
     }
 
@@ -161,7 +162,7 @@ public static class OSPlatformHelper
         if (IsAndroid) return "Android";
         if (IsIOS) return "iOS";
         if (IsWasm) return "WebAssembly";
-        
+
         return "Unknown";
     }
 
@@ -187,7 +188,7 @@ public static class OSPlatformHelper
         if (minimumVersion is null)
             throw new System.ArgumentNullException(nameof(minimumVersion));
 #endif
-        
+
         return Environment.Version >= minimumVersion;
     }
 

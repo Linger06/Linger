@@ -39,6 +39,20 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return worksheet.Name;
     }
 
+    protected override List<string> GetAllSheetNames(XLWorkbook workbook)
+    {
+        var sheetNames = new List<string>();
+        foreach (var worksheet in workbook.Worksheets)
+        {
+            if (!string.IsNullOrWhiteSpace(worksheet.Name))
+            {
+                sheetNames.Add(worksheet.Name);
+            }
+        }
+
+        return sheetNames;
+    }
+
     protected override bool HasData(IXLWorksheet worksheet)
     {
         return worksheet.RangeUsed() != null;

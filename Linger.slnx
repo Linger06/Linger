@@ -29,6 +29,7 @@
     <Project Path="src/Linger.Email/Linger.Email.csproj" />
     <Project Path="src/Linger.Excel.ClosedXML/Linger.Excel.ClosedXML.csproj" />
     <Project Path="src/Linger.Excel.Contracts/Linger.Excel.Contracts.csproj" />
+    <Project Path="src/Linger.Excel.EPPlus/Linger.Excel.EPPlus.csproj" Id="bfa23ba4-12cf-4afe-8218-a37d0fa706b2" />
     <Project Path="src/Linger.Excel.Npoi/Linger.Excel.Npoi.csproj" />
     <Project Path="src/Linger.FileSystem.Ftp/Linger.FileSystem.Ftp.csproj" />
     <Project Path="src/Linger.FileSystem.Sftp/Linger.FileSystem.Sftp.csproj" />
@@ -54,7 +55,4 @@
     <Project Path="tests/Linger.Results.UnitTests/Linger.Results.UnitTests.csproj" />
     <Project Path="tests/Linger.UnitTests/Linger.UnitTests.csproj" />
   </Folder>
-  <Project Path="Linger.API/Linger.API.csproj" />
-  <Project Path="Linger.Blazor/Linger.Blazor.csproj" />
-  <Project Path="Linger.Client/Linger.Client.csproj" />
 </Solution>

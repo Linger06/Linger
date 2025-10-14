@@ -67,7 +67,6 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
         var ds = await QueryAsync(sql, parameters, cancellationToken).ConfigureAwait(false);
         return ds.Tables.Count > 0 ? ds.Tables[0] : new DataTable();
     }
-    
 
     #region SqlBulkCopy大批量数据插入
 

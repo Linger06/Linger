@@ -1,6 +1,7 @@
 using System.Text;
 
 namespace Linger.DataAccess;
+
 public class SqlBuilder(ParameterList paraList)
 {
     private readonly StringBuilder _sb = new();

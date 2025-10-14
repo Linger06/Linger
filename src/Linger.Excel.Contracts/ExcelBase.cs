@@ -59,6 +59,98 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
+    /// 将Excel文件转换为DataSet(所有工作表)
+    /// </summary>
+    public override DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            return ConvertStreamToDataSet(fileStream, headerRowIndex, addEmptyRow);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(指定工作表)
+    /// </summary>
+    public override DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            return ConvertStreamToDataSet(fileStream, sheetNames, headerRowIndex, addEmptyRow);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public override DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            return ConvertStreamToDataSet(fileStream, headerRowIndexSelector, addEmptyRow);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public override DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+            return ConvertStreamToDataSet(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
     public override string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
@@ -283,6 +375,282 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             Logger?.LogError(ex, "将DataTable转换为对象列表时出错");
             return null;
         }
+    }
+
+    /// <summary>
+    /// 将Stream转换为DataSet(所有工作表)
+    /// </summary>
+    public override DataSet? ConvertStreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        return ConvertStreamToDataSet(stream, null, headerRowIndex, addEmptyRow);
+    }
+
+    /// <summary>
+    /// 将Stream转换为DataSet(指定工作表)
+    /// </summary>
+    public override DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        if (stream == null || stream.Length == 0)
+        {
+            Logger?.LogWarning("Excel流为空");
+            return null;
+        }
+
+        TWorkbook? workbook = null;
+
+        try
+        {
+            // 打开Excel工作簿
+            workbook = OpenWorkbook(stream);
+            if (workbook == null)
+            {
+                Logger?.LogWarning("无法打开Excel工作簿");
+                return null;
+            }
+
+            var dataSet = new DataSet();
+
+            // 获取要处理的工作表名称列表
+            var targetSheetNames = GetTargetSheetNames(workbook, sheetNames);
+            if (targetSheetNames == null || targetSheetNames.Count == 0)
+            {
+                Logger?.LogWarning("工作簿中没有找到要处理的工作表");
+                return dataSet;
+            }
+
+            DataSet? result;
+            if (Options.EnablePerformanceMonitoring)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                // 遍历指定的工作表
+                foreach (var sheetName in targetSheetNames)
+                {
+                    var worksheet = GetWorksheet(workbook, sheetName);
+                    if (worksheet == null || !HasData(worksheet))
+                    {
+                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        continue;
+                    }
+
+                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+                    if (dataTable != null)
+                    {
+                        dataTable.TableName = sheetName;
+                        dataSet.Tables.Add(dataTable);
+                    }
+                }
+
+                result = dataSet;
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger?.LogInformation(
+                        "从Excel流导入到DataSet[工作表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
+                        dataSet.Tables.Count,
+                        sw.ElapsedMilliseconds);
+                }
+            }
+            else
+            {
+                // 遍历指定的工作表
+                foreach (var sheetName in targetSheetNames)
+                {
+                    var worksheet = GetWorksheet(workbook, sheetName);
+                    if (worksheet == null || !HasData(worksheet))
+                    {
+                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        continue;
+                    }
+
+                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+                    if (dataTable != null)
+                    {
+                        dataTable.TableName = sheetName;
+                        dataSet.Tables.Add(dataTable);
+                    }
+                }
+
+                result = dataSet;
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel流读取并转换为DataSet失败");
+            return null;
+        }
+        finally
+        {
+            // 确保释放资源
+            if (workbook != null)
+            {
+                CloseWorkbook(workbook);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public override DataSet? ConvertStreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    {
+        return ConvertStreamToDataSet(stream, null, headerRowIndexSelector, addEmptyRow);
+    }
+
+    /// <summary>
+    /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public override DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    {
+        if (stream == null || stream.Length == 0)
+        {
+            Logger?.LogWarning("Excel流为空");
+            return null;
+        }
+
+        TWorkbook? workbook = null;
+
+        try
+        {
+            // 打开Excel工作簿
+            workbook = OpenWorkbook(stream);
+            if (workbook == null)
+            {
+                Logger?.LogWarning("无法打开Excel工作簿");
+                return null;
+            }
+
+            var dataSet = new DataSet();
+
+            // 获取要处理的工作表名称列表
+            var targetSheetNames = GetTargetSheetNames(workbook, sheetNames);
+            if (targetSheetNames == null || targetSheetNames.Count == 0)
+            {
+                Logger?.LogWarning("工作簿中没有找到要处理的工作表");
+                return dataSet;
+            }
+
+            DataSet? result;
+            if (Options.EnablePerformanceMonitoring)
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+
+                // 遍历指定的工作表
+                foreach (var sheetName in targetSheetNames)
+                {
+                    var worksheet = GetWorksheet(workbook, sheetName);
+                    if (worksheet == null || !HasData(worksheet))
+                    {
+                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        continue;
+                    }
+
+                    // 为每个工作表获取对应的表头行索引
+                    var headerRowIndex = headerRowIndexSelector(sheetName) ?? 0;
+
+                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+                    if (dataTable != null)
+                    {
+                        dataTable.TableName = sheetName;
+                        dataSet.Tables.Add(dataTable);
+                    }
+                }
+
+                result = dataSet;
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger?.LogInformation(
+                        "从Excel流导入到DataSet[工作表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
+                        dataSet.Tables.Count,
+                        sw.ElapsedMilliseconds);
+                }
+            }
+            else
+            {
+                // 遍历指定的工作表
+                foreach (var sheetName in targetSheetNames)
+                {
+                    var worksheet = GetWorksheet(workbook, sheetName);
+                    if (worksheet == null || !HasData(worksheet))
+                    {
+                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        continue;
+                    }
+
+                    // 为每个工作表获取对应的表头行索引
+                    var headerRowIndex = headerRowIndexSelector(sheetName) ?? 0;
+
+                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+                    if (dataTable != null)
+                    {
+                        dataTable.TableName = sheetName;
+                        dataSet.Tables.Add(dataTable);
+                    }
+                }
+
+                result = dataSet;
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel流读取并转换为DataSet失败");
+            return null;
+        }
+        finally
+        {
+            // 确保释放资源
+            if (workbook != null)
+            {
+                CloseWorkbook(workbook);
+            }
+        }
+    }
+
+    /// <summary>
+    /// 获取要处理的工作表名称列表
+    /// </summary>
+    private List<string> GetTargetSheetNames(TWorkbook workbook, IEnumerable<string>? requestedSheetNames)
+    {
+        // 获取所有可用的工作表名称
+        var allSheetNames = GetAllSheetNames(workbook);
+        
+        // 如果没有指定工作表或指定的集合为空，则返回所有工作表
+        if (requestedSheetNames == null || !requestedSheetNames.Any())
+        {
+            return allSheetNames;
+        }
+
+        // 按请求的顺序返回存在的工作表（保持用户指定的顺序）
+        var result = new List<string>();
+        var allSheetNamesSet = new HashSet<string>(allSheetNames, StringComparer.OrdinalIgnoreCase);
+        
+        foreach (var requestedName in requestedSheetNames)
+        {
+            if (allSheetNamesSet.Contains(requestedName))
+            {
+                // 使用实际的工作表名称（保持Excel中的大小写）
+                var actualName = allSheetNames.FirstOrDefault(n => 
+                    string.Equals(n, requestedName, StringComparison.OrdinalIgnoreCase));
+                
+                if (actualName != null)
+                {
+                    result.Add(actualName);
+                }
+            }
+            else
+            {
+                Logger?.LogWarning("请求的工作表不存在: {SheetName}", requestedName);
+            }
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -640,6 +1008,11 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// 获取工作表名称
     /// </summary>
     protected abstract string GetSheetName(TWorksheet worksheet);
+
+    /// <summary>
+    /// 获取所有工作表名称
+    /// </summary>
+    protected abstract List<string> GetAllSheetNames(TWorkbook workbook);
 
     /// <summary>
     /// 检查工作表是否包含数据

@@ -8,7 +8,7 @@
             date/time helpers, file system operations, collection extensions, and various helper classes for everyday development tasks.
             Supports multiple .NET frameworks including .NET Standard 2.0, .NET Framework 4.7.2, .NET 8.0, .NET 9.0, and .NET 10.0 (RC).
         </Description>
-        <Version>0.9.5</Version>
+        <Version>0.9.8</Version>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <!-- Package metadata -->
         <RepositoryUrl>https://github.com/Linger06/Linger</RepositoryUrl>

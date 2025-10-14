@@ -1,4 +1,3 @@
-using Linger.Extensions.IO;
 using Linger.Helper.PathHelpers;
 
 namespace Linger.FileSystem.Local;

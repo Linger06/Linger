@@ -29,6 +29,44 @@ public interface IExcelService
     List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
 
     /// <summary>
+    /// 将Excel文件转换为DataSet(所有工作表)
+    /// </summary>
+    /// <param name="filePath">Excel文件路径</param>
+    /// <param name="headerRowIndex">列名所在行号(所有工作表使用相同值)</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(指定工作表)
+    /// </summary>
+    /// <param name="filePath">Excel文件路径</param>
+    /// <param name="sheetNames">要处理的工作表名称集合，为null或空集合时处理所有工作表</param>
+    /// <param name="headerRowIndex">列名所在行号(所有工作表使用相同值)</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    /// <param name="filePath">Excel文件路径</param>
+    /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    /// <param name="filePath">Excel文件路径</param>
+    /// <param name="sheetNames">要处理的工作表名称集合，为null或空集合时处理所有工作表</param>
+    /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
     /// 将Stream转换为DataTable
     /// </summary>
     /// <param name="stream">要转换的Stream</param>
@@ -50,6 +88,44 @@ public interface IExcelService
     List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
 
     /// <summary>
+    /// 将Stream转换为DataSet(所有工作表)
+    /// </summary>
+    /// <param name="stream">要转换的Stream</param>
+    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0(所有工作表使用相同值)</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ConvertStreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为DataSet(指定工作表)
+    /// </summary>
+    /// <param name="stream">要转换的Stream</param>
+    /// <param name="sheetNames">要处理的工作表名称集合，为null或空集合时处理所有工作表</param>
+    /// <param name="headerRowIndex">列名所在行号,从0开始,默认0(所有工作表使用相同值)</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    /// <param name="stream">要转换的Stream</param>
+    /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ConvertStreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    /// <param name="stream">要转换的Stream</param>
+    /// <param name="sheetNames">要处理的工作表名称集合，为null或空集合时处理所有工作表</param>
+    /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
+    /// <param name="addEmptyRow">是否添加空行</param>
+    /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
     /// 异步将Excel文件转换为DataTable
     /// </summary>
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -58,6 +134,26 @@ public interface IExcelService
     /// 异步将Excel文件转换为对象列表
     /// </summary>
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(所有工作表)
+    /// </summary>
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(指定工作表)
+    /// </summary>
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
 
     #endregion
 

@@ -1,4 +1,5 @@
-﻿namespace Linger.Results;
+namespace Linger.Results;
+
 public class ErrorObj
 {
     public ErrorObj()

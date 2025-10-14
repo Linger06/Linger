@@ -14,6 +14,7 @@
 
 - **统一接口** - 多种底层实现，开发者无需关心具体细节
 - **自动类型映射** - 无缝转换Excel与对象之间的数据
+- **DataSet支持** - 导入/导出整个工作簿为DataSet，支持多工作表操作
 - **依赖注入友好** - 支持.NET Core/ASP.NET Core依赖注入
 - **高性能设计** - 批处理、并行处理以及性能监控
 - **异步支持** - 全方位异步API支持
@@ -31,13 +32,34 @@
 
 ## 🏗️ 架构设计
 
-```mermaid
-graph TD
-    A[应用] --> B[Linger.Excel接口层]
-    B --> C[Excel抽象实现]
-    C --> D1[NPOI实现]
-    C --> D2[EPPlus实现]
-    C --> D3[ClosedXML实现]
+```
+┌─────────────────┐
+│  IExcelService  │ ◄──── 非泛型接口，基本Excel操作
+└────────┬────────┘
+         │
+         │实现
+         ▼
+┌─────────────────┐
+│IExcel<TWorksheet>│ ◄──── 泛型接口，高级Excel操作
+└────────┬────────┘
+         │
+         │实现
+         ▼
+┌─────────────────────────────┐
+│AbstractExcelService<T1,T2>  │ ◄──── 抽象基类，公共逻辑
+└────────────┬────────────────┘
+             │
+             │继承
+             ▼
+┌─────────────────────────────┐
+│ ExcelBase<TWorkbook,TSheet> │ ◄──── Excel实现基类，更多常用逻辑
+└────────────┬────────────────┘
+             │
+             │继承
+             ▼
+┌─────────────────────────────┐
+│     具体实现类(如NpoiExcel)   │ ◄──── 具体Excel库实现
+└─────────────────────────────┘
 ```
 
 ## 🚀 快速入门
@@ -142,12 +164,23 @@ public interface IExcelService
     DataTable ExcelToDataTable(Stream stream, string sheetName = null);
     List<T> ExcelToList<T>(string filePath, string sheetName = null) where T : class, new();
     List<T> ExcelToList<T>(Stream stream, string sheetName = null) where T : class, new();
+    
+    // 导入整个工作簿为DataSet
+    DataSet ExcelToDataSet(string filePath, int? headerRowIndex = 0);
+    DataSet ExcelToDataSet(string filePath, IEnumerable<string> sheetNames, int? headerRowIndex = 0);
+    DataSet ExcelToDataSet(string filePath, Func<string, int?> headerRowSelector);
+    DataSet ExcelToDataSet(string filePath, IEnumerable<string> sheetNames, Func<string, int?> headerRowSelector);
+    Task<DataSet> ExcelToDataSetAsync(string filePath, int? headerRowIndex = 0);
+    Task<DataSet> ExcelToDataSetAsync(string filePath, IEnumerable<string> sheetNames, int? headerRowIndex = 0);
 
     // 导出功能
     void ListToExcel<T>(List<T> data, string filePath, Action<ExcelStyleOptions> styleAction = null) where T : class;
     void ListToExcel<T>(List<T> data, Stream stream, Action<ExcelStyleOptions> styleAction = null) where T : class;
     void DataTableToExcel(DataTable dataTable, string filePath, Action<ExcelStyleOptions> styleAction = null);
     void DataTableToExcel(DataTable dataTable, Stream stream, Action<ExcelStyleOptions> styleAction = null);
+    
+    // 导出DataSet为多工作表Excel
+    string DataSetToFile(DataSet dataSet, string filePath, string sheetNamePrefix = "Sheet");
 
     // 模板功能
     void FillTemplate(string templatePath, string outputPath, Dictionary<string, object> data);
@@ -156,6 +189,59 @@ public interface IExcelService
 ```
 
 ## 🎨 高级功能
+
+### 导入整个工作簿为DataSet
+
+`ExcelToDataSet` 允许您将整个 Excel 工作簿或指定的工作表导入为 `DataSet`,每个工作表对应一个 `DataTable`:
+
+```csharp
+// 1. 导入所有工作表,统一使用第0行作为表头
+DataSet allSheets = excelService.ExcelToDataSet("workbook.xlsx", headerRowIndex: 0);
+
+// 2. 只导入指定的工作表
+var selectedSheets = new[] { "用户数据", "订单数据", "产品数据" };
+DataSet specificSheets = excelService.ExcelToDataSet("workbook.xlsx", selectedSheets, headerRowIndex: 0);
+
+// 3. 为每个工作表指定不同的表头行
+DataSet flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetName =>
+{
+    return sheetName switch
+    {
+        "用户数据" => 0,      // 第1行是表头
+        "财务报表" => 2,      // 第3行是表头(跳过前2行)
+        "原始数据" => null,   // 没有表头,将所有行作为数据行
+        _ => 0               // 默认第1行是表头
+    };
+});
+
+// 4. 异步导入
+DataSet result = await excelService.ExcelToDataSetAsync("large-workbook.xlsx", headerRowIndex: 0);
+
+// 访问导入的数据
+foreach (DataTable table in result.Tables)
+{
+    Console.WriteLine($"工作表: {table.TableName}, 行数: {table.Rows.Count}, 列数: {table.Columns.Count}");
+}
+```
+
+**参数说明:**
+- `headerRowIndex`: 表头行索引(0-based)。传入 `null` 表示没有表头,所有行都是数据行
+- `sheetNames`: 要导入的工作表名称列表。不区分大小写。传入空集合或 null 将导入所有工作表
+- `headerRowSelector`: 为每个工作表指定不同的表头行。传入工作表名称,返回该工作表的表头行索引
+
+**详细用法和更多示例,请参阅 [DATASET_USAGE_EXAMPLE.md](./DATASET_USAGE_EXAMPLE.md)**
+
+### 导出DataSet为多工作表Excel
+
+```csharp
+DataSet dataSet = new DataSet();
+dataSet.Tables.Add(CreateUserTable());
+dataSet.Tables.Add(CreateOrderTable());
+dataSet.Tables.Add(CreateProductTable());
+
+// 导出DataSet,每个DataTable成为一个工作表
+string filePath = excelService.DataSetToFile(dataSet, "multi-sheet-workbook.xlsx");
+```
 
 ### 自定义Excel列映射
 
@@ -267,17 +353,3 @@ excelService.AfterExcelImport += (sender, args) =>
     Console.WriteLine($"已完成导入Excel，共{args.RowCount}行数据");
 };
 ```
-
-## 📊 性能对比
-
-| 实现 | 10K行导出 | 50K行导出 | 10K行导入 | 内存占用 |
-|------|-----------|-----------|-----------|----------|
-| NPOI | 1.2秒 | 5.8秒 | 0.9秒 | 中等 |
-| EPPlus | 0.8秒 | 3.4秒 | 0.6秒 | 较高 |
-| ClosedXML | 1.0秒 | 4.7秒 | 0.8秒 | 较低 |
-
-_注：性能测试结果可能因硬件配置和数据复杂度而异_
-
-## 📜 许可证
-
-MIT

@@ -314,5 +314,327 @@ namespace Linger.Excel.Tests
             var nullData = service.ExcelToDataTable(filePath, "Sheet1", headerRowIndex: 0);
             Assert.Null(nullData); // 应该返回null，因为没有Sheet1这个工作表
         }
+
+        #region ExcelToDataSet Tests
+
+        [Fact]
+        public void ExcelToDataSet_WithAllSheets_ImportsAllSheetsWithUniformHeader()
+        {
+            // Arrange
+            var service = GetExcelService();
+            const int TABLE1_ROWS = 5;
+            const int TABLE2_ROWS = 3;
+            const int TABLE3_ROWS = 7;
+
+            var sourceDataSet = GenerateTestDataSet(
+                ("部门信息", TABLE1_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                    table.Columns.Add("Budget", typeof(decimal));
+                }),
+                ("员工信息", TABLE2_ROWS, table =>
+                {
+                    table.Columns.Add("EmployeeId", typeof(int));
+                    table.Columns.Add("EmployeeName", typeof(string));
+                    table.Columns.Add("Age", typeof(int));
+                }),
+                ("项目信息", TABLE3_ROWS, table =>
+                {
+                    table.Columns.Add("ProjectId", typeof(int));
+                    table.Columns.Add("ProjectName", typeof(string));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_AllSheets.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var importedDataSet = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(3, importedDataSet.Tables.Count);
+
+            var table1 = importedDataSet.Tables["部门信息"];
+            Assert.NotNull(table1);
+            Assert.Equal(TABLE1_ROWS, table1.Rows.Count);
+            Assert.Equal(3, table1.Columns.Count);
+
+            var table2 = importedDataSet.Tables["员工信息"];
+            Assert.NotNull(table2);
+            Assert.Equal(TABLE2_ROWS, table2.Rows.Count);
+
+            var table3 = importedDataSet.Tables["项目信息"];
+            Assert.NotNull(table3);
+            Assert.Equal(TABLE3_ROWS, table3.Rows.Count);
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithSelectedSheets_ImportsOnlySpecifiedSheets()
+        {
+            // Arrange
+            var service = GetExcelService();
+            const int TABLE1_ROWS = 5;
+            const int TABLE2_ROWS = 3;
+            const int TABLE3_ROWS = 7;
+
+            var sourceDataSet = GenerateTestDataSet(
+                ("部门信息", TABLE1_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }),
+                ("员工信息", TABLE2_ROWS, table =>
+                {
+                    table.Columns.Add("EmployeeId", typeof(int));
+                    table.Columns.Add("EmployeeName", typeof(string));
+                }),
+                ("项目信息", TABLE3_ROWS, table =>
+                {
+                    table.Columns.Add("ProjectId", typeof(int));
+                    table.Columns.Add("ProjectName", typeof(string));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_SelectedSheets.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var sheetsToImport = new[] { "部门信息", "项目信息" };
+            var importedDataSet = service.ExcelToDataSet(filePath, sheetsToImport, headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(2, importedDataSet.Tables.Count);
+            Assert.NotNull(importedDataSet.Tables["部门信息"]);
+            Assert.NotNull(importedDataSet.Tables["项目信息"]);
+            Assert.Null(importedDataSet.Tables["员工信息"]);
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithCaseInsensitiveSheetNames_MatchesCorrectly()
+        {
+            // Arrange
+            var service = GetExcelService();
+            const int TABLE1_ROWS = 3;
+            const int TABLE2_ROWS = 2;
+
+            var sourceDataSet = GenerateTestDataSet(
+                ("Department", TABLE1_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }),
+                ("Employee", TABLE2_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_CaseInsensitive.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var sheetsToImport = new[] { "department", "EMPLOYEE" };
+            var importedDataSet = service.ExcelToDataSet(filePath, sheetsToImport, headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(2, importedDataSet.Tables.Count);
+            Assert.NotNull(importedDataSet.Tables["Department"]);
+            Assert.NotNull(importedDataSet.Tables["Employee"]);
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithFlexibleHeaderSelector_UsesPerSheetHeaderRows()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            var sourceDataSet = GenerateTestDataSet(
+                ("标准表头", 5, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }),
+                ("无表头", 3, table =>
+                {
+                    table.Columns.Add("Column1", typeof(int));
+                    table.Columns.Add("Column2", typeof(string));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_FlexibleHeaders.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var importedDataSet = service.ExcelToDataSet(filePath, sheetName =>
+            {
+                return sheetName switch
+                {
+                    "标准表头" => 0,
+                    "无表头" => null,
+                    _ => 0
+                };
+            }, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(2, importedDataSet.Tables.Count);
+
+            var table1 = importedDataSet.Tables["标准表头"];
+            Assert.NotNull(table1);
+            Assert.Equal(5, table1.Rows.Count);
+
+            var table2 = importedDataSet.Tables["无表头"];
+            Assert.NotNull(table2);
+            Assert.Equal(3, table2.Rows.Count); // 不包含表头行，因为 headerRowIndex = null 时会从第一行开始读取数据
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithSelectedSheetsAndFlexibleHeaders_WorksCorrectly()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            var sourceDataSet = GenerateTestDataSet(
+                ("表一", 3, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }),
+                ("表二", 2, table =>
+                {
+                    table.Columns.Add("Code", typeof(string));
+                    table.Columns.Add("Value", typeof(decimal));
+                }),
+                ("表三", 4, table =>
+                {
+                    table.Columns.Add("X", typeof(int));
+                    table.Columns.Add("Y", typeof(int));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_SelectedAndFlexible.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var sheetsToImport = new[] { "表一", "表三" };
+            var importedDataSet = service.ExcelToDataSet(filePath, sheetsToImport, sheetName =>
+            {
+                return sheetName switch
+                {
+                    "表一" => 0,
+                    "表三" => null,
+                    _ => 0
+                };
+            }, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(2, importedDataSet.Tables.Count);
+            Assert.NotNull(importedDataSet.Tables["表一"]);
+            Assert.NotNull(importedDataSet.Tables["表三"]);
+            Assert.Null(importedDataSet.Tables["表二"]);
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithEmptySheetCollection_ImportsAllSheets()
+        {
+            // Arrange
+            var service = GetExcelService();
+            const int TABLE1_ROWS = 2;
+            const int TABLE2_ROWS = 3;
+
+            var sourceDataSet = GenerateTestDataSet(
+                ("Sheet1", TABLE1_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }),
+                ("Sheet2", TABLE2_ROWS, table =>
+                {
+                    table.Columns.Add("Value", typeof(decimal));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_EmptyCollection.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var importedDataSet1 = service.ExcelToDataSet(filePath, (IEnumerable<string>?)null, headerRowIndex: 0, addEmptyRow: false);
+            var importedDataSet2 = service.ExcelToDataSet(filePath, Array.Empty<string>(), headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet1);
+            Assert.Equal(2, importedDataSet1.Tables.Count);
+            
+            Assert.NotNull(importedDataSet2);
+            Assert.Equal(2, importedDataSet2.Tables.Count);
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithNonExistentSheets_IgnoresInvalidSheetNames()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            var sourceDataSet = GenerateTestDataSet(
+                ("ValidSheet", 2, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_NonExistent.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var sheetsToImport = new[] { "ValidSheet", "NonExistentSheet", "AnotherFakeSheet" };
+            var importedDataSet = service.ExcelToDataSet(filePath, sheetsToImport, headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(1, importedDataSet.Tables.Count);
+            Assert.NotNull(importedDataSet.Tables["ValidSheet"]);
+        }
+
+        [Fact]
+        public async Task ExcelToDataSetAsync_WithAllSheets_WorksCorrectly()
+        {
+            // Arrange
+            var service = GetExcelService();
+            const int TABLE1_ROWS = 5;
+            const int TABLE2_ROWS = 3;
+
+            var sourceDataSet = GenerateTestDataSet(
+                ("AsyncSheet1", TABLE1_ROWS, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                }),
+                ("AsyncSheet2", TABLE2_ROWS, table =>
+                {
+                    table.Columns.Add("Value", typeof(decimal));
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_Async.xlsx");
+            service.DataSetToFile(sourceDataSet, filePath);
+
+            // Act
+            var importedDataSet = await service.ExcelToDataSetAsync(filePath, headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(2, importedDataSet.Tables.Count);
+            Assert.Equal(TABLE1_ROWS, importedDataSet.Tables["AsyncSheet1"].Rows.Count);
+            Assert.Equal(TABLE2_ROWS, importedDataSet.Tables["AsyncSheet2"].Rows.Count);
+        }
+
+        #endregion
     }
 }

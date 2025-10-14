@@ -107,6 +107,46 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     public abstract List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
 
     /// <summary>
+    /// 将Excel文件转换为DataSet(所有工作表)
+    /// </summary>
+    public abstract DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(指定工作表)
+    /// </summary>
+    public abstract DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public abstract DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public abstract DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为DataSet(所有工作表)
+    /// </summary>
+    public abstract DataSet? ConvertStreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为DataSet(指定工作表)
+    /// </summary>
+    public abstract DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public abstract DataSet? ConvertStreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
+    /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public abstract DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+
+    /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
     public abstract string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
@@ -190,6 +230,114 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         catch (Exception ex)
         {
             Logger?.LogError(ex, "从Excel文件异步读取并转换为对象列表失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(所有工作表)
+    /// </summary>
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            // 在Task.Run内部创建和使用文件流，确保流在使用完毕后才关闭
+            return await Task.Run(() =>
+            {
+                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                return ConvertStreamToDataSet(fileStream, headerRowIndex, addEmptyRow);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(指定工作表)
+    /// </summary>
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            // 在Task.Run内部创建和使用文件流，确保流在使用完毕后才关闭
+            return await Task.Run(() =>
+            {
+                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                return ConvertStreamToDataSet(fileStream, sheetNames, headerRowIndex, addEmptyRow);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            // 在Task.Run内部创建和使用文件流，确保流在使用完毕后才关闭
+            return await Task.Run(() =>
+            {
+                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                return ConvertStreamToDataSet(fileStream, headerRowIndexSelector, addEmptyRow);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 异步将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    {
+        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
+        {
+            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            return null;
+        }
+
+        try
+        {
+            // 在Task.Run内部创建和使用文件流，确保流在使用完毕后才关闭
+            return await Task.Run(() =>
+            {
+                using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+                return ConvertStreamToDataSet(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
             return null;
         }
     }

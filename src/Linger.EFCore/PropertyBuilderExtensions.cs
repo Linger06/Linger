@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Linger.EFCore.Comparers;
 using Linger.EFCore.Converters;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Linger.EFCore;
+
 public static class PropertyBuilderExtensions
 {
     public static PropertyBuilder<T?> HasJsonConversion<T>(this PropertyBuilder<T?> propertyBuilder, JsonSerializerOptions? options = null) where T : class, new()
