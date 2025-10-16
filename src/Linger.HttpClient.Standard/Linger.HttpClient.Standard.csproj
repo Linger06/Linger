@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-    <Version>0.9.8</Version>
+    <Version>0.9.9</Version>
     <Description>
       A lightweight implementation of Linger.HttpClient.Contracts using standard .NET HttpClient.
       Provides robust HTTP request handling with automatic retries, timeout management, and typed response parsing.
@@ -25,7 +25,7 @@
 
   <!-- .NET 10.0 RC using latest preview packages -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-rc.1.25451.107" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0-rc.2.25502.107" />
   </ItemGroup>
 
   <ItemGroup>

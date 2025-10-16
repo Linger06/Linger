@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0</TargetFrameworks>
-        <Version>0.9.8</Version>        
+        <Version>0.9.9</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Description>
             Unified file system abstraction library that provides a consistent interface for

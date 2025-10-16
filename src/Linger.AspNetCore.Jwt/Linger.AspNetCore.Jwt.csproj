@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
-        <Version>0.9.8</Version>
+        <Version>0.9.9</Version>
         <Description>
             A comprehensive JWT authentication implementation for ASP.NET Core applications.
             Provides JWT token generation, validation, and refresh token functionality with 
@@ -19,7 +19,7 @@
     </ItemGroup>
 
   <ItemGroup  Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0-rc.1.25451.107" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0-rc.2.25502.107" />
   </ItemGroup>
   
     <ItemGroup  Condition="'$(TargetFramework)' == 'net9.0'">
