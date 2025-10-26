@@ -1,7 +1,5 @@
 ﻿# Linger.Ldap.Contracts
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A C# LDAP contract library that provides standardized interfaces and models for integrating LDAP directory services across multiple .NET platforms.
 
 ## Introduction

@@ -620,7 +620,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         // 获取所有可用的工作表名称
         var allSheetNames = GetAllSheetNames(workbook);
-        
+
         // 如果没有指定工作表或指定的集合为空，则返回所有工作表
         if (requestedSheetNames == null || !requestedSheetNames.Any())
         {
@@ -630,15 +630,15 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         // 按请求的顺序返回存在的工作表（保持用户指定的顺序）
         var result = new List<string>();
         var allSheetNamesSet = new HashSet<string>(allSheetNames, StringComparer.OrdinalIgnoreCase);
-        
+
         foreach (var requestedName in requestedSheetNames)
         {
             if (allSheetNamesSet.Contains(requestedName))
             {
                 // 使用实际的工作表名称（保持Excel中的大小写）
-                var actualName = allSheetNames.FirstOrDefault(n => 
+                var actualName = allSheetNames.FirstOrDefault(n =>
                     string.Equals(n, requestedName, StringComparison.OrdinalIgnoreCase));
-                
+
                 if (actualName != null)
                 {
                     result.Add(actualName);

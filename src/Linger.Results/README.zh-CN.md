@@ -1,7 +1,5 @@
 # Linger.Results
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 Linger.Results 是一个现代化的操作结果处理库，采用函数式风格设计，帮助开发者更优雅地处理各种操作结果。通过使用 Result 模式而非异常机制，可以实现更可控、可预测的错误处理流程。
 
 ## 特点

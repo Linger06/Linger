@@ -1,7 +1,5 @@
 ﻿# Linger.Ldap.ActiveDirectory
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A comprehensive .NET library for Active Directory LDAP operations, providing simplified access to AD user information and authentication.
 
 ## Features

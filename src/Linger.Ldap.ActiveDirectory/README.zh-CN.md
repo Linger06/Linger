@@ -1,7 +1,5 @@
 # Linger.Ldap.ActiveDirectory
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 一个全面的 .NET 库，用于 Active Directory LDAP 操作，提供对 AD 用户信息和身份验证的简化访问。
 
 ## 功能特点

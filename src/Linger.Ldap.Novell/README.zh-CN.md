@@ -1,7 +1,5 @@
 # Linger.Ldap.Novell
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 一个综合性的 .NET 库，使用 Novell.Directory.Ldap 提供程序实现与 LDAP 目录的无缝集成，支持跨平台。
 
 ## 功能特点

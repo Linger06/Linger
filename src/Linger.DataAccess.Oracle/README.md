@@ -1,7 +1,5 @@
 ﻿# Linger.DataAccess.Oracle
 
-[中文](README_zh-CN.md) | English
-
 Oracle database access library with enhanced security and batch processing.
 
 ## Features

@@ -1,7 +1,5 @@
 # Linger.AspNetCore.Jwt.Contracts
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ASP.NET Core 应用中 JWT（JSON Web Token）认证和授权的核心接口和抽象。
 
 ## 功能特点

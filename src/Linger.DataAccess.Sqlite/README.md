@@ -1,7 +1,5 @@
 # Linger.DataAccess.Sqlite
 
-[中文](README_zh-CN.md) | English
-
 SQLite database access library with SQLite-specific optimizations and factory methods.
 
 ## Features

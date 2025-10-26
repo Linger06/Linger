@@ -1,7 +1,5 @@
 # Linger.DataAccess.Oracle
 
-[English](README.md) | 中文
-
 一个安全且功能丰富的 Oracle 数据访问库，适配企业级场景。
 
 ## 特性

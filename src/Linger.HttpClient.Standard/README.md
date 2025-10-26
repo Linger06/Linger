@@ -1,7 +1,5 @@
 # Linger.HttpClient.Standard
 
-[中文](README_zh-CN.md) | English
-
 Production-ready HTTP client implementation based on System.Net.Http.HttpClient.
 
 ## Features

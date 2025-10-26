@@ -1,7 +1,5 @@
 # Linger.HttpClient.Contracts
 
-[中文](README_zh-CN.md) | English
-
 Standard interfaces and contracts for HTTP client operations.
 
 ## Features

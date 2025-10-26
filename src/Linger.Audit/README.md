@@ -1,11 +1,5 @@
 ﻿# Linger.Audit
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
-[![NuGet](https://img.shields.io/nuget/v/Linger.Audit.svg)](https://www.nuget.org/packages/Linger.Audit/)
-[![Downloads](https://img.shields.io/nuget/dt/Linger.Audit.svg)](https://www.nuget.org/packages/Linger.Audit/)
-[![License](https://img.shields.io/github/license/lingershub/linger.audit)](LICENSE)
-
 A lightweight .NET auditing library that provides base classes and interfaces for entity auditing.
 
 ## 📖 Table of Contents

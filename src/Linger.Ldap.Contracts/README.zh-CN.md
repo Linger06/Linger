@@ -1,7 +1,5 @@
 # Linger.Ldap.Contracts
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 一个C#的LDAP契约库，提供了跨多个.NET平台的LDAP目录服务集成的标准化接口和模型。
 
 ## 介绍

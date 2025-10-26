@@ -1,14 +1,6 @@
 # Linger Excel Framework
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
-<div align="center">
-
-![Linger Excel Framework](https://img.shields.io/badge/Linger-Excel%20Framework-brightgreen)
-
 A unified, efficient, and extensible Excel operation framework that supports multiple Excel library implementations
-
-</div>
 
 ## 🚀 Features Overview
 

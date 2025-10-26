@@ -1,7 +1,5 @@
 # Linger.HttpClient.Contracts
 
-[中文](README_zh-CN.md) | [English](README.md)
-
 HTTP 客户端操作的标准接口和契约定义。
 
 ## 功能特性

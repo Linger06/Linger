@@ -1,7 +1,5 @@
 # Linger.DataAccess
 
-中文 | [English](README.md)
-
 核心数据访问库，提供数据库抽象和通用数据库操作。
 
 ## 功能特性
@@ -153,7 +151,3 @@ var resultRaw = database.QueryInBatchesRaw(
 - 使用 `using` / 异步释放模式管理资源
 - I/O 密集任务使用异步方法
 - 依据场景选择合适的具体数据库实现
-
-## 贡献
-
-本库是 Linger 框架的一部分，贡献指南请参见主仓库。

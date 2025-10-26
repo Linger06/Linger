@@ -1,7 +1,5 @@
 # Linger.FileSystem.Sftp
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## Overview
 
 Linger.FileSystem.Sftp is an implementation of the Linger FileSystem abstraction that provides SFTP (SSH File Transfer Protocol) file operations support. It utilizes the SSH.NET library to offer a secure and reliable SFTP client for file operations with support for both password and certificate-based authentication.

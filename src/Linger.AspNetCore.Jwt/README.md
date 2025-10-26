@@ -1,8 +1,5 @@
 ﻿# Linger.AspNetCore.Jwt
 
-> View this document in: [English](./README.md) | [中文](./README.zh-CN.md)  \
-> Full legacy guide: [legacy-full-guide.md](./docs/legacy-full-guide.md)
-
 Lightweight helpers for issuing and refreshing JWT access tokens in ASP.NET Core.
 
 ## Features

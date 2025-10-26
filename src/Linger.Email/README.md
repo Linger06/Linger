@@ -1,7 +1,5 @@
 ﻿# Linger.Email
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## Overview
 
 Linger.Email is a comprehensive C# email helper library that provides simplified email operations with modern .NET development in mind. Built on top of the robust MailKit library, it offers secure SMTP support, HTML and plain text emails, attachment handling, and asynchronous sending capabilities across multiple .NET frameworks.

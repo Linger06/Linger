@@ -1,7 +1,5 @@
 ﻿# Linger.SharedKernel
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## Overview
 
 Linger.SharedKernel provides the core domain primitives and shared abstractions for building applications with the Linger framework. It serves as a foundation for implementing Domain-Driven Design (DDD) patterns across multiple projects.

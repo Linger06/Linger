@@ -13,7 +13,7 @@ using System.Net.Http;
 namespace Linger.HttpClient.Standard;
 
 /// <summary>
-/// 基于标准 System.Net.Http.HttpClient 的 HTTP 客户端实现
+/// Standard HTTP client implementation using System.Net.Http.HttpClient
 /// </summary>
 public class StandardHttpClient : HttpClientBase, IDisposable
 {
@@ -21,66 +21,64 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     private readonly ILogger<StandardHttpClient> _logger;
 
     /// <summary>
-    /// 创建一个新的Standard HTTP客户端
+    /// Initializes a new HTTP client with the specified base URL
     /// </summary>
-    /// <param name="baseUrl">基础URL</param>
-    /// <param name="logger">日志记录器，可选</param>
+    /// <param name="baseUrl">The base URL for all requests</param>
+    /// <param name="logger">Optional logger for diagnostics</param>
     public StandardHttpClient(string baseUrl, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(baseUrl) };
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
         SetDefaultOptions();
 
-        _logger.LogDebug("StandardHttpClient created with base URL: {BaseUrl}", baseUrl);
+        _logger.LogDebug("HTTP client initialized with base URL: {BaseUrl}", baseUrl);
     }
 
     /// <summary>
-    /// 创建一个新的Standard HTTP客户端
+    /// Initializes a new HTTP client wrapping an existing HttpClient instance
     /// </summary>
-    /// <param name="httpClient">现有的HttpClient实例</param>
-    /// <param name="logger">日志记录器，可选</param>
+    /// <param name="httpClient">The HttpClient instance to wrap</param>
+    /// <param name="logger">Optional logger for diagnostics</param>
     public StandardHttpClient(System.Net.Http.HttpClient httpClient, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = httpClient;
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
         SetDefaultOptions();
 
-        _logger.LogDebug("StandardHttpClient created with existing HttpClient instance");
+        _logger.LogDebug("HTTP client initialized with existing HttpClient instance");
     }
 
     /// <summary>
-    /// 创建一个新的Standard HTTP客户端并应用选项
+    /// Initializes a new HTTP client with the specified base URL and configuration
     /// </summary>
-    /// <param name="baseUrl">基础URL</param>
-    /// <param name="options">客户端选项</param>
-    /// <param name="logger">日志记录器，可选</param>
+    /// <param name="baseUrl">The base URL for all requests</param>
+    /// <param name="options">Configuration options for the client</param>
+    /// <param name="logger">Optional logger for diagnostics</param>
     public StandardHttpClient(string baseUrl, HttpClientOptions options, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(baseUrl) };
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
 
-        // 复制选项
         CopyOptions(options);
         SetDefaultOptions();
 
-        _logger.LogDebug("StandardHttpClient created with base URL: {BaseUrl} and custom options", baseUrl);
+        _logger.LogDebug("HTTP client initialized with base URL: {BaseUrl} and custom options", baseUrl);
     }
 
     /// <summary>
-    /// 创建一个新的Standard HTTP客户端并应用选项
+    /// Initializes a new HTTP client wrapping an existing HttpClient with additional configuration
     /// </summary>
-    /// <param name="httpClient">现有的HttpClient实例</param>
-    /// <param name="options">客户端选项</param>
-    /// <param name="logger">日志记录器，可选</param>
+    /// <param name="httpClient">The HttpClient instance to wrap</param>
+    /// <param name="options">Configuration options for the client</param>
+    /// <param name="logger">Optional logger for diagnostics</param>
     public StandardHttpClient(System.Net.Http.HttpClient httpClient, HttpClientOptions options, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = httpClient ?? throw new System.ArgumentNullException(nameof(httpClient));
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
 
-        // 复制选项
         CopyOptions(options);
 
-        // 同时设置到HttpClient的默认头部
+        // Apply default headers
         foreach (var header in options.DefaultHeaders)
         {
             if (!httpClient.DefaultRequestHeaders.Contains(header.Key))
@@ -91,16 +89,16 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 
         SetDefaultOptions();
 
-        _logger.LogDebug("StandardHttpClient created with existing HttpClient instance and custom options");
+        _logger.LogDebug("HTTP client initialized with existing HttpClient and custom options");
     }
 
     /// <summary>
-    /// 创建一个预配置的Standard HTTP客户端
+    /// Factory method to create a preconfigured HTTP client
     /// </summary>
-    /// <param name="baseUrl">基础URL</param>
-    /// <param name="configureOptions">配置选项的操作</param>
-    /// <param name="logger">日志记录器，可选</param>
-    /// <returns>配置好的HTTP客户端</returns>
+    /// <param name="baseUrl">The base URL for all requests</param>
+    /// <param name="configureOptions">Optional configuration callback</param>
+    /// <param name="logger">Optional logger for diagnostics</param>
+    /// <returns>A configured HTTP client instance</returns>
     public static StandardHttpClient Create(string baseUrl, Action<HttpClientOptions>? configureOptions = null, ILogger<StandardHttpClient>? logger = null)
     {
         var options = new HttpClientOptions();
@@ -112,7 +110,6 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 
     private void CopyOptions(HttpClientOptions options)
     {
-        // 复制选项到当前实例
         foreach (var header in options.DefaultHeaders)
         {
             Options.DefaultHeaders[header.Key] = header.Value;
@@ -136,37 +133,35 @@ public class StandardHttpClient : HttpClientBase, IDisposable
         object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default) //where T : class
     {
         ApiResult<T> rv = new();
-        var requestId = Guid.NewGuid().ToString("N").Substring(0, 8); // 生成简短的请求ID用于跟踪
+        var requestId = Guid.NewGuid().ToString("N").Substring(0, 8);
 
         try
         {
             if (string.IsNullOrEmpty(url))
             {
-                _logger.LogWarning("[{RequestId}] Empty URL provided to CallApi", requestId);
+                _logger.LogWarning("[{RequestId}] API call attempted with empty URL", requestId);
                 return rv;
             }
 
             url = url.AppendQuery("culture=" + CultureInfo.CurrentUICulture.Name);
 
-            // 处理查询参数
+            // Append query parameters if provided
             if (queryParams != null)
             {
                 var queryString = HttpClientBase.BuildQueryString(queryParams);
                 if (!string.IsNullOrEmpty(queryString))
                 {
                     url = url.Contains('?') ? $"{url}&{queryString}" : $"{url}?{queryString}";
-                    _logger.LogDebug("[{RequestId}] Query parameters added: {QueryString}",
-                        requestId, queryString);
+                    _logger.LogDebug("[{RequestId}] Query parameters added: {QueryString}", requestId, queryString);
                 }
             }
 
             if (timeout.HasValue)
             {
-                _logger.LogDebug("[{RequestId}] Request timeout set to {Timeout} seconds",
-                    requestId, timeout.Value);
+                _logger.LogDebug("[{RequestId}] Custom timeout applied: {Timeout} seconds", requestId, timeout.Value);
             }
 
-            // 使用超时令牌源替代直接修改 _httpClient.Timeout
+            // Create combined cancellation token with timeout support
             using var timeoutSource = HttpClientBase.CreateTimeoutTokenSource(timeout, cancellationToken);
             var combinedToken = timeoutSource.Token;
 
@@ -182,7 +177,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 #if NETFRAMEWORK
             if (httpMethod == HttpMethod.Get && content != null)
             {
-                _logger.LogError("[{RequestId}] Cannot send content body with GET request", requestId);
+                _logger.LogError("[{RequestId}] Attempted to send content body with GET request", requestId);
                 throw new ProtocolViolationException("Cannot send a content-body with this verb-type.");
             }
 #endif
@@ -191,16 +186,15 @@ public class StandardHttpClient : HttpClientBase, IDisposable
                 Content = content
             };
 
-            // 添加默认请求头
+            // Apply default headers
             foreach (var header in Options.DefaultHeaders)
             {
                 request.Headers.TryAddWithoutValidation(header.Key, header.Value);
             }
 
-            _logger.LogInformation("[{RequestId}] Starting HTTP {Method} request to {Url}",
-                requestId, method, request.RequestUri);
+            _logger.LogDebug("[{RequestId}] Sending HTTP {Method} request to {Url}", requestId, method, request.RequestUri);
 
-            // 记录请求详情
+            // Log request details in debug mode
             if (_logger.IsEnabled(Microsoft.Extensions.Logging.LogLevel.Debug))
             {
                 _logger.LogDebug("[{RequestId}] Request headers: {Headers}",
@@ -209,19 +203,18 @@ public class StandardHttpClient : HttpClientBase, IDisposable
                 if (content != null)
                 {
                     var contentType = content.Headers?.ContentType?.MediaType ?? "unknown";
-                    _logger.LogDebug("[{RequestId}] Request content type: {ContentType}",
-                        requestId, contentType);
+                    _logger.LogDebug("[{RequestId}] Request content type: {ContentType}", requestId, contentType);
                 }
             }
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-            // 执行请求
+            // Execute request
             var res = await _httpClient.SendAsync(request, combinedToken).ConfigureAwait(false);
 
             stopwatch.Stop();
 
-            _logger.LogInformation("[{RequestId}] HTTP {Method} request to {Url} completed in {ElapsedMs}ms with status {StatusCode}",
+            _logger.LogDebug("[{RequestId}] HTTP {Method} request to {Url} completed in {ElapsedMs}ms with status {StatusCode}",
                 requestId, method, request.RequestUri, stopwatch.ElapsedMilliseconds, (int)res.StatusCode);
 
             rv = await HandleResponseMessage<T>(res).ConfigureAwait(false);
@@ -232,32 +225,29 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             }
             else
             {
-                _logger.LogWarning("[{RequestId}] Response processing failed: {ErrorMessage}",
-                    requestId, rv.ErrorMsg);
+                _logger.LogWarning("[{RequestId}] Response processing failed: {ErrorMessage}", requestId, rv.ErrorMsg);
             }
 
             return rv;
         }
         catch (OperationCanceledException ex) when (timeout.HasValue && !cancellationToken.IsCancellationRequested)
         {
-            // 处理超时异常（与用户取消区分开）
-            var timeoutMessage = $"请求超时，超时设置: {timeout}秒";
-            _logger.LogWarning(ex, "[{RequestId}] Request timed out after {Timeout} seconds",
-                requestId, timeout);
+            // Handle timeout exception (distinguish from user cancellation)
+            var timeoutMessage = $"Request timed out after {timeout} seconds";
+            _logger.LogWarning(ex, "[{RequestId}] Request timed out after {Timeout} seconds", requestId, timeout);
 
             rv.ErrorMsg = timeoutMessage;
             return rv;
         }
         catch (OperationCanceledException ex) when (cancellationToken.IsCancellationRequested)
         {
-            _logger.LogInformation(ex, "[{RequestId}] Request was cancelled by user", requestId);
-            rv.ErrorMsg = "请求被取消";
+            _logger.LogDebug(ex, "[{RequestId}] Request was cancelled", requestId);
+            rv.ErrorMsg = "Request was cancelled";
             return rv;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[{RequestId}] HTTP {Method} request to {Url} failed: {ErrorMessage}",
-                requestId, method, url, ex.Message);
+            _logger.LogError(ex, "[{RequestId}] HTTP {Method} request to {Url} failed: {ErrorMessage}", requestId, method, url, ex.Message);
 
             rv.ErrorMsg = ex.ToString();
             return rv;
@@ -286,19 +276,12 @@ public class StandardHttpClient : HttpClientBase, IDisposable
         };
     }
 
-    /// <summary>
-    /// 释放资源
-    /// </summary>
     public void Dispose()
     {
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// 释放资源的具体实现
-    /// </summary>
-    /// <param name="disposing">是否为主动释放</param>
     protected virtual void Dispose(bool disposing)
     {
         if (disposing)

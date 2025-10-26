@@ -1,7 +1,5 @@
 # Linger.Email.AspNetCore
 
-> 📝 *查看此文档的其他语言版本：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## 概述
 
 Linger.Email.AspNetCore 是专为 ASP.NET Core 应用设计的邮件服务扩展包。它让您在 Web 应用中发送邮件变得轻松简单——通过依赖注入自动管理邮件客户端，从配置文件直接读取设置，还提供了许多开箱即用的便捷功能。
@@ -53,21 +51,20 @@ dotnet add package Linger.Email.AspNetCore
 
 ### 2. 启用邮件服务
 
-在 `Program.cs` 文件中注册邮件服务（.NET 6+ 风格）：
+在 `Program.cs` 文件中注册邮件服务：
 
 ```csharp
 using Linger.Email.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 推荐方式：自动读取配置并注册服务
-builder.Services.ConfigureEmail(builder.Configuration);
-
-// 备选方式：使用 MailKit 的配置方式
-// builder.Services.ConfigureMailKit(builder.Configuration);
+// 注册邮件服务并绑定配置
+builder.Services.AddEmailService(builder.Configuration);
 
 var app = builder.Build();
 ```
+
+> **注意**：旧的方法 `ConfigureEmail()` 和 `ConfigureMailKit()` 已被标记为过时，将在未来版本中移除。请使用 `AddEmailService()` 代替。
 
 ### 3. 在控制器中发送邮件
 

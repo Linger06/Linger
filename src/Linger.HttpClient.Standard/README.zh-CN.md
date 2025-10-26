@@ -1,7 +1,5 @@
 # Linger.HttpClient.Standard
 
-[中文](README_zh-CN.md) | [English](README.md)
-
 基于 System.Net.Http.HttpClient 的生产级 HTTP 客户端实现。
 
 ## 功能特性

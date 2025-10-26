@@ -1,7 +1,5 @@
 # Linger.FileSystem
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A unified file system abstraction library providing a consistent interface for accessing different file systems, including local file system, FTP, and SFTP. With this library, you can use the same API to operate on different types of file systems, simplifying the development process and improving code reusability.
 
 ## Project Structure

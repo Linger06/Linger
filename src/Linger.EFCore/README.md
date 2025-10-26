@@ -1,7 +1,5 @@
 ﻿# Linger.EFCore
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A C# Entity Framework Core helper library that provides enhanced query filter capabilities and property conversion extensions for .NET 9.0 and .NET 8.0.
 
 ## Introduction

@@ -1,7 +1,5 @@
 ﻿# Linger.Results
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A modern operation result handling library designed with a functional style approach, helping developers handle various operation results more elegantly. By using the Result pattern instead of exceptions, it enables more controllable and predictable error handling processes.
 
 ## Features

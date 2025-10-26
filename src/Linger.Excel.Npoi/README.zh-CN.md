@@ -1,7 +1,5 @@
 # Linger.Excel.Npoi
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## 概述
 
 Linger.Excel.Npoi 是基于强大的 [NPOI](https://github.com/nissl-lab/npoi) 库实现的 Linger.Excel.Contracts 中定义的 Excel 操作接口。该包提供了高性能的 Excel 文件操作功能，无需安装 Microsoft Office。

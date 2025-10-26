@@ -1,7 +1,5 @@
 # Linger.AspNetCore.Jwt
 
-> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 一个用于处理 JWT 认证并可选支持刷新令牌的 C# 辅助库，聚焦“简单集成 + 可扩展 + 安全实践”。
 
 ## 目录

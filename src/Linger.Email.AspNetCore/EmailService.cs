@@ -4,11 +4,8 @@ using Microsoft.Extensions.Options;
 namespace Linger.Email.AspNetCore;
 
 /// <summary>
-/// 邮件服务实现
+/// Provides email service functionality with logging support
 /// </summary>
-/// <remarks>
-/// 初始化邮件服务
-/// </remarks>
 public sealed class EmailService(
     IOptions<EmailConfig> emailConfig,
     ILogger<EmailService> logger) : Email(emailConfig?.Value ?? throw new ArgumentNullException(nameof(emailConfig))), IEmailService
@@ -23,18 +20,18 @@ public sealed class EmailService(
 
         try
         {
-            _logger.LogInformation("正在发送邮件到 {Recipients}",
+            _logger.LogDebug("Sending email to {Recipients}",
                 string.Join(", ", emailMessage.To.Select(x => x.Address)));
 
             await base.SendAsync(emailMessage, response =>
             {
-                _logger.LogInformation("邮件发送成功: {Response}", response);
+                _logger.LogDebug("Email sent successfully: {Response}", response);
                 completedCallback?.Invoke(response);
             }).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "发送邮件失败: {Error}", ex.Message);
+            _logger.LogError(ex, "Failed to send email: {Error}", ex.Message);
             throw;
         }
     }
@@ -83,7 +80,7 @@ public sealed class EmailService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "释放邮件服务资源时发生错误");
+            _logger.LogError(ex, "Error occurred while disposing email service resources");
         }
         finally
         {

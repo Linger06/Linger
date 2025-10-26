@@ -1,14 +1,6 @@
 # Linger Excel Framework
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
-<div align="center">
-
-![Linger Excel Framework](https://img.shields.io/badge/Linger-Excel%20Framework-brightgreen)
-
 一个统一、高效、可扩展的Excel操作框架，支持多种Excel库实现
-
-</div>
 
 ## 🚀 特性概览
 

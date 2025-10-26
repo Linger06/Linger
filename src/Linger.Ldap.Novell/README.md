@@ -1,7 +1,5 @@
 ﻿# Linger.Ldap.Novell
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A comprehensive .NET library providing seamless integration with LDAP directories using the Novell.Directory.Ldap provider, with cross-platform support.
 
 ## Features

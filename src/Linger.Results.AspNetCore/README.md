@@ -1,7 +1,5 @@
 # Linger.Results.AspNetCore
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 Linger.Results.AspNetCore provides extension methods that seamlessly integrate the Linger.Results library with ASP.NET Core framework, allowing API controllers to easily return results in a unified format.
 
 ## Features

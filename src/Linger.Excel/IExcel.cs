@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using System.Reflection;
 using OfficeOpenXml;
 
@@ -33,7 +33,6 @@ public interface IExcel
     Task<ICollection<DataTable>?> ReadExcelToTablesAsync(string filePath, bool firstRowIsColumnName = true,
         bool addEmptyRow = false);
 
-
     DataTable? ReadStreamToDataTable(Stream stream, string? sheetName = null, bool firstRowIsColumnName = true,
         bool addEmptyRow = false, bool dispose = true);
 
@@ -41,14 +40,12 @@ public interface IExcel
         bool firstRowIsColumnName = true,
         bool addEmptyRow = false, bool dispose = true);
 
-
     ICollection<DataTable>? ReadStreamToTables(Stream stream, bool firstRowIsColumnName = true,
         bool addEmptyRow = false,
         bool dispose = true);
 
     Task<ICollection<DataTable>?> ReadStreamToTablesAsync(Stream stream, bool firstRowIsColumnName = true,
         bool addEmptyRow = false, bool dispose = true);
-
 
     List<T>? ReadExcelToList<T>(string filePath, string? sheetName = null, bool firstRowIsColumnName = true,
         bool addEmptyRow = false) where T : new();
@@ -68,7 +65,6 @@ public interface IExcel
 
     string ExportToFile(DataTable dataTable, string fullFileName,
         Action<ExcelWorksheet, DataColumnCollection, DataRowCollection> action, string sheetsName = "sheet1");
-
 
     ExcelWorksheet? WriteListToSheet<T>(List<T> list, ExcelWorksheet worksheet,
         Action<ExcelWorksheet, PropertyInfo[]>? action = null, string title = "");

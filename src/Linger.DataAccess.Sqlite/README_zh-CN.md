@@ -1,7 +1,5 @@
 # Linger.DataAccess.Sqlite
 
-[English](README.md) | 中文
-
 一个全面的 SQLite 数据库访问库，提供安全、高性能的数据库操作。
 
 ## 特性

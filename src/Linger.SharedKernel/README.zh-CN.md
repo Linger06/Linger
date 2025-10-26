@@ -1,7 +1,5 @@
 # Linger.SharedKernel
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## 概述
 
 Linger.SharedKernel 提供了使用 Linger 框架构建应用程序的核心领域原语和共享抽象。它作为跨多个项目实现领域驱动设计 (DDD) 模式的基础。

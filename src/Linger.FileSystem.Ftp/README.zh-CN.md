@@ -1,7 +1,5 @@
 # Linger.FileSystem.Ftp
 
-> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## 概述
 
 Linger.FileSystem.Ftp 是 Linger FileSystem 抽象的一个实现，提供 FTP 文件操作支持。它使用 FluentFTP 库提供稳健的、具有重试能力的 FTP 客户端，用于常见的文件操作，如上传、下载、列表和删除文件。

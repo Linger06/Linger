@@ -1,8 +1,6 @@
 ﻿# Linger.DataAccess
 
-[中文](README_zh-CN.md) | English
-
-Core data access library providing database abstraction and common database operations.
+A core data access library that provides database abstraction and common database operations.
 
 ## Features
 
@@ -153,7 +151,3 @@ Helper utility for building dynamic SQL queries safely.
 - Implement proper disposal patterns with `using` statements
 - Use async methods for I/O intensive operations
 - Choose appropriate database-specific implementations for optimal performance
-
-## Contributing
-
-This library is part of the Linger framework. Please refer to the main repository for contributing guidelines.
