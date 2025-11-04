@@ -76,10 +76,4 @@ public static partial class StringExtensions
     public static bool IsNotNullOrEmpty([NotNullWhen(true)] this string? value) => !string.IsNullOrEmpty(value);
 
     public static bool IsNotNullOrWhiteSpace([NotNullWhen(true)] this string? value) => !string.IsNullOrWhiteSpace(value);
-
-    [Obsolete("Use IsNotNullOrEmpty instead. Will be removed in 1.0.0.")]
-    public static bool IsNotNullAndEmpty([NotNullWhen(true)] this string? value) => IsNotNullOrEmpty(value);
-
-    [Obsolete("Use IsNotNullOrWhiteSpace instead. Will be removed in 1.0.0.")]
-    public static bool IsNotNullAndWhiteSpace([NotNullWhen(true)] this string? value) => IsNotNullOrWhiteSpace(value);
 }

@@ -47,26 +47,46 @@ var retryOptions = new RetryOptions
 using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 
 // Connect to the server
-sftpSystem.Connect();
-
-// Use the file system
-if (sftpSystem.FileExists("/remote/path/file.txt"))
-{
-    // Download file
-    var fileContent = sftpSystem.ReadAllText("/remote/path/file.txt");
-    
-    // Process file content
-    Console.WriteLine(fileContent);
-}
-
-// Create directory if it doesn't exist
-sftpSystem.CreateDirectoryIfNotExists("/remote/path/new-directory");
+await sftpSystem.ConnectAsync();
 
 // Upload a file
-sftpSystem.WriteAllText("/remote/path/new-file.txt", "Hello, World!");
+await using var stream = File.OpenRead("./local/file.txt");
+var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+if (result.Success)
+{
+    Console.WriteLine($"Upload successful: {result.FilePath}");
+}
+
+// Download a file
+var downloadResult = await sftpSystem.DownloadFileAsync("/remote/path/file.txt", "C:/Downloads/file.txt");
+
+if (downloadResult.Success)
+{
+    Console.WriteLine($"Downloaded {downloadResult.FileSize} bytes");
+}
 
 // Disconnect when done
-sftpSystem.Disconnect();
+await sftpSystem.DisconnectAsync();
+```
+
+### File Upload Methods
+
+```csharp
+// Method 1: Upload from stream to complete file path
+await using var stream = File.OpenRead("local.txt");
+var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+// Method 2: Upload local file to complete remote path
+result = await sftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
+
+// Method 3: Upload with separate directory and filename (convenient for dynamic naming)
+result = await sftpSystem.UploadFileAsync(
+    "C:/local/file.txt",           // Local file path
+    "/remote/directory",            // Remote directory
+    "custom-name.txt",              // Custom filename
+    overwrite: true
+);
 ```
 
 ### Using Certificate-based Authentication

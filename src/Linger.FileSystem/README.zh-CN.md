@@ -28,7 +28,7 @@ dotnet add package Linger.FileSystem.Sftp
 ### 核心接口层次
 
 ```
-IFileSystem                   IAsyncFileSystem
+IFileSystem (🚫 已过时)         IAsyncFileSystem (✅ 推荐)
     │                              │
     └───────────────┬──────────────┘
                     │
@@ -39,8 +39,8 @@ ILocalFileSystem    IRemoteFileSystem
 
 ### 核心接口
 
-- **IFileSystem**: 定义基本同步文件操作接口
-- **IAsyncFileSystem**: 定义基本异步文件操作接口
+- **IFileSystem**: ⚠️ 已过时 - 定义基本同步文件操作接口（建议迁移到 IAsyncFileSystem）
+- **IAsyncFileSystem**: ✅ 推荐 - 定义基本异步文件操作接口
 - **IFileSystemOperations**: 统一的文件系统操作接口，继承自上述两个接口
 - **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
 - **IRemoteFileSystem**: 远程文件系统连接管理接口
@@ -439,6 +439,209 @@ var options = new LocalFileSystemOptions
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
 await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
 ```
+
+## 迁移指南
+
+### 从同步方法迁移到异步方法
+
+⚠️ `IFileSystem` 接口中的同步方法已被标记为过时，建议迁移到异步版本以避免潜在的死锁和性能问题。
+
+#### 为什么要迁移？
+
+同步方法在现代应用程序中可能导致：
+- **死锁风险**: 在 ASP.NET Core 等异步上下文中调用同步方法可能导致死锁
+- **性能问题**: 阻塞线程池线程，降低应用程序的整体吞吐量
+- **可扩展性限制**: 无法充分利用异步 I/O 的优势
+
+#### 迁移步骤
+
+**步骤 1: 更改接口类型**
+
+```csharp
+// ❌ 旧代码（使用同步接口）
+IFileSystem fs = new LocalFileSystem("C:/Storage");
+
+// ✅ 新代码 - 使用异步接口
+IAsyncFileSystem fs = new LocalFileSystem("C:/Storage");
+
+// ✅ 或使用完整的操作接口（推荐）
+IFileSystemOperations fs = new LocalFileSystem("C:/Storage");
+```
+
+**步骤 2: 更新方法调用**
+
+```csharp
+// ❌ 旧代码（同步调用）
+bool exists = fs.FileExists("/file.txt");
+fs.CreateDirectoryIfNotExists("/uploads");
+fs.DeleteFileIfExists("/temp.txt");
+
+// ✅ 新代码（异步调用）
+bool exists = await fs.FileExistsAsync("/file.txt");
+await fs.CreateDirectoryIfNotExistsAsync("/uploads");
+await fs.DeleteFileIfExistsAsync("/temp.txt");
+```
+
+**步骤 3: 更新方法签名为异步**
+
+```csharp
+// ❌ 旧方法签名（同步）
+public void ProcessFile(string filePath)
+{
+    if (fs.FileExists(filePath))
+    {
+        // 处理文件...
+        fs.DeleteFileIfExists(filePath);
+    }
+}
+
+// ✅ 新方法签名（异步）
+public async Task ProcessFileAsync(string filePath)
+{
+    if (await fs.FileExistsAsync(filePath))
+    {
+        // 处理文件...
+        await fs.DeleteFileIfExistsAsync(filePath);
+    }
+}
+```
+
+**步骤 4: 更新调用链**
+
+```csharp
+// ❌ 旧代码
+public class FileProcessor
+{
+    public void Run()
+    {
+        ProcessFile("data.txt");
+    }
+}
+
+// ✅ 新代码
+public class FileProcessor
+{
+    public async Task RunAsync()
+    {
+        await ProcessFileAsync("data.txt");
+    }
+}
+```
+
+#### 常见场景迁移示例
+
+**场景 1: 文件上传前检查**
+
+```csharp
+// ❌ 旧代码
+public FileOperationResult UploadFile(Stream stream, string path)
+{
+    if (fs.FileExists(path))
+    {
+        return FileOperationResult.Fail("文件已存在");
+    }
+    return fs.UploadAsync(stream, path).GetAwaiter().GetResult(); // 危险！
+}
+
+// ✅ 新代码
+public async Task<FileOperationResult> UploadFileAsync(Stream stream, string path)
+{
+    if (await fs.FileExistsAsync(path))
+    {
+        return FileOperationResult.Fail("文件已存在");
+    }
+    return await fs.UploadAsync(stream, path);
+}
+```
+
+**场景 2: 批量文件处理**
+
+```csharp
+// ❌ 旧代码
+public void ProcessFiles(string[] filePaths)
+{
+    foreach (var path in filePaths)
+    {
+        if (fs.FileExists(path))
+        {
+            // 处理文件...
+        }
+    }
+}
+
+// ✅ 新代码
+public async Task ProcessFilesAsync(string[] filePaths)
+{
+    foreach (var path in filePaths)
+    {
+        if (await fs.FileExistsAsync(path))
+        {
+            // 处理文件...
+        }
+    }
+}
+
+// ✅✅ 更好的方式 - 并行处理
+public async Task ProcessFilesAsync(string[] filePaths)
+{
+    var tasks = filePaths.Select(async path =>
+    {
+        if (await fs.FileExistsAsync(path))
+        {
+            // 处理文件...
+        }
+    });
+    await Task.WhenAll(tasks);
+}
+```
+
+**场景 3: ASP.NET Core 控制器**
+
+```csharp
+// ❌ 旧代码（可能导致死锁！）
+[HttpGet]
+public IActionResult GetFile(string path)
+{
+    if (!fs.FileExists(path))  // 同步调用可能死锁
+    {
+        return NotFound();
+    }
+    // ...
+}
+
+// ✅ 新代码
+[HttpGet]
+public async Task<IActionResult> GetFileAsync(string path)
+{
+    if (!await fs.FileExistsAsync(path))
+    {
+        return NotFound();
+    }
+    // ...
+}
+```
+
+#### 迁移检查清单
+
+- [ ] 将所有 `IFileSystem` 类型声明改为 `IAsyncFileSystem` 或 `IFileSystemOperations`
+- [ ] 将所有同步方法调用改为异步版本（添加 `Async` 后缀和 `await`）
+- [ ] 将方法签名改为返回 `Task` 或 `Task<T>`
+- [ ] 移除所有 `.GetAwaiter().GetResult()` 或 `.Wait()` 调用
+- [ ] 更新单元测试为异步测试方法
+- [ ] 在 ASP.NET Core 中确保控制器方法为异步
+
+#### 向后兼容性
+
+如果您的代码库需要同时支持旧代码，可以保留同步方法但添加编译警告抑制：
+
+```csharp
+#pragma warning disable CS0618 // 类型或成员已过时
+IFileSystem fs = new LocalFileSystem("C:/Storage");
+bool exists = fs.FileExists("/file.txt");
+#pragma warning restore CS0618
+```
+
+但建议尽快完成迁移，因为同步方法可能在未来版本中被完全移除。
 
 ## 贡献
 

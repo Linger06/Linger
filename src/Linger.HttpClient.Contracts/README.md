@@ -113,6 +113,59 @@ else
 }
 ```
 
+## JSON Serialization Configuration
+
+`HttpClientBase` provides default JSON serialization configuration with a "secure-by-default" approach:
+
+### Response Deserialization Configuration
+
+`HttpClientBase.DefaultResponseOptions` is used for deserializing HTTP responses:
+
+- **Encoder**: `JavaScriptEncoder.Default` (safer escaping strategy)
+- **Number handling**: Lenient (allows reading numbers from strings, `AllowReadingFromString`)
+- **Other settings**: Case-insensitive properties, CamelCase naming, ignore nulls, disallow trailing commas and comments, ignore cycles
+- **Built-in converters**: `JsonObjectConverter`, `DateTimeConverter`, `DateTimeNullConverter`, `DataTableJsonConverter`
+
+### Request Serialization Configuration
+
+`HttpClientBase.DefaultRequestOptions` is used for serializing HTTP requests:
+
+- **Encoder**: `JavaScriptEncoder.Default`
+- **Based on standard Web defaults**
+- **Converters**: Only includes `DateTimeConverter`
+
+### Custom Configuration
+
+Prefer overriding `GetRequestJsonOptions()` / `GetResponseJsonOptions()` to provide custom JSON options rather than replacing the entire serialization implementation. Example:
+
+```csharp
+public class CustomHttpClient : HttpClientBase
+{
+    protected override JsonSerializerOptions GetRequestJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        };
+        options.Converters.Add(new DateTimeConverter());
+        return options;
+    }
+
+    protected override JsonSerializerOptions GetResponseJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        options.Converters.Add(new DateTimeConverter());
+        options.Converters.Add(new JsonObjectConverter());
+        return options;
+    }
+}
+```
+
+If you need full control over serialization you can still override `CreateHttpContent`, but prefer the two methods above to keep behavior consistent.
+
 ## Best Practices
 
 - Use dependency injection to manage HTTP client lifecycle

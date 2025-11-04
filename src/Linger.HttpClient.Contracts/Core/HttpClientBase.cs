@@ -1,8 +1,11 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Linger.Extensions;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Helpers;
 using Linger.HttpClient.Contracts.Models;
+using Linger.JsonConverter;
 
 namespace Linger.HttpClient.Contracts.Core;
 
@@ -12,9 +15,57 @@ namespace Linger.HttpClient.Contracts.Core;
 public abstract class HttpClientBase : IHttpClient
 {
     /// <summary>
+    /// 获取用于响应反序列化的默认 JSON 序列化选项。
+    /// 配置了安全加固和对数字的只读宽容处理。
+    /// </summary>
+    protected static JsonSerializerOptions DefaultResponseOptions { get; } = CreateDefaultResponseOptions();
+
+    /// <summary>
+    /// 获取用于请求序列化的默认 JSON 序列化选项。
+    /// 配置了标准 Web 默认值和必要的转换器。
+    /// </summary>
+    protected static JsonSerializerOptions DefaultRequestOptions { get; } = CreateDefaultRequestOptions();
+
+    /// <summary>
     /// HTTP客户端选项
     /// </summary>
     public HttpClientOptions Options { get; } = new();
+
+    private static JsonSerializerOptions CreateDefaultResponseOptions()
+    {
+        // 基于标准 Web 默认值,然后进行安全加固并启用对数字的只读宽容处理
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            // 安全加固和一致性
+            Encoder = JavaScriptEncoder.Default,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            ReferenceHandler = ReferenceHandler.IgnoreCycles,
+            // 只读宽容性以实现互操作:在反序列化时接受数字字符串
+            NumberHandling = JsonNumberHandling.AllowReadingFromString
+        };
+
+        // 保留项目特定的转换器
+        jsonOptions.Converters.Add(new JsonObjectConverter());
+        jsonOptions.Converters.Add(new DateTimeConverter());
+        jsonOptions.Converters.Add(new DateTimeNullConverter());
+        jsonOptions.Converters.Add(new DataTableJsonConverter());
+
+        return jsonOptions;
+    }
+
+    private static JsonSerializerOptions CreateDefaultRequestOptions()
+    {
+        // 基于标准 Web 默认值用于传出请求体。
+        // 不全局地将数字写为字符串;保持标准的数字输出。
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            Encoder = JavaScriptEncoder.Default
+        };
+
+        // 仅保留请求序列化所需的基本转换器
+        jsonOptions.Converters.Add(new DateTimeConverter());
+        return jsonOptions;
+    }
 
     /// <summary>
     /// 设置授权令牌
@@ -53,7 +104,7 @@ public abstract class HttpClientBase : IHttpClient
     /// 请求体（body）。
     /// 当为 <see cref="HttpContent"/> 时将直接使用；
     /// 当为 <see cref="IDictionary{TKey, TValue}"/>（如 <see cref="IDictionary{String, String}"/>）时将作为表单（<see cref="FormUrlEncodedContent"/>）发送；
-    /// 其他类型将被序列化为 JSON（使用 <see cref="ExtensionMethodSetting.DefaultRequestJsonOptions"/>）。
+    /// 其他类型将被序列化为 JSON。
     /// 一般用于 POST/PUT/PATCH 等含有请求体的方法；对 GET 调用会被忽略。
     /// </param>
     /// <param name="queryParams">查询参数</param>
@@ -84,10 +135,26 @@ public abstract class HttpClientBase : IHttpClient
             IDictionary<string, string> dictionary => new FormUrlEncodedContent(dictionary),
             HttpContent httpContent => httpContent,
             _ => new StringContent(
-                JsonSerializer.Serialize(requestBody, ExtensionMethodSetting.DefaultRequestJsonOptions),
+                JsonSerializer.Serialize(requestBody, GetRequestJsonOptions()),
                 Encoding.UTF8,
                 "application/json")
         };
+    }
+
+    /// <summary>
+    /// 返回用于请求序列化的 JsonSerializerOptions。子类可覆盖以提供自定义配置。
+    /// </summary>
+    protected virtual JsonSerializerOptions GetRequestJsonOptions()
+    {
+        return DefaultRequestOptions;
+    }
+
+    /// <summary>
+    /// 返回用于响应反序列化的 JsonSerializerOptions。子类可覆盖以提供自定义配置。
+    /// </summary>
+    protected virtual JsonSerializerOptions GetResponseJsonOptions()
+    {
+        return DefaultResponseOptions;
     }
 
     /// <summary>
@@ -230,7 +297,7 @@ public abstract class HttpClientBase : IHttpClient
         // 尝试JSON反序列化
         try
         {
-            var result = responseText.Deserialize<T>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+            var result = responseText.Deserialize<T>(GetResponseJsonOptions());
             return result ?? default!;
         }
         catch (JsonException)
@@ -255,7 +322,7 @@ public abstract class HttpClientBase : IHttpClient
             // 尝试解析 ProblemDetails 格式
             try
             {
-                var problemDetails = responseTxt.Deserialize<ProblemDetailsWithErrors>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                var problemDetails = responseTxt.Deserialize<ProblemDetailsWithErrors>(GetResponseJsonOptions());
                 if (problemDetails is not null && problemDetails.Errors.Count > 0)
                 {
                     var errors = problemDetails.Errors.Select(kvp => new Error(kvp.Key, kvp.Value)).ToList();
@@ -277,7 +344,7 @@ public abstract class HttpClientBase : IHttpClient
             // 尝试解析直接的错误集合格式
             try
             {
-                var errorList = responseTxt.Deserialize<IEnumerable<Error>>(ExtensionMethodSetting.DefaultJsonSerializerOptions);
+                var errorList = responseTxt.Deserialize<IEnumerable<Error>>(GetResponseJsonOptions());
                 if (errorList is not null && errorList.Any())
                 {
                     // 合并所有错误项的消息为全局错误消息；若 Code 非空，包含在消息中："Code: Message"

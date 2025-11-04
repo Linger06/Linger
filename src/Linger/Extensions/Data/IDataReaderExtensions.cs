@@ -182,6 +182,6 @@ public static class IDataReaderExtensions
             conversionType = nullableConverter.UnderlyingType;
         }
 
-        return Convert.ChangeType(value, conversionType, ExtensionMethodSetting.DefaultCulture);
+        return Convert.ChangeType(value, conversionType, CultureInfo.InvariantCulture);
     }
 }

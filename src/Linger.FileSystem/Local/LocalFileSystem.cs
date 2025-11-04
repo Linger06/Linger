@@ -32,32 +32,64 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
     public bool Exists()
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         return DirectoryExists(RootDirectoryPath);
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
     public void CreateIfNotExists()
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         CreateDirectoryIfNotExists(RootDirectoryPath);
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
+    /// <summary>
+    /// 创建目录（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 CreateDirectoryIfNotExistsAsync 异步版本", false)]
     public override void CreateDirectoryIfNotExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
         Directory.CreateDirectory(realPath);
     }
 
+    /// <summary>
+    /// 删除文件（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 DeleteFileIfExistsAsync 异步版本", false)]
     public override void DeleteFileIfExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
         FileHelper.DeleteFileIfExists(realPath);
     }
 
+    /// <summary>
+    /// 检查目录是否存在（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 DirectoryExistsAsync 异步版本", false)]
     public override bool DirectoryExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
         return StandardPathHelper.Exists(realPath, false);
     }
 
+    /// <summary>
+    /// 检查文件是否存在（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 FileExistsAsync 异步版本", false)]
     public override bool FileExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
@@ -66,23 +98,31 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
     public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         return Task.FromResult(FileExists(filePath));
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
     public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         return Task.FromResult(DirectoryExists(directoryPath));
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
     public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         CreateDirectoryIfNotExists(directoryPath);
+#pragma warning restore CS0618 // 类型或成员已过时
         return Task.CompletedTask;
     }
 
     public override Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         DeleteFileIfExists(filePath);
+#pragma warning restore CS0618 // 类型或成员已过时
         return Task.CompletedTask;
     }
 
@@ -593,13 +633,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         await DeleteFileIfExistsAsync(realPath).ConfigureAwait(false);
     }
 
-    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
             // 分离路径和文件名
-            var destinationPath = Path.GetDirectoryName(filePath) ?? string.Empty;
-            var fileName = Path.GetFileName(filePath);
+            var destinationPath = Path.GetDirectoryName(destinationFilePath) ?? string.Empty;
+            var fileName = Path.GetFileName(destinationFilePath);
 
             var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath,
                 _options.DefaultNamingRule, overwrite, !overwrite).ConfigureAwait(false);
@@ -616,7 +656,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
     }
 
-    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -626,10 +666,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             }
 
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
-            var fileName = Path.GetFileName(localFilePath);
-            // 构建完整的文件路径并调用更新后的UploadAsync
-            var filePath = Path.Combine(destinationPath, fileName);
-            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken).ConfigureAwait(false);
+            return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

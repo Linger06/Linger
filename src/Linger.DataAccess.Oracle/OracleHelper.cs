@@ -55,16 +55,13 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     /// <returns>如果存在返回true，否则返回false</returns>
     /// <exception cref="ArgumentNullException">当sql为null时抛出</exception>
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var count = FindCountBySql(sql);
-            return count > 0;
-        }, cancellationToken);
+        var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+        return count > 0;
     }
 
     /// <summary>
@@ -76,17 +73,14 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     /// <returns>如果存在返回true，否则返回false</returns>
     /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default, params OracleParameter[] parameters)
+    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default, params OracleParameter[] parameters)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var count = FindCountBySql(sql, parameters);
-            return count > 0;
-        }, cancellationToken);
+        var count = await FindCountBySqlAsync(sql, parameters).ConfigureAwait(false);
+        return count > 0;
     }
 
     /// <summary>

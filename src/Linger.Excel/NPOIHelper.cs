@@ -78,7 +78,7 @@ public static class NpoiHelper
 
     public static void InsertSheet(string outputFile, string sheetname, DataTable dt)
     {
-        var readfile = new FileStream(outputFile, FileMode.Open, FileAccess.Read);
+        using var readfile = new FileStream(outputFile, FileMode.Open, FileAccess.Read);
         IWorkbook? hssfworkbook = WorkbookFactory.Create(readfile);
         //HSSFWorkbook hssfworkbook = new HSSFWorkbook(readfile);
         var num = hssfworkbook.GetSheetIndex(sheetname);
@@ -127,9 +127,8 @@ public static class NpoiHelper
 
         readfile.Close();
 
-        var writefile = new FileStream(outputFile, FileMode.OpenOrCreate, FileAccess.Write);
+        using var writefile = new FileStream(outputFile, FileMode.OpenOrCreate, FileAccess.Write);
         hssfworkbook.Write(writefile);
-        writefile.Close();
     }
 
     /// <summary>
@@ -139,7 +138,7 @@ public static class NpoiHelper
     /// <returns></returns>
     public static int GetSheetNumber(string outputFile)
     {
-        var readfile = new FileStream(outputFile, FileMode.Open, FileAccess.Read);
+        using var readfile = new FileStream(outputFile, FileMode.Open, FileAccess.Read);
 
         var hssfworkbook = new HSSFWorkbook(readfile);
         var number = hssfworkbook.NumberOfSheets;
@@ -154,7 +153,7 @@ public static class NpoiHelper
     public static ArrayList GetSheetName(string outputFile)
     {
         var arrayList = new ArrayList();
-        var readfile = new FileStream(outputFile, FileMode.Open, FileAccess.Read);
+        using var readfile = new FileStream(outputFile, FileMode.Open, FileAccess.Read);
 
         var hssfworkbook = new HSSFWorkbook(readfile);
         for (var i = 0; i < hssfworkbook.NumberOfSheets; i++)
@@ -500,7 +499,7 @@ public static class NpoiHelper
                     case "System.String": //字符串类型
                         if (drValue.IsDouble())
                         {
-                            newCell.SetCellValue(drValue.ToDouble());
+                            newCell.SetCellValue(drValue.ToDoubleOrDefault(0.0));
                             break;
                         }
 
@@ -508,14 +507,13 @@ public static class NpoiHelper
                         break;
 
                     case "System.DateTime": //日期类型
-                        var dateV = drValue.ToDateTime();
-                        newCell.SetCellValue(dateV);
+                        var dateV = drValue.ToDateTimeOrNull(); if (dateV.HasValue) newCell.SetCellValue(dateV.Value);
 
                         newCell.CellStyle = dateStyle; //格式化显示
                         break;
 
                     case "System.Boolean": //布尔型
-                        var boolV = drValue.ToBool();
+                        var boolV = drValue.ToBoolOrDefault(false);
                         newCell.SetCellValue(boolV);
                         break;
 
@@ -523,13 +521,13 @@ public static class NpoiHelper
                     case "System.Int32":
                     case "System.Int64":
                     case "System.Byte":
-                        var intV = drValue.ToInt();
+                        var intV = drValue.ToIntOrDefault(0);
                         newCell.SetCellValue(intV);
                         break;
 
                     case "System.Decimal": //浮点型
                     case "System.Double":
-                        var doubV = drValue.ToDouble();
+                        var doubV = drValue.ToDoubleOrDefault(0.0);
                         newCell.SetCellValue(doubV);
                         break;
 
@@ -698,7 +696,7 @@ public static class NpoiHelper
                     case "System.String": //字符串类型
                         if (drValue.IsDouble())
                         {
-                            newCell.SetCellValue(drValue.ToDouble());
+                            newCell.SetCellValue(drValue.ToDoubleOrDefault(0.0));
                             break;
                         }
 
@@ -706,14 +704,13 @@ public static class NpoiHelper
                         break;
 
                     case "System.DateTime": //日期类型
-                        var dateV = drValue.ToDateTime();
-                        newCell.SetCellValue(dateV);
+                        var dateV = drValue.ToDateTimeOrNull(); if (dateV.HasValue) newCell.SetCellValue(dateV.Value);
 
                         newCell.CellStyle = dateStyle; //格式化显示
                         break;
 
                     case "System.Boolean": //布尔型
-                        var boolV = drValue.ToBool();
+                        var boolV = drValue.ToBoolOrDefault(false);
                         newCell.SetCellValue(boolV);
                         break;
 
@@ -721,13 +718,13 @@ public static class NpoiHelper
                     case "System.Int32":
                     case "System.Int64":
                     case "System.Byte":
-                        var intV = drValue.ToInt();
+                        var intV = drValue.ToIntOrDefault(0);
                         newCell.SetCellValue(intV);
                         break;
 
                     case "System.Decimal": //浮点型
                     case "System.Double":
-                        var doubV = drValue.ToDouble();
+                        var doubV = drValue.ToDoubleOrDefault(0.0);
                         newCell.SetCellValue(doubV);
                         break;
 
@@ -869,9 +866,9 @@ public static class NpoiHelper
     {
         DataSet ds = ImportExcelToDs(strFileName, null, headerRowIndex);
 
-        if (ds.Tables.Contains(sheetName))
+        if (!ds.Tables.Contains(sheetName))
         {
-            throw new Exception($"Not Found the {sheetName} in {nameof(ds)}");
+            throw new InvalidOperationException($"Not Found the {sheetName} in {nameof(ds)}");
         }
 
         DataTable dt = ds.Tables[sheetName]!;
@@ -970,7 +967,7 @@ public static class NpoiHelper
 
             for (var i = 0; i <= cellCount; i++)
             {
-                var column = new DataColumn(Convert.ToString("Column" + i));
+                var column = new DataColumn(Convert.ToString("Column" + i, CultureInfo.InvariantCulture));
                 table.Columns.Add(column);
             }
         }
@@ -983,20 +980,20 @@ public static class NpoiHelper
             {
                 if (headerRow.GetCell(i) == null)
                 {
-                    if (table.Columns.IndexOf(Convert.ToString(i)) > 0)
+                    if (table.Columns.IndexOf(Convert.ToString(i, CultureInfo.InvariantCulture)) > 0)
                     {
-                        var column = new DataColumn(Convert.ToString("重复列名" + i));
+                        var column = new DataColumn(Convert.ToString("重复列名" + i, CultureInfo.InvariantCulture));
                         table.Columns.Add(column);
                     }
                     else
                     {
-                        var column = new DataColumn(Convert.ToString(i));
+                        var column = new DataColumn(Convert.ToString(i, CultureInfo.InvariantCulture));
                         table.Columns.Add(column);
                     }
                 }
                 else if (table.Columns.IndexOf(headerRow.GetCell(i).ToString()) > 0)
                 {
-                    var column = new DataColumn(Convert.ToString("重复列名" + i));
+                    var column = new DataColumn(Convert.ToString("重复列名" + i, CultureInfo.InvariantCulture));
                     table.Columns.Add(column);
                 }
                 else
@@ -1048,7 +1045,7 @@ public static class NpoiHelper
                                 break;
 
                             case CellType.Boolean:
-                                dataRow[j] = Convert.ToString(cell.BooleanCellValue);
+                                dataRow[j] = Convert.ToString(cell.BooleanCellValue, CultureInfo.InvariantCulture);
                                 break;
 
                             case CellType.Error:
@@ -1072,11 +1069,11 @@ public static class NpoiHelper
                                         break;
 
                                     case CellType.Numeric:
-                                        dataRow[j] = Convert.ToString(cell.NumericCellValue, CultureInfo.CurrentCulture);
+                                        dataRow[j] = Convert.ToString(cell.NumericCellValue, CultureInfo.InvariantCulture);
                                         break;
 
                                     case CellType.Boolean:
-                                        dataRow[j] = Convert.ToString(cell.BooleanCellValue);
+                                        dataRow[j] = Convert.ToString(cell.BooleanCellValue, CultureInfo.InvariantCulture);
                                         break;
 
                                     case CellType.Error:

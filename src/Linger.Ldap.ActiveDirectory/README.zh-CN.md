@@ -41,8 +41,11 @@ services.AddLdapActiveDirectory(options =>
     options.Url = "example.com";
     options.SearchBase = "DC=example,DC=com";
     options.SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))";
-    options.BindDn = "CN=ServiceAccount,OU=ServiceAccounts,DC=example,DC=com";
-    options.BindPassword = "SecurePassword123!";
+    options.Credentials = new LdapCredentials 
+    { 
+        BindDn = "CN=ServiceAccount,OU=ServiceAccounts,DC=example,DC=com",
+        BindCredentials = "SecurePassword123!"
+    };
 });
 ```
 
@@ -60,13 +63,19 @@ public class AuthService
 
     public async Task<bool> AuthenticateUserAsync(string username, string password)
     {
+        // 使用默认 SearchBase 进行身份验证
         var (isValid, user) = await _ldap.ValidateUserAsync(username, password);
         return isValid;
     }
 
-    public async Task<bool> AuthenticateAndGetUserInfoAsync(string username, string password)
+    public async Task<bool> AuthenticateInSpecificOUAsync(string username, string password)
     {
-        var (isValid, user) = await _ldap.ValidateUserAsync(username, password);
+        // 在特定 OU 中进行身份验证
+        var (isValid, user) = await _ldap.ValidateUserAsync(
+            username, 
+            password,
+            searchBase: "OU=Sales,DC=example,DC=com"
+        );
         
         if (isValid && user != null)
         {
@@ -98,7 +107,7 @@ public class UserService
     
     public async Task<UserViewModel?> GetUserInfoAsync(string username)
     {
-        // 查找特定用户
+        // 在默认 SearchBase 中查找特定用户
         var adUser = await _ldap.FindUserAsync(username);
         
         if (adUser is null)
@@ -115,6 +124,26 @@ public class UserService
         };
     }
     
+    public async Task<UserViewModel?> GetUserInSpecificOUAsync(string username, string ou)
+    {
+        // 在特定 OU 中查找用户
+        var adUser = await _ldap.FindUserAsync(
+            username,
+            searchBase: ou
+        );
+        
+        if (adUser is null)
+            return null;
+            
+        return new UserViewModel
+        {
+            Username = adUser.Username,
+            DisplayName = adUser.DisplayName,
+            Email = adUser.Email,
+            Department = adUser.Department
+        };
+    }
+    
     public async Task<List<UserViewModel>> SearchUsersAsync(string searchTerm)
     {
         // 按名称或其他属性搜索用户
@@ -127,6 +156,93 @@ public class UserService
             Email = u.Email,
             Department = u.Department
         }).ToList();
+    }
+    
+    public async Task<List<UserViewModel>> SearchUsersInOUAsync(string searchTerm, string ou)
+    {
+        // 在特定 OU 中搜索用户
+        var adUsers = await _ldap.GetUsersAsync(
+            searchTerm,
+            searchBase: ou
+        );
+        
+        return adUsers.Select(u => new UserViewModel
+        {
+            Username = u.Username,
+            DisplayName = u.DisplayName,
+            Email = u.Email,
+            Department = u.Department
+        }).ToList();
+    }
+}
+```
+
+### 灵活的 OU 搜索 (v1.0 新功能)
+
+```csharp
+public class AdvancedUserService
+{
+    private readonly ILdap _ldap;
+    
+    public AdvancedUserService(ILdap ldap)
+    {
+        _ldap = ldap;
+    }
+    
+    // 跨多个 OU 搜索用户
+    public async Task<AdUserInfo?> FindUserAcrossOUsAsync(string username)
+    {
+        string[] organizationalUnits = 
+        {
+            "OU=Employees,DC=company,DC=com",
+            "OU=Contractors,DC=company,DC=com",
+            "OU=ServiceAccounts,DC=company,DC=com"
+        };
+
+        foreach (var ou in organizationalUnits)
+        {
+            var user = await _ldap.FindUserAsync(username, searchBase: ou);
+            if (user != null)
+            {
+                Console.WriteLine($"用户在 {ou} 中找到");
+                return user;
+            }
+        }
+        
+        return null;
+    }
+    
+    // 检查用户是否存在于特定 OU
+    public async Task<bool> CheckUserInOUAsync(string username, string ou)
+    {
+        return await _ldap.UserExistsAsync(
+            username,
+            searchBase: ou
+        );
+    }
+    
+    // 在多个部门 OU 中搜索
+    public async Task<Dictionary<string, List<AdUserInfo>>> SearchByDepartmentAsync(string searchTerm)
+    {
+        var departments = new Dictionary<string, string>
+        {
+            ["销售部"] = "OU=Sales,DC=company,DC=com",
+            ["IT部"] = "OU=IT,DC=company,DC=com",
+            ["人力资源部"] = "OU=HR,DC=company,DC=com"
+        };
+        
+        var results = new Dictionary<string, List<AdUserInfo>>();
+        
+        foreach (var dept in departments)
+        {
+            var users = await _ldap.GetUsersAsync(
+                searchTerm,
+                searchBase: dept.Value
+            );
+            results[dept.Key] = users.ToList();
+        }
+        
+        return results;
     }
 }
 ```

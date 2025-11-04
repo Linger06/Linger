@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.Text;
 using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
@@ -48,11 +49,8 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     public Task<DataSet> QueryAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return GetDataSet(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>());
-        }, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return GetDataSetAsync(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>());
     }
 
     /// <summary>
@@ -569,7 +567,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, string.Join(",", parameterNames));
             var dbParams = currentBatch.Select((value, index) => CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
 
             var resultDataSet = FindDataSetBySql(formattedSql, dbParams);
@@ -616,7 +614,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, string.Join(",", parameterNames));
             var dbParams = currentBatch.Select((value, index) => CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
 
             var resultDataSet = await FindDataSetBySqlAsync(formattedSql, dbParams).ConfigureAwait(false);
@@ -662,7 +660,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var joined = string.Join(",", currentBatch.Select(v => FormatRawValue(v, quote)));
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, joined);
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, joined);
             var resultDataSet = FindDataSetBySql(formattedSql);
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
@@ -707,7 +705,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var joined = string.Join(",", currentBatch.Select(v => FormatRawValue(v, quote)));
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, joined);
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, joined);
             var resultDataSet = await FindDataSetBySqlAsync(formattedSql).ConfigureAwait(false);
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];

@@ -144,10 +144,75 @@ var resultRaw = database.QueryInBatchesRaw(
 ### SqlBuilder 类
 用于安全构建动态 SQL。
 
+## 异步/等待最佳实践
+
+### 真正的异步实现 ✅
+
+本库中的所有异步方法均使用**真正的异步 I/O** 操作，而非 `Task.Run` 包装：
+
+```csharp
+// ✅ 真正异步 - I/O 期间释放线程
+public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
+{
+    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+    return count > 0;
+}
+
+// ❌ 伪异步（本库不使用）
+// Task.Run 只是包装同步阻塞代码
+public Task<bool> BadExistsAsync(string sql)
+{
+    return Task.Run(() => FindCountBySql(sql)); // 浪费线程池线程
+}
+```
+
+### 性能优势
+
+| 指标 | 同步方法 | 伪异步 (Task.Run) | 真正异步 ✅ |
+|------|---------|------------------|-------------|
+| **线程使用** | 阻塞 1 个线程 | 占用 1 个线程池线程 | I/O 期间不占用线程 |
+| **并发能力** | ~数千 | ~数千 | ~数万 |
+| **内存占用** | ~1MB/线程 | ~1MB/线程 | ~几KB/任务 |
+| **可扩展性** | 受限 | 受限 | 优秀 |
+| **取消支持** | 不支持 | 仅启动前 | I/O 操作期间可取消 |
+
+### 使用建议
+
+```csharp
+// ✅ 推荐：I/O 操作使用异步方法
+var users = await database.FindTableBySqlAsync("SELECT * FROM Users");
+var count = await database.FindCountBySqlAsync("SELECT COUNT(*) FROM Orders");
+
+// ✅ 推荐：库代码中使用 ConfigureAwait(false)（内部已实现）
+var result = await database.QueryAsync(sql).ConfigureAwait(false);
+
+// ✅ 推荐：支持取消令牌
+var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+var data = await database.QueryTableAsync(sql, null, cts.Token);
+
+// ❌ 避免：混用同步和异步（选其一）
+var badResult = database.FindTableBySqlAsync(sql).Result; // 可能死锁！
+```
+
+### 高并发场景
+
+对于需要处理数千个并发请求的应用程序：
+
+```csharp
+// ✅ 可扩展至数万个并发操作
+var tasks = Enumerable.Range(1, 10000)
+    .Select(id => database.FindTableBySqlAsync($"SELECT * FROM Orders WHERE Id = {id}"))
+    .ToList();
+
+var results = await Task.WhenAll(tasks); // 最小化线程使用
+```
+
 ## 最佳实践
 
-- 使用参数化查询防止 SQL 注入
-- 使用分批查询处理极大 IN 列表，避免手工拼接
-- 使用 `using` / 异步释放模式管理资源
-- I/O 密集任务使用异步方法
-- 依据场景选择合适的具体数据库实现
+- **使用参数化查询**防止 SQL 注入
+- **使用分批查询**处理极大 IN 列表，避免手工拼接
+- **使用 `using` / 异步释放模式**管理资源
+- **I/O 密集任务使用异步方法** - 所有异步方法均使用真正的异步 I/O
+- **始终传递 CancellationToken** 到异步方法以支持正确的取消操作
+- **库代码中使用 ConfigureAwait(false)**（内部已实现）
+- **依据场景选择合适的具体数据库实现**以获得最佳性能

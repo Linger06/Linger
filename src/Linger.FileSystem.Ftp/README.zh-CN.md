@@ -48,26 +48,44 @@ using var ftpSystem = new FtpFileSystem(settings, retryOptions);
 // 连接到服务器
 await ftpSystem.ConnectAsync();
 
-// 使用文件系统
-if (await ftpSystem.FileExistsAsync("/remote/path/file.txt"))
+// 上传文件
+await using var stream = File.OpenRead("./local/file.txt");
+var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+if (result.Success)
 {
-    // 下载文件
-    var result = ftpSystem.DownloadFileAsync("/remote/path/file.txt","/local/file.txt");    
-    if (result.Success)
-    {
-        logger.LogInformation("文件下载成功");
-        var fullFilePath = result.FullFilePath;
-    }
+    Console.WriteLine($"上传成功: {result.FilePath}");
 }
 
-// 如果目录不存在则创建
-await ftpSystem.CreateDirectoryIfNotExistsAsync("/remote/path/new-directory");
+// 下载文件
+var downloadResult = await ftpSystem.DownloadFileAsync("/remote/path/file.txt", "C:/Downloads/file.txt");
 
-// 上传文件
-await ftpSystem.UploadFileAsync("/local/path/file.txt", "/remote/path/new-file.txt");
+if (downloadResult.Success)
+{
+    Console.WriteLine($"已下载 {downloadResult.FileSize} 字节");
+}
 
 // 完成后断开连接
 await ftpSystem.DisconnectAsync();
+```
+
+### 文件上传方法
+
+```csharp
+// 方法 1: 从流上传到完整文件路径
+await using var stream = File.OpenRead("local.txt");
+var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+// 方法 2: 上传本地文件到完整远程路径
+result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
+
+// 方法 3: 分别指定目录和文件名上传（便于动态命名）
+result = await ftpSystem.UploadFileAsync(
+    "C:/local/file.txt",           // 本地文件路径
+    "/remote/directory",            // 远程目录
+    "custom-name.txt",              // 自定义文件名
+    overwrite: true
+);
 ```
 
 ## 与依赖注入集成

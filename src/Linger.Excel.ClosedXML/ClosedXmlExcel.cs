@@ -190,6 +190,25 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return GetExcelCellValue(cell);
     }
 
+    /// <summary>
+    /// 检查指定行是否为空行
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="rowNum">行索引(1-based)</param>
+    /// <returns>如果该行为空则返回true</returns>
+    /// <remarks>
+    /// ClosedXML提供了CellsUsed()方法来获取使用过的单元格，
+    /// 如果没有使用过的单元格，则该行为空。
+    /// 这比遍历所有单元格要高效。
+    /// </remarks>
+    protected override bool IsRowEmpty(IXLWorksheet worksheet, int rowNum)
+    {
+        var row = worksheet.Row(rowNum);
+        
+        // 使用ClosedXML的CellsUsed()方法，如果没有使用过的单元格，该行为空
+        return !row.CellsUsed().Any();
+    }
+
     #region 私有辅助方法
 
     /// <summary>

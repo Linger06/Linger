@@ -51,11 +51,11 @@ public class DateTimeConverter : JsonConverter<DateTime>
     {
         if (value.Hour == 0 && value is { Minute: 0, Second: 0 })
         {
-            writer.WriteStringValue(value.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture));
+            writer.WriteStringValue(value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         }
         else
         {
-            writer.WriteStringValue(value.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture));
+            writer.WriteStringValue(value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
         }
     }
 }
@@ -86,8 +86,22 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
     /// <returns>The converted nullable <see cref="DateTime"/>.</returns>
     public override DateTime? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var dateTime = reader.GetString();
-        return string.IsNullOrEmpty(dateTime) ? null : DateTime.Parse(dateTime, ExtensionMethodSetting.DefaultCulture);
+        if (reader.TokenType == JsonTokenType.String)
+        {
+            var dateTime = reader.GetString();
+            
+            if (string.IsNullOrEmpty(dateTime))
+            {
+                return null;
+            }
+            
+            if (DateTime.TryParse(dateTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            {
+                return date;
+            }
+        }
+
+        return reader.GetDateTime();
     }
 
     /// <summary>
@@ -106,11 +120,11 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
 
         if (value.Value is { Hour: 0, Minute: 0, Second: 0 })
         {
-            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture));
+            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         }
         else
         {
-            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture));
+            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
         }
     }
 }

@@ -29,7 +29,7 @@ public static class ExcelExtensions
 
         return await new RetryHelper().ExecuteAsync(async () =>
         {
-            using var ms = excel.ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
+            using var ms = excel.DataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
             var directoryName = Path.GetDirectoryName(fullFileName);
             if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
             {
@@ -70,7 +70,7 @@ public static class ExcelExtensions
 
         return await new RetryHelper().ExecuteAsync(async () =>
         {
-            using var ms = excel.ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
+            using var ms = excel.CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
             var directoryName = Path.GetDirectoryName(fullFileName);
             if (!string.IsNullOrEmpty(directoryName) && !Directory.Exists(directoryName))
             {

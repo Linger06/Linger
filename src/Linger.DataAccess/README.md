@@ -144,10 +144,75 @@ Core database functionality including connection management and parameter handli
 ### SqlBuilder Class
 Helper utility for building dynamic SQL queries safely.
 
+## Async/Await Best Practices
+
+### True Async Implementation ✅
+
+All async methods in this library use **true asynchronous I/O** operations, not `Task.Run` wrappers:
+
+```csharp
+// ✅ TRUE ASYNC - Releases thread during I/O
+public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
+{
+    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+    return count > 0;
+}
+
+// ❌ PSEUDO-ASYNC (Not used in this library)
+// Task.Run just wraps synchronous blocking code
+public Task<bool> BadExistsAsync(string sql)
+{
+    return Task.Run(() => FindCountBySql(sql)); // Wastes thread pool threads
+}
+```
+
+### Performance Benefits
+
+| Metric | Synchronous | Pseudo-Async (Task.Run) | True Async ✅ |
+|--------|-------------|------------------------|---------------|
+| **Thread Usage** | 1 thread blocked | 1 thread pool thread | 0 threads during I/O |
+| **Concurrency** | ~Thousands | ~Thousands | ~Tens of thousands |
+| **Memory** | ~1MB per thread | ~1MB per thread | ~Few KB per task |
+| **Scalability** | Limited | Limited | Excellent |
+| **Cancellation** | Not supported | Only before start | During I/O operation |
+
+### Usage Recommendations
+
+```csharp
+// ✅ DO: Use async methods for I/O operations
+var users = await database.FindTableBySqlAsync("SELECT * FROM Users");
+var count = await database.FindCountBySqlAsync("SELECT COUNT(*) FROM Orders");
+
+// ✅ DO: Use ConfigureAwait(false) in library code (already done internally)
+var result = await database.QueryAsync(sql).ConfigureAwait(false);
+
+// ✅ DO: Support cancellation tokens
+var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+var data = await database.QueryTableAsync(sql, null, cts.Token);
+
+// ❌ DON'T: Mix sync and async (use one or the other)
+var badResult = database.FindTableBySqlAsync(sql).Result; // Can deadlock!
+```
+
+### High Concurrency Scenarios
+
+For applications handling thousands of concurrent requests:
+
+```csharp
+// ✅ Scales to tens of thousands of concurrent operations
+var tasks = Enumerable.Range(1, 10000)
+    .Select(id => database.FindTableBySqlAsync($"SELECT * FROM Orders WHERE Id = {id}"))
+    .ToList();
+
+var results = await Task.WhenAll(tasks); // Minimal thread usage
+```
+
 ## Best Practices
 
-- Use parameterized queries to prevent SQL injection
-- Use batch query helpers for large IN lists instead of manual concatenation
-- Implement proper disposal patterns with `using` statements
-- Use async methods for I/O intensive operations
-- Choose appropriate database-specific implementations for optimal performance
+- **Use parameterized queries** to prevent SQL injection
+- **Use batch query helpers** for large IN lists instead of manual concatenation
+- **Implement proper disposal patterns** with `using` statements
+- **Use async methods for I/O intensive operations** - All async methods use true async I/O
+- **Always pass CancellationToken** to async methods for proper cancellation support
+- **Use ConfigureAwait(false)** in library code (already done internally)
+- **Choose appropriate database-specific implementations** for optimal performance

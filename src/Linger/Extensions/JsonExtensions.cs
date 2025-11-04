@@ -67,7 +67,7 @@ public static class JsonExtensions
     /// </example>
     public static string SerializeJson<T>(this T value)
     {
-        return value.SerializeJson(Encoding.Default);
+        return value.SerializeJson(Encoding.UTF8);
     }
 
     /// <summary>
@@ -133,7 +133,7 @@ public static class JsonExtensions
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
 
-        using var stream = new MemoryStream(Encoding.Default.GetBytes(value));
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(value));
         return (T?)serializer.ReadObject(stream);
     }
 

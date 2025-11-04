@@ -5,13 +5,13 @@ namespace Linger.Extensions.Core;
 
 public static class DateTimeExtensions
 {
-    public static string ToFormatDate(this DateTime dateTime, string format = "yyyy-MM-dd") => dateTime.ToString(format, ExtensionMethodSetting.DefaultCulture);
+    public static string ToFormatDate(this DateTime dateTime, string format = "yyyy-MM-dd") => dateTime.ToString(format, CultureInfo.InvariantCulture);
 
-    public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd") => dateTime?.ToString(format, ExtensionMethodSetting.DefaultCulture);
+    public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd") => dateTime?.ToString(format, CultureInfo.InvariantCulture);
 
-    public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime.ToString(format, ExtensionMethodSetting.DefaultCulture);
+    public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime.ToString(format, CultureInfo.InvariantCulture);
 
-    public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime?.ToString(format, ExtensionMethodSetting.DefaultCulture);
+    public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime?.ToString(format, CultureInfo.InvariantCulture);
 
     public static TimeSpan GetDateDifference(this DateTime dateTime1, DateTime dateTime2) => dateTime1 - dateTime2;
 
@@ -33,52 +33,6 @@ public static class DateTimeExtensions
             _ => 0
         };
         return abs ? Math.Abs(dateDiff) : dateDiff;
-    }
-
-    [Obsolete("Use GetDateDifference with TimeUnit instead. Will be removed in 1.0.0.")]
-    public static double GetDateDifference(this DateTime dateTime1, DateTime? dateTime2, string unit, bool abs = false)
-    {
-        var timeUnit = unit?.ToUpperInvariant() switch
-        {
-            "D" or "DAYS" => TimeUnit.Days,
-            "H" or "HOURS" => TimeUnit.Hours,
-            "M" or "MINUTES" => TimeUnit.Minutes,
-            "MO" or "MONTHS" => TimeUnit.Months,
-            "S" or "SECONDS" => TimeUnit.Seconds,
-            "MS" or "MILLISECONDS" => TimeUnit.Milliseconds,
-            "Y" or "YEARS" => TimeUnit.Years,
-            _ => TimeUnit.Days
-        };
-        return GetDateDifference(dateTime1, dateTime2, timeUnit, abs);
-    }
-
-    /// <summary>
-    /// Converts the DateTime to a string using the specified date mode.
-    /// </summary>
-    /// <param name="dateTime">The DateTime instance to format.</param>
-    /// <param name="dateMode">The date mode to use.</param>
-    /// <returns>A formatted string representation of the DateTime.</returns>
-    /// <remarks>
-    /// This method is obsolete. Use ToFormatDate() or ToFormatDateTime() methods instead, or use DateTime.ToString(format) directly.
-    /// </remarks>
-    [Obsolete("Use ToFormatDate() or ToFormatDateTime() methods instead, or use DateTime.ToString(format) directly. Will be removed in 1.0.0.")]
-    public static string ToStringOfMode(this DateTime dateTime, int dateMode)
-    {
-        return dateMode switch
-        {
-            0 => dateTime.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture),
-            1 => dateTime.ToString("yyyy-MM-dd HH:mm:ss", ExtensionMethodSetting.DefaultCulture),
-            2 => dateTime.ToString("yyyy/MM/dd", ExtensionMethodSetting.DefaultCulture),
-            4 => dateTime.ToString("MM-dd", ExtensionMethodSetting.DefaultCulture),
-            5 => dateTime.ToString("MM/dd", ExtensionMethodSetting.DefaultCulture),
-            7 => dateTime.ToString("yyyy-MM", ExtensionMethodSetting.DefaultCulture),
-            8 => dateTime.ToString("yyyy/MM", ExtensionMethodSetting.DefaultCulture),
-            10 => dateTime.ToString("yyyy-MM-dd", ExtensionMethodSetting.DefaultCulture) + " 00:00:00",
-            11 => dateTime.ToString("yyyyMMdd", ExtensionMethodSetting.DefaultCulture),
-            12 => dateTime.ToString("yyyyMMddHHmmss", ExtensionMethodSetting.DefaultCulture),
-            13 => dateTime.ToString("MM/dd/yyyy", ExtensionMethodSetting.DefaultCulture),
-            _ => dateTime.ToString(ExtensionMethodSetting.DefaultCulture)
-        };
     }
 
     public static int CalculateAge(this DateTime dateOfBirth)
@@ -145,7 +99,7 @@ public static class DateTimeExtensions
 
     public static int GetDays(int year)
     {
-        return GetDays(year, ExtensionMethodSetting.DefaultCulture);
+        return GetDays(year, CultureInfo.InvariantCulture);
     }
 
     public static int GetDays(int year, CultureInfo culture)
@@ -157,7 +111,7 @@ public static class DateTimeExtensions
 
     public static int GetDays(this DateTime date)
     {
-        return GetDays(date.Year, ExtensionMethodSetting.DefaultCulture);
+        return GetDays(date.Year, CultureInfo.InvariantCulture);
     }
 
     public static int GetDays(this DateTime date, CultureInfo culture)
@@ -406,7 +360,7 @@ public static class DateTimeExtensions
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be between 1 and 9999.");
         }
 
-        culture ??= ExtensionMethodSetting.DefaultCulture;
+        culture ??= CultureInfo.InvariantCulture;
 
         var calendar = culture.Calendar;
         var firstDayOfWeek = culture.DateTimeFormat.FirstDayOfWeek;
@@ -428,7 +382,7 @@ public static class DateTimeExtensions
 
     public static int WeekNumberOfYear(this DateTime dateSrc, CultureInfo? culture = null)
     {
-        culture ??= ExtensionMethodSetting.DefaultCulture;
+        culture ??= CultureInfo.InvariantCulture;
         Calendar calendar = culture.Calendar;
         var firstDayOfWeek = culture.DateTimeFormat.FirstDayOfWeek;
         var calendarWeekRule = culture.DateTimeFormat.CalendarWeekRule;
@@ -455,7 +409,7 @@ public static class DateTimeExtensions
         if (year < 1 || year > 9999)
             throw new ArgumentOutOfRangeException(nameof(year), "Year must be between 1 and 9999.");
 
-        culture ??= ExtensionMethodSetting.DefaultCulture;
+        culture ??= CultureInfo.InvariantCulture;
 
         // Get the number of weeks in the specified year
         var totalWeeks = GetWeekCountOfYear(year, culture);
@@ -493,7 +447,7 @@ public static class DateTimeExtensions
 #endif 
         GetStartEndDayOfFirstWeek(int year, CultureInfo? culture = null)
     {
-        culture ??= ExtensionMethodSetting.DefaultCulture;
+        culture ??= CultureInfo.InvariantCulture;
         var firstDayOfWeek = culture.DateTimeFormat.FirstDayOfWeek;
         var calendarWeekRule = culture.DateTimeFormat.CalendarWeekRule;
 

@@ -1,5 +1,6 @@
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
+using System.Globalization;
 using Linger.Extensions.Core;
 #if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
@@ -28,26 +29,26 @@ public static class LdapEntryExtensions
 
         var userInfo = new AdUserInfo
         {
-            // 基本标识信息 - 优先使用 UserPrincipal 中的值
+            // 基本标识信息 - 优先使用 UserPrincipal 中的�?
             SamAccountName = userPrincipal.SamAccountName,
             DisplayName = userPrincipal.DisplayName,
             Upn = userPrincipal.UserPrincipalName,
             Name = userPrincipal.Name,
             Dn = userPrincipal.DistinguishedName,
 
-            // 个人信息 - 优先使用 UserPrincipal 中的值
+            // 个人信息 - 优先使用 UserPrincipal 中的�?
             FirstName = userPrincipal.GivenName,
             LastName = userPrincipal.Surname,
             Description = userPrincipal.Description
         };
 
-        // 使用 DirectoryEntry 填充其余属性
+        // 使用 DirectoryEntry 填充其余属�?
         MapContactInfo(userInfo, directoryEntry);
         MapOrganizationInfo(userInfo, directoryEntry);
         MapAddressInfo(userInfo, directoryEntry);
         MapSystemInfo(userInfo, directoryEntry);
 
-        // 安全信息使用 UserPrincipal 特有的方法
+        // 安全信息使用 UserPrincipal 特有的方�?
         MapSpecialUserPrincipalProperties(userInfo, userPrincipal);
 
         return userInfo;
@@ -55,11 +56,11 @@ public static class LdapEntryExtensions
 
     private static void MapSpecialUserPrincipalProperties(AdUserInfo userInfo, UserPrincipal user)
     {
-        // 处理只能从 UserPrincipal 获取的属性
+        // 处理只能�?UserPrincipal 获取的属�?
         userInfo.Status = GetUserStatus(user);
-        userInfo.PwdLastSet = user.LastPasswordSet?.ToString(ExtensionMethodSetting.DefaultCulture);
+        userInfo.PwdLastSet = user.LastPasswordSet?.ToString(CultureInfo.InvariantCulture);
         userInfo.PwdExpirationLeftDays = GetPasswordExpirationDays(user);
-        userInfo.AccountExpires = user.AccountExpirationDate?.ToString(ExtensionMethodSetting.DefaultCulture);
+        userInfo.AccountExpires = user.AccountExpirationDate?.ToString(CultureInfo.InvariantCulture);
     }
 
     private static string? GetPropertyValue(DirectoryEntry entry, string propertyName)
@@ -135,25 +136,25 @@ public static class LdapEntryExtensions
             var lastSet = user.LastPasswordSet;
             if (!lastSet.HasValue) return null;
 
-            // 获取域控制器的 DirectoryEntry
+            // 获取域控制器�?DirectoryEntry
             using var de = user.Context.ConnectedServer != null
                 ? new System.DirectoryServices.DirectoryEntry($"LDAP://{user.Context.ConnectedServer}")
                 : new System.DirectoryServices.DirectoryEntry();
 
-            // 获取最大密码期限（以100纳秒为单位的负值）
+            // 获取最大密码期限（�?00纳秒为单位的负值）
             var maxPwdAge = (long?)de.Properties["maxPwdAge"].Value;
             if (!maxPwdAge.HasValue || maxPwdAge.Value == 0) return null;
 
-            // 转换为天数（去掉负号并转换为天数）
+            // 转换为天数（去掉负号并转换为天数�?
             // 使用decimal确保精确计算
-            const decimal TicksPerDay = 864000000000M; // 24 * 60 * 60 * 10000000 (一天的100纳秒数)
+            const decimal TicksPerDay = 864000000000M; // 24 * 60 * 60 * 10000000 (一天的100纳秒�?
             var maxPwdAgeDays = Math.Abs(maxPwdAge.Value) / TicksPerDay;
 
             // 计算剩余天数
             var expirationDate = lastSet.Value.AddDays((double)maxPwdAgeDays);
             var daysLeft = (expirationDate - DateTime.Now).Days;
 
-            return daysLeft.ToString(ExtensionMethodSetting.DefaultCulture);
+            return daysLeft.ToString(CultureInfo.InvariantCulture);
         }
         catch (Exception)
         {
@@ -269,7 +270,7 @@ public static class LdapEntryExtensions
         userInfo.ExMailboxDb = GetPropertyValue(entry, LdapUserType.ExMailboxDb);
         userInfo.ExtensionAttribute1 = GetPropertyValue(entry, LdapUserType.ExtensionAttribute1);
         userInfo.UserType = GetPropertyValue(entry, LdapUserType.ExMailboxDb) != null ? "UserMailbox" : "User";
-        userInfo.MemberOf = GetMemberOf(entry);    // 添加 MemberOf 属性映射
+        userInfo.MemberOf = GetMemberOf(entry);    // 添加 MemberOf 属性映�?
 
         var createdDate = GetPropertyValue(entry, LdapUserType.WhenCreated);
         if (createdDate != null && DateTime.TryParse(createdDate, out var whenCreated))
@@ -289,7 +290,7 @@ public static class LdapEntryExtensions
                 return;
             }
 
-            // 获取账户状态
+            // 获取账户状�?
             var isDisabled = IsAccountDisabled(userAccountControl);
             var isLocked = IsAccountLocked(entry);
             var isExpired = IsAccountExpired(entry);
@@ -348,7 +349,7 @@ public static class LdapEntryExtensions
         var expiresStr = GetPropertyValue(entry, LdapUserType.AccountExpires);
         if (long.TryParse(expiresStr, out var expiresValue))
         {
-            return GetAccountExpirationDate(expiresValue)?.ToString(ExtensionMethodSetting.DefaultCulture);
+            return GetAccountExpirationDate(expiresValue)?.ToString(CultureInfo.InvariantCulture);
         }
         return null;
     }
@@ -373,7 +374,7 @@ public static class LdapEntryExtensions
 
         userInfo.PwdLastSet = lastSetValue == 0
             ? PasswordStatus.NeverChanged
-            : DateTime.FromFileTime(lastSetValue).ToString(ExtensionMethodSetting.DefaultCulture);
+            : DateTime.FromFileTime(lastSetValue).ToString(CultureInfo.InvariantCulture);
 
         userInfo.PwdExpirationLeftDays =
             (userAccountControl & ActiveDirectoryConstants.UserAccountControl.PasswordNeverExpires) != 0

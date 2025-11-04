@@ -347,23 +347,6 @@ public static partial class StringExtensions
 #endif
     }
 
-    /// <summary>
-    /// Truncates the string to the specified length, or returns the entire string if it is shorter than the specified length.
-    /// </summary>
-    /// <param name="self">The string to truncate.</param>
-    /// <param name="length">The length to truncate to.</param>
-    /// <returns>The truncated string.</returns>
-    [Obsolete("Use Take instead. Will be removed in 1.0.0.")]
-    public static string Substring2(this string self, int length) => Take(self, length);
-
-    /// <summary>
-    /// Truncates the string to the specified length from the end, or returns the entire string if it is shorter than the specified length.
-    /// </summary>
-    /// <param name="self">The string to truncate.</param>
-    /// <param name="length">The length to truncate to.</param>
-    /// <returns>The truncated string.</returns>
-    [Obsolete("Use TakeLast instead. Will be removed in 1.0.0.")]
-    public static string Substring3(this string self, int length) => TakeLast(self, length);
     private static string EnsureAffixCore(string value, string affix, bool isPrefix, StringComparison? comparison)
     {
         if (value == null) return affix ?? string.Empty;

@@ -57,7 +57,7 @@ public class JwtService : IJwtService
             Logger?.LogDebug("JWT token generated successfully for user: {UserId}", userId);
 
             // Returns access token only
-            return await Task.FromResult(new Token(token)).ConfigureAwait(false);
+            return new Token(token);
         }
         catch (Exception ex)
         {
@@ -93,7 +93,7 @@ public class JwtService : IJwtService
             ValidationParameters.ValidIssuer,
             ValidationParameters.ValidAudience,
             claims,
-            expires: DateTime.Now.AddMinutes(JwtOptions.Expires),
+            expires: DateTime.UtcNow.AddMinutes(JwtOptions.Expires),
             signingCredentials: signingCredentials
         );
         return tokenOptions;

@@ -52,7 +52,7 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtSer
             var userId = principal.Identity?.Name!;
             JwtRefreshToken refreshToken = await GetExistRefreshTokenAsync(userId).ConfigureAwait(false);
 
-            if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.Now)
+            if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.UtcNow)
             {
                 Logger?.LogWarning("Token refresh rejected for user: {UserId} - invalid or expired refresh token", userId);
                 throw new SecurityTokenException("The provided refresh token is invalid or has expired");
@@ -76,7 +76,7 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtSer
         rng.GetBytes(randomNumber);
 
         var refreshToken = Convert.ToBase64String(randomNumber);
-        DateTime refreshTokenExpires = DateTime.Now.AddMinutes(JwtOptions.RefreshTokenExpires);
+        DateTime refreshTokenExpires = DateTime.UtcNow.AddMinutes(JwtOptions.RefreshTokenExpires);
         return new JwtRefreshToken { RefreshToken = refreshToken, ExpiryTime = refreshTokenExpires };
     }
 

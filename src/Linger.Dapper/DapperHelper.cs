@@ -61,15 +61,9 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     ///     获取数据库连接
     /// </summary>
     /// <returns></returns>
-    private TConnection GetDbConnection()
+    private IDbConnection GetDbConnection()
     {
         var dbConnection = new TConnection { ConnectionString = _connStr };
-
-        if (dbConnection == null)
-        {
-            throw new Exception("未指定数据库类型");
-        }
-
         return dbConnection;
     }
 
@@ -581,42 +575,49 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     //}
 
     /// <summary>
-    ///     查询第一个数据
+    ///     查询第一条数据
     /// </summary>
-    /// <param name="sql"></param>
-    /// <param name="param"></param>
-    /// <returns></returns>
+    /// <param name="sql">SQL查询语句</param>
+    /// <param name="param">查询参数</param>
+    /// <returns>查询结果的第一条数据</returns>
+    /// <exception cref="InvalidOperationException">当查询结果为空时抛出</exception>
     public T QueryFirst<T>(string sql, object? param = null)
     {
         using IDbConnection con = GetDbConnection();
-        return con.Query<T>(sql, param).ToList().First();
+        var result = con.Query<T>(sql, param).FirstOrDefault();
+        
+        if (result is null)
+        {
+            throw new InvalidOperationException("查询结果为空，无法返回第一条数据。");
+        }
+        
+        return result;
     }
 
     /// <summary>
     ///     查询单条数据
     /// </summary>
-    /// <param name="sql"></param>
-    /// <param name="param"></param>
-    /// <returns></returns>
+    /// <param name="sql">SQL查询语句</param>
+    /// <param name="param">查询参数</param>
+    /// <returns>查询结果的单条数据</returns>
+    /// <exception cref="InvalidOperationException">当查询结果不是恰好一条数据时抛出</exception>
     public T QuerySingle<T>(string sql, object? param = null)
     {
         using IDbConnection con = GetDbConnection();
-        return con.Query<T>(sql, param).ToList().Single();
+        return con.Query<T>(sql, param).Single();
     }
 
     /// <summary>
     ///     查询单条数据没有返回默认值
     /// </summary>
-    /// <param name="sql"></param>
-    /// <param name="param"></param>
-    /// <returns></returns>
+    /// <param name="sql">SQL查询语句</param>
+    /// <param name="param">查询参数</param>
+    /// <returns>查询结果的单条数据，如果没有结果返回默认值</returns>
+    /// <exception cref="InvalidOperationException">当查询结果超过一条数据时抛出</exception>
     public T? QuerySingleOrDefault<T>(string sql, object? param = null)
     {
         using IDbConnection con = GetDbConnection();
-
-        var result = con.Query<T>(sql, param).ToList();
-
-        return result.SingleOrDefault();
+        return con.Query<T>(sql, param).SingleOrDefault();
     }
 
     /// <summary>
@@ -719,57 +720,68 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
 
     public List<T> GetAll<T>() where T : class
     {
-        return _dbConnection.GetAll<T>().ToList();
+        using IDbConnection connection = GetDbConnection();
+        return connection.GetAll<T>().ToList();
     }
 
     public async Task<List<T>> GetAllAsync<T>() where T : class
     {
-        return (await _dbConnection.GetAllAsync<T>()).ToList();
+        using IDbConnection connection = GetDbConnection();
+        return (await connection.GetAllAsync<T>().ConfigureAwait(false)).ToList();
     }
 
     public T Get<T>(string id) where T : class
     {
-        return _dbConnection.Get<T>(id);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Get<T>(id);
     }
 
     public bool Update<T>(T entity) where T : class
     {
-        return _dbConnection.Update(entity);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Update(entity);
     }
 
     public async Task<bool> UpdateAsync<T>(T entity) where T : class
     {
-        return await _dbConnection.UpdateAsync(entity);
+        using IDbConnection connection = GetDbConnection();
+        return await connection.UpdateAsync(entity).ConfigureAwait(false);
     }
 
     public long Insert<T>(T entity) where T : class
     {
-        return _dbConnection.Insert(entity);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Insert(entity);
     }
 
     public async Task<long> InsertAsync<T>(T entity) where T : class
     {
-        return await _dbConnection.InsertAsync(entity);
+        using IDbConnection connection = GetDbConnection();
+        return await connection.InsertAsync(entity).ConfigureAwait(false);
     }
 
     public bool Delete<T>(T entity) where T : class
     {
-        return _dbConnection.Delete(entity);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Delete(entity);
     }
 
     public async Task<bool> DeleteAsync<T>(T entity) where T : class
     {
-        return await _dbConnection.DeleteAsync(entity);
+        using IDbConnection connection = GetDbConnection();
+        return await connection.DeleteAsync(entity).ConfigureAwait(false);
     }
 
     public bool DeleteAll<T>() where T : class
     {
-        return _dbConnection.DeleteAll<T>();
+        using IDbConnection connection = GetDbConnection();
+        return connection.DeleteAll<T>();
     }
 
     public async Task<bool> DeleteAllAsync<T>() where T : class
     {
-        return await _dbConnection.DeleteAllAsync<T>();
+        using IDbConnection connection = GetDbConnection();
+        return await connection.DeleteAllAsync<T>().ConfigureAwait(false);
     }
 
     #endregion Dapper.Contrib

@@ -684,7 +684,7 @@ public static class ExpressionHelper
 
         if (condition.Op is not CompareOperator.StdIn and not CompareOperator.StdNotIn)
         {
-            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, ExtensionMethodSetting.DefaultCulture);
+            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, CultureInfo.InvariantCulture);
         }
         else
         {

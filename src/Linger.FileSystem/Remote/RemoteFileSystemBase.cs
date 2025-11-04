@@ -48,55 +48,76 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     #endregion
 
     /// <summary>
-    /// 连接作用域，用于自动连接和释放连接
+    /// 异步连接作用域，用于自动连接和释放连接
     /// </summary>
-    protected class ConnectionScope : IDisposable
+    protected sealed class AsyncConnectionScope : IAsyncDisposable
     {
         private readonly RemoteFileSystemBase _fileSystem;
         private readonly bool _wasConnected;
         private bool _disposed;
 
-        public ConnectionScope(RemoteFileSystemBase fileSystem)
+        private AsyncConnectionScope(RemoteFileSystemBase fileSystem, bool wasConnected)
         {
             _fileSystem = fileSystem;
-            _wasConnected = _fileSystem.IsConnected();
-
-            if (!_wasConnected)
-                _fileSystem.ConnectAsync().ConfigureAwait(false);
+            _wasConnected = wasConnected;
         }
 
-        public void Dispose()
+        /// <summary>
+        /// 创建异步连接作用域
+        /// </summary>
+        public static async Task<AsyncConnectionScope> CreateAsync(RemoteFileSystemBase fileSystem)
+        {
+            var wasConnected = fileSystem.IsConnected();
+
+            if (!wasConnected)
+            {
+                await fileSystem.ConnectAsync().ConfigureAwait(false);
+            }
+
+            return new AsyncConnectionScope(fileSystem, wasConnected);
+        }
+
+        public async ValueTask DisposeAsync()
         {
             if (_disposed)
                 return;
 
-            if (!_wasConnected)
-                _fileSystem.DisconnectAsync();
+            if (!_wasConnected && _fileSystem.IsConnected())
+            {
+                await _fileSystem.DisconnectAsync().ConfigureAwait(false);
+            }
 
             _disposed = true;
         }
     }
 
     /// <summary>
-    /// 创建连接作用域
+    /// 创建异步连接作用域
     /// </summary>
-    protected virtual IDisposable CreateConnectionScope()
+    protected virtual Task<AsyncConnectionScope> CreateConnectionScopeAsync()
     {
-        return new ConnectionScope(this);
+        return AsyncConnectionScope.CreateAsync(this);
     }
 
     /// <summary>
-    /// 增强异常处理，添加服务器信息
+    /// 创建带有服务器信息的文件系统异常
     /// </summary>
-    protected override void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
+    protected FileSystemException CreateException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
-        // 添加服务器详情到异常信息
         var message = $"""
                           {operation} failed on {Setting.Host}:{Setting.Port}. 
-                          {(path != null ? $"Path: {path}. " : string.Empty)}.
+                          {(path is not null ? $"Path: {path}. " : string.Empty)}
                           Type: {Setting.Type}, Method: {callerMethod}
                           """;
 
-        throw new FileSystemException(operation, path, ServerDetails(), message, ex);
+        return new FileSystemException(operation, path, ServerDetails(), message, ex);
+    }
+
+    /// <summary>
+    /// 处理异常并抛出文件系统异常
+    /// </summary>
+    protected override void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
+    {
+        throw CreateException(operation, ex, path, callerMethod);
     }
 }

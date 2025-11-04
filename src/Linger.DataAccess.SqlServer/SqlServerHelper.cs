@@ -115,16 +115,19 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <param name="fieldName">字段名称</param>
     /// <param name="tableName">表名称</param>
     /// <returns>最大值加1，如果没有数据则返回1，如果字段不是数值类型则返回null</returns>
-    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空时抛出</exception>
+    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     public int? GetMaxId(string fieldName, string tableName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
+        ValidateSqlIdentifier(fieldName, nameof(fieldName));
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+
         try
         {
-            var sql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
+            var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
             var obj = FindMaxBySql(sql);
 
             return obj switch
@@ -147,16 +150,19 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <param name="tableName">表名称</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>最大值加1，如果没有数据则返回1，如果字段不是数值类型则返回null</returns>
-    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空时抛出</exception>
+    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     public async Task<int?> GetMaxIdAsync(string fieldName, string tableName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
+        ValidateSqlIdentifier(fieldName, nameof(fieldName));
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+
         try
         {
-            var sql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
+            var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
             var obj = await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false);
 
             return obj switch
@@ -331,5 +337,30 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         }
 
         return ds;
+    }
+
+    /// <summary>
+    /// 验证 SQL 标识符（表名、字段名等）是否安全
+    /// </summary>
+    /// <param name="identifier">要验证的标识符</param>
+    /// <param name="paramName">参数名称</param>
+    /// <exception cref="ArgumentException">当标识符包含非法字符时抛出</exception>
+    private static void ValidateSqlIdentifier(string identifier, string paramName)
+    {
+        // 允许字母、数字、下划线、点号（用于 schema.table）和中文字符
+        // 不允许：空格、特殊字符、SQL 关键字符（如引号、分号等）
+        if (identifier.Any(c => !char.IsLetterOrDigit(c) && c != '_' && c != '.'))
+        {
+            throw new System.ArgumentException($"标识符 '{identifier}' 包含非法字符。只允许字母、数字、下划线和点号。", paramName);
+        }
+
+        // 防止 SQL 注入常见模式
+        if (identifier.Contains("--", StringComparison.Ordinal) || 
+            identifier.Contains("/*", StringComparison.Ordinal) || 
+            identifier.Contains("*/", StringComparison.Ordinal) ||
+            identifier.Contains(';'))
+        {
+            throw new System.ArgumentException($"标识符 '{identifier}' 包含非法的 SQL 注释或分隔符。", paramName);
+        }
     }
 }

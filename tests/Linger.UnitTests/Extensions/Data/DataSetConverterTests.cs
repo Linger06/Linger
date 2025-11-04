@@ -45,17 +45,17 @@ public class DataSetConverterTests
         DataTable? table1 = result.Tables["Table1"];
         Assert.NotNull(table1);
         Assert.Equal(2, table1.Rows.Count);
-        Assert.Equal(1, table1.Rows[0]["Id"].ToInt());
+        Assert.Equal(1, table1.Rows[0]["Id"].ToIntOrDefault());
         Assert.Equal("John", table1.Rows[0]["Name"]);
-        Assert.Equal(2, table1.Rows[1]["Id"].ToInt());
+        Assert.Equal(2, table1.Rows[1]["Id"].ToIntOrDefault());
         Assert.Equal("Jane", table1.Rows[1]["Name"]);
 
         DataTable? table2 = result.Tables["Table2"];
         Assert.NotNull(table2);
         Assert.Equal(2, table2.Rows.Count);
-        Assert.Equal(1, table2.Rows[0]["ProductId"].ToInt());
+        Assert.Equal(1, table2.Rows[0]["ProductId"].ToIntOrDefault());
         Assert.Equal("Product1", table2.Rows[0]["ProductName"]);
-        Assert.Equal(2, table2.Rows[1]["ProductId"].ToInt());
+        Assert.Equal(2, table2.Rows[1]["ProductId"].ToIntOrDefault());
         Assert.Equal("Product2", table2.Rows[1]["ProductName"]);
     }
 

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using Linger.DataAccess.Oracle;
 using Oracle.ManagedDataAccess.Client;
 
@@ -408,7 +409,7 @@ public class OracleHelperTests
     public void SqlFormatting_WithPlaceholders_ShouldFormatCorrectly(string sqlTemplate, string parameters, string expectedSql)
     {
         // Act
-        var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sqlTemplate, parameters);
+        var formattedSql = string.Format(CultureInfo.InvariantCulture, sqlTemplate, parameters);
 
         // Assert
         Assert.Equal(expectedSql, formattedSql);

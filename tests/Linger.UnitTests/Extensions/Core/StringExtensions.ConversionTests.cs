@@ -16,7 +16,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToSafeStringData))]
         public void ToSafeString_ShouldReturnExpectedResult(string? value, string defaultValue, string expected)
         {
-            var result = value.ToSafeString(defaultValue);
+            var result = value.ToStringOrDefault(defaultValue);
             Assert.Equal(expected, result);
         }
 
@@ -775,7 +775,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToIntData))]
         public void ToInt_ShouldReturnExpectedResult(string? value, int defaultValue, int expected)
         {
-            var result = value.ToInt(defaultValue);
+            var result = value.ToIntOrDefault(defaultValue);
             Assert.Equal(expected, result);
         }
 
@@ -812,7 +812,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToIntData2))]
         public void ToInt_ShouldReturnExpectedResult2(string? value, Func<int>? defaultValueFunc, int expected)
         {
-            var result = value.ToInt(defaultValueFunc);
+            var result = value.ToIntOrDefault(defaultValueFunc);
             Assert.Equal(expected, result);
         }
 
@@ -863,7 +863,7 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToInt_BackwardCompatibility_ShouldReturnExpectedResult(string? value, int defaultValue, int expected)
         {
 #pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToInt(defaultValue);
+            var result = value.ToIntOrDefault(defaultValue);
 #pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
@@ -919,7 +919,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToLongData))]
         public void ToLong_ShouldReturnExpectedResult(string? value, long defaultValue, long expected)
         {
-            var result = value.ToLong(defaultValue);
+            var result = value.ToLongOrDefault(defaultValue);
             Assert.Equal(expected, result);
         }
 
@@ -949,7 +949,7 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToLong_BackwardCompatibility_ShouldReturnExpectedResult(string? value, long defaultValue, long expected)
         {
 #pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToLong(defaultValue);
+            var result = value.ToLongOrDefault(defaultValue);
 #pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
@@ -1007,7 +1007,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToDecimalData))]
         public void ToDecimal_ShouldReturnExpectedResult(string? value, decimal defaultValue, int? digits, decimal expected)
         {
-            var result = value.ToDecimal(defaultValue, digits);
+            var result = value.ToDecimalOrDefault(defaultValue, digits);
             Assert.Equal(expected, result);
         }
 
@@ -1064,7 +1064,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToFloatData))]
         public void ToFloat_ShouldReturnExpectedResult(string? value, float defaultValue, int? digits, float expected)
         {
-            var result = value.ToFloat(defaultValue, digits);
+            var result = value.ToFloatOrDefault(defaultValue, digits);
             Assert.Equal(expected, result);
         }
 
@@ -1121,7 +1121,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToDoubleData))]
         public void ToDouble_ShouldReturnExpectedResult(string? value, double defaultValue, int? digits, double expected)
         {
-            var result = value.ToDouble(defaultValue, digits);
+            var result = value.ToDoubleOrDefault(defaultValue, digits);
             Assert.Equal(expected, result);
         }
 
@@ -1151,7 +1151,7 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToDouble_BackwardCompatibility_ShouldReturnExpectedResult(string? value, double defaultValue, int? digits, double expected)
         {
 #pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToDouble(defaultValue, digits);
+            var result = value.ToDoubleOrDefault(defaultValue, digits);
 #pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
@@ -1207,26 +1207,26 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToDateTimeData))]
         public void ToDateTime_ShouldReturnExpectedResult(string? value, DateTime defaultValue, DateTime expected)
         {
-            var result = value.ToDateTime(defaultValue);
+            var result = value.ToDateTimeOrDefault(defaultValue);
             Assert.Equal(expected, result);
         }
 
 
-        public static TheoryData<string?, DateTime> ToDateTimeData2()
+        public static TheoryData<string?, DateTime?> ToDateTimeData2()
         {
-            return new TheoryData<string?, DateTime>
+            return new TheoryData<string?, DateTime?>
                 {
-                    { null,  DateTime.MinValue },
-                    { " ",  DateTime.MinValue },
+                    { null,  null },
+                    { " ",  null },
                     { "2023-01-01",  new DateTime(2023, 1, 1) }
                 };
         }
 
         [Theory]
         [MemberData(nameof(ToDateTimeData2))]
-        public void ToDateTime_ShouldReturnExpectedResult2(string? value, DateTime expected)
+        public void ToDateTime_ShouldReturnExpectedResult2(string? value, DateTime? expected)
         {
-            var result = value.ToDateTime();
+            var result = value.ToDateTimeOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -1286,7 +1286,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToBoolData))]
         public void ToBool_ShouldReturnExpectedResult(string? value, bool defaultValue, bool expected)
         {
-            var result = value.ToBool(defaultValue);
+            var result = value.ToBoolOrDefault(defaultValue);
             Assert.Equal(expected, result);
         }
 
@@ -1322,7 +1322,7 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToBool_BackwardCompatibility_ShouldReturnExpectedResult(string? value, bool defaultValue, bool expected)
         {
 #pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToBool(defaultValue);
+            var result = value.ToBoolOrDefault(defaultValue);
 #pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }

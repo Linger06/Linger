@@ -19,6 +19,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 {
     private readonly System.Net.Http.HttpClient _httpClient;
     private readonly ILogger<StandardHttpClient> _logger;
+    private readonly bool _ownsHttpClient;
 
     /// <summary>
     /// Initializes a new HTTP client with the specified base URL
@@ -28,6 +29,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     public StandardHttpClient(string baseUrl, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(baseUrl) };
+        _ownsHttpClient = true; // We created it, we should dispose it
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
         SetDefaultOptions();
 
@@ -42,6 +44,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     public StandardHttpClient(System.Net.Http.HttpClient httpClient, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = httpClient;
+        _ownsHttpClient = false; // External instance, we should not dispose it
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
         SetDefaultOptions();
 
@@ -57,6 +60,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     public StandardHttpClient(string baseUrl, HttpClientOptions options, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = new System.Net.Http.HttpClient { BaseAddress = new Uri(baseUrl) };
+        _ownsHttpClient = true; // We created it, we should dispose it
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
 
         CopyOptions(options);
@@ -74,6 +78,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     public StandardHttpClient(System.Net.Http.HttpClient httpClient, HttpClientOptions options, ILogger<StandardHttpClient>? logger = null)
     {
         _httpClient = httpClient ?? throw new System.ArgumentNullException(nameof(httpClient));
+        _ownsHttpClient = false; // External instance, we should not dispose it
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
 
         CopyOptions(options);
@@ -284,8 +289,9 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 
     protected virtual void Dispose(bool disposing)
     {
-        if (disposing)
+        if (disposing && _ownsHttpClient)
         {
+            // Only dispose HttpClient if we created it
             _httpClient?.Dispose();
         }
     }

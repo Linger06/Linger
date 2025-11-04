@@ -9,21 +9,21 @@ public interface IFileSystemOperations : IFileSystem, IAsyncFileSystem
     /// 上传流到文件系统
     /// </summary>
     /// <param name="inputStream">输入流</param>
-    /// <param name="filePath">目标文件路径</param>
+    /// <param name="destinationFilePath">目标文件路径,包含文件名</param>
     /// <param name="overwrite">是否覆盖</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>上传结果</returns>
-    Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default);
+    Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 上传本地文件到文件系统
     /// </summary>
     /// <param name="localFilePath">本地文件路径</param>
-    /// <param name="destinationPath">目标路径</param>
+    /// <param name="destinationFilePath">目标文件路径,包含文件名</param>
     /// <param name="overwrite">是否覆盖</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>上传结果</returns>
-    Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
+    Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 下载文件到流

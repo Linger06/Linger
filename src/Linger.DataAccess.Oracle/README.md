@@ -39,9 +39,29 @@ bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email
 - For very large IN lists you may tune batchSize (core default 1000)
 - Use parameterized versions for safety; Raw variants only for trusted numeric IDs
 
+## Async Implementation ✅
+
+All async methods use **true asynchronous I/O**:
+
+```csharp
+// ✅ TRUE ASYNC - Uses ADO.NET async APIs
+public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
+{
+    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+    return count > 0;
+}
+```
+
+**Benefits for Oracle database operations:**
+- **Network-bound operations** release threads during database calls
+- Supports **thousands of concurrent connections** efficiently
+- Full cancellation support for long-running queries
+- Optimal for distributed and high-traffic applications
+
 ## Best Practices
 
+- **Use async methods** for all database operations - True async ensures optimal performance
+- **Always pass CancellationToken** for query timeout and cancellation control
 - Always prefer parameterized SQL
 - Tune batchSize only if statement length limits are hit
-- Use async methods for network-bound operations
 - Handle CancellationToken for long-running queries

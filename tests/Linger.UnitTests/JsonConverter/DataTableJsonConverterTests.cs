@@ -66,16 +66,16 @@ public class DataTableJsonConverterTests
         Assert.NotNull(result);
         Assert.Equal(10, result.Columns.Count);
         Assert.Single(result.Rows);
-        Assert.Equal(1, result.Rows[0]["Int"].ToInt());
+        Assert.Equal(1, result.Rows[0]["Int"].ToIntOrDefault());
         Assert.Equal("Test", result.Rows[0]["String"]);
-        Assert.IsType<Guid>(result.Rows[0]["Guid"].ToGuid());
-        Assert.IsType<DateTime>(result.Rows[0]["DateTime"].ToDateTime());
+        Assert.IsType<Guid>(result.Rows[0]["Guid"].ToGuidOrDefault());
+        Assert.IsType<DateTime>(result.Rows[0]["DateTime"].ToDateTimeOrDefault());
         Assert.True((bool)result.Rows[0]["Boolean"]);
-        Assert.Equal((short)2, result.Rows[0]["Int16"].ToShort());
-        Assert.Equal(3L, result.Rows[0]["Int64"].ToLong());
-        Assert.Equal(4.5m, result.Rows[0]["Decimal"].ToDecimal());
-        Assert.Equal(5.6f, result.Rows[0]["Single"].ToFloat());
-        Assert.Equal(7.8, result.Rows[0]["Double"].ToDouble());
+        Assert.Equal((short)2, result.Rows[0]["Int16"].ToShortOrDefault());
+        Assert.Equal(3L, result.Rows[0]["Int64"].ToLongOrDefault());
+        Assert.Equal(4.5m, result.Rows[0]["Decimal"].ToDecimalOrDefault());
+        Assert.Equal(5.6f, result.Rows[0]["Single"].ToFloatOrDefault());
+        Assert.Equal(7.8, result.Rows[0]["Double"].ToDoubleOrDefault());
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public class DataTableJsonConverterTests
         Assert.Equal("Column2", result.Columns[1].ColumnName);
         Assert.Single(result.Rows);
         Assert.Equal("Value1", result.Rows[0]["Column1"]);
-        Assert.Equal(123, result.Rows[0]["Column2"].ToInt());
+        Assert.Equal(123, result.Rows[0]["Column2"].ToIntOrDefault());
     }
 
     [Fact]

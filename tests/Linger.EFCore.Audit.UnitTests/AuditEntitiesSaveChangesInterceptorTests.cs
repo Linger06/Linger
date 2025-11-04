@@ -1,4 +1,4 @@
-﻿using Linger.Audit;
+using Linger.Audit;
 using Linger.Audit.Contracts;
 using Linger.EFCore.Audit;
 using Linger.EFCore.Audit.Interceptors;
@@ -105,8 +105,8 @@ public class AuditEntitiesSaveChangesInterceptorTests
         Assert.Equal(testEntity.Id.ToString(), auditEntry.EntityId);
         Assert.NotNull(auditEntry.OldValues);
         Assert.Contains("IsDeleted", auditEntry.OldValues.Keys);
-        Assert.False(auditEntry.OldValues["IsDeleted"].ToBool());
-        Assert.True(auditEntry.NewValues["IsDeleted"].ToBool());
+        Assert.False(auditEntry.OldValues["IsDeleted"].ToBoolOrDefault());
+        Assert.True(auditEntry.NewValues["IsDeleted"].ToBoolOrDefault());
     }
 
     [Fact]

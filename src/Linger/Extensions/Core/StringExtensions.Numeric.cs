@@ -20,7 +20,7 @@ public static partial class StringExtensions
     public static bool IsInt(this string? value) => value.IsType<int>(int.TryParse);
 
     /// <summary>
-    /// 判断字符串是否可以解析为任一有符号整数 (short/int/long)。
+    /// 判断字符串是否可以解析为任一有符号整�?(short/int/long)�?
     /// </summary>
     public static bool IsAnySignedInteger(this string? value) => value.IsInt16() || value.IsInt() || value.IsInt64();
 
@@ -40,21 +40,11 @@ public static partial class StringExtensions
     public static bool IsDecimal(this string? value) => value.IsType<decimal>(decimal.TryParse);
 
     /// <summary>
-    /// 判断字符串是否可以解析为 <see cref="float"/>。首选此方法，替代早期的 <c>IsSingle</c>。
+    /// 判断字符串是否可以解析为 <see cref="float"/>。首选此方法，替代早期的 <c>IsSingle</c>�?
     /// </summary>
-    /// <param name="value">待检测字符串。</param>
-    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c>。</returns>
+    /// <param name="value">待检测字符串�?/param>
+    /// <returns><c>true</c> 表示可以解析；否�?<c>false</c>�?/returns>
     public static bool IsFloat(this string? value) => value.IsType<float>(float.TryParse);
-
-    /// <summary>
-    /// (已弃用) 判断字符串是否可以解析为 <see cref="float"/>。请使用 <see cref="IsFloat(string?)"/>。
-    /// </summary>
-    /// <remarks>将在 1.0.0 版本移除。</remarks>
-    /// <param name="value">待检测字符串。</param>
-    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c>。</returns>
-    [Obsolete("Use IsFloat() instead. Will be removed in 1.0.0.")]
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-    public static bool IsSingle(this string? value) => IsFloat(value);
 
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="double"/> type.
@@ -145,7 +135,7 @@ public static partial class StringExtensions
         if (span.IsEmpty)
             return false;
 
-        // 检查每个字符是否都是数字
+        // 检查每个字符是否都是数�?
         foreach (var c in span)
         {
             if (!char.IsDigit(c))
@@ -157,7 +147,7 @@ public static partial class StringExtensions
         if (s.Length == 0)
             return false;
 
-        // 检查每个字符是否都是数字
+        // 检查每个字符是否都是数�?
         for (var i = 0; i < s.Length; i++)
         {
             if (!char.IsDigit(s[i]))
@@ -196,12 +186,12 @@ public static partial class StringExtensions
         // 检查可选的负号
         if (span[0] == '-')
         {
-            if (span.Length == 1) // 只有一个负号
+            if (span.Length == 1) // 只有一个负�?
                 return false;
             startIndex = 1;
         }
 
-        // 检查剩余字符是否都是数字
+        // 检查剩余字符是否都是数�?
         for (var i = startIndex; i < span.Length; i++)
         {
             if (!char.IsDigit(span[i]))
@@ -218,12 +208,12 @@ public static partial class StringExtensions
         // 检查可选的负号
         if (s[0] == '-')
         {
-            if (s.Length == 1) // 只有一个负号
+            if (s.Length == 1) // 只有一个负�?
                 return false;
             startIndex = 1;
         }
 
-        // 检查剩余字符是否都是数字
+        // 检查剩余字符是否都是数�?
         for (var i = startIndex; i < s.Length; i++)
         {
             if (!char.IsDigit(s[i]))
@@ -243,8 +233,8 @@ public static partial class StringExtensions
     /// <returns>True if the string is a valid number; otherwise, false.</returns>
     /// <example>
     /// <code>
-    /// bool result1 = "123".IsNumber(5, 0); // true (3位整数，小于等于5位)
-    /// bool result2 = "123.45".IsNumber(3, 2); // true (3位整数，2位小数)
+    /// bool result1 = "123".IsNumber(5, 0); // true (3位整数，小于等于5�?
+    /// bool result2 = "123.45".IsNumber(3, 2); // true (3位整数，2位小�?
     /// bool result3 = "123.456".IsNumber(3, 2); // false (超过小数位数)
     /// bool result4 = "1234567".IsNumber(5, 0); // false (超过整数位数)
     /// </code>
@@ -262,8 +252,8 @@ public static partial class StringExtensions
         if (span.IsEmpty)
             return false;
 
-        var integerDigits = 0;  // 小数点前的位数
-        var decimalPlaces = 0;  // 小数点后的位数
+        var integerDigits = 0;  // 小数点前的位�?
+        var decimalPlaces = 0;  // 小数点后的位�?
         var foundDecimal = false;
 
         foreach (var c in span)
@@ -299,8 +289,8 @@ public static partial class StringExtensions
         if (s.Length == 0)
             return false;
 
-        var integerDigits = 0;  // 小数点前的位数
-        var decimalPlaces = 0;  // 小数点后的位数
+        var integerDigits = 0;  // 小数点前的位�?
+        var decimalPlaces = 0;  // 小数点后的位�?
         var foundDecimal = false;
 
         for (var i = 0; i < s.Length; i++)
@@ -369,7 +359,7 @@ public static partial class StringExtensions
         if (pos >= span.Length)
             return false;
 
-        // 检查至少一个数字
+        // 检查至少一个数�?
         if (!char.IsDigit(span[pos]))
             return false;
 
@@ -381,7 +371,7 @@ public static partial class StringExtensions
         if (pos < span.Length && span[pos] == '.')
         {
             pos++;
-            // 小数点后必须有至少一个数字
+            // 小数点后必须有至少一个数�?
             if (pos >= span.Length || !char.IsDigit(span[pos]))
                 return false;
             while (pos < span.Length && char.IsDigit(span[pos]))
@@ -397,11 +387,11 @@ public static partial class StringExtensions
         if (pos < span.Length && (span[pos] is '+' or '-'))
             pos++;
 
-        // E后必须有至少一个数字
+        // E后必须有至少一个数�?
         if (pos >= span.Length || !char.IsDigit(span[pos]))
             return false;
 
-        // 跳过指数部分的数字
+        // 跳过指数部分的数�?
         while (pos < span.Length && char.IsDigit(span[pos]))
             pos++;
 
@@ -420,7 +410,7 @@ public static partial class StringExtensions
         if (pos >= input.Length)
             return false;
 
-        // 检查至少一个数字
+        // 检查至少一个数�?
         if (!char.IsDigit(input[pos]))
             return false;
 
@@ -432,7 +422,7 @@ public static partial class StringExtensions
         if (pos < input.Length && input[pos] == '.')
         {
             pos++;
-            // 小数点后必须有至少一个数字
+            // 小数点后必须有至少一个数�?
             if (pos >= input.Length || !char.IsDigit(input[pos]))
                 return false;
             while (pos < input.Length && char.IsDigit(input[pos]))
@@ -448,11 +438,11 @@ public static partial class StringExtensions
         if (pos < input.Length && (input[pos] == '+' || input[pos] == '-'))
             pos++;
 
-        // E后必须有至少一个数字
+        // E后必须有至少一个数�?
         if (pos >= input.Length || !char.IsDigit(input[pos]))
             return false;
 
-        // 跳过指数部分的数字
+        // 跳过指数部分的数�?
         while (pos < input.Length && char.IsDigit(input[pos]))
             pos++;
 
@@ -472,7 +462,7 @@ public static partial class StringExtensions
         decimal dData;
         if (input.IsScientificNotation())
         {
-            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float, ExtensionMethodSetting.DefaultCulture));
+            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float, CultureInfo.InvariantCulture));
         }
         else
         {

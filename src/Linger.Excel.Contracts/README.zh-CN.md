@@ -9,10 +9,10 @@
 - **DataSet支持** - 导入/导出整个工作簿为DataSet，支持多工作表操作
 - **依赖注入友好** - 支持.NET Core/ASP.NET Core依赖注入
 - **高性能设计** - 批处理、并行处理以及性能监控
-- **异步支持** - 全方位异步API支持
+- **真正的异步支持** - 异步文件 I/O + Task.Run 包裹 CPU 密集型操作
 - **灵活配置** - 丰富的选项配置系统
 - **可扩展性** - 易于自定义和扩展
-- **跨平台兼容** - 支持.NET Standard 2.0+、.NET Core 3.1+、.NET 5+
+- **跨平台兼容** - 支持.NET Framework 4.7.2+、.NET Standard 2.0+、.NET 8+、.NET 9+、.NET 10+
 
 ## 📦 支持的Excel实现
 
@@ -26,33 +26,39 @@
 
 ```
 ┌─────────────────┐
-│  IExcelService  │ ◄──── 非泛型接口，基本Excel操作
+│  IExcelService  │ ◄──── 非泛型接口，提供基础Excel操作
 └────────┬────────┘
          │
-         │实现
+         │继承
          ▼
-┌─────────────────┐
-│IExcel<TWorksheet>│ ◄──── 泛型接口，高级Excel操作
-└────────┬────────┘
+┌─────────────────────┐
+│ IExcel<TWorksheet>  │ ◄──── 泛型接口，继承IExcelService并提供高级操作(带Action委托自定义)
+└────────┬────────────┘
          │
          │实现
          ▼
 ┌─────────────────────────────┐
-│AbstractExcelService<T1,T2>  │ ◄──── 抽象基类，公共逻辑
+│AbstractExcelService<T1,T2>  │ ◄──── 抽象基类，实现公共逻辑和向后兼容方法
 └────────────┬────────────────┘
              │
              │继承
              ▼
 ┌─────────────────────────────┐
-│ ExcelBase<TWorkbook,TSheet> │ ◄──── Excel实现基类，更多常用逻辑
+│ ExcelBase<TWorkbook,TSheet> │ ◄──── Excel实现基类，更多通用逻辑
 └────────────┬────────────────┘
              │
              │继承
              ▼
 ┌─────────────────────────────┐
-│     具体实现类(如NpoiExcel)   │ ◄──── 具体Excel库实现
+│     具体实现类               │ ◄──── 具体Excel库实现
+│ (NpoiExcel, EPPlusExcel等)  │       
 └─────────────────────────────┘
 ```
+
+**设计亮点:**
+- **接口继承**: `IExcel<TWorksheet>` 继承自 `IExcelService`,自动拥有所有基础方法
+- **方法重载**: Export 方法通过增加 `Action<TWorksheet>` 参数实现高级自定义,不影响基础方法使用
+- **层次清晰**: 基础操作(IExcelService) → 高级操作(IExcel) → 具体实现
 
 ## 🚀 快速入门
 
@@ -99,86 +105,141 @@ public class ExcelReportService
         _excelService = excelService;
     }
 
-    public List<User> ImportUsers(Stream excelStream)
+    public List<User> ImportUsers(string filePath)
     {
-        return _excelService.ExcelToList<User>(excelStream);
+        return _excelService.ExcelToList<User>(filePath) ?? new List<User>();
     }
 
-    public byte[] ExportUsers(List<User> users)
+    public string ExportUsers(List<User> users, string filePath)
     {
-        using var ms = new MemoryStream();
-        _excelService.ListToExcel(users, ms);
-        return ms.ToArray();
+        return _excelService.CollectionToExcel(users, filePath, "用户列表");
+    }
+    
+    public async Task<string> ExportUsersAsync(List<User> users, string filePath)
+    {
+        // 真正的异步文件 I/O
+        return await _excelService.CollectionToExcelAsync(users, filePath, "用户列表");
     }
 }
 ```
 
 ## 📝 核心接口
 
-### IExcel<TWorksheet>
+### IExcelService - 基础接口
 
-```csharp
-public interface IExcel<out TWorksheet> where TWorksheet : class
-{
-    // 导入功能
-    DataTable ExcelToDataTable(string filePath, string sheetName = null);
-    DataTable ExcelToDataTable(Stream stream, string sheetName = null);
-    List<T> ExcelToList<T>(string filePath, string sheetName = null) where T : class, new();
-    List<T> ExcelToList<T>(Stream stream, string sheetName = null) where T : class, new();
-
-    // 导出功能
-    void ListToExcel<T>(List<T> data, string filePath, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void ListToExcel<T>(List<T> data, Stream stream, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void DataTableToExcel(DataTable dataTable, string filePath, Action<ExcelStyleOptions> styleAction = null);
-    void DataTableToExcel(DataTable dataTable, Stream stream, Action<ExcelStyleOptions> styleAction = null);
-
-    // 工作簿/工作表操作
-    object CreateWorkbook();
-    TWorksheet GetWorksheet(object workbook, string sheetName);
-    TWorksheet AddSheet(object workbook, string sheetName, DataTable data);
-    TWorksheet AddSheet<T>(object workbook, string sheetName, List<T> data) where T : class;
-    void SaveWorkbook(object workbook, string filePath);
-    void SaveWorkbook(object workbook, Stream stream);
-
-    // 模板功能
-    void FillTemplate(string templatePath, string outputPath, Dictionary<string, object> data);
-    void FillTemplate(Stream templateStream, Stream outputStream, Dictionary<string, object> data);
-}
-```
-
-### IExcelService
+提供所有基础的 Excel 导入/导出功能:
 
 ```csharp
 public interface IExcelService
 {
-    // 导入功能
-    DataTable ExcelToDataTable(string filePath, string sheetName = null);
-    DataTable ExcelToDataTable(Stream stream, string sheetName = null);
-    List<T> ExcelToList<T>(string filePath, string sheetName = null) where T : class, new();
-    List<T> ExcelToList<T>(Stream stream, string sheetName = null) where T : class, new();
+    #region 导入功能
     
-    // 导入整个工作簿为DataSet
-    DataSet ExcelToDataSet(string filePath, int? headerRowIndex = 0);
-    DataSet ExcelToDataSet(string filePath, IEnumerable<string> sheetNames, int? headerRowIndex = 0);
-    DataSet ExcelToDataSet(string filePath, Func<string, int?> headerRowSelector);
-    DataSet ExcelToDataSet(string filePath, IEnumerable<string> sheetNames, Func<string, int?> headerRowSelector);
-    Task<DataSet> ExcelToDataSetAsync(string filePath, int? headerRowIndex = 0);
-    Task<DataSet> ExcelToDataSetAsync(string filePath, IEnumerable<string> sheetNames, int? headerRowIndex = 0);
-
-    // 导出功能
-    void ListToExcel<T>(List<T> data, string filePath, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void ListToExcel<T>(List<T> data, Stream stream, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void DataTableToExcel(DataTable dataTable, string filePath, Action<ExcelStyleOptions> styleAction = null);
-    void DataTableToExcel(DataTable dataTable, Stream stream, Action<ExcelStyleOptions> styleAction = null);
+    // 导入单个工作表为 DataTable
+    DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     
-    // 导出DataSet为多工作表Excel
-    string DataSetToFile(DataSet dataSet, string filePath, string sheetNamePrefix = "Sheet");
+    // 导入单个工作表为对象列表
+    List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    
+    // 导入整个工作簿为 DataSet (支持多种重载)
+    DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    
+    // 异步导入 - 真正的异步文件 I/O
+    Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    
+    // 异步 Stream 处理 - 虚拟方法,子类可覆盖以提供真正的异步
+    Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    
+    #endregion
 
-    // 模板功能
-    void FillTemplate(string templatePath, string outputPath, Dictionary<string, object> data);
-    void FillTemplate(Stream templateStream, Stream outputStream, Dictionary<string, object> data);
+    #region 导出功能
+    
+    // 导出为 Excel 文件
+    string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
+    string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet");
+    string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    
+    // 导出为内存流
+    MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "") where T : class;
+    MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
+    
+    // 异步导出
+    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
+    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    
+    // 创建模板
+    MemoryStream CreateExcelTemplate<T>() where T : class, new();
+    
+    #endregion
 }
 ```
+
+### IExcel<TWorksheet> - 高级接口
+
+继承自 `IExcelService`,在其基础上提供带 `Action<TWorksheet>` 委托的高级自定义功能:
+
+```csharp
+public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
+{
+    #region 高级导出功能 - 支持自定义操作
+    
+    // 导出时支持自定义单元格和样式操作
+    string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet>? styleAction = null) where T : class;
+        
+    MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet>? styleAction = null) where T : class;
+        
+    MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    // 异步导出
+    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet>? styleAction = null) where T : class;
+    
+    #endregion
+}
+```
+
+**接口使用建议:**
+- **基础场景**: 使用 `IExcelService` 即可满足大部分导入导出需求
+- **高级定制**: 需要自定义单元格样式、合并单元格等操作时,使用 `IExcel<TWorksheet>`
+- **依赖注入**: 两个接口都可注入,`IExcel<TWorksheet>` 实例可向上转型为 `IExcelService`
+
+**异步实现说明:**
+- ✅ **文件 I/O**: 使用真正的异步 (`FileStream` 的 `useAsync: true`)
+- ⚠️ **Excel 处理**: 使用 `Task.Run` 包裹同步方法(底层库限制)
+- 🔧 **可扩展**: 子类可以覆盖 `StreamToXXXAsync` 方法提供自定义异步实现
 
 ## 🎨 高级功能
 
@@ -188,14 +249,14 @@ public interface IExcelService
 
 ```csharp
 // 1. 导入所有工作表,统一使用第0行作为表头
-DataSet allSheets = excelService.ExcelToDataSet("workbook.xlsx", headerRowIndex: 0);
+DataSet? allSheets = excelService.ExcelToDataSet("workbook.xlsx", headerRowIndex: 0);
 
 // 2. 只导入指定的工作表
 var selectedSheets = new[] { "用户数据", "订单数据", "产品数据" };
-DataSet specificSheets = excelService.ExcelToDataSet("workbook.xlsx", selectedSheets, headerRowIndex: 0);
+DataSet? specificSheets = excelService.ExcelToDataSet("workbook.xlsx", selectedSheets, headerRowIndex: 0);
 
 // 3. 为每个工作表指定不同的表头行
-DataSet flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetName =>
+DataSet? flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetName =>
 {
     return sheetName switch
     {
@@ -207,21 +268,33 @@ DataSet flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetName
 });
 
 // 4. 异步导入
-DataSet result = await excelService.ExcelToDataSetAsync("large-workbook.xlsx", headerRowIndex: 0);
+DataSet? result = await excelService.ExcelToDataSetAsync("large-workbook.xlsx", headerRowIndex: 0);
+
+// 5. 向后兼容方式 - 兼容旧版 NPOIHelper.ImportExcelToDs 方法
+// 支持逗号分隔的工作表名称字符串
+DataSet? compatibleResult = excelService.ExcelToDataSet("workbook.xlsx", "Sheet1,Sheet2,Sheet3", headerRowIndex: 0);
+DataSet? asyncCompatible = await excelService.ExcelToDataSetAsync("workbook.xlsx", "用户数据, 订单数据", headerRowIndex: 1);
 
 // 访问导入的数据
-foreach (DataTable table in result.Tables)
+if (result is not null)
 {
-    Console.WriteLine($"工作表: {table.TableName}, 行数: {table.Rows.Count}, 列数: {table.Columns.Count}");
+    foreach (DataTable table in result.Tables)
+    {
+        Console.WriteLine($"工作表: {table.TableName}, 行数: {table.Rows.Count}, 列数: {table.Columns.Count}");
+    }
 }
 ```
 
 **参数说明:**
-- `headerRowIndex`: 表头行索引(0-based)。传入 `null` 表示没有表头,所有行都是数据行
-- `sheetNames`: 要导入的工作表名称列表。不区分大小写。传入空集合或 null 将导入所有工作表
+- `headerRowIndex`: 表头行索引(0-based)。所有工作表使用相同的表头行
+- `sheetNames`: 
+  - `IEnumerable<string>?` - 要导入的工作表名称列表。传入 `null` 或空集合将导入所有工作表
+  - `string?` - 逗号分隔的工作表名称字符串(向后兼容)。自动处理空格,传入 `null` 导入所有工作表
 - `headerRowSelector`: 为每个工作表指定不同的表头行。传入工作表名称,返回该工作表的表头行索引
+- `addEmptyRow`: 是否包含空行。默认 `false`
 
-**详细用法和更多示例,请参阅 [DATASET_USAGE_EXAMPLE.md](./DATASET_USAGE_EXAMPLE.md)**
+**向后兼容性:**
+框架提供了与旧版 `NPOIHelper.ImportExcelToDs` 完全兼容的方法签名,无需修改现有代码即可迁移。
 
 ### 导出DataSet为多工作表Excel
 
@@ -232,7 +305,50 @@ dataSet.Tables.Add(CreateOrderTable());
 dataSet.Tables.Add(CreateProductTable());
 
 // 导出DataSet,每个DataTable成为一个工作表
-string filePath = excelService.DataSetToFile(dataSet, "multi-sheet-workbook.xlsx");
+string filePath = excelService.DataSetToExcel(dataSet, "multi-sheet-workbook.xlsx");
+```
+
+### 高级导出 - 自定义单元格操作
+
+使用 `IExcel<TWorksheet>` 接口的高级重载方法,可以在导出时自定义单元格操作:
+
+```csharp
+// 注入 IExcel<TWorksheet> 而不是 IExcelService
+public class AdvancedExcelService
+{
+    private readonly IExcel<ISheet> _npoiExcel; // NPOI 的工作表类型是 ISheet
+
+    public AdvancedExcelService(IExcel<ISheet> npoiExcel)
+    {
+        _npoiExcel = npoiExcel;
+    }
+
+    public string ExportWithCustomStyle(List<User> users, string filePath)
+    {
+        return _npoiExcel.CollectionToExcel(users, filePath, "用户列表", "用户数据报表",
+            // 自定义单元格操作
+            action: (sheet, properties) =>
+            {
+                // 访问原生 ISheet 对象,进行高级操作
+                var row = sheet.GetRow(0);
+                row.Height = 500; // 设置表头行高
+                
+                // 合并单元格
+                sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, properties.Length - 1));
+            },
+            // 自定义样式操作
+            styleAction: (sheet) =>
+            {
+                // 设置列宽
+                sheet.SetColumnWidth(0, 3000);
+                sheet.SetColumnWidth(1, 5000);
+                
+                // 冻结窗格
+                sheet.CreateFreezePane(0, 2);
+            }
+        );
+    }
+}
 ```
 
 ### 自定义Excel列映射
@@ -262,61 +378,73 @@ public class User
 ### Excel样式自定义
 
 ```csharp
-excelService.ListToExcel(users, "users.xlsx", options =>
+// 使用 IExcel<TWorksheet> 的高级重载进行样式自定义
+public class StyledExcelService
 {
-    // 表头样式
-    options.HeaderBackgroundColor = "#1E90FF"; // 深蓝色
-    options.HeaderFontColor = "#FFFFFF";       // 白色
-    options.HeaderFontBold = true;
-    options.HeaderFontSize = 12;
+    private readonly IExcel<ISheet> _npoiExcel;
 
-    // 内容样式
-    options.ContentFontName = "微软雅黑";
-    options.ContentFontSize = 10;
-
-    // 行交替颜色
-    options.AlternatingRowBackgroundColor = "#F0F8FF"; // 淡蓝色
-
-    // 条件样式
-    options.AddConditionalFormat(nameof(User.Status), "=Active", cellFormat =>
+    public StyledExcelService(IExcel<ISheet> npoiExcel)
     {
-        cellFormat.BackgroundColor = "#E6FFE6"; // 淡绿色
-    });
-});
+        _npoiExcel = npoiExcel;
+    }
+
+    public string ExportWithStyles(List<User> users, string filePath)
+    {
+        return _npoiExcel.CollectionToExcel(users, filePath, "用户数据", "用户信息表",
+            styleAction: (sheet) =>
+            {
+                // 创建样式
+                var workbook = sheet.Workbook;
+                var headerStyle = workbook.CreateCellStyle();
+                var headerFont = workbook.CreateFont();
+                
+                // 表头样式
+                headerFont.IsBold = true;
+                headerFont.FontHeightInPoints = 12;
+                headerFont.Color = IndexedColors.White.Index;
+                headerStyle.SetFont(headerFont);
+                headerStyle.FillForegroundColor = IndexedColors.Blue.Index;
+                headerStyle.FillPattern = FillPattern.SolidForeground;
+                
+                // 应用到表头行
+                var headerRow = sheet.GetRow(1); // 第2行是数据表头
+                for (int i = 0; i < headerRow.LastCellNum; i++)
+                {
+                    headerRow.GetCell(i)?.SetCellStyle(headerStyle);
+                }
+                
+                // 自动调整列宽
+                for (int i = 0; i < headerRow.LastCellNum; i++)
+                {
+                    sheet.AutoSizeColumn(i);
+                }
+            }
+        );
+    }
+}
 ```
 
 ### 大数据处理
 
 ```csharp
-// 启用分批处理以处理大型数据集
-excelService.ListToExcelAsync(
-    hugeDataList, 
+// 异步导出大数据集
+var largeDataList = GetLargeDataSet(); // 假设有10万条数据
+
+// 使用真正的异步 I/O
+string filePath = await excelService.CollectionToExcelAsync(
+    largeDataList, 
     "huge_data.xlsx", 
-    batchSize: 10000, 
-    parallelProcessing: true,
-    progress: new Progress<int>(percent => 
-    {
-        Console.WriteLine($"已完成: {percent}%");
-    })
+    "数据导出"
 );
+
+Console.WriteLine($"导出完成: {filePath}");
 ```
 
 ### Excel模板填充
 
-```csharp
-// 使用模板并填充数据
-var templateData = new Dictionary<string, object>
-{
-    ["ReportTitle"] = "月度销售报告",
-    ["GeneratedDate"] = DateTime.Now,
-    ["SalesData"] = salesDataList,
-    ["TotalAmount"] = salesDataList.Sum(s => s.Amount)
-};
+> 注意: 模板功能的具体实现取决于所选的 Excel 库实现。请参考具体实现库的文档。
 
-excelService.FillTemplate("template.xlsx", "report.xlsx", templateData);
-```
-
-## 🧩 扩展性
+### 扩展性
 
 ### 自定义Excel实现
 

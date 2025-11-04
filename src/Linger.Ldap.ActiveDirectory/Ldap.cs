@@ -20,12 +20,13 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// </summary>
     /// <param name="userName">The username to get</param>
     /// <param name="ldapCredentials"></param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <returns>Returns the UserPrincipal Object</returns>
-    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
-        PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
+        using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials, searchBase);
         var userPrincipal = UserPrincipal.FindByIdentity(principalContext, userName);
-        return await Task.FromResult(userPrincipal.ToAdUser()).ConfigureAwait(false);
+        return await Task.Run(userPrincipal.ToAdUser).ConfigureAwait(false);
     }
 
     public DirectoryEntry GetEntryByUsername(string username)
@@ -40,8 +41,10 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <summary>
     /// Gets the base principal context
     /// </summary>
+    /// <param name="ldapCredentials">Optional credentials for authentication</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <returns>Returns the PrincipalContext object</returns>
-    private PrincipalContext GetPrincipalContext(LdapCredentials? ldapCredentials = null)
+    private PrincipalContext GetPrincipalContext(LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
         if (ldapCredentials == null)
         {
@@ -51,9 +54,12 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             }
         }
 
+        // Use provided searchBase or fall back to config's SearchBase
+        var effectiveSearchBase = searchBase ?? ldapConfig.SearchBase;
+
         if (ldapCredentials == null)
         {
-            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, ldapConfig.SearchBase, ContextOptions.SimpleBind);
+            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, effectiveSearchBase, ContextOptions.SimpleBind);
             return principalContext;
         }
         else
@@ -61,16 +67,16 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             var domain = ldapConfig.Domain;
             var userId = ldapCredentials.BindDn;
             var password = ldapCredentials.BindCredentials;
-            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, ldapConfig.SearchBase, ContextOptions.SimpleBind,
+            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, effectiveSearchBase, ContextOptions.SimpleBind,
             $@"{domain}\{userId}", password);
             return principalContext;
         }
     }
 
-    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
-        var collection = SearchUsersByFilter($"(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)", ldapCredentials);
-        return await Task.FromResult(collection.ToAdUsersInfo()).ConfigureAwait(false);
+        var collection = SearchUsersByFilter($"(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)", ldapCredentials, searchBase);
+        return await Task.Run(collection.ToAdUsersInfo).ConfigureAwait(false);
     }
 
     //private IEnumerable<AdUserInfo> GetUsers2(string userName, LdapCredentials? ldapCredentials = null)
@@ -103,19 +109,21 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// </summary>
     /// <param name="userName">The username to validate</param>
     /// <param name="password">The password of the username to validate</param>
-    /// <param name="adUserInfo"></param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <returns>Returns True of user is valid</returns>
-    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password)
+    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null)
     {
-        PrincipalContext principalContext = GetPrincipalContext();
+        // Note: We don't pass credentials to GetPrincipalContext here because ValidateCredentials
+        // needs to use the default/config credentials to perform the validation against AD
+        using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials: null, searchBase: searchBase);
         var result = principalContext.ValidateCredentials(userName, password);
         if (result)
         {
             var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
-            var adUserInfo = await FindUserAsync(userName, ldapCredentials).ConfigureAwait(false);
-            return await Task.FromResult((true, adUserInfo)).ConfigureAwait(false);
+            var adUserInfo = await FindUserAsync(userName, ldapCredentials, searchBase).ConfigureAwait(false);
+            return (true, adUserInfo);
         }
-        return await Task.FromResult<(bool IsValid, AdUserInfo? AdUserInfo)>((false, null)).ConfigureAwait(false);
+        return (false, null);
     }
 
     /// <summary>
@@ -134,7 +142,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         return result;
     }
 
-    public SearchResultCollection SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null)
+    public SearchResultCollection SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
         if (ldapCredentials == null)
         {
@@ -144,7 +152,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             }
         }
 
-        using DirectoryEntry directoryEntry = CreateDirectoryEntry(ldapCredentials);
+        using DirectoryEntry directoryEntry = CreateDirectoryEntry(ldapCredentials, searchBase);
         using DirectorySearcher directorySearcher = new(directoryEntry);
         directorySearcher.SearchScope = SearchScope.Subtree;
         directorySearcher.PageSize = 1000;
@@ -172,7 +180,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         return userCollection;
     }
 
-    private DirectoryEntry CreateDirectoryEntry(LdapCredentials? ldapCredentials)
+    private DirectoryEntry CreateDirectoryEntry(LdapCredentials? ldapCredentials, string? searchBase = null)
     {
         string? ldapPath;
         if (ldapConfig == null)
@@ -182,7 +190,9 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         }
         else
         {
-            ldapPath = $"LDAP://{ldapConfig.Url}/{ldapConfig.SearchBase}";
+            // Use provided searchBase or fall back to config's SearchBase
+            var effectiveSearchBase = searchBase ?? ldapConfig.SearchBase;
+            ldapPath = $"LDAP://{ldapConfig.Url}/{effectiveSearchBase}";
 
             if (ldapCredentials == null)
             {
@@ -201,7 +211,8 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// Checks if user exists in LDAP directory
     /// </summary>
     /// <param name="userName">Username to check</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user exists; otherwise, false</returns>
-    public async Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default) => await FindUserAsync(userName).ConfigureAwait(false) != null;
+    public async Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default) => await FindUserAsync(userName, searchBase: searchBase).ConfigureAwait(false) != null;
 }

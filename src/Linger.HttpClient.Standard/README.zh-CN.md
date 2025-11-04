@@ -5,10 +5,18 @@
 ## 功能特性
 
 - **零依赖**: 基于标准 .NET 库构建
-- **HttpClientFactory 集成**: 正确的套接字管理
+- **HttpClientFactory 集成**: 正确的套接字管理和连接池
+- **正确的资源管理**: 使用所有权模式自动跟踪释放，防止资源泄漏
 - **全面日志记录**: 内置性能监控
 - **Linger.Results 集成**: 服务端到客户端的无缝错误映射
 - **ProblemDetails 支持**: 原生支持 RFC 7807 标准
+
+## 最近更新 (v0.9.7+)
+
+### 资源管理改进
+- ✅ **修复资源泄漏**: 添加所有权跟踪，防止释放外部提供的 `HttpClient` 实例
+- ✅ **安全释放**: 仅释放内部创建的 `HttpClient` 实例
+- ✅ **HttpClientFactory 兼容**: 正确处理来自工厂的 `HttpClient` 实例，无释放问题
 
 ## 安装
 
@@ -17,6 +25,8 @@ dotnet add package Linger.HttpClient.Standard
 ```
 
 ## 基本用法
+
+### ✅ 推荐：使用 HttpClientFactory（最佳实践）
 
 ```csharp
 // 在 DI 容器中注册
@@ -39,6 +49,36 @@ public class UserService
     }
 }
 ```
+
+### ⚠️ 使用现有 HttpClient 实例
+
+如果已有 `HttpClient` 实例（例如来自 HttpClientFactory），可以包装它：
+
+```csharp
+// StandardHttpClient 不会释放外部的 HttpClient
+var httpClient = httpClientFactory.CreateClient("MyClient");
+using var standardClient = new StandardHttpClient(httpClient, logger);
+
+var result = await standardClient.CallApi<User>("api/users/123");
+```
+
+### ⚠️ 直接实例化（不推荐用于生产环境）
+
+仅在测试或简单场景中使用此方式：
+
+```csharp
+// ⚠️ 创建新的 HttpClient 实例
+// StandardHttpClient 会在释放时一并释放它
+using var client = new StandardHttpClient("https://api.example.com", logger);
+var result = await client.CallApi<User>("api/users/123");
+// HttpClient 在此处自动释放
+```
+
+**为什么推荐 HttpClientFactory：**
+- ✅ 正确的连接池管理
+- ✅ 自动处理 DNS 刷新
+- ✅ 防止套接字耗尽
+- ✅ 内置生命周期管理
 
 ## Linger.Results 集成
 

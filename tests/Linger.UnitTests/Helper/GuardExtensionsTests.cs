@@ -22,68 +22,68 @@ public class GuardExtensionsTests
         // Arrange
         object obj = new object();
 
-        // Act & Assert (不应该抛出异常)
+        // Act & Assert (不应该抛出异�?
         obj.EnsureIsNotNull("testParam");
     }
 
     [Fact]
-    public void EnsureIsNotNullAndEmpty_WithNullString_ThrowsArgumentNullException()
+    public void EnsureIsNotNullOrEmpty_WithNullString_ThrowsArgumentNullException()
     {
         // Arrange
         string? str = null;
 
         // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => str.EnsureIsNotNullAndEmpty("testParam"));
+        Assert.Throws<System.ArgumentNullException>(() => str.EnsureIsNotNullOrEmpty("testParam"));
     }
 
     [Fact]
-    public void EnsureIsNotNullAndEmpty_WithEmptyString_ThrowsArgumentException()
+    public void EnsureIsNotNullOrEmpty_WithEmptyString_ThrowsArgumentException()
     {
         // Arrange
         string str = string.Empty;
 
         // Act & Assert
-        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullAndEmpty("testParam"));
+        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullOrEmpty("testParam"));
     }
 
     [Fact]
-    public void EnsureIsNotNullAndEmpty_WithNonEmptyString_DoesNotThrow()
+    public void EnsureIsNotNullOrEmpty_WithNonEmptyString_DoesNotThrow()
     {
         // Arrange
         var str = "test";
 
         // Act & Assert
-        str.EnsureIsNotNullAndEmpty("testParam");
+        str.EnsureIsNotNullOrEmpty("testParam");
     }
 
     [Fact]
-    public void EnsureIsNotNullAndWhiteSpace_WithNullString_ThrowsArgumentNullException()
+    public void EnsureIsNotNullOrWhiteSpace_WithNullString_ThrowsArgumentNullException()
     {
         // Arrange
         string? str = null;
 
         // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => str.EnsureIsNotNullAndWhiteSpace("testParam"));
+        Assert.Throws<System.ArgumentNullException>(() => str.EnsureIsNotNullOrWhiteSpace("testParam"));
     }
 
     [Fact]
-    public void EnsureIsNotNullAndWhiteSpace_WithWhiteSpaceString_ThrowsArgumentException()
+    public void EnsureIsNotNullOrWhiteSpace_WithWhiteSpaceString_ThrowsArgumentException()
     {
         // Arrange
         string str = "   ";
 
         // Act & Assert
-        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullAndWhiteSpace("testParam"));
+        Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullOrWhiteSpace("testParam"));
     }
 
     [Fact]
-    public void EnsureIsNotNullAndWhiteSpace_WithNonWhiteSpaceString_DoesNotThrow()
+    public void EnsureIsNotNullOrWhiteSpace_WithNonWhiteSpaceString_DoesNotThrow()
     {
         // Arrange
         var str = "test";
 
         // Act & Assert
-        str.EnsureIsNotNullAndWhiteSpace("testParam");
+        str.EnsureIsNotNullOrWhiteSpace("testParam");
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public class GuardExtensionsTests
         try
         {
             // Act & Assert
-            tempFile.EnsureFileExist();
+            tempFile.EnsureFileExists();
         }
         finally
         {
@@ -230,7 +230,7 @@ public class GuardExtensionsTests
         string nonExistentFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         // Act & Assert
-        Assert.Throws<FileNotFoundException>(() => nonExistentFile.EnsureFileExist());
+        Assert.Throws<FileNotFoundException>(() => nonExistentFile.EnsureFileExists());
     }
 
     [Fact]
@@ -240,7 +240,7 @@ public class GuardExtensionsTests
         string tempDirectory = Path.GetTempPath();
 
         // Act & Assert
-        tempDirectory.EnsureDirectoryExist();
+        tempDirectory.EnsureDirectoryExists();
     }
 
     [Fact]
@@ -250,7 +250,7 @@ public class GuardExtensionsTests
         string nonExistentDirectory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
 
         // Act & Assert
-        Assert.Throws<DirectoryNotFoundException>(() => nonExistentDirectory.EnsureDirectoryExist());
+        Assert.Throws<DirectoryNotFoundException>(() => nonExistentDirectory.EnsureDirectoryExists());
     }
 
     // New naming test coverage

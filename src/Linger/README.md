@@ -1,4 +1,4 @@
-# Linger.Utils
+﻿# Linger.Utils
 
 A comprehensive .NET utility library providing extensive extension methods and helper classes for everyday development tasks.
 
@@ -28,8 +28,6 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - [API Standardization & Type Safety](#api-standardization--type-safety)
   - [.NET 10 Forward-Compatible Design](#net-10-forward-compatible-design)
   - [Strict Type Safety Principles](#strict-type-safety-principles)
-- [Migration Notes](#migration-notes)
-  - [Join Method Standardization & .NET 10 Compatibility](#join-method-standardization--net-10-compatibility)
 
 ## Features
 
@@ -153,10 +151,10 @@ for (int i = 1; i <= 3; i++)
 // 1. AES uses AES-256-CBC mode with random IV generation for each encryption
 // 2. IV is automatically included in encrypted result and extracted during decryption
 // 3. Same plaintext produces different encrypted results each time, enhancing security
-// 4. DES algorithm is deprecated, recommended only for legacy system compatibility
+// 4. DES algorithm is recommended only for compatibility scenarios
 
 // ⚠️ Security Recommendations:
-// 1. DES algorithm is not recommended for new projects, use AES instead
+// 1. Recommended to use AES algorithm for new project development
 // 2. Keys should be stored securely, not hard-coded in source code
 // 3. Use stronger key management mechanisms in production environments
 // 4. AES key length is variable, internally processed using SHA256 to 32 bytes
@@ -410,22 +408,6 @@ string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
 DataTable? dataTable = jsonArray.ToDataTable();
 ```
 
-#### JSON Options & Secure Defaults
-
-Default JSON settings follow a "secure-by-default" stance:
-
-- `ExtensionMethodSetting.DefaultJsonSerializerOptions`
-    - Encoder: `JavaScriptEncoder.Default` (safer escaping strategy)
-    - Number handling: strict (does not allow numbers encoded as strings by default)
-    - Others: case-insensitive properties, CamelCase naming, ignore nulls, disallow trailing commas and comments, ignore cycles
-    - Built-in converters: `JsonObjectConverter`, `DateTimeConverter`, `DateTimeNullConverter`, `DataTableJsonConverter`
-
-- Interop/permissive scenarios
-    - Outbound default: `ExtensionMethodSetting.DefaultPostJsonOption` (allows trailing commas and writing numbers as strings for broader interoperability)
-    - Inbound optional: when you must accept non-standard inputs (comments, trailing commas, numbers-as-strings), use `ExtensionMethodSetting.CreatePermissiveJsonOptions()` explicitly.
-
-Recommendation: use strict options for in-process/server code; opt into permissive options only when interacting with non-conformant external systems.
-
 ### GUID Extensions
 
 ```csharp
@@ -534,44 +516,6 @@ public void ProcessData(string data, IEnumerable<int> numbers, string filePath)
     // ArgumentException.ThrowIfNullOrEmpty() → throws System.ArgumentException or System.ArgumentNullException
     // ArgumentException.ThrowIfNullOrWhiteSpace() → throws System.ArgumentException or System.ArgumentNullException
 }
-
-// 🔄 Traditional approach (still supported)
-public void ProcessDataTraditional(string data, IEnumerable<int> numbers, string filePath)
-{
-    using Linger.Helper;
-    
-    // Basic validation (traditional Guard methods)
-    data.EnsureIsNotNull(nameof(data));                        // Ensure not null
-    data.EnsureIsNotNullOrEmpty(nameof(data));                 // Ensure not null or empty
-    data.EnsureIsNotNullOrWhiteSpace(nameof(data));            // Ensure not null, empty or whitespace
-
-    // Collection validation
-    numbers.EnsureIsNotNullOrEmpty(nameof(numbers));           // Ensure collection is not null or empty
-
-    // File system validation
-    filePath.EnsureFileExists(nameof(filePath));               // Ensure file exists
-    Path.GetDirectoryName(filePath).EnsureDirectoryExists();   // Ensure directory exists
-
-    // Condition validation
-    (data.Length > 0).EnsureIsTrue(nameof(data), "Data must not be empty");
-    (numbers.Count() < 1000).EnsureIsTrue(nameof(numbers), "Too many items");
-
-    // Range validation
-    int value = 5;
-    value.EnsureIsInRange(1, 10, nameof(value));               // Ensure value is in range
-
-    // Null checking
-    object? obj = GetSomeObject();
-    obj.EnsureIsNotNull(nameof(obj));                          // If object should not be null
-    // or
-    obj.EnsureIsNull(nameof(obj));                             // If object should be null
-}
-
-// 💡 Best practice recommendations:
-// 1. New projects: Prefer new ArgumentException/ArgumentNullException static methods
-// 2. Existing projects: Can continue using traditional Guard methods or migrate gradually
-// 3. .NET 8+ projects: Remove "using Linger;" when upgrading to use built-in methods
-// 4. Library development: Use new methods to ensure perfect compatibility with future .NET versions
 ```
 
 ## Advanced Features
@@ -767,28 +711,7 @@ sbyte sbyteResult = sbyteStr.ToSByteOrDefault(0); // Supports -128 to 127
 
 ### 📊 API Naming Standardization
 
-All type conversion methods use a unified `ToXxxOrDefault` pattern with **complete .NET numeric type support**:
-
-| Conversion Type | New Method | Old Method (Obsolete) | Value Range |
-|----------------|------------|----------------------|-------------|
-| **Signed Integer Types** | | | |
-| Signed Byte | `ToSByteOrDefault()` | *New in 0.8.2+* | -128 to 127 |
-| Short | `ToShortOrDefault()` | *New in 0.8.2+* | -32,768 to 32,767 |
-| Integer | `ToIntOrDefault()` | `ToInt()` | -2,147,483,648 to 2,147,483,647 |
-| Long | `ToLongOrDefault()` | `ToLong()` | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 |
-| **Unsigned Integer Types** | | | |
-| Byte | `ToByteOrDefault()` | *New in 0.8.2+* | 0 to 255 |
-| Unsigned Short | `ToUShortOrDefault()` | *New in 0.8.2+* | 0 to 65,535 |
-| Unsigned Integer | `ToUIntOrDefault()` | *New in 0.8.2+* | 0 to 4,294,967,295 |
-| Unsigned Long | `ToULongOrDefault()` | *New in 0.8.2+* | 0 to 18,446,744,073,709,551,615 |
-| **Floating Point Types** | | | |
-| Float | `ToFloatOrDefault()` | `ToFloat()` | ±1.5 x 10^-45 to ±3.4 x 10^38 |
-| Double | `ToDoubleOrDefault()` | `ToDouble()` | ±5.0 × 10^−324 to ±1.7 × 10^308 |
-| Decimal | `ToDecimalOrDefault()` | `ToDecimal()` | ±1.0 x 10^-28 to ±7.9228 x 10^28 |
-| **Other Types** | | | |
-| Boolean | `ToBoolOrDefault()` | `ToBool()` | true/false |
-| DateTime | `ToDateTimeOrDefault()` | `ToDateTime()` | DateTime range |
-| GUID | `ToGuidOrDefault()` | `ToGuid()` | GUID format |
+All type conversion methods use a unified `ToXxxOrDefault` pattern with **complete .NET numeric type support**, providing consistent API experience.
 
 **🆕 New Type Checking Methods:**
 
@@ -847,7 +770,7 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true (letter support)
 1. **Follow Type Safety Principles**: 
    - Prefer string extension methods for type conversion
    - For object types, ensure they are string objects before conversion
-   - Use `ToXxxOrDefault()` instead of the old `ToXxx()` methods
+   - Use `ToXxxOrDefault()` series methods for safe conversion
 
 2. **Use Safe Methods**: 
    - Prefer `ToIntOrDefault()` over exception handling when conversion might fail
@@ -855,11 +778,9 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true (letter support)
 
 3. **Leverage Null Checking**: 
    - Use extension methods like `IsNullOrEmpty()`, `IsNotNullOrEmpty()` for validation
-   - Use the standardized `IsNotNullOrEmpty()` instead of `IsNotNullAndEmpty()`
 
 4. **Parameter Validation**: 
    - Use `GuardExtensions` methods like `EnsureIsNotNull()`, `EnsureIsNotNullOrEmpty()` for input validation
-   - Use the new standardized Guard method names
 
 5. **Leverage Async Operations**: 
    - Use async versions of file operations for better performance and responsiveness
@@ -876,399 +797,6 @@ bool success4 = "Y".ToBoolOrDefault(false);         // true (letter support)
 
 9. **Collection Processing**: 
    - Use `ForEach()`, `IsNullOrEmpty()` and other extension methods to simplify collection handling
-
-10. **Code Migration**: 
-    - Migrate to new APIs promptly to avoid using methods marked with `[Obsolete]`
-    - Pay attention to compiler warnings and follow migration guides
-
-## Migration Notes (0.8.2 → Next)
-
-To improve naming consistency, type safety, and readability, this version has made important API standardization improvements. Old names are marked with `[Obsolete]` and remain usable (transition period: 0.9.x, planned removal in the first 1.0 pre-release), but migration is strongly recommended.
-
-### � Join Method Standardization & .NET 10 Compatibility
-
-To align with the upcoming .NET 10 standard, Join methods have undergone major refactoring:
-
-#### Join Method Renaming
-| Old Method Name | New Method Name | Status | Notes |
-|----------------|-----------------|--------|-------|
-| `LeftOuterJoin` | `LeftJoin` | ✅ Complete | Aligns with .NET 10 built-in method name |
-| `RightOuterJoin` | `RightJoin` | ✅ Complete | Aligns with .NET 10 built-in method name |
-| `FullOuterJoin` | `FullJoin` | ✅ Complete | Simplified naming for consistency |
-| `InnerJoin` | *Removed* | ❌ Removed | Functionality duplicates built-in `Join` |
-
-#### Parameter Name Standardization
-All Join methods now use parameter names fully consistent with .NET 10:
-
-```csharp
-// ✅ New standardized parameter names (consistent with .NET 10)
-public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(
-    this IEnumerable<TOuter> outer,           // Outer sequence
-    IEnumerable<TInner> inner,                // Inner sequence  
-    Func<TOuter, TKey> outerKeySelector,      // Outer key selector
-    Func<TInner, TKey> innerKeySelector,      // Inner key selector
-    Func<TOuter, TInner?, TResult> resultSelector  // Result selector
-)
-
-// ❌ Old parameter names (deprecated)
-// left, right, leftKeySelector, rightKeySelector, resultSelector
-```
-
-#### .NET 10 Polyfill Strategy
-Current implementation uses conditional compilation to prepare for future .NET 10 upgrades:
-
-```csharp
-#if !NET10_0_OR_GREATER
-// Linger's polyfill implementation
-public static IEnumerable<TResult> LeftJoin<TOuter, TInner, TKey, TResult>(...) { ... }
-#endif
-
-// 🔄 Migration path when upgrading to .NET 10:
-// 1. Upgrade project target framework to .NET 10
-// 2. Code automatically uses System.Linq.Enumerable.LeftJoin
-// 3. No need to modify any calling code due to identical method signatures
-```
-
-#### Migration Examples
-
-```csharp
-// 🔄 Before migration (deprecated methods)
-var result1 = employees.LeftOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
-var result2 = employees.RightOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
-var result3 = employees.FullOuterJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
-var result4 = employees.InnerJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
-
-// ✅ After migration (.NET 10 compatible)
-var result1 = employees.LeftJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
-var result2 = employees.RightJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
-var result3 = employees.FullJoin(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d });
-var result4 = employees.Join(departments, e => e.DeptId, d => d.Id, (e, d) => new { e, d }); // Use built-in Join
-```
-
-#### Join Method Benefits Comparison
-
-| Feature | Old Implementation | New Implementation (.NET 10 Compatible) |
-|---------|-------------------|----------------------------------------|
-| Method Names | Non-standard long names | .NET 10 standard short names |
-| Parameter Naming | left/right pattern | outer/inner standard pattern |
-| Generic Parameters | TLeft/TRight pattern | TOuter/TInner standard pattern |
-| Future Compatibility | Manual migration required | Automatic built-in method usage |
-| IntelliSense | Verbose method names | Concise standard method names |
-| Performance | Same | Same (identical underlying implementation) |
-
-### �🔒 Important: Type Safety Enhancement
-
-**ObjectExtensions Behavior Change:**
-- All type conversion methods now **use performance-optimized conversion strategy**
-- **First perform direct type matching**: If the object is already the target type, return directly (zero overhead)
-- **Then attempt string conversion**: Call `ToString()` to convert to string, then parse to target type
-- This ensures **optimal performance** and **predictable conversion behavior**
-- **Complete numeric type support**: Now supports all .NET basic numeric types
-
-```csharp
-// 🆕 New behavior (performance optimized + type safe)
-object intObj = 123;
-int result = intObj.ToIntOrDefault(0); // Returns 123 (direct type match, zero overhead)
-
-object doubleObj = 123.45;
-int result2 = doubleObj.ToIntOrDefault(0); // Returns 0 ("123.45" cannot parse to int)
-
-object stringObj = "123";
-int result3 = stringObj.ToIntOrDefault(0); // Returns 123 (string parsing)
-
-// 🆕 New unsigned integer type support
-object byteObj = (byte)255;
-byte byteResult = byteObj.ToByteOrDefault(0); // Direct return 255 (zero overhead)
-
-object ushortObj = "65535";
-ushort ushortResult = ushortObj.ToUShortOrDefault(0); // String parsing to 65535
-
-object uintStr = "4294967295";
-uint uintResult = uintStr.ToUIntOrDefault(0); // Supports full uint range
-
-object ulongStr = "18446744073709551615";
-ulong ulongResult = ulongStr.ToULongOrDefault(0); // Supports full ulong range
-
-// 🆕 Signed byte type support
-object sbyteStr = "-100";
-sbyte sbyteResult = sbyteStr.ToSByteOrDefault(0); // Supports -128 to 127
-```
-
-### Renamed Guard Methods
-| Old Name | New Name | Reason |
-|----------|----------|--------|
-| `EnsureIsNotNullAndEmpty` | `EnsureIsNotNullOrEmpty` | Correct logical conjunction wording (not null OR empty check wording) |
-| `EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | Consistency with BCL `IsNullOrWhiteSpace` naming |
-| `EnsureFileExist` | `EnsureFileExists` | Grammar (plural verb form) & .NET naming consistency |
-| `EnsureDirectoryExist` | `EnsureDirectoryExists` | Same as above |
-
-String extension counterparts also gained the new `IsNotNullOrEmpty` / `IsNotNullOrWhiteSpace` names with old names kept as obsolete shims.
-
-### Exception Renaming
-| Old | New | Notes |
-|-----|-----|-------|
-| `OutOfReTryCountException` | `OutOfRetryCountException` | Typo/casing fix. Old type now inherits from the new type and is marked obsolete. |
-
-### RetryHelper Enhancements
-| Change | Description |
-|--------|-------------|
-| Optional `operationName` | Now optional; if omitted the library captures the caller expression via `CallerArgumentExpression`. |
-| Improved backoff | Uses full jitter strategy and validates `RetryOptions` values. |
-| Timing info | Final aggregated exception message includes total elapsed milliseconds. |
-
-### How to Update Your Code
-1. Replace old Guard method names with the new ones (search & replace is safe).  
-2. Remove explicit `operationName` arguments where they were just descriptive duplicates of the delegate (optional).  
-3. Update exception catch blocks from `OutOfReTryCountException` to `OutOfRetryCountException` (you can temporarily catch the base type if supporting both).  
-4. (Optional) Suppress obsolete warnings temporarily with `#pragma warning disable CS0618` if performing incremental migration.  
-
-### Example Before / After
-```csharp
-// Before (Guard methods)
-data.EnsureIsNotNullAndEmpty();
-filePath.EnsureFileExist();
-directory.EnsureDirectoryExist();
-try { await retry.ExecuteAsync(action, "MyAction"); } catch (OutOfReTryCountException ex) { ... }
-
-// Before (Type conversions)
-int value = stringValue.ToInt(0);
-double amount = stringValue.ToDouble(0.0);
-bool flag = stringValue.ToBool(false);
-
-// After (Guard methods)
-data.EnsureIsNotNullOrEmpty();
-filePath.EnsureFileExists();
-directory.EnsureDirectoryExists();
-try { await retry.ExecuteAsync(action); } catch (OutOfRetryCountException ex) { ... }
-
-// After (Type conversions)
-int value = stringValue.ToIntOrDefault(0);
-double amount = stringValue.ToDoubleOrDefault(0.0);
-bool flag = stringValue.ToBoolOrDefault(false);
-```
-
-No functional behavior changed—this is a surface naming / diagnostics improvement.
-
-### New String & Guid API Enhancements (post 0.8.2)
-| Category | New API | Purpose |
-|----------|---------|---------|
-| String | `RemoveSuffixOnce(string suffix, StringComparison comparison = Ordinal)` | Precisely remove a single suffix (with case-comparison control), avoiding legacy `RemoveLastChar` character-set trimming ambiguity |
-| String | `EnsureStartsWith(string prefix, StringComparison comparison)` | Ensure prefix using the specified comparison without manual case checks |
-| String | `EnsureEndsWith(string suffix, StringComparison comparison)` | Same as above (suffix) |
-| String | `RemovePrefixAndSuffix(string token, StringComparison comparison)` | Symmetric removal with culture/case comparison control |
-| Guid | `IsNotNullOrEmpty()` | Unified semantics, replaces legacy `IsNotNullAndEmpty` |
-| Object | `IsNotNullOrEmpty()` | Consistent with Guid/String |
-
-### Type Conversion API Standardization (0.8.2+)
-The type conversion methods have been standardized to use consistent `ToXxxOrDefault` naming pattern with **complete .NET numeric type support**:
-
-| Category | New API | Old API (Obsolete) | Notes | Value Range |
-|----------|---------|-------------------|-------|-------------|
-| **String Extensions** | | | | |
-| String → SByte | `ToSByteOrDefault()` | *New in 0.8.2+* | Enhanced numeric support | -128 to 127 |
-| String → Byte | `ToByteOrDefault()` | *New in 0.8.2+* | Enhanced numeric support | 0 to 255 |
-| String → UShort | `ToUShortOrDefault()` | *New in 0.8.2+* | Enhanced numeric support | 0 to 65,535 |
-| String → UInt | `ToUIntOrDefault()` | *New in 0.8.2+* | Enhanced numeric support | 0 to 4,294,967,295 |
-| String → ULong | `ToULongOrDefault()` | *New in 0.8.2+* | Enhanced numeric support | 0 to 18,446,744,073,709,551,615 |
-| String → Int | `ToIntOrDefault()` | `ToInt()` | Consistent with .NET patterns | -2,147,483,648 to 2,147,483,647 |
-| String → Long | `ToLongOrDefault()` | `ToLong()` | Better semantic clarity | -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 |
-| String → Float | `ToFloatOrDefault()` | `ToFloat()` | Unified parameter ordering | ±1.5 x 10^-45 to ±3.4 x 10^38 |
-| String → Double | `ToDoubleOrDefault()` | `ToDouble()` | Consistent overload patterns | ±5.0 × 10^−324 to ±1.7 × 10^308 |
-| String → Decimal | `ToDecimalOrDefault()` | `ToDecimal()` | Professional API design | ±1.0 x 10^-28 to ±7.9228 x 10^28 |
-| String → Boolean | `ToBoolOrDefault()` | `ToBool()` | Enhanced bool parsing | true/false |
-| String → DateTime | `ToDateTimeOrDefault()` | `ToDateTime()` | Improved null handling | DateTime range |
-| String → Guid | `ToGuidOrDefault()` | `ToGuid()` | Consistent behavior | GUID format |
-| **Object Extensions** | | | | |
-| Object → SByte | `ToSByteOrDefault()` | *New in 0.8.2+* | Performance optimized | -128 to 127 |
-| Object → Byte | `ToByteOrDefault()` | *New in 0.8.2+* | Performance optimized | 0 to 255 |
-| Object → UShort | `ToUShortOrDefault()` | *New in 0.8.2+* | Performance optimized | 0 to 65,535 |
-| Object → UInt | `ToUIntOrDefault()` | *New in 0.8.2+* | Performance optimized | 0 to 4,294,967,295 |
-| Object → ULong | `ToULongOrDefault()` | *New in 0.8.2+* | Performance optimized | 0 to 18,446,744,073,709,551,615 |
-| Object → Types | All corresponding `OrDefault` methods | Old methods | ObjectExtensions updated | Various ranges |
-
-**🆕 New Type Checking Methods:**
-
-| Method Category | New API | Purpose |
-|----------------|---------|---------|
-| Byte Type Checking | `IsByte()` | Check if byte type |
-| Signed Byte Checking | `IsSByte()` | Check if sbyte type |
-| Unsigned Short Checking | `IsUShort()` | Check if ushort type |
-| Unsigned Integer Checking | `IsUInt()` | Check if uint type |
-| Unsigned Long Checking | `IsULong()` | Check if ulong type |
-
-**Benefits of New API:**
-- ✅ Consistent naming across all conversion methods
-- ✅ Complete .NET numeric type support matrix
-- ✅ Performance optimization with direct type checking
-- ✅ Unified parameter ordering: `(value, defaultValue, additionalParams)`
-- ✅ Better IntelliSense discoverability
-- ✅ Professional API design aligned with industry standards
-- ✅ Clearer semantic meaning of "default value on failure"
-
-### Deprecated (Obsolete) Members – Scheduled Removal (Target: 1.0.0)
-| Obsolete | Replacement | Notes |
-|----------|-------------|-------|
-| **Type Conversion Methods** | | |
-| `string.ToInt()` | `ToIntOrDefault()` | Consistent naming pattern |
-| `string.ToLong()` | `ToLongOrDefault()` | API standardization |
-| `string.ToFloat()` | `ToFloatOrDefault()` | Unified parameter ordering |
-| `string.ToDouble()` | `ToDoubleOrDefault()` | Better semantic clarity |
-| `string.ToDecimal()` | `ToDecimalOrDefault()` | Professional naming |
-| `string.ToBool()` | `ToBoolOrDefault()` | Enhanced bool parsing |
-| `string.ToDateTime()` | `ToDateTimeOrDefault()` | Improved null handling |
-| `string.ToGuid()` | `ToGuidOrDefault()` | Consistent behavior |
-| `object.ToInt()` | `ToIntOrDefault()` | ObjectExtensions alignment |
-| `object.ToLong()` | `ToLongOrDefault()` | Same as above |
-| `object.ToFloat()` | `ToFloatOrDefault()` | Same as above |
-| `object.ToDouble()` | `ToDoubleOrDefault()` | Same as above |
-| `object.ToDecimal()` | `ToDecimalOrDefault()` | Same as above |
-| `object.ToBool()` | `ToBoolOrDefault()` | Same as above |
-| `object.ToDateTime()` | `ToDateTimeOrDefault()` | Same as above |
-| `object.ToGuid()` | `ToGuidOrDefault()` | Same as above |
-| `string.ToSafeString()` | `ToStringOrDefault()` | Naming consistency |
-| **🆕 New Type Checking Methods** | | |
-| *No obsolete methods* | `IsByte()` | New byte type checking |
-| *No obsolete methods* | `IsSByte()` | New signed byte type checking |
-| *No obsolete methods* | `IsUShort()` | New unsigned short type checking |
-| *No obsolete methods* | `IsUInt()` | New unsigned integer type checking |
-| *No obsolete methods* | `IsULong()` | New unsigned long type checking |
-| **🆕 New Conversion Methods** | | |
-| *No obsolete methods* | `ToSByteOrDefault()` | New signed byte conversion support |
-| *No obsolete methods* | `ToByteOrDefault()` | New byte conversion support |
-| *No obsolete methods* | `ToUShortOrDefault()` | New unsigned short conversion support |
-| *No obsolete methods* | `ToUIntOrDefault()` | New unsigned integer conversion support |
-| *No obsolete methods* | `ToULongOrDefault()` | New unsigned long conversion support |
-| **Other API Changes** | | |
-| `GuidExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Naming consistency |
-| `ObjectExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Same rationale |
-| `StringExtensions.Substring2` | `Take` | Simpler, clearer verb |
-| `StringExtensions.Substring3` | `TakeLast` | Mirrors new naming |
-| `StringExtensions.IsNotNullAndEmpty` | `IsNotNullOrEmpty` | Consistency |
-| `StringExtensions.IsNotNullAndWhiteSpace` | `IsNotNullOrWhiteSpace` | Consistency |
-| `GuardExtensions.EnsureIsNotNullAndEmpty` | `EnsureIsNotNullOrEmpty` | Consistency |
-| `GuardExtensions.EnsureIsNotNullAndWhiteSpace` | `EnsureIsNotNullOrWhiteSpace` | Consistency |
-| `ObjectExtensions.ToNotSpaceString` | `ToTrimmedString` | Clearer naming |
-| `ObjectExtensions.ToStringOrEmpty` | `ToSafeString` | Consolidated semantics |
-| `RemoveLastChar(string)` | `RemoveLastChar(char)` / `RemoveSuffixOnce` | Multi-character parameter trims by character set (legacy `TrimEnd(char[])` semantics); prefer precise APIs |
-
-> Deletion Window: These will be removed after the first 0.9.x stable (or at latest before 1.0.0). Begin migrating now to avoid breaking changes.
-
-### Usage Examples (New APIs)
-```csharp
-// Type conversion with new standardized methods including complete numeric types
-string numberStr = "123";
-int result = numberStr.ToIntOrDefault(0);           // Returns 123, or 0 if conversion fails
-long longResult = numberStr.ToLongOrDefault(0L);    // Consistent naming pattern
-double doubleResult = "123.45".ToDoubleOrDefault(0.0); // Professional API design
-
-// 🆕 New unsigned integer type conversions
-byte byteResult = "255".ToByteOrDefault(0);         // Returns 255, supports 0-255 range
-ushort ushortResult = "65535".ToUShortOrDefault(0); // Returns 65535, supports 0-65,535 range
-uint uintResult = "4294967295".ToUIntOrDefault(0U); // Returns max uint value
-ulong ulongResult = "18446744073709551615".ToULongOrDefault(0UL); // Returns max ulong value
-
-// 🆕 New signed byte type conversion
-sbyte sbyteResult = "-100".ToSByteOrDefault(0);     // Returns -100, supports -128 to 127 range
-
-// Performance-optimized object conversions
-object directMatch = 789; // Direct type match
-int directResult = directMatch.ToIntOrDefault(0);   // Returns 789 (zero overhead conversion)
-
-object byteObj = (byte)200;
-byte optimizedByte = byteObj.ToByteOrDefault(0);    // Direct return 200 (zero overhead)
-
-// Boolean conversion with enhanced parsing
-bool success1 = "true".ToBoolOrDefault(false);      // Returns true
-bool success2 = "yes".ToBoolOrDefault(false);       // Returns true (enhanced parsing)
-bool success3 = "1".ToBoolOrDefault(false);         // Returns true (numeric support)
-
-// DateTime conversion
-DateTime date = "2024-01-01".ToDateTimeOrDefault(DateTime.MinValue);
-
-// GUID conversion
-Guid guid = "550e8400-e29b-41d4-a716-446655440000".ToGuidOrDefault();
-
-// 🆕 New type checking methods
-object testValue = GetSomeValue();
-if (testValue.IsByte()) { /* Handle byte type */ }
-if (testValue.IsUInt()) { /* Handle unsigned integer type */ }
-if (testValue.IsULong()) { /* Handle unsigned long type */ }
-
-// Remove a single suffix ignoring case
-var trimmed = "Report.DOCX".RemoveSuffixOnce(".docx", StringComparison.OrdinalIgnoreCase); // => "Report"
-
-// Ensure prefix (case-insensitive)
-var normalized = "api/values".EnsureStartsWith("/API", StringComparison.OrdinalIgnoreCase); // => "/api/values"
-```
-
-### Migration Examples
-```csharp
-// Before (Obsolete)
-int value1 = stringValue.ToInt(0);
-long value2 = stringValue.ToLong(0L);
-double value3 = stringValue.ToDouble(0.0);
-bool value4 = stringValue.ToBool(false);
-DateTime value5 = stringValue.ToDateTime(DateTime.MinValue);
-Guid value6 = stringValue.ToGuid();
-
-// After (Current) - Standard types
-int value1 = stringValue.ToIntOrDefault(0);
-long value2 = stringValue.ToLongOrDefault(0L);
-double value3 = stringValue.ToDoubleOrDefault(0.0);
-bool value4 = stringValue.ToBoolOrDefault(false);
-DateTime value5 = stringValue.ToDateTimeOrDefault(DateTime.MinValue);
-Guid value6 = stringValue.ToGuidOrDefault();
-
-// 🆕 New (0.8.2+) - Complete numeric type support
-byte byteValue = stringValue.ToByteOrDefault(0);
-sbyte sbyteValue = stringValue.ToSByteOrDefault(0);
-ushort ushortValue = stringValue.ToUShortOrDefault(0);
-uint uintValue = stringValue.ToUIntOrDefault(0U);
-ulong ulongValue = stringValue.ToULongOrDefault(0UL);
-
-// 🆕 New type checking capabilities
-bool isByte = obj.IsByte();
-bool isUInt = obj.IsUInt();
-bool isULong = obj.IsULong();
-```
-
-// Symmetric remove
-var inner = "__value__".RemovePrefixAndSuffix("__", StringComparison.Ordinal); // => "value"
-
-Guid? gid = Guid.NewGuid();
-if (gid.IsNotNullOrEmpty()) { /* ... */ }
-```
-
-### 1.0.0 Planned Removal List (Preview)
-Prepare for removal of all obsolete members listed above plus any marked with "Will be removed in 1.0.0" attributes in code. A final confirmation list will be published in the 1.0.0 release notes.
-
-
-### New Additions (Post 0.8.2 Preview)
-
-#### Non-Throwing Enum Parsing
-Use the new `TryGetEnum` helpers to avoid exception-driven flow when converting from string or integer values:
-
-```csharp
-if ("Active".TryGetEnum<Status>(out var status))
-{
-    // use status
-}
-
-if (2.TryGetEnum<Status>(out var status2))
-{
-    // use status2
-}
-```
-
-#### Additional Exception Constructors
-`OutOfRetryCountException` now provides parameterless and message-only constructors:
-```csharp
-throw new OutOfRetryCountException(); // default message
-throw new OutOfRetryCountException("Custom message");
-throw new OutOfRetryCountException("Custom message", innerEx);
-```
-Legacy `OutOfReTryCountException` remains (obsolete) for one transition cycle.
-
 ## Polyfills Summary (BCL & Language Features)
 
 This library provides forward-compatible polyfills for common BCL APIs and select language features to ensure consistent compilation and behavior on older target frameworks (e.g., .NET Framework, .NET Standard 2.0, .NET 5). All polyfills use conditional compilation so they automatically defer to in-box implementations when you upgrade your TFM.
@@ -1287,9 +815,9 @@ This library provides forward-compatible polyfills for common BCL APIs and selec
 
 These are static utility methods/attributes mirroring the in-box APIs; once the TFM meets the version requirements (e.g., .NET 8+), the polyfills are excluded and your code uses the framework implementation automatically.
 
-### Language Feature Polyfill: required members (legacy TFMs)
+### Language Feature Polyfill: required members support
 
-To use C# 11 `required` members and get correct compiler diagnostics/metadata on .NET Framework / .NET Standard, the following attributes are provided:
+To use C# 11 `required` members and get correct compiler diagnostics/metadata on older frameworks, the following attributes are provided:
 
 - `System.Runtime.CompilerServices.RequiredMemberAttribute`
 - `System.Diagnostics.CodeAnalysis.SetsRequiredMembersAttribute`

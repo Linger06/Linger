@@ -5,10 +5,18 @@ Production-ready HTTP client implementation based on System.Net.Http.HttpClient.
 ## Features
 
 - **Zero Dependencies**: Built on standard .NET libraries
-- **HttpClientFactory Integration**: Proper socket management
+- **HttpClientFactory Integration**: Proper socket management and connection pooling
+- **Proper Resource Management**: Automatic disposal tracking with ownership pattern to prevent resource leaks
 - **Comprehensive Logging**: Built-in performance monitoring
 - **Linger.Results Integration**: Seamless error mapping from server to client
 - **ProblemDetails Support**: Native RFC 7807 support
+
+## Recent Updates (v0.9.7+)
+
+### Resource Management Improvements
+- ✅ **Fixed Resource Leak**: Added ownership tracking to prevent disposing externally-provided `HttpClient` instances
+- ✅ **Safe Disposal**: Only disposes `HttpClient` instances that it created internally
+- ✅ **HttpClientFactory Compatible**: Properly handles `HttpClient` instances from factory without disposal issues
 
 ## Installation
 
@@ -17,6 +25,8 @@ dotnet add package Linger.HttpClient.Standard
 ```
 
 ## Basic Usage
+
+### ✅ Recommended: Using HttpClientFactory (Best Practice)
 
 ```csharp
 // Register in DI container
@@ -39,6 +49,36 @@ public class UserService
     }
 }
 ```
+
+### ⚠️ Using Existing HttpClient Instance
+
+If you already have an `HttpClient` instance (e.g., from HttpClientFactory), you can wrap it:
+
+```csharp
+// The StandardHttpClient will NOT dispose the external HttpClient
+var httpClient = httpClientFactory.CreateClient("MyClient");
+using var standardClient = new StandardHttpClient(httpClient, logger);
+
+var result = await standardClient.CallApi<User>("api/users/123");
+```
+
+### ⚠️ Direct Instantiation (Not Recommended for Production)
+
+Only use this approach for testing or simple scenarios:
+
+```csharp
+// ⚠️ Creates new HttpClient instance
+// StandardHttpClient will dispose it when disposed
+using var client = new StandardHttpClient("https://api.example.com", logger);
+var result = await client.CallApi<User>("api/users/123");
+// HttpClient is automatically disposed here
+```
+
+**Why HttpClientFactory is Recommended:**
+- ✅ Proper connection pooling
+- ✅ Automatic DNS refresh handling
+- ✅ Prevents socket exhaustion
+- ✅ Built-in lifetime management
 
 ## Linger.Results Integration
 
