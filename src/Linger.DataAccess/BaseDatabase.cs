@@ -9,6 +9,7 @@ public class BaseDatabase : IBaseDatabase
     #region 构造函数
 
     protected readonly IProvider Provider;
+    private bool _disposed;
 
     protected string ConnString { get; set; }
 
@@ -101,11 +102,16 @@ public class BaseDatabase : IBaseDatabase
 
     protected virtual void Dispose(bool disposing)
     {
+        if (_disposed)
+            return;
+
         if (disposing)
         {
             Connection?.Dispose();
             Trans?.Dispose();
         }
+
+        _disposed = true;
     }
 
     #endregion

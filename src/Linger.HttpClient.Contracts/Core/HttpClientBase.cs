@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -38,7 +39,6 @@ public abstract class HttpClientBase : IHttpClient
         {
             // 安全加固和一致性
             Encoder = JavaScriptEncoder.Default,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             ReferenceHandler = ReferenceHandler.IgnoreCycles,
             // 只读宽容性以实现互操作:在反序列化时接受数字字符串
             NumberHandling = JsonNumberHandling.AllowReadingFromString
@@ -56,14 +56,16 @@ public abstract class HttpClientBase : IHttpClient
     private static JsonSerializerOptions CreateDefaultRequestOptions()
     {
         // 基于标准 Web 默认值用于传出请求体。
-        // 不全局地将数字写为字符串;保持标准的数字输出。
+        // 遵循"严进宽出"原则:发送数据时保持严格和标准,使用规范的 JSON 格式。
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            Encoder = JavaScriptEncoder.Default
+            Encoder = JavaScriptEncoder.Default,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
-        // 仅保留请求序列化所需的基本转换器
+        // 仅添加必要的转换器,确保请求序列化的严格性
         jsonOptions.Converters.Add(new DateTimeConverter());
+        jsonOptions.Converters.Add(new DateTimeNullConverter());
         return jsonOptions;
     }
 
@@ -323,17 +325,27 @@ public abstract class HttpClientBase : IHttpClient
             try
             {
                 var problemDetails = responseTxt.Deserialize<ProblemDetailsWithErrors>(GetResponseJsonOptions());
-                if (problemDetails is not null && problemDetails.Errors.Count > 0)
+                if (problemDetails is not null)
                 {
-                    var errors = problemDetails.Errors.Select(kvp => new Error(kvp.Key, kvp.Value)).ToList();
-                    // 将所有字段错误消息合并为全局错误消息；若 key 非空，包含在消息中："key: value"
-                    var mergedMsg = string.Join("\n", problemDetails.Errors
-                        .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
-                        .Select(kvp => string.IsNullOrWhiteSpace(kvp.Key) ? kvp.Value : $"{kvp.Key}: {kvp.Value}"));
-                    var errorMsg = !string.IsNullOrWhiteSpace(mergedMsg)
-                        ? mergedMsg
-                        : (!string.IsNullOrWhiteSpace(problemDetails.Title) ? problemDetails.Title : "An unknown error occurred");
-                    return (errorMsg, errors);
+                    // 如果有 Errors 字段,提取错误信息
+                    if (problemDetails.Errors.Count > 0)
+                    {
+                        var errors = problemDetails.Errors.Select(kvp => new Error(kvp.Key, kvp.Value)).ToList();
+                        // 将所有字段错误消息合并为全局错误消息；若 key 非空，包含在消息中："key: value"
+                        var mergedMsg = string.Join("\n", problemDetails.Errors
+                            .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
+                            .Select(kvp => string.IsNullOrWhiteSpace(kvp.Key) ? kvp.Value : $"{kvp.Key}: {kvp.Value}"));
+                        var errorMsg = !string.IsNullOrWhiteSpace(mergedMsg)
+                            ? mergedMsg
+                            : (!string.IsNullOrWhiteSpace(problemDetails.Title) ? problemDetails.Title : "An unknown error occurred");
+                        return (errorMsg, errors);
+                    }
+
+                    // 如果没有 Errors 但有 Title,使用 Title
+                    if (!string.IsNullOrWhiteSpace(problemDetails.Title))
+                    {
+                        return (problemDetails.Title, Array.Empty<Error>());
+                    }
                 }
             }
             catch (JsonException)
@@ -360,11 +372,11 @@ public abstract class HttpClientBase : IHttpClient
                 // Error 集合解析失败，继续使用其他方式
             }
 
-            // 如果无法解析为结构化错误，尝试返回状态码对应的消息
+            // 如果无法解析为结构化错误,尝试返回状态码对应的消息,并将原始响应文本加入Errors
             var statusMessage = GetStatusCodeMessage(res.StatusCode);
             if (statusMessage is not null)
             {
-                return (statusMessage, []);
+                return (statusMessage, [new Error(string.Empty, responseTxt)]);
             }
 
             // 最后返回原始响应文本
@@ -429,11 +441,46 @@ public abstract class HttpClientBase : IHttpClient
             return string.Empty;
         }
 
-        // 将对象转换为键值对序列
-        var properties = queryParams.GetType().GetProperties()
-            .Where(p => p.GetValue(queryParams) is not null)
-            .Select(p => $"{Uri.EscapeDataString(p.Name)}={Uri.EscapeDataString(p.GetValue(queryParams)?.ToString() ?? string.Empty)}");
+        // 处理字典类型
+        if (queryParams is IDictionary<string, string> dictionary)
+        {
+            return string.Join("&", dictionary
+                .Where(kvp => kvp.Value is not null)
+                .Select(kvp => $"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(kvp.Value)}"));
+        }
 
-        return string.Join("&", properties);
+        // 处理对象类型
+        var queryParts = new List<string>();
+        var properties = queryParams.GetType().GetProperties();
+
+        foreach (var property in properties)
+        {
+            var value = property.GetValue(queryParams);
+            if (value is null)
+            {
+                continue;
+            }
+
+            var propertyName = Uri.EscapeDataString(property.Name);
+
+            // 处理集合类型(数组、列表等),但排除字符串
+            if (value is not string && value is IEnumerable enumerable)
+            {
+                foreach (var item in enumerable)
+                {
+                    if (item is not null)
+                    {
+                        queryParts.Add($"{propertyName}={Uri.EscapeDataString(item.ToString() ?? string.Empty)}");
+                    }
+                }
+            }
+            else
+            {
+                // 处理普通属性
+                queryParts.Add($"{propertyName}={Uri.EscapeDataString(value.ToString() ?? string.Empty)}");
+            }
+        }
+
+        return string.Join("&", queryParts);
     }
 }

@@ -44,8 +44,8 @@ public static class HttpClientExtensions
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        // 将TimeSpan转换为秒数
-        int? timeoutSeconds = timeout.HasValue ? (int)timeout.Value.TotalSeconds : null;
+        // 将TimeSpan转换为秒数,向上取整以避免丢失精度
+        int? timeoutSeconds = timeout.HasValue ? (int)Math.Ceiling(timeout.Value.TotalSeconds) : null;
 
         // 使用基础方法发送请求
         return await client.CallApi<T>(url, queryParams, timeoutSeconds, cancellationToken).ConfigureAwait(false);
@@ -90,5 +90,64 @@ public static class HttpClientExtensions
         CancellationToken cancellationToken = default)
     {
         return await client.CallApi<T>(url, HttpMethodEnum.Delete, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 发送POST请求(无返回值)
+    /// </summary>
+    public static async Task<ApiResult> PostAsync(
+        this IHttpClient client,
+        string url,
+        object requestBody,
+        object? queryParams = null,
+        int? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await client.CallApi<object>(url, HttpMethodEnum.Post, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return new ApiResult
+        {
+            StatusCode = result.StatusCode,
+            ErrorMsg = result.ErrorMsg,
+            Errors = result.Errors
+        };
+    }
+
+    /// <summary>
+    /// 发送PUT请求(无返回值)
+    /// </summary>
+    public static async Task<ApiResult> PutAsync(
+        this IHttpClient client,
+        string url,
+        object requestBody,
+        object? queryParams = null,
+        int? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await client.CallApi<object>(url, HttpMethodEnum.Put, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return new ApiResult
+        {
+            StatusCode = result.StatusCode,
+            ErrorMsg = result.ErrorMsg,
+            Errors = result.Errors
+        };
+    }
+
+    /// <summary>
+    /// 发送DELETE请求(无返回值)
+    /// </summary>
+    public static async Task<ApiResult> DeleteAsync(
+        this IHttpClient client,
+        string url,
+        object? queryParams = null,
+        int? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await client.CallApi<object>(url, HttpMethodEnum.Delete, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return new ApiResult
+        {
+            StatusCode = result.StatusCode,
+            ErrorMsg = result.ErrorMsg,
+            Errors = result.Errors
+        };
     }
 }

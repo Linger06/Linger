@@ -4,7 +4,7 @@ namespace Linger.Configuration;
 
 public class AppConfig
 {
-    private static AppConfig? s_instance;
+    private static readonly Lazy<AppConfig> s_instance = new(() => new AppConfig());
 
     private AppConfig()
     {
@@ -13,14 +13,7 @@ public class AppConfig
 
     public IConfigurationRoot Config { get; }
 
-    public static AppConfig Instance
-    {
-        get
-        {
-            s_instance ??= new AppConfig();
-            return s_instance;
-        }
-    }
+    public static AppConfig Instance => s_instance.Value;
 
     private static IConfigurationRoot Build()
     {

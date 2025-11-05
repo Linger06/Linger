@@ -14,6 +14,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 {
     private const char FtpPathSeparator = '/';
     private const string FtpRootPath = "/";
+    private bool _disposed;
 
     /// <summary>
     /// FTP客户端
@@ -73,9 +74,13 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override void Dispose()
     {
+        if (_disposed)
+            return;
+
         if (!Client.IsDisposed)
             Client.Dispose();
 
+        _disposed = true;
         GC.SuppressFinalize(this);
     }
 

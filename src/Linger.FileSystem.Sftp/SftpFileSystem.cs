@@ -12,9 +12,10 @@ public class SftpFileSystem : RemoteFileSystemBase
 {
     private const char SftpPathSeparator = '/';
     private const string SftpRootPath = "/";
+    private bool _disposed;
 
     /// <summary>
-    /// SFTP客户�?
+    /// SFTP客户端
     /// </summary>
     protected SftpClient Client { get; }
     private static readonly char[] s_separator = ['/', '\\'];
@@ -85,7 +86,12 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override void Dispose()
     {
+        if (_disposed)
+            return;
+
         Client?.Dispose();
+
+        _disposed = true;
         GC.SuppressFinalize(this);
     }
 
