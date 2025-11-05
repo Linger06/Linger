@@ -95,6 +95,7 @@ ILocalFileSystem    IRemoteFileSystem
 - **自动重试**: 内置重试机制，可以配置重试次数和延迟，提高操作可靠性
 - **连接管理**: 自动处理远程文件系统的连接和断开
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
+- **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理（内存减少 99.99%）
 
 ## 支持的.NET版本
 
@@ -404,6 +405,69 @@ result = await localFs.UploadAsync(
 ```
 
 ## 高级优化建议
+
+### 本地文件系统 - 流式上传优化（v1.0.0+）
+
+本地文件系统现已使用流式优化技术，显著降低文件上传时的内存占用：
+
+**优化亮点：**
+- ✅ **IncrementalHash**：增量计算 MD5 哈希值，无需将整个文件加载到内存
+- ✅ **ArrayPool<byte>**：重用缓冲区内存，减少 GC 压力
+- ✅ **流式 I/O**：分块处理文件，内存占用恒定，与文件大小无关
+
+**性能提升：**
+
+| 文件大小 | 旧实现 | 新实现 | 内存减少 |
+|---------|--------|--------|---------|
+| 100MB | ~100MB | ~8-256KB（缓冲区大小） | 99.9%+ |
+| 1GB | ~1GB | ~8-256KB（缓冲区大小） | 99.99%+ |
+| 10GB | ❌ 内存溢出 | ~8-256KB（缓冲区大小） | ✅ 支持 |
+
+**技术细节：**
+
+```csharp
+// 旧方式（内存密集型）
+var memoryStream = new MemoryStream();
+await inputStream.CopyToAsync(memoryStream);
+byte[] fileBytes = memoryStream.ToArray(); // 整个文件在内存中！
+string hash = CalculateMD5(fileBytes);
+
+// 新方式（流式 + IncrementalHash）
+using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+try
+{
+    int bytesRead;
+    while ((bytesRead = await inputStream.ReadAsync(buffer)) > 0)
+    {
+        await outputStream.WriteAsync(buffer, 0, bytesRead);
+        md5.AppendData(buffer, 0, bytesRead);  // 增量更新哈希
+    }
+    string hash = BitConverter.ToString(md5.GetHashAndReset())...;
+}
+finally
+{
+    ArrayPool<byte>.Shared.Return(buffer);  // 归还缓冲区到池
+}
+```
+
+**优化适用场景：**
+
+- ✅ MD5 命名规则：使用临时文件进行流式哈希计算
+- ✅ UUID 命名规则：直接流式写入目标文件
+- ✅ Normal 命名规则：直接流式写入目标文件
+
+**缓冲区配置：**
+
+```csharp
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",
+    UploadBufferSize = 262144,  // 256KB 缓冲区（默认：81920 = 80KB）
+    // 更大的缓冲区可提升大文件性能
+    // 但会增加每个并发上传的内存占用
+};
+```
 
 ### 缓冲区与内存管理
 

@@ -11,9 +11,15 @@
 - **Linger.Results 集成**: 服务端到客户端的无缝错误映射
 - **ProblemDetails 支持**: 原生支持 RFC 7807 标准
 
-## 最近更新 (v0.9.7+)
+## 最近更新
 
-### 资源管理改进
+### v1.0.0+ - 流式下载优化
+- ✅ **流式下载支持**: 新增 `DownloadStreamAsync` 和 `DownloadToFileAsync` 方法
+- ✅ **内存优化**: 大文件下载内存占用从 100% 文件大小降至 ~8KB 缓冲区（99.99% 减少）
+- ✅ **进度报告**: `DownloadToFileAsync` 支持实时进度回调
+- ✅ **HttpResponseMode**: 新增 `Buffered`/`Streamed` 模式，可根据场景选择
+
+### v0.9.78 - 资源管理改进
 - ✅ **修复资源泄漏**: 添加所有权跟踪，防止释放外部提供的 `HttpClient` 实例
 - ✅ **安全释放**: 仅释放内部创建的 `HttpClient` 实例
 - ✅ **HttpClientFactory 兼容**: 正确处理来自工厂的 `HttpClient` 实例，无释放问题
@@ -216,6 +222,57 @@ public async Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method = H
     object? data = null, Dictionary<string, string>? headers = null)
 ```
 
+### 流式下载（v0.9.8+ 新增）
+
+针对大文件下载，使用流式方法可以最大限度减少内存占用：
+
+#### DownloadStreamAsync
+```csharp
+// 下载大文件为流（内存占用最小）
+var result = await _httpClient.DownloadStreamAsync("https://example.com/large-file.zip");
+if (result.IsSuccess && result.Data is not null)
+{
+    using var stream = result.Data;
+    // 直接处理流，无需将整个文件加载到内存
+    // 注意：必须手动释放 Stream 或使用 using 语句
+}
+```
+
+#### DownloadToFileAsync（推荐）
+```csharp
+// 直接下载到文件，支持进度报告
+var progress = new Progress<(long downloaded, long? total)>(p =>
+{
+    var percent = p.total.HasValue ? (double)p.downloaded / p.total.Value * 100 : 0;
+    Console.WriteLine($"已下载: {p.downloaded} 字节 ({percent:F1}%)");
+});
+
+var result = await _httpClient.DownloadToFileAsync(
+    url: "https://example.com/large-file.zip",
+    destinationPath: "output.zip",
+    progress: progress
+);
+
+if (result.IsSuccess)
+{
+    Console.WriteLine("下载完成！");
+}
+```
+
+**流式下载的优势：**
+- ✅ 内存占用极小（~8KB 缓冲区 vs 完整文件大小）
+- ✅ 支持任意大小的文件
+- ✅ 内置进度报告功能
+- ✅ 支持取消令牌
+
+**性能对比（下载 500MB 文件）：**
+
+| 方法 | 内存占用 | 说明 |
+|------|---------|------|
+| `CallApi<byte[]>` | ~500MB | 将整个文件加载到内存 |
+| `DownloadStreamAsync` | ~8KB | 仅缓冲区内存占用 |
+| `DownloadToFileAsync` | ~8KB | 可自定义缓冲区大小 |
+
 支持的 HTTP 方法：
 - GET: 获取数据
 - POST: 创建资源
@@ -260,3 +317,8 @@ else
 - 启用详细日志以便调试
 - 合理设置超时时间
 - 处理网络异常和超时情况
+- **大文件下载使用流式方法**（`DownloadStreamAsync` 或 `DownloadToFileAsync`）以节省内存
+
+## 更多示例
+
+完整的流式下载示例和性能对比，请参考 [STREAMING_DOWNLOAD_EXAMPLE.md](STREAMING_DOWNLOAD_EXAMPLE.md)

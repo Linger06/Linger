@@ -502,7 +502,22 @@ namespace Linger.FileSystem.Tests.Local
 
         public override int Read(byte[] buffer, int offset, int count)
         {
+            _currentCopyAttempt++;
+            if (_currentCopyAttempt <= _failCount)
+            {
+                throw new IOException($"Simulated failure on attempt {_currentCopyAttempt}");
+            }
             return _internalStream.Read(buffer, offset, count);
+        }
+
+        public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            _currentCopyAttempt++;
+            if (_currentCopyAttempt <= _failCount)
+            {
+                throw new IOException($"Simulated failure on attempt {_currentCopyAttempt}");
+            }
+            return await _internalStream.ReadAsync(buffer, offset, count, cancellationToken);
         }
 
         public override long Seek(long offset, SeekOrigin origin)

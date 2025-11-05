@@ -147,6 +147,12 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     public override async Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null,
         object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default) //where T : class
     {
+        return await CallApiWithMode<T>(url, method, content, queryParams, timeout, HttpResponseMode.Buffered, cancellationToken).ConfigureAwait(false);
+    }
+
+    public override async Task<ApiResult<T>> CallApiWithMode<T>(string url, HttpMethodEnum method, HttpContent? content = null,
+        object? queryParams = null, int? timeout = null, HttpResponseMode responseMode = HttpResponseMode.Buffered, CancellationToken cancellationToken = default)
+    {
         ApiResult<T> rv = new();
         var requestId = Guid.NewGuid().ToString("N").Substring(0, 8);
 
@@ -224,8 +230,13 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
+            // 根据 responseMode 选择不同的 HttpCompletionOption
+            var completionOption = responseMode == HttpResponseMode.Streamed
+                ? HttpCompletionOption.ResponseHeadersRead
+                : HttpCompletionOption.ResponseContentRead;
+
             // Execute request
-            var res = await _httpClient.SendAsync(request, combinedToken).ConfigureAwait(false);
+            var res = await _httpClient.SendAsync(request, completionOption, combinedToken).ConfigureAwait(false);
 
             stopwatch.Stop();
 
