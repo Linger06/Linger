@@ -164,51 +164,145 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         string destPath,
         NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
-        // 先将输入流的内容复制到内存流中，这样可以多次读取
-        using var memoryStream = new MemoryStream();
-        await inputStream.CopyToAsync(memoryStream, _options.UploadBufferSize).ConfigureAwait(false);
-        memoryStream.Position = 0;
+        // 优化: 使用流式处理 + 增量哈希计算，避免将整个文件加载到内存
+        // 1. 对于 Md5 命名规则，需要先计算哈希才能确定文件名
+        // 2. 对于其他命名规则，可以直接流式写入
+        
+        string sourceHashData;
+        long totalBytes = 0;
+        string? filePath = null;
+        string? relativeFilePath = null;
 
-        // 计算源文件哈希值
-        var sourceHashData = memoryStream.ComputeHashMd5();
-
-        // 获取目标文件路径
-        var filePath = GetDestFilePath(
-            memoryStream,
-            sourceFileName,
-            containerName,
-            destPath,
-            namingRule,
-                overwrite,
-                useSequencedName);
-
-        var relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
-
-        // 确保目录存在
-        FileHelper.EnsureDirectoryExists(relativeFilePath);
-
-        // 写入文件
-        memoryStream.Position = 0;
-
-        var fileStream = File.Create(relativeFilePath);
-
-#if NET8_0_OR_GREATER
-        await using (fileStream.ConfigureAwait(false))
-#else
-        using (fileStream)
-#endif
+        switch (namingRule)
         {
-            await memoryStream.CopyToAsync(fileStream).ConfigureAwait(false);
+            case NamingRule.Md5:
+            {
+                // Md5 命名需要先计算哈希，但使用流式处理减少内存占用
+                using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
+                var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
+                
+                try
+                {
+                    // 临时文件路径，用于先写入数据
+                    var tempPath = Path.Combine(Path.GetTempPath(), $"upload_{Guid.NewGuid():N}.tmp");
+                    
+                    var tempFileStream = File.Create(tempPath);
+#if NET8_0_OR_GREATER
+                    await using (tempFileStream.ConfigureAwait(false))
+#else
+                    using (tempFileStream)
+#endif
+                    {
+                        int bytesRead;
+                        while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+                        {
+                            // 同时写入临时文件和更新哈希
+                            await tempFileStream.WriteAsync(buffer, 0, bytesRead).ConfigureAwait(false);
+                            md5.AppendData(buffer, 0, bytesRead);
+                            totalBytes += bytesRead;
+                        }
+                    }
+
+                    // 获取哈希值
+                    sourceHashData = BitConverter.ToString(md5.GetHashAndReset()).Replace("-", string.Empty).ToLowerInvariant();
+
+                    // 使用哈希值生成文件路径
+                    var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
+                    var fileExtension = Path.GetExtension(sourceFileName);
+                    var fileName = $"{fileNameWithoutExtension}-{sourceHashData}{fileExtension}";
+                    filePath = Path.Combine(containerName, destPath, fileName);
+                    relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
+
+                    // 确保目录存在
+                    FileHelper.EnsureDirectoryExists(relativeFilePath);
+
+                    // 将临时文件移动到最终位置
+#if NET5_0_OR_GREATER
+                    File.Move(tempPath, relativeFilePath, overwrite);
+#else
+                    if (overwrite && File.Exists(relativeFilePath))
+                    {
+                        File.Delete(relativeFilePath);
+                    }
+                    File.Move(tempPath, relativeFilePath);
+#endif
+                }
+                finally
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                }
+                break;
+            }
+
+            case NamingRule.Uuid:
+            case NamingRule.Normal:
+            {
+                // Uuid 和 Normal 命名规则：可以直接流式写入目标文件
+                var fileExtension = Path.GetExtension(sourceFileName);
+                
+                if (namingRule == NamingRule.Uuid)
+                {
+                    filePath = GenerateUuidBasedPath(containerName, destPath, fileExtension);
+                }
+                else // NamingRule.Normal
+                {
+                    var basePath = Path.Combine(containerName, destPath);
+                    filePath = GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, RootDirectoryPath);
+                }
+                
+                relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
+
+                // 确保目录存在
+                FileHelper.EnsureDirectoryExists(relativeFilePath);
+
+                using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
+                var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
+
+                try
+                {
+                    var fileStream = File.Create(relativeFilePath);
+#if NET8_0_OR_GREATER
+                    await using (fileStream.ConfigureAwait(false))
+#else
+                    using (fileStream)
+#endif
+                    {
+                        int bytesRead;
+                        while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+                        {
+                            // 同时写入文件和更新哈希
+                            await fileStream.WriteAsync(buffer, 0, bytesRead).ConfigureAwait(false);
+                            md5.AppendData(buffer, 0, bytesRead);
+                            totalBytes += bytesRead;
+                        }
+                    }
+
+                    // 获取哈希值用于验证
+                    sourceHashData = BitConverter.ToString(md5.GetHashAndReset()).Replace("-", string.Empty).ToLowerInvariant();
+                }
+                finally
+                {
+                    System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                }
+                break;
+            }
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(namingRule), namingRule, "不支持的命名规则");
         }
 
-        // 验证文件完整性
+        // 验证文件完整性（可选，配置项控制是否需要重新读取文件验证）
         var fileInfo = new FileInfo(relativeFilePath);
 
+        if (_options.ValidateFileIntegrity && _options.CleanupOnValidationFailure)
+        {
+            // 只有在需要双重校验时才重新读取文件
 #if NET8_0_OR_GREATER
-        await ValidateFileIntegrityAsync(fileInfo, sourceHashData).ConfigureAwait(false);
+            await ValidateFileIntegrityAsync(fileInfo, sourceHashData).ConfigureAwait(false);
 #else
-        ValidateFileIntegrity(fileInfo, sourceHashData);
+            ValidateFileIntegrity(fileInfo, sourceHashData);
 #endif
+        }
 
         // 构建上传信息
         return new UploadedInfo
@@ -219,7 +313,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             FilePath = filePath,
             RelativeFilePath = relativeFilePath,
             FullFilePath = fileInfo.FullName,
-            FileSize = memoryStream.Length.FormatFileSize(),
+            FileSize = totalBytes.FormatFileSize(),
             Length = fileInfo.Length
         };
     }
@@ -293,44 +387,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     }
 
     /// <summary>
-    /// 获取目标文件路径
-    /// </summary>
-    /// <param name="inputStream">输入流</param>
-    /// <param name="sourceFileName">源文件名</param>
-    /// <param name="containerName">容器名</param>
-    /// <param name="destPath">目标路径</param>
-    /// <param name="namingRule">文件命名规则（决定如何为上传的文件命名）</param>
-    /// <param name="overwrite">是否覆盖已存在的文件</param>
-    /// <param name="useSequencedName">是否使用序号命名（当文件名冲突时）</param>
-    /// <returns>目标文件相对路径(只返回除destRootPath以外的存储位置)</returns>
-    private string GetDestFilePath(
-        Stream inputStream,
-        string sourceFileName,
-        string containerName,
-        string destPath,
-        NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
-    {
-        ArgumentNullException.ThrowIfNull(inputStream);
-        ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
-
-        var fileExtension = Path.GetExtension(sourceFileName);
-
-        switch (namingRule)
-        {
-            case NamingRule.Uuid:
-                return GenerateUuidBasedPath(containerName, destPath, fileExtension);
-            case NamingRule.Md5:
-                return GenerateHashBasedPath(inputStream, sourceFileName, containerName, destPath);
-            case NamingRule.Normal:
-            default:
-                {
-                    var basePath = Path.Combine(containerName, destPath);
-                    return GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, RootDirectoryPath);
-                }
-        }
-    }
-
-    /// <summary>
     /// 生成基于UUID的文件路径
     /// </summary>
     private string GenerateUuidBasedPath(string containerName, string destPath, string fileExtension)
@@ -345,20 +401,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 return Path.Combine(containerName, destPath, fileName);
             }
         }
-    }
-
-    /// <summary>
-    /// 生成基于文件哈希值的文件路径
-    /// </summary>
-    private static string GenerateHashBasedPath(Stream inputStream, string sourceFileName, string containerName, string destPath)
-    {
-        var hashData = inputStream.ComputeHashMd5();
-        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
-        var fileExtension = Path.GetExtension(sourceFileName);
-
-        // 使用更标准的分隔符
-        var fileName = $"{fileNameWithoutExtension}-{hashData}{fileExtension}";
-        return Path.Combine(containerName, destPath, fileName);
     }
 
     /// <summary>

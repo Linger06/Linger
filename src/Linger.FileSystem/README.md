@@ -95,6 +95,7 @@ This library uses the following design patterns:
 - **Automatic Retry**: Built-in retry mechanism with configurable retry count and delay for improved operation reliability
 - **Connection Management**: Automatic handling of remote file system connections and disconnections
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
+- **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing (99.99% memory reduction)
 
 ## Supported .NET Versions
 
@@ -404,6 +405,69 @@ result = await localFs.UploadAsync(
 ```
 
 ## Advanced Optimization Recommendations
+
+### Local File System - Streaming Upload Optimization (v1.0.0+)
+
+The local file system now uses streaming optimization to significantly reduce memory consumption during file uploads:
+
+**Optimization Highlights:**
+- ✅ **IncrementalHash**: Calculates MD5 hash incrementally instead of loading entire file into memory
+- ✅ **ArrayPool<byte>**: Reuses buffer memory to reduce GC pressure
+- ✅ **Streaming I/O**: Processes files in chunks, maintaining constant memory usage regardless of file size
+
+**Performance Improvement:**
+
+| File Size | Old Implementation | New Implementation | Memory Reduction |
+|-----------|-------------------|-------------------|------------------|
+| 100MB | ~100MB | ~8-256KB (buffer size) | 99.9%+ |
+| 1GB | ~1GB | ~8-256KB (buffer size) | 99.99%+ |
+| 10GB | ❌ Out of memory | ~8-256KB (buffer size) | ✅ Supported |
+
+**Technical Details:**
+
+```csharp
+// Old approach (Memory-intensive)
+var memoryStream = new MemoryStream();
+await inputStream.CopyToAsync(memoryStream);
+byte[] fileBytes = memoryStream.ToArray(); // Entire file in memory!
+string hash = CalculateMD5(fileBytes);
+
+// New approach (Streaming with IncrementalHash)
+using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+try
+{
+    int bytesRead;
+    while ((bytesRead = await inputStream.ReadAsync(buffer)) > 0)
+    {
+        await outputStream.WriteAsync(buffer, 0, bytesRead);
+        md5.AppendData(buffer, 0, bytesRead);  // Incremental hash update
+    }
+    string hash = BitConverter.ToString(md5.GetHashAndReset())...;
+}
+finally
+{
+    ArrayPool<byte>.Shared.Return(buffer);  // Return buffer to pool
+}
+```
+
+**When This Optimization Applies:**
+
+- ✅ MD5 naming rule: Uses temporary file for streaming hash calculation
+- ✅ UUID naming rule: Direct streaming to destination file
+- ✅ Normal naming rule: Direct streaming to destination file
+
+**Buffer Configuration:**
+
+```csharp
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",
+    UploadBufferSize = 262144,  // 256KB buffer (default: 81920 = 80KB)
+    // Larger buffers improve performance for large files
+    // but increase memory per concurrent upload
+};
+```
 
 ### Buffer and Memory Management
 

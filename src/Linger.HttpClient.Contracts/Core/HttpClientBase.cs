@@ -208,6 +208,20 @@ public abstract class HttpClientBase : IHttpClient
     public abstract Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 核心API调用方法（支持响应模式选择）
+    /// </summary>
+    /// <typeparam name="T">返回数据类型</typeparam>
+    /// <param name="url">调用地址</param>
+    /// <param name="method">HTTP方法</param>
+    /// <param name="content">请求内容</param>
+    /// <param name="queryParams">查询参数</param>
+    /// <param name="timeout">超时时间,单位秒</param>
+    /// <param name="responseMode">响应处理模式：Buffered(缓冲整个响应，适合小响应) 或 Streamed(流式读取，适合大文件下载)</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>API调用结果</returns>
+    public abstract Task<ApiResult<T>> CallApiWithMode<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, HttpResponseMode responseMode = HttpResponseMode.Buffered, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 处理HTTP响应消息并将其转换为ApiResult
     /// </summary>
     /// <typeparam name="T">期望的响应数据类型</typeparam>
@@ -232,8 +246,8 @@ public abstract class HttpClientBase : IHttpClient
         }
         finally
         {
-            // 确保响应资源被释放(避免当T是HttpResponseMessage时释放它)
-            if (typeof(T) != typeof(HttpResponseMessage))
+            // 确保响应资源被释放(当 T 是 HttpResponseMessage 或 Stream 时不释放)
+            if (typeof(T) != typeof(HttpResponseMessage) && typeof(T) != typeof(Stream))
             {
                 res.Dispose();
             }
@@ -249,6 +263,13 @@ public abstract class HttpClientBase : IHttpClient
     protected virtual async Task<T> DeserializeResponseContent<T>(HttpResponseMessage response)
     {
         var targetType = typeof(T);
+
+        // 处理 Stream 类型(流式下载)
+        if (targetType == typeof(Stream))
+        {
+            var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            return (T)(object)stream;
+        }
 
         // 处理字节数组类型
         if (targetType == typeof(byte[]))
@@ -483,4 +504,89 @@ public abstract class HttpClientBase : IHttpClient
 
         return string.Join("&", queryParts);
     }
+
+    #region 流式下载便捷方法
+
+    /// <summary>
+    /// 流式下载文件,返回可读取的 Stream
+    /// </summary>
+    /// <param name="url">下载地址</param>
+    /// <param name="timeout">超时时间,单位秒</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>包含 Stream 的 API 结果,调用方负责释放 Stream</returns>
+    /// <remarks>
+    /// 使用流式模式下载,内存占用仅为缓冲区大小,适合大文件下载。
+    /// 注意:必须手动释放返回的 Stream 或使用 using 语句。
+    /// </remarks>
+    public virtual Task<ApiResult<Stream>> DownloadStreamAsync(string url, int? timeout = null, CancellationToken cancellationToken = default)
+    {
+        return CallApiWithMode<Stream>(url, HttpMethodEnum.Get, null, null, timeout, HttpResponseMode.Streamed, cancellationToken);
+    }
+
+    /// <summary>
+    /// 流式下载文件并保存到指定路径
+    /// </summary>
+    /// <param name="url">下载地址</param>
+    /// <param name="destinationPath">保存路径</param>
+    /// <param name="timeout">超时时间,单位秒</param>
+    /// <param name="bufferSize">缓冲区大小,默认 8192 字节</param>
+    /// <param name="progress">进度回调 (已下载字节数, 总字节数或null)</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>API 结果,包含下载是否成功</returns>
+    public virtual async Task<ApiResult> DownloadToFileAsync(
+        string url,
+        string destinationPath,
+        int? timeout = null,
+        int bufferSize = 8192,
+        IProgress<(long downloaded, long? total)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await DownloadStreamAsync(url, timeout, cancellationToken).ConfigureAwait(false);
+
+        if (!result.IsSuccess || result.Data is null)
+        {
+            return new ApiResult
+            {
+                StatusCode = result.StatusCode,
+                ErrorMsg = result.ErrorMsg,
+                Errors = result.Errors
+            };
+        }
+
+        try
+        {
+            using var sourceStream = result.Data;
+            using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, true);
+
+            long? totalBytes = null;
+            if (sourceStream.CanSeek)
+            {
+                totalBytes = sourceStream.Length;
+            }
+
+            var buffer = new byte[bufferSize];
+            long downloadedBytes = 0;
+            int bytesRead;
+
+            while ((bytesRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
+                downloadedBytes += bytesRead;
+
+                progress?.Report((downloadedBytes, totalBytes));
+            }
+
+            return new ApiResult { StatusCode = result.StatusCode };
+        }
+        catch (Exception ex)
+        {
+            return new ApiResult
+            {
+                StatusCode = result.StatusCode,
+                ErrorMsg = $"下载文件时发生错误: {ex.Message}"
+            };
+        }
+    }
+
+    #endregion
 }
