@@ -2,7 +2,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace Linger.JsonConverter;
+namespace Linger.Json.JsonConverter;
 
 /// <summary>
 /// A custom JSON converter for <see cref="DateTime"/> objects.

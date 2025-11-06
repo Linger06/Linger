@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using Linger.Extensions.Core;
-using Linger.JsonConverter;
+using Linger.Json.JsonConverter;
 
 namespace Linger.Extensions.Data;
 

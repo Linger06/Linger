@@ -134,11 +134,33 @@ else
 - **Based on standard Web defaults**
 - **Converters**: Only includes `DateTimeConverter`
 
+### Unified JSON Configuration Management
+
+It's recommended to use `Linger.Json.JsonOptions` for unified JSON configuration:
+
+```csharp
+using Linger.Json;
+
+// Use factory methods to get pre-configured options
+var responseOptions = JsonOptions.CreateResponseOptions();  // HTTP responses
+var requestOptions = JsonOptions.CreateRequestOptions();    // HTTP requests
+
+// Apply configuration in WebAPI
+builder.Services.AddControllers()
+    .AddJsonOptions(options => 
+        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+```
+
+For detailed configuration documentation, see `Linger/Json/JsonOptions.README.md`
+
 ### Custom Configuration
 
 Prefer overriding `GetRequestJsonOptions()` / `GetResponseJsonOptions()` to provide custom JSON options rather than replacing the entire serialization implementation. Example:
 
 ```csharp
+using Linger.Json;
+using Linger.Json.JsonConverter;
+
 public class CustomHttpClient : HttpClientBase
 {
     protected override JsonSerializerOptions GetRequestJsonOptions()

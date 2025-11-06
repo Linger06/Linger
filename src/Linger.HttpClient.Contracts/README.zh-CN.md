@@ -134,11 +134,33 @@ else
 - **基于标准 Web 默认值**
 - **转换器**: 仅包含 `DateTimeConverter`
 
+### JSON 配置统一管理
+
+推荐使用 `Linger.Json.JsonOptions` 获取统一的 JSON 配置:
+
+```csharp
+using Linger.Json;
+
+// 使用工厂方法获取预配置的选项
+var responseOptions = JsonOptions.CreateResponseOptions();  // HTTP 响应
+var requestOptions = JsonOptions.CreateRequestOptions();    // HTTP 请求
+
+// 在 WebAPI 中应用配置
+builder.Services.AddControllers()
+    .AddJsonOptions(options => 
+        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+```
+
+详细配置说明请参考 `Linger/Json/JsonOptions.README.zh-CN.md`
+
 ### 自定义配置
 
 推荐通过覆盖 `GetRequestJsonOptions()` / `GetResponseJsonOptions()` 提供自定义的 JSON 配置，而不是直接覆盖序列化实现。示例：
 
 ```csharp
+using Linger.Json;
+using Linger.Json.JsonConverter;
+
 public class CustomHttpClient : HttpClientBase
 {
     protected override JsonSerializerOptions GetRequestJsonOptions()
@@ -164,7 +186,7 @@ public class CustomHttpClient : HttpClientBase
 }
 ```
 
-如果需要完全自定义序列化过程，也可以覆盖 `CreateHttpContent`，但优先推荐覆盖上述方法以保持行为一致性。
+如果需要完全自定义序列化过程,也可以覆盖 `CreateHttpContent`,但优先推荐覆盖上述方法以保持行为一致性。
 
 ## 最佳实践
 

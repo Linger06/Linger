@@ -2,7 +2,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace Linger.JsonConverter;
+namespace Linger.Json.JsonConverter;
 
 /// <summary>
 /// A converter that converts System.Object similar to Newtonsoft's JSON.Net. Only primitives are
