@@ -3,7 +3,7 @@
 using System.Text.Json.Serialization;
 using Linger.Extensions;
 
-namespace Linger.JsonConverter;
+namespace Linger.Json.JsonConverter;
 
 /// <summary>
 /// A custom JSON converter for <see cref="DataSet"/> objects.

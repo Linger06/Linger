@@ -1,12 +1,10 @@
 using System.Collections;
-using System.Text.Encodings.Web;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using Linger.Extensions;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Helpers;
 using Linger.HttpClient.Contracts.Models;
-using Linger.JsonConverter;
+using Linger.Json;
 
 namespace Linger.HttpClient.Contracts.Core;
 
@@ -19,55 +17,18 @@ public abstract class HttpClientBase : IHttpClient
     /// 获取用于响应反序列化的默认 JSON 序列化选项。
     /// 配置了安全加固和对数字的只读宽容处理。
     /// </summary>
-    protected static JsonSerializerOptions DefaultResponseOptions { get; } = CreateDefaultResponseOptions();
+    protected static JsonSerializerOptions DefaultResponseOptions { get; } = JsonOptions.CreateResponseOptions();
 
     /// <summary>
     /// 获取用于请求序列化的默认 JSON 序列化选项。
     /// 配置了标准 Web 默认值和必要的转换器。
     /// </summary>
-    protected static JsonSerializerOptions DefaultRequestOptions { get; } = CreateDefaultRequestOptions();
+    protected static JsonSerializerOptions DefaultRequestOptions { get; } = JsonOptions.CreateRequestOptions();
 
     /// <summary>
     /// HTTP客户端选项
     /// </summary>
     public HttpClientOptions Options { get; } = new();
-
-    private static JsonSerializerOptions CreateDefaultResponseOptions()
-    {
-        // 基于标准 Web 默认值,然后进行安全加固并启用对数字的只读宽容处理
-        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            // 安全加固和一致性
-            Encoder = JavaScriptEncoder.Default,
-            ReferenceHandler = ReferenceHandler.IgnoreCycles,
-            // 只读宽容性以实现互操作:在反序列化时接受数字字符串
-            NumberHandling = JsonNumberHandling.AllowReadingFromString
-        };
-
-        // 保留项目特定的转换器
-        jsonOptions.Converters.Add(new JsonObjectConverter());
-        jsonOptions.Converters.Add(new DateTimeConverter());
-        jsonOptions.Converters.Add(new DateTimeNullConverter());
-        jsonOptions.Converters.Add(new DataTableJsonConverter());
-
-        return jsonOptions;
-    }
-
-    private static JsonSerializerOptions CreateDefaultRequestOptions()
-    {
-        // 基于标准 Web 默认值用于传出请求体。
-        // 遵循"严进宽出"原则:发送数据时保持严格和标准,使用规范的 JSON 格式。
-        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            Encoder = JavaScriptEncoder.Default,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-        };
-
-        // 仅添加必要的转换器,确保请求序列化的严格性
-        jsonOptions.Converters.Add(new DateTimeConverter());
-        jsonOptions.Converters.Add(new DateTimeNullConverter());
-        return jsonOptions;
-    }
 
     /// <summary>
     /// 设置授权令牌

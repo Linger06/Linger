@@ -1,6 +1,6 @@
-﻿using System.Data;
+using System.Data;
 using System.Text.Json;
-using Linger.JsonConverter;
+using Linger.Json.JsonConverter;
 using Xunit.v3;
 
 namespace Linger.UnitTests.JsonConverter;

@@ -1,7 +1,7 @@
 #if !NETFRAMEWORK || NET462_OR_GREATER
 using Linger.Extensions;
 
-namespace Linger.JsonConverter;
+namespace Linger.Json.JsonConverter;
 
 /// <summary>
 /// DataTableJsonHelper

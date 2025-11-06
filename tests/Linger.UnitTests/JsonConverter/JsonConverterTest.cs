@@ -1,4 +1,6 @@
-﻿namespace Linger.UnitTests.JsonConverter;
+using Linger.Json.JsonConverter;
+
+namespace Linger.UnitTests.JsonConverter;
 
 public class JsonConverterTest
 {
