@@ -50,7 +50,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         cancellationToken.ThrowIfCancellationRequested();
-        return GetDataSetAsync(CommandType.Text, sql, cancellationToken, parameters ?? Array.Empty<DbParameter>());
+        return GetDataSetAsync(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>(), cancellationToken);
     }
 
     /// <summary>
@@ -280,7 +280,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, default, parameters).ConfigureAwait(false);
+        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters, default).ConfigureAwait(false);
         return dr.ReaderToDataTable();
     }
 
@@ -362,7 +362,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return GetDataSetAsync(CommandType.Text, sql, default, parameters);
+        return GetDataSetAsync(CommandType.Text, sql, parameters, default);
     }
 
     /// <summary>
@@ -484,7 +484,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken = default)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken, parameters).ConfigureAwait(false)).ToIntOrDefault();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters, cancellationToken).ConfigureAwait(false)).ToIntOrDefault();
     }
 
     #endregion
@@ -530,7 +530,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<object?> FindMaxBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return await ExecuteScalarAsync(CommandType.Text, sql, default, parameters).ConfigureAwait(false);
+        return await ExecuteScalarAsync(CommandType.Text, sql, parameters, default).ConfigureAwait(false);
     }
 
     #endregion

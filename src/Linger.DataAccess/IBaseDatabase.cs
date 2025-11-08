@@ -38,30 +38,52 @@ public interface IBaseDatabase : IDisposable
     DataSet GetDataSet(CommandType cmdType, string cmdText, params DbParameter[] parameters);
 
     Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
-    Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
+    
     Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
+    Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
 
-    Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    
 
     Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
+    Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
 
-    Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    
 
     Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
-    Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
 
-    Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    
+
+    Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
+
+    
 
     Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
-    Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
-    Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
+    Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
 
-    Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    
+    Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
+    Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
+
+    
 
     Task<object?> ExecuteScalarAsync(DbConnection conn, DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
+    Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
 
-    Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    
 
     Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default);
-    Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters);
+    Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters);
+    Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken);
+
+    
 }

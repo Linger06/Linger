@@ -72,7 +72,12 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     /// <returns>如果存在返回true，否则返回false</returns>
     /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default, params OracleParameter[] parameters)
+    public Task<bool> ExistsAsync(string sql, params OracleParameter[] parameters)
+    {
+        return ExistsAsync(sql, parameters, CancellationToken.None);
+    }
+
+    public async Task<bool> ExistsAsync(string sql, OracleParameter[] parameters, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
@@ -132,7 +137,14 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     /// <returns>DataSet</returns>
     /// <exception cref="ArgumentNullException">当sqlString或parameters为null时抛出</exception>
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
-    public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default, params OracleParameter[] parameters)
+    public Task<DataSet> QueryAsync(string sqlString, params OracleParameter[] parameters)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
+        ArgumentNullException.ThrowIfNull(parameters);
+        return base.QueryAsync(sqlString, parameters, CancellationToken.None);
+    }
+
+    public Task<DataSet> QueryAsync(string sqlString, OracleParameter[] parameters, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);

@@ -86,12 +86,19 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// 异步检查数据是否存在 (参数化查询版本)
     /// </summary>
     /// <param name="sql">SQL查询语句</param>
-    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">SQL参数</param>
     /// <returns>如果存在返回true，否则返回false</returns>
     /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
     /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default, params SQLiteParameter[] parameters)
+    public Task<bool> ExistsAsync(string sql, params SQLiteParameter[] parameters)
+    {
+        return ExistsAsync(sql, parameters, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// 异步检查数据是否存在（数组 + token 最后 实现）
+    /// </summary>
+    public async Task<bool> ExistsAsync(string sql, SQLiteParameter[] parameters, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
@@ -155,7 +162,14 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// <returns>DataSet</returns>
     /// <exception cref="ArgumentNullException">当sqlString或parameters为null时抛出</exception>
     /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
-    public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default, params SQLiteParameter[] parameters)
+    public Task<DataSet> QueryAsync(string sqlString, params SQLiteParameter[] parameters)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
+        ArgumentNullException.ThrowIfNull(parameters);
+        return base.QueryAsync(sqlString, parameters, CancellationToken.None);
+    }
+
+    public Task<DataSet> QueryAsync(string sqlString, SQLiteParameter[] parameters, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
         ArgumentNullException.ThrowIfNull(parameters);
@@ -417,7 +431,7 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
 
         return ExistsAsync("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=@tableName",
-            cancellationToken, new SQLiteParameter("@tableName", tableName));
+            new[] { new SQLiteParameter("@tableName", tableName) }, cancellationToken);
     }
 
     #endregion

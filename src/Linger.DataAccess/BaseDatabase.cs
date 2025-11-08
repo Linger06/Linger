@@ -142,8 +142,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText,
-        CancellationToken cancellationToken = default, params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteNonQueryAsync(cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    
+    public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
@@ -218,7 +224,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteNonQueryAsync(connection, cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    
+    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         DbCommand cmd = Provider.CreateCommand();
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
@@ -302,7 +315,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteNonQueryAsync(transaction, cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    
+    public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         int num;
         DbCommand cmd = Provider.CreateCommand();
@@ -402,9 +422,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
-    public async Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType,
-        string cmdText, CancellationToken cancellationToken = default,
-        params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteReaderAsync(transaction, cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    
+    public async Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         DbCommand cmd = Provider.CreateCommand();
         DbConnection conn = Provider.CreateConnection(ConnString);
@@ -457,7 +482,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
-    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteReaderAsync(cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    
+    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         DbCommand cmd = Provider.CreateCommand();
         DbConnection conn = Provider.CreateConnection(ConnString);
@@ -562,7 +594,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns>数据集DataSet对象</returns>
-    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return GetDataSetAsync(cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    
+    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         var ds = new DataSet();
         DbCommand cmd = Provider.CreateCommand();
@@ -662,7 +701,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteScalarAsync(cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    
+    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         DbCommand cmd = Provider.CreateCommand();
         using DbConnection connection = Provider.CreateConnection(ConnString);
@@ -736,7 +782,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteScalarAsync(connection, cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
+    // 数组 + CancellationToken (token 放在最后) — 实际实现
+    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         DbCommand cmd = Provider.CreateCommand();
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
@@ -852,9 +905,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    // 便捷重载：支持 params，不传 CancellationToken
+    public Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteScalarAsync(transaction, cmdType, cmdText, parameters, CancellationToken.None);
+    }
+
     public async Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType,
-        string cmdText, CancellationToken cancellationToken = default,
-        params DbParameter[] parameters)
+        string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
         DbCommand cmd = Provider.CreateCommand();
         DbConnection? conn = transaction.Connection;
