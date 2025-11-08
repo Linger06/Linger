@@ -50,7 +50,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         cancellationToken.ThrowIfCancellationRequested();
-        return GetDataSetAsync(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>());
+        return GetDataSetAsync(CommandType.Text, sql, cancellationToken, parameters ?? Array.Empty<DbParameter>());
     }
 
     /// <summary>
@@ -108,11 +108,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     执行SQL语句
     /// </summary>
     /// <param name="sql">Sql语句</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(string sql, DbTransaction isOpenTrans)
+    public int ExecuteBySql(string sql, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql);
+        return ExecuteNonQuery(transaction, CommandType.Text, sql);
     }
 
     /// <summary>
@@ -120,11 +120,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(string sql, DbParameter[] parameters, DbTransaction isOpenTrans)
+    public int ExecuteBySql(string sql, DbParameter[] parameters, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql, parameters);
+        return ExecuteNonQuery(transaction, CommandType.Text, sql, parameters);
     }
 
     /// <summary>
@@ -141,11 +141,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     执行SQL语句
     /// </summary>
     /// <param name="sql">Sql语句</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(StringBuilder sql, DbTransaction isOpenTrans)
+    public int ExecuteBySql(StringBuilder sql, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql.ToString());
+        return ExecuteNonQuery(transaction, CommandType.Text, sql.ToString());
     }
 
     /// <summary>
@@ -164,11 +164,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction isOpenTrans)
+    public int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql.ToString(), parameters);
+        return ExecuteNonQuery(transaction, CommandType.Text, sql.ToString(), parameters);
     }
 
     #endregion
@@ -189,11 +189,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     执行存储过程
     /// </summary>
     /// <param name="procName">存储过程</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteByProc(string procName, DbTransaction isOpenTrans)
+    public int ExecuteByProc(string procName, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.StoredProcedure, procName);
+        return ExecuteNonQuery(transaction, CommandType.StoredProcedure, procName);
     }
 
     /// <summary>
@@ -212,11 +212,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="procName">存储过程</param>
     /// <param name="parameters">sql语句对应参数</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction isOpenTrans)
+    public int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.StoredProcedure, procName, parameters);
+        return ExecuteNonQuery(transaction, CommandType.StoredProcedure, procName, parameters);
     }
 
     #endregion
@@ -280,7 +280,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters).ConfigureAwait(false);
+        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, default, parameters).ConfigureAwait(false);
         return dr.ReaderToDataTable();
     }
 
@@ -362,7 +362,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return GetDataSetAsync(CommandType.Text, sql, parameters);
+        return GetDataSetAsync(CommandType.Text, sql, default, parameters);
     }
 
     /// <summary>
@@ -459,9 +459,9 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <returns></returns>
-    public async Task<int> FindCountBySqlAsync(string sql)
+    public async Task<int> FindCountBySqlAsync(string sql, CancellationToken cancellationToken = default)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false)).ToIntOrDefault();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false)).ToIntOrDefault();
     }
 
     /// <summary>
@@ -480,10 +480,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns></returns>
-    public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters)
+    public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken = default)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false)).ToIntOrDefault();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken, parameters).ConfigureAwait(false)).ToIntOrDefault();
     }
 
     #endregion
@@ -529,7 +530,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<object?> FindMaxBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false);
+        return await ExecuteScalarAsync(CommandType.Text, sql, default, parameters).ConfigureAwait(false);
     }
 
     #endregion

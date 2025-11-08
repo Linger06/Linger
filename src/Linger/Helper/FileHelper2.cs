@@ -20,7 +20,7 @@ public static partial class FileHelper
         CreateDirectoryIfNotExists(filePath);
 
         encoding ??= Encoding.UTF8;
-        
+
         using var sw = new StreamWriter(fileName, false, encoding);
         sw.Write(content);
         sw.Flush();
@@ -66,7 +66,7 @@ public static partial class FileHelper
     {
         encoding ??= Encoding.UTF8;
         var str = string.Empty;
-        
+
         if (!File.Exists(filename))
         {
             return str;

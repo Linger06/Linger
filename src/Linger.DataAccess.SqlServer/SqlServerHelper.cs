@@ -163,7 +163,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         try
         {
             var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
-            var obj = await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false);
+            var obj = await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false);
 
             return obj switch
             {
@@ -228,7 +228,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
 
-        var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
         return count > 0;
     }
 
@@ -355,8 +355,8 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         }
 
         // 防止 SQL 注入常见模式
-        if (identifier.Contains("--", StringComparison.Ordinal) || 
-            identifier.Contains("/*", StringComparison.Ordinal) || 
+        if (identifier.Contains("--", StringComparison.Ordinal) ||
+            identifier.Contains("/*", StringComparison.Ordinal) ||
             identifier.Contains("*/", StringComparison.Ordinal) ||
             identifier.Contains(';'))
         {

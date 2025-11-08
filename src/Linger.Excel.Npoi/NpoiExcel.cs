@@ -220,7 +220,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     protected override bool IsRowEmpty(ISheet worksheet, int rowNum)
     {
         var row = worksheet.GetRow(rowNum);
-        
+
         // 如果行不存在，视为空行
         if (row == null)
             return true;

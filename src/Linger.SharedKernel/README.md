@@ -65,7 +65,7 @@ public class UserSearch : BaseSearch
 
 ```csharp
 // Create a paged search model
-public class ProductPagedSearch : BaseSearchPageList
+public class ProductPagedSearch : BaseSearchPagedList
 {
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
@@ -84,7 +84,7 @@ public class ProductService
     
     public async Task<PagedResult<ProductDto>> SearchProductsAsync(ProductPagedSearch search)
     {
-        // The BaseSearchPageList properties will handle pagination
+        // The BaseSearchPagedList properties will handle pagination
         var expression = search.GetSearchModelExpression<Product>();
         
         // Apply the search expression

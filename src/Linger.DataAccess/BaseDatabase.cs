@@ -139,15 +139,16 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
+        CancellationToken cancellationToken = default, params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
         await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
 
         return num;
@@ -175,13 +176,15 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText)
+    public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText,
+        CancellationToken cancellationToken = default)
     {
         DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
         await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
 
         return num;
@@ -212,14 +215,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="connection">数据库连接对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
+    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
 
         return num;
@@ -248,12 +251,13 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="connection">数据库连接对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText)
+    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
         DbCommand cmd = Provider.CreateCommand();
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
 
         return num;
@@ -262,25 +266,25 @@ public class BaseDatabase : IBaseDatabase
     /// <summary>
     ///     执行 SQL 语句，并返回受影响的行数。
     /// </summary>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
-    public int ExecuteNonQuery(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
+    public int ExecuteNonQuery(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
         int num;
         DbCommand cmd = Provider.CreateCommand();
-        if (isOpenTrans.Connection == null)
+        if (transaction.Connection == null)
         {
             using DbConnection conn = Provider.CreateConnection(ConnString);
-            PrepareCommand(cmd, conn, isOpenTrans, cmdType, cmdText, parameters);
+            PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
             num = cmd.ExecuteNonQuery();
         }
         else
         {
-            PrepareCommand(cmd, isOpenTrans.Connection, isOpenTrans, cmdType, cmdText, parameters);
+            PrepareCommand(cmd, transaction.Connection, transaction, cmdType, cmdText, parameters);
             num = cmd.ExecuteNonQuery();
         }
 
@@ -292,27 +296,27 @@ public class BaseDatabase : IBaseDatabase
     /// <summary>
     ///     执行 SQL 语句，并返回受影响的行数。
     /// </summary>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
+    public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
     {
         int num;
         DbCommand cmd = Provider.CreateCommand();
-        if (isOpenTrans.Connection == null)
+        if (transaction.Connection == null)
         {
             using DbConnection conn = Provider.CreateConnection(ConnString);
-            await PrepareCommandAsync(cmd, conn, isOpenTrans, cmdType, cmdText, parameters).ConfigureAwait(false);
-            num = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+            num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            await PrepareCommandAsync(cmd, isOpenTrans.Connection, isOpenTrans, cmdType, cmdText,
+            await PrepareCommandAsync(cmd, transaction.Connection, transaction, cmdType, cmdText,
                 parameters).ConfigureAwait(false);
-            num = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+            num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
 
         cmd.Parameters.Clear();
@@ -323,17 +327,17 @@ public class BaseDatabase : IBaseDatabase
     /// <summary>
     ///     执行 SQL 语句，并返回受影响的行数。
     /// </summary>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
     /// <returns></returns>
-    public int ExecuteNonQuery(DbTransaction isOpenTrans, CommandType cmdType, string cmdText)
+    public int ExecuteNonQuery(DbTransaction transaction, CommandType cmdType, string cmdText)
     {
         DbCommand cmd = Provider.CreateCommand();
-        DbConnection? conn = isOpenTrans.Connection;
+        DbConnection? conn = transaction.Connection;
         conn.EnsureIsNotNull();
 
-        PrepareCommand(cmd, conn, isOpenTrans, cmdType, cmdText, null);
+        PrepareCommand(cmd, conn, transaction, cmdType, cmdText, null);
         var num = cmd.ExecuteNonQuery();
         cmd.Parameters.Clear();
 
@@ -343,18 +347,19 @@ public class BaseDatabase : IBaseDatabase
     /// <summary>
     ///     执行 SQL 语句，并返回受影响的行数。
     /// </summary>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbTransaction isOpenTrans, CommandType cmdType, string cmdText)
+    public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
         DbCommand cmd = Provider.CreateCommand();
-        DbConnection? conn = isOpenTrans.Connection;
+        DbConnection? conn = transaction.Connection;
         conn.EnsureIsNotNull();
 
-        await PrepareCommandAsync(cmd, conn, isOpenTrans, cmdType, cmdText, null).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, null).ConfigureAwait(false);
+        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
 
         return num;
@@ -363,19 +368,19 @@ public class BaseDatabase : IBaseDatabase
     /// <summary>
     ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
     /// </summary>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
-    public IDataReader ExecuteReader(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
+    public IDataReader ExecuteReader(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
         DbConnection conn = Provider.CreateConnection(ConnString);
         try
         {
-            PrepareCommand(cmd, conn, isOpenTrans, cmdType, cmdText, parameters);
+            PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
             IDataReader rdr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
             cmd.Parameters.Clear();
             return rdr;
@@ -391,21 +396,22 @@ public class BaseDatabase : IBaseDatabase
     /// <summary>
     ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
     /// </summary>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
-    public async Task<IDataReader> ExecuteReaderAsync(DbTransaction isOpenTrans, CommandType cmdType,
-        string cmdText,
+    public async Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType,
+        string cmdText, CancellationToken cancellationToken = default,
         params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
         DbConnection conn = Provider.CreateConnection(ConnString);
         try
         {
-            await PrepareCommandAsync(cmd, conn, isOpenTrans, cmdType, cmdText, parameters).ConfigureAwait(false);
-            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection).ConfigureAwait(false);
+            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection, cancellationToken).ConfigureAwait(false);
             cmd.Parameters.Clear();
             return rdr;
         }
@@ -448,17 +454,17 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回SqlDataReader对象</returns>
-    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
+    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
         DbConnection conn = Provider.CreateConnection(ConnString);
         try
         {
             await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection).ConfigureAwait(false);
+            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection, cancellationToken).ConfigureAwait(false);
             cmd.Parameters.Clear();
             return rdr;
         }
@@ -500,15 +506,16 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>返回SqlDataReader对象</returns>
-    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText)
+    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
         DbCommand cmd = Provider.CreateCommand();
         DbConnection conn = Provider.CreateConnection(ConnString);
         try
         {
             await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, null).ConfigureAwait(false);
-            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection).ConfigureAwait(false);
+            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection, cancellationToken).ConfigureAwait(false);
             cmd.Parameters.Clear();
             return rdr;
         }
@@ -552,10 +559,10 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">命令文本</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">sql语句对应参数</param>
     /// <returns>数据集DataSet对象</returns>
-    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
+    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
     {
         var ds = new DataSet();
         DbCommand cmd = Provider.CreateCommand();
@@ -606,8 +613,9 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">命令文本</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>数据集DataSet对象</returns>
-    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText)
+    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
         var ds = new DataSet();
         DbCommand cmd = Provider.CreateCommand();
@@ -651,15 +659,15 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
+    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
         using DbConnection connection = Provider.CreateConnection(ConnString);
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return val;
     }
@@ -687,13 +695,14 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText)
+    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
         DbCommand cmd = Provider.CreateCommand();
         using DbConnection connection = Provider.CreateConnection(ConnString);
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return val;
     }
@@ -724,14 +733,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="connection">数据库连接对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
+    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default, params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return val;
     }
@@ -760,12 +769,13 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="connection">数据库连接对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText)
+    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
         DbCommand cmd = Provider.CreateCommand();
         await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return val;
     }
@@ -794,17 +804,17 @@ public class BaseDatabase : IBaseDatabase
     ///     使用所提供参数，执行返回首行首列命令
     /// </summary>
     /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType"></param>
-    /// <param name="cmdText">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="parameters">存储过程名称或者T-SQL命令行</param>
+    /// <param name="transaction">事务对象</param>
+    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(DbConnection connection, DbTransaction cmdType,
-        CommandType cmdText,
-        string parameters)
+    public async Task<object?> ExecuteScalarAsync(DbConnection connection, DbTransaction transaction,
+        CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
         DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, cmdType, cmdText, parameters, null).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, null).ConfigureAwait(false);
+        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return val;
     }
@@ -813,20 +823,20 @@ public class BaseDatabase : IBaseDatabase
     ///     依靠数据库连接字符串strConnection,
     ///     使用所提供参数，执行返回首行首列命令
     /// </summary>
-    /// <param name="isOpenTrans">事务</param>
+    /// <param name="transaction">事务</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public object? ExecuteScalar(DbTransaction isOpenTrans, CommandType cmdType, string cmdText,
+    public object? ExecuteScalar(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
-        DbConnection? conn = isOpenTrans.Connection;
+        DbConnection? conn = transaction.Connection;
 
         conn.EnsureIsNotNull();
 
-        PrepareCommand(cmd, conn, isOpenTrans, cmdType, cmdText, parameters);
+        PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
         var val = cmd.ExecuteScalar();
         cmd.Parameters.Clear();
         return val;
@@ -836,21 +846,22 @@ public class BaseDatabase : IBaseDatabase
     ///     依靠数据库连接字符串strConnection,
     ///     使用所提供参数，执行返回首行首列命令
     /// </summary>
-    /// <param name="isOpenTrans">事务</param>
+    /// <param name="transaction">事务</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(DbTransaction isOpenTrans, CommandType cmdType,
-        string cmdText,
+    public async Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType,
+        string cmdText, CancellationToken cancellationToken = default,
         params DbParameter[] parameters)
     {
         DbCommand cmd = Provider.CreateCommand();
-        DbConnection? conn = isOpenTrans.Connection;
+        DbConnection? conn = transaction.Connection;
         conn.EnsureIsNotNull();
 
-        await PrepareCommandAsync(cmd, conn, isOpenTrans, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync().ConfigureAwait(false);
+        await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return val;
     }
@@ -860,12 +871,12 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmd">SqlCommand对象</param>
     /// <param name="conn">SqlConnection对象</param>
-    /// <param name="isOpenTrans">DbTransaction对象</param>
+    /// <param name="transaction">DbTransaction对象</param>
     /// <param name="commandType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="commandText">存储过程名称或者T-SQL命令行, e.g. Select * from Products</param>
     /// <param name="parameters">SqlParameters to use in the command</param>
     /// <param name="times">超时时间 秒</param>
-    protected void PrepareCommand(DbCommand cmd, DbConnection conn, DbTransaction? isOpenTrans, CommandType commandType,
+    protected void PrepareCommand(DbCommand cmd, DbConnection conn, DbTransaction? transaction, CommandType commandType,
         string commandText, DbParameter[]? parameters, int? times = null)
     {
         if (conn.State != ConnectionState.Open)
@@ -881,9 +892,9 @@ public class BaseDatabase : IBaseDatabase
             cmd.CommandTimeout = (int)times;
         }
 
-        if (isOpenTrans != null)
+        if (transaction != null)
         {
-            cmd.Transaction = isOpenTrans;
+            cmd.Transaction = transaction;
         }
 
         cmd.CommandType = commandType;
@@ -898,12 +909,12 @@ public class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <param name="cmd">SqlCommand对象</param>
     /// <param name="conn">SqlConnection对象</param>
-    /// <param name="isOpenTrans">DbTransaction对象</param>
+    /// <param name="transaction">DbTransaction对象</param>
     /// <param name="commandType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="commandText">存储过程名称或者T-SQL命令行, e.g. Select * from Products</param>
     /// <param name="parameters">SqlParameters to use in the command</param>
     /// <param name="times">超时时间 秒</param>
-    protected async Task PrepareCommandAsync(DbCommand cmd, DbConnection conn, DbTransaction? isOpenTrans,
+    protected async Task PrepareCommandAsync(DbCommand cmd, DbConnection conn, DbTransaction? transaction,
         CommandType commandType,
         string commandText, DbParameter[]? parameters, int? times = null)
     {
@@ -920,9 +931,9 @@ public class BaseDatabase : IBaseDatabase
             cmd.CommandTimeout = (int)times;
         }
 
-        if (isOpenTrans != null)
+        if (transaction != null)
         {
-            cmd.Transaction = isOpenTrans;
+            cmd.Transaction = transaction;
         }
 
         cmd.CommandType = commandType;

@@ -65,7 +65,7 @@ public class UserSearch : BaseSearch
 
 ```csharp
 // 创建分页搜索模型
-public class ProductPagedSearch : BaseSearchPageList
+public class ProductPagedSearch : BaseSearchPagedList
 {
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
@@ -84,7 +84,7 @@ public class ProductService
     
     public async Task<PagedResult<ProductDto>> SearchProductsAsync(ProductPagedSearch search)
     {
-        // BaseSearchPageList 属性将处理分页
+        // BaseSearchPagedList 属性将处理分页
         var expression = search.GetSearchModelExpression<Product>();
         
         // 应用搜索表达式

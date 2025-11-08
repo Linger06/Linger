@@ -58,6 +58,10 @@ var message = new EmailMessage
 
 // Send email
 await email.SendAsync(message);
+
+// Send email with cancellation support
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+await email.SendAsync(message, cancellationToken: cts.Token);
 ```
 
 ### Send HTML Email
@@ -168,6 +172,14 @@ await email.SendAsync(message, response =>
     Console.WriteLine($"Email sent successfully: {response}");
     // Log the response or perform additional actions
 });
+
+// Email with callback and cancellation support
+using var cts = new CancellationTokenSource();
+await email.SendAsync(
+    message, 
+    response => Console.WriteLine($"Email sent: {response}"),
+    cts.Token
+);
 ```
 
 ### Different SMTP Configurations
@@ -267,6 +279,96 @@ catch (Exception ex)
 5. **Stream Management**: Properly dispose of streams when using stream-based attachments
 6. **Configuration Security**: Store email credentials securely (e.g., Azure Key Vault, user secrets)
 
+## Cancellation Support
+
+All async email operations support `CancellationToken` for graceful cancellation:
+
+```csharp
+public class EmailService
+{
+    private readonly IEmail _email;
+    
+    public EmailService(IEmail email)
+    {
+        _email = email;
+    }
+    
+    // Send email with timeout
+    public async Task<bool> SendEmailWithTimeoutAsync(EmailMessage message, int timeoutSeconds = 30)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            await _email.SendAsync(message, cancellationToken: cts.Token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Email sending was cancelled due to timeout");
+            return false;
+        }
+    }
+    
+    // Send email with external cancellation
+    public async Task SendBulkEmailsAsync(
+        List<EmailMessage> messages, 
+        CancellationToken cancellationToken)
+    {
+        foreach (var message in messages)
+        {
+            // Check if cancellation was requested
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            await _email.SendAsync(message, cancellationToken: cancellationToken);
+            
+            // Optional: Add delay between emails
+            await Task.Delay(1000, cancellationToken);
+        }
+    }
+}
+```
+
+### Using with ASP.NET Core Request Cancellation
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class EmailController : ControllerBase
+{
+    private readonly IEmailService _emailService;
+    
+    public EmailController(IEmailService emailService)
+    {
+        _emailService = emailService;
+    }
+    
+    [HttpPost("send")]
+    public async Task<IActionResult> SendEmail(
+        [FromBody] EmailRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Pass the request's cancellation token
+            // Will automatically cancel if client disconnects
+            await _emailService.SendTextEmailAsync(
+                request.To,
+                request.Subject,
+                request.Body,
+                cancellationToken
+            );
+            
+            return Ok("Email sent successfully");
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(499, "Request cancelled by client");
+        }
+    }
+}
+```
+
 ## Performance Tips
 
 1. **Connection Reuse**: Reuse SMTP connections for better performance when sending multiple emails
@@ -275,6 +377,7 @@ catch (Exception ex)
 4. **Configuration Optimization**: Set appropriate timeout and retry policies
 5. **Resource Management**: Properly dispose of resources, especially when using streams
 6. **Error Handling**: Implement retry logic for transient failures
+7. **Cancellation Tokens**: Use cancellation tokens to prevent resource waste on cancelled operations
 
 ## Common Use Cases
 

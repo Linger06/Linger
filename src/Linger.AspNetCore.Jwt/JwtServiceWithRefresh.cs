@@ -76,7 +76,7 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtSer
         rng.GetBytes(randomNumber);
 
         var refreshToken = Convert.ToBase64String(randomNumber);
-        DateTime refreshTokenExpires = DateTime.UtcNow.AddMinutes(JwtOptions.RefreshTokenExpires);
+        DateTime refreshTokenExpires = DateTime.UtcNow.AddMinutes(JwtOptions.RefreshTokenExpiresInMinutes);
         return new JwtRefreshToken { RefreshToken = refreshToken, ExpiryTime = refreshTokenExpires };
     }
 

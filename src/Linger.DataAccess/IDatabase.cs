@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Data;
 using System.Data.Common;
 using System.Text;
@@ -6,7 +6,7 @@ using System.Text;
 namespace Linger.DataAccess;
 
 /// <summary>
-///     操作数据库基类 接口
+///     �������ݿ���� �ӿ�
 /// </summary>
 public interface IDatabase : IDisposable
 {
@@ -14,14 +14,14 @@ public interface IDatabase : IDisposable
 
     int ExecuteBySql(string sql);
     int ExecuteBySql(StringBuilder sql);
-    int ExecuteBySql(StringBuilder sql, DbTransaction isOpenTrans);
+    int ExecuteBySql(StringBuilder sql, DbTransaction transaction);
     int ExecuteBySql(StringBuilder sql, DbParameter[] parameters);
-    int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction isOpenTrans);
+    int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction transaction);
 
     int ExecuteByProc(string procName);
-    int ExecuteByProc(string procName, DbTransaction isOpenTrans);
+    int ExecuteByProc(string procName, DbTransaction transaction);
     int ExecuteByProc(string procName, DbParameter[] parameters);
-    int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction isOpenTrans);
+    int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction transaction);
 
     List<T> FindListBySql<T>(string sql);
     List<T> FindListBySql<T>(string sql, DbParameter[] parameters);
@@ -46,8 +46,9 @@ public interface IDatabase : IDisposable
     Hashtable FindHashtableBySql(string sql, DbParameter[] parameters);
 
     int FindCountBySql(string sql);
-    Task<int> FindCountBySqlAsync(string sql);
+    Task<int> FindCountBySqlAsync(string sql, CancellationToken cancellationToken = default);
     int FindCountBySql(string sql, DbParameter[] parameters);
+    Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken = default);
 
     object? FindMaxBySql(string sql);
     object? FindMaxBySql(string sql, DbParameter[] parameters);

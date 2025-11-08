@@ -204,7 +204,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     protected override bool IsRowEmpty(IXLWorksheet worksheet, int rowNum)
     {
         var row = worksheet.Row(rowNum);
-        
+
         // 使用ClosedXML的CellsUsed()方法，如果没有使用过的单元格，该行为空
         return !row.CellsUsed().Any();
     }

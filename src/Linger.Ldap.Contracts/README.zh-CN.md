@@ -60,9 +60,14 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginModel model)
+    public async Task<IActionResult> Login(
+        LoginModel model, 
+        CancellationToken cancellationToken)
     {
-        var (isValid, userInfo) = await _ldap.ValidateUserAsync(model.Username, model.Password);
+        var (isValid, userInfo) = await _ldap.ValidateUserAsync(
+            model.Username, 
+            model.Password, 
+            cancellationToken);
 
         if (!isValid)
         {
@@ -82,6 +87,21 @@ public class AuthController : ControllerBase
             }
         });
     }
+    
+    [HttpGet("user/{username}")]
+    public async Task<IActionResult> GetUser(
+        string username, 
+        CancellationToken cancellationToken)
+    {
+        var userInfo = await _ldap.FindUserAsync(username, cancellationToken: cancellationToken);
+        
+        if (userInfo == null)
+        {
+            return NotFound();
+        }
+        
+        return Ok(userInfo);
+    }
 }
 ```
 
@@ -95,13 +115,67 @@ public class AuthController : ControllerBase
 public interface ILdap
 {
     Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(
-        string userName, string password);
+        string userName, 
+        string password, 
+        CancellationToken cancellationToken = default);
 
     Task<AdUserInfo?> FindUserAsync(
-        string userName, LdapCredentials? ldapCredentials = null);
+        string userName, 
+        CancellationToken cancellationToken = default, 
+        LdapCredentials? ldapCredentials = null);
 
     Task<IEnumerable<AdUserInfo>> GetUsersAsync(
-        string filter, LdapCredentials? ldapCredentials = null);
+        string filter, 
+        CancellationToken cancellationToken = default, 
+        LdapCredentials? ldapCredentials = null);
+}
+```
+
+### 取消操作支持
+
+所有异步 LDAP 操作都支持 `CancellationToken`，适用于超时控制和请求取消：
+
+```csharp
+public class LdapService
+{
+    private readonly ILdap _ldap;
+    
+    public LdapService(ILdap ldap)
+    {
+        _ldap = ldap;
+    }
+    
+    // 带超时的用户验证
+    public async Task<bool> ValidateUserWithTimeoutAsync(
+        string username, 
+        string password, 
+        int timeoutSeconds = 5)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            var (isValid, _) = await _ldap.ValidateUserAsync(
+                username, 
+                password, 
+                cts.Token);
+            return isValid;
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("LDAP 验证超时");
+            return false;
+        }
+    }
+    
+    // 批量查询用户，支持取消
+    public async Task<List<AdUserInfo>> SearchUsersAsync(
+        string searchTerm, 
+        CancellationToken cancellationToken)
+    {
+        var users = await _ldap.GetUsersAsync(searchTerm, cancellationToken);
+        return users.ToList();
+    }
 }
 ```
 

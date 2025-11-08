@@ -89,12 +89,12 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
         if (reader.TokenType == JsonTokenType.String)
         {
             var dateTime = reader.GetString();
-            
+
             if (string.IsNullOrEmpty(dateTime))
             {
                 return null;
             }
-            
+
             if (DateTime.TryParse(dateTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
             {
                 return date;

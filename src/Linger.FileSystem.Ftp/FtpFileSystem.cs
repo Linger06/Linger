@@ -682,8 +682,8 @@ public class FtpFileSystem : RemoteFileSystemBase
         {
             "" => sanitizedFileName,
             FtpRootPath => $"{FtpRootPath}{sanitizedFileName}",
-            _ => normalizedDirectory.EndsWith(FtpPathSeparator) 
-                ? $"{normalizedDirectory}{sanitizedFileName}" 
+            _ => normalizedDirectory.EndsWith(FtpPathSeparator)
+                ? $"{normalizedDirectory}{sanitizedFileName}"
                 : $"{normalizedDirectory}{FtpPathSeparator}{sanitizedFileName}"
         };
     }

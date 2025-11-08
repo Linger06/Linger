@@ -1,14 +1,14 @@
-﻿namespace Linger.SharedKernel;
+using Linger.SharedKernel;
 
 /// <summary>
-/// 分页搜索接口，继承基础搜索功能并添加分页支持
+/// 分页搜索类，继承基础搜索功能并添加分页支持
 /// </summary>
-public interface IBaseSearchPagedList
+public class BaseSearchPagedList : BaseSearch, IBaseSearchPagedList
 {
     /// <summary>
     /// 是否启用分页
     /// </summary>
-    bool IsPage { get; set; }
+    public bool IsPage { get; set; }
 
     /// <summary>
     /// 当前页码（从0或1开始，具体取决于实现）

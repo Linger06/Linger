@@ -93,7 +93,7 @@ public class JwtService : IJwtService
             ValidationParameters.ValidIssuer,
             ValidationParameters.ValidAudience,
             claims,
-            expires: DateTime.UtcNow.AddMinutes(JwtOptions.Expires),
+            expires: DateTime.UtcNow.AddMinutes(JwtOptions.ExpiresInMinutes),
             signingCredentials: signingCredentials
         );
         return tokenOptions;

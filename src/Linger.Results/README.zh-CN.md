@@ -125,6 +125,74 @@ var result = await GetUserAsync(123)
     .BindAsync(async prefs => await UpdatePreferencesAsync(prefs));
 ```
 
+### 支持 CancellationToken 的异步操作
+
+```csharp
+// 所有异步扩展方法都支持 CancellationToken 以实现可取消操作
+public async Task<Result<OrderSummary>> ProcessOrderAsync(int orderId, CancellationToken cancellationToken)
+{
+    return await GetOrderAsync(orderId)
+        // MapAsync 支持 CancellationToken
+        .MapAsync(async (order, token) => 
+        {
+            // 执行支持取消的异步转换
+            return await CalculateTotalAsync(order, token);
+        }, cancellationToken)
+        
+        // BindAsync 支持 CancellationToken
+        .BindAsync(async (total, token) => 
+        {
+            // 链接另一个返回 Result 的异步操作
+            return await ValidatePaymentAsync(total, token);
+        }, cancellationToken)
+        
+        // EnsureAsync 支持 CancellationToken
+        .EnsureAsync(
+            async (payment, token) => await CheckInventoryAsync(payment, token),
+            new Error("Inventory", "库存不足"),
+            cancellationToken)
+        
+        // MatchAsync 支持 CancellationToken
+        .MatchAsync(
+            async (payment, token) => 
+            {
+                await SendConfirmationEmailAsync(payment, token);
+                return Result<OrderSummary>.Success(new OrderSummary(payment));
+            },
+            async (errors, token) => 
+            {
+                await LogErrorsAsync(errors, token);
+                return Result<OrderSummary>.Failure(errors);
+            },
+            cancellationToken);
+}
+
+// 示例：与 HttpClient 或数据库操作一起使用
+public async Task<Result<User>> UpdateUserWithCancellationAsync(
+    User user, 
+    CancellationToken cancellationToken)
+{
+    return await ValidateUser(user)
+        .MapAsync(async (validUser, token) => 
+        {
+            // 支持取消的数据库操作
+            await _dbContext.Users.AddAsync(validUser, token);
+            await _dbContext.SaveChangesAsync(token);
+            return validUser;
+        }, cancellationToken)
+        .EnsureAsync(
+            async (savedUser, token) => 
+            {
+                // 验证保存操作
+                var exists = await _dbContext.Users
+                    .AnyAsync(u => u.Id == savedUser.Id, token);
+                return exists;
+            },
+            new Error("Database", "用户保存验证失败"),
+            cancellationToken);
+}
+```
+
 ### 使用 Result.Create 进行条件判断
 
 ```csharp

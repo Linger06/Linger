@@ -203,6 +203,14 @@ var result = await fileSystem.UploadAsync(stream, "uploads/destination-file.txt"
 
 // Upload local file
 result = await fileSystem.UploadFileAsync("local-file.txt", "uploads", true);
+
+// Upload with cancellation token
+using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+result = await fileSystem.UploadAsync(
+    stream, 
+    "uploads/destination-file.txt", 
+    true, 
+    cts.Token);
 ```
 
 ### File Download
@@ -214,6 +222,14 @@ var result = await fileSystem.DownloadToStreamAsync("uploads/file.txt", outputSt
 
 // Download to local file
 result = await fileSystem.DownloadFileAsync("uploads/file.txt", "C:/Downloads/downloaded-file.txt", true);
+
+// Download with cancellation token
+using var cts = new CancellationTokenSource();
+result = await fileSystem.DownloadFileAsync(
+    "uploads/large-file.zip", 
+    "C:/Downloads/large-file.zip", 
+    true, 
+    cts.Token);
 ```
 
 ### File Deletion
@@ -335,6 +351,109 @@ finally
 }
 ```
 
+## Cancellation Support
+
+All file system operations support `CancellationToken` for graceful cancellation:
+
+```csharp
+public class FileUploadService
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileUploadService(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    // Upload with timeout
+    public async Task<FileOperationResult> UploadWithTimeoutAsync(
+        Stream stream, 
+        string destinationPath, 
+        int timeoutSeconds = 300)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            return await _fileSystem.UploadAsync(
+                stream, 
+                destinationPath, 
+                overwrite: true, 
+                cancellationToken: cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return FileOperationResult.Failure("Upload cancelled due to timeout");
+        }
+    }
+    
+    // Batch upload with cancellation
+    public async Task<List<FileOperationResult>> UploadMultipleFilesAsync(
+        Dictionary<Stream, string> files, 
+        CancellationToken cancellationToken)
+    {
+        var results = new List<FileOperationResult>();
+        
+        foreach (var (stream, path) in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                path, 
+                overwrite: true, 
+                cancellationToken);
+            results.Add(result);
+        }
+        
+        return results;
+    }
+}
+```
+
+### Using with ASP.NET Core
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class FileController : ControllerBase
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileController(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    [HttpPost("upload")]
+    public async Task<IActionResult> UploadFile(
+        IFormFile file, 
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var stream = file.OpenReadStream();
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                $"uploads/{file.FileName}", 
+                overwrite: true, 
+                cancellationToken);
+            
+            if (result.Success)
+            {
+                return Ok(new { path = result.FilePath });
+            }
+            
+            return BadRequest(result.ErrorMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(499, "Upload cancelled by client");
+        }
+    }
+}
+```
+
 ## Exception Handling
 
 ```csharp
@@ -349,6 +468,10 @@ try
     {
         Console.WriteLine($"Upload failed: {result.ErrorMessage}");
     }
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Operation was cancelled");
 }
 catch (FileSystemException ex)
 {

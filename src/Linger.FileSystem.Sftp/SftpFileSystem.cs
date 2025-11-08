@@ -168,11 +168,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile;
-            }, cancellationToken).ConfigureAwait(false);
+            return await Task.Run(() => Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -186,11 +182,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
-            return await Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return Client.Exists(directoryPath) && Client.GetAttributes(directoryPath).IsDirectory;
-            }, cancellationToken).ConfigureAwait(false);
+            return await Task.Run(() => Client.Exists(directoryPath) && Client.GetAttributes(directoryPath).IsDirectory, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -206,8 +198,6 @@ public class SftpFileSystem : RemoteFileSystemBase
         {
             await Task.Run(() =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                
                 if (Client.Exists(directoryPath) && Client.GetAttributes(directoryPath).IsDirectory)
                     return;
 
@@ -217,9 +207,8 @@ public class SftpFileSystem : RemoteFileSystemBase
 
                 foreach (var path in paths)
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
                     currentPath += SftpPathSeparator + path;
-                    
+
                     if (!Client.Exists(currentPath) || !Client.GetAttributes(currentPath).IsDirectory)
                         Client.CreateDirectory(currentPath);
                 }
@@ -238,8 +227,6 @@ public class SftpFileSystem : RemoteFileSystemBase
         {
             await Task.Run(() =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                
                 if (Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile)
                     Client.DeleteFile(filePath);
             }, cancellationToken).ConfigureAwait(false);
@@ -622,7 +609,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             return await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
                 if (!Client.Exists(directoryPath) || !Client.GetAttributes(directoryPath).IsDirectory)
                     return new List<string>();
 
@@ -650,7 +637,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             return await Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                
+
                 if (!Client.Exists(directoryPath) || !Client.GetAttributes(directoryPath).IsDirectory)
                     return new List<string>();
 
