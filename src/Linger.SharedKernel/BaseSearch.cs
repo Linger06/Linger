@@ -6,19 +6,42 @@ using Linger.Helper;
 
 namespace Linger.SharedKernel;
 
+/// <summary>
+/// 基础搜索类，提供通用的搜索和筛选功能
+/// </summary>
 public class BaseSearch : IBaseSearch
 {
+    /// <summary>
+    /// 搜索文本，用于在实体的字符串属性中进行模糊匹配
+    /// </summary>
     public string? SearchText { get; set; }
 
     /// <summary>
-    ///     复杂查询条件
+    /// 复杂查询条件，使用 AND 逻辑组合
     /// </summary>
     public List<Condition> SearchParameters { get; set; } = [];
 
+    /// <summary>
+    /// 复杂查询条件，使用 OR 逻辑组合
+    /// </summary>
     public List<Condition> SearchOrParameters { get; set; } = [];
+
+    /// <summary>
+    /// 排序字符串，格式为 "PropertyName asc" 或 "PropertyName desc"
+    /// </summary>
     public string? Sorting { get; set; }
+
+    /// <summary>
+    /// 排序信息列表，支持多字段排序
+    /// </summary>
     public List<SortInfo>? SortList { get; set; }
 
+    /// <summary>
+    /// 获取基于模型属性匹配的搜索表达式。
+    /// 将搜索模型中与实体类型匹配的属性值转换为相等比较表达式
+    /// </summary>
+    /// <typeparam name="TEntity">实体类型</typeparam>
+    /// <returns>用于筛选实体的表达式树</returns>
     public Expression<Func<TEntity, bool>> GetSearchModelExpression<TEntity>()
     {
         PropertyInfo[] properties = typeof(TEntity).GetProperties();
@@ -65,11 +88,22 @@ public class BaseSearch : IBaseSearch
         return pre2;
     }
 
+    /// <summary>
+    /// 获取排序函数，基于 SortList 构建排序表达式
+    /// </summary>
+    /// <typeparam name="T">实体类型</typeparam>
+    /// <returns>用于对查询结果排序的函数，如果没有排序条件则返回 null</returns>
     public Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>()
     {
         return ExpressionHelper.GetOrderBy<T>(SortList);
     }
 
+    /// <summary>
+    /// 获取基于搜索文本的表达式。
+    /// 在实体的所有字符串属性中进行模糊匹配（使用 Contains）
+    /// </summary>
+    /// <typeparam name="TEntity">实体类型</typeparam>
+    /// <returns>用于文本搜索的表达式树</returns>
     public Expression<Func<TEntity, bool>> GetSearchTextExpression<TEntity>()
     {
         PropertyInfo[] properties = typeof(TEntity).GetProperties();
@@ -106,37 +140,12 @@ public class BaseSearch : IBaseSearch
                 {
                     condition = Expression.Or(condition, be);
                 }
-
-                //if (property.PropertyType == typeof(int))
-                //{
-                //    //https://www.cnblogs.com/loverwangshan/p/10254730.html
-                //    var left = Expression.Property(param, property); //x.name
-                //    //得到ToString方法
-                //    MethodInfo toStringWay = typeof(int).GetMethod("ToString", new Type[] { });
-                //    //得到IndexOf的方法，然后new Type[]这个代表是得到参数为string的一个方法
-                //    MethodInfo indexOfWay = typeof(string).GetMethod("IndexOf", new Type[] { typeof(string) });
-                //    //通过下面方法得到x.Id.ToString()
-                //    MethodCallExpression toStringResult = Expression.Call(left, toStringWay, new Expression[] { });
-
-                //    var right = Expression.Constant(text); //value
-                //    //通过下面方法得到x.Id.ToString().IndexOf("5") ,MethodCallExpression继承于Expression
-                //    MethodCallExpression indexOfResult = Expression.Call(toStringResult, indexOfWay, new Expression[] { right });
-
-                //    //x.Id.ToString().IndexOf("5")>=0
-                //    var lambdaBody = Expression.GreaterThanOrEqual(indexOfResult, Expression.Constant(0));
-
-                //    if (condition == null)
-                //    {
-                //        condition = lambdaBody;
-                //    }
-                //    else
-                //    {
-                //        condition = Expression.Or(condition, lambdaBody);
-                //    }
-                //}
             }
 
-            pre = Expression.Lambda<Func<TEntity, bool>>(condition!, param);
+            // If no string properties were found, return a true condition
+            pre = condition != null
+                ? Expression.Lambda<Func<TEntity, bool>>(condition, param)
+                : Expression.Lambda<Func<TEntity, bool>>(Expression.Constant(true), param);
         }
         else
         {
@@ -146,6 +155,12 @@ public class BaseSearch : IBaseSearch
         return pre;
     }
 
+    /// <summary>
+    /// 获取组合的搜索表达式。
+    /// 将文本搜索表达式和属性匹配表达式使用 AND 逻辑组合
+    /// </summary>
+    /// <typeparam name="TEntity">实体类型</typeparam>
+    /// <returns>组合后的搜索表达式树</returns>
     public Expression<Func<TEntity, bool>> GetSearchExpression<TEntity>()
     {
         Expression<Func<TEntity, bool>> pre = GetSearchTextExpression<TEntity>();

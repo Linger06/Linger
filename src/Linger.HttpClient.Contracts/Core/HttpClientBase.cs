@@ -529,9 +529,15 @@ public abstract class HttpClientBase : IHttpClient
             long downloadedBytes = 0;
             int bytesRead;
 
+#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+            while ((bytesRead = await sourceStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+            {
+                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+#else
             while ((bytesRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
             {
                 await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
+#endif
                 downloadedBytes += bytesRead;
 
                 progress?.Report((downloadedBytes, totalBytes));

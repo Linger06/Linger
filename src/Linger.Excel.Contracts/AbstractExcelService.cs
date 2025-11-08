@@ -108,17 +108,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将DataTable导出为Excel文件 - 简单版本
     /// </summary>
-    Task<string> IExcelService.DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName, string title)
+    Task<string> IExcelService.DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName, string title, CancellationToken cancellationToken)
     {
-        return DataTableToExcelAsync(dataTable, fullFileName, sheetsName, title, action: null, styleAction: null);
+        return DataTableToExcelAsync(dataTable, fullFileName, sheetsName, title, action: null, styleAction: null, cancellationToken);
     }
 
     /// <summary>
     /// 异步将对象集合导出为Excel文件 - 简单版本
     /// </summary>
-    Task<string> IExcelService.CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName, string title)
+    Task<string> IExcelService.CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName, string title, CancellationToken cancellationToken)
     {
-        return CollectionToExcelAsync<T>(list, fullFileName, sheetsName, title, action: null, styleAction: null);
+        return CollectionToExcelAsync<T>(list, fullFileName, sheetsName, title, action: null, styleAction: null, cancellationToken);
     }
 
     #endregion
@@ -146,11 +146,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <remarks>
     /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
     /// </remarks>
-    public virtual async Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public virtual async Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         // 默认实现: 使用 Task.Run 包裹同步方法
         // 子类应该覆盖此方法以提供真正的异步实现
-        return await Task.Run(() => StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow)).ConfigureAwait(false);
+        return await Task.Run(() => StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -164,11 +164,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <remarks>
     /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
     /// </remarks>
-    public virtual async Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
+    public virtual async Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new()
     {
         // 默认实现: 使用 Task.Run 包裹同步方法
         // 子类应该覆盖此方法以提供真正的异步实现
-        return await Task.Run(() => StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow)).ConfigureAwait(false);
+        return await Task.Run(() => StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -202,11 +202,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <remarks>
     /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
     /// </remarks>
-    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         // 默认实现: 使用 Task.Run 包裹同步方法
         // 子类应该覆盖此方法以提供真正的异步实现
-        return await Task.Run(() => StreamToDataSet(stream, headerRowIndex, addEmptyRow)).ConfigureAwait(false);
+        return await Task.Run(() => StreamToDataSet(stream, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -220,11 +220,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <remarks>
     /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
     /// </remarks>
-    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         // 默认实现: 使用 Task.Run 包裹同步方法
         // 子类应该覆盖此方法以提供真正的异步实现
-        return await Task.Run(() => StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow)).ConfigureAwait(false);
+        return await Task.Run(() => StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -238,11 +238,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <remarks>
     /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
     /// </remarks>
-    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         // 默认实现: 使用 Task.Run 包裹同步方法
         // 子类应该覆盖此方法以提供真正的异步实现
-        return await Task.Run(() => StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow)).ConfigureAwait(false);
+        return await Task.Run(() => StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -256,11 +256,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <remarks>
     /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
     /// </remarks>
-    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         // 默认实现: 使用 Task.Run 包裹同步方法
         // 子类应该覆盖此方法以提供真正的异步实现
-        return await Task.Run(() => StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow)).ConfigureAwait(false);
+        return await Task.Run(() => StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -300,7 +300,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将Excel文件转换为DataTable
     /// </summary>
-    public virtual async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public virtual async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         Logger?.LogTrace("开始异步读取Excel文件: {FilePath}", filePath);
 
@@ -323,7 +323,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
 #else
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
 #endif
-            return await StreamToDataTableAsync(fileStream, sheetName, headerRowIndex, addEmptyRow).ConfigureAwait(false);
+            return await StreamToDataTableAsync(fileStream, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -335,7 +335,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将Excel文件转换为对象列表
     /// </summary>
-    public virtual async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new()
+    public virtual async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new()
     {
         Logger?.LogTrace("开始异步读取Excel文件并转换为对象列表: {FilePath}", filePath);
 
@@ -358,7 +358,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
 #else
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
 #endif
-            return await StreamToListAsync<T>(fileStream, sheetName, headerRowIndex, addEmptyRow).ConfigureAwait(false);
+            return await StreamToListAsync<T>(fileStream, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -370,7 +370,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(所有工作表)
     /// </summary>
-    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
@@ -393,7 +393,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
 #else
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
 #endif
-            return await StreamToDataSetAsync(fileStream, headerRowIndex, addEmptyRow).ConfigureAwait(false);
+            return await StreamToDataSetAsync(fileStream, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -405,7 +405,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(指定工作表)
     /// </summary>
-    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
@@ -428,7 +428,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
 #else
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
 #endif
-            return await StreamToDataSetAsync(fileStream, sheetNames, headerRowIndex, addEmptyRow).ConfigureAwait(false);
+            return await StreamToDataSetAsync(fileStream, sheetNames, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -440,7 +440,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
-    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
@@ -463,7 +463,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
 #else
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
 #endif
-            return await StreamToDataSetAsync(fileStream, headerRowIndexSelector, addEmptyRow).ConfigureAwait(false);
+            return await StreamToDataSetAsync(fileStream, headerRowIndexSelector, addEmptyRow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -475,7 +475,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
-    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
@@ -498,7 +498,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
 #else
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
 #endif
-            return await StreamToDataSetAsync(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow).ConfigureAwait(false);
+            return await StreamToDataSetAsync(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -511,7 +511,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// 异步将DataTable导出为Excel文件（推荐）
     /// </summary>
     public virtual async Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default)
     {
         using var ms = DataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
         if (ms == null)
@@ -528,7 +528,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// 异步将对象集合导出为Excel文件（推荐）
     /// </summary>
     public virtual async Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class
+        Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default) where T : class
     {
         using var ms = CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
         if (ms == null)
@@ -629,15 +629,16 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <param name="strFileName">Excel文件完整路径</param>
     /// <param name="strSheetNames">工作表名称，多个用逗号分隔，如 "Sheet1,Sheet2"。为null时读取所有工作表</param>
     /// <param name="headerRowIndex">表头行索引，0表示第一行</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>包含指定工作表数据的DataSet</returns>
     /// <remarks>
     /// 此方法提供与 NPOIHelper.ImportExcelToDs 完全兼容的异步版本。
     /// 注意：此方法默认不包含空行(addEmptyRow=false)，与旧方法行为一致。
     /// </remarks>
-    public virtual async Task<DataSet?> ExcelToDataSetAsync(string strFileName, string? strSheetNames, int headerRowIndex)
+    public virtual async Task<DataSet?> ExcelToDataSetAsync(string strFileName, string? strSheetNames, int headerRowIndex, CancellationToken cancellationToken = default)
     {
         var sheetNames = ParseSheetNames(strSheetNames);
-        return await ExcelToDataSetAsync(strFileName, sheetNames, headerRowIndex, addEmptyRow: false)
+        return await ExcelToDataSetAsync(strFileName, sheetNames, headerRowIndex, addEmptyRow: false, cancellationToken)
                      .ConfigureAwait(false);
     }
 

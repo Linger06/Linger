@@ -58,9 +58,8 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        cancellationToken.ThrowIfCancellationRequested();
 
-        var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
         return count > 0;
     }
 
@@ -77,9 +76,8 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-        cancellationToken.ThrowIfCancellationRequested();
 
-        var count = await FindCountBySqlAsync(sql, parameters).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql, parameters, cancellationToken).ConfigureAwait(false);
         return count > 0;
     }
 

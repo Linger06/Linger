@@ -21,7 +21,7 @@ public void ConfigureServices(IServiceCollection services)
 {
     // 根据实际项目中的扩展方法来注册Background服务
     services.AddHostedService<QueuedHostedService>();
-    builder.Services.AddSingleton<IBackgroundTaskQueue>(ctx =>
+    services.AddSingleton<IBackgroundTaskQueue>(ctx =>
     {
         //if (!int.TryParse(hostContext.Configuration["QueueCapacity"], out var queueCapacity))
         var queueCapacity = 100;
@@ -41,11 +41,28 @@ public class SampleService
     
     public async Task EnqueueWorkItem()
     {
-        await _taskQueue.QueueBackgroundWorkItemAsync(async token =>
+        // 注意: Lambda 接收两个参数 (IServiceProvider, CancellationToken)
+        await _taskQueue.QueueBackgroundWorkItemAsync(async (serviceProvider, token) =>
         {
-            // 执行后台工作
+            // 可以从 serviceProvider 获取服务
+            var logger = serviceProvider.GetRequiredService<ILogger<SampleService>>();
+            
+            // 执行后台工作，支持取消
             await Task.Delay(1000, token);
+            logger.LogInformation("后台任务执行完成");
         });
+    }
+    
+    // 支持外部取消令牌
+    public async Task EnqueueWorkItemWithCancellation(CancellationToken cancellationToken)
+    {
+        await _taskQueue.QueueBackgroundWorkItemAsync(
+            async (serviceProvider, token) =>
+            {
+                // 执行后台工作
+                await Task.Delay(1000, token);
+            },
+            cancellationToken); // 可选的取消令牌参数
     }
 }
 ```

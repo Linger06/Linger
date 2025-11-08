@@ -82,9 +82,10 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// <param name="title">标题</param>
     /// <param name="action">自定义单元格操作委托</param>
     /// <param name="styleAction">自定义样式操作委托</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>生成的文件路径</returns>
     Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将对象集合导出为Excel文件，支持自定义操作
@@ -96,9 +97,10 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// <param name="title">标题</param>
     /// <param name="action">自定义单元格操作委托</param>
     /// <param name="styleAction">自定义样式操作委托</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>生成的文件路径</returns>
     Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
+        Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default) where T : class;
 
     /// <summary>
     /// 创建Excel模板

@@ -77,9 +77,8 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        cancellationToken.ThrowIfCancellationRequested();
         
-        var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
         return count > 0;
     }
 
@@ -96,9 +95,8 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-        cancellationToken.ThrowIfCancellationRequested();
         
-        var count = await FindCountBySqlAsync(sql, parameters).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql, parameters, cancellationToken).ConfigureAwait(false);
         return count > 0;
     }
 
@@ -192,12 +190,14 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// <returns>文件大小，如果获取失败返回-1</returns>
     public async Task<long> GetDatabaseSizeAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        
         try
         {
-            var result = await ExecuteScalarAsync(CommandType.Text, "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()").ConfigureAwait(false);
+            var result = await ExecuteScalarAsync(CommandType.Text, "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()", cancellationToken).ConfigureAwait(false);
             return Convert.ToInt64(result, System.Globalization.CultureInfo.InvariantCulture);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -229,12 +229,14 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// <returns>操作是否成功</returns>
     public async Task<bool> VacuumDatabaseAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        
         try
         {
-            await ExecuteNonQueryAsync(CommandType.Text, "VACUUM").ConfigureAwait(false);
+            await ExecuteNonQueryAsync(CommandType.Text, "VACUUM", cancellationToken).ConfigureAwait(false);
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -266,12 +268,14 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// <returns>操作是否成功</returns>
     public async Task<bool> AnalyzeDatabaseAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        
         try
         {
-            await ExecuteNonQueryAsync(CommandType.Text, "ANALYZE").ConfigureAwait(false);
+            await ExecuteNonQueryAsync(CommandType.Text, "ANALYZE", cancellationToken).ConfigureAwait(false);
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -303,12 +307,14 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// <returns>完整性检查结果，"ok"表示正常</returns>
     public async Task<string> CheckIntegrityAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        
         try
         {
-            var result = await ExecuteScalarAsync(CommandType.Text, "PRAGMA integrity_check").ConfigureAwait(false);
+            var result = await ExecuteScalarAsync(CommandType.Text, "PRAGMA integrity_check", cancellationToken).ConfigureAwait(false);
             return result?.ToString() ?? "unknown";
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -354,8 +360,6 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// <returns>表名列表</returns>
     public async Task<List<string>> GetTableNamesAsync(CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        
         try
         {
             var dataSet = await QueryAsync("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name", cancellationToken).ConfigureAwait(false);
@@ -374,6 +378,10 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
             }
 
             return tableNames;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -455,7 +463,6 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     public async Task<bool> BackupDatabaseAsync(string backupFilePath, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backupFilePath);
-        cancellationToken.ThrowIfCancellationRequested();
 
         try
         {
@@ -467,6 +474,10 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
 
             connection.BackupDatabase(backup, "main", "main", -1, null, 0);
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
@@ -536,7 +547,6 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     public async Task<bool> ExecuteInTransactionAsync(IEnumerable<string> sqlStatements, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(sqlStatements);
-        cancellationToken.ThrowIfCancellationRequested();
 
         var statements = sqlStatements.ToList();
         if (statements.Count == 0)
@@ -571,6 +581,10 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
                 transaction.Rollback();
                 throw;
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {

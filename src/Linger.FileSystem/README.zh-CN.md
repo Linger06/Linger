@@ -203,6 +203,14 @@ var result = await fileSystem.UploadAsync(stream, "uploads/destination-file.txt"
 
 // 上传本地文件
 result = await fileSystem.UploadFileAsync("local-file.txt", "uploads", true);
+
+// 带取消令牌的上传
+using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+result = await fileSystem.UploadAsync(
+    stream, 
+    "uploads/destination-file.txt", 
+    true, 
+    cts.Token);
 ```
 
 ### 文件下载
@@ -214,6 +222,14 @@ var result = await fileSystem.DownloadToStreamAsync("uploads/file.txt", outputSt
 
 // 下载到本地文件
 result = await fileSystem.DownloadFileAsync("uploads/file.txt", "C:/Downloads/downloaded-file.txt", true);
+
+// 带取消令牌的下载
+using var cts = new CancellationTokenSource();
+result = await fileSystem.DownloadFileAsync(
+    "uploads/large-file.zip", 
+    "C:/Downloads/large-file.zip", 
+    true, 
+    cts.Token);
 ```
 
 ### 文件删除
@@ -335,6 +351,109 @@ finally
 }
 ```
 
+## 取消操作支持
+
+所有文件系统操作都支持 `CancellationToken`，实现优雅的取消机制：
+
+```csharp
+public class FileUploadService
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileUploadService(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    // 带超时的上传
+    public async Task<FileOperationResult> UploadWithTimeoutAsync(
+        Stream stream, 
+        string destinationPath, 
+        int timeoutSeconds = 300)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            return await _fileSystem.UploadAsync(
+                stream, 
+                destinationPath, 
+                overwrite: true, 
+                cancellationToken: cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return FileOperationResult.Failure("上传因超时而取消");
+        }
+    }
+    
+    // 支持取消的批量上传
+    public async Task<List<FileOperationResult>> UploadMultipleFilesAsync(
+        Dictionary<Stream, string> files, 
+        CancellationToken cancellationToken)
+    {
+        var results = new List<FileOperationResult>();
+        
+        foreach (var (stream, path) in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                path, 
+                overwrite: true, 
+                cancellationToken);
+            results.Add(result);
+        }
+        
+        return results;
+    }
+}
+```
+
+### 在 ASP.NET Core 中使用
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class FileController : ControllerBase
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileController(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    [HttpPost("upload")]
+    public async Task<IActionResult> UploadFile(
+        IFormFile file, 
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var stream = file.OpenReadStream();
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                $"uploads/{file.FileName}", 
+                overwrite: true, 
+                cancellationToken);
+            
+            if (result.Success)
+            {
+                return Ok(new { path = result.FilePath });
+            }
+            
+            return BadRequest(result.ErrorMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(499, "上传被客户端取消");
+        }
+    }
+}
+```
+
 ## 异常处理
 
 ```csharp
@@ -349,6 +468,10 @@ try
     {
         Console.WriteLine($"上传失败: {result.ErrorMessage}");
     }
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("操作被取消");
 }
 catch (FileSystemException ex)
 {

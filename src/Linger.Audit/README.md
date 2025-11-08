@@ -316,7 +316,7 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<User>
 - `TimeSpan.Zero` represents UTC timezone offset
 - Ensure all times stored in the database are in UTC to avoid timezone confusion
 
-## � Class Diagram Overview
+## 📊 Class Diagram Overview
 
 Relationships between main classes and interfaces:
 
@@ -406,7 +406,7 @@ public abstract class FullAuditEntity : AuditEntity, IDeletionAuditEntity, ISoft
 }
 ```
 
-## � License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

@@ -62,11 +62,11 @@ app.Run();
 ```csharp
 public class JwtOption
 {
-    public string SecurityKey { get; set; } = "this is my custom Secret key for authentication"; // 生产使用环境变量覆盖
+    public string SecurityKey { get; set; } = null!; // ⚠️ 生产环境必须配置！
     public string Issuer { get; set; } = "Linger.com";
     public string Audience { get; set; } = "Linger.com";
-    public int Expires { get; set; } = 30;               // 访问令牌有效期(分钟)
-    public int RefreshTokenExpires { get; set; } = 60;    // 刷新令牌有效期(分钟)
+    public int ExpiresInMinutes { get; set; } = 30;               // 访问令牌有效期(分钟)
+    public int RefreshTokenExpiresInMinutes { get; set; } = 10080;    // 刷新令牌有效期(分钟，7天)
     public bool EnableRefreshToken { get; set; } = true;  // 是否启用刷新支持
 }
 ```
@@ -77,8 +77,8 @@ public class JwtOption
     "SecurityKey": "至少32字符生产密钥(用SECRET环境变量覆盖)",
     "Issuer": "your-app.com",
     "Audience": "your-api.com",
-    "Expires": 15,
-    "RefreshTokenExpires": 10080,
+    "ExpiresInMinutes": 15,
+    "RefreshTokenExpiresInMinutes": 10080,
     "EnableRefreshToken": true
   }
 }
@@ -143,7 +143,7 @@ public class MemoryCachedJwtService : JwtServiceWithRefresh
     public MemoryCachedJwtService(JwtOption opt, IMemoryCache cache, ILogger<MemoryCachedJwtService>? logger = null) : base(opt, logger) => _cache = cache;
     protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
     {
-        _cache.Set($"RT_{userId}", token, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpires));
+        _cache.Set($"RT_{userId}", token, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpiresInMinutes));
         return Task.CompletedTask;
     }
     protected override Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
@@ -173,15 +173,56 @@ public class DbJwtService : JwtServiceWithRefresh
 ```
 
 ## 控制器示例
+
+### 推荐方式 (使用 TryRefreshTokenAsync)
 ```csharp
 public class AuthController(IJwtService jwt, IUserService users) : ControllerBase
 {
-    [HttpPost("login")] public async Task<IActionResult> Login(LoginModel m)
-    { var id = await users.ValidateUserAsync(m.Username, m.Password); if (string.IsNullOrEmpty(id)) return Unauthorized(); return Ok(await jwt.CreateTokenAsync(id)); }
-    [HttpPost("refresh")] public async Task<IActionResult> Refresh(Token token)
-    { if (jwt.SupportsRefreshToken()) { var (ok, tk) = await jwt.TryRefreshTokenAsync(token); if (ok) return Ok(tk);} return Unauthorized("请重新登录"); }
+    [HttpPost("login")] 
+    public async Task<IActionResult> Login(LoginModel m)
+    { 
+        var id = await users.ValidateUserAsync(m.Username, m.Password); 
+        if (string.IsNullOrEmpty(id)) return Unauthorized(); 
+        return Ok(await jwt.CreateTokenAsync(id)); 
+    }
+    
+    [HttpPost("refresh")] 
+    public async Task<IActionResult> Refresh(Token token)
+    { 
+        var result = await jwt.TryRefreshTokenAsync(token);
+        if (result.Success) 
+            return Ok(result.Token);
+        
+        return Unauthorized(result.ErrorMessage);
+    }
 }
 ```
+
+### 备选方式 (使用异常处理)
+```csharp
+[HttpPost("refresh")] 
+public async Task<IActionResult> Refresh(Token token)
+{ 
+    if (!jwt.SupportsRefreshToken()) 
+        return Unauthorized("不支持刷新令牌");
+    
+    try 
+    {
+        return Ok(await jwt.RefreshTokenAsync(token));
+    }
+    catch (NotSupportedException)
+    {
+        return Unauthorized("不支持刷新令牌");
+    }
+    catch (SecurityTokenException ex)
+    {
+        _logger.LogWarning(ex, "刷新令牌验证失败");
+        return Unauthorized("刷新令牌无效或已过期,请重新登录");
+    }
+}
+```
+
+> **💡 提示**: `TryRefreshTokenAsync` 方法遵循 C# 的 Try 模式惯例,性能更好且代码更清晰。
 
 ## 客户端自动刷新（概览）
 若只需演示，可参考“快速入门示例”；生产建议使用弹性策略防止并发重复刷新。

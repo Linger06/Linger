@@ -163,7 +163,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         try
         {
             var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
-            var obj = await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false);
+            var obj = await ExecuteScalarAsync(CommandType.Text, sql,cancellationToken).ConfigureAwait(false);
 
             return obj switch
             {
@@ -228,7 +228,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
 
-        var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
         return count > 0;
     }
 

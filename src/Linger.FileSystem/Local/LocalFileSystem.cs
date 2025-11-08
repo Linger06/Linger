@@ -194,10 +194,17 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 #endif
                     {
                         int bytesRead;
+#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+                        while ((bytesRead = await inputStream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+                        {
+                            // 同时写入临时文件和更新哈希
+                            await tempFileStream.WriteAsync(buffer.AsMemory(0, bytesRead)).ConfigureAwait(false);
+#else
                         while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
                         {
                             // 同时写入临时文件和更新哈希
                             await tempFileStream.WriteAsync(buffer, 0, bytesRead).ConfigureAwait(false);
+#endif
                             md5.AppendData(buffer, 0, bytesRead);
                             totalBytes += bytesRead;
                         }
@@ -268,10 +275,17 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 #endif
                     {
                         int bytesRead;
+#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+                        while ((bytesRead = await inputStream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+                        {
+                            // 同时写入文件和更新哈希
+                            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead)).ConfigureAwait(false);
+#else
                         while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
                         {
                             // 同时写入文件和更新哈希
                             await fileStream.WriteAsync(buffer, 0, bytesRead).ConfigureAwait(false);
+#endif
                             md5.AppendData(buffer, 0, bytesRead);
                             totalBytes += bytesRead;
                         }
@@ -562,6 +576,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <exception cref="ArgumentNullException">文件路径为空时抛出</exception>
     /// <exception cref="ArgumentNullException">目标流为空时抛出</exception>
     /// <exception cref="FileNotFoundException">源文件不存在时抛出</exception>
+    /// <summary>
+    /// 从本地文件系统下载文件到流（简化版本，用于向后兼容）
+    /// </summary>
+    /// <param name="filePath">源文件路径</param>
+    /// <param name="destStream">目标流</param>
     public async Task DownloadToStreamAsync(string filePath, Stream destStream)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);

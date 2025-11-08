@@ -10,21 +10,21 @@ public static class PathExtensions
     /// <param name="path"></param>
     /// <param name="relativeTo"></param>
     /// <returns></returns>
-    [Obsolete("Use StandardPathHelper.GetRelativePath intead of this method. Please note the order of those parameters is important!")]
+    [Obsolete("Use StandardPathHelper.GetRelativePath instead of this method. Please note the order of those parameters is important!")]
     public static string GetRelativePath(this string path, string? relativeTo = null)
     {
         relativeTo ??= Environment.CurrentDirectory;
         return Path.GetRelativePath(relativeTo, path);
     }
 
-#elif NETFRAMEWORK || NETSTANDARD
+#else
     /// <summary>
     /// 获取相对路径
     /// </summary>
     /// <param name="path"></param>
     /// <param name="relativeTo"></param>
     /// <returns></returns>
-    [Obsolete("Use StandardPathHelper.GetRelativePath intead of this method. Please note the order of those parameters is important!")]
+    [Obsolete("Use StandardPathHelper.GetRelativePath instead of this method. Please note the order of those parameters is important!")]
     public static string GetRelativePath(this string path, string? relativeTo = null)
     {
         relativeTo ??= Environment.CurrentDirectory;
@@ -39,7 +39,7 @@ public static class PathExtensions
     /// <param name="path">"..\Test" or "C:\Test"</param>
     /// <param name="basePath"></param>
     /// <returns>如果 path 为绝对路径，直接返回，若path为相对路径，就需要basePath</returns>
-    [Obsolete("Use StandardPathHelper.ResolveToAbsolutePath intead of this method. Please note the order of those parameters is important!")]
+    [Obsolete("Use StandardPathHelper.ResolveToAbsolutePath instead of this method. Please note the order of those parameters is important!")]
     public static string GetAbsolutePath(this string path, string? basePath = null)
     {
         if (path.IsAbsolutePath())
@@ -60,7 +60,7 @@ public static class PathExtensions
     /// <param name="path"></param>
     /// <returns></returns>
     /// <exception cref="ArgumentNullException"></exception>
-    [Obsolete]
+    [Obsolete("Use Path.IsPathRooted instead.")]
     public static bool IsAbsolutePath(this string path)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
@@ -68,11 +68,16 @@ public static class PathExtensions
         return Path.IsPathRooted(path);
     }
 
-    [Obsolete]
+    [Obsolete("Use StandardPathHelper.GetRelativePath instead.")]
     public static string RelativeTo(this string sourcePath, string folder)
     {
         ArgumentException.ThrowIfNullOrEmpty(sourcePath);
         ArgumentException.ThrowIfNullOrEmpty(folder);
+
+        if (!Path.IsPathRooted(sourcePath))
+        {
+            sourcePath = Path.GetFullPath(sourcePath);
+        }
 
         var pathUri = new Uri(sourcePath);
 

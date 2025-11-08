@@ -4,7 +4,7 @@ namespace Linger.Background;
 
 public interface IBackgroundTaskQueue
 {
-    ValueTask QueueBackgroundWorkItemAsync(Func<IServiceProvider, CancellationToken, ValueTask> workItem);
+    ValueTask QueueBackgroundWorkItemAsync(Func<IServiceProvider, CancellationToken, ValueTask> workItem, CancellationToken cancellationToken = default);
 
     ValueTask<Func<IServiceProvider, CancellationToken, ValueTask>> DequeueAsync(
         CancellationToken cancellationToken);
@@ -29,11 +29,12 @@ public class BackgroundTaskQueue : IBackgroundTaskQueue
     }
 
     public async ValueTask QueueBackgroundWorkItemAsync(
-        Func<IServiceProvider, CancellationToken, ValueTask> workItem)
+        Func<IServiceProvider, CancellationToken, ValueTask> workItem,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workItem);
 
-        await _queue.Writer.WriteAsync(workItem).ConfigureAwait(false);
+        await _queue.Writer.WriteAsync(workItem, cancellationToken).ConfigureAwait(false);
     }
 
     public async ValueTask<Func<IServiceProvider, CancellationToken, ValueTask>> DequeueAsync(

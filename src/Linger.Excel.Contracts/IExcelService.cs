@@ -128,32 +128,32 @@ public interface IExcelService
     /// <summary>
     /// 异步将Excel文件转换为DataTable
     /// </summary>
-    Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为对象列表
     /// </summary>
-    Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(所有工作表)
     /// </summary>
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(指定工作表)
     /// </summary>
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     #endregion
 
@@ -187,12 +187,12 @@ public interface IExcelService
     /// <summary>
     /// 异步将DataTable导出为Excel文件
     /// </summary>
-    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "");
+    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将对象集合导出为Excel文件
     /// </summary>
-    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "") where T : class;
+    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default) where T : class;
 
     /// <summary>
     /// 创建Excel模板

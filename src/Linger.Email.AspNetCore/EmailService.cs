@@ -14,7 +14,7 @@ public sealed class EmailService(
     private bool _disposed;
 
     /// <inheritdoc/>
-    public override async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null)
+    public override async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(emailMessage);
 
@@ -27,7 +27,7 @@ public sealed class EmailService(
             {
                 _logger.LogDebug("Email sent successfully: {Response}", response);
                 completedCallback?.Invoke(response);
-            }).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -37,25 +37,25 @@ public sealed class EmailService(
     }
 
     /// <inheritdoc/>
-    public Task SendTextEmailAsync(string to, string subject, string body)
+    public Task SendTextEmailAsync(string to, string subject, string body, CancellationToken cancellationToken = default)
     {
         var message = CreateEmailMessage(to, subject, body, false);
-        return SendAsync(message);
+        return SendAsync(message, null, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task SendHtmlEmailAsync(string to, string subject, string htmlBody)
+    public Task SendHtmlEmailAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
         var message = CreateEmailMessage(to, subject, htmlBody, true);
-        return SendAsync(message);
+        return SendAsync(message, null, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task SendWithAttachmentsAsync(string to, string subject, string body, bool isHtml, IEnumerable<string> attachmentPaths)
+    public Task SendWithAttachmentsAsync(string to, string subject, string body, bool isHtml, IEnumerable<string> attachmentPaths, CancellationToken cancellationToken = default)
     {
         var message = CreateEmailMessage(to, subject, body, isHtml);
         message.AttachmentsPath = attachmentPaths.ToList();
-        return SendAsync(message);
+        return SendAsync(message, null, cancellationToken);
     }
 
     private static EmailMessage CreateEmailMessage(string to, string subject, string body, bool isHtml) =>

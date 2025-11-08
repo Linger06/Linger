@@ -10,6 +10,7 @@ public interface IEmail : IAsyncDisposable
     /// </summary>
     /// <param name="emailMessage">邮件消息</param>
     /// <param name="completedCallback">发送完成回调</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>发送任务</returns>
-    Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null);
+    Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null, CancellationToken cancellationToken = default);
 }
