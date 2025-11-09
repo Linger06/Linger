@@ -24,8 +24,8 @@ public sealed class RetryHelper(RetryOptions? options = null)
         Func<Task<T>> operation,
         string? operationName = null,
         Func<Exception, bool>? shouldRetry = null,
-        CancellationToken cancellationToken = default,
-    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null)
+    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
         operationName ??= operationExpr ?? nameof(operation);
@@ -56,8 +56,8 @@ public sealed class RetryHelper(RetryOptions? options = null)
         Func<Task> operation,
         string? operationName = null,
         Func<Exception, bool>? shouldRetry = null,
-        CancellationToken cancellationToken = default,
-    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null)
+    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
         operationName ??= operationExpr ?? nameof(operation);

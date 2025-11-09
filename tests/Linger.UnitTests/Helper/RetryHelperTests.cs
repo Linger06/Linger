@@ -153,15 +153,16 @@ public class RetryHelperTests
         // Act & Assert
     await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
-            await retryHelper.ExecuteAsync<int>(
-                async () =>
-                {
-                    await Task.Delay(1000, cts.Token);
-                    return 42;
-                },
-                "TestOperation",
-                null,
-                cts.Token);
+                await retryHelper.ExecuteAsync<int>(
+                    async () =>
+                    {
+                        await Task.Delay(1000, cts.Token);
+                        return 42;
+                    },
+                    "TestOperation",
+                    null,
+                    null,
+                    cts.Token);
         });
     }
 
@@ -180,6 +181,7 @@ public class RetryHelperTests
             await retryHelper.ExecuteAsync(
                 async () => { await Task.Delay(1000, cts.Token); },
                 "TestOperation",
+                null,
                 null,
                 cts.Token);
         });
