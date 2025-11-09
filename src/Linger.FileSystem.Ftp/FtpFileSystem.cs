@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using FluentFTP;
 using Linger.Extensions.Core;
+using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
 

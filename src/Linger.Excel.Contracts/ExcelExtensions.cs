@@ -14,6 +14,7 @@ public static class ExcelExtensions
     /// <param name="sheetsName">工作表名称</param>
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
+    /// <param name="styleAction"></param>
     /// <returns>文件路径</returns>
     public static async Task<string> DataTableToFileAsync<TWorkbook, TWorksheet>(
         this ExcelBase<TWorkbook, TWorksheet> excel,
@@ -48,12 +49,15 @@ public static class ExcelExtensions
     /// 异步将对象集合导出为Excel文件
     /// </summary>
     /// <typeparam name="T">对象类型</typeparam>
+    /// <typeparam name="TWorkbook"></typeparam>
+    /// <typeparam name="TWorksheet"></typeparam>
     /// <param name="excel">Excel实现</param>
     /// <param name="list">对象集合</param>
     /// <param name="fullFileName">文件完整路径</param>
     /// <param name="sheetsName">工作表名称</param>
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
+    /// <param name="styleAction"></param>
     /// <returns>文件路径</returns>
     public static async Task<string> ListToFileAsync<T, TWorkbook, TWorksheet>(
         this ExcelBase<TWorkbook, TWorksheet> excel,

@@ -227,7 +227,7 @@ public static partial class StringExtensions
     /// <remarks>
     /// Behavioral note for multi-character tokens: when <paramref name="character"/> has length greater than 1, this method trims by character set semantics
     /// (equivalent to <see cref="string.TrimEnd(char[])"/>), which can be surprising for callers expecting exact suffix removal.
-    /// Prefer <see cref="RemoveSuffixOnce(string, StringComparison)"/> for precise single-suffix removal with comparison control.
+    /// Prefer <see cref="RemoveSuffixOnce(string,string,StringComparison)"/> for precise single-suffix removal with comparison control.
     /// </remarks>
     /// <example>
     /// <code>

@@ -157,7 +157,6 @@ public class SqliteHelper(string connectionString) : Database(new SqliteProvider
     /// 异步执行查询语句，返回DataSet (参数化查询版本)
     /// </summary>
     /// <param name="sqlString">查询语句</param>
-    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">SQL参数</param>
     /// <returns>DataSet</returns>
     /// <exception cref="ArgumentNullException">当sqlString或parameters为null时抛出</exception>

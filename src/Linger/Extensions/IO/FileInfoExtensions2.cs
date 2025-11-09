@@ -160,8 +160,8 @@ public static partial class FileInfoExtensions
     public static string GetExtensionString(this string filePath)
     {
         var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf(".", StringComparison.Ordinal),
-                filePath.Length - filePath.LastIndexOf(".", StringComparison.Ordinal));
+            filePath.Substring(filePath.LastIndexOf('.'),
+                filePath.Length - filePath.LastIndexOf('.'));
         return strExtensionName;
     }
 
@@ -172,8 +172,8 @@ public static partial class FileInfoExtensions
     public static string GetExtensionNotDotString(this string filePath)
     {
         var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf(".", StringComparison.Ordinal) + 1,
-                filePath.Length - filePath.LastIndexOf(".", StringComparison.Ordinal) - 1);
+            filePath.Substring(filePath.LastIndexOf('.') + 1,
+                filePath.Length - filePath.LastIndexOf('.') - 1);
         return strExtensionName;
     }
 

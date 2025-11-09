@@ -213,11 +213,11 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// var userExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Users WHERE Email = 'user@example.com'");
     ///
     /// // 异步检查订单是否存在
-    /// var orderExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Orders WHERE OrderDate &gt;= DATEADD(day, -30, GETDATE())");
+    /// var orderExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Orders WHERE OrderDate >= DATEADD(day, -30, GETDATE())");
     ///
     /// // 使用取消令牌的异步检查
     /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-    /// var hasExpiredSessions = await helper.ExistsAsync("SELECT COUNT(*) FROM UserSessions WHERE ExpiryDate t&lt; GETDATE()", cts.Token);
+    /// var hasExpiredSessions = await helper.ExistsAsync("SELECT COUNT(*) FROM UserSessions WHERE ExpiryDate < GETDATE()", cts.Token);
     /// </code>
     /// </example>
     public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)

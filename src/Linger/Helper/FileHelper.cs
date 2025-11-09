@@ -181,6 +181,7 @@ public static partial class FileHelper
     /// </summary>
     /// <param name="directoryPath">指定目录的绝对路径</param>
     /// <param name="searchPattern">模式字符串，"*"代表0或N个字符，"?"代表1个字符。 范例："Log*.xml"表示搜索所有以Log开头的Xml文件。</param>
+    /// <param name="isSearchChild"></param>
     public static bool Contains(string directoryPath, string searchPattern, bool isSearchChild = false)
     {
         if (string.IsNullOrEmpty(directoryPath) || string.IsNullOrEmpty(searchPattern))

@@ -10,7 +10,7 @@ namespace Linger.Helper;
 /// Helper class for creating and manipulating expressions.
 /// <example>
 /// <code>
-/// var expression = ExpressionHelper.True&lt;MyClass&gt;();
+/// var expression = ExpressionHelper.True<MyClass>();
 /// // Returns: p => true
 /// </code>
 /// </example>
@@ -41,7 +41,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.True&lt;MyClass&gt;();
+    /// var expression = ExpressionHelper.True<MyClass>();
     /// // Returns: p => true
     /// </code>
     /// </example>
@@ -57,7 +57,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.False&lt;MyClass&gt;();
+    /// var expression = ExpressionHelper.False<MyClass>();
     /// // Returns: p => false
     /// </code>
     /// </example>
@@ -75,7 +75,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.GetOrderExpression&lt;MyClass, int&gt;("MyProperty");
+    /// var expression = ExpressionHelper.GetOrderExpression<MyClass, int>("MyProperty");
     /// // Returns: p => p.MyProperty
     /// </code>
     /// </example>
@@ -93,7 +93,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.GetOrderExpression&lt;MyClass&gt;("MyProperty");
+    /// var expression = ExpressionHelper.GetOrderExpression<MyClass>("MyProperty");
     /// // Returns: p => p.MyProperty
     /// </code>
     /// </example>
@@ -192,7 +192,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateEqual&lt;MyClass&gt;("MyProperty", 5);
+    /// var expression = ExpressionHelper.CreateEqual<MyClass>("MyProperty", 5);
     /// // Returns: p => p.MyProperty == 5
     /// </code>
     /// </example>
@@ -212,7 +212,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateEqualProperty&lt;MyClass&gt;("Property1", "Property2");
+    /// var expression = ExpressionHelper.CreateEqualProperty<MyClass>("Property1", "Property2");
     /// // Returns: p => p.Property1 == p.Property2
     /// </code>
     /// </example>
@@ -234,7 +234,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateNotEqualProperty&lt;MyClass&gt;("Property1", "Property2");
+    /// var expression = ExpressionHelper.CreateNotEqualProperty<MyClass>("Property1", "Property2");
     /// // Returns: p => p.Property1 != p.Property2
     /// </code>
     /// </example>
@@ -256,7 +256,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateNotEqual&lt;MyClass&gt;("MyProperty", "value");
+    /// var expression = ExpressionHelper.CreateNotEqual<MyClass>("MyProperty", "value");
     /// // Returns: p => p.MyProperty != "value"
     /// </code>
     /// </example>
@@ -276,7 +276,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateGreaterThan&lt;MyClass&gt;("MyProperty", "value");
+    /// var expression = ExpressionHelper.CreateGreaterThan<MyClass>("MyProperty", "value");
     /// // Returns: p => p.MyProperty > "value"
     /// </code>
     /// </example>
@@ -296,8 +296,8 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateLessThan&lt;MyClass&gt;("MyProperty", "value");
-    /// // Returns: p => p.MyProperty &lt; "value"
+    /// var expression = ExpressionHelper.CreateLessThan<MyClass>("MyProperty", "value");
+    /// // Returns: p => p.MyProperty < "value"
     /// </code>
     /// </example>
     public static Expression<Func<T, bool>> CreateLessThan<T>(string propertyName, string propertyValue)
@@ -316,8 +316,8 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateGreaterThanOrEqual&lt;MyClass&gt;("MyProperty", "value");
-    /// // Returns: p => p.MyProperty &gt;= "value"
+    /// var expression = ExpressionHelper.CreateGreaterThanOrEqual<MyClass>("MyProperty", "value");
+    /// // Returns: p => p.MyProperty >= "value"
     /// </code>
     /// </example>
     public static Expression<Func<T, bool>> CreateGreaterThanOrEqual<T>(string propertyName, string propertyValue)
@@ -336,7 +336,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.CreateLessThanOrEqual&lt;MyClass&gt;("MyProperty", "value");
+    /// var expression = ExpressionHelper.CreateLessThanOrEqual<MyClass>("MyProperty", "value");
     /// // Returns: p => p.MyProperty <![CDATA[<=]]> "value"
     /// </code>
     /// </example>
@@ -356,7 +356,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.GetContains&lt;MyClass&gt;("MyProperty", "value");
+    /// var expression = ExpressionHelper.GetContains<MyClass>("MyProperty", "value");
     /// // Returns: p => p.MyProperty.Contains("value")
     /// </code>
     /// </example>
@@ -376,7 +376,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.GetNotContains&lt;MyClass&gt;("MyProperty", "value");
+    /// var expression = ExpressionHelper.GetNotContains<MyClass>("MyProperty", "value");
     /// // Returns: p => !p.MyProperty.Contains("value")
     /// </code>
     /// </example>
@@ -397,7 +397,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.GetContains&lt;MyClass, int&gt;("MyProperty", new int[] {1, 2, 3});
+    /// var expression = ExpressionHelper.GetContains<MyClass, int>("MyProperty", new int[] {1, 2, 3});
     /// // Returns: p => new int[] {1, 2, 3}.Contains(p.MyProperty)
     /// </code>
     /// </example>
@@ -418,7 +418,7 @@ public static class ExpressionHelper
     /// <returns>A lambda expression.</returns>
     /// <example>
     /// <code>
-    /// var expression = ExpressionHelper.GetNotIn&lt;MyClass, int&gt;("MyProperty", new int[] {1, 2, 3});
+    /// var expression = ExpressionHelper.GetNotIn<MyClass, int>("MyProperty", new int[] {1, 2, 3});
     /// // Returns: p => !new int[] {1, 2, 3}.Contains(p.MyProperty)
     /// </code>
     /// </example>
@@ -437,8 +437,8 @@ public static class ExpressionHelper
     /// <returns>A function that orders a queryable collection, or null if the sort list is null or empty.</returns>  
     /// <example>  
     /// <code>  
-    /// var sortList = new List&lt;SortInfo&gt; { new SortInfo { Property = "Name", Direction = SortDirection.Ascending } };  
-    /// var orderByFunc = ExpressionHelper.GetOrderBy&lt;MyClass&gt;(sortList);  
+    /// var sortList = new List<SortInfo> { new SortInfo { Property = "Name", Direction = SortDirection.Ascending } };  
+    /// var orderByFunc = ExpressionHelper.GetOrderBy<MyClass>(sortList);  
     /// var orderedQueryable = orderByFunc(myQueryable);  
     /// </code>  
     /// </example>  
@@ -472,9 +472,9 @@ public static class ExpressionHelper
     /// <returns>A function that orders a queryable collection.</returns>  
     /// <example>  
     /// <code>  
-    /// var orderColumns = new List&lt;string&gt; { "Name", "Age" };  
-    /// var orderDirs = new List&lt;string&gt; { "asc", "desc" };  
-    /// var orderByFunc = ExpressionHelper.GetOrderBy&lt;MyClass&gt;(orderColumns, orderDirs);  
+    /// var orderColumns = new List<string> { "Name", "Age" };  
+    /// var orderDirs = new List<string> { "asc", "desc" };  
+    /// var orderByFunc = ExpressionHelper.GetOrderBy<MyClass>(orderColumns, orderDirs);  
     /// var orderedQueryable = orderByFunc(myQueryable);  
     /// </code>  
     /// </example>  
@@ -529,8 +529,8 @@ public static class ExpressionHelper
     /// <returns>A lambda expression for filtering the collection.</returns>  
     /// <example>  
     /// <code>  
-    /// var conditions = new List&lt;Condition&gt; { new Condition { Field = "Name", Op = CompareOperator.Equals, Value = "John" } };  
-    /// var filterLambda = ExpressionHelper.BuildLambda&lt;MyClass&gt;(conditions);  
+    /// var conditions = new List<Condition> { new Condition { Field = "Name", Op = CompareOperator.Equals, Value = "John" } };  
+    /// var filterLambda = ExpressionHelper.BuildLambda<MyClass>(conditions);  
     /// var filteredQueryable = myQueryable.Where(filterLambda);  
     /// </code>  
     /// </example>  
@@ -598,8 +598,8 @@ public static class ExpressionHelper
     /// <returns>A lambda expression for filtering the collection using the AndAlso operator.</returns>  
     /// <example>  
     /// <code>  
-    /// var conditions = new List&lt;Condition&gt; { new Condition { Field = "Age", Op = CompareOperator.GreaterThan, Value = 30 } };  
-    /// var filterLambda = ExpressionHelper.BuildAndAlsoLambda&lt;MyClass&gt;(conditions);  
+    /// var conditions = new List<Condition> { new Condition { Field = "Age", Op = CompareOperator.GreaterThan, Value = 30 } };  
+    /// var filterLambda = ExpressionHelper.BuildAndAlsoLambda<MyClass>(conditions);  
     /// var filteredQueryable = myQueryable.Where(filterLambda);  
     /// </code>  
     /// </example>  
@@ -628,163 +628,75 @@ public static class ExpressionHelper
         return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
     }
 
-    /// <summary>  
-    /// Builds a lambda expression for filtering a queryable collection using the OrElse operator.  
-    /// </summary>  
-    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
-    /// <param name="conditions">A collection of <see cref="Condition"/> objects representing the filter conditions.</param>  
-    /// <returns>A lambda expression for filtering the collection using the OrElse operator.</returns>  
-    /// <example>  
-    /// <code>  
-    /// var conditions = new List&lt;Condition&gt; { new Condition { Field = "Age", Op = CompareOperator.LessThan, Value = 20 } };  
-    /// var filterLambda = ExpressionHelper.BuildOrElseLambda&lt;MyClass&gt;(conditions);  
-    /// var filteredQueryable = myQueryable.Where(filterLambda);  
-    /// </code>  
-    /// </example>  
-    public static Expression<Func<T, bool>> BuildOrElseLambda<T>(IEnumerable<Condition>? conditions)
+    /// <summary>
+    /// Determines whether the specified string contains only a combination of English letters and numbers.
+    /// </summary>
+    /// <param name="input">The string to validate.</param>
+    /// <param name="minLength">The minimum length of the string.</param>
+    /// <param name="maxLength">The maximum length of the string.</param>
+    /// <returns>True if the string contains only a combination of English letters and numbers; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "abc123".IsCombinationOfEnglishNumber();        // true
+    /// bool ok2 = "a1".IsCombinationOfEnglishNumber(2, null);     // true (>=2)
+    /// bool no1 = "abcdef".IsCombinationOfEnglishNumber();        // false (no digit)
+    /// bool no2 = "123456".IsCombinationOfEnglishNumber();        // false (no letter)
+    /// </code>
+    /// </example>
+    public static bool IsCombinationOfEnglishNumber(this string input, int? minLength = null, int? maxLength = null)
     {
-        if (conditions is null)
-        {
-            return x => true;
-        }
-
-        var list = conditions as IList<Condition> ?? conditions.ToList();
-        if (list.Count == 0)
-        {
-            return x => true;
-        }
-
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-        Expression? combined = null;
-        foreach (var c in list)
-        {
-            var exp = GetExpression(parameter, c);
-            combined = combined is null ? exp : Expression.OrElse(combined, exp);
-        }
-
-        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
+        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: false);
+        return regex.IsMatch(input);
     }
 
-    /// <summary>  
-    /// Generates an expression for a single condition.  
-    /// </summary>  
-    /// <param name="parameter">The parameter expression representing the element.</param>  
-    /// <param name="condition">The condition to be applied.</param>  
-    /// <returns>An expression representing the condition.</returns>  
-    private static Expression GetExpression(Expression parameter, Condition condition)
+    /// <summary>
+    /// Determines whether the specified string contains only a combination of English letters, numbers, and special characters.
+    /// </summary>
+    /// <param name="input">The string to validate.</param>
+    /// <param name="minLength">The minimum length of the string.</param>
+    /// <param name="maxLength">The maximum length of the string.</param>
+    /// <returns>True if the string contains only a combination of English letters, numbers, and special characters; otherwise, false.</returns>
+    /// <example>
+    /// <code>
+    /// bool ok = "Ab1!".IsCombinationOfEnglishNumberSymbol(3, 10); // true
+    /// bool no = "Ab1".IsCombinationOfEnglishNumberSymbol();        // false (no symbol)
+    /// </code>
+    /// </example>
+    public static bool IsCombinationOfEnglishNumberSymbol(this string input, int? minLength = null,
+        int? maxLength = null)
     {
-        MemberExpression propertyParam = Expression.Property(parameter, condition.Field);
+        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: true);
+        return regex.IsMatch(input);
+    }
 
-        var propertyInfo = propertyParam.Member as PropertyInfo ?? throw new MissingMemberException(nameof(Condition), condition.Field);
-        Type realPropertyType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
-        if (propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+    private static readonly ConcurrentDictionary<string, Regex> s_combinationRegexCache = new();
+
+    private static Regex GetCombinationRegex(int? minLength, int? maxLength, bool withSymbol)
+    {
+        // Base fragments are identical to the previous inline patterns
+        var core = withSymbol
+            ? @"(?=.*\d)(?=.*[a-zA-Z])(?=.*[^a-zA-Z\d])."
+            : @"(?=.*\d)(?=.*[a-zA-Z])[a-zA-Z0-9]";
+
+        string pattern;
+        if (minLength is null && maxLength is null)
         {
-            propertyParam = Expression.Property(propertyParam, "Value");
+            pattern = $"^{core}+$";
         }
-
-        if (condition.Op is not CompareOperator.StdIn and not CompareOperator.StdNotIn)
+        else if (minLength is not null && maxLength is null)
         {
-            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, CultureInfo.InvariantCulture);
+            pattern = $"^{core}{{{minLength},}}$";
+        }
+        else if (minLength is null && maxLength is not null)
+        {
+            pattern = $"^{core}{{1,{maxLength}}}$";
         }
         else
         {
-            if (condition.Value != null)
-            {
-                Type typeOfValue = condition.Value.GetType();
-                Type typeOfList = typeof(IEnumerable<>).MakeGenericType(realPropertyType);
-                if (typeOfValue.IsGenericType && typeOfList.IsAssignableFrom(typeOfValue))
-                {
-                    var toArrayDef = GetCachedMethod(typeof(Enumerable), "ToArray", 1);
-                    condition.Value = toArrayDef
-                        ?.MakeGenericMethod(realPropertyType)
-                        .Invoke(null, [condition.Value]);
-                }
-            }
+            pattern = $"^{core}{{{minLength},{maxLength}}}$";
         }
 
-        ConstantExpression constantParam = Expression.Constant(condition.Value);
-        return condition.Op switch
-        {
-            CompareOperator.Equals => Expression.Equal(propertyParam, constantParam),
-            CompareOperator.NotEquals => Expression.NotEqual(propertyParam, constantParam),
-            CompareOperator.Contains => Expression.Call(propertyParam, "Contains", null, constantParam),
-            CompareOperator.NotContains => Expression.Not(Expression.Call(propertyParam, "Contains", null, constantParam)),
-            CompareOperator.StartsWith => Expression.Call(propertyParam, "StartsWith", null, constantParam),
-            CompareOperator.EndsWith => Expression.Call(propertyParam, "EndsWith", null, constantParam),
-            CompareOperator.GreaterThan => Expression.GreaterThan(propertyParam, constantParam),
-            CompareOperator.GreaterThanOrEquals => Expression.GreaterThanOrEqual(propertyParam, constantParam),
-            CompareOperator.LessThan => Expression.LessThan(propertyParam, constantParam),
-            CompareOperator.LessThanOrEquals => Expression.LessThanOrEqual(propertyParam, constantParam),
-            CompareOperator.StdIn =>
-                Expression.Call(
-                    // Use cached generic Contains (2 parameters)
-                    GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
-                        .MakeGenericMethod(realPropertyType),
-                    constantParam,
-                    propertyParam),
-            CompareOperator.StdNotIn =>
-                Expression.Not(
-                    Expression.Call(
-                        GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
-                            .MakeGenericMethod(realPropertyType),
-                        constantParam,
-                        propertyParam)),
-            _ => throw new NotSupportedException($"{condition.Op} Not Supported")
-        };
+        return s_combinationRegexCache.GetOrAdd(pattern, static p =>
+            new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant));
     }
-
-    /// <summary>  
-    /// Generates an expression for a group of conditions combined with the OrElse operator.  
-    /// </summary>  
-    /// <param name="parameter">The parameter expression representing the element.</param>  
-    /// <param name="orConditions">A collection of conditions to be combined.</param>  
-    /// <returns>An expression representing the combined conditions.</returns>  
-    private static Expression GetGroupExpression(Expression parameter, IEnumerable<Condition> orConditions)
-    {
-        // Build OR chain iteratively to reduce allocations.
-        Expression? combined = null;
-        foreach (var c in orConditions)
-        {
-            var exp = GetExpression(parameter, c);
-            combined = combined is null ? exp : Expression.OrElse(combined, exp);
-        }
-        return combined ?? Expression.Constant(true);
-    }
-
-}
-
-/// <summary>
-/// Represents a query condition.
-/// </summary>
-/// <example>
-/// <code>
-/// var condition = new Condition { Field = "MyField", Op = CompareOperator.Equals, Value = "MyValue" };
-/// </code>
-/// </example>
-[Serializable]
-public class Condition
-{
-    /// <summary>
-    /// Gets or sets the field name.
-    /// </summary>
-    /// <value>The name of the field.</value>
-    public string Field { get; set; } = null!;
-
-    /// <summary>
-    /// Gets or sets the comparison operator.
-    /// </summary>
-    /// <value>The comparison operator.</value>
-    public CompareOperator Op { get; set; }
-
-    /// <summary>
-    /// Gets or sets the field value.
-    /// </summary>
-    /// <value>The value of the field.</value>
-    public object? Value { get; set; }
-
-    /// <summary>
-    /// Gets or sets the group name for OR conditions.
-    /// </summary>
-    /// <value>The group name for OR conditions.</value>
-    public string? OrGroup { get; set; }
 }

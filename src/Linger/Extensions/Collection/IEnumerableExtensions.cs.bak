@@ -58,7 +58,7 @@ public static partial class IEnumerableExtensions
         }
     }
 
-#if !NETFRAMEWORK || NET462_OR_GREATER
+    #if !NETFRAMEWORK || NET462_OR_GREATER
 
     /// <summary>
     /// Check if the <see cref="CustomAttributeData"/> enumerable contains the specified <see cref="Attribute"/>.
@@ -81,7 +81,7 @@ public static partial class IEnumerableExtensions
         return customs.Any(a => a.AttributeType == type);
     }
 
-#endif
+    #endif
 
     /// <summary>
     /// Converts an <see cref="IEnumerable{T}"/> to a <see cref="DataTable"/>.
@@ -362,3 +362,4 @@ public static partial class IEnumerableExtensions
         return source.ToList();
     }
 }
+

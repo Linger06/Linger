@@ -1,4 +1,4 @@
-using Linger.SharedKernel;
+namespace Linger.SharedKernel;
 
 /// <summary>
 /// 分页搜索类，继承基础搜索功能并添加分页支持

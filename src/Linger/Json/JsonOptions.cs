@@ -121,13 +121,13 @@ public static class JsonOptions
     /// <code>
     /// // 场景 1: 在 ASP.NET Core WebAPI 中配置(推荐)
     /// builder.Services.AddControllers()
-    ///     .AddJsonOptions(options => 
+    ///     .AddJsonOptions(options =>
     ///         JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
-    /// 
+    ///
     /// // 场景 2: 创建新实例并应用配置
     /// var webApiOptions = new JsonSerializerOptions();
     /// JsonOptions.ApplyDefaultConfiguration(webApiOptions);
-    /// 
+    ///
     /// // 场景 3: 先应用配置,再自定义
     /// builder.Services.AddControllers()
     ///     .AddJsonOptions(options =>
@@ -158,7 +158,7 @@ public static class JsonOptions
 
         foreach (var converter in convertersToAdd)
         {
-            if (!options.Converters.Any(c => c.GetType() == converter.GetType()))
+            if (options.Converters.All(c => c.GetType() != converter.GetType()))
             {
                 options.Converters.Add(converter);
             }

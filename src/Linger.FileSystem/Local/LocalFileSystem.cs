@@ -211,7 +211,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                         }
 
                         // 获取哈希值
-                        sourceHashData = BitConverter.ToString(md5.GetHashAndReset()).Replace("-", string.Empty).ToLowerInvariant();
+                        sourceHashData = md5.GetHashAndReset().ToMd5HashCode();
 
                         // 使用哈希值生成文件路径
                         var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
@@ -292,7 +292,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                         }
 
                         // 获取哈希值用于验证
-                        sourceHashData = BitConverter.ToString(md5.GetHashAndReset()).Replace("-", string.Empty).ToLowerInvariant();
+                        sourceHashData = md5.GetHashAndReset().ToMd5HashCode();
                     }
                     finally
                     {
@@ -442,12 +442,12 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// // 允许覆盖的情况
     /// var path1 = GetDestFilePath("uploads", "document.pdf", overwrite: true, useSequencedName: false);
     /// // 返回: "uploads/document.pdf"（无论是否存在都直接覆盖）
-    /// 
+    ///
     /// // 使用序号命名的情况
     /// var path2 = GetDestFilePath("uploads", "document.pdf", overwrite: false, useSequencedName: true);
     /// // 如果document.pdf存在，返回: "uploads/document[1].pdf"
     /// // 如果document[1].pdf也存在，返回: "uploads/document[2].pdf"，以此类推
-    /// 
+    ///
     /// // 严格模式（不允许重复）
     /// var path3 = GetDestFilePath("uploads", "document.pdf", overwrite: false, useSequencedName: false);
     /// // 如果document.pdf存在，抛出 DuplicateFileException
@@ -519,12 +519,12 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <code>
     /// // 下载文件到当前目录，如果存在则使用序号命名
     /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf");
-    /// 
+    ///
     /// // 下载文件并直接覆盖同名文件
     /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf", overwrite: true);
-    /// 
+    ///
     /// // 下载文件，如果存在同名文件则抛出异常
-    /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf", 
+    /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf",
     ///     overwrite: false, useSequencedName: false);
     /// </code>
     /// </example>
@@ -579,8 +579,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <summary>
     /// 从本地文件系统下载文件到流（简化版本，用于向后兼容）
     /// </summary>
-    /// <param name="filePath">源文件路径</param>
-    /// <param name="destStream">目标流</param>
     public async Task DownloadToStreamAsync(string filePath, Stream destStream)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
@@ -634,17 +632,17 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// // 基本使用 - 仅文件名
     /// var path1 = await GetUniqueDestFilePathAsync("document.pdf", false, true);
     /// // 如果document.pdf存在，可能返回: "document[1].pdf"
-    /// 
+    ///
     /// // 包含相对路径的文件名
     /// var path2 = await GetUniqueDestFilePathAsync("downloads\\document.pdf", false, true);
     /// // 会自动创建downloads目录，如果文件存在可能返回: "downloads\\document[1].pdf"
-    /// 
+    ///
     /// // 允许覆盖的情况
     /// var path3 = await GetUniqueDestFilePathAsync("temp\\file.txt", true, false);
     /// // 返回: "temp\\file.txt"，会创建temp目录并允许覆盖
-    /// 
+    ///
     /// // 严格模式
-    /// try 
+    /// try
     /// {
     ///     var path4 = await GetUniqueDestFilePathAsync("existing.txt", false, false);
     /// }

@@ -3,19 +3,19 @@ using System.Globalization;
 namespace Linger.Excel.Contracts.Utils;
 
 /// <summary>
-/// Excel 值转换工具
+/// Excel值转换工�?
 /// </summary>
 public static class ExcelValueConverter
 {
     /// <summary>
-    /// 将 Excel 值转换为 .NET 数据类型。
+    /// 将Excel值转换为.NET数据类型
     /// </summary>
-    /// <param name="value">Excel 单元格的值</param>
-    /// <param name="isDateFormat">是否为日期格式</param>
-    /// <returns>转换后的值</returns>
+    /// <param name="value">Excel�?/param>
+    /// <param name="isDateFormat">是否为日期格�?/param>
+    /// <returns>转换后的�?/returns>
     public static object ConvertToDbValue(object? value, bool isDateFormat = false)
     {
-        // 空值处理
+        // 空值处�?
         if (value == null || value is DBNull)
             return DBNull.Value;
 
@@ -29,7 +29,7 @@ public static class ExcelValueConverter
             if (value is DateTime dateTime)
                 return dateTime;
 
-            // 处理OLE自动化日期（Excel 中的数字日期表示）
+            // 处理OLE自动化日期（Excel中的数字日期�?
             if (value is double numericDate)
             {
                 try
@@ -51,7 +51,7 @@ public static class ExcelValueConverter
             }
         }
 
-        // 数值类型处理
+        // 数值类型处�?
         if (value is double d)
         {
             if (Math.Abs(d - Math.Round(d)) < double.Epsilon)
@@ -63,13 +63,13 @@ public static class ExcelValueConverter
             return d;
         }
 
-        // 处理其他数值类型
+        // 处理其他数值类�?
         if (value is decimal m)
             return m;
         if (value is float f)
             return f;
 
-        // 布尔值处理
+        // 布尔值处�?
         if (value is string boolStr)
         {
             var boolValue = boolStr.ToBoolOrNull();
@@ -85,7 +85,7 @@ public static class ExcelValueConverter
                 return guidValue.Value;
         }
 
-        // 默认情况下返回原值
+        // 默认情况下返回原�?
         return value;
     }
 

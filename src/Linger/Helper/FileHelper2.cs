@@ -158,7 +158,7 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
-                CopyFolder(d, varToDirectory + d.Substring(d.LastIndexOf("\\", StringComparison.Ordinal)));
+                CopyFolder(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
             }
         }
 
@@ -167,7 +167,7 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
-                File.Copy(s, varToDirectory + s.Substring(s.LastIndexOf("\\", StringComparison.Ordinal)), true);
+                File.Copy(s, varToDirectory + s.Substring(s.LastIndexOf('\\')), true);
             }
         }
     }
@@ -192,7 +192,7 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
-                DeleteFolderFiles(d, varToDirectory + d.Substring(d.LastIndexOf("\\", StringComparison.Ordinal)));
+                DeleteFolderFiles(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
             }
         }
 
@@ -202,7 +202,7 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
-                File.Delete(varToDirectory + s.Substring(s.LastIndexOf("\\", StringComparison.Ordinal)));
+                File.Delete(varToDirectory + s.Substring(s.LastIndexOf('\\')));
             }
         }
     }

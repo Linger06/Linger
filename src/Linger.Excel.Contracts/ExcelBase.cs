@@ -776,7 +776,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         string[] columnNames;
         var columns = GetExcelColumns(properties);
 
-        if (columns.Any())
+        if (columns.Count != 0)
         {
             // 使用特性标记的列名,按Index排序
             columnNames = columns.OrderBy(c => c.Index).Select(c => c.ColumnName).ToArray();

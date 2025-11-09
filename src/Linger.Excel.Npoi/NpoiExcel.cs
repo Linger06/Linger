@@ -214,7 +214,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// <returns>如果该行为空则返回true</returns>
     /// <remarks>
     /// NPOI提供了原生的FirstCellNum属性来快速判断行是否为空：
-    /// - FirstCellNum < 0 表示该行所有单元格都为空
+    /// - FirstCellNum t&lt; 0 表示该行所有单元格都为空
     /// - 也可以使用 PhysicalNumberOfCells == 0 来判断
     /// </remarks>
     protected override bool IsRowEmpty(ISheet worksheet, int rowNum)

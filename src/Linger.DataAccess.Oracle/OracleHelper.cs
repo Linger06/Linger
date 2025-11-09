@@ -67,7 +67,6 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     ///     异步检查数据是否存在（参数化查询版本）
     /// </summary>
     /// <param name="sql">SQL查询语句</param>
-    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">SQL参数</param>
     /// <returns>如果存在返回true，否则返回false</returns>
     /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
@@ -132,7 +131,6 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     ///     异步执行查询语句，返回DataSet （参数化查询版本）
     /// </summary>
     /// <param name="sqlString">查询语句</param>
-    /// <param name="cancellationToken">取消令牌</param>
     /// <param name="parameters">SQL参数</param>
     /// <returns>DataSet</returns>
     /// <exception cref="ArgumentNullException">当sqlString或parameters为null时抛出</exception>

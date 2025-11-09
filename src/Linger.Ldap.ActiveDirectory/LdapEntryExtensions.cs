@@ -99,7 +99,7 @@ public static class LdapEntryExtensions
         }
     }
 
-    private static string[]? GetMemberOf(System.DirectoryServices.DirectoryEntry entry)
+    private static string[]? GetMemberOf(DirectoryEntry entry)
     {
         try
         {
@@ -138,8 +138,8 @@ public static class LdapEntryExtensions
 
             // 获取域控制器�?DirectoryEntry
             using var de = user.Context.ConnectedServer != null
-                ? new System.DirectoryServices.DirectoryEntry($"LDAP://{user.Context.ConnectedServer}")
-                : new System.DirectoryServices.DirectoryEntry();
+                ? new DirectoryEntry($"LDAP://{user.Context.ConnectedServer}")
+                : new DirectoryEntry();
 
             // 获取最大密码期限（�?00纳秒为单位的负值）
             var maxPwdAge = (long?)de.Properties["maxPwdAge"].Value;
@@ -190,7 +190,7 @@ public static class LdapEntryExtensions
         // 联系信息
         MapContactInfo(userInfo, entry);
 
-        // 组织信息 
+        // 组织信息
         MapOrganizationInfo(userInfo, entry);
 
         // 地址信息
@@ -309,7 +309,7 @@ public static class LdapEntryExtensions
     }
 
     private static bool IsAccountDisabled(int userAccountControl) =>
-        (userAccountControl & ActiveDirectoryConstants.UserAccountControl.Disabled) != 0;
+        (userAccountControl & UserAccountControl.Disabled) != 0;
 
     private static bool IsAccountLocked(DirectoryEntry entry)
     {
@@ -377,7 +377,7 @@ public static class LdapEntryExtensions
             : DateTime.FromFileTime(lastSetValue).ToString(CultureInfo.InvariantCulture);
 
         userInfo.PwdExpirationLeftDays =
-            (userAccountControl & ActiveDirectoryConstants.UserAccountControl.PasswordNeverExpires) != 0
+            (userAccountControl & UserAccountControl.PasswordNeverExpires) != 0
                 ? PasswordStatus.NeverExpires
                 : GetPasswordExpirationInfo(entry, lastSetValue);
     }

@@ -976,7 +976,7 @@ public class Excel : IExcel
             columns.ForEach((column, columnIndex) =>
             {
                 ExcelRange? cell = worksheet.Cells[titleIndex + rowIndex + 2, columnIndex + 1];
-                PropertyInfo? property = properties.Where(a => a.Name == column.Item1).FirstOrDefault();
+                PropertyInfo? property = properties.FirstOrDefault(a => a.Name == column.Item1);
                 var value = property!.GetValue(row);
 
                 if (value != null && property.PropertyType == typeof(DateTime))

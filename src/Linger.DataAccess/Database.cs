@@ -280,7 +280,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters, default).ConfigureAwait(false);
+        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters, CancellationToken.None).ConfigureAwait(false);
         return dr.ReaderToDataTable();
     }
 
@@ -362,7 +362,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return GetDataSetAsync(CommandType.Text, sql, parameters, default);
+        return GetDataSetAsync(CommandType.Text, sql, parameters, CancellationToken.None);
     }
 
     /// <summary>
@@ -458,6 +458,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     查询数据、返回条数
     /// </summary>
     /// <param name="sql">Sql语句</param>
+    /// <param name="cancellationToken"></param>
     /// <returns></returns>
     public async Task<int> FindCountBySqlAsync(string sql, CancellationToken cancellationToken = default)
     {
@@ -530,7 +531,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<object?> FindMaxBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return await ExecuteScalarAsync(CommandType.Text, sql, parameters, default).ConfigureAwait(false);
+        return await ExecuteScalarAsync(CommandType.Text, sql, parameters, CancellationToken.None).ConfigureAwait(false);
     }
 
     #endregion

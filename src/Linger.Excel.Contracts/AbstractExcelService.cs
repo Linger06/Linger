@@ -554,12 +554,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         // 使用现有方法创建模板
         var result = CollectionToMemoryStream(list, type.Name, $"{type.Name} 模板");
 
-        if (result == null)
-        {
-            throw new InvalidOperationException($"创建 {type.Name} Excel模板失败");
-        }
-
-        return result;
+        return result ?? throw new InvalidOperationException($"创建 {type.Name} Excel模板失败");
     }
 
     #endregion

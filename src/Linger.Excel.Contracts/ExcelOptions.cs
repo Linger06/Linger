@@ -14,7 +14,7 @@ namespace Linger.Excel.Contracts;
 ///     PerformanceThreshold = 1000
 /// };
 /// </code>
-/// 
+///
 /// 带样式配置的完整示例：
 /// <code>
 /// var options = new ExcelOptions
@@ -101,5 +101,5 @@ public class ExcelOptions
     /// <summary>
     /// 样式配置选项
     /// </summary>
-    public ExcelStyleOptions StyleOptions { get; set; } = new ExcelStyleOptions();
+    public ExcelStyleOptions StyleOptions { get; set; } = new();
 }

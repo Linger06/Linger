@@ -74,7 +74,6 @@ public static class ResultFunctionalExtensions
     /// <summary>
     /// 多个结果合并为一个结果
     /// </summary>
-    /// <typeparam name="TValue">值类型</typeparam>
     /// <param name="results">要合并的结果集合</param>
     /// <returns>合并后的单一结果</returns>
     public static Result Combine(this IEnumerable<Result> results)
