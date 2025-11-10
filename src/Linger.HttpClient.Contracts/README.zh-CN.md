@@ -136,22 +136,22 @@ else
 
 ### JSON 配置统一管理
 
-推荐使用 `Linger.Json.JsonOptions` 获取统一的 JSON 配置:
+推荐使用 `Linger.Json.JsonDefaults` 获取统一的 JSON 配置:
 
 ```csharp
 using Linger.Json;
 
 // 使用工厂方法获取预配置的选项
-var responseOptions = JsonOptions.CreateResponseOptions();  // HTTP 响应
-var requestOptions = JsonOptions.CreateRequestOptions();    // HTTP 请求
+var responseOptions = JsonDefaults.CreateResponseOptions();  // HTTP 响应
+var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP 请求
 
 // 在 WebAPI 中应用配置
 builder.Services.AddControllers()
     .AddJsonOptions(options => 
-        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 ```
 
-详细配置说明请参考 `Linger/Json/JsonOptions.README.zh-CN.md`
+详细配置说明请参考 `Linger/Json/JsonDefaults.README.zh-CN.md`
 
 ### 自定义配置
 

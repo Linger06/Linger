@@ -1,10 +1,10 @@
 # JSON 序列化配置
 
-`JsonOptions` 提供统一的 JSON 序列化选项配置，用于 HTTP 客户端和 ASP.NET Core WebAPI 应用程序。
+`JsonDefaults` 提供统一的 JSON 序列化选项配置，用于 HTTP 客户端和 ASP.NET Core WebAPI 应用程序。
 
 ## 概述
 
-JsonOptions 提供了集中式的 JSON 序列化选项,遵循严进宽出原则:
+`JsonDefaults` 提供了集中式的 JSON 序列化选项,遵循严进宽出原则:
 
 - 响应/输入选项 CreateResponseOptions: 宽松配置,用于反序列化 API 响应
 - 请求/输出选项 CreateRequestOptions: 严格配置,用于序列化 API 请求  
@@ -23,7 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
     .AddJsonOptions(options => 
-        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
 var app = builder.Build();
 ```
@@ -36,7 +36,7 @@ using Linger.JsonConverter;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options=>
-    JsonOptions.ApplyDefaultConfiguration(options.SerializerOptions));
+    JsonDefaults.ApplyDefaultConfiguration(options.SerializerOptions));
 
 var app = builder.Build();
 ```
@@ -49,7 +49,7 @@ var app = builder.Build();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions);
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions);
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
     });
 ```
@@ -60,10 +60,10 @@ builder.Services.AddControllers()
 using Linger.JsonConverter;
 
 var webApiOptions = new JsonSerializerOptions();
-JsonOptions.ApplyDefaultConfiguration(webApiOptions);
+JsonDefaults.ApplyDefaultConfiguration(webApiOptions);
 
-var responseOptions = JsonOptions.CreateResponseOptions();
-var requestOptions = JsonOptions.CreateRequestOptions();
+var responseOptions = JsonDefaults.CreateResponseOptions();
+var requestOptions = JsonDefaults.CreateRequestOptions();
 ```
 
 ## 方法详解
@@ -112,7 +112,7 @@ var requestOptions = JsonOptions.CreateRequestOptions();
 
 ## 相关类型
 
-- JsonOptions - JSON 选项工厂类
+- JsonDefaults - JSON 默认配置工具类
 - DateTimeConverter - DateTime 序列化转换器
 - DateTimeNullConverter - 可空 DateTime 转换器
 - DataTableJsonConverter - DataTable 序列化转换器

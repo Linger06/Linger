@@ -1,10 +1,10 @@
 # JSON Serialization Configuration
 
-JsonOptions provides unified JSON serialization configuration for HTTP clients and ASP.NET Core WebAPI applications.
+`JsonDefaults` provides unified JSON serialization configuration for HTTP clients and ASP.NET Core WebAPI applications.
 
 ## Overview
 
-JsonOptions provides centralized JSON serialization options that follow the "Be conservative in what you send, be liberal in what you accept" principle:
+`JsonDefaults` provides centralized JSON serialization options that follow the "Be conservative in what you send, be liberal in what you accept" principle:
 
 - Response/Input Options (CreateResponseOptions): Liberal configuration for deserializing API responses
 - Request/Output Options (CreateRequestOptions): Conservative configuration for serializing API requests
@@ -23,7 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
     .AddJsonOptions(options => 
-        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
 var app = builder.Build();
 ```
@@ -36,7 +36,7 @@ using Linger.JsonConverter;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
-    JsonOptions.ApplyDefaultConfiguration(options.SerializerOptions));
+    JsonDefaults.ApplyDefaultConfiguration(options.SerializerOptions));
 
 var app = builder.Build();
 ```
@@ -51,7 +51,7 @@ using Linger.JsonConverter;
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions);
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions);
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
     });
 ```
@@ -62,10 +62,10 @@ builder.Services.AddControllers()
 using Linger.JsonConverter;
 
 var jsonOptions = new JsonSerializerOptions();
-JsonOptions.ApplyDefaultConfiguration(jsonOptions);
+JsonDefaults.ApplyDefaultConfiguration(jsonOptions);
 
-var responseOptions = JsonOptions.CreateResponseOptions();
-var requestOptions = JsonOptions.CreateRequestOptions();
+var responseOptions = JsonDefaults.CreateResponseOptions();
+var requestOptions = JsonDefaults.CreateRequestOptions();
 ```
 
 ## Features
@@ -111,7 +111,7 @@ The following custom converters are included in the configuration:
 
 ## Related Types
 
-- JsonOptions - JSON options factory class
+- JsonDefaults - JSON default configuration utility class
 - DateTimeConverter - DateTime serialization converter
 - DateTimeNullConverter - Nullable DateTime converter
 - DataTableJsonConverter - DataTable serialization converter

@@ -7,7 +7,7 @@ namespace Linger.Json;
 /// <summary>
 /// 提供统一的 JSON 序列化选项配置
 /// </summary>
-public static class JsonOptions
+public static class JsonDefaults
 {
     /// <summary>
     /// 创建用于 HTTP 响应反序列化的 JSON 序列化选项。
@@ -30,7 +30,7 @@ public static class JsonOptions
     /// <example>
     /// <code>
     /// // 在 HTTP 客户端中使用
-    /// var options = JsonOptions.CreateResponseOptions();
+    /// var options = JsonDefaults.CreateResponseOptions();
     /// var response = await httpClient.GetStringAsync("/api/data");
     /// var data = JsonSerializer.Deserialize&lt;MyModel&gt;(response, options);
     /// </code>
@@ -76,7 +76,7 @@ public static class JsonOptions
     /// <example>
     /// <code>
     /// // 在 HTTP 客户端中使用
-    /// var options = JsonOptions.CreateRequestOptions();
+    /// var options = JsonDefaults.CreateRequestOptions();
     /// var json = JsonSerializer.Serialize(requestData, options);
     /// var content = new StringContent(json, Encoding.UTF8, "application/json");
     /// await httpClient.PostAsync("/api/data", content);
@@ -122,17 +122,17 @@ public static class JsonOptions
     /// // 场景 1: 在 ASP.NET Core WebAPI 中配置(推荐)
     /// builder.Services.AddControllers()
     ///     .AddJsonOptions(options =>
-    ///         JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+    ///         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
     ///
     /// // 场景 2: 创建新实例并应用配置
     /// var webApiOptions = new JsonSerializerOptions();
-    /// JsonOptions.ApplyDefaultConfiguration(webApiOptions);
+    /// JsonDefaults.ApplyDefaultConfiguration(webApiOptions);
     ///
     /// // 场景 3: 先应用配置,再自定义
     /// builder.Services.AddControllers()
     ///     .AddJsonOptions(options =>
     ///     {
-    ///         JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions);
+    ///         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions);
     ///         options.JsonSerializerOptions.WriteIndented = true; // 额外配置
     ///     });
     /// </code>

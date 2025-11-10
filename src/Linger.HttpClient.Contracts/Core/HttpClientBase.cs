@@ -17,13 +17,13 @@ public abstract class HttpClientBase : IHttpClient
     /// 获取用于响应反序列化的默认 JSON 序列化选项。
     /// 配置了安全加固和对数字的只读宽容处理。
     /// </summary>
-    protected static JsonSerializerOptions DefaultResponseOptions { get; } = JsonOptions.CreateResponseOptions();
+    protected static JsonSerializerOptions DefaultResponseOptions { get; } = JsonDefaults.CreateResponseOptions();
 
     /// <summary>
     /// 获取用于请求序列化的默认 JSON 序列化选项。
     /// 配置了标准 Web 默认值和必要的转换器。
     /// </summary>
-    protected static JsonSerializerOptions DefaultRequestOptions { get; } = JsonOptions.CreateRequestOptions();
+    protected static JsonSerializerOptions DefaultRequestOptions { get; } = JsonDefaults.CreateRequestOptions();
 
     /// <summary>
     /// HTTP客户端选项

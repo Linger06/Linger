@@ -136,22 +136,22 @@ else
 
 ### Unified JSON Configuration Management
 
-It's recommended to use `Linger.Json.JsonOptions` for unified JSON configuration:
+It's recommended to use `Linger.Json.JsonDefaults` for unified JSON configuration:
 
 ```csharp
 using Linger.Json;
 
 // Use factory methods to get pre-configured options
-var responseOptions = JsonOptions.CreateResponseOptions();  // HTTP responses
-var requestOptions = JsonOptions.CreateRequestOptions();    // HTTP requests
+var responseOptions = JsonDefaults.CreateResponseOptions();  // HTTP responses
+var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP requests
 
 // Apply configuration in WebAPI
 builder.Services.AddControllers()
     .AddJsonOptions(options => 
-        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 ```
 
-For detailed configuration documentation, see `Linger/Json/JsonOptions.README.md`
+For detailed configuration documentation, see `Linger/Json/JsonDefaults.README.md`
 
 ### Custom Configuration
 
