@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;</TargetFrameworks>
-        <Version>1.0.0-preview2</Version>        
+        <Version>1.0.0</Version>        
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <Description>
             Implementation of LDAP client functionality for Active Directory using System.DirectoryServices.
@@ -10,19 +10,11 @@
             information retrieval, group management, and specialized Active Directory operations.
         </Description>
     </PropertyGroup>
-
-    <!-- Stable frameworks using latest stable packages -->
-    <ItemGroup Condition="'$(TargetFramework)'=='net8.0' OR '$(TargetFramework)'=='net9.0' OR '$(TargetFramework)'=='netstandard2.0'">
-        <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.9" />
-        <PackageReference Include="System.DirectoryServices" Version="9.0.9" />
-        <PackageReference Include="System.DirectoryServices.AccountManagement" Version="9.0.9" />
-    </ItemGroup>
-
-    <!-- .NET 10.0 RC using latest preview packages -->
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-        <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0-rc.2.25502.107" />
-        <PackageReference Include="System.DirectoryServices" Version="10.0.0-rc.2.25502.107" />
-        <PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.0-rc.2.25502.107" />
+  
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
+        <PackageReference Include="System.DirectoryServices" Version="10.0.0" />
+        <PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.0" />
     </ItemGroup>
 
     <ItemGroup>

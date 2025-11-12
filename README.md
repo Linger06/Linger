@@ -4,16 +4,18 @@
 
 **Linger is a comprehensive, modular .NET utility library collection designed to accelerate enterprise application development. It provides everything from core utilities and extension methods to advanced features like JWT authentication, data access layers, file system operations, and email services—all with strict type safety, high performance, and cross-platform support.**
 
+[![NuGet](https://img.shields.io/nuget/v/Linger.Utils.svg)](https://www.nuget.org/packages/Linger.Utils/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-9.0%20%7C%208.0%20%7C%20Framework%204.7.2-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
 ## Features
 
 - 🚀 **High Performance** - Zero-overhead type conversions
 - 🔒 **Type Safety** - Strict type safety principles
-- 🔮 **.NET 10 Ready** - Early support for .NET 10 features
+-- 🔮 **.NET 10 Compatible (Now Supported)** - Native support for .NET 10; Polyfills are retained to provide backward compatibility for older target frameworks
 - 📦 **Modular** - Install only what you need
-- 🌐 **Cross-platform** - Supports .NET 9.0, 8.0, Standard 2.0, Framework 4.7.2
+- 🌐 **Cross-platform** - Supports .NET 10.0, 9.0, 8.0, Standard 2.0, Framework 4.7.2
 
 ## Quick Start
 

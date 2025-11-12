@@ -1,4 +1,4 @@
-﻿# Linger.Email
+# Linger.Email
 
 ## Overview
 
@@ -451,6 +451,7 @@ Main email client class that handles SMTP connections and message sending.
 
 ## Supported .NET Versions
 
+- .NET 10.0
 - .NET 9.0
 - .NET 8.0
 - .NET Standard 2.0
@@ -458,12 +459,3 @@ Main email client class that handles SMTP connections and message sending.
 ## Integration
 
 📖 **For ASP.NET Core integration and dependency injection support, see: [Linger.Email.AspNetCore README](../Linger.Email.AspNetCore/README.md)**
-
-## License
-
-This project is licensed under the terms of the license provided with the Linger project.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-

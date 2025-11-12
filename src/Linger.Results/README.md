@@ -1,4 +1,4 @@
-﻿# Linger.Results
+# Linger.Results
 
 A modern operation result handling library designed with a functional style approach, helping developers handle various operation results more elegantly. By using the Result pattern instead of exceptions, it enables more controllable and predictable error handling processes.
 
@@ -8,7 +8,7 @@ A modern operation result handling library designed with a functional style appr
 - Supports generic results that can carry return values of any type
 - Offers rich functional operations (mapping, binding, combining, etc.)
 - Strong typing for error handling, more controllable than exceptions
-- Supports multiple frameworks including .NET 9.0, .NET 8.0, .NET Standard 2.0, and .NET Framework 4.7.2
+- Supports multiple frameworks including .Net10.0, .NET 9.0, .NET 8.0, .NET Standard 2.0, and .NET Framework 4.7.2
 
 ## Installation
 

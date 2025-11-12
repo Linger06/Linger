@@ -26,12 +26,12 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - [Advanced Features](#advanced-features)
 - [Best Practices](#best-practices)
 - [API Standardization & Type Safety](#api-standardization--type-safety)
-  - [.NET 10 Forward-Compatible Design](#net-10-forward-compatible-design)
+  - [.NET 10 Compatibility (Now Supported)](#net-10-compatibility-now-supported)
   - [Strict Type Safety Principles](#strict-type-safety-principles)
 
 ## Features
 
-### ?? Core Extensions
+### 🚀 Core Extensions
 - **String Extensions**: Rich string operations, validation, conversion, and formatting utilities
 - **String Cryptography Extensions**: Secure AES encryption/decryption functionality for data protection
 - **DateTime Extensions**: Date and time manipulation, formatting, and calculations
@@ -41,20 +41,20 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **Array Extensions**: Array processing and manipulation utilities
 - **GUID Extensions**: GUID operation and validation utilities
 
-### ?? Collection Extensions
+### 📦 Collection Extensions
 - **List Extensions**: Enhanced list operations and processing
 - **Collection Extensions**: General collection utilities and transformations
 
-### ?? Data Extensions
+### 💾 Data Extensions
 - **DataTable Extensions**: DataTable operation utilities
 - **Data Conversion**: Safe data type conversion and transformation
 
-### ?? File System Operations
+### 📁 File System Operations
 - **File Helper**: Comprehensive file operations (read, write, copy, move, delete)
 - **Path Helper**: Cross-platform path operations and validation
 - **Directory Operations**: Directory management and traversal utilities
 
-### ?? Helper Classes
+### 🔧 Helper Classes
 - **Expression Helper**: Expression tree operations and utilities
 - **Retry Helper**: Robust retry mechanisms for operations
 - **Property Helper**: Reflection-based property operations
@@ -62,11 +62,11 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **OS Platform Helper**: Cross-platform operating system detection
 - **Parameter Validation Extensions**: Defensive programming and input validation utilities
 
-### ?? JSON Support
+### 🌐 JSON Support
 - **JSON Extensions**: Simplified JSON serialization and deserialization
 - **Custom Converters**: Specialized JSON converters for complex types (DateTime, DataTable, JsonObject, etc.)
-- **JSON Configuration Factory**: `JsonOptions` provides unified JSON serialization configuration
-  - Detailed documentation: `Linger/Json/JsonOptions.README.md`
+- **JSON Defaults**: `JsonDefaults` provides unified JSON serialization configuration
+    - Detailed documentation: `Linger/Json/JsonDefaults.README.md`
 
 ## Installation
 
@@ -76,6 +76,7 @@ dotnet add package Linger.Utils
 
 ## Target Frameworks
 
+- .NET 10.0
 - .NET 9.0
 - .NET 8.0
 - .NET Standard 2.0
@@ -125,11 +126,11 @@ string aesKey = "mySecretKey12345"; // AES key
 string aesEncrypted = data.AesEncrypt(aesKey);    // AES-256-CBC mode, auto-generates random IV
 string aesDecrypted = aesEncrypted.AesDecrypt(aesKey); // Auto-extracts IV and decrypts
 
-// ?? Security Features:
+// ✨ Security Features:
 // - Random IV per encryption, same plaintext produces different ciphertext
 // - Variable key length, internally uses SHA256 to process to 32 bytes
 // - IV automatically included in ciphertext, auto-extracted during decryption
-// ?? Store keys securely, use professional key management solutions in production
+// ⚠️ Store keys securely, use professional key management solutions in production
 ```
 
 ### DateTime Extensions
@@ -194,8 +195,8 @@ list.ForEach(Console.WriteLine); // Print each element
 // Convert to DataTable
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 
-// ?? .NET 10 Compatible Join Operations - Future-Ready Features Today
-// ?? Note: These are polyfill implementations for .NET 10+ built-in methods
+// 🚀 .NET 10+ Join operations — compatibility (now supported)
+// 💡 Note: Polyfill implementations are used on older target frameworks; on .NET 10+ targets the framework native implementations will be used
 
 // Left Join (Left Outer Join) - Keep all left-side records
 var employees = new List<Employee> 
@@ -234,18 +235,18 @@ var fullJoinResult = employees.FullJoin(
     (emp, dept) => new { Employee = emp?.Name ?? "No Employee", Department = dept?.Name ?? "No Department" }
 );
 
-// ?? Simplified version: Returns tuples
+// 💡 Simplified version: Returns tuples
 var tupleResult = employees.LeftJoin(departments, e => e.DeptId, d => d.Id);
 // Returns IEnumerable<Tuple<Employee, Department?>>
 
-// ?? Support for custom equality comparers
+// 💡 Support for custom equality comparers
 var caseInsensitiveJoin = stringList1.LeftJoin(
     stringList2, s => s, s => s,
     (s1, s2) => new { Left = s1, Right = s2 },
     StringComparer.OrdinalIgnoreCase
 );
 
-// ?? .NET 10+ Built-in Compatible: Method signatures match the standard, no code changes required when upgrading
+// ✅ .NET 10+ Built-in Compatible: Method signatures match the standard, no code changes required when upgrading
 ```
 
 ### Object Extensions
@@ -263,14 +264,14 @@ double doubleValue = stringObj.ToDoubleOrDefault(0.0); // Success: 123.0
 object numberObj = 123.45;
 int invalidInt = numberObj.ToIntOrDefault(0);         // Returns 0 (default value)
 
-// ?? Supported numeric type conversions
+// 📊 Supported numeric type conversions
 
 | Method | Range | Method | Range |
 |--------|-------|--------|-------|
 | `ToSByteOrDefault` | -128 to 127 | `ToByteOrDefault` | 0 to 255 |
 | `ToShortOrDefault` | -32,768 to 32,767 | `ToUShortOrDefault` | 0 to 65,535 |
-| `ToIntOrDefault` | ��2.1��10? | `ToUIntOrDefault` | 0 to 4.3��10? |
-| `ToLongOrDefault` | ��9.2��101? | `ToULongOrDefault` | 0 to 1.8��101? |
+| `ToIntOrDefault` | ±2.1×10⁹ | `ToUIntOrDefault` | 0 to 4.3×10⁹ |
+| `ToLongOrDefault` | ±9.2×10¹⁸ | `ToULongOrDefault` | 0 to 1.8×10¹⁹ |
 | `ToFloatOrDefault` | Single precision | `ToDoubleOrDefault` | Double precision |
 | `ToDecimalOrDefault` | High precision | - | - |
 
@@ -283,7 +284,7 @@ bool boolValue = stringObj.ToBoolOrDefault(false);
 object obj = GetSomeObject();
 string result = obj.ToStringOrDefault("default"); // Returns default when null
 
-// ?? Type checking methods (supports all numeric types)
+// 🔍 Type checking methods (supports all numeric types)
 object testObj = (byte)255;
 bool isByte = testObj.IsByte();                      // Check if byte type
 bool isNumeric = testObj.IsNumeric();                // Check if any numeric type
@@ -329,16 +330,16 @@ string name = dynamicObj.Name; // Access properties
 string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
 DataTable? dataTable = jsonArray.ToDataTable();
 
-// 🏭 Use JsonOptions for unified configuration
-var responseOptions = JsonOptions.CreateResponseOptions();  // HTTP responses
-var requestOptions = JsonOptions.CreateRequestOptions();    // HTTP requests
+// 🏭 Use JsonDefaults for unified configuration
+var responseOptions = JsonDefaults.CreateResponseOptions();  // HTTP responses
+var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP requests
 
 // Apply configuration in WebAPI
 builder.Services.AddControllers()
     .AddJsonOptions(options => 
-        JsonOptions.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
-// 💡 For detailed configuration documentation, see: Linger/Json/JsonOptions.README.md
+// 💡 For detailed configuration documentation, see: Linger/Json/JsonDefaults.README.md
 ```
 
 ### GUID Extensions
@@ -417,7 +418,7 @@ using Linger;
 
 public void ProcessData(string data, IEnumerable<int> numbers)
 {
-    // ?? Parameter validation polyfill for pre-.NET 8 versions
+    // 🔄 Parameter validation polyfill for pre-.NET 8 versions
     ArgumentNullException.ThrowIfNull(data);                    // Ensure not null
     ArgumentException.ThrowIfNullOrEmpty(data);                 // Ensure not null or empty string
     ArgumentException.ThrowIfNullOrWhiteSpace(data);            // Ensure not null, empty or whitespace
@@ -578,7 +579,7 @@ Provides forward-compatible Polyfills for BCL APIs & language features (for .NET
 | **Parameter Validation** | `ArgumentNullException.ThrowIfNull` (pre-.NET 6)<br>`ArgumentException.ThrowIfNullOrEmpty/WhiteSpace` (pre-.NET 8) | `Polyfills/ArgumentNullException.cs`<br>`Polyfills/ArgumentException.cs` |
 | **Language Features** | `required` keyword support (C# 11)<br>`RequiredMemberAttribute`, `SetsRequiredMembersAttribute`, `CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **Nullability Attributes** | 11 attributes: `AllowNull`, `NotNull`, `MaybeNullWhen`, `NotNullIfNotNull`, etc. | `Polyfills/NullableAttributes.cs` |
-| **Collection Extensions** | `LeftJoin`, `RightJoin`, `FullJoin` (.NET 10 preview) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |
+| **Collection Extensions** | `LeftJoin`, `RightJoin`, `FullJoin` ( .NET 10 compatible — Polyfills retained for older targets ) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |
 | **Caller Capture** | `CallerArgumentExpressionAttribute` (improves Guard experience) | `Polyfills/CallerArgumentExpressionAttribute.cs` |
 
 ## Dependencies

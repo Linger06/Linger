@@ -1,4 +1,4 @@
-﻿# Linger.Ldap.ActiveDirectory
+# Linger.Ldap.ActiveDirectory
 
 A comprehensive .NET library for Active Directory LDAP operations, providing simplified access to AD user information and authentication.
 
@@ -20,11 +20,12 @@ A comprehensive .NET library for Active Directory LDAP operations, providing sim
 
 
 ## Supported Frameworks
+
+- .NET 10.0
 - .NET 9.0
 - .NET 8.0
 - .NET 6.0
 - .NET Standard 2.0
-- .NET Framework 4.6.2
 
 ## Installation
 

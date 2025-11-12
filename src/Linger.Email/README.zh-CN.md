@@ -485,26 +485,13 @@ await email.SendAsync(alertMessage);
 
 ## 框架支持
 
-- .NET 9.0 ✅
-- .NET 8.0 ✅  
-- .NET Standard 2.0 ✅
+ - .NET 10.0
+ - .NET 9.0
+ - .NET 8.0
+ - .NET Standard 2.0
 
 兼容 Windows、Linux、macOS 等多个平台。
 
 ## 相关项目
 
 📖 **想要在 ASP.NET Core 中使用？** 请查看：[Linger.Email.AspNetCore README](../Linger.Email.AspNetCore/README.md)，提供了依赖注入和配置管理功能。
-
-## 开源许可
-
-本项目遵循 Linger 项目的开源许可协议。
-
-## 参与贡献
-
-我们欢迎各种形式的贡献：
-- 🐛 报告问题和建议改进
-- 💡 提出新功能需求  
-- 🔧 提交代码改进
-- 📖 完善文档说明
-
-请随时提交 Pull Request，让这个项目变得更好！

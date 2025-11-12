@@ -6,6 +6,13 @@
 
 Linger.Ldap.Contracts提供了一组标准化的LDAP操作接口和模型，使得在不同的.NET应用程序中实现一致的LDAP功能变得更加容易。
 
+## 支持的框架
+
+- .NET 10.0
+- .NET 9.0
+- .NET 8.0
+- .NET Standard 2.0
+
 ## 特性
 
 ### 核心契约
@@ -240,9 +247,3 @@ public class LdapConfig
 
 - [Linger.Ldap.ActiveDirectory](../Linger.Ldap.ActiveDirectory/) - 针对Active Directory优化的实现
 - [Linger.Ldap.Novell](../Linger.Ldap.Novell/) - 基于Novell.Directory.Ldap的跨平台实现
-
-## 支持的框架
-
-- .NET Standard 2.0
-- .NET 8.0
-- .NET 9.0

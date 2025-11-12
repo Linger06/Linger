@@ -27,22 +27,22 @@ Linger.Ldap.Contracts provides a set of standardized LDAP operation interfaces a
 In ASP.NET Core projects, you can utilize LDAP services through dependency injection:
 
 ```csharp
-// 在Program.cs或Startup.cs中配置服务
+// Configure services in Program.cs or Startup.cs
 public void ConfigureServices(IServiceCollection services)
 {
-    // 添加LDAP配置
+    // Add LDAP configuration
     services.Configure<LdapConfig>(Configuration.GetSection("LdapConfig"));
     
-    // 根据具体实现注册LDAP服务
-    // 针对Active Directory
+    // Register LDAP service depending on the implementation
+    // For Active Directory
     services.AddScoped<ILdap, Linger.Ldap.ActiveDirectory.Ldap>();
     
-    // 或者针对Novell LDAP
+    // Or for Novell LDAP
     // services.AddScoped<ILdap, Linger.Ldap.Novell.Ldap>();
 }
 ```
 
-### appsettings.json配置示例
+### appsettings.json example
 
 ```json
 {
@@ -64,9 +64,9 @@ public void ConfigureServices(IServiceCollection services)
 }
 ```
 
-### 使用示例
+### Usage examples
 
-#### 用户身份验证
+#### User authentication
 
 ```csharp
 public class AuthenticationService
@@ -90,8 +90,8 @@ public class AuthenticationService
         
         if (isValid && userInfo != null)
         {
-            // 用户认证成功，可以使用userInfo中的信息
-            Console.WriteLine($"用户 {userInfo.DisplayName} 认证成功");
+            // User authenticated successfully; you can use information from userInfo
+            Console.WriteLine($"User {userInfo.DisplayName} authenticated successfully");
             return true;
         }
         
@@ -100,7 +100,7 @@ public class AuthenticationService
 }
 ```
 
-#### 查找用户信息
+#### Find user information
 
 ```csharp
 public class UserService
@@ -135,9 +135,9 @@ public class UserService
 }
 ```
 
-### 取消操作支持
+### Cancellation support
 
-所有异步 LDAP 操作都支持 `CancellationToken`，适用于超时控制和请求取消：
+All asynchronous LDAP operations support `CancellationToken` for timeout control and request cancellation:
 
 ```csharp
 public class LdapService
@@ -149,7 +149,7 @@ public class LdapService
         _ldap = ldap;
     }
     
-    // 带超时的用户验证
+    // User validation with timeout
     public async Task<bool> ValidateUserWithTimeoutAsync(
         string username, 
         string password, 
@@ -167,25 +167,25 @@ public class LdapService
         }
         catch (OperationCanceledException)
         {
-            Console.WriteLine("LDAP 验证超时");
+            Console.WriteLine("LDAP validation timed out");
             return false;
         }
     }
     
-    // 在 ASP.NET Core 中使用请求取消令牌
+    // Using request cancellation token in ASP.NET Core
     public async Task<AdUserInfo?> GetUserForRequestAsync(
         string username, 
         CancellationToken requestCancellationToken)
     {
-        // 如果客户端断开连接，操作会自动取消
+        // If the client disconnects, the operation will be automatically canceled
         return await _ldap.FindUserAsync(username, requestCancellationToken);
     }
 }
 ```
 
-## 支持的实现
+## Supported implementations
 
-库提供了以下LDAP目录服务的实现：
+The library provides the following LDAP directory service implementations:
 
-- **Linger.Ldap.ActiveDirectory** - 针对Microsoft Active Directory的实现
-- **Linger.Ldap.Novell** - 使用Novell LDAP客户端库的跨平台实现
+- **Linger.Ldap.ActiveDirectory** - Implementation for Microsoft Active Directory
+- **Linger.Ldap.Novell** - Cross-platform implementation using the Novell LDAP client library

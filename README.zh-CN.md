@@ -4,8 +4,10 @@
 
 **Linger 是一个全面、模块化的 .NET 工具库集合，旨在加速企业级应用开发。它提供了从核心工具类、扩展方法到高级功能（如 JWT 认证、数据访问层、文件系统操作、邮件服务）的完整解决方案，具有严格的类型安全、高性能和跨平台支持特性。**
 
+[![NuGet](https://img.shields.io/nuget/v/Linger.Utils.svg)](https://www.nuget.org/packages/Linger.Utils/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-9.0%20%7C%208.0%20%7C%20Framework%204.7.2-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 
 ## 特性
 
@@ -13,7 +15,7 @@
 - 🔒 **类型安全** - 严格的类型安全原则
 - 🔮 **.NET 10 前瞻** - 提前支持 .NET 10 新特性
 - 📦 **模块化** - 按需引入
-- 🌐 **跨平台** - 支持 .NET 9.0、8.0、Standard 2.0、Framework 4.7.2
+- 🌐 **跨平台** - 支持 .NET 10.0、9.0、8.0、Standard 2.0、Framework 4.7.2
 
 ## 快速开始
 
