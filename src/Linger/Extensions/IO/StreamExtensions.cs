@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text;
 using Linger.Extensions.Core;
 using Linger.Helper;
 #if NET6_0_OR_GREATER
@@ -12,34 +11,6 @@ namespace Linger.Extensions.IO;
 /// </summary>
 public static class StreamExtensions
 {
-    /// <summary>
-    /// Returns the MD5 hash of the current Stream object as a string.
-    /// </summary>
-    /// <param name="inputStream">The input stream.</param>
-    /// <returns>The MD5 hash as a string.</returns>
-    /// <example>
-    /// <code>
-    /// using (var stream = File.OpenRead("example.txt"))
-    /// {
-    ///     string hash = stream.ToMd5Hash();
-    ///     Console.WriteLine(hash);
-    /// }
-    /// </code>
-    /// </example>
-    [Obsolete("This method is obsolete, use ComputeHashMd5 instead. Will be removed in 1.0.0.")]
-    public static string ToMd5Hash(this Stream inputStream)
-    {
-        _ = inputStream.Seek(0, SeekOrigin.Begin);
-        var hashBytes = inputStream.ToMd5HashByte();
-        var sb = new StringBuilder();
-        foreach (var bytes in hashBytes)
-        {
-            _ = sb.Append(bytes.ToString("X2", ExtensionMethodSetting.DefaultCulture));
-        }
-
-        return sb.ToString();
-    }
-
     /// <summary>
     /// Returns the MD5 hash of the current Stream object as a byte array.
     /// </summary>
@@ -126,13 +97,13 @@ public static class StreamExtensions
 
         using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
 
-        // 对于可查找的流，尝试将位置重置到开始
+        // 对于可查找的流,尝试将位置重置到开始
         if (stream.CanSeek)
         {
             stream.Position = 0;
         }
 
-        // 使用CopyTo方法进行流复制，适用于所有类型的流
+        // 使用CopyTo方法进行流复制,适用于所有类型的流
         stream.CopyTo(fs);
         fs.Flush();
     }
@@ -157,7 +128,7 @@ public static class StreamExtensions
 
         using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
 
-        // 对于可查找的流，尝试将位置重置到开始
+        // 对于可查找的流,尝试将位置重置到开始
         if (stream.CanSeek)
         {
             stream.Position = 0;

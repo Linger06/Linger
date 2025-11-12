@@ -272,7 +272,7 @@ public static partial class StringExtensions
     /// <example>
     /// <code>
     /// bool ok1 = "abc123".IsCombinationOfEnglishNumber();        // true
-    /// bool ok2 = "a1".IsCombinationOfEnglishNumber(2, null);     // true (>=2)
+    /// bool ok2 = "a1".IsCombinationOfEnglishNumber(2, null);     // true (&gt;=2)
     /// bool no1 = "abcdef".IsCombinationOfEnglishNumber();        // false (no digit)
     /// bool no2 = "123456".IsCombinationOfEnglishNumber();        // false (no letter)
     /// </code>

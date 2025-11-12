@@ -144,58 +144,7 @@ public partial class DateTimeExtensionsTests
         Assert.Equal(expected, result);
     }
 
-    [Theory]
-    [InlineData("D", 5)]
-    [InlineData("DAYS", 5)]
-    [InlineData("H", 120)]
-    [InlineData("HOURS", 120)]
-    [InlineData("M", 7200)]
-    [InlineData("MINUTES", 7200)]
-    [InlineData("S", 432000)]
-    [InlineData("SECONDS", 432000)]
-    [InlineData("MS", 432000000)]
-    [InlineData("MILLISECONDS", 432000000)]
-    [InlineData("MO", 0)]
-    [InlineData("MONTHS", 0)]
-    [InlineData("Y", 0)]
-    [InlineData("YEARS", 0)]
-    [InlineData("INVALID", 5)] // 默认应该是Days
-    public void GetDateDifference_WithStringUnit_ReturnsDifferenceInSpecifiedUnit(string unit, double expected)
-    {
-        // Arrange
-        var date1 = new DateTime(2023, 4, 15);
-        var date2 = new DateTime(2023, 4, 10);
 
-        // Act
-        var result = date1.GetDateDifference(date2, unit);
-
-        // Assert
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
-    [InlineData(0, "2023-04-15")]
-    [InlineData(1, "2023-04-15 14:30:25")]
-    [InlineData(2, "2023/04/15")]
-    [InlineData(4, "04-15")]
-    [InlineData(5, "04/15")]
-    [InlineData(7, "2023-04")]
-    [InlineData(8, "2023/04")]
-    [InlineData(10, "2023-04-15 00:00:00")]
-    [InlineData(11, "20230415")]
-    [InlineData(12, "20230415143025")]
-    [InlineData(13, "04/15/2023")]
-    public void ToStringOfMode_ReturnsCorrectFormat(int mode, string expected)
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15, 14, 30, 25);
-
-        // Act
-        var result = dateTime.ToStringOfMode(mode);
-
-        // Assert
-        Assert.Equal(expected, result);
-    }
 
     [Fact]
     public void CalculateAge_ReturnsCorrectAge()
@@ -1006,21 +955,6 @@ public partial class DateTimeExtensionsTests
         Assert.Equal(new DateTime(2023, 1, 1), result.Start);
         Assert.Equal(DayOfWeek.Sunday, result.Start.DayOfWeek);
 #endif
-    }
-
-    [Fact]
-    public void ToStringOfMode_WithInvalidMode_ReturnsDefaultFormat()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15, 14, 30, 25);
-        var invalidMode = 999;
-
-        // Act
-        var result = dateTime.ToStringOfMode(invalidMode);
-
-        // Assert
-        // 使用默认文化格式化
-        Assert.Equal(dateTime.ToString(ExtensionMethodSetting.DefaultCulture), result);
     }
 
     [Fact]

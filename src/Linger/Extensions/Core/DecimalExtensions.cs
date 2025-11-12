@@ -1,4 +1,4 @@
-﻿namespace Linger.Extensions.Core;
+namespace Linger.Extensions.Core;
 
 /// <summary>
 /// <see cref="decimal"/> extensions
@@ -60,7 +60,7 @@ public static class DecimalExtensions
     /// <returns>A string representation of the value without trailing zeros.</returns>
     public static string? ToStringDeleteZero(this decimal? value)
     {
-        return value?.DeleteZero().ToString(ExtensionMethodSetting.DefaultCulture);
+        return value?.DeleteZero().ToString(CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -70,6 +70,6 @@ public static class DecimalExtensions
     /// <returns>A string representation of the value without trailing zeros.</returns>
     public static string ToStringDeleteZero(this decimal value)
     {
-        return value.DeleteZero().ToString(ExtensionMethodSetting.DefaultCulture);
+        return value.DeleteZero().ToString(CultureInfo.InvariantCulture);
     }
 }

@@ -1,6 +1,4 @@
-﻿# Linger.Ldap.ActiveDirectory
-
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+# Linger.Ldap.ActiveDirectory
 
 A comprehensive .NET library for Active Directory LDAP operations, providing simplified access to AD user information and authentication.
 
@@ -22,11 +20,12 @@ A comprehensive .NET library for Active Directory LDAP operations, providing sim
 
 
 ## Supported Frameworks
+
+- .NET 10.0
 - .NET 9.0
 - .NET 8.0
 - .NET 6.0
 - .NET Standard 2.0
-- .NET Framework 4.6.2
 
 ## Installation
 
@@ -66,21 +65,31 @@ var config = new LdapConfig
 
 ### User Authentication
 ```csharp
-using var ldap = new Ldap(config); 
-if (ldap.ValidateUser("username", "password", out var userInfo)) 
+using var ldap = new Ldap(config);
+
+// Authenticate with default SearchBase
+var (isValid, userInfo) = await ldap.ValidateUserAsync("username", "password");
+if (isValid && userInfo != null) 
 {
     Console.WriteLine($"User authenticated: {userInfo.DisplayName}"); 
     Console.WriteLine($"Email: {userInfo.Email}"); 
     Console.WriteLine($"Department: {userInfo.Department}"); 
 }
+
+// Authenticate in specific OU
+var (isValid2, userInfo2) = await ldap.ValidateUserAsync(
+    "username", 
+    "password",
+    searchBase: "OU=Sales,DC=company,DC=com"
+);
 ```
 
 ### Finding Users
 ```csharp
 using var ldap = new Ldap(config);
 
-// Find specific user 
-var user = ldap.FindUser("username"); 
+// Find specific user in default SearchBase
+var user = await ldap.FindUserAsync("username"); 
 if (user != null) 
 { 
     Console.WriteLine($"Name: {user.DisplayName}"); 
@@ -88,13 +97,53 @@ if (user != null)
     Console.WriteLine($"Title: {user.Title}"); 
 }
 
+// Find user in specific OU
+var salesUser = await ldap.FindUserAsync(
+    "username",
+    searchBase: "OU=Sales,DC=company,DC=com"
+);
+
 // Search users with pattern
-var users = ldap.GetUsers("john*"); 
+var users = await ldap.GetUsersAsync("john*"); 
 foreach (var foundUser in users) 
 { 
     Console.WriteLine($"Found: {foundUser.DisplayName}");
-    Console.WriteLine($"Groups: {string.Join(", ", foundUser.MemberOf ?? Array.Empty())}"); 
+    Console.WriteLine($"Groups: {string.Join(", ", foundUser.MemberOf ?? Array.Empty<string>())}"); 
 }
+
+// Search users in specific OU
+var itUsers = await ldap.GetUsersAsync(
+    "john*",
+    searchBase: "OU=IT,DC=company,DC=com"
+);
+```
+
+### Flexible OU Search (New in v1.0)
+```csharp
+// Search across multiple OUs
+string[] organizationalUnits = 
+{
+    "OU=Sales,DC=company,DC=com",
+    "OU=IT,DC=company,DC=com",
+    "OU=HR,DC=company,DC=com"
+};
+
+AdUserInfo? foundUser = null;
+foreach (var ou in organizationalUnits)
+{
+    foundUser = await ldap.FindUserAsync("john.doe", searchBase: ou);
+    if (foundUser != null)
+    {
+        Console.WriteLine($"User found in: {ou}");
+        break;
+    }
+}
+
+// Check user existence in specific OU
+bool exists = await ldap.UserExistsAsync(
+    "username",
+    searchBase: "OU=Contractors,DC=company,DC=com"
+);
 ```
 
 ## Available User Properties

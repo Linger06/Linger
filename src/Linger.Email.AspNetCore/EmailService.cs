@@ -4,11 +4,8 @@ using Microsoft.Extensions.Options;
 namespace Linger.Email.AspNetCore;
 
 /// <summary>
-/// 邮件服务实现
+/// Provides email service functionality with logging support
 /// </summary>
-/// <remarks>
-/// 初始化邮件服务
-/// </remarks>
 public sealed class EmailService(
     IOptions<EmailConfig> emailConfig,
     ILogger<EmailService> logger) : Email(emailConfig?.Value ?? throw new ArgumentNullException(nameof(emailConfig))), IEmailService
@@ -17,48 +14,48 @@ public sealed class EmailService(
     private bool _disposed;
 
     /// <inheritdoc/>
-    public override async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null)
+    public override async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(emailMessage);
 
         try
         {
-            _logger.LogInformation("正在发送邮件到 {Recipients}",
+            _logger.LogDebug("Sending email to {Recipients}",
                 string.Join(", ", emailMessage.To.Select(x => x.Address)));
 
             await base.SendAsync(emailMessage, response =>
             {
-                _logger.LogInformation("邮件发送成功: {Response}", response);
+                _logger.LogDebug("Email sent successfully: {Response}", response);
                 completedCallback?.Invoke(response);
-            }).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "发送邮件失败: {Error}", ex.Message);
+            _logger.LogError(ex, "Failed to send email: {Error}", ex.Message);
             throw;
         }
     }
 
     /// <inheritdoc/>
-    public Task SendTextEmailAsync(string to, string subject, string body)
+    public Task SendTextEmailAsync(string to, string subject, string body, CancellationToken cancellationToken = default)
     {
         var message = CreateEmailMessage(to, subject, body, false);
-        return SendAsync(message);
+        return SendAsync(message, null, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task SendHtmlEmailAsync(string to, string subject, string htmlBody)
+    public Task SendHtmlEmailAsync(string to, string subject, string htmlBody, CancellationToken cancellationToken = default)
     {
         var message = CreateEmailMessage(to, subject, htmlBody, true);
-        return SendAsync(message);
+        return SendAsync(message, null, cancellationToken);
     }
 
     /// <inheritdoc/>
-    public Task SendWithAttachmentsAsync(string to, string subject, string body, bool isHtml, IEnumerable<string> attachmentPaths)
+    public Task SendWithAttachmentsAsync(string to, string subject, string body, bool isHtml, IEnumerable<string> attachmentPaths, CancellationToken cancellationToken = default)
     {
         var message = CreateEmailMessage(to, subject, body, isHtml);
         message.AttachmentsPath = attachmentPaths.ToList();
-        return SendAsync(message);
+        return SendAsync(message, null, cancellationToken);
     }
 
     private static EmailMessage CreateEmailMessage(string to, string subject, string body, bool isHtml) =>
@@ -83,7 +80,7 @@ public sealed class EmailService(
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "释放邮件服务资源时发生错误");
+            _logger.LogError(ex, "Error occurred while disposing email service resources");
         }
         finally
         {

@@ -71,7 +71,7 @@ public class DateTimeExtensionsTests7
     {
         // Arrange
         var year = 2023;
-        var expectedWeeks = DateTimeExtensions.GetWeekCountOfYear(year, ExtensionMethodSetting.DefaultCulture);
+        var expectedWeeks = DateTimeExtensions.GetWeekCountOfYear(year, CultureInfo.InvariantCulture);
 
         // Act
         var result = DateTimeExtensions.GetWeekCountOfYear(year);
@@ -112,7 +112,7 @@ public class DateTimeExtensionsTests7
     public void GetYearWeekCount_NullCulture_UsesDefaultCulture()
     {
         var result = DateTimeExtensions.GetWeekCountOfYear(2023, null);
-        var expectedResult = DateTimeExtensions.GetWeekCountOfYear(2023, ExtensionMethodSetting.DefaultCulture);
+        var expectedResult = DateTimeExtensions.GetWeekCountOfYear(2023, CultureInfo.InvariantCulture);
         Assert.Equal(expectedResult, result);
     }
 
@@ -221,7 +221,7 @@ public class DateTimeExtensionsTests7
     {
         // Arrange
         var date = new DateTime(2023, 1, 1);
-        var expectedResult = date.WeekNumberOfYear(ExtensionMethodSetting.DefaultCulture);
+        var expectedResult = date.WeekNumberOfYear(CultureInfo.InvariantCulture);
 
         // Act
         var result = date.WeekNumberOfYear(null);
@@ -436,12 +436,12 @@ public class DateTimeExtensionsTests7
     {
 #if NET40
         var result = DateTimeExtensions.GetFirstEndDayOfWeek(2023, 1, null);
-        var expected = DateTimeExtensions.GetFirstEndDayOfWeek(2023, 1, ExtensionMethodSetting.DefaultCulture);
+        var expected = DateTimeExtensions.GetFirstEndDayOfWeek(2023, 1, CultureInfo.InvariantCulture);
         Assert.Equal(expected.Item1, result.Item1);
         Assert.Equal(expected.Item2, result.Item2);
 #else
         var result = DateTimeExtensions.GetStartEndDayOfWeek(2023, 1, null);
-        var expected = DateTimeExtensions.GetStartEndDayOfWeek(2023, 1, ExtensionMethodSetting.DefaultCulture);
+        var expected = DateTimeExtensions.GetStartEndDayOfWeek(2023, 1, CultureInfo.InvariantCulture);
         Assert.Equal(expected.Start, result.Start);
         Assert.Equal(expected.End, result.End);
 #endif

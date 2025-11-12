@@ -9,7 +9,8 @@ public static class NpoiHelper
     #region Covert xls To xlsx
     public static string ConvertToXlsx(string xlsPath, string newExcelPath)
     {
-        var oldWorkbook = new HSSFWorkbook(new FileStream(xlsPath, FileMode.Open));
+        using var xlsFileStream = new FileStream(xlsPath, FileMode.Open);
+        var oldWorkbook = new HSSFWorkbook(xlsFileStream);
         ISheet? oldWorkSheet = oldWorkbook.GetSheetAt(0);
         using (var fileStream = new FileStream(newExcelPath, FileMode.Create))
         {

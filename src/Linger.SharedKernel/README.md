@@ -1,7 +1,5 @@
 ﻿# Linger.SharedKernel
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## Overview
 
 Linger.SharedKernel provides the core domain primitives and shared abstractions for building applications with the Linger framework. It serves as a foundation for implementing Domain-Driven Design (DDD) patterns across multiple projects.
@@ -67,7 +65,7 @@ public class UserSearch : BaseSearch
 
 ```csharp
 // Create a paged search model
-public class ProductPagedSearch : BaseSearchPageList
+public class ProductPagedSearch : BaseSearchPagedList
 {
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
@@ -86,7 +84,7 @@ public class ProductService
     
     public async Task<PagedResult<ProductDto>> SearchProductsAsync(ProductPagedSearch search)
     {
-        // The BaseSearchPageList properties will handle pagination
+        // The BaseSearchPagedList properties will handle pagination
         var expression = search.GetSearchModelExpression<Product>();
         
         // Apply the search expression

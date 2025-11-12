@@ -228,9 +228,9 @@ public static partial class FileInfoExtensions
     {
         return bytes switch
         {
-            >= 1073741824 => (bytes / (double)1073741824).ToString("0", ExtensionMethodSetting.DefaultCulture) + "G",
-            >= 1048576 => (bytes / (double)1048576).ToString("0", ExtensionMethodSetting.DefaultCulture) + "M",
-            >= 1024 => (bytes / (double)1024).ToString("0", ExtensionMethodSetting.DefaultCulture) + "K",
+            >= 1073741824 => (bytes / (double)1073741824).ToString("0", CultureInfo.InvariantCulture) + "G",
+            >= 1048576 => (bytes / (double)1048576).ToString("0", CultureInfo.InvariantCulture) + "M",
+            >= 1024 => (bytes / (double)1024).ToString("0", CultureInfo.InvariantCulture) + "K",
             _ => bytes + "Bytes"
         };
     }
@@ -243,7 +243,7 @@ public static partial class FileInfoExtensions
     /// <exception cref="IOException"></exception>
     public static long GetFileSize(this string filePath)
     {
-        // 由 EnsureFileExists 完整执行 null/empty 与存在性校验
+        // �?EnsureFileExists 完整执行 null/empty 与存在性校�?
         GuardExtensions.EnsureFileExists(filePath);
 
         return new FileInfo(filePath).Length;
@@ -328,7 +328,7 @@ public static partial class FileInfoExtensions
     public static async Task<byte[]> GetFileDataAsync(this string filePath)
     {
         using FileStream fs = File.OpenRead(filePath);
-        using var ms = new MemoryStream(ExtensionMethodSetting.DefaultBufferSize);
+        using var ms = new MemoryStream(4096);
         await fs.CopyToAsync(ms).ConfigureAwait(false);
         return ms.ToArray();
     }

@@ -1,11 +1,5 @@
 ﻿# Linger.Audit
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
-[![NuGet](https://img.shields.io/nuget/v/Linger.Audit.svg)](https://www.nuget.org/packages/Linger.Audit/)
-[![Downloads](https://img.shields.io/nuget/dt/Linger.Audit.svg)](https://www.nuget.org/packages/Linger.Audit/)
-[![License](https://img.shields.io/github/license/lingershub/linger.audit)](LICENSE)
-
 A lightweight .NET auditing library that provides base classes and interfaces for entity auditing.
 
 ## 📖 Table of Contents
@@ -322,7 +316,7 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<User>
 - `TimeSpan.Zero` represents UTC timezone offset
 - Ensure all times stored in the database are in UTC to avoid timezone confusion
 
-## � Class Diagram Overview
+## 📊 Class Diagram Overview
 
 Relationships between main classes and interfaces:
 
@@ -412,7 +406,7 @@ public abstract class FullAuditEntity : AuditEntity, IDeletionAuditEntity, ISoft
 }
 ```
 
-## � License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

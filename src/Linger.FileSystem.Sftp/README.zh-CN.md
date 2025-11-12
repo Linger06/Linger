@@ -1,7 +1,5 @@
 # Linger.FileSystem.Sftp
 
-> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## 概述
 
 Linger.FileSystem.Sftp 是 Linger FileSystem 抽象的一个实现，提供 SFTP（SSH 文件传输协议）文件操作支持。它使用 SSH.NET 库提供安全可靠的 SFTP 客户端，支持密码和证书认证方式进行文件操作。
@@ -49,26 +47,46 @@ var retryOptions = new RetryOptions
 using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 
 // 连接到服务器
-sftpSystem.Connect();
-
-// 使用文件系统
-if (sftpSystem.FileExists("/remote/path/file.txt"))
-{
-    // 下载文件
-    var fileContent = sftpSystem.ReadAllText("/remote/path/file.txt");
-    
-    // 处理文件内容
-    Console.WriteLine(fileContent);
-}
-
-// 如果目录不存在则创建
-sftpSystem.CreateDirectoryIfNotExists("/remote/path/new-directory");
+await sftpSystem.ConnectAsync();
 
 // 上传文件
-sftpSystem.WriteAllText("/remote/path/new-file.txt", "你好，世界！");
+await using var stream = File.OpenRead("./local/file.txt");
+var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+if (result.Success)
+{
+    Console.WriteLine($"上传成功: {result.FilePath}");
+}
+
+// 下载文件
+var downloadResult = await sftpSystem.DownloadFileAsync("/remote/path/file.txt", "C:/Downloads/file.txt");
+
+if (downloadResult.Success)
+{
+    Console.WriteLine($"已下载 {downloadResult.FileSize} 字节");
+}
 
 // 完成后断开连接
-sftpSystem.Disconnect();
+await sftpSystem.DisconnectAsync();
+```
+
+### 文件上传方法
+
+```csharp
+// 方法 1: 从流上传到完整文件路径
+await using var stream = File.OpenRead("local.txt");
+var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+// 方法 2: 上传本地文件到完整远程路径
+result = await sftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
+
+// 方法 3: 分别指定目录和文件名上传（便于动态命名）
+result = await sftpSystem.UploadFileAsync(
+    "C:/local/file.txt",           // 本地文件路径
+    "/remote/directory",            // 远程目录
+    "custom-name.txt",              // 自定义文件名
+    overwrite: true
+);
 ```
 
 ### 使用证书认证

@@ -19,25 +19,11 @@ public static partial class FileHelper
         var filePath = fileName.GetFilePathString();
         CreateDirectoryIfNotExists(filePath);
 
-        encoding ??= ExtensionMethodSetting.DefaultEncoding;
-        StreamWriter? sw = null;
-        {
-            try
-            {
-                sw = new StreamWriter(fileName, false, encoding);
-                sw.Write(content);
-                sw.Flush();
-            }
-            catch
-            {
-                // ignored
-            }
-        }
-        if (sw != null)
-        {
-            sw.Close();
-            sw.Dispose();
-        }
+        encoding ??= Encoding.UTF8;
+
+        using var sw = new StreamWriter(fileName, false, encoding);
+        sw.Write(content);
+        sw.Flush();
     }
 
     /// <summary>
@@ -78,30 +64,22 @@ public static partial class FileHelper
 
     public static string ReadTxt(string filename, Encoding? encoding = null)
     {
-        encoding ??= ExtensionMethodSetting.DefaultEncoding;
+        encoding ??= Encoding.UTF8;
         var str = string.Empty;
-        if (File.Exists(filename))
-        {
-            StreamReader? sr = null;
-            try
-            {
-                sr = new StreamReader(filename, encoding);
-                str = sr.ReadToEnd(); // 读取文件
-            }
-            catch
-            {
-                // ignored
-            }
 
-            if (sr != null)
-            {
-                sr.Close();
-                sr.Dispose();
-            }
-        }
-        else
+        if (!File.Exists(filename))
         {
-            str = string.Empty;
+            return str;
+        }
+
+        try
+        {
+            using var sr = new StreamReader(filename, encoding);
+            str = sr.ReadToEnd();
+        }
+        catch
+        {
+            // ignored
         }
 
         return str;
@@ -180,7 +158,7 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
-                CopyFolder(d, varToDirectory + d.Substring(d.LastIndexOf("\\", StringComparison.Ordinal)));
+                CopyFolder(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
             }
         }
 
@@ -189,7 +167,7 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
-                File.Copy(s, varToDirectory + s.Substring(s.LastIndexOf("\\", StringComparison.Ordinal)), true);
+                File.Copy(s, varToDirectory + s.Substring(s.LastIndexOf('\\')), true);
             }
         }
     }
@@ -214,7 +192,7 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
-                DeleteFolderFiles(d, varToDirectory + d.Substring(d.LastIndexOf("\\", StringComparison.Ordinal)));
+                DeleteFolderFiles(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
             }
         }
 
@@ -224,7 +202,7 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
-                File.Delete(varToDirectory + s.Substring(s.LastIndexOf("\\", StringComparison.Ordinal)));
+                File.Delete(varToDirectory + s.Substring(s.LastIndexOf('\\')));
             }
         }
     }

@@ -1,14 +1,6 @@
 # Linger Excel Framework
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
-<div align="center">
-
-![Linger Excel Framework](https://img.shields.io/badge/Linger-Excel%20Framework-brightgreen)
-
 A unified, efficient, and extensible Excel operation framework that supports multiple Excel library implementations
-
-</div>
 
 ## 🚀 Features Overview
 
@@ -17,10 +9,10 @@ A unified, efficient, and extensible Excel operation framework that supports mul
 - **DataSet Support** - Import/export entire workbook as DataSet, supports multi-sheet operations
 - **Dependency Injection Friendly** - Supports .NET Core/ASP.NET Core dependency injection
 - **High-Performance Design** - Batch processing, parallel processing, and performance monitoring
-- **Async Support** - Comprehensive asynchronous API support
+- **True Async Support** - Async file I/O + Task.Run for CPU-intensive operations
 - **Flexible Configuration** - Rich options configuration system
 - **Extensibility** - Easy to customize and extend
-- **Cross-Platform Compatible** - Supports .NET Standard 2.0+, .NET Core 3.1+, .NET 5+
+- **Cross-Platform Compatible** - Supports .NET Framework 4.7.2+, .NET Standard 2.0+, .NET 8+, .NET 9+, .NET 10+
 
 ## 📦 Supported Excel Implementations
 
@@ -34,19 +26,19 @@ A unified, efficient, and extensible Excel operation framework that supports mul
 
 ```
 ┌─────────────────┐
-│  IExcelService  │ ◄──── Non-generic interface, basic Excel operations
+│  IExcelService  │ ◄──── Non-generic interface, provides basic Excel operations
 └────────┬────────┘
          │
-         │implements
+         │inherits
          ▼
-┌─────────────────┐
-│IExcel<TWorksheet>│ ◄──── Generic interface, advanced Excel operations
-└────────┬────────┘
+┌─────────────────────┐
+│ IExcel<TWorksheet>  │ ◄──── Generic interface, inherits IExcelService and provides advanced operations (with Action delegates)
+└────────┬────────────┘
          │
          │implements
          ▼
 ┌─────────────────────────────┐
-│AbstractExcelService<T1,T2>  │ ◄──── Abstract base class, common logic
+│AbstractExcelService<T1,T2>  │ ◄──── Abstract base class, implements common logic and backward compatibility methods
 └────────────┬────────────────┘
              │
              │inherits
@@ -59,9 +51,14 @@ A unified, efficient, and extensible Excel operation framework that supports mul
              ▼
 ┌─────────────────────────────┐
 │  Concrete Implementation    │ ◄──── Specific Excel library implementation
-│   (e.g., NpoiExcel)         │       (NpoiExcel, EPPlusExcel, ClosedXmlExcel)
+│(NpoiExcel, EPPlusExcel, etc)│       
 └─────────────────────────────┘
 ```
+
+**Design Highlights:**
+- **Interface Inheritance**: `IExcel<TWorksheet>` inherits from `IExcelService`, automatically gaining all basic methods
+- **Method Overloading**: Export methods provide advanced customization via `Action<TWorksheet>` parameters without affecting basic usage
+- **Clear Hierarchy**: Basic operations (IExcelService) → Advanced operations (IExcel) → Concrete implementations
 
 ## 🚀 Quick Start
 
@@ -108,86 +105,141 @@ public class ExcelReportService
         _excelService = excelService;
     }
 
-    public List<User> ImportUsers(Stream excelStream)
+    public List<User> ImportUsers(string filePath)
     {
-        return _excelService.ExcelToList<User>(excelStream);
+        return _excelService.ExcelToList<User>(filePath) ?? new List<User>();
     }
 
-    public byte[] ExportUsers(List<User> users)
+    public string ExportUsers(List<User> users, string filePath)
     {
-        using var ms = new MemoryStream();
-        _excelService.ListToExcel(users, ms);
-        return ms.ToArray();
+        return _excelService.CollectionToExcel(users, filePath, "UserList");
+    }
+    
+    public async Task<string> ExportUsersAsync(List<User> users, string filePath)
+    {
+        // True async file I/O
+        return await _excelService.CollectionToExcelAsync(users, filePath, "UserList");
     }
 }
 ```
 
 ## 📝 Core Interfaces
 
-### IExcel<TWorksheet>
+### IExcelService - Basic Interface
 
-```csharp
-public interface IExcel<out TWorksheet> where TWorksheet : class
-{
-    // Import functions
-    DataTable ExcelToDataTable(string filePath, string sheetName = null);
-    DataTable ExcelToDataTable(Stream stream, string sheetName = null);
-    List<T> ExcelToList<T>(string filePath, string sheetName = null) where T : class, new();
-    List<T> ExcelToList<T>(Stream stream, string sheetName = null) where T : class, new();
-
-    // Export functions
-    void ListToExcel<T>(List<T> data, string filePath, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void ListToExcel<T>(List<T> data, Stream stream, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void DataTableToExcel(DataTable dataTable, string filePath, Action<ExcelStyleOptions> styleAction = null);
-    void DataTableToExcel(DataTable dataTable, Stream stream, Action<ExcelStyleOptions> styleAction = null);
-
-    // Workbook/Worksheet operations
-    object CreateWorkbook();
-    TWorksheet GetWorksheet(object workbook, string sheetName);
-    TWorksheet AddSheet(object workbook, string sheetName, DataTable data);
-    TWorksheet AddSheet<T>(object workbook, string sheetName, List<T> data) where T : class;
-    void SaveWorkbook(object workbook, string filePath);
-    void SaveWorkbook(object workbook, Stream stream);
-
-    // Template functions
-    void FillTemplate(string templatePath, string outputPath, Dictionary<string, object> data);
-    void FillTemplate(Stream templateStream, Stream outputStream, Dictionary<string, object> data);
-}
-```
-
-### IExcelService
+Provides all fundamental Excel import/export functionality:
 
 ```csharp
 public interface IExcelService
 {
-    // Import functions
-    DataTable ExcelToDataTable(string filePath, string sheetName = null);
-    DataTable ExcelToDataTable(Stream stream, string sheetName = null);
-    List<T> ExcelToList<T>(string filePath, string sheetName = null) where T : class, new();
-    List<T> ExcelToList<T>(Stream stream, string sheetName = null) where T : class, new();
+    #region Import Functions
     
-    // Import entire workbook as DataSet
-    DataSet ExcelToDataSet(string filePath, int? headerRowIndex = 0);
-    DataSet ExcelToDataSet(string filePath, IEnumerable<string> sheetNames, int? headerRowIndex = 0);
-    DataSet ExcelToDataSet(string filePath, Func<string, int?> headerRowSelector);
-    DataSet ExcelToDataSet(string filePath, IEnumerable<string> sheetNames, Func<string, int?> headerRowSelector);
-    Task<DataSet> ExcelToDataSetAsync(string filePath, int? headerRowIndex = 0);
-    Task<DataSet> ExcelToDataSetAsync(string filePath, IEnumerable<string> sheetNames, int? headerRowIndex = 0);
-
-    // Export functions
-    void ListToExcel<T>(List<T> data, string filePath, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void ListToExcel<T>(List<T> data, Stream stream, Action<ExcelStyleOptions> styleAction = null) where T : class;
-    void DataTableToExcel(DataTable dataTable, string filePath, Action<ExcelStyleOptions> styleAction = null);
-    void DataTableToExcel(DataTable dataTable, Stream stream, Action<ExcelStyleOptions> styleAction = null);
+    // Import single worksheet as DataTable
+    DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     
-    // Export DataSet as multi-sheet Excel
-    string DataSetToFile(DataSet dataSet, string filePath, string sheetNamePrefix = "Sheet");
+    // Import single worksheet as object list
+    List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    
+    // Import entire workbook as DataSet (multiple overloads)
+    DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    
+    // Async imports - True async file I/O
+    Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    
+    // Async Stream processing - Virtual methods, subclasses can override for true async
+    Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    
+    #endregion
 
-    // Template functions
-    void FillTemplate(string templatePath, string outputPath, Dictionary<string, object> data);
-    void FillTemplate(Stream templateStream, Stream outputStream, Dictionary<string, object> data);
+    #region Export Functions
+    
+    // Export to Excel file
+    string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
+    string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet");
+    string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    
+    // Export to memory stream
+    MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "") where T : class;
+    MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
+    
+    // Async exports
+    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
+    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    
+    // Create template
+    MemoryStream CreateExcelTemplate<T>() where T : class, new();
+    
+    #endregion
 }
 ```
+
+### IExcel<TWorksheet> - Advanced Interface
+
+Inherits from `IExcelService` and provides advanced customization with `Action<TWorksheet>` delegates:
+
+```csharp
+public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
+{
+    #region Advanced Export Functions - Support Custom Operations
+    
+    // Export with custom cell and style operations
+    string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet>? styleAction = null) where T : class;
+        
+    MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet>? styleAction = null) where T : class;
+        
+    MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    // Async exports
+    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet>? styleAction = null);
+        
+    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet>? styleAction = null) where T : class;
+    
+    #endregion
+}
+```
+
+**Interface Usage Recommendations:**
+- **Basic Scenarios**: Use `IExcelService` for most import/export needs
+- **Advanced Customization**: Use `IExcel<TWorksheet>` when you need custom cell styles, merged cells, etc.
+- **Dependency Injection**: Both interfaces can be injected; `IExcel<TWorksheet>` instances can be upcast to `IExcelService`
+
+**Async Implementation Notes:**
+- ✅ **File I/O**: Uses true async (`FileStream` with `useAsync: true`)
+- ⚠️ **Excel Processing**: Uses `Task.Run` to wrap sync methods (library limitation)
+- 🔧 **Extensible**: Subclasses can override `StreamToXXXAsync` methods for custom async implementations
 
 ## 🎨 Advanced Features
 
@@ -197,14 +249,14 @@ public interface IExcelService
 
 ```csharp
 // 1. Import all worksheets with uniform header row (row 0)
-DataSet allSheets = excelService.ExcelToDataSet("workbook.xlsx", headerRowIndex: 0);
+DataSet? allSheets = excelService.ExcelToDataSet("workbook.xlsx", headerRowIndex: 0);
 
 // 2. Import only specified worksheets
 var selectedSheets = new[] { "UserData", "OrderData", "ProductData" };
-DataSet specificSheets = excelService.ExcelToDataSet("workbook.xlsx", selectedSheets, headerRowIndex: 0);
+DataSet? specificSheets = excelService.ExcelToDataSet("workbook.xlsx", selectedSheets, headerRowIndex: 0);
 
 // 3. Specify different header rows for each worksheet
-DataSet flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetName =>
+DataSet? flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetName =>
 {
     return sheetName switch
     {
@@ -216,21 +268,33 @@ DataSet flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetName
 });
 
 // 4. Async import
-DataSet result = await excelService.ExcelToDataSetAsync("large-workbook.xlsx", headerRowIndex: 0);
+DataSet? result = await excelService.ExcelToDataSetAsync("large-workbook.xlsx", headerRowIndex: 0);
+
+// 5. Backward compatibility mode - compatible with old NPOIHelper.ImportExcelToDs method
+// Supports comma-separated worksheet name strings
+DataSet? compatibleResult = excelService.ExcelToDataSet("workbook.xlsx", "Sheet1,Sheet2,Sheet3", headerRowIndex: 0);
+DataSet? asyncCompatible = await excelService.ExcelToDataSetAsync("workbook.xlsx", "UserData, OrderData", headerRowIndex: 1);
 
 // Access imported data
-foreach (DataTable table in result.Tables)
+if (result is not null)
 {
-    Console.WriteLine($"Worksheet: {table.TableName}, Rows: {table.Rows.Count}, Columns: {table.Columns.Count}");
+    foreach (DataTable table in result.Tables)
+    {
+        Console.WriteLine($"Worksheet: {table.TableName}, Rows: {table.Rows.Count}, Columns: {table.Columns.Count}");
+    }
 }
 ```
 
 **Parameter Description:**
-- `headerRowIndex`: Header row index (0-based). Pass `null` to indicate no header, all rows are data rows
-- `sheetNames`: List of worksheet names to import. Case-insensitive. Passing empty collection or null will import all worksheets
+- `headerRowIndex`: Header row index (0-based). All worksheets use the same header row
+- `sheetNames`: 
+  - `IEnumerable<string>?` - List of worksheet names to import. Pass `null` or empty collection to import all worksheets
+  - `string?` - Comma-separated worksheet name string (backward compatible). Automatically handles whitespace, pass `null` to import all worksheets
 - `headerRowSelector`: Specify different header rows for each worksheet. Pass worksheet name, return header row index for that worksheet
+- `addEmptyRow`: Whether to include empty rows. Default is `false`
 
-**For detailed usage and more examples, see [DATASET_USAGE_EXAMPLE.md](./DATASET_USAGE_EXAMPLE.md)**
+**Backward Compatibility:**
+The framework provides fully compatible method signatures with the legacy `NPOIHelper.ImportExcelToDs`, allowing migration without modifying existing code.
 
 ### Export DataSet as Multi-Sheet Excel
 
@@ -241,7 +305,50 @@ dataSet.Tables.Add(CreateOrderTable());
 dataSet.Tables.Add(CreateProductTable());
 
 // Export DataSet, each DataTable becomes a worksheet
-string filePath = excelService.DataSetToFile(dataSet, "multi-sheet-workbook.xlsx");
+string filePath = excelService.DataSetToExcel(dataSet, "multi-sheet-workbook.xlsx");
+```
+
+### Advanced Export - Custom Cell Operations
+
+Use the advanced overload methods in `IExcel<TWorksheet>` interface to customize cell operations during export:
+
+```csharp
+// Inject IExcel<TWorksheet> instead of IExcelService
+public class AdvancedExcelService
+{
+    private readonly IExcel<ISheet> _npoiExcel; // NPOI's worksheet type is ISheet
+
+    public AdvancedExcelService(IExcel<ISheet> npoiExcel)
+    {
+        _npoiExcel = npoiExcel;
+    }
+
+    public string ExportWithCustomStyle(List<User> users, string filePath)
+    {
+        return _npoiExcel.CollectionToExcel(users, filePath, "UserList", "User Data Report",
+            // Custom cell operations
+            action: (sheet, properties) =>
+            {
+                // Access native ISheet object for advanced operations
+                var row = sheet.GetRow(0);
+                row.Height = 500; // Set header row height
+                
+                // Merge cells
+                sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, properties.Length - 1));
+            },
+            // Custom style operations
+            styleAction: (sheet) =>
+            {
+                // Set column widths
+                sheet.SetColumnWidth(0, 3000);
+                sheet.SetColumnWidth(1, 5000);
+                
+                // Freeze panes
+                sheet.CreateFreezePane(0, 2);
+            }
+        );
+    }
+}
 ```
 
 ### Custom Excel Column Mapping
@@ -271,86 +378,88 @@ public class User
 ### Excel Style Customization
 
 ```csharp
-excelService.ListToExcel(users, "users.xlsx", options =>
+// Use IExcel<TWorksheet> advanced overloads for style customization
+public class StyledExcelService
 {
-    // Header style
-    options.HeaderBackgroundColor = "#1E90FF"; // Deep blue
-    options.HeaderFontColor = "#FFFFFF";       // White
-    options.HeaderFontBold = true;
-    options.HeaderFontSize = 12;
+    private readonly IExcel<ISheet> _npoiExcel;
 
-    // Content style
-    options.ContentFontName = "Arial";
-    options.ContentFontSize = 10;
-
-    // Alternating row colors
-    options.AlternatingRowBackgroundColor = "#F0F8FF"; // Light blue
-
-    // Conditional formatting
-    options.AddConditionalFormat(nameof(User.Status), "=Active", cellFormat =>
+    public StyledExcelService(IExcel<ISheet> npoiExcel)
     {
-        cellFormat.BackgroundColor = "#E6FFE6"; // Light green
-    });
-});
+        _npoiExcel = npoiExcel;
+    }
+
+    public string ExportWithStyles(List<User> users, string filePath)
+    {
+        return _npoiExcel.CollectionToExcel(users, filePath, "UserData", "User Information",
+            styleAction: (sheet) =>
+            {
+                // Create styles
+                var workbook = sheet.Workbook;
+                var headerStyle = workbook.CreateCellStyle();
+                var headerFont = workbook.CreateFont();
+                
+                // Header style
+                headerFont.IsBold = true;
+                headerFont.FontHeightInPoints = 12;
+                headerFont.Color = IndexedColors.White.Index;
+                headerStyle.SetFont(headerFont);
+                headerStyle.FillForegroundColor = IndexedColors.Blue.Index;
+                headerStyle.FillPattern = FillPattern.SolidForeground;
+                
+                // Apply to header row
+                var headerRow = sheet.GetRow(1); // Row 2 is data header
+                for (int i = 0; i < headerRow.LastCellNum; i++)
+                {
+                    headerRow.GetCell(i)?.SetCellStyle(headerStyle);
+                }
+                
+                // Auto-size columns
+                for (int i = 0; i < headerRow.LastCellNum; i++)
+                {
+                    sheet.AutoSizeColumn(i);
+                }
+            }
+        );
+    }
+}
 ```
 
 ### Large Data Processing
 
 ```csharp
-// Enable batch processing for large datasets
-excelService.ListToExcelAsync(
-    hugeDataList, 
+// Async export of large datasets
+var largeDataList = GetLargeDataSet(); // Assume 100k records
+
+// Use true async I/O
+string filePath = await excelService.CollectionToExcelAsync(
+    largeDataList, 
     "huge_data.xlsx", 
-    batchSize: 10000, 
-    parallelProcessing: true,
-    progress: new Progress<int>(percent => 
-    {
-        Console.WriteLine($"Completed: {percent}%");
-    })
+    "DataExport"
 );
+
+Console.WriteLine($"Export completed: {filePath}");
 ```
 
 ### Excel Template Filling
 
-```csharp
-// Use template and fill data
-var templateData = new Dictionary<string, object>
-{
-    ["ReportTitle"] = "Monthly Sales Report",
-    ["GeneratedDate"] = DateTime.Now,
-    ["SalesData"] = salesDataList,
-    ["TotalAmount"] = salesDataList.Sum(s => s.Amount)
-};
-
-excelService.FillTemplate("template.xlsx", "report.xlsx", templateData);
-```
+> Note: Template functionality implementation depends on the chosen Excel library. Please refer to the specific implementation library's documentation.
 
 ## 🧩 Extensibility
 
 ### Custom Excel Implementation
 
 ```csharp
-public class MyCustomExcel : ExcelBase<MyWorkbook, MyWorksheet>
+public class MyCustomExcel : AbstractExcelService<MyWorkbook, MyWorksheet>
 {
-    public MyCustomExcel(ExcelOptions options = null) : base(options) { }
+    public MyCustomExcel(ExcelOptions? options = null) : base(options) { }
 
-    // Implement required methods from base class...
+    // Implement abstract methods...
+    protected override MyWorkbook CreateWorkbookInternal() { /* ... */ }
+    protected override MyWorksheet GetWorksheetInternal(MyWorkbook workbook, string sheetName) { /* ... */ }
+    // More method implementations...
 }
 
 // Register custom implementation
-services.AddExcel<MyCustomExcel>();
-```
-
-### Event Hooks
-
-```csharp
-excelService.BeforeExcelExport += (sender, args) =>
-{
-    Console.WriteLine($"Preparing to export Excel: {args.FilePath}");
-};
-
-excelService.AfterExcelImport += (sender, args) =>
-{
-    Console.WriteLine($"Completed Excel import, total {args.RowCount} rows");
-};
+services.AddSingleton<IExcelService, MyCustomExcel>();
+services.AddSingleton<IExcel<MyWorksheet>, MyCustomExcel>();
 ```

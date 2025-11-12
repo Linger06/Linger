@@ -37,7 +37,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "NpoiExport_DataTable.xlsx");
 
             // Act
-            var result = service.DataTableToFile(dataTable, filePath, "测试表", "NPOI导出测试");
+            var result = service.DataTableToExcel(dataTable, filePath, "测试表", "NPOI导出测试");
 
             // Assert
             Assert.Equal(filePath, result);
@@ -54,7 +54,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "NpoiExport_List.xlsx");
 
             // Act
-            var result = service.ListToFile(list, filePath, "人员列表", "NPOI导出测试");
+            var result = service.CollectionToExcel(list, filePath, "人员列表", "NPOI导出测试");
 
             // Assert
             Assert.Equal(filePath, result);
@@ -70,7 +70,7 @@ namespace Linger.Excel.Tests
             var dataTable = GenerateTestDataTable(5);
 
             // Act
-            using var stream = service.ConvertDataTableToMemoryStream(dataTable, "测试表", "NPOI内存流测试");
+            using var stream = service.DataTableToMemoryStream(dataTable, "测试表", "NPOI内存流测试");
 
             // Assert
             Assert.NotNull(stream);
@@ -86,7 +86,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_DataTable.xlsx");
 
             // 先导出Excel
-            service.DataTableToFile(originalData, filePath, "测试表", "NPOI导入测试");
+            service.DataTableToExcel(originalData, filePath, "测试表", "NPOI导入测试");
 
             // Act - 从Excel读取回来
             var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 1);
@@ -106,7 +106,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_List.xlsx");
 
             // 先导出Excel
-            service.ListToFile(originalList, filePath, "人员列表", "NPOI导入测试");
+            service.CollectionToExcel(originalList, filePath, "人员列表", "NPOI导入测试");
 
             // Act - 从Excel读取回来
             var importedList = service.ExcelToList<TestPerson>(filePath, headerRowIndex: 1);
@@ -187,7 +187,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "NpoiExport_DataSet.xlsx");
 
             // Act
-            var result = service.DataSetToFile(dataSet, filePath);
+            var result = service.DataSetToExcel(dataSet, filePath);
 
             // Assert
             Assert.Equal(filePath, result);
@@ -240,7 +240,7 @@ namespace Linger.Excel.Tests
             var columnsOnlyFilePath = Path.Combine(TestFilesDir, "NpoiExport_ColumnsOnlyDataSet.xlsx");
 
             // Act & Assert - 测试完全空的DataSet
-            var result1 = service.DataSetToFile(emptyDataSet, emptyFilePath);
+            var result1 = service.DataSetToExcel(emptyDataSet, emptyFilePath);
             Assert.Equal(emptyFilePath, result1);
             Assert.True(File.Exists(emptyFilePath));
             // 验证创建了默认工作表
@@ -248,7 +248,7 @@ namespace Linger.Excel.Tests
             Assert.Null(importedData1);
 
             // Act & Assert - 测试包含空表的DataSet
-            var result2 = service.DataSetToFile(dataSetWithEmptyTable, emptyTableFilePath);
+            var result2 = service.DataSetToExcel(dataSetWithEmptyTable, emptyTableFilePath);
             Assert.Equal(emptyTableFilePath, result2);
             Assert.True(File.Exists(emptyTableFilePath));
             // 验证创建了默认工作表
@@ -256,7 +256,7 @@ namespace Linger.Excel.Tests
             Assert.Null(importedData2);
 
             // Act & Assert - 测试只有列定义的表
-            var result3 = service.DataSetToFile(dataSetWithColumnsOnly, columnsOnlyFilePath);
+            var result3 = service.DataSetToExcel(dataSetWithColumnsOnly, columnsOnlyFilePath);
             Assert.Equal(columnsOnlyFilePath, result3);
             Assert.True(File.Exists(columnsOnlyFilePath));
             // 验证创建了工作表并包含列头但没有数据行
@@ -294,7 +294,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "NpoiExport_CustomSheetNames.xlsx");
 
             // Act - 使用自定义的默认表名前缀
-            var result = service.DataSetToFile(dataSet, filePath, CUSTOM_PREFIX);
+            var result = service.DataSetToExcel(dataSet, filePath, CUSTOM_PREFIX);
 
             // Assert
             Assert.Equal(filePath, result);
@@ -350,7 +350,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_AllSheets.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act - 导入所有工作表，使用统一的表头行索引（第0行）
             var importedDataSet = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
@@ -410,7 +410,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_SelectedSheets.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act - 只导入指定的两个工作表
             var sheetsToImport = new[] { "部门信息", "项目信息" };
@@ -452,7 +452,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_CaseInsensitive.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act - 使用不同大小写的名称来导入
             var sheetsToImport = new[] { "department", "EMPLOYEE" };
@@ -486,7 +486,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_FlexibleHeaders.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act - 使用函数指定每个工作表的表头行索引
             var importedDataSet = service.ExcelToDataSet(filePath, sheetName =>
@@ -540,7 +540,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_SelectedAndFlexible.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act - 只导入表一和表三，并为每个表指定不同的表头行
             var sheetsToImport = new[] { "表一", "表三" };
@@ -583,7 +583,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_EmptyCollection.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act - 传入null或空集合应该导入所有工作表
             var importedDataSet1 = service.ExcelToDataSet(filePath, (IEnumerable<string>?)null, headerRowIndex: 0, addEmptyRow: false);
@@ -612,7 +612,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_NonExistent.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act - 请求导入包含不存在的工作表名称
             var sheetsToImport = new[] { "ValidSheet", "NonExistentSheet", "AnotherFakeSheet" };
@@ -645,7 +645,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "NpoiImport_Async.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var importedDataSet = await service.ExcelToDataSetAsync(filePath, headerRowIndex: 0, addEmptyRow: false);
@@ -655,6 +655,288 @@ namespace Linger.Excel.Tests
             Assert.Equal(2, importedDataSet.Tables.Count);
             Assert.Equal(TABLE1_ROWS, importedDataSet.Tables["AsyncSheet1"].Rows.Count);
             Assert.Equal(TABLE2_ROWS, importedDataSet.Tables["AsyncSheet2"].Rows.Count);
+        }
+
+        #endregion
+
+        #region Empty Row Handling Tests
+
+        [Fact]
+        public void ExcelToDataTable_WithEmptyRows_SkipsEmptyRowsByDefault()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            // 创建包含空行的DataTable
+            var sourceData = new DataTable("TestWithEmptyRows");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+            sourceData.Columns.Add("Value", typeof(decimal));
+
+            // 添加数据：正常行、空行、正常行、空行、正常行
+            sourceData.Rows.Add(1, "Row1", 100M);
+            sourceData.Rows.Add(2, "Row2", 200M);
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 完全空行
+            sourceData.Rows.Add(3, "Row3", 300M);
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 完全空行
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 完全空行
+            sourceData.Rows.Add(4, "Row4", 400M);
+
+            var filePath = Path.Combine(TestFilesDir, "NpoiImport_EmptyRows_Skip.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet", "空行测试");
+
+            // Act - 默认跳过空行
+            var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 1, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedData);
+            Assert.Equal(4, importedData.Rows.Count); // 应该只有4行数据，跳过3个空行
+            
+            // 验证数据正确性
+            Assert.Equal(1, Convert.ToInt32(importedData.Rows[0]["Id"]));
+            Assert.Equal(2, Convert.ToInt32(importedData.Rows[1]["Id"]));
+            Assert.Equal(3, Convert.ToInt32(importedData.Rows[2]["Id"]));
+            Assert.Equal(4, Convert.ToInt32(importedData.Rows[3]["Id"]));
+        }
+
+        [Fact]
+        public void ExcelToDataTable_WithAddEmptyRowTrue_IncludesEmptyRows()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            // 创建包含空行的DataTable
+            var sourceData = new DataTable("TestWithEmptyRows");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+            sourceData.Columns.Add("Value", typeof(decimal));
+
+            // 添加数据：正常行、空行、正常行
+            sourceData.Rows.Add(1, "Row1", 100M);
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 空行
+            sourceData.Rows.Add(2, "Row2", 200M);
+
+            var filePath = Path.Combine(TestFilesDir, "NpoiImport_EmptyRows_Include.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet", "空行测试");
+
+            // Act - 保留空行
+            var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 1, addEmptyRow: true);
+
+            // Assert
+            Assert.NotNull(importedData);
+            Assert.Equal(3, importedData.Rows.Count); // 应该包含空行，共3行
+            
+            // 验证第一行
+            Assert.Equal(1, Convert.ToInt32(importedData.Rows[0]["Id"]));
+            
+            // 验证第二行是空行（所有列都应该是DBNull）
+            Assert.True(importedData.Rows[1].ItemArray.All(item => item == DBNull.Value || item == null || string.IsNullOrEmpty(item?.ToString())));
+            
+            // 验证第三行
+            Assert.Equal(2, Convert.ToInt32(importedData.Rows[2]["Id"]));
+        }
+
+        [Fact]
+        public void ExcelToDataTable_WithPartiallyEmptyRows_IncludesRows()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            // 创建包含部分空单元格的DataTable
+            var sourceData = new DataTable("TestPartialEmpty");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+            sourceData.Columns.Add("Value", typeof(decimal));
+
+            // 添加数据：正常行、部分空行、正常行
+            sourceData.Rows.Add(1, "Row1", 100M);
+            sourceData.Rows.Add(2, DBNull.Value, 200M); // 部分空（Name为空）
+            sourceData.Rows.Add(3, "Row3", DBNull.Value); // 部分空（Value为空）
+            sourceData.Rows.Add(DBNull.Value, "Row4", DBNull.Value); // 部分空（Id和Value为空）
+
+            var filePath = Path.Combine(TestFilesDir, "NpoiImport_PartialEmpty.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+            // Act - 无论addEmptyRow设置如何，部分空行都应该被包含
+            var importedData1 = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: false);
+            var importedData2 = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: true);
+
+            // Assert
+            Assert.NotNull(importedData1);
+            Assert.Equal(4, importedData1.Rows.Count); // 所有行都应该被包含
+            
+            Assert.NotNull(importedData2);
+            Assert.Equal(4, importedData2.Rows.Count); // 结果应该相同
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithEmptyRows_SkipsEmptyRowsByDefault()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            // 创建包含空行的DataSet
+            var sourceDataSet = GenerateTestDataSet(
+                ("Sheet1", 0, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                    
+                    // 手动添加带空行的数据
+                    table.Rows.Add(1, "Data1");
+                    table.Rows.Add(DBNull.Value, DBNull.Value); // 空行
+                    table.Rows.Add(2, "Data2");
+                    table.Rows.Add(DBNull.Value, DBNull.Value); // 空行
+                    table.Rows.Add(3, "Data3");
+                }),
+                ("Sheet2", 0, table =>
+                {
+                    table.Columns.Add("Value", typeof(decimal));
+                    
+                    table.Rows.Add(100M);
+                    table.Rows.Add(DBNull.Value); // 空行
+                    table.Rows.Add(200M);
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "NpoiImport_DataSet_EmptyRows.xlsx");
+            service.DataSetToExcel(sourceDataSet, filePath);
+
+            // Act - 默认跳过空行
+            var importedDataSet = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(2, importedDataSet.Tables.Count);
+            
+            // Sheet1应该只有3行数据（跳过2个空行）
+            Assert.Equal(3, importedDataSet.Tables["Sheet1"].Rows.Count);
+            Assert.Equal(1, Convert.ToInt32(importedDataSet.Tables["Sheet1"].Rows[0]["Id"]));
+            Assert.Equal(2, Convert.ToInt32(importedDataSet.Tables["Sheet1"].Rows[1]["Id"]));
+            Assert.Equal(3, Convert.ToInt32(importedDataSet.Tables["Sheet1"].Rows[2]["Id"]));
+            
+            // Sheet2应该只有2行数据（跳过1个空行）
+            Assert.Equal(2, importedDataSet.Tables["Sheet2"].Rows.Count);
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithEmptyRowsAndAddEmptyRowTrue_IncludesEmptyRows()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            // 创建包含空行的DataSet
+            var sourceDataSet = GenerateTestDataSet(
+                ("Sheet1", 0, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                    
+                    table.Rows.Add(1, "Data1");
+                    table.Rows.Add(DBNull.Value, DBNull.Value); // 空行
+                    table.Rows.Add(2, "Data2");
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "NpoiImport_DataSet_IncludeEmpty.xlsx");
+            service.DataSetToExcel(sourceDataSet, filePath);
+
+            // Act - 保留空行
+            var importedDataSet = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: true);
+
+            // Assert
+            Assert.NotNull(importedDataSet);
+            Assert.Equal(1, importedDataSet.Tables.Count);
+            
+            // 应该包含空行，共3行
+            Assert.Equal(3, importedDataSet.Tables["Sheet1"].Rows.Count);
+            
+            // 验证第二行是空行
+            var row2 = importedDataSet.Tables["Sheet1"].Rows[1];
+            Assert.True(row2.ItemArray.All(item => item == DBNull.Value || item == null || string.IsNullOrEmpty(item?.ToString())));
+        }
+
+        [Fact]
+        public void ExcelToDataTable_WithConsecutiveEmptyRows_HandlesCorrectly()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            // 创建包含连续空行的DataTable
+            var sourceData = new DataTable("TestConsecutiveEmpty");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+
+            // 添加数据：正常行、3个连续空行、正常行
+            sourceData.Rows.Add(1, "Row1");
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value);
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value);
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value);
+            sourceData.Rows.Add(2, "Row2");
+
+            var filePath = Path.Combine(TestFilesDir, "NpoiImport_ConsecutiveEmpty.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+            // Act
+            var withoutEmpty = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: false);
+            var withEmpty = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: true);
+
+            // Assert
+            Assert.NotNull(withoutEmpty);
+            Assert.Equal(2, withoutEmpty.Rows.Count); // 跳过3个空行
+            
+            Assert.NotNull(withEmpty);
+            Assert.Equal(5, withEmpty.Rows.Count); // 包含所有行
+        }
+
+        [Fact]
+        public void IsRowEmpty_NativeOptimization_WorksCorrectly()
+        {
+            // 这个测试验证IsRowEmpty方法使用了原生判断
+            // 通过创建大量空行来间接测试性能优化是否生效
+            
+            // Arrange
+            var service = GetExcelService();
+            
+            // 创建包含大量空行的DataTable（50%空行）
+            var sourceData = new DataTable("PerformanceTest");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+            sourceData.Columns.Add("Value", typeof(decimal));
+
+            const int totalRows = 100;
+            for (int i = 1; i <= totalRows; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    // 空行
+                    sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value);
+                }
+                else
+                {
+                    // 正常行
+                    sourceData.Rows.Add(i, $"Data{i}", i * 100M);
+                }
+            }
+
+            var filePath = Path.Combine(TestFilesDir, "NpoiImport_Performance.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+            // Act
+            var startTime = DateTime.Now;
+            var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: false);
+            var elapsed = DateTime.Now - startTime;
+
+            // Assert
+            Assert.NotNull(importedData);
+            Assert.Equal(50, importedData.Rows.Count); // 应该只有50行数据
+            
+            // 性能断言：处理100行（50个空行）应该在合理时间内完成
+            // 如果使用原生判断，应该很快（通常<100ms）
+            Assert.True(elapsed.TotalMilliseconds < 1000, 
+                $"处理100行数据耗时 {elapsed.TotalMilliseconds}ms，可能未使用原生优化");
+            
+            Logger.LogInformation($"IsRowEmpty性能测试: 处理{totalRows}行(50%空行)耗时 {elapsed.TotalMilliseconds}ms");
         }
 
         #endregion

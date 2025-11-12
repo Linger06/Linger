@@ -1,3 +1,4 @@
+using System.Globalization;
 using Linger.Extensions.Core;
 using Linger.Ldap.Contracts;
 using Novell.Directory.Ldap;
@@ -15,21 +16,19 @@ public class Ldap : ILdap
         _ldapConn = new LdapConnection { SecureSocketLayer = _ldapConfig.Security };
     }
 
-    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
         if (!await ConnectAsync(ldapCredentials).ConfigureAwait(false)) return null;
 
         try
         {
-            var searchFilter = string.Format(ExtensionMethodSetting.DefaultCulture, _ldapConfig.SearchFilter, userName);
-            ILdapSearchResults? result = await _ldapConn.SearchAsync(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false).ConfigureAwait(false);
+            // Use provided searchBase or fall back to config's SearchBase
+            var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
+            var searchFilter = string.Format(CultureInfo.InvariantCulture, _ldapConfig.SearchFilter, userName);
+            ILdapSearchResults? result = await _ldapConn.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, searchFilter, null, false, cancellationToken).ConfigureAwait(false);
 
-            LdapEntry? user = await result.NextAsync().ConfigureAwait(false);
+            LdapEntry? user = await result.NextAsync(cancellationToken).ConfigureAwait(false);
             return user?.ToAdUser();
-        }
-        catch
-        {
-            throw;
         }
         finally
         {
@@ -37,7 +36,7 @@ public class Ldap : ILdap
         }
     }
 
-    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null)
+    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
         if (!await ConnectAsync(ldapCredentials).ConfigureAwait(false)) return [];
 
@@ -45,19 +44,21 @@ public class Ldap : ILdap
         {
             var ldapEntries = new List<LdapEntry>();
 
-            var searchFilter = string.Format(ExtensionMethodSetting.DefaultCulture, _ldapConfig.SearchFilter, userName + "*");
-            ILdapSearchResults? lsc = await _ldapConn.SearchAsync(_ldapConfig.SearchBase, LdapConnection.ScopeSub, searchFilter, null, false).ConfigureAwait(false);
-            while (await lsc.HasMoreAsync().ConfigureAwait(false))
+            // Use provided searchBase or fall back to config's SearchBase
+            var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
+            var searchFilter = string.Format(CultureInfo.InvariantCulture, _ldapConfig.SearchFilter, userName + "*");
+            ILdapSearchResults? lsc = await _ldapConn.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, searchFilter, null, false, cancellationToken).ConfigureAwait(false);
+            while (await lsc.HasMoreAsync(cancellationToken).ConfigureAwait(false))
             {
                 LdapEntry? nextEntry;
                 try
                 {
-                    nextEntry = await lsc.NextAsync().ConfigureAwait(false);
+                    nextEntry = await lsc.NextAsync(cancellationToken).ConfigureAwait(false);
                 }
-                catch (LdapException e)
+                catch (LdapException)
                 {
-                    Console.WriteLine("Error: " + e.LdapErrorMessage);
-                    //Exception is thrown, go for next entry
+                    // Exception is thrown, go for next entry
+                    // Note: Consider using a logging framework instead of Console.WriteLine
                     continue;
                 }
                 ldapEntries.Add(nextEntry);
@@ -76,20 +77,16 @@ public class Ldap : ILdap
             }
             return adUserInfos;
         }
-        catch
-        {
-            throw;
-        }
         finally
         {
             DisConnect();
         }
     }
 
-    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password)
+    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
     {
         var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
-        var adUserInfo = await FindUserAsync(userName, ldapCredentials).ConfigureAwait(false);
+        var adUserInfo = await FindUserAsync(userName, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
 
         if (adUserInfo == null) return (false, null);
 
@@ -97,13 +94,9 @@ public class Ldap : ILdap
         {
             if (await ConnectAsync().ConfigureAwait(false))
             {
-                await _ldapConn.BindAsync(adUserInfo.Dn, password).ConfigureAwait(false);
+                await _ldapConn.BindAsync(adUserInfo.Dn, password, cancellationToken).ConfigureAwait(false);
                 return (_ldapConn.Bound, adUserInfo);
             }
-        }
-        catch
-        {
-            throw;
         }
         finally
         {
@@ -134,8 +127,16 @@ public class Ldap : ILdap
 
             return true;
         }
-        catch
+        catch (LdapException)
         {
+            // Connection or binding failed
+            // Note: Consider using a logging framework to log connection failures
+            return false;
+        }
+        catch (Exception)
+        {
+            // Unexpected error during connection
+            // Note: Consider using a logging framework to log unexpected errors
             return false;
         }
     }
@@ -168,8 +169,9 @@ public class Ldap : ILdap
     /// Checks if user exists in LDAP directory
     /// </summary>
     /// <param name="userName">Username to check</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user exists; otherwise, false</returns>
-    public async Task<bool> UserExistsAsync(string userName, CancellationToken cancellationToken = default) => await FindUserAsync(userName).ConfigureAwait(false) != null;
+    public async Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default) => await FindUserAsync(userName, searchBase: searchBase, cancellationToken: cancellationToken).ConfigureAwait(false) != null;
 
 }

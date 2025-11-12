@@ -1,8 +1,5 @@
 ﻿# Linger.AspNetCore.Jwt
 
-> View this document in: [English](./README.md) | [中文](./README.zh-CN.md)  \
-> Full legacy guide: [legacy-full-guide.md](./docs/legacy-full-guide.md)
-
 Lightweight helpers for issuing and refreshing JWT access tokens in ASP.NET Core.
 
 ## Features
@@ -48,8 +45,8 @@ builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshable
     "SecurityKey": "your-32+chars-secret",
     "Issuer": "your-app",
     "Audience": "your-api",
-    "Expires": 15,
-    "RefreshTokenExpires": 10080,
+    "ExpiresInMinutes": 15,
+    "RefreshTokenExpiresInMinutes": 10080,
     "EnableRefreshToken": true
   }
 }
@@ -60,11 +57,11 @@ Environment precedence: `SECRET` env var > `JwtOptions:SecurityKey`.
 ```csharp
 public sealed class JwtOption
 {
-    public string SecurityKey { get; set; } = "dev-secret-change";
+    public string SecurityKey { get; set; } = null!;  // MUST set in production!
     public string Issuer { get; set; } = "example";
     public string Audience { get; set; } = "example";
-    public int Expires { get; set; } = 15;               // minutes
-    public int RefreshTokenExpires { get; set; } = 10080; // minutes (7d)
+    public int ExpiresInMinutes { get; set; } = 30;               // Token expiration (minutes)
+    public int RefreshTokenExpiresInMinutes { get; set; } = 10080; // Refresh token expiration (minutes, 7 days)
     public bool EnableRefreshToken { get; set; } = true;
 }
 ```
@@ -99,7 +96,7 @@ sealed class MemoryCachedJwtService(JwtOption opt, IMemoryCache cache, ILogger<M
 {
     protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
     {
-        cache.Set($"RT_{userId}", token, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpires));
+        cache.Set($"RT_{userId}", token, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpiresInMinutes));
         return Task.CompletedTask;
     }
     protected override Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
@@ -131,9 +128,11 @@ sealed class DbJwtService(JwtOption opt, IUserRepository repo, ILogger<DbJwtServ
 
 ## Controller Example
 ```csharp
-[ApiController]
-[Route("api/auth")]
-sealed class AuthController(IJwtService jwt) : ControllerBase
+## Controller Example
+
+### Recommended Approach (using TryRefreshTokenAsync)
+```csharp
+public class AuthController(IJwtService jwt) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<IActionResult> Login(LoginDto dto)
@@ -147,14 +146,40 @@ sealed class AuthController(IJwtService jwt) : ControllerBase
     [HttpPost("refresh")]
     public async Task<IActionResult> Refresh(TokenEnvelope dto)
     {
-        if (jwt.SupportsRefreshToken())
-        {
-            var (ok, newToken) = await jwt.TryRefreshTokenAsync(dto);
-            if (ok) return Ok(newToken);
-        }
-        return Unauthorized();
+        var result = await jwt.TryRefreshTokenAsync(dto);
+        if (result.Success) 
+            return Ok(result.Token);
+        
+        return Unauthorized(result.ErrorMessage);
     }
 }
+```
+
+### Alternative Approach (using exception handling)
+```csharp
+[HttpPost("refresh")]
+public async Task<IActionResult> Refresh(TokenEnvelope dto)
+{
+    if (!jwt.SupportsRefreshToken()) 
+        return Unauthorized("Refresh token not supported");
+    
+    try 
+    {
+        return Ok(await jwt.RefreshTokenAsync(dto));
+    }
+    catch (NotSupportedException)
+    {
+        return Unauthorized("Refresh token not supported");
+    }
+    catch (SecurityTokenException ex)
+    {
+        _logger.LogWarning(ex, "Refresh token validation failed");
+        return Unauthorized("Invalid or expired refresh token");
+    }
+}
+```
+
+> **💡 Tip**: The `TryRefreshTokenAsync` method follows C#'s Try-pattern convention, offering better performance and cleaner code.
 ```
 
 ## Client Refresh (Concept)

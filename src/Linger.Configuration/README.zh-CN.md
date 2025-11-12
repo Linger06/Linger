@@ -1,7 +1,5 @@
 # Linger.Configuration
 
-> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 一个适用于 .NET 应用程序的轻量级配置辅助库。
 
 ## 概述

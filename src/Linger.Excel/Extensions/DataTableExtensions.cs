@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Globalization;
 using System.Text;
 using Linger.Extensions.Core;
 using OfficeOpenXml;
@@ -117,7 +118,7 @@ public static class DataTableExtensions
                     }
                     else
                     {
-                        streamWriter.Write(Convert.ToString(columnValue)?.Replace('\t', ' ').Replace('\r', ' ')
+                        streamWriter.Write(Convert.ToString(columnValue, CultureInfo.InvariantCulture)?.Replace('\t', ' ').Replace('\r', ' ')
                             .Replace('\n', ' '));
 
                         //streamWriter.Write(((DateTime)dr[column]).ToString("yyyy-MM-dd HH:mm:ss"));
@@ -125,7 +126,7 @@ public static class DataTableExtensions
                 }
                 else
                 {
-                    streamWriter.Write(Convert.ToString(columnValue)
+                    streamWriter.Write(Convert.ToString(columnValue, CultureInfo.InvariantCulture)
                         ?.Replace('\t', ' ').Replace('\r', ' ')
                         .Replace('\n', ' '));
                 }

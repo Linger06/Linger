@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Data;
 using System.Reflection;
 using Linger.Excel.Contracts.Attributes;
@@ -58,7 +58,7 @@ public class Excel : IExcel
             return null;
         }
 
-        var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
         DataTable? dt = ReadStreamToDataTable(fileStream, sheetName, firstRowIsColumnName, addEmptyRow);
         return dt;
     }
@@ -87,7 +87,7 @@ public class Excel : IExcel
             return null;
         }
 
-        var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
         ICollection<DataTable>? tables = ReadStreamToTables(fileStream, firstRowIsColumnName, addEmptyRow);
         return tables;
     }
@@ -161,7 +161,7 @@ public class Excel : IExcel
             return null;
         }
 
-        var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
         List<T>? list = ReadStreamToList<T>(fileStream, sheetName, firstRowIsColumnName, addEmptyRow);
         return list;
     }
@@ -243,7 +243,7 @@ public class Excel : IExcel
         pck.Load(stream);
         ExcelWorkbook? workbook = pck.Workbook;
         ExcelWorksheet? sheet = workbook.Worksheets.First();
-        if (sheetName.IsNotNullAndEmpty())
+        if (sheetName.IsNotNullOrEmpty())
         {
             sheet = workbook.Worksheets[sheetName];
         }
@@ -373,7 +373,7 @@ public class Excel : IExcel
         pck.Load(stream);
         ExcelWorkbook? workbook = pck.Workbook;
         ExcelWorksheet? sheet = workbook.Worksheets.First();
-        if (sheetName.IsNotNullAndEmpty())
+        if (sheetName.IsNotNullOrEmpty())
         {
             sheet = workbook.Worksheets[sheetName];
         }
@@ -552,7 +552,7 @@ public class Excel : IExcel
         worksheet.Cells.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
         var titleIndex = 0;
         DataColumnCollection columns = dataTable.Columns;
-        if (title.IsNotNullAndEmpty())
+        if (title.IsNotNullOrEmpty())
         {
             titleIndex = 1;
             worksheet.Cells[1, 1, 1, columns.Count].Merge = true;
@@ -587,7 +587,7 @@ public class Excel : IExcel
                             //长数字会被转换为科学计数法,暂时先拿掉
                             //if (drValue.IsDouble())
                             //{
-                            //    cell.Value = drValue.ToDouble();
+                            //    cell.Value = drValue.ToDoubleOrDefault(0.0);
                             //    break;
                             //}
 
@@ -595,24 +595,24 @@ public class Excel : IExcel
                             break;
 
                         case "System.DateTime": //日期类型
-                            cell.Value = drValue.ToDateTime(); //.ToFormatDateTime();
+                            cell.Value = drValue.ToDateTimeOrNull(); //.ToFormatDateTime();
                             cell.Style.Numberformat.Format = "yyyy-MM-dd HH:mm:ss";
                             break;
 
                         case "System.Boolean": //布尔型
-                            cell.Value = drValue.ToBool();
+                            cell.Value = drValue.ToBoolOrDefault(false);
                             break;
 
                         case "System.Int16": //整型
                         case "System.Int32":
                         case "System.Int64":
                         case "System.Byte":
-                            cell.Value = drValue.ToInt();
+                            cell.Value = drValue.ToIntOrDefault(0);
                             break;
 
                         case "System.Decimal": //浮点型
                         case "System.Double":
-                            cell.Value = drValue.ToDouble();
+                            cell.Value = drValue.ToDoubleOrDefault(0.0);
                             break;
 
                         case "System.DBNull": //空值处理
@@ -705,7 +705,7 @@ public class Excel : IExcel
         MemoryStream? ms = WriteToMemoryStream(dataTable, action, sheetsName);
         if (ms == null)
         {
-            throw new NullReferenceException(nameof(ms));
+            throw new InvalidOperationException("Failed to write DataTable to MemoryStream.");
         }
 
         using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
@@ -908,10 +908,7 @@ public class Excel : IExcel
     /// <exception cref="ArgumentNullException"></exception>
     private static int GetColumnByName(ExcelWorksheet ws, string columnName)
     {
-        if (ws == null)
-        {
-            throw new System.ArgumentNullException(nameof(ws));
-        }
+        ArgumentNullException.ThrowIfNull(ws);
 
         return ws.Cells["1:1"].First(c => c.Value.ToString() == columnName).Start.Column;
     }
@@ -960,7 +957,7 @@ public class Excel : IExcel
 
         worksheet.Cells.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
-        if (title.IsNotNullAndEmpty())
+        if (title.IsNotNullOrEmpty())
         {
             titleIndex = 1;
             worksheet.Cells[1, 1, 1, columns.Count()].Merge = true;
@@ -979,12 +976,12 @@ public class Excel : IExcel
             columns.ForEach((column, columnIndex) =>
             {
                 ExcelRange? cell = worksheet.Cells[titleIndex + rowIndex + 2, columnIndex + 1];
-                PropertyInfo? property = properties.Where(a => a.Name == column.Item1).FirstOrDefault();
+                PropertyInfo? property = properties.FirstOrDefault(a => a.Name == column.Item1);
                 var value = property!.GetValue(row);
 
                 if (value != null && property.PropertyType == typeof(DateTime))
                 {
-                    var date = value.ToString().ToDateTime();
+                    var date = value.ToString().ToDateTimeOrNull();
                     if (date == DateTime.MinValue)
                     {
                         value = string.Empty;
@@ -1059,7 +1056,7 @@ public class Excel : IExcel
                         attr.NamedArguments.FirstOrDefault(a => a.MemberName == "Index");
                     var value = nameMember.TypedValue.Value;
                     var name = value == null ? string.Empty : value.ToString();
-                    var index = indexMember.TypedValue.Value?.ToInt() ?? int.MaxValue;
+                    var index = indexMember.TypedValue.Value?.ToIntOrDefault(0) ?? int.MaxValue;
                     return new Tuple<string, int>(name ?? string.Empty, index);
                 }
             }

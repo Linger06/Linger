@@ -20,7 +20,7 @@ public static partial class StringExtensions
     public static bool IsInt(this string? value) => value.IsType<int>(int.TryParse);
 
     /// <summary>
-    /// 判断字符串是否可以解析为任一有符号整数 (short/int/long)。
+    /// 判断字符串是否可以解析为任一有符号整型（short/int/long）。
     /// </summary>
     public static bool IsAnySignedInteger(this string? value) => value.IsInt16() || value.IsInt() || value.IsInt64();
 
@@ -42,19 +42,9 @@ public static partial class StringExtensions
     /// <summary>
     /// 判断字符串是否可以解析为 <see cref="float"/>。首选此方法，替代早期的 <c>IsSingle</c>。
     /// </summary>
-    /// <param name="value">待检测字符串。</param>
-    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c>。</returns>
+    /// <param name="value">待检测字符串</param>
+    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c></returns>
     public static bool IsFloat(this string? value) => value.IsType<float>(float.TryParse);
-
-    /// <summary>
-    /// (已弃用) 判断字符串是否可以解析为 <see cref="float"/>。请使用 <see cref="IsFloat(string?)"/>。
-    /// </summary>
-    /// <remarks>将在 1.0.0 版本移除。</remarks>
-    /// <param name="value">待检测字符串。</param>
-    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c>。</returns>
-    [Obsolete("Use IsFloat() instead. Will be removed in 1.0.0.")]
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
-    public static bool IsSingle(this string? value) => IsFloat(value);
 
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="double"/> type.
@@ -158,9 +148,9 @@ public static partial class StringExtensions
             return false;
 
         // 检查每个字符是否都是数字
-        for (var i = 0; i < s.Length; i++)
+        foreach (var t in s)
         {
-            if (!char.IsDigit(s[i]))
+            if (!char.IsDigit(t))
                 return false;
         }
 
@@ -472,7 +462,7 @@ public static partial class StringExtensions
         decimal dData;
         if (input.IsScientificNotation())
         {
-            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float, ExtensionMethodSetting.DefaultCulture));
+            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float, CultureInfo.InvariantCulture));
         }
         else
         {

@@ -1,28 +1,27 @@
 ﻿namespace Linger.AspNetCore.Jwt.Contracts;
 
 /// <summary>
-/// JWT服务基础接口，仅包含基本的创建令牌功能
+/// Defines basic JWT service operations for token creation
 /// </summary>
 public interface IJwtService
 {
     /// <summary>
-    /// 创建令牌
+    /// Creates a new JWT token for the specified user
     /// </summary>
-    /// <param name="userId">用户标识</param>
-    /// <returns>包含访问令牌的Token对象</returns>
+    /// <param name="userId">User identifier</param>
+    /// <returns>A token object containing the access token</returns>
     Task<Token> CreateTokenAsync(string userId);
 }
 
 /// <summary>
-/// 支持刷新令牌功能的JWT服务接口
-/// 继承自IJwtService，确保实现此接口的服务同时具备基本JWT功能
+/// Extends JWT service with refresh token capabilities
 /// </summary>
 public interface IRefreshableJwtService : IJwtService
 {
     /// <summary>
-    /// 刷新令牌
+    /// Refreshes an expired access token using a valid refresh token
     /// </summary>
-    /// <param name="token">包含访问令牌和刷新令牌的Token对象</param>
-    /// <returns>新的Token对象</returns>
+    /// <param name="token">Token object containing both access and refresh tokens</param>
+    /// <returns>A new token object with updated access and refresh tokens</returns>
     Task<Token> RefreshTokenAsync(Token token);
 }

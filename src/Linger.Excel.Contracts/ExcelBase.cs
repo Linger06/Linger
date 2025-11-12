@@ -26,7 +26,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return ConvertStreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
+            return StreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
         }
         catch (Exception ex)
         {
@@ -49,7 +49,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return ConvertStreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
+            return StreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
         }
         catch (Exception ex)
         {
@@ -72,7 +72,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return ConvertStreamToDataSet(fileStream, headerRowIndex, addEmptyRow);
+            return StreamToDataSet(fileStream, headerRowIndex, addEmptyRow);
         }
         catch (Exception ex)
         {
@@ -95,7 +95,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return ConvertStreamToDataSet(fileStream, sheetNames, headerRowIndex, addEmptyRow);
+            return StreamToDataSet(fileStream, sheetNames, headerRowIndex, addEmptyRow);
         }
         catch (Exception ex)
         {
@@ -118,7 +118,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return ConvertStreamToDataSet(fileStream, headerRowIndexSelector, addEmptyRow);
+            return StreamToDataSet(fileStream, headerRowIndexSelector, addEmptyRow);
         }
         catch (Exception ex)
         {
@@ -141,7 +141,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return ConvertStreamToDataSet(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow);
+            return StreamToDataSet(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow);
         }
         catch (Exception ex)
         {
@@ -153,21 +153,21 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
-    public override string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+    public override string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
-        using var ms = ConvertDataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
+        using var ms = DataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
         ms.ToFile(fullFileName);
         return fullFileName;
     }
 
     /// <summary>
-    /// 列表转 Excel 文件
+    /// 对象集合转 Excel 文件
     /// </summary>
-    public override string ListToFile<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
+    public override string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
     {
-        using var ms = ConvertCollectionToMemoryStream(list, sheetsName, title, action, styleAction);
+        using var ms = CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
         ms.ToFile(fullFileName);
         return fullFileName;
     }
@@ -175,7 +175,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 数据集转 Excel 文件(每个DataTable一个工作表)
     /// </summary>
-    public override string DataSetToFile(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
+    public override string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
         if (dataSet == null || dataSet.Tables.Count == 0)
@@ -218,9 +218,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 将Stream转换为DataTable
+    /// 将Stream转换为DataTable（新方法）
     /// </summary>
-    public override DataTable? ConvertStreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (stream == null || stream.Length == 0)
         {
@@ -294,12 +294,12 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 将Stream转换为对象列表
+    /// 将Stream转换为对象列表（新方法）
     /// </summary>
-    public override List<T>? ConvertStreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         // 首先转换为DataTable
-        var dataTable = ConvertStreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        var dataTable = StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
         if (dataTable == null)
         {
             return null;
@@ -378,17 +378,17 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 将Stream转换为DataSet(所有工作表)
+    /// 将Stream转换为DataSet(所有工作表)（新方法）
     /// </summary>
-    public override DataSet? ConvertStreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        return ConvertStreamToDataSet(stream, null, headerRowIndex, addEmptyRow);
+        return StreamToDataSet(stream, null, headerRowIndex, addEmptyRow);
     }
 
     /// <summary>
-    /// 将Stream转换为DataSet(指定工作表)
+    /// 将Stream转换为DataSet(指定工作表)（新方法）
     /// </summary>
-    public override DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         if (stream == null || stream.Length == 0)
         {
@@ -495,15 +495,15 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
-    public override DataSet? ConvertStreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
     {
-        return ConvertStreamToDataSet(stream, null, headerRowIndexSelector, addEmptyRow);
+        return StreamToDataSet(stream, null, headerRowIndexSelector, addEmptyRow);
     }
 
     /// <summary>
-    /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行（新方法）
     /// </summary>
-    public override DataSet? ConvertStreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
     {
         if (stream == null || stream.Length == 0)
         {
@@ -620,7 +620,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         // 获取所有可用的工作表名称
         var allSheetNames = GetAllSheetNames(workbook);
-        
+
         // 如果没有指定工作表或指定的集合为空，则返回所有工作表
         if (requestedSheetNames == null || !requestedSheetNames.Any())
         {
@@ -630,15 +630,15 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         // 按请求的顺序返回存在的工作表（保持用户指定的顺序）
         var result = new List<string>();
         var allSheetNamesSet = new HashSet<string>(allSheetNames, StringComparer.OrdinalIgnoreCase);
-        
+
         foreach (var requestedName in requestedSheetNames)
         {
             if (allSheetNamesSet.Contains(requestedName))
             {
                 // 使用实际的工作表名称（保持Excel中的大小写）
-                var actualName = allSheetNames.FirstOrDefault(n => 
+                var actualName = allSheetNames.FirstOrDefault(n =>
                     string.Equals(n, requestedName, StringComparison.OrdinalIgnoreCase));
-                
+
                 if (actualName != null)
                 {
                     result.Add(actualName);
@@ -654,9 +654,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 列表转 Excel 内存流
+    /// 对象集合转 Excel 内存流（新方法）
     /// </summary>
-    public override MemoryStream ConvertCollectionToMemoryStream<T>(
+    public override MemoryStream CollectionToMemoryStream<T>(
         List<T> list,
         string sheetsName = "Sheet1",
         string title = "",
@@ -705,9 +705,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 数据表格转 Excel 内存流
+    /// 数据表格转 Excel 内存流（新方法）
     /// </summary>
-    public override MemoryStream ConvertDataTableToMemoryStream(
+    public override MemoryStream DataTableToMemoryStream(
         DataTable dataTable,
         string sheetsName = "Sheet1",
         string title = "",
@@ -776,11 +776,10 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         string[] columnNames;
         var columns = GetExcelColumns(properties);
 
-        if (columns.Any())
+        if (columns.Count != 0)
         {
-            // 使用特性标记的列名
-            columns = columns.OrderBy(c => c.Index);
-            columnNames = columns.Select(c => c.ColumnName).ToArray();
+            // 使用特性标记的列名,按Index排序
+            columnNames = columns.OrderBy(c => c.Index).Select(c => c.ColumnName).ToArray();
         }
         else
         {
@@ -965,6 +964,12 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             DataRow row = dataTable.NewRow();
             var hasValue = false;
 
+            // 优化：使用原生判断快速跳过空行（当addEmptyRow为false时）
+            if (!addEmptyRow && IsRowEmpty(worksheet, rowNum))
+            {
+                continue; // 跳过空行
+            }
+
             foreach (var mapping in headerMappings)
             {
                 var colIndex = mapping.Key;
@@ -1070,6 +1075,18 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// 获取单元格值
     /// </summary>
     protected abstract object GetCellValue(TWorksheet worksheet, int rowNum, int colIndex);
+
+    /// <summary>
+    /// 检查指定行是否为空行(所有单元格都为空)
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="rowNum">行索引(使用各引擎的原生索引系统)</param>
+    /// <returns>如果该行所有单元格都为空则返回true，否则返回false</returns>
+    /// <remarks>
+    /// 此方法使用各Excel引擎的原生方法判断行是否为空，性能优于遍历所有列。
+    /// 各实现类应使用最高效的原生判断方式。
+    /// </remarks>
+    protected abstract bool IsRowEmpty(TWorksheet worksheet, int rowNum);
 
     /// <summary>
     /// 应用标题

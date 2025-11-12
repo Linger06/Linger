@@ -1,6 +1,4 @@
-﻿# Linger.Results
-
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
+# Linger.Results
 
 A modern operation result handling library designed with a functional style approach, helping developers handle various operation results more elegantly. By using the Result pattern instead of exceptions, it enables more controllable and predictable error handling processes.
 
@@ -10,7 +8,7 @@ A modern operation result handling library designed with a functional style appr
 - Supports generic results that can carry return values of any type
 - Offers rich functional operations (mapping, binding, combining, etc.)
 - Strong typing for error handling, more controllable than exceptions
-- Supports multiple frameworks including .NET 9.0, .NET 8.0, .NET Standard 2.0, and .NET Framework 4.7.2
+- Supports multiple frameworks including .Net10.0, .NET 9.0, .NET 8.0, .NET Standard 2.0, and .NET Framework 4.7.2
 
 ## Installation
 
@@ -125,6 +123,74 @@ var finalResult = GetUser(123)
 var result = await GetUserAsync(123)
     .MapAsync(async user => await GetUserPreferencesAsync(user))
     .BindAsync(async prefs => await UpdatePreferencesAsync(prefs));
+```
+
+### Async Support with CancellationToken
+
+```csharp
+// All async extension methods support CancellationToken for cancellable operations
+public async Task<Result<OrderSummary>> ProcessOrderAsync(int orderId, CancellationToken cancellationToken)
+{
+    return await GetOrderAsync(orderId)
+        // MapAsync with CancellationToken
+        .MapAsync(async (order, token) => 
+        {
+            // Perform async transformation with cancellation support
+            return await CalculateTotalAsync(order, token);
+        }, cancellationToken)
+        
+        // BindAsync with CancellationToken
+        .BindAsync(async (total, token) => 
+        {
+            // Chain another Result-returning async operation
+            return await ValidatePaymentAsync(total, token);
+        }, cancellationToken)
+        
+        // EnsureAsync with CancellationToken
+        .EnsureAsync(
+            async (payment, token) => await CheckInventoryAsync(payment, token),
+            new Error("Inventory", "Insufficient inventory"),
+            cancellationToken)
+        
+        // MatchAsync with CancellationToken
+        .MatchAsync(
+            async (payment, token) => 
+            {
+                await SendConfirmationEmailAsync(payment, token);
+                return Result<OrderSummary>.Success(new OrderSummary(payment));
+            },
+            async (errors, token) => 
+            {
+                await LogErrorsAsync(errors, token);
+                return Result<OrderSummary>.Failure(errors);
+            },
+            cancellationToken);
+}
+
+// Example: Using with HttpClient or database operations
+public async Task<Result<User>> UpdateUserWithCancellationAsync(
+    User user, 
+    CancellationToken cancellationToken)
+{
+    return await ValidateUser(user)
+        .MapAsync(async (validUser, token) => 
+        {
+            // Database operation with cancellation
+            await _dbContext.Users.AddAsync(validUser, token);
+            await _dbContext.SaveChangesAsync(token);
+            return validUser;
+        }, cancellationToken)
+        .EnsureAsync(
+            async (savedUser, token) => 
+            {
+                // Verify the save operation
+                var exists = await _dbContext.Users
+                    .AnyAsync(u => u.Id == savedUser.Id, token);
+                return exists;
+            },
+            new Error("Database", "User save verification failed"),
+            cancellationToken);
+}
 ```
 
 ### Using Result.Create for Condition Checking

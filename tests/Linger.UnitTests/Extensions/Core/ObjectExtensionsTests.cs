@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Linger.Extensions.Core;
 using Xunit;
 
@@ -35,24 +35,24 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void IsNotNullAndEmpty_ShouldReturnTrue_WhenObjectIsNotNullAndNotEmpty()
+        public void IsNotNullOrEmpty_ShouldReturnTrue_WhenObjectIsNotNullAndNotEmpty()
         {
             object obj = "Hello";
-            Assert.True(obj.IsNotNullAndEmpty());
+            Assert.True(obj.IsNotNullOrEmpty());
         }
 
         [Fact]
-        public void IsNotNullAndEmpty_ShouldReturnFalse_WhenObjectIsNull()
+        public void IsNotNullOrEmpty_ShouldReturnFalse_WhenObjectIsNull()
         {
             object? obj = null;
-            Assert.False(obj.IsNotNullAndEmpty());
+            Assert.False(obj.IsNotNullOrEmpty());
         }
 
         [Fact]
-        public void IsNotNullAndEmpty_ShouldReturnFalse_WhenObjectIsEmptyString()
+        public void IsNotNullOrEmpty_ShouldReturnFalse_WhenObjectIsEmptyString()
         {
             object obj = "";
-            Assert.False(obj.IsNotNullAndEmpty());
+            Assert.False(obj.IsNotNullOrEmpty());
         }
 
         [Fact]
@@ -227,17 +227,17 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void IsSingle_ShouldReturnTrue_WhenObjectIsSingle()
+        public void IsFloat_ShouldReturnTrue_WhenObjectIsSingle()
         {
             object num = 123.45F;
-            Assert.True(num.IsSingle());
+            Assert.True(num.IsFloat());
         }
 
         [Fact]
-        public void IsSingle_ShouldReturnFalse_WhenObjectIsNotSingle()
+        public void IsFloat_ShouldReturnFalse_WhenObjectIsNotSingle()
         {
             object num = 123.45;
-            Assert.False(num.IsSingle());
+            Assert.False(num.IsFloat());
         }
 
         [Fact]
@@ -405,7 +405,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.False((-100L).IsAnyUnsignedInteger());
         }
 
-        public static TheoryData<object, string> ToNotSpaceStringData()
+        public static TheoryData<object, string> ToTrimmedStringData()
         {
             return new TheoryData<object, string>
                 {
@@ -417,14 +417,14 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
-        [MemberData(nameof(ToNotSpaceStringData))]
-        public void ToNotSpaceString_ShouldReturnExpectedResult(object input, string expected)
+        [MemberData(nameof(ToTrimmedStringData))]
+        public void ToTrimmedString_ShouldReturnExpectedResult(object input, string expected)
         {
-            var result = input.ToNotSpaceString();
+            var result = input.ToTrimmedString();
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, string, string> ToSafeStringData()
+        public static TheoryData<object, string, string> ToStringOrDefaultData()
         {
             return new TheoryData<object, string, string>
                 {
@@ -436,28 +436,10 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
-        [MemberData(nameof(ToSafeStringData))]
-        public void ToSafeString_ShouldReturnExpectedResult(object input, string defaultValue, string expected)
+        [MemberData(nameof(ToStringOrDefaultData))]
+        public void ToStringOrDefault_ShouldReturnExpectedResult(object input, string defaultValue, string expected)
         {
-            var result = input.ToSafeString(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<object, string> ToStringOrEmptyData()
-        {
-            return new TheoryData<object, string>
-                {
-                    { "test", "test" },
-                    { null, string.Empty },
-                    { 123, "123" }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToStringOrEmptyData))]
-        public void ToStringOrEmpty_ShouldReturnExpectedResult(object input, string expected)
-        {
-            var result = input.ToStringOrEmpty();
+            var result = input.ToStringOrDefault(defaultValue);
             Assert.Equal(expected, result);
         }
 
@@ -476,25 +458,6 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToStringOrNull_ShouldReturnExpectedResult(object input, string expected)
         {
             var result = input.ToStringOrNull();
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<object, short> ToShortData()
-        {
-            return new TheoryData<object, short>
-                {
-                    { "123", 123 },
-                    { null, 0 },
-                    { "invalid", 0 },
-                    { 123.45, 0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToShortData))]
-        public void ToShort_ShouldReturnExpectedResult(object input, short expected)
-        {
-            var result = input.ToShort();
             Assert.Equal(expected, result);
         }
 
@@ -517,25 +480,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, long> ToLongData()
-        {
-            return new TheoryData<object, long>
-                {
-                    { "123456789", 123456789L },
-                    { null, 0L },
-                    { "invalid", 0L },
-                    { 123.45, 0L }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToLongData))]
-        public void ToLong_ShouldReturnExpectedResult(object input, long expected)
-        {
-            var result = input.ToLong();
-            Assert.Equal(expected, result);
-        }
-
+        
         public static TheoryData<object, long?> ToLongOrNullData()
         {
             return new TheoryData<object, long?>
@@ -555,25 +500,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, decimal> ToDecimalData()
-        {
-            return new TheoryData<object, decimal>
-                {
-                    { "123.45", 123.45m },
-                    { null, 0m },
-                    { "invalid", 0m },
-                    { 123, 123m }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDecimalData))]
-        public void ToDecimal_ShouldReturnExpectedResult(object input, decimal expected)
-        {
-            var result = input.ToDecimal();
-            Assert.Equal(expected, result);
-        }
-
+        
         public static TheoryData<object, decimal?> ToDecimalOrNullData()
         {
             return new TheoryData<object, decimal?>
@@ -593,25 +520,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, int> ToIntData()
-        {
-            return new TheoryData<object, int>
-                {
-                    { "123", 123 },
-                    { null, 0 },
-                    { "invalid", 0 },
-                    { 123.45, 0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToIntData))]
-        public void ToInt_ShouldReturnExpectedResult(object input, int expected)
-        {
-            var result = input.ToInt();
-            Assert.Equal(expected, result);
-        }
-
+        
         // New ToIntOrDefault tests for ObjectExtensions
         public static TheoryData<object, int, int> ToIntOrDefaultData()
         {
@@ -630,17 +539,6 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToIntOrDefault_ShouldReturnExpectedResult(object input, int defaultValue, int expected)
         {
             var result = input.ToIntOrDefault(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        // Test backward compatibility
-        [Theory]
-        [MemberData(nameof(ToIntOrDefaultData))]
-        public void ToInt_BackwardCompatibility_ShouldReturnExpectedResult(object input, int defaultValue, int expected)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var result = input.ToInt(defaultValue);
-#pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
 
@@ -663,25 +561,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, double> ToDoubleData()
-        {
-            return new TheoryData<object, double>
-                {
-                    { "123.45", 123.45 },
-                    { null, 0.0 },
-                    { "invalid", 0.0 },
-                    { 123, 123.0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDoubleData))]
-        public void ToDouble_ShouldReturnExpectedResult(object input, double expected)
-        {
-            var result = input.ToDouble();
-            Assert.Equal(expected, result);
-        }
-
+        
         public static TheoryData<object, double?> ToDoubleOrNullData()
         {
             return new TheoryData<object, double?>
@@ -701,25 +581,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, float> ToFloatData()
-        {
-            return new TheoryData<object, float>
-                {
-                    { "123.45", 123.45f },
-                    { null, 0f },
-                    { "invalid", 0f },
-                    { 123, 123f }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToFloatData))]
-        public void ToFloat_ShouldReturnExpectedResult(object input, float expected)
-        {
-            var result = input.ToFloat();
-            Assert.Equal(expected, result);
-        }
-
+        
         public static TheoryData<object, float?> ToFloatOrNullData()
         {
             return new TheoryData<object, float?>
@@ -739,24 +601,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, DateTime> ToDateTimeData()
-        {
-            return new TheoryData<object, DateTime>
-                {
-                    { "2023-01-01", new DateTime(2023, 1, 1) },
-                    { null, DateTime.MinValue },
-                    { "invalid", DateTime.MinValue }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDateTimeData))]
-        public void ToDateTime_ShouldReturnExpectedResult(object input, DateTime expected)
-        {
-            var result = input.ToDateTime();
-            Assert.Equal(expected, result);
-        }
-
+        
         // New ToDateTimeOrDefault tests for ObjectExtensions
         public static TheoryData<object, DateTime, DateTime> ToDateTimeOrDefaultData()
         {
@@ -773,16 +618,6 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToDateTimeOrDefault_ShouldReturnExpectedResult(object input, DateTime defaultValue, DateTime expected)
         {
             var result = input.ToDateTimeOrDefault(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDateTimeOrDefaultData))]
-        public void ToDateTime_BackwardCompatibility_ShouldReturnExpectedResult(object input, DateTime defaultValue, DateTime expected)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var result = input.ToDateTime(defaultValue);
-#pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
 
@@ -804,25 +639,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, bool> ToBoolData()
-        {
-            return new TheoryData<object, bool>
-                {
-                    { "true", true },
-                    { null, false },
-                    { "invalid", false },
-                    { "false", false }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToBoolData))]
-        public void ToBool_ShouldReturnExpectedResult(object input, bool expected)
-        {
-            var result = input.ToBool();
-            Assert.Equal(expected, result);
-        }
-
+        
         public static TheoryData<object, bool?> ToBoolOrNullData()
         {
             return new TheoryData<object, bool?>
@@ -842,25 +659,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        public static TheoryData<object, Guid> ToGuidData()
-        {
-            var guid = Guid.NewGuid();
-            return new TheoryData<object, Guid>
-                {
-                    { guid.ToString(), guid },
-                    { null, Guid.Empty },
-                    { "invalid", Guid.Empty }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToGuidData))]
-        public void ToGuid_ShouldReturnExpectedResult(object input, Guid expected)
-        {
-            var result = input.ToGuid();
-            Assert.Equal(expected, result);
-        }
-
+        
         public static TheoryData<object, Guid?> ToGuidOrNullData()
         {
             var guid = Guid.NewGuid();

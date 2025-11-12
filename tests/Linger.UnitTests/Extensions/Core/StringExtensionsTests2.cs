@@ -6,9 +6,9 @@ public partial class StringExtensionsTests
     [Theory]
     [InlineData("test", 2, "te")]
     [InlineData("test", 10, "test")]
-    public void Substring2_ShouldReturnExpectedResult(string value, int length, string expected)
+    public void Take_ShouldReturnExpectedResult(string value, int length, string expected)
     {
-        var result = value.Substring2(length);
+        var result = value.Take(length);
         Assert.Equal(expected, result);
     }
 
@@ -30,9 +30,9 @@ public partial class StringExtensionsTests
         Assert.NotNull(result);
         Assert.Equal(2, result.Rows.Count);
         Assert.Equal("John", result.Rows[0]["Name"]);
-        Assert.Equal(30, result.Rows[0]["Age"].ToInt());
+        Assert.Equal(30, result.Rows[0]["Age"].ToIntOrDefault());
         Assert.Equal("Jane", result.Rows[1]["Name"]);
-        Assert.Equal(25, result.Rows[1]["Age"].ToInt());
+        Assert.Equal(25, result.Rows[1]["Age"].ToIntOrDefault());
     }
 
     [Fact]

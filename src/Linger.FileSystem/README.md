@@ -1,7 +1,5 @@
 # Linger.FileSystem
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A unified file system abstraction library providing a consistent interface for accessing different file systems, including local file system, FTP, and SFTP. With this library, you can use the same API to operate on different types of file systems, simplifying the development process and improving code reusability.
 
 ## Project Structure
@@ -97,6 +95,7 @@ This library uses the following design patterns:
 - **Automatic Retry**: Built-in retry mechanism with configurable retry count and delay for improved operation reliability
 - **Connection Management**: Automatic handling of remote file system connections and disconnections
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
+- **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing (99.99% memory reduction)
 
 ## Supported .NET Versions
 
@@ -204,6 +203,14 @@ var result = await fileSystem.UploadAsync(stream, "uploads/destination-file.txt"
 
 // Upload local file
 result = await fileSystem.UploadFileAsync("local-file.txt", "uploads", true);
+
+// Upload with cancellation token
+using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+result = await fileSystem.UploadAsync(
+    stream, 
+    "uploads/destination-file.txt", 
+    true, 
+    cts.Token);
 ```
 
 ### File Download
@@ -215,6 +222,14 @@ var result = await fileSystem.DownloadToStreamAsync("uploads/file.txt", outputSt
 
 // Download to local file
 result = await fileSystem.DownloadFileAsync("uploads/file.txt", "C:/Downloads/downloaded-file.txt", true);
+
+// Download with cancellation token
+using var cts = new CancellationTokenSource();
+result = await fileSystem.DownloadFileAsync(
+    "uploads/large-file.zip", 
+    "C:/Downloads/large-file.zip", 
+    true, 
+    cts.Token);
 ```
 
 ### File Deletion
@@ -336,6 +351,109 @@ finally
 }
 ```
 
+## Cancellation Support
+
+All file system operations support `CancellationToken` for graceful cancellation:
+
+```csharp
+public class FileUploadService
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileUploadService(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    // Upload with timeout
+    public async Task<FileOperationResult> UploadWithTimeoutAsync(
+        Stream stream, 
+        string destinationPath, 
+        int timeoutSeconds = 300)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            return await _fileSystem.UploadAsync(
+                stream, 
+                destinationPath, 
+                overwrite: true, 
+                cancellationToken: cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return FileOperationResult.Failure("Upload cancelled due to timeout");
+        }
+    }
+    
+    // Batch upload with cancellation
+    public async Task<List<FileOperationResult>> UploadMultipleFilesAsync(
+        Dictionary<Stream, string> files, 
+        CancellationToken cancellationToken)
+    {
+        var results = new List<FileOperationResult>();
+        
+        foreach (var (stream, path) in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                path, 
+                overwrite: true, 
+                cancellationToken);
+            results.Add(result);
+        }
+        
+        return results;
+    }
+}
+```
+
+### Using with ASP.NET Core
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class FileController : ControllerBase
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileController(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    [HttpPost("upload")]
+    public async Task<IActionResult> UploadFile(
+        IFormFile file, 
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var stream = file.OpenReadStream();
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                $"uploads/{file.FileName}", 
+                overwrite: true, 
+                cancellationToken);
+            
+            if (result.Success)
+            {
+                return Ok(new { path = result.FilePath });
+            }
+            
+            return BadRequest(result.ErrorMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(499, "Upload cancelled by client");
+        }
+    }
+}
+```
+
 ## Exception Handling
 
 ```csharp
@@ -350,6 +468,10 @@ try
     {
         Console.WriteLine($"Upload failed: {result.ErrorMessage}");
     }
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("Operation was cancelled");
 }
 catch (FileSystemException ex)
 {
@@ -406,6 +528,69 @@ result = await localFs.UploadAsync(
 ```
 
 ## Advanced Optimization Recommendations
+
+### Local File System - Streaming Upload Optimization (v1.0.0+)
+
+The local file system now uses streaming optimization to significantly reduce memory consumption during file uploads:
+
+**Optimization Highlights:**
+- ✅ **IncrementalHash**: Calculates MD5 hash incrementally instead of loading entire file into memory
+- ✅ **ArrayPool<byte>**: Reuses buffer memory to reduce GC pressure
+- ✅ **Streaming I/O**: Processes files in chunks, maintaining constant memory usage regardless of file size
+
+**Performance Improvement:**
+
+| File Size | Old Implementation | New Implementation | Memory Reduction |
+|-----------|-------------------|-------------------|------------------|
+| 100MB | ~100MB | ~8-256KB (buffer size) | 99.9%+ |
+| 1GB | ~1GB | ~8-256KB (buffer size) | 99.99%+ |
+| 10GB | ❌ Out of memory | ~8-256KB (buffer size) | ✅ Supported |
+
+**Technical Details:**
+
+```csharp
+// Old approach (Memory-intensive)
+var memoryStream = new MemoryStream();
+await inputStream.CopyToAsync(memoryStream);
+byte[] fileBytes = memoryStream.ToArray(); // Entire file in memory!
+string hash = CalculateMD5(fileBytes);
+
+// New approach (Streaming with IncrementalHash)
+using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+try
+{
+    int bytesRead;
+    while ((bytesRead = await inputStream.ReadAsync(buffer)) > 0)
+    {
+        await outputStream.WriteAsync(buffer, 0, bytesRead);
+        md5.AppendData(buffer, 0, bytesRead);  // Incremental hash update
+    }
+    string hash = BitConverter.ToString(md5.GetHashAndReset())...;
+}
+finally
+{
+    ArrayPool<byte>.Shared.Return(buffer);  // Return buffer to pool
+}
+```
+
+**When This Optimization Applies:**
+
+- ✅ MD5 naming rule: Uses temporary file for streaming hash calculation
+- ✅ UUID naming rule: Direct streaming to destination file
+- ✅ Normal naming rule: Direct streaming to destination file
+
+**Buffer Configuration:**
+
+```csharp
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",
+    UploadBufferSize = 262144,  // 256KB buffer (default: 81920 = 80KB)
+    // Larger buffers improve performance for large files
+    // but increase memory per concurrent upload
+};
+```
 
 ### Buffer and Memory Management
 

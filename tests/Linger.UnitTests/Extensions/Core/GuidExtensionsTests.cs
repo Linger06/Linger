@@ -1,4 +1,4 @@
-﻿namespace Linger.UnitTests.Extensions.Core;
+namespace Linger.UnitTests.Extensions.Core;
 
 using Xunit;
 
@@ -96,7 +96,7 @@ public class GuidExtensionsTests
     public void NotNullAndEmpty_ReturnsTrueForNonNullNonEmptyGuid()
     {
         Guid? value = Guid.NewGuid();
-        var result = value.IsNotNullAndEmpty();
+        var result = value.IsNotNullOrEmpty();
         Assert.True(result);
     }
 
@@ -104,7 +104,7 @@ public class GuidExtensionsTests
     public void NotNullAndEmpty_ReturnsFalseForNullGuid()
     {
         Guid? value = null;
-        var result = value.IsNotNullAndEmpty();
+        var result = value.IsNotNullOrEmpty();
         Assert.False(result);
     }
 
@@ -112,7 +112,7 @@ public class GuidExtensionsTests
     public void NotNullAndEmpty_ReturnsFalseForEmptyGuid()
     {
         Guid? value = Guid.Empty;
-        var result = value.IsNotNullAndEmpty();
+        var result = value.IsNotNullOrEmpty();
         Assert.False(result);
     }
 

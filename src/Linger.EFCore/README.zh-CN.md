@@ -1,7 +1,5 @@
 # Linger.EFCore
 
-> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 一个为 .NET 9.0 和 .NET 8.0 提供增强查询过滤功能和属性转换扩展的 C# Entity Framework Core 辅助库。
 
 ## 介绍

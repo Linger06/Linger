@@ -1,7 +1,5 @@
 # Linger.FileSystem.Ftp
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## Overview
 
 Linger.FileSystem.Ftp is an implementation of the Linger FileSystem abstraction that provides FTP file operations support. It uses the FluentFTP library to offer a robust and retry-capable FTP client for common file operations such as uploading, downloading, listing, and deleting files.
@@ -48,48 +46,46 @@ var retryOptions = new RetryOptions
 using var ftpSystem = new FtpFileSystem(settings, retryOptions);
 
 // Connect to the server
-ftpSystem.Connect();
-
-// Use the file system
-if (ftpSystem.FileExists("/remote/path/file.txt"))
-{
-    // Download file
-    var fileContent = ftpSystem.ReadAllText("/remote/path/file.txt");
-    
-    // Process file content
-    Console.WriteLine(fileContent);
-}
-
-// Create directory if it doesn't exist
-ftpSystem.CreateDirectoryIfNotExists("/remote/path/new-directory");
-
-// Upload a file
-ftpSystem.WriteAllText("/remote/path/new-file.txt", "Hello, World!");
-
-// Disconnect when done
-ftpSystem.Disconnect();
-```
-
-### Asynchronous Operations
-
-The library also provides asynchronous methods for all operations:
-
-```csharp
-// Connect asynchronously
 await ftpSystem.ConnectAsync();
 
-// Check if file exists asynchronously
-if (await ftpSystem.FileExistsAsync("/remote/path/file.txt"))
+// Upload a file
+await using var stream = File.OpenRead("./local/file.txt");
+var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+if (result.Success)
 {
-    // Download file asynchronously
-    var fileContent = await ftpSystem.ReadAllTextAsync("/remote/path/file.txt");
-    
-    // Process file content
-    Console.WriteLine(fileContent);
+    Console.WriteLine($"Upload successful: {result.FilePath}");
 }
 
-// Disconnect asynchronously when done
+// Download a file
+var downloadResult = await ftpSystem.DownloadFileAsync("/remote/path/file.txt", "C:/Downloads/file.txt");
+
+if (downloadResult.Success)
+{
+    Console.WriteLine($"Downloaded {downloadResult.FileSize} bytes");
+}
+
+// Disconnect when done
 await ftpSystem.DisconnectAsync();
+```
+
+### File Upload Methods
+
+```csharp
+// Method 1: Upload from stream to complete file path
+await using var stream = File.OpenRead("local.txt");
+var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
+
+// Method 2: Upload local file to complete remote path
+result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
+
+// Method 3: Upload with separate directory and filename (convenient for dynamic naming)
+result = await ftpSystem.UploadFileAsync(
+    "C:/local/file.txt",           // Local file path
+    "/remote/directory",            // Remote directory
+    "custom-name.txt",              // Custom filename
+    overwrite: true
+);
 ```
 
 ## Integration with Dependency Injection

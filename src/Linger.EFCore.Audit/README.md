@@ -1,7 +1,5 @@
 # Linger.EFCore.Audit
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 An Entity Framework Core audit trail library for automatically tracking data changes.
 
 ## ✨ Features
@@ -57,13 +55,34 @@ public class AppDbContext : DbContext
     } 
 }
 
-// 2. Register the audit interceptor 
-services.AddDbContext<AppDbContext>(options => 
+// 2. Implement audit user provider
+public class CurrentUserProvider : IAuditUserProvider 
+{ 
+    // Can get user info from your authentication system
+    public string? UserName => "john.doe"; 
+    
+    public string GetUser() => UserName ?? "anonymous"; 
+}
+
+// 3. Register services and interceptor
+services.AddScoped<IAuditUserProvider, CurrentUserProvider>();
+
+services.AddDbContext<AppDbContext>((serviceProvider, options) => 
 {
     options.UseSqlServer(connectionString);
-    options.AddInterceptors(sp => 
+    
+    // Without logging
+    options.AddInterceptors(
         new AuditEntitiesSaveChangesInterceptor(
-            sp.GetRequiredService<IAuditUserProvider>()
+            serviceProvider.GetRequiredService<IAuditUserProvider>()
+        )
+    );
+    
+    // Or with logging (Recommended - for monitoring and debugging)
+    options.AddInterceptors(
+        new AuditEntitiesSaveChangesInterceptor(
+            serviceProvider.GetRequiredService<IAuditUserProvider>(),
+            serviceProvider.GetRequiredService<ILogger<AuditEntitiesSaveChangesInterceptor>>()
         )
     );
 });
@@ -81,49 +100,15 @@ var user = new User
     Email = "john.doe@example.com"
 };
 dbContext.Users.Add(user);
-await dbContext.SaveChangesAsync();  // This will generate a "Created" audit record
+await dbContext.SaveChangesAsync();  // Automatically generates "Created" audit record with user info
 
 // Modify entity
 user.Email = "new.email@example.com";
-await dbContext.SaveChangesAsync();  // This will generate a "Modified" audit record
+await dbContext.SaveChangesAsync();  // Automatically generates "Modified" audit record
 
 // Delete entity
 dbContext.Users.Remove(user);
-await dbContext.SaveChangesAsync();  // This will generate a "Deleted" audit record
-```
-
-### Setting Current User Information
-
-Audit records can include user information by implementing the `IAuditUserProvider` interface:
-
-```csharp
-// 1. Implement audit user provider
-public class CurrentUserProvider : IAuditUserProvider 
-{ 
-    // Can get user info from your authentication system
-    public string? UserName => "john.doe"; 
-    
-    public string GetUser() => UserName ?? "anonymous"; 
-}
-
-// 2. Register in your dependency injection container
-services.AddScoped<IAuditUserProvider, CurrentUserProvider>();
-
-// 3. Use with the interceptor
-services.AddDbContext<AppDbContext>(options => 
-{
-    options.UseSqlServer(connectionString);
-    options.AddInterceptors(sp => 
-        new AuditEntitiesSaveChangesInterceptor(
-            sp.GetRequiredService<IAuditUserProvider>()
-        )
-    );
-});
-
-// Now all operations will automatically include user information
-var product = new Product { Name = "Sample Product", Price = 100.00m };
-dbContext.Products.Add(product);
-await dbContext.SaveChangesAsync();  // Audit record includes user ID and username
+await dbContext.SaveChangesAsync();  // Automatically generates "Deleted" audit record (soft delete)
 ```
 
 ### Querying Audit Records
@@ -207,3 +192,21 @@ The `AuditTrailEntry` captures:
 - Modification audit: LastModifierId, LastModificationTime
 - Soft delete: IsDeleted, DeleterId, DeletionTime
 
+## 📊 Logging
+
+The interceptor supports optional logging to help monitor audit operations and troubleshoot issues.
+
+### Configure Log Level
+
+In `appsettings.json`:
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Linger.EFCore.Audit.Interceptors": "Debug"
+    }
+  }
+}
+```

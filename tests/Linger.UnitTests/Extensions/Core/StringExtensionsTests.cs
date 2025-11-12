@@ -30,7 +30,7 @@ public partial class StringExtensionsTests
         new object[] { "Hello()World", "HelloWorld" }
     };
 
-    public static IEnumerable<object[]> Substring2Data = new List<object[]>
+    public static IEnumerable<object[]> TakeData = new List<object[]>
     {
         new object[] { "1234567890", 2, "12" },
         new object[] { "1234567890", 0, "" },
@@ -38,7 +38,7 @@ public partial class StringExtensionsTests
         new object[] { "1234567890", 11, "1234567890" }
     };
 
-    public static IEnumerable<object[]> Substring3Data = new List<object[]>
+    public static IEnumerable<object[]> TakeLastData = new List<object[]>
     {
         new object[] { "1234567890", 2, "90" },
         new object[] { "1234567890", 0, "" },
@@ -161,17 +161,17 @@ public partial class StringExtensionsTests
     }
 
     [Theory]
-    [MemberData(nameof(Substring2Data))]
-    public void Substring2Test(string value, int value2, string value3)
+    [MemberData(nameof(TakeData))]
+    public void TakeTest(string value, int value2, string value3)
     {
-        Assert.Equal(value.Substring2(value2), value3);
+        Assert.Equal(value.Take(value2), value3);
     }
 
     [Theory]
-    [MemberData(nameof(Substring3Data))]
-    public void Substring3Test(string value, int value2, string value3)
+    [MemberData(nameof(TakeLastData))]
+    public void TakeLastTest(string value, int value2, string value3)
     {
-        Assert.Equal(value.Substring3(value2), value3);
+        Assert.Equal(value.TakeLast(value2), value3);
     }
 
     [Theory]
@@ -393,39 +393,39 @@ public partial class StringExtensionsTests
     }
 
     [Fact]
-    public void IsNotNullAndEmpty_NonNullNonEmptyString_ReturnsTrue()
+    public void IsNotNullOrEmpty_NonNullNonEmptyString_ReturnsTrue()
     {
         // Arrange
         var value = "test";
 
         // Act
-        var result = value.IsNotNullAndEmpty();
+        var result = value.IsNotNullOrEmpty();
 
         // Assert
         Assert.True(result);
     }
 
     [Fact]
-    public void IsNotNullAndEmpty_NullString_ReturnsFalse()
+    public void IsNotNullOrEmpty_NullString_ReturnsFalse()
     {
         // Arrange
         string? value = null;
 
         // Act
-        var result = value.IsNotNullAndEmpty();
+        var result = value.IsNotNullOrEmpty();
 
         // Assert
         Assert.False(result);
     }
 
     [Fact]
-    public void IsNotNullAndEmpty_EmptyString_ReturnsFalse()
+    public void IsNotNullOrEmpty_EmptyString_ReturnsFalse()
     {
         // Arrange
         var value = string.Empty;
 
         // Act
-        var result = value.IsNotNullAndEmpty();
+        var result = value.IsNotNullOrEmpty();
 
         // Assert
         Assert.False(result);
@@ -565,26 +565,26 @@ public partial class StringExtensionsTests
     }
 
     [Fact]
-    public void IsSingle_ValidSingleString_ReturnsTrue()
+    public void IsFloat_ValidFloatString_ReturnsTrue()
     {
         // Arrange
         var value = "12345.6789";
 
         // Act
-        var result = value.IsSingle();
+        var result = value.IsFloat();
 
         // Assert
         Assert.True(result);
     }
 
     [Fact]
-    public void IsSingle_InvalidSingleString_ReturnsFalse()
+    public void IsFloat_InvalidFloatString_ReturnsFalse()
     {
         // Arrange
         var value = "invalid";
 
         // Act
-        var result = value.IsSingle();
+        var result = value.IsFloat();
 
         // Assert
         Assert.False(result);

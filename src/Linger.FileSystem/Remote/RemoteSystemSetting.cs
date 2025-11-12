@@ -1,4 +1,3 @@
-using System.Security;
 using System.Text;
 
 namespace Linger.FileSystem.Remote;
@@ -23,39 +22,19 @@ public class RemoteSystemSetting
     /// </summary>
     public string UserName { get; set; } = null!;
 
-    private string? _password;
-    private SecureString? _securePassword;
-
     /// <summary>
-    /// 密码（不推荐直接使用字符串密码，优先使用SecurePassword）
+    /// 密码
     /// </summary>
-    public string Password
-    {
-        get => _password ?? string.Empty;
-        set
-        {
-            _password = value;
-            // 当设置明文密码时，同时更新SecureString
-            if (!string.IsNullOrEmpty(value))
-            {
-                _securePassword = new SecureString();
-                foreach (var c in value)
-                {
-                    _securePassword.AppendChar(c);
-                }
-                _securePassword.MakeReadOnly();
-            }
-        }
-    }
-
-    /// <summary>
-    /// 安全密码对象
-    /// </summary>
-    public SecureString SecurePassword
-    {
-        get => _securePassword ?? new SecureString();
-        set => _securePassword = value;
-    }
+    /// <remarks>
+    /// ⚠️ 安全建议：
+    /// <list type="bullet">
+    /// <item>避免在代码中硬编码密码</item>
+    /// <item>生产环境使用密钥管理服务（如 Azure Key Vault、AWS Secrets Manager）</item>
+    /// <item>使用环境变量或加密的配置文件</item>
+    /// <item>优先考虑使用证书认证（<see cref="CertificatePath"/>）而不是密码</item>
+    /// </list>
+    /// </remarks>
+    public string Password { get; set; } = string.Empty;
 
     /// <summary>
     /// 编码
@@ -138,7 +117,7 @@ public class RemoteSystemSetting
     /// </summary>
     public RemoteSystemSetting Clone()
     {
-        var clone = new RemoteSystemSetting
+        return new RemoteSystemSetting
         {
             Host = Host,
             Port = Port,
@@ -151,32 +130,6 @@ public class RemoteSystemSetting
             OperationTimeout = OperationTimeout,
             Encoding = Encoding
         };
-
-        // 克隆 SecurePassword
-        if (_securePassword != null)
-        {
-            var newSecurePassword = new SecureString();
-            var bstr = System.Runtime.InteropServices.Marshal.SecureStringToBSTR(_securePassword);
-            try
-            {
-                var password = System.Runtime.InteropServices.Marshal.PtrToStringBSTR(bstr);
-                if (password != null)
-                {
-                    foreach (var c in password)
-                    {
-                        newSecurePassword.AppendChar(c);
-                    }
-                    newSecurePassword.MakeReadOnly();
-                    clone._securePassword = newSecurePassword;
-                }
-            }
-            finally
-            {
-                System.Runtime.InteropServices.Marshal.ZeroFreeBSTR(bstr);
-            }
-        }
-
-        return clone;
     }
 
     /// <summary>
@@ -188,10 +141,7 @@ public class RemoteSystemSetting
             return false;
 
         // 检查认证方式：必须有密码或者证书路径
-        var hasPassword = !string.IsNullOrEmpty(Password) || _securePassword is { Length: > 0 };
-        var hasCertificate = !string.IsNullOrEmpty(CertificatePath);
-
-        return hasPassword || hasCertificate;
+        return !string.IsNullOrEmpty(Password) || !string.IsNullOrEmpty(CertificatePath);
     }
 
     /// <summary>

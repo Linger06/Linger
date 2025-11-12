@@ -1,4 +1,4 @@
-﻿global using System.Collections;
+global using System.Collections;
 global using System.Data;
 global using System.Text;
 global using System.Text.Json;
@@ -8,6 +8,6 @@ global using Linger.Extensions.Core;
 global using Linger.Extensions.Data;
 global using Linger.Extensions.IO;
 global using Linger.Helper;
-global using Linger.JsonConverter;
+global using Linger.Json.JsonConverter;
 global using Moq;
 global using Xunit;

@@ -6,7 +6,6 @@
   </Configurations>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
-    <File Path="testEnvironments.json" />
   </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />

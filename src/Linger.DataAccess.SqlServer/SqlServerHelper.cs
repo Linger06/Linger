@@ -7,7 +7,7 @@ namespace Linger.DataAccess.SqlServer;
 /// <summary>
 /// SQL Server 数据库帮助类，提供 SQL Server 特有的功能
 /// </summary>
-/// <param name="strConnection">数据库连接字符串</param>
+/// <param name="connectionString">数据库连接字符串</param>
 public class SqlServerHelper(string connectionString) : Database(new SqlServerProvider(), connectionString)
 {
     /// <summary>
@@ -67,12 +67,10 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             return;
         }
 
-        using var bulk = new SqlBulkCopy(ConnString)
-        {
-            BatchSize = batchSize,
-            BulkCopyTimeout = timeout,
-            DestinationTableName = tableName
-        };
+        using var bulk = new SqlBulkCopy(ConnString);
+        bulk.BatchSize = batchSize;
+        bulk.BulkCopyTimeout = timeout;
+        bulk.DestinationTableName = tableName;
 
         bulk.WriteToServer(table);
     }
@@ -99,12 +97,10 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             return;
         }
 
-        using var bulk = new SqlBulkCopy(ConnString)
-        {
-            BatchSize = batchSize,
-            BulkCopyTimeout = timeout,
-            DestinationTableName = tableName
-        };
+        using var bulk = new SqlBulkCopy(ConnString);
+        bulk.BatchSize = batchSize;
+        bulk.BulkCopyTimeout = timeout;
+        bulk.DestinationTableName = tableName;
 
         await bulk.WriteToServerAsync(table, cancellationToken).ConfigureAwait(false);
     }
@@ -115,16 +111,19 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <param name="fieldName">字段名称</param>
     /// <param name="tableName">表名称</param>
     /// <returns>最大值加1，如果没有数据则返回1，如果字段不是数值类型则返回null</returns>
-    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空时抛出</exception>
+    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     public int? GetMaxId(string fieldName, string tableName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
+        ValidateSqlIdentifier(fieldName, nameof(fieldName));
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+
         try
         {
-            var sql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
+            var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
             var obj = FindMaxBySql(sql);
 
             return obj switch
@@ -147,17 +146,20 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <param name="tableName">表名称</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>最大值加1，如果没有数据则返回1，如果字段不是数值类型则返回null</returns>
-    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空时抛出</exception>
+    /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     public async Task<int?> GetMaxIdAsync(string fieldName, string tableName, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
 
+        ValidateSqlIdentifier(fieldName, nameof(fieldName));
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+
         try
         {
-            var sql = $"SELECT MAX({fieldName}) + 1 FROM {tableName}";
-            var obj = await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false);
+            var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
+            var obj = await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false);
 
             return obj switch
             {
@@ -182,10 +184,10 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <code>
     /// // 检查用户是否存在
     /// var userExists = helper.Exists("SELECT COUNT(*) FROM Users WHERE Id = 1");
-    /// 
+    ///
     /// // 检查表中是否有数据
     /// var hasData = helper.Exists("SELECT COUNT(*) FROM Products WHERE Price > 100");
-    /// 
+    ///
     /// // 检查特定条件的记录是否存在
     /// var hasActiveUsers = helper.Exists("SELECT COUNT(*) FROM Users WHERE Status = 'Active' AND LastLogin > '2024-01-01'");
     /// </code>
@@ -209,20 +211,20 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <code>
     /// // 异步检查用户是否存在
     /// var userExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Users WHERE Email = 'user@example.com'");
-    /// 
+    ///
     /// // 异步检查订单是否存在
-    /// var orderExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Orders WHERE OrderDate >= DATEADD(day, -30, GETDATE())");
-    /// 
+    /// var orderExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Orders WHERE OrderDate &gt;= DATEADD(day, -30, GETDATE())");
+    ///
     /// // 使用取消令牌的异步检查
     /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-    /// var hasExpiredSessions = await helper.ExistsAsync("SELECT COUNT(*) FROM UserSessions WHERE ExpiryDate < GETDATE()", cts.Token);
+    /// var hasExpiredSessions = await helper.ExistsAsync("SELECT COUNT(*) FROM UserSessions WHERE ExpiryDate t&lt; GETDATE()", cts.Token);
     /// </code>
     /// </example>
     public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
 
-        var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
         return count > 0;
     }
 
@@ -331,5 +333,30 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         }
 
         return ds;
+    }
+
+    /// <summary>
+    /// 验证 SQL 标识符（表名、字段名等）是否安全
+    /// </summary>
+    /// <param name="identifier">要验证的标识符</param>
+    /// <param name="paramName">参数名称</param>
+    /// <exception cref="ArgumentException">当标识符包含非法字符时抛出</exception>
+    private static void ValidateSqlIdentifier(string identifier, string paramName)
+    {
+        // 允许字母、数字、下划线、点号（用于 schema.table）和中文字符
+        // 不允许：空格、特殊字符、SQL 关键字符（如引号、分号等）
+        if (identifier.Any(c => !char.IsLetterOrDigit(c) && c != '_' && c != '.'))
+        {
+            throw new System.ArgumentException($"标识符 '{identifier}' 包含非法字符。只允许字母、数字、下划线和点号。", paramName);
+        }
+
+        // 防止 SQL 注入常见模式
+        if (identifier.Contains("--", StringComparison.Ordinal) ||
+            identifier.Contains("/*", StringComparison.Ordinal) ||
+            identifier.Contains("*/", StringComparison.Ordinal) ||
+            identifier.Contains(';'))
+        {
+            throw new System.ArgumentException($"标识符 '{identifier}' 包含非法的 SQL 注释或分隔符。", paramName);
+        }
     }
 }

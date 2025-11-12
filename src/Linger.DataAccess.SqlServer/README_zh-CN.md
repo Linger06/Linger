@@ -60,10 +60,37 @@ public async Task<bool> ExistsAsync(string strSql, CancellationToken cancellatio
 ```
 检查指定 SQL 查询是否返回数据。
 
+## 异步实现 ✅
+
+所有异步方法均使用**真正的异步 I/O**，包括 SQL Server 专用功能：
+
+```csharp
+// ✅ 真正异步 - 使用 ADO.NET 异步 API
+public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
+{
+    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+    return count > 0;
+}
+
+// ✅ SqlBulkCopy 异步操作
+public async Task AddByBulkCopyAsync(DataTable table, string tableName, ...)
+{
+    using var bulk = new SqlBulkCopy(connection);
+    await bulk.WriteToServerAsync(table, cancellationToken).ConfigureAwait(false);
+}
+```
+
+**性能优势：**
+- **BulkCopy 操作**可高效处理数百万行数据
+- 支持**高吞吐量场景**且线程使用最小化
+- 长时间运行的批量操作的完整取消支持
+- 最适合数据仓库和 ETL 场景
+
 ## 最佳实践
 
+- **所有操作使用异步方法** - 真正的异步确保最佳可扩展性
+- **始终传递 CancellationToken** 以支持正确的取消操作
 - 对于大数据集插入（> 1000 行）使用 `AddByBulkCopyAsync`
 - 根据内存限制调整 `batchSize` 参数
-- 优先使用异步方法处理 I/O 密集型操作
 - 从配置文件读取连接字符串
 - 使用适当的异常处理

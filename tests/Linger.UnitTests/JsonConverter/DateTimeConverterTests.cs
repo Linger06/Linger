@@ -1,5 +1,5 @@
-﻿using System.Text.Json;
-using Linger.JsonConverter;
+using System.Text.Json;
+using Linger.Json.JsonConverter;
 using Xunit.v3;
 
 namespace Linger.UnitTests.JsonConverter;

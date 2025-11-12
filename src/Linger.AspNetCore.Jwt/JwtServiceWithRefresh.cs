@@ -7,7 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 namespace Linger.AspNetCore.Jwt;
 
 /// <summary>
-/// 支持刷新令牌功能的JWT服务实现
+/// JWT service implementation with refresh token support
 /// </summary>
 public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtServiceWithRefresh>? logger = null) : JwtService(jwtOptions, logger), IRefreshableJwtService
 {
@@ -15,19 +15,23 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtSer
     {
         try
         {
-            // 首先获取基本访问令牌
+            Logger?.LogDebug("Generating token with refresh capability for user: {UserId}", userId);
+
+            // Generate base access token
             Token baseToken = await base.CreateTokenAsync(userId).ConfigureAwait(false);
 
-            // 生成刷新令牌并处理存储
+            // Generate and store refresh token
             JwtRefreshToken refreshToken = GenerateRefreshToken();
             await HandleRefreshToken(userId, refreshToken).ConfigureAwait(false);
 
-            // 返回包含刷新令牌的完整Token
+            Logger?.LogDebug("Token with refresh token generated successfully for user: {UserId}", userId);
+
+            // Return complete token with refresh token
             return new Token(baseToken.AccessToken, refreshToken.RefreshToken);
         }
         catch (Exception ex)
         {
-            Logger?.LogError("生成带刷新令牌的Token时出错: {Message}", ex.Message);
+            Logger?.LogError(ex, "Failed to generate token with refresh token for user: {UserId}", userId);
             throw;
         }
     }
@@ -36,45 +40,57 @@ public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtSer
     {
         if (string.IsNullOrEmpty(token.RefreshToken))
         {
-            throw new System.ArgumentException("Token不包含有效的刷新令牌");
+            Logger?.LogWarning("Token refresh attempt with missing refresh token");
+            throw new ArgumentException("Token does not contain a valid refresh token");
         }
 
-        ClaimsPrincipal principal = GetPrincipalFromExpiredToken(token.AccessToken);
-        var userId = principal.Identity?.Name!;
-        JwtRefreshToken refreshToken = await GetExistRefreshTokenAsync(userId).ConfigureAwait(false);
-
-        if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.Now)
+        try
         {
-            throw new SecurityTokenException("提供的刷新令牌无效或已过期");
-        }
+            Logger?.LogDebug("Refreshing token");
 
-        return await CreateTokenAsync(userId).ConfigureAwait(false);
+            ClaimsPrincipal principal = GetPrincipalFromExpiredToken(token.AccessToken);
+            var userId = principal.Identity?.Name!;
+            JwtRefreshToken refreshToken = await GetExistRefreshTokenAsync(userId).ConfigureAwait(false);
+
+            if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.UtcNow)
+            {
+                Logger?.LogWarning("Token refresh rejected for user: {UserId} - invalid or expired refresh token", userId);
+                throw new SecurityTokenException("The provided refresh token is invalid or has expired");
+            }
+
+            Logger?.LogDebug("Token refreshed successfully for user: {UserId}", userId);
+            return await CreateTokenAsync(userId).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not SecurityTokenException and not ArgumentException)
+        {
+            Logger?.LogError(ex, "Token refresh failed");
+            throw;
+        }
     }
 
     private JwtRefreshToken GenerateRefreshToken()
     {
-        // 创建一个随机的Token用做Refresh Token
         var randomNumber = new byte[32];
 
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomNumber);
 
         var refreshToken = Convert.ToBase64String(randomNumber);
-        DateTime refreshTokenExpires = DateTime.Now.AddMinutes(JwtOptions.RefreshTokenExpires);
+        DateTime refreshTokenExpires = DateTime.UtcNow.AddMinutes(JwtOptions.RefreshTokenExpiresInMinutes);
         return new JwtRefreshToken { RefreshToken = refreshToken, ExpiryTime = refreshTokenExpires };
     }
 
     /// <summary>
-    /// 处理刷新令牌的存储
+    /// Handles refresh token storage
     /// </summary>
-    /// <param name="userId">用户ID</param>
-    /// <param name="refreshToken">刷新令牌信息</param>
+    /// <param name="userId">User identifier</param>
+    /// <param name="refreshToken">Refresh token information</param>
     protected abstract Task HandleRefreshToken(string userId, JwtRefreshToken refreshToken);
 
     /// <summary>
-    /// 获取已存在的刷新令牌
+    /// Retrieves existing refresh token
     /// </summary>
-    /// <param name="userId">用户ID</param>
-    /// <returns>刷新令牌信息</returns>
+    /// <param name="userId">User identifier</param>
+    /// <returns>Refresh token information</returns>
     protected abstract Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId);
 }

@@ -32,32 +32,64 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
     public bool Exists()
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         return DirectoryExists(RootDirectoryPath);
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
     public void CreateIfNotExists()
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         CreateDirectoryIfNotExists(RootDirectoryPath);
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
+    /// <summary>
+    /// 创建目录（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 CreateDirectoryIfNotExistsAsync 异步版本", false)]
     public override void CreateDirectoryIfNotExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
         Directory.CreateDirectory(realPath);
     }
 
+    /// <summary>
+    /// 删除文件（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 DeleteFileIfExistsAsync 异步版本", false)]
     public override void DeleteFileIfExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
         FileHelper.DeleteFileIfExists(realPath);
     }
 
+    /// <summary>
+    /// 检查目录是否存在（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 DirectoryExistsAsync 异步版本", false)]
     public override bool DirectoryExists(string directoryPath)
     {
         var realPath = GetRealPath(directoryPath);
         return StandardPathHelper.Exists(realPath, false);
     }
 
+    /// <summary>
+    /// 检查文件是否存在（同步方法 - 已过时）
+    /// </summary>
+    /// <remarks>
+    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
+    /// </remarks>
+    [Obsolete("为保持 API 一致性,请使用 FileExistsAsync 异步版本", false)]
     public override bool FileExists(string filePath)
     {
         var realPath = GetRealPath(filePath);
@@ -66,23 +98,31 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
     public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         return Task.FromResult(FileExists(filePath));
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
     public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         return Task.FromResult(DirectoryExists(directoryPath));
+#pragma warning restore CS0618 // 类型或成员已过时
     }
 
     public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         CreateDirectoryIfNotExists(directoryPath);
+#pragma warning restore CS0618 // 类型或成员已过时
         return Task.CompletedTask;
     }
 
     public override Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
+#pragma warning disable CS0618 // 类型或成员已过时
         DeleteFileIfExists(filePath);
+#pragma warning restore CS0618 // 类型或成员已过时
         return Task.CompletedTask;
     }
 
@@ -124,51 +164,159 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         string destPath,
         NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
-        // 先将输入流的内容复制到内存流中，这样可以多次读取
-        using var memoryStream = new MemoryStream();
-        await inputStream.CopyToAsync(memoryStream, _options.UploadBufferSize).ConfigureAwait(false);
-        memoryStream.Position = 0;
+        // 优化: 使用流式处理 + 增量哈希计算，避免将整个文件加载到内存
+        // 1. 对于 Md5 命名规则，需要先计算哈希才能确定文件名
+        // 2. 对于其他命名规则，可以直接流式写入
 
-        // 计算源文件哈希值
-        var sourceHashData = memoryStream.ComputeHashMd5();
+        string sourceHashData;
+        long totalBytes = 0;
+        string? filePath = null;
+        string? relativeFilePath = null;
 
-        // 获取目标文件路径
-        var filePath = GetDestFilePath(
-            memoryStream,
-            sourceFileName,
-            containerName,
-            destPath,
-            namingRule,
-                overwrite,
-                useSequencedName);
-
-        var relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
-
-        // 确保目录存在
-        FileHelper.EnsureDirectoryExists(relativeFilePath);
-
-        // 写入文件
-        memoryStream.Position = 0;
-
-        var fileStream = File.Create(relativeFilePath);
-
-#if NET8_0_OR_GREATER
-        await using (fileStream.ConfigureAwait(false))
-#else
-        using (fileStream)
-#endif
+        switch (namingRule)
         {
-            await memoryStream.CopyToAsync(fileStream).ConfigureAwait(false);
+            case NamingRule.Md5:
+                {
+                    // Md5 命名需要先计算哈希，但使用流式处理减少内存占用
+                    using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
+                    var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
+
+                    try
+                    {
+                        // 临时文件路径，用于先写入数据
+                        var tempPath = Path.Combine(Path.GetTempPath(), $"upload_{Guid.NewGuid():N}.tmp");
+
+                        var tempFileStream = File.Create(tempPath);
+#if NET8_0_OR_GREATER
+                        await using (tempFileStream.ConfigureAwait(false))
+#else
+                        using (tempFileStream)
+#endif
+                        {
+                            int bytesRead;
+#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+                            while ((bytesRead = await inputStream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+                            {
+                                // 同时写入临时文件和更新哈希
+                                await tempFileStream.WriteAsync(buffer.AsMemory(0, bytesRead)).ConfigureAwait(false);
+#else
+                            while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+                            {
+                                // 同时写入临时文件和更新哈希
+                                await tempFileStream.WriteAsync(buffer, 0, bytesRead).ConfigureAwait(false);
+#endif
+                                md5.AppendData(buffer, 0, bytesRead);
+                                totalBytes += bytesRead;
+                            }
+                        }
+
+                        // 获取哈希值
+                        sourceHashData = md5.GetHashAndReset().ToMd5HashCode();
+
+                        // 使用哈希值生成文件路径
+                        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
+                        var fileExtension = Path.GetExtension(sourceFileName);
+                        var fileName = $"{fileNameWithoutExtension}-{sourceHashData}{fileExtension}";
+                        filePath = Path.Combine(containerName, destPath, fileName);
+                        relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
+
+                        // 确保目录存在
+                        FileHelper.EnsureDirectoryExists(relativeFilePath);
+
+                        // 将临时文件移动到最终位置
+#if NET5_0_OR_GREATER
+                        File.Move(tempPath, relativeFilePath, overwrite);
+#else
+                        if (overwrite && File.Exists(relativeFilePath))
+                        {
+                            File.Delete(relativeFilePath);
+                        }
+                        File.Move(tempPath, relativeFilePath);
+#endif
+                    }
+                    finally
+                    {
+                        System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                    }
+                    break;
+                }
+
+            case NamingRule.Uuid:
+            case NamingRule.Normal:
+                {
+                    // Uuid 和 Normal 命名规则：可以直接流式写入目标文件
+                    var fileExtension = Path.GetExtension(sourceFileName);
+
+                    if (namingRule == NamingRule.Uuid)
+                    {
+                        filePath = GenerateUuidBasedPath(containerName, destPath, fileExtension);
+                    }
+                    else // NamingRule.Normal
+                    {
+                        var basePath = Path.Combine(containerName, destPath);
+                        filePath = GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, RootDirectoryPath);
+                    }
+
+                    relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
+
+                    // 确保目录存在
+                    FileHelper.EnsureDirectoryExists(relativeFilePath);
+
+                    using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
+                    var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
+
+                    try
+                    {
+                        var fileStream = File.Create(relativeFilePath);
+#if NET8_0_OR_GREATER
+                        await using (fileStream.ConfigureAwait(false))
+#else
+                        using (fileStream)
+#endif
+                        {
+                            int bytesRead;
+#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+                            while ((bytesRead = await inputStream.ReadAsync(buffer).ConfigureAwait(false)) > 0)
+                            {
+                                // 同时写入文件和更新哈希
+                                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead)).ConfigureAwait(false);
+#else
+                            while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+                            {
+                                // 同时写入文件和更新哈希
+                                await fileStream.WriteAsync(buffer, 0, bytesRead).ConfigureAwait(false);
+#endif
+                                md5.AppendData(buffer, 0, bytesRead);
+                                totalBytes += bytesRead;
+                            }
+                        }
+
+                        // 获取哈希值用于验证
+                        sourceHashData = md5.GetHashAndReset().ToMd5HashCode();
+                    }
+                    finally
+                    {
+                        System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+                    }
+                    break;
+                }
+
+            default:
+                throw new ArgumentOutOfRangeException(nameof(namingRule), namingRule, "不支持的命名规则");
         }
 
-        // 验证文件完整性
+        // 验证文件完整性（可选，配置项控制是否需要重新读取文件验证）
         var fileInfo = new FileInfo(relativeFilePath);
 
+        if (_options.ValidateFileIntegrity && _options.CleanupOnValidationFailure)
+        {
+            // 只有在需要双重校验时才重新读取文件
 #if NET8_0_OR_GREATER
-        await ValidateFileIntegrityAsync(fileInfo, sourceHashData).ConfigureAwait(false);
+            await ValidateFileIntegrityAsync(fileInfo, sourceHashData).ConfigureAwait(false);
 #else
-        ValidateFileIntegrity(fileInfo, sourceHashData);
+            ValidateFileIntegrity(fileInfo, sourceHashData);
 #endif
+        }
 
         // 构建上传信息
         return new UploadedInfo
@@ -179,7 +327,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             FilePath = filePath,
             RelativeFilePath = relativeFilePath,
             FullFilePath = fileInfo.FullName,
-            FileSize = memoryStream.Length.FormatFileSize(),
+            FileSize = totalBytes.FormatFileSize(),
             Length = fileInfo.Length
         };
     }
@@ -253,44 +401,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     }
 
     /// <summary>
-    /// 获取目标文件路径
-    /// </summary>
-    /// <param name="inputStream">输入流</param>
-    /// <param name="sourceFileName">源文件名</param>
-    /// <param name="containerName">容器名</param>
-    /// <param name="destPath">目标路径</param>
-    /// <param name="namingRule">文件命名规则（决定如何为上传的文件命名）</param>
-    /// <param name="overwrite">是否覆盖已存在的文件</param>
-    /// <param name="useSequencedName">是否使用序号命名（当文件名冲突时）</param>
-    /// <returns>目标文件相对路径(只返回除destRootPath以外的存储位置)</returns>
-    private string GetDestFilePath(
-        Stream inputStream,
-        string sourceFileName,
-        string containerName,
-        string destPath,
-        NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
-    {
-        ArgumentNullException.ThrowIfNull(inputStream);
-        ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
-
-        var fileExtension = Path.GetExtension(sourceFileName);
-
-        switch (namingRule)
-        {
-            case NamingRule.Uuid:
-                return GenerateUuidBasedPath(containerName, destPath, fileExtension);
-            case NamingRule.Md5:
-                return GenerateHashBasedPath(inputStream, sourceFileName, containerName, destPath);
-            case NamingRule.Normal:
-            default:
-                {
-                    var basePath = Path.Combine(containerName, destPath);
-                    return GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, RootDirectoryPath);
-                }
-        }
-    }
-
-    /// <summary>
     /// 生成基于UUID的文件路径
     /// </summary>
     private string GenerateUuidBasedPath(string containerName, string destPath, string fileExtension)
@@ -305,20 +415,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 return Path.Combine(containerName, destPath, fileName);
             }
         }
-    }
-
-    /// <summary>
-    /// 生成基于文件哈希值的文件路径
-    /// </summary>
-    private static string GenerateHashBasedPath(Stream inputStream, string sourceFileName, string containerName, string destPath)
-    {
-        var hashData = inputStream.ComputeHashMd5();
-        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
-        var fileExtension = Path.GetExtension(sourceFileName);
-
-        // 使用更标准的分隔符
-        var fileName = $"{fileNameWithoutExtension}-{hashData}{fileExtension}";
-        return Path.Combine(containerName, destPath, fileName);
     }
 
     /// <summary>
@@ -346,12 +442,12 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// // 允许覆盖的情况
     /// var path1 = GetDestFilePath("uploads", "document.pdf", overwrite: true, useSequencedName: false);
     /// // 返回: "uploads/document.pdf"（无论是否存在都直接覆盖）
-    /// 
+    ///
     /// // 使用序号命名的情况
     /// var path2 = GetDestFilePath("uploads", "document.pdf", overwrite: false, useSequencedName: true);
     /// // 如果document.pdf存在，返回: "uploads/document[1].pdf"
     /// // 如果document[1].pdf也存在，返回: "uploads/document[2].pdf"，以此类推
-    /// 
+    ///
     /// // 严格模式（不允许重复）
     /// var path3 = GetDestFilePath("uploads", "document.pdf", overwrite: false, useSequencedName: false);
     /// // 如果document.pdf存在，抛出 DuplicateFileException
@@ -423,12 +519,12 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <code>
     /// // 下载文件到当前目录，如果存在则使用序号命名
     /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf");
-    /// 
+    ///
     /// // 下载文件并直接覆盖同名文件
     /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf", overwrite: true);
-    /// 
+    ///
     /// // 下载文件，如果存在同名文件则抛出异常
-    /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf", 
+    /// var actualPath = await fileSystem.DownloadAsync("uploads/document.pdf", "document.pdf",
     ///     overwrite: false, useSequencedName: false);
     /// </code>
     /// </example>
@@ -480,6 +576,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <exception cref="ArgumentNullException">文件路径为空时抛出</exception>
     /// <exception cref="ArgumentNullException">目标流为空时抛出</exception>
     /// <exception cref="FileNotFoundException">源文件不存在时抛出</exception>
+    /// <summary>
+    /// 从本地文件系统下载文件到流（简化版本，用于向后兼容）
+    /// </summary>
     public async Task DownloadToStreamAsync(string filePath, Stream destStream)
     {
         ArgumentException.ThrowIfNullOrEmpty(filePath);
@@ -533,17 +632,17 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// // 基本使用 - 仅文件名
     /// var path1 = await GetUniqueDestFilePathAsync("document.pdf", false, true);
     /// // 如果document.pdf存在，可能返回: "document[1].pdf"
-    /// 
+    ///
     /// // 包含相对路径的文件名
     /// var path2 = await GetUniqueDestFilePathAsync("downloads\\document.pdf", false, true);
     /// // 会自动创建downloads目录，如果文件存在可能返回: "downloads\\document[1].pdf"
-    /// 
+    ///
     /// // 允许覆盖的情况
     /// var path3 = await GetUniqueDestFilePathAsync("temp\\file.txt", true, false);
     /// // 返回: "temp\\file.txt"，会创建temp目录并允许覆盖
-    /// 
+    ///
     /// // 严格模式
-    /// try 
+    /// try
     /// {
     ///     var path4 = await GetUniqueDestFilePathAsync("existing.txt", false, false);
     /// }
@@ -593,13 +692,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         await DeleteFileIfExistsAsync(realPath).ConfigureAwait(false);
     }
 
-    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
             // 分离路径和文件名
-            var destinationPath = Path.GetDirectoryName(filePath) ?? string.Empty;
-            var fileName = Path.GetFileName(filePath);
+            var destinationPath = Path.GetDirectoryName(destinationFilePath) ?? string.Empty;
+            var fileName = Path.GetFileName(destinationFilePath);
 
             var uploadedInfo = await UploadAsync(inputStream, fileName, string.Empty, destinationPath,
                 _options.DefaultNamingRule, overwrite, !overwrite).ConfigureAwait(false);
@@ -616,7 +715,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
     }
 
-    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -626,10 +725,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             }
 
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
-            var fileName = Path.GetFileName(localFilePath);
-            // 构建完整的文件路径并调用更新后的UploadAsync
-            var filePath = Path.Combine(destinationPath, fileName);
-            return await UploadAsync(fileStream, filePath, overwrite, cancellationToken).ConfigureAwait(false);
+            return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

@@ -1,4 +1,6 @@
-﻿namespace Linger.UnitTests.JsonConverter;
+using Linger.Json.JsonConverter;
+
+namespace Linger.UnitTests.JsonConverter;
 
 public class JsonConverterTest
 {
@@ -341,7 +343,11 @@ public class JsonConverterTest
         }
 
         {
-            options = ExtensionMethodSetting.DefaultJsonSerializerOptions;
+            // Test with default Web JSON options
+            options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            options.Converters.Add(new JsonObjectConverter());
+            options.Converters.Add(new DateTimeConverter());
+            options.Converters.Add(new DateTimeNullConverter());
 
             var json2 = JsonSerializer.Serialize(jsonObject, options);
 

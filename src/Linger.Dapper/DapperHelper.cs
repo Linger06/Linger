@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Dapper;
 using Dapper.Contrib.Extensions;
 
@@ -22,7 +22,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     /// <summary>
     ///     当前对象的命令超时时间，单位：秒
     /// </summary>
-    private int? _mCommandTimeout;
+    private int? _commandTimeout;
 
     /// <summary>
     ///     构造函数
@@ -32,7 +32,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     public DapperHelper(TConnection dbConnection, int? commandTimeout = null)
     {
         _connStr = dbConnection.ConnectionString;
-        _mCommandTimeout = commandTimeout;
+        _commandTimeout = commandTimeout;
         _dbConnection = dbConnection;
     }
 
@@ -45,7 +45,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     {
         _connStr = connStr;
         _dbConnection = new TConnection { ConnectionString = _connStr };
-        _mCommandTimeout = commandTimeout;
+        _commandTimeout = commandTimeout;
     }
 
     /// <summary>
@@ -54,22 +54,16 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     /// <param name="commandTimeout">超时时间，单位：秒</param>
     public void SetCommandTimeout(int commandTimeout)
     {
-        _mCommandTimeout = commandTimeout;
+        _commandTimeout = commandTimeout;
     }
 
     /// <summary>
     ///     获取数据库连接
     /// </summary>
     /// <returns></returns>
-    private TConnection GetDbConnection()
+    private IDbConnection GetDbConnection()
     {
         var dbConnection = new TConnection { ConnectionString = _connStr };
-
-        if (dbConnection == null)
-        {
-            throw new Exception("未指定数据库类型");
-        }
-
         return dbConnection;
     }
 
@@ -153,7 +147,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     public dynamic Query(string sql, object? param = null, int? commandTimeout = null, CommandType? commandType = null)
     {
         using IDbConnection connection = GetDbConnection();
-        return connection.Query(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        return connection.Query(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
     }
 
@@ -182,7 +176,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         CommandType? commandType = null)
     {
         using IDbConnection connection = GetDbConnection();
-        return connection.Query<T>(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        return connection.Query<T>(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
     }
 
@@ -216,7 +210,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         object? param = null, string splitOn = "Id", int? commandTimeout = null, CommandType? commandType = null)
     {
         using IDbConnection connection = GetDbConnection();
-        return connection.Query(sql, map, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        return connection.Query(sql, map, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType, splitOn: splitOn).Distinct();
     }
 
@@ -232,7 +226,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         CommandType? commandType = null)
     {
         using IDbConnection connection = GetDbConnection();
-        return connection.QueryFirstOrDefault(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        return connection.QueryFirstOrDefault(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
     }
 
@@ -249,7 +243,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         CommandType? commandType = null)
     {
         using IDbConnection connection = GetDbConnection();
-        return connection.QueryFirstOrDefault<T>(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        return connection.QueryFirstOrDefault<T>(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
     }
 
@@ -389,7 +383,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         CommandType? commandType = null)
     {
         using IDbConnection connection = GetDbConnection();
-        return connection.ExecuteScalar<T>(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        return connection.ExecuteScalar<T>(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
     }
 
@@ -405,7 +399,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         CommandType? commandType = null)
     {
         using IDbConnection connection = GetDbConnection();
-        return connection.ExecuteScalar(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        return connection.ExecuteScalar(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
     }
 
@@ -424,7 +418,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         using IDbConnection connection = GetDbConnection();
         DataTable table = string.IsNullOrWhiteSpace(tableName) ? new DataTable() : new DataTable(tableName);
 
-        IDataReader reader = connection.ExecuteReader(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        IDataReader reader = connection.ExecuteReader(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
         table.Load(reader);
         return table;
@@ -458,7 +452,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     {
         using IDbConnection connection = GetDbConnection();
         var tableSet = new DataSet();
-        IDataReader reader = connection.ExecuteReader(sql, param, commandTimeout: commandTimeout ?? _mCommandTimeout,
+        IDataReader reader = connection.ExecuteReader(sql, param, commandTimeout: commandTimeout ?? _commandTimeout,
             commandType: commandType);
         if (tableNames == null)
         {
@@ -510,7 +504,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         using IDbTransaction transaction = connection.BeginTransaction();
         try
         {
-            affectedRows = connection.Execute(sql, param, transaction, commandTimeout ?? _mCommandTimeout, commandType);
+            affectedRows = connection.Execute(sql, param, transaction, commandTimeout ?? _commandTimeout, commandType);
             if (successFunc != null)
             {
                 affectedRows = successFunc(affectedRows, transaction);
@@ -581,42 +575,44 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
     //}
 
     /// <summary>
-    ///     查询第一个数据
+    ///     查询第一条数据
     /// </summary>
-    /// <param name="sql"></param>
-    /// <param name="param"></param>
-    /// <returns></returns>
+    /// <param name="sql">SQL查询语句</param>
+    /// <param name="param">查询参数</param>
+    /// <returns>查询结果的第一条数据</returns>
+    /// <exception cref="InvalidOperationException">当查询结果为空时抛出</exception>
     public T QueryFirst<T>(string sql, object? param = null)
     {
         using IDbConnection con = GetDbConnection();
-        return con.Query<T>(sql, param).ToList().First();
+        var result = con.Query<T>(sql, param).FirstOrDefault();
+
+        return result is null ? throw new InvalidOperationException("查询结果为空，无法返回第一条数据。") : result;
     }
 
     /// <summary>
     ///     查询单条数据
     /// </summary>
-    /// <param name="sql"></param>
-    /// <param name="param"></param>
-    /// <returns></returns>
+    /// <param name="sql">SQL查询语句</param>
+    /// <param name="param">查询参数</param>
+    /// <returns>查询结果的单条数据</returns>
+    /// <exception cref="InvalidOperationException">当查询结果不是恰好一条数据时抛出</exception>
     public T QuerySingle<T>(string sql, object? param = null)
     {
         using IDbConnection con = GetDbConnection();
-        return con.Query<T>(sql, param).ToList().Single();
+        return con.Query<T>(sql, param).Single();
     }
 
     /// <summary>
     ///     查询单条数据没有返回默认值
     /// </summary>
-    /// <param name="sql"></param>
-    /// <param name="param"></param>
-    /// <returns></returns>
+    /// <param name="sql">SQL查询语句</param>
+    /// <param name="param">查询参数</param>
+    /// <returns>查询结果的单条数据，如果没有结果返回默认值</returns>
+    /// <exception cref="InvalidOperationException">当查询结果超过一条数据时抛出</exception>
     public T? QuerySingleOrDefault<T>(string sql, object? param = null)
     {
         using IDbConnection con = GetDbConnection();
-
-        var result = con.Query<T>(sql, param).ToList();
-
-        return result.SingleOrDefault();
+        return con.Query<T>(sql, param).SingleOrDefault();
     }
 
     /// <summary>
@@ -719,57 +715,68 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
 
     public List<T> GetAll<T>() where T : class
     {
-        return _dbConnection.GetAll<T>().ToList();
+        using IDbConnection connection = GetDbConnection();
+        return connection.GetAll<T>().ToList();
     }
 
     public async Task<List<T>> GetAllAsync<T>() where T : class
     {
-        return (await _dbConnection.GetAllAsync<T>()).ToList();
+        using IDbConnection connection = GetDbConnection();
+        return (await connection.GetAllAsync<T>().ConfigureAwait(false)).ToList();
     }
 
     public T Get<T>(string id) where T : class
     {
-        return _dbConnection.Get<T>(id);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Get<T>(id);
     }
 
     public bool Update<T>(T entity) where T : class
     {
-        return _dbConnection.Update(entity);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Update(entity);
     }
 
     public async Task<bool> UpdateAsync<T>(T entity) where T : class
     {
-        return await _dbConnection.UpdateAsync(entity);
+        using IDbConnection connection = GetDbConnection();
+        return await connection.UpdateAsync(entity).ConfigureAwait(false);
     }
 
     public long Insert<T>(T entity) where T : class
     {
-        return _dbConnection.Insert(entity);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Insert(entity);
     }
 
     public async Task<long> InsertAsync<T>(T entity) where T : class
     {
-        return await _dbConnection.InsertAsync(entity);
+        using IDbConnection connection = GetDbConnection();
+        return await connection.InsertAsync(entity).ConfigureAwait(false);
     }
 
     public bool Delete<T>(T entity) where T : class
     {
-        return _dbConnection.Delete(entity);
+        using IDbConnection connection = GetDbConnection();
+        return connection.Delete(entity);
     }
 
     public async Task<bool> DeleteAsync<T>(T entity) where T : class
     {
-        return await _dbConnection.DeleteAsync(entity);
+        using IDbConnection connection = GetDbConnection();
+        return await connection.DeleteAsync(entity).ConfigureAwait(false);
     }
 
     public bool DeleteAll<T>() where T : class
     {
-        return _dbConnection.DeleteAll<T>();
+        using IDbConnection connection = GetDbConnection();
+        return connection.DeleteAll<T>();
     }
 
     public async Task<bool> DeleteAllAsync<T>() where T : class
     {
-        return await _dbConnection.DeleteAllAsync<T>();
+        using IDbConnection connection = GetDbConnection();
+        return await connection.DeleteAllAsync<T>().ConfigureAwait(false);
     }
 
     #endregion Dapper.Contrib

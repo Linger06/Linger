@@ -17,15 +17,16 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <param name="operation">要执行的操作</param>
     /// <param name="operationName">操作名称（用于异常信息）</param>
     /// <param name="shouldRetry">判断是否应该重试的函数</param>
+    /// <param name="operationExpr"></param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>操作结果</returns>
-    /// <exception cref="OutOfReTryCountException">超过重试次数时抛出</exception>
+    /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
     public async Task<T> ExecuteAsync<T>(
         Func<Task<T>> operation,
         string? operationName = null,
         Func<Exception, bool>? shouldRetry = null,
-        CancellationToken cancellationToken = default,
-    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null)
+    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
         operationName ??= operationExpr ?? nameof(operation);
@@ -49,15 +50,16 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <param name="operation">要执行的操作</param>
     /// <param name="operationName">操作名称（用于异常信息）</param>
     /// <param name="shouldRetry">判断是否应该重试的函数</param>
+    /// <param name="operationExpr"></param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>表示操作完成的任务</returns>
-    /// <exception cref="OutOfReTryCountException">超过重试次数时抛出</exception>
+    /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
     public async Task ExecuteAsync(
         Func<Task> operation,
         string? operationName = null,
         Func<Exception, bool>? shouldRetry = null,
-        CancellationToken cancellationToken = default,
-    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null)
+    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(operation);
         operationName ??= operationExpr ?? nameof(operation);
@@ -85,7 +87,8 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <param name="operation">要执行的操作</param>
     /// <param name="operationName">操作名称（用于异常信息）</param>
     /// <param name="shouldRetry">判断是否应该重试的函数</param>
-    /// <exception cref="OutOfReTryCountException">超过重试次数时抛出</exception>
+    /// <param name="operationExpr"></param>
+    /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
     public void Execute(
         Action operation,
         string? operationName = null,

@@ -3,11 +3,72 @@ namespace Linger.Excel.Contracts;
 /// <summary>
 /// Excel配置选项
 /// </summary>
+/// <example>
+/// 基本配置示例：
+/// <code>
+/// var options = new ExcelOptions
+/// {
+///     ParallelProcessingThreshold = 2000,
+///     AutoFitColumns = true,
+///     EnablePerformanceMonitoring = true,
+///     PerformanceThreshold = 1000
+/// };
+/// </code>
+///
+/// 带样式配置的完整示例：
+/// <code>
+/// var options = new ExcelOptions
+/// {
+///     ParallelProcessingThreshold = 1500,
+///     AutoFitColumns = true,
+///     UseBatchWrite = true,
+///     BatchSize = 5000,
+///     StyleOptions = new ExcelStyleOptions
+///     {
+///         HeaderStyle = new HeaderStyle
+///         {
+///             BackgroundColor = "#4472C4",
+///             FontColor = "#FFFFFF",
+///             Bold = true,
+///             FontSize = 12
+///         },
+///         TitleStyle = new TitleStyle
+///         {
+///             BackgroundColor = "#2E75B6",
+///             FontColor = "#FFFFFF",
+///             Bold = true,
+///             FontSize = 16
+///         },
+///         DataStyle = new DataStyle
+///         {
+///             DateFormat = "yyyy/MM/dd",
+///             DecimalFormat = "#,##0.00",
+///             FontSize = 10
+///         }
+///     }
+/// };
+/// </code>
+/// </example>
 public class ExcelOptions
 {
     /// <summary>
+    /// 默认工作表名称
+    /// </summary>
+    public const string DefaultSheetName = "Sheet1";
+
+    /// <summary>
+    /// DataSet导出时的默认工作表名称前缀
+    /// </summary>
+    public const string DefaultDataSetSheetPrefix = "Sheet";
+
+    /// <summary>
     /// 并行处理阈值，超过此数量的数据将使用并行处理
     /// </summary>
+    /// <remarks>
+    /// 默认值为1000。对于CPU密集型的Excel处理操作，建议值范围为500-2000。
+    /// 较小的数据集使用并行处理可能会因为线程开销而降低性能。
+    /// 根据实际的硬件配置和数据复杂度调整此值以获得最佳性能。
+    /// </remarks>
     public int ParallelProcessingThreshold { get; set; } = 1000;
 
     /// <summary>
@@ -40,5 +101,5 @@ public class ExcelOptions
     /// <summary>
     /// 样式配置选项
     /// </summary>
-    public ExcelStyleOptions StyleOptions { get; set; } = new ExcelStyleOptions();
+    public ExcelStyleOptions StyleOptions { get; set; } = new();
 }

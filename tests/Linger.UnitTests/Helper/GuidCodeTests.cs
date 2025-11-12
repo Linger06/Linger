@@ -97,17 +97,4 @@ public class GuidCodeTests
         // Assert
         Assert.NotEqual(code1, code2);
     }
-
-#pragma warning disable CS0618 // 类型或成员已过时
-    [Fact]
-    public void NewDateTimeId_ShouldGenerateIdsWithCorrectLength()
-    {
-        // Arrange & Act
-        var id = GuidCode.NewDateTimeId;
-
-        // Assert
-        Assert.Equal(21, id.Length);
-        Assert.StartsWith(DateTime.Now.ToString("yyyyMMdd"), id);
-    }
-#pragma warning restore CS0618
 }

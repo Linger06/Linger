@@ -1,7 +1,5 @@
 # Linger.AspNetCore.Jwt.Contracts
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 Core interfaces and abstractions for JWT (JSON Web Token) authentication and authorization in ASP.NET Core applications.
 
 ## Features

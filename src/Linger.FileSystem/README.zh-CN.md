@@ -1,7 +1,5 @@
 # Linger.FileSystem
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 Linger.FileSystem 是一个统一的文件系统抽象库，提供了对多种文件系统的一致访问接口，包括本地文件系统、FTP和SFTP。通过这个库，您可以使用相同的API操作不同类型的文件系统，简化开发过程，提高代码复用性。
 
 ## 项目结构
@@ -30,7 +28,7 @@ dotnet add package Linger.FileSystem.Sftp
 ### 核心接口层次
 
 ```
-IFileSystem                   IAsyncFileSystem
+IFileSystem (🚫 已过时)         IAsyncFileSystem (✅ 推荐)
     │                              │
     └───────────────┬──────────────┘
                     │
@@ -41,8 +39,8 @@ ILocalFileSystem    IRemoteFileSystem
 
 ### 核心接口
 
-- **IFileSystem**: 定义基本同步文件操作接口
-- **IAsyncFileSystem**: 定义基本异步文件操作接口
+- **IFileSystem**: ⚠️ 已过时 - 定义基本同步文件操作接口（建议迁移到 IAsyncFileSystem）
+- **IAsyncFileSystem**: ✅ 推荐 - 定义基本异步文件操作接口
 - **IFileSystemOperations**: 统一的文件系统操作接口，继承自上述两个接口
 - **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
 - **IRemoteFileSystem**: 远程文件系统连接管理接口
@@ -97,6 +95,7 @@ ILocalFileSystem    IRemoteFileSystem
 - **自动重试**: 内置重试机制，可以配置重试次数和延迟，提高操作可靠性
 - **连接管理**: 自动处理远程文件系统的连接和断开
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
+- **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理（内存减少 99.99%）
 
 ## 支持的.NET版本
 
@@ -204,6 +203,14 @@ var result = await fileSystem.UploadAsync(stream, "uploads/destination-file.txt"
 
 // 上传本地文件
 result = await fileSystem.UploadFileAsync("local-file.txt", "uploads", true);
+
+// 带取消令牌的上传
+using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+result = await fileSystem.UploadAsync(
+    stream, 
+    "uploads/destination-file.txt", 
+    true, 
+    cts.Token);
 ```
 
 ### 文件下载
@@ -215,6 +222,14 @@ var result = await fileSystem.DownloadToStreamAsync("uploads/file.txt", outputSt
 
 // 下载到本地文件
 result = await fileSystem.DownloadFileAsync("uploads/file.txt", "C:/Downloads/downloaded-file.txt", true);
+
+// 带取消令牌的下载
+using var cts = new CancellationTokenSource();
+result = await fileSystem.DownloadFileAsync(
+    "uploads/large-file.zip", 
+    "C:/Downloads/large-file.zip", 
+    true, 
+    cts.Token);
 ```
 
 ### 文件删除
@@ -336,6 +351,109 @@ finally
 }
 ```
 
+## 取消操作支持
+
+所有文件系统操作都支持 `CancellationToken`，实现优雅的取消机制：
+
+```csharp
+public class FileUploadService
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileUploadService(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    // 带超时的上传
+    public async Task<FileOperationResult> UploadWithTimeoutAsync(
+        Stream stream, 
+        string destinationPath, 
+        int timeoutSeconds = 300)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            return await _fileSystem.UploadAsync(
+                stream, 
+                destinationPath, 
+                overwrite: true, 
+                cancellationToken: cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return FileOperationResult.Failure("上传因超时而取消");
+        }
+    }
+    
+    // 支持取消的批量上传
+    public async Task<List<FileOperationResult>> UploadMultipleFilesAsync(
+        Dictionary<Stream, string> files, 
+        CancellationToken cancellationToken)
+    {
+        var results = new List<FileOperationResult>();
+        
+        foreach (var (stream, path) in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                path, 
+                overwrite: true, 
+                cancellationToken);
+            results.Add(result);
+        }
+        
+        return results;
+    }
+}
+```
+
+### 在 ASP.NET Core 中使用
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class FileController : ControllerBase
+{
+    private readonly IFileSystemOperations _fileSystem;
+    
+    public FileController(IFileSystemOperations fileSystem)
+    {
+        _fileSystem = fileSystem;
+    }
+    
+    [HttpPost("upload")]
+    public async Task<IActionResult> UploadFile(
+        IFormFile file, 
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var stream = file.OpenReadStream();
+            var result = await _fileSystem.UploadAsync(
+                stream, 
+                $"uploads/{file.FileName}", 
+                overwrite: true, 
+                cancellationToken);
+            
+            if (result.Success)
+            {
+                return Ok(new { path = result.FilePath });
+            }
+            
+            return BadRequest(result.ErrorMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(499, "上传被客户端取消");
+        }
+    }
+}
+```
+
 ## 异常处理
 
 ```csharp
@@ -350,6 +468,10 @@ try
     {
         Console.WriteLine($"上传失败: {result.ErrorMessage}");
     }
+}
+catch (OperationCanceledException)
+{
+    Console.WriteLine("操作被取消");
 }
 catch (FileSystemException ex)
 {
@@ -407,6 +529,69 @@ result = await localFs.UploadAsync(
 
 ## 高级优化建议
 
+### 本地文件系统 - 流式上传优化（v1.0.0+）
+
+本地文件系统现已使用流式优化技术，显著降低文件上传时的内存占用：
+
+**优化亮点：**
+- ✅ **IncrementalHash**：增量计算 MD5 哈希值，无需将整个文件加载到内存
+- ✅ **ArrayPool<byte>**：重用缓冲区内存，减少 GC 压力
+- ✅ **流式 I/O**：分块处理文件，内存占用恒定，与文件大小无关
+
+**性能提升：**
+
+| 文件大小 | 旧实现 | 新实现 | 内存减少 |
+|---------|--------|--------|---------|
+| 100MB | ~100MB | ~8-256KB（缓冲区大小） | 99.9%+ |
+| 1GB | ~1GB | ~8-256KB（缓冲区大小） | 99.99%+ |
+| 10GB | ❌ 内存溢出 | ~8-256KB（缓冲区大小） | ✅ 支持 |
+
+**技术细节：**
+
+```csharp
+// 旧方式（内存密集型）
+var memoryStream = new MemoryStream();
+await inputStream.CopyToAsync(memoryStream);
+byte[] fileBytes = memoryStream.ToArray(); // 整个文件在内存中！
+string hash = CalculateMD5(fileBytes);
+
+// 新方式（流式 + IncrementalHash）
+using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
+var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
+try
+{
+    int bytesRead;
+    while ((bytesRead = await inputStream.ReadAsync(buffer)) > 0)
+    {
+        await outputStream.WriteAsync(buffer, 0, bytesRead);
+        md5.AppendData(buffer, 0, bytesRead);  // 增量更新哈希
+    }
+    string hash = BitConverter.ToString(md5.GetHashAndReset())...;
+}
+finally
+{
+    ArrayPool<byte>.Shared.Return(buffer);  // 归还缓冲区到池
+}
+```
+
+**优化适用场景：**
+
+- ✅ MD5 命名规则：使用临时文件进行流式哈希计算
+- ✅ UUID 命名规则：直接流式写入目标文件
+- ✅ Normal 命名规则：直接流式写入目标文件
+
+**缓冲区配置：**
+
+```csharp
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",
+    UploadBufferSize = 262144,  // 256KB 缓冲区（默认：81920 = 80KB）
+    // 更大的缓冲区可提升大文件性能
+    // 但会增加每个并发上传的内存占用
+};
+```
+
 ### 缓冲区与内存管理
 
 为提高大文件处理性能，可以考虑以下优化：
@@ -441,6 +626,209 @@ var options = new LocalFileSystemOptions
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
 await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
 ```
+
+## 迁移指南
+
+### 从同步方法迁移到异步方法
+
+⚠️ `IFileSystem` 接口中的同步方法已被标记为过时，建议迁移到异步版本以避免潜在的死锁和性能问题。
+
+#### 为什么要迁移？
+
+同步方法在现代应用程序中可能导致：
+- **死锁风险**: 在 ASP.NET Core 等异步上下文中调用同步方法可能导致死锁
+- **性能问题**: 阻塞线程池线程，降低应用程序的整体吞吐量
+- **可扩展性限制**: 无法充分利用异步 I/O 的优势
+
+#### 迁移步骤
+
+**步骤 1: 更改接口类型**
+
+```csharp
+// ❌ 旧代码（使用同步接口）
+IFileSystem fs = new LocalFileSystem("C:/Storage");
+
+// ✅ 新代码 - 使用异步接口
+IAsyncFileSystem fs = new LocalFileSystem("C:/Storage");
+
+// ✅ 或使用完整的操作接口（推荐）
+IFileSystemOperations fs = new LocalFileSystem("C:/Storage");
+```
+
+**步骤 2: 更新方法调用**
+
+```csharp
+// ❌ 旧代码（同步调用）
+bool exists = fs.FileExists("/file.txt");
+fs.CreateDirectoryIfNotExists("/uploads");
+fs.DeleteFileIfExists("/temp.txt");
+
+// ✅ 新代码（异步调用）
+bool exists = await fs.FileExistsAsync("/file.txt");
+await fs.CreateDirectoryIfNotExistsAsync("/uploads");
+await fs.DeleteFileIfExistsAsync("/temp.txt");
+```
+
+**步骤 3: 更新方法签名为异步**
+
+```csharp
+// ❌ 旧方法签名（同步）
+public void ProcessFile(string filePath)
+{
+    if (fs.FileExists(filePath))
+    {
+        // 处理文件...
+        fs.DeleteFileIfExists(filePath);
+    }
+}
+
+// ✅ 新方法签名（异步）
+public async Task ProcessFileAsync(string filePath)
+{
+    if (await fs.FileExistsAsync(filePath))
+    {
+        // 处理文件...
+        await fs.DeleteFileIfExistsAsync(filePath);
+    }
+}
+```
+
+**步骤 4: 更新调用链**
+
+```csharp
+// ❌ 旧代码
+public class FileProcessor
+{
+    public void Run()
+    {
+        ProcessFile("data.txt");
+    }
+}
+
+// ✅ 新代码
+public class FileProcessor
+{
+    public async Task RunAsync()
+    {
+        await ProcessFileAsync("data.txt");
+    }
+}
+```
+
+#### 常见场景迁移示例
+
+**场景 1: 文件上传前检查**
+
+```csharp
+// ❌ 旧代码
+public FileOperationResult UploadFile(Stream stream, string path)
+{
+    if (fs.FileExists(path))
+    {
+        return FileOperationResult.Fail("文件已存在");
+    }
+    return fs.UploadAsync(stream, path).GetAwaiter().GetResult(); // 危险！
+}
+
+// ✅ 新代码
+public async Task<FileOperationResult> UploadFileAsync(Stream stream, string path)
+{
+    if (await fs.FileExistsAsync(path))
+    {
+        return FileOperationResult.Fail("文件已存在");
+    }
+    return await fs.UploadAsync(stream, path);
+}
+```
+
+**场景 2: 批量文件处理**
+
+```csharp
+// ❌ 旧代码
+public void ProcessFiles(string[] filePaths)
+{
+    foreach (var path in filePaths)
+    {
+        if (fs.FileExists(path))
+        {
+            // 处理文件...
+        }
+    }
+}
+
+// ✅ 新代码
+public async Task ProcessFilesAsync(string[] filePaths)
+{
+    foreach (var path in filePaths)
+    {
+        if (await fs.FileExistsAsync(path))
+        {
+            // 处理文件...
+        }
+    }
+}
+
+// ✅✅ 更好的方式 - 并行处理
+public async Task ProcessFilesAsync(string[] filePaths)
+{
+    var tasks = filePaths.Select(async path =>
+    {
+        if (await fs.FileExistsAsync(path))
+        {
+            // 处理文件...
+        }
+    });
+    await Task.WhenAll(tasks);
+}
+```
+
+**场景 3: ASP.NET Core 控制器**
+
+```csharp
+// ❌ 旧代码（可能导致死锁！）
+[HttpGet]
+public IActionResult GetFile(string path)
+{
+    if (!fs.FileExists(path))  // 同步调用可能死锁
+    {
+        return NotFound();
+    }
+    // ...
+}
+
+// ✅ 新代码
+[HttpGet]
+public async Task<IActionResult> GetFileAsync(string path)
+{
+    if (!await fs.FileExistsAsync(path))
+    {
+        return NotFound();
+    }
+    // ...
+}
+```
+
+#### 迁移检查清单
+
+- [ ] 将所有 `IFileSystem` 类型声明改为 `IAsyncFileSystem` 或 `IFileSystemOperations`
+- [ ] 将所有同步方法调用改为异步版本（添加 `Async` 后缀和 `await`）
+- [ ] 将方法签名改为返回 `Task` 或 `Task<T>`
+- [ ] 移除所有 `.GetAwaiter().GetResult()` 或 `.Wait()` 调用
+- [ ] 更新单元测试为异步测试方法
+- [ ] 在 ASP.NET Core 中确保控制器方法为异步
+
+#### 向后兼容性
+
+如果您的代码库需要同时支持旧代码，可以保留同步方法但添加编译警告抑制：
+
+```csharp
+#pragma warning disable CS0618 // 类型或成员已过时
+IFileSystem fs = new LocalFileSystem("C:/Storage");
+bool exists = fs.FileExists("/file.txt");
+#pragma warning restore CS0618
+```
+
+但建议尽快完成迁移，因为同步方法可能在未来版本中被完全移除。
 
 ## 贡献
 

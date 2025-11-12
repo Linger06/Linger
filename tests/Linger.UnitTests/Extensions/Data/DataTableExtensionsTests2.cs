@@ -15,8 +15,8 @@ public partial class DataTableExtensionsTests
         Assert.NotNull(result);
         Assert.Equal(2, result.Rows.Count);
         Assert.Equal(3, result.Columns.Count);
-        Assert.Equal(1.1m, result.Rows[0]["John"].ToDecimal());
-        Assert.Equal(2.2m, result.Rows[1]["Jane"].ToDecimal());
+        Assert.Equal(1.1m, result.Rows[0]["John"].ToDecimalOrDefault());
+        Assert.Equal(2.2m, result.Rows[1]["Jane"].ToDecimalOrDefault());
     }
 
     [Fact]
@@ -36,8 +36,8 @@ public partial class DataTableExtensionsTests
         Assert.NotNull(result);
         Assert.Equal(2, result.Rows.Count);
         Assert.Equal(4, result.Columns.Count);
-        Assert.Equal(1.1m, result.Rows[0]["John"].ToDecimal());
-        Assert.Equal(2.2m, result.Rows[1]["Jane"].ToDecimal());
+        Assert.Equal(1.1m, result.Rows[0]["John"].ToDecimalOrDefault());
+        Assert.Equal(2.2m, result.Rows[1]["Jane"].ToDecimalOrDefault());
     }
 
     [Fact]
@@ -73,8 +73,8 @@ public partial class DataTableExtensionsTests
         Assert.NotNull(result);
         Assert.Equal(2, result.Rows.Count);
         Assert.Equal(3, result.Columns.Count);
-        Assert.Equal(0m, result.Rows[0]["John"].ToDecimal());
-        Assert.Equal(2.2m, result.Rows[1]["Jane"].ToDecimal());
+        Assert.Equal(0m, result.Rows[0]["John"].ToDecimalOrDefault());
+        Assert.Equal(2.2m, result.Rows[1]["Jane"].ToDecimalOrDefault());
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public partial class DataTableExtensionsTests
         Assert.NotNull(result);
         Assert.Equal(2, result.Rows.Count);
         Assert.Equal(3, result.Columns.Count);
-        Assert.Equal(2.2m, result.Rows[0]["John"].ToDecimal());
+        Assert.Equal(2.2m, result.Rows[0]["John"].ToDecimalOrDefault());
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public partial class DataTableExtensionsTests
 
         Assert.NotNull(result);
         Assert.Single(result.Rows);
-        Assert.Equal(1, result.Rows[0]["Int"].ToInt());
+        Assert.Equal(1, result.Rows[0]["Int"].ToIntOrDefault());
     }
 
     [Fact]

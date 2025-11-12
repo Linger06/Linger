@@ -1,6 +1,7 @@
-﻿using OfficeOpenXml;
+using OfficeOpenXml;
 
 namespace Linger.Excel.Extensions;
+
 public static class ExcelWorksheetExtensions
 {
     public static void TrimLastEmptyRows(this ExcelWorksheet worksheet)

@@ -13,7 +13,7 @@ public static partial class FileHelper
     {
         filename.EnsureFileExists();
 
-        encoding ??= ExtensionMethodSetting.DefaultEncoding;
+        encoding ??= Encoding.UTF8;
 
         using var sr = new StreamReader(filename, encoding);
         return sr.ReadToEnd();
@@ -45,7 +45,7 @@ public static partial class FileHelper
     public static void WriteText(string filePath, string text, Encoding? encoding = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-        encoding ??= ExtensionMethodSetting.DefaultEncoding;
+        encoding ??= Encoding.UTF8;
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory))
@@ -158,7 +158,7 @@ public static partial class FileHelper
 
         if (content != null)
         {
-            encoding ??= ExtensionMethodSetting.DefaultEncoding;
+            encoding ??= Encoding.UTF8;
             File.WriteAllText(filePath, content, encoding);
         }
         else if (buffer != null)
@@ -181,6 +181,7 @@ public static partial class FileHelper
     /// </summary>
     /// <param name="directoryPath">指定目录的绝对路径</param>
     /// <param name="searchPattern">模式字符串，"*"代表0或N个字符，"?"代表1个字符。 范例："Log*.xml"表示搜索所有以Log开头的Xml文件。</param>
+    /// <param name="isSearchChild"></param>
     public static bool Contains(string directoryPath, string searchPattern, bool isSearchChild = false)
     {
         if (string.IsNullOrEmpty(directoryPath) || string.IsNullOrEmpty(searchPattern))

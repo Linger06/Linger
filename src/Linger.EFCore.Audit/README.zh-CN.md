@@ -1,7 +1,5 @@
 # Linger.EFCore.Audit
 
-> 📝 *查看此文档：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 用于自动跟踪数据变更的 Entity Framework Core 审计跟踪库。
 
 ## ✨ 功能特点
@@ -55,12 +53,34 @@ public class AppDbContext : DbContext
     }
 }
 
-// 2. 注册审计拦截器
-services.AddDbContext<AppDbContext>(options => 
+// 2. 实现审计用户提供程序
+public class CurrentUserProvider : IAuditUserProvider 
+{ 
+    // 可以从当前认证系统获取用户信息
+    public string? UserName => "张三"; 
+    
+    public string GetUser() => UserName ?? "匿名用户"; 
+}
+
+// 3. 注册服务和拦截器
+services.AddScoped<IAuditUserProvider, CurrentUserProvider>();
+
+services.AddDbContext<AppDbContext>((serviceProvider, options) => 
 {
-    options.AddInterceptors(sp => 
+    options.UseSqlServer(connectionString);
+    
+    // 不带日志
+    options.AddInterceptors(
         new AuditEntitiesSaveChangesInterceptor(
-            sp.GetRequiredService<IAuditUserProvider>()
+            serviceProvider.GetRequiredService<IAuditUserProvider>()
+        )
+    );
+    
+    // 或 带日志 (推荐 - 用于监控和调试)
+    options.AddInterceptors(
+        new AuditEntitiesSaveChangesInterceptor(
+            serviceProvider.GetRequiredService<IAuditUserProvider>(),
+            serviceProvider.GetRequiredService<ILogger<AuditEntitiesSaveChangesInterceptor>>()
         )
     );
 });
@@ -80,49 +100,15 @@ var user = new User
     Email = "zhangsan@example.com"
 };
 dbContext.Users.Add(user);
-await dbContext.SaveChangesAsync();  // 这将生成一个"创建"审计记录
+await dbContext.SaveChangesAsync();  // 自动生成"创建"审计记录,包含用户信息
 
 // 修改实体
 user.Email = "new.email@example.com";
-await dbContext.SaveChangesAsync();  // 这将生成一个"修改"审计记录
+await dbContext.SaveChangesAsync();  // 自动生成"修改"审计记录
 
 // 删除实体
 dbContext.Users.Remove(user);
-await dbContext.SaveChangesAsync();  // 这将生成一个"删除"审计记录
-```
-
-### 设置当前用户信息
-
-审计记录可以包括执行操作的用户信息。要实现这一点，需要提供 `IAuditUserProvider` 接口的实现：
-
-```csharp
-// 1. 实现审计用户提供程序
-public class CurrentUserProvider : IAuditUserProvider 
-{ 
-    // 可以从当前认证系统获取用户信息
-    public string? UserName => "张三"; 
-    
-    public string GetUser() => UserName ?? "匿名用户"; 
-}
-
-// 2. 在依赖注入容器中注册
-services.AddScoped<IAuditUserProvider, CurrentUserProvider>();
-
-// 3. 在拦截器中使用
-services.AddDbContext<AppDbContext>(options => 
-{
-    options.UseSqlServer(connectionString);
-    options.AddInterceptors(sp => 
-        new AuditEntitiesSaveChangesInterceptor(
-            sp.GetRequiredService<IAuditUserProvider>()
-        )
-    );
-});
-
-// 现在所有操作都将自动包含用户信息
-var product = new Product { Name = "示例产品", Price = 100.00m };
-dbContext.Products.Add(product);
-await dbContext.SaveChangesAsync();  // 审计记录包含用户ID和用户名
+await dbContext.SaveChangesAsync();  // 自动生成"删除"审计记录(软删除)
 ```
 
 ### 查询审计记录
@@ -207,3 +193,22 @@ public class AuditTrailEntry
 - 创建审计：CreatorId, CreationTime
 - 修改审计：LastModifierId, LastModificationTime
 - 软删除：IsDeleted, DeleterId, DeletionTime
+
+## 📊 日志记录
+
+拦截器支持可选的日志记录功能,帮助监控审计操作和排查问题。
+
+### 配置日志级别
+
+在 `appsettings.json` 中配置:
+
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Linger.EFCore.Audit.Interceptors": "Debug"
+    }
+  }
+}
+```

@@ -1,4 +1,4 @@
-using Linger.JsonConverter;
+using Linger.Json.JsonConverter;
 
 namespace Linger.Extensions.Core;
 

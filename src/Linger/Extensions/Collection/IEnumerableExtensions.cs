@@ -313,22 +313,22 @@ public static partial class IEnumerableExtensions
     /// // Output: [3, 4]
     ///
     /// // boundary cases
-    /// var empty1 = enumerable.Paging(0, 2);     // [] (pageIndex <= 0)
-    /// var empty2 = enumerable.Paging(1, 0);     // [] (pageSize <= 0)
-    /// IEnumerable<int>? none = null;
+    /// var empty1 = enumerable.Paging(0, 2);     // [] (pageIndex &lt;= 0)
+    /// var empty2 = enumerable.Paging(1, 0);     // [] (pageSize &lt;= 0)
+    /// IEnumerable&lt;int&gt;? none = null;
     /// var empty3 = none.Paging(1, 10);          // [] (null source)
     /// </code>
     /// </example>
     public static IEnumerable<T> Paging<T>(this IEnumerable<T>? source, int pageIndex, int pageSize)
     {
         if (source is null)
-            return [];
+            return Array.Empty<T>();
 
         if (pageIndex <= 0)
-            return [];
+            return Array.Empty<T>();
 
         if (pageSize <= 0)
-            return [];
+            return Array.Empty<T>();
 
         return source.Skip((pageIndex - 1) * pageSize).Take(pageSize);
     }
@@ -344,9 +344,9 @@ public static partial class IEnumerableExtensions
     /// </returns>
     /// <example>
     /// <code>
-    /// IEnumerable<int> it = Enumerable.Range(1, 3).Where(x => x > 1);
-    /// ICollection<int> col = it.ToCollection(); // materialized as List<int>
-    /// IReadOnlyCollection<int> empty = ((IEnumerable<int>?)null).ToCollection(); // Array.Empty<int>()
+    /// IEnumerable&lt;int&gt; it = Enumerable.Range(1, 3).Where(x => x > 1);
+    /// ICollection&lt;int&gt; col = it.ToCollection(); // materialized as List&lt;int&gt;
+    /// IReadOnlyCollection&lt;int&gt; empty = ((IEnumerable&lt;int&gt;?)null).ToCollection(); // Array.Empty&lt;int&gt;()
     /// </code>
     /// </example>
     public static ICollection<T> ToCollection<T>(this IEnumerable<T>? source)

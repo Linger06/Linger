@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Data;
 using System.Data.Common;
+using System.Globalization;
 using System.Text;
 using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
@@ -48,11 +49,8 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     public Task<DataSet> QueryAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            return GetDataSet(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>());
-        }, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return GetDataSetAsync(CommandType.Text, sql, parameters ?? Array.Empty<DbParameter>(), cancellationToken);
     }
 
     /// <summary>
@@ -110,11 +108,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     执行SQL语句
     /// </summary>
     /// <param name="sql">Sql语句</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(string sql, DbTransaction isOpenTrans)
+    public int ExecuteBySql(string sql, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql);
+        return ExecuteNonQuery(transaction, CommandType.Text, sql);
     }
 
     /// <summary>
@@ -122,11 +120,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(string sql, DbParameter[] parameters, DbTransaction isOpenTrans)
+    public int ExecuteBySql(string sql, DbParameter[] parameters, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql, parameters);
+        return ExecuteNonQuery(transaction, CommandType.Text, sql, parameters);
     }
 
     /// <summary>
@@ -143,11 +141,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     执行SQL语句
     /// </summary>
     /// <param name="sql">Sql语句</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(StringBuilder sql, DbTransaction isOpenTrans)
+    public int ExecuteBySql(StringBuilder sql, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql.ToString());
+        return ExecuteNonQuery(transaction, CommandType.Text, sql.ToString());
     }
 
     /// <summary>
@@ -166,11 +164,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction isOpenTrans)
+    public int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.Text, sql.ToString(), parameters);
+        return ExecuteNonQuery(transaction, CommandType.Text, sql.ToString(), parameters);
     }
 
     #endregion
@@ -191,11 +189,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     执行存储过程
     /// </summary>
     /// <param name="procName">存储过程</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteByProc(string procName, DbTransaction isOpenTrans)
+    public int ExecuteByProc(string procName, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.StoredProcedure, procName);
+        return ExecuteNonQuery(transaction, CommandType.StoredProcedure, procName);
     }
 
     /// <summary>
@@ -214,11 +212,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="procName">存储过程</param>
     /// <param name="parameters">sql语句对应参数</param>
-    /// <param name="isOpenTrans">事务对象</param>
+    /// <param name="transaction">事务对象</param>
     /// <returns></returns>
-    public int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction isOpenTrans)
+    public int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction transaction)
     {
-        return ExecuteNonQuery(isOpenTrans, CommandType.StoredProcedure, procName, parameters);
+        return ExecuteNonQuery(transaction, CommandType.StoredProcedure, procName, parameters);
     }
 
     #endregion
@@ -282,7 +280,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters).ConfigureAwait(false);
+        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters, CancellationToken.None).ConfigureAwait(false);
         return dr.ReaderToDataTable();
     }
 
@@ -364,7 +362,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return GetDataSetAsync(CommandType.Text, sql, parameters);
+        return GetDataSetAsync(CommandType.Text, sql, parameters, CancellationToken.None);
     }
 
     /// <summary>
@@ -460,10 +458,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     ///     查询数据、返回条数
     /// </summary>
     /// <param name="sql">Sql语句</param>
+    /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public async Task<int> FindCountBySqlAsync(string sql)
+    public async Task<int> FindCountBySqlAsync(string sql, CancellationToken cancellationToken = default)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql).ConfigureAwait(false)).ToIntOrDefault();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false)).ToIntOrDefault();
     }
 
     /// <summary>
@@ -482,10 +481,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
+    /// <param name="cancellationToken">取消令牌</param>
     /// <returns></returns>
-    public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters)
+    public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken = default)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false)).ToIntOrDefault();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters, cancellationToken).ConfigureAwait(false)).ToIntOrDefault();
     }
 
     #endregion
@@ -531,7 +531,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<object?> FindMaxBySqlAsync(string sql, DbParameter[] parameters)
     {
-        return await ExecuteScalarAsync(CommandType.Text, sql, parameters).ConfigureAwait(false);
+        return await ExecuteScalarAsync(CommandType.Text, sql, parameters, CancellationToken.None).ConfigureAwait(false);
     }
 
     #endregion
@@ -569,7 +569,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, string.Join(",", parameterNames));
             var dbParams = currentBatch.Select((value, index) => CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
 
             var resultDataSet = FindDataSetBySql(formattedSql, dbParams);
@@ -616,7 +616,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var parameterNames = currentBatch.Select((_, index) => GetParameterName(index)).ToArray();
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, string.Join(",", parameterNames));
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, string.Join(",", parameterNames));
             var dbParams = currentBatch.Select((value, index) => CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
 
             var resultDataSet = await FindDataSetBySqlAsync(formattedSql, dbParams).ConfigureAwait(false);
@@ -662,7 +662,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var joined = string.Join(",", currentBatch.Select(v => FormatRawValue(v, quote)));
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, joined);
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, joined);
             var resultDataSet = FindDataSetBySql(formattedSql);
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
@@ -707,7 +707,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (count == 0) break;
 
             var joined = string.Join(",", currentBatch.Select(v => FormatRawValue(v, quote)));
-            var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sql, joined);
+            var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, joined);
             var resultDataSet = await FindDataSetBySqlAsync(formattedSql).ConfigureAwait(false);
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];

@@ -1,12 +1,17 @@
 # Linger.Ldap.Contracts
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 一个C#的LDAP契约库，提供了跨多个.NET平台的LDAP目录服务集成的标准化接口和模型。
 
 ## 介绍
 
 Linger.Ldap.Contracts提供了一组标准化的LDAP操作接口和模型，使得在不同的.NET应用程序中实现一致的LDAP功能变得更加容易。
+
+## 支持的框架
+
+- .NET 10.0
+- .NET 9.0
+- .NET 8.0
+- .NET Standard 2.0
 
 ## 特性
 
@@ -62,9 +67,14 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<IActionResult> Login(LoginModel model)
+    public async Task<IActionResult> Login(
+        LoginModel model, 
+        CancellationToken cancellationToken)
     {
-        var (isValid, userInfo) = await _ldap.ValidateUserAsync(model.Username, model.Password);
+        var (isValid, userInfo) = await _ldap.ValidateUserAsync(
+            model.Username, 
+            model.Password, 
+            cancellationToken);
 
         if (!isValid)
         {
@@ -84,6 +94,21 @@ public class AuthController : ControllerBase
             }
         });
     }
+    
+    [HttpGet("user/{username}")]
+    public async Task<IActionResult> GetUser(
+        string username, 
+        CancellationToken cancellationToken)
+    {
+        var userInfo = await _ldap.FindUserAsync(username, cancellationToken: cancellationToken);
+        
+        if (userInfo == null)
+        {
+            return NotFound();
+        }
+        
+        return Ok(userInfo);
+    }
 }
 ```
 
@@ -97,13 +122,67 @@ public class AuthController : ControllerBase
 public interface ILdap
 {
     Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(
-        string userName, string password);
+        string userName, 
+        string password, 
+        CancellationToken cancellationToken = default);
 
     Task<AdUserInfo?> FindUserAsync(
-        string userName, LdapCredentials? ldapCredentials = null);
+        string userName, 
+        CancellationToken cancellationToken = default, 
+        LdapCredentials? ldapCredentials = null);
 
     Task<IEnumerable<AdUserInfo>> GetUsersAsync(
-        string filter, LdapCredentials? ldapCredentials = null);
+        string filter, 
+        CancellationToken cancellationToken = default, 
+        LdapCredentials? ldapCredentials = null);
+}
+```
+
+### 取消操作支持
+
+所有异步 LDAP 操作都支持 `CancellationToken`，适用于超时控制和请求取消：
+
+```csharp
+public class LdapService
+{
+    private readonly ILdap _ldap;
+    
+    public LdapService(ILdap ldap)
+    {
+        _ldap = ldap;
+    }
+    
+    // 带超时的用户验证
+    public async Task<bool> ValidateUserWithTimeoutAsync(
+        string username, 
+        string password, 
+        int timeoutSeconds = 5)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            var (isValid, _) = await _ldap.ValidateUserAsync(
+                username, 
+                password, 
+                cts.Token);
+            return isValid;
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("LDAP 验证超时");
+            return false;
+        }
+    }
+    
+    // 批量查询用户，支持取消
+    public async Task<List<AdUserInfo>> SearchUsersAsync(
+        string searchTerm, 
+        CancellationToken cancellationToken)
+    {
+        var users = await _ldap.GetUsersAsync(searchTerm, cancellationToken);
+        return users.ToList();
+    }
 }
 ```
 
@@ -168,9 +247,3 @@ public class LdapConfig
 
 - [Linger.Ldap.ActiveDirectory](../Linger.Ldap.ActiveDirectory/) - 针对Active Directory优化的实现
 - [Linger.Ldap.Novell](../Linger.Ldap.Novell/) - 基于Novell.Directory.Ldap的跨平台实现
-
-## 支持的框架
-
-- .NET Standard 2.0
-- .NET 8.0
-- .NET 9.0

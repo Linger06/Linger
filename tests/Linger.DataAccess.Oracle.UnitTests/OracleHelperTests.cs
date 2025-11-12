@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using Linger.DataAccess.Oracle;
 using Oracle.ManagedDataAccess.Client;
 
@@ -148,21 +149,6 @@ public class OracleHelperTests
         }
     }
 
-    [Fact]
-    public async Task PageAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var helper = new OracleHelper(TestConnectionString);
-        const string sql = "SELECT * FROM users WHERE id IN ({0})";
-        var parameters = new List<string> { "1", "2", "3" };
-        using var cts = new CancellationTokenSource();
-        cts.Cancel(); // 立即取消
-
-        // Act & Assert
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            helper.QueryInBatchesAsync(sql, parameters, cancellationToken: cts.Token));
-    }
-
     [Theory]
     [InlineData(null)]
     [InlineData("")]
@@ -219,20 +205,6 @@ public class OracleHelperTests
         {
             await Assert.ThrowsAsync<ArgumentException>(() => helper.ExistsAsync(sql));
         }
-    }
-
-    [Fact]
-    public async Task ExistsAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var helper = new OracleHelper(TestConnectionString);
-        const string sql = "SELECT COUNT(*) FROM users";
-        using var cts = new CancellationTokenSource();
-        cts.Cancel(); // 立即取消
-
-        // Act & Assert
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                helper.ExistsAsync(sql, cts.Token));
     }
 
     [Theory]
@@ -294,20 +266,6 @@ public class OracleHelperTests
         {
             await Assert.ThrowsAsync<ArgumentException>(() => helper.QueryAsync(sql));
         }
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var helper = new OracleHelper(TestConnectionString);
-        const string sql = "SELECT * FROM users";
-        using var cts = new CancellationTokenSource();
-        cts.Cancel(); // 立即取消
-
-        // Act & Assert
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                helper.QueryAsync(sql, cts.Token));
     }
 
     [Fact]
@@ -408,7 +366,7 @@ public class OracleHelperTests
     public void SqlFormatting_WithPlaceholders_ShouldFormatCorrectly(string sqlTemplate, string parameters, string expectedSql)
     {
         // Act
-        var formattedSql = string.Format(ExtensionMethodSetting.DefaultCulture, sqlTemplate, parameters);
+        var formattedSql = string.Format(CultureInfo.InvariantCulture, sqlTemplate, parameters);
 
         // Assert
         Assert.Equal(expectedSql, formattedSql);

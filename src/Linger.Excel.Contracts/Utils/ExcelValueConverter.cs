@@ -3,14 +3,14 @@ using System.Globalization;
 namespace Linger.Excel.Contracts.Utils;
 
 /// <summary>
-/// Excel值转换工具
+/// Excel 值转换工具
 /// </summary>
 public static class ExcelValueConverter
 {
     /// <summary>
-    /// 将Excel值转换为.NET数据类型
+    /// 将 Excel 值转换为 .NET 数据类型。
     /// </summary>
-    /// <param name="value">Excel值</param>
+    /// <param name="value">Excel 单元格的值</param>
     /// <param name="isDateFormat">是否为日期格式</param>
     /// <returns>转换后的值</returns>
     public static object ConvertToDbValue(object? value, bool isDateFormat = false)
@@ -29,7 +29,7 @@ public static class ExcelValueConverter
             if (value is DateTime dateTime)
                 return dateTime;
 
-            // 处理OLE自动化日期（Excel中的数字日期）
+            // 处理OLE自动化日期（Excel 中的数字日期表示）
             if (value is double numericDate)
             {
                 try
@@ -102,24 +102,24 @@ public static class ExcelValueConverter
 
         try
         {
-            // 处理不同的类型转换
+            // 处理不同的类型转�?
             if (actualType == typeof(string))
                 return value.ToString();
 
             if (actualType == typeof(int))
-                return value.ToIntOrDefault();// Convert.ToInt32(value);
+                return value.ToIntOrDefault();
 
             if (actualType == typeof(long))
-                return value.ToLongOrDefault();// Convert.ToInt64(value);
+                return value.ToLongOrDefault();
 
             if (actualType == typeof(decimal))
-                return value.ToDecimalOrDefault();// Convert.ToDecimal(value);
+                return value.ToDecimalOrDefault();
 
             if (actualType == typeof(double))
-                return value.ToDoubleOrDefault();// Convert.ToDouble(value);
+                return value.ToDoubleOrDefault();
 
             if (actualType == typeof(float))
-                return value.ToFloatOrDefault();// Convert.ToSingle(value);
+                return value.ToFloatOrDefault();
 
             if (actualType == typeof(bool))
             {
@@ -128,7 +128,7 @@ public static class ExcelValueConverter
                 //    str = str.Trim().ToLower();
                 //    return str == "true" || str == "yes" || str == "y" || str == "1";
                 //}
-                return value.ToBoolOrDefault();// Convert.ToBoolean(value);
+                return value.ToBoolOrDefault();
             }
 
             if (actualType == typeof(DateTime))
@@ -139,7 +139,7 @@ public static class ExcelValueConverter
                 if (value is string s)
                     return DateTime.Parse(s, CultureInfo.CurrentCulture);
 
-                return value.ToDateTimeOrDefault();// Convert.ToDateTime(value);
+                return value.ToDateTimeOrDefault();
             }
 
             if (actualType.IsEnum)
@@ -151,7 +151,7 @@ public static class ExcelValueConverter
             }
 
             // 其他类型尝试直接转换
-            return Convert.ChangeType(value, actualType, ExtensionMethodSetting.DefaultCulture);
+            return Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
         }
         catch
         {

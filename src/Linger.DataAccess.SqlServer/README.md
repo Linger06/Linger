@@ -57,9 +57,36 @@ public async Task<bool> ExistsAsync(string strSql, CancellationToken cancellatio
 ```
 Checks if specified SQL query returns data.
 
+## Async Implementation ✅
+
+All async methods use **true asynchronous I/O** including specialized SQL Server features:
+
+```csharp
+// ✅ TRUE ASYNC - Uses ADO.NET async APIs
+public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
+{
+    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+    return count > 0;
+}
+
+// ✅ SqlBulkCopy async operations
+public async Task AddByBulkCopyAsync(DataTable table, string tableName, ...)
+{
+    using var bulk = new SqlBulkCopy(connection);
+    await bulk.WriteToServerAsync(table, cancellationToken).ConfigureAwait(false);
+}
+```
+
+**Performance benefits:**
+- **BulkCopy operations** can handle millions of rows efficiently
+- Supports **high-throughput scenarios** with minimal thread usage
+- Full cancellation support for long-running bulk operations
+- Optimal for data warehousing and ETL scenarios
+
 ## Best Practices
 
+- **Use async methods** for all operations - True async ensures optimal scalability
+- **Always pass CancellationToken** for proper cancellation support
 - Use `AddByBulkCopy` for large datasets (> 1000 rows)
 - Adjust `batchSize` based on memory constraints
-- Use async methods for I/O intensive operations
 - All methods are thread-safe

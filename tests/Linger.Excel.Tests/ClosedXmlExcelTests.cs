@@ -37,7 +37,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlExport_DataTable.xlsx");
 
             // Act
-            var result = service.DataTableToFile(dataTable, filePath, "测试表", "ClosedXML导出测试");
+            var result = service.DataTableToExcel(dataTable, filePath, "测试表", "ClosedXML导出测试");
 
             // Assert
             Assert.Equal(filePath, result);
@@ -54,7 +54,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlExport_List.xlsx");
 
             // Act
-            var result = service.ListToFile(list, filePath, "人员列表", "ClosedXML导出测试");
+            var result = service.CollectionToExcel(list, filePath, "人员列表", "ClosedXML导出测试");
 
             // Assert
             Assert.Equal(filePath, result);
@@ -70,7 +70,7 @@ namespace Linger.Excel.Tests
             var dataTable = GenerateTestDataTable(5);
 
             // Act
-            using var stream = service.ConvertDataTableToMemoryStream(dataTable, "测试表", "ClosedXML内存流测试");
+            using var stream = service.DataTableToMemoryStream(dataTable, "测试表", "ClosedXML内存流测试");
 
             // Assert
             Assert.NotNull(stream);
@@ -86,7 +86,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_DataTable.xlsx");
 
             // 先导出Excel
-            service.DataTableToFile(originalData, filePath, "测试表", "ClosedXML导入测试");
+            service.DataTableToExcel(originalData, filePath, "测试表", "ClosedXML导入测试");
 
             // Act - 从Excel读取回来
             var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 1);
@@ -106,7 +106,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_List.xlsx");
 
             // 先导出Excel
-            service.ListToFile(originalList, filePath, "人员列表", "ClosedXML导入测试");
+            service.CollectionToExcel(originalList, filePath, "人员列表", "ClosedXML导入测试");
 
             // Act - 从Excel读取回来
             var importedList = service.ExcelToList<TestPerson>(filePath, headerRowIndex: 1);
@@ -186,7 +186,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlExport_DataSet.xlsx");
 
             // Act
-            var result = service.DataSetToFile(dataSet, filePath);
+            var result = service.DataSetToExcel(dataSet, filePath);
 
             // Assert
             Assert.Equal(filePath, result);
@@ -238,7 +238,7 @@ namespace Linger.Excel.Tests
             var columnsOnlyFilePath = Path.Combine(TestFilesDir, "ClosedXmlExport_ColumnsOnlyDataSet.xlsx");
 
             // Act & Assert - 测试完全空的DataSet
-            var result1 = service.DataSetToFile(emptyDataSet, emptyFilePath);
+            var result1 = service.DataSetToExcel(emptyDataSet, emptyFilePath);
             Assert.Equal(emptyFilePath, result1);
             Assert.True(File.Exists(emptyFilePath));
             // 验证创建了默认工作表
@@ -246,7 +246,7 @@ namespace Linger.Excel.Tests
             Assert.Null(importedData1);
 
             // Act & Assert - 测试包含空表的DataSet
-            var result2 = service.DataSetToFile(dataSetWithEmptyTable, emptyTableFilePath);
+            var result2 = service.DataSetToExcel(dataSetWithEmptyTable, emptyTableFilePath);
             Assert.Equal(emptyTableFilePath, result2);
             Assert.True(File.Exists(emptyTableFilePath));
             // 验证创建了默认工作表
@@ -254,7 +254,7 @@ namespace Linger.Excel.Tests
             Assert.Null(importedData2);
 
             // Act & Assert - 测试只有列定义的表
-            var result3 = service.DataSetToFile(dataSetWithColumnsOnly, columnsOnlyFilePath);
+            var result3 = service.DataSetToExcel(dataSetWithColumnsOnly, columnsOnlyFilePath);
             Assert.Equal(columnsOnlyFilePath, result3);
             Assert.True(File.Exists(columnsOnlyFilePath));
             // 验证创建了工作表并包含列头但没有数据行
@@ -292,7 +292,7 @@ namespace Linger.Excel.Tests
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlExport_CustomSheetName.xlsx");
 
             // Act - 使用自定义的默认表名前缀
-            var result = service.DataSetToFile(dataSet, filePath, CUSTOM_PREFIX);
+            var result = service.DataSetToExcel(dataSet, filePath, CUSTOM_PREFIX);
 
             // Assert
             Assert.Equal(filePath, result);
@@ -347,7 +347,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_AllSheets.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var importedDataSet = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
@@ -398,7 +398,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_SelectedSheets.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var sheetsToImport = new[] { "部门信息", "项目信息" };
@@ -434,7 +434,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_CaseInsensitive.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var sheetsToImport = new[] { "department", "EMPLOYEE" };
@@ -467,7 +467,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_FlexibleHeaders.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var importedDataSet = service.ExcelToDataSet(filePath, sheetName =>
@@ -518,7 +518,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_SelectedAndFlexible.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var sheetsToImport = new[] { "表一", "表三" };
@@ -561,7 +561,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_EmptyCollection.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var importedDataSet1 = service.ExcelToDataSet(filePath, (IEnumerable<string>?)null, headerRowIndex: 0, addEmptyRow: false);
@@ -590,7 +590,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_NonExistent.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var sheetsToImport = new[] { "ValidSheet", "NonExistentSheet", "AnotherFakeSheet" };
@@ -623,7 +623,7 @@ namespace Linger.Excel.Tests
             );
 
             var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_Async.xlsx");
-            service.DataSetToFile(sourceDataSet, filePath);
+            service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
             var importedDataSet = await service.ExcelToDataSetAsync(filePath, headerRowIndex: 0, addEmptyRow: false);
@@ -633,6 +633,146 @@ namespace Linger.Excel.Tests
             Assert.Equal(2, importedDataSet.Tables.Count);
             Assert.Equal(TABLE1_ROWS, importedDataSet.Tables["AsyncSheet1"].Rows.Count);
             Assert.Equal(TABLE2_ROWS, importedDataSet.Tables["AsyncSheet2"].Rows.Count);
+        }
+
+        #endregion
+
+        #region Empty Row Handling Tests
+
+        [Fact]
+        public void ExcelToDataTable_WithEmptyRows_SkipsEmptyRowsByDefault()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            var sourceData = new DataTable("TestWithEmptyRows");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+            sourceData.Columns.Add("Value", typeof(decimal));
+
+            sourceData.Rows.Add(1, "Row1", 100M);
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 空行
+            sourceData.Rows.Add(2, "Row2", 200M);
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 空行
+            sourceData.Rows.Add(3, "Row3", 300M);
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_EmptyRows_Skip.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+            // Act
+            var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: false);
+
+            // Assert
+            Assert.NotNull(importedData);
+            Assert.Equal(3, importedData.Rows.Count); // 应该只有3行数据
+            Assert.Equal(1, Convert.ToInt32(importedData.Rows[0]["Id"]));
+            Assert.Equal(2, Convert.ToInt32(importedData.Rows[1]["Id"]));
+            Assert.Equal(3, Convert.ToInt32(importedData.Rows[2]["Id"]));
+        }
+
+        [Fact]
+        public void ExcelToDataTable_WithAddEmptyRowTrue_IncludesEmptyRows()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            var sourceData = new DataTable("TestWithEmptyRows");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+
+            sourceData.Rows.Add(1, "Row1");
+            sourceData.Rows.Add(DBNull.Value, DBNull.Value); // 空行
+            sourceData.Rows.Add(2, "Row2");
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_EmptyRows_Include.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+            // Act
+            var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: true);
+
+            // Assert
+            Assert.NotNull(importedData);
+            Assert.Equal(3, importedData.Rows.Count); // 应该包含空行
+            
+            // 验证第二行是空行
+            var row2 = importedData.Rows[1];
+            Assert.True(row2.ItemArray.All(item => item == DBNull.Value || item == null || string.IsNullOrEmpty(item?.ToString())));
+        }
+
+        [Fact]
+        public void ExcelToDataSet_WithEmptyRows_HandlesCorrectly()
+        {
+            // Arrange
+            var service = GetExcelService();
+            
+            var sourceDataSet = GenerateTestDataSet(
+                ("Sheet1", 0, table =>
+                {
+                    table.Columns.Add("Id", typeof(int));
+                    table.Columns.Add("Name", typeof(string));
+                    
+                    table.Rows.Add(1, "Data1");
+                    table.Rows.Add(DBNull.Value, DBNull.Value); // 空行
+                    table.Rows.Add(2, "Data2");
+                })
+            );
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_DataSet_EmptyRows.xlsx");
+            service.DataSetToExcel(sourceDataSet, filePath);
+
+            // Act
+            var withoutEmpty = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
+            var withEmpty = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: true);
+
+            // Assert
+            Assert.NotNull(withoutEmpty);
+            Assert.Equal(2, withoutEmpty.Tables["Sheet1"].Rows.Count); // 跳过空行
+            
+            Assert.NotNull(withEmpty);
+            Assert.Equal(3, withEmpty.Tables["Sheet1"].Rows.Count); // 包含空行
+        }
+
+        [Fact]
+        public void IsRowEmpty_WithCellsUsed_WorksCorrectly()
+        {
+            // 测试ClosedXML使用CellsUsed()方法的优化
+            // Arrange
+            var service = GetExcelService();
+            
+            var sourceData = new DataTable("PerformanceTest");
+            sourceData.Columns.Add("Id", typeof(int));
+            sourceData.Columns.Add("Name", typeof(string));
+            sourceData.Columns.Add("Value", typeof(decimal));
+
+            // 50%空行
+            for (int i = 1; i <= 50; i++)
+            {
+                if (i % 2 == 0)
+                {
+                    sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value);
+                }
+                else
+                {
+                    sourceData.Rows.Add(i, $"Data{i}", i * 100M);
+                }
+            }
+
+            var filePath = Path.Combine(TestFilesDir, "ClosedXmlImport_Performance.xlsx");
+            service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+            // Act
+            var startTime = DateTime.Now;
+            var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: false);
+            var elapsed = DateTime.Now - startTime;
+
+            // Assert
+            Assert.NotNull(importedData);
+            Assert.Equal(25, importedData.Rows.Count); // 应该只有25行数据
+            
+            Assert.True(elapsed.TotalMilliseconds < 1000, 
+                $"处理50行数据耗时 {elapsed.TotalMilliseconds}ms");
+            
+            Logger.LogInformation($"ClosedXML IsRowEmpty性能测试: 处理50行(50%空行)耗时 {elapsed.TotalMilliseconds}ms");
         }
 
         #endregion

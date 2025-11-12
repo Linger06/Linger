@@ -25,12 +25,4 @@ public class OutOfRetryCountExceptionTests
         var ex = new OutOfRetryCountException("msg", inner);
         Assert.Same(inner, ex.InnerException);
     }
-
-    [Fact]
-    public void LegacyType_StillConstructible()
-    {
-        var ex = new OutOfReTryCountException("legacy");
-        Assert.IsType<OutOfReTryCountException>(ex);
-        Assert.Equal("legacy", ex.Message);
-    }
 }

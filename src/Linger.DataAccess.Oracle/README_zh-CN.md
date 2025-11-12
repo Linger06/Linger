@@ -1,7 +1,5 @@
 # Linger.DataAccess.Oracle
 
-[English](README.md) | 中文
-
 一个安全且功能丰富的 Oracle 数据访问库，适配企业级场景。
 
 ## 特性
@@ -35,9 +33,29 @@ bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email
 - 极大 IN 列表可调整 batchSize（核心默认 1000）
 - 优先使用参数化方法；Raw 版本仅用于可信数字 ID
 
+## 异步实现 ✅
+
+所有异步方法均使用**真正的异步 I/O**：
+
+```csharp
+// ✅ 真正异步 - 使用 ADO.NET 异步 API
+public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
+{
+    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
+    return count > 0;
+}
+```
+
+**Oracle 数据库操作的优势：**
+- **网络密集型操作**在数据库调用期间释放线程
+- 高效支持**数千个并发连接**
+- 长时间运行查询的完整取消支持
+- 最适合分布式和高流量应用程序
+
 ## 最佳实践
 
+- **所有数据库操作使用异步方法** - 真正的异步确保最佳性能
+- **始终传递 CancellationToken** 用于查询超时和取消控制
 - 始终使用参数化防注入
 - 仅在需要时调小或调大 batchSize
-- 对网络/IO 操作使用异步
 - 合理传递 CancellationToken

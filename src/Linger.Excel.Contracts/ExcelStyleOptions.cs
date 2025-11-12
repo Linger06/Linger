@@ -3,6 +3,39 @@ namespace Linger.Excel.Contracts;
 /// <summary>
 /// Excel 样式配置选项
 /// </summary>
+/// <example>
+/// 自定义样式配置示例：
+/// <code>
+/// var styleOptions = new ExcelStyleOptions
+/// {
+///     TitleStyle = new TitleStyle
+///     {
+///         FontName = "Microsoft YaHei",
+///         FontSize = 16,
+///         Bold = true,
+///         BackgroundColor = "#2E75B6",
+///         FontColor = "#FFFFFF"
+///     },
+///     HeaderStyle = new HeaderStyle
+///     {
+///         FontName = "Microsoft YaHei",
+///         FontSize = 11,
+///         Bold = true,
+///         BackgroundColor = "#4472C4",
+///         FontColor = "#FFFFFF"
+///     },
+///     DataStyle = new DataStyle
+///     {
+///         FontName = "Calibri",
+///         FontSize = 10,
+///         DateFormat = "yyyy-MM-dd",
+///         DecimalFormat = "#,##0.00",
+///         IntegerFormat = "#,##0"
+///     },
+///     ShowGridlines = true
+/// };
+/// </code>
+/// </example>
 public class ExcelStyleOptions
 {
     /// <summary>
@@ -29,6 +62,18 @@ public class ExcelStyleOptions
 /// <summary>
 /// 标题样式配置
 /// </summary>
+/// <example>
+/// <code>
+/// var titleStyle = new TitleStyle
+/// {
+///     FontName = "Microsoft YaHei",
+///     FontSize = 18,
+///     Bold = true,
+///     BackgroundColor = "#2E75B6",  // 深蓝色
+///     FontColor = "#FFFFFF"          // 白色
+/// };
+/// </code>
+/// </example>
 public class TitleStyle
 {
     /// <summary>
@@ -60,6 +105,18 @@ public class TitleStyle
 /// <summary>
 /// 表头样式配置
 /// </summary>
+/// <example>
+/// <code>
+/// var headerStyle = new HeaderStyle
+/// {
+///     FontName = "Arial",
+///     FontSize = 11,
+///     Bold = true,
+///     BackgroundColor = "#4472C4",  // 中蓝色
+///     FontColor = "#FFFFFF"          // 白色
+/// };
+/// </code>
+/// </example>
 public class HeaderStyle
 {
     /// <summary>
@@ -91,6 +148,18 @@ public class HeaderStyle
 /// <summary>
 /// 数据行样式配置
 /// </summary>
+/// <example>
+/// <code>
+/// var dataStyle = new DataStyle
+/// {
+///     FontName = "Calibri",
+///     FontSize = 10,
+///     IntegerFormat = "#,##0",              // 整数格式：1,234
+///     DecimalFormat = "#,##0.00",           // 小数格式：1,234.56
+///     DateFormat = "yyyy-MM-dd HH:mm:ss"    // 日期格式：2025-01-01 12:30:45
+/// };
+/// </code>
+/// </example>
 public class DataStyle
 {
     /// <summary>

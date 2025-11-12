@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Linger.DataAccess;
@@ -15,7 +16,7 @@ public class SqlBuilder(ParameterList paraList)
     {
         if (paraList.ContainsKey(key))
         {
-            _ = _sb.AppendFormat(ExtensionMethodSetting.DefaultCulture, sql, paraList.Get<T>(key));
+            _ = _sb.AppendFormat(CultureInfo.InvariantCulture, sql, paraList.Get<T>(key));
         }
     }
 

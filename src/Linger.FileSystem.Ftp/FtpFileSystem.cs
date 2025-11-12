@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using FluentFTP;
 using Linger.Extensions.Core;
+using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
 
@@ -12,6 +13,10 @@ namespace Linger.FileSystem.Ftp;
 /// </summary>
 public class FtpFileSystem : RemoteFileSystemBase
 {
+    private const char FtpPathSeparator = '/';
+    private const string FtpRootPath = "/";
+    private bool _disposed;
+
     /// <summary>
     /// FTP客户端
     /// </summary>
@@ -46,7 +51,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             Setting.Port)
         {
             Config = config,
-            Encoding = Setting.Encoding ?? Encoding.Default
+            Encoding = Setting.Encoding ?? Encoding.UTF8
         };
 
         return client;
@@ -70,9 +75,13 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override void Dispose()
     {
+        if (_disposed)
+            return;
+
         if (!Client.IsDisposed)
             Client.Dispose();
 
+        _disposed = true;
         GC.SuppressFinalize(this);
     }
 
@@ -80,29 +89,73 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     #region 文件操作基本方法
 
+    /// <summary>
+    /// 检查文件是否存在（同步方法）
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ 此同步方法已被移除以避免死锁风险。
+    /// 请使用 <see cref="FileExistsAsync"/> 异步版本。
+    /// </remarks>
+    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
+    [Obsolete("此同步方法可能导致死锁，请使用 FileExistsAsync 异步版本", true)]
     public override bool FileExists(string filePath)
     {
-        return FileExistsAsync(filePath).GetAwaiter().GetResult();
+        throw new NotSupportedException(
+            "同步方法 FileExists 已被移除以避免死锁。请使用 FileExistsAsync 异步版本。" +
+            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
     }
 
+    /// <summary>
+    /// 检查目录是否存在（同步方法）
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ 此同步方法已被移除以避免死锁风险。
+    /// 请使用 <see cref="DirectoryExistsAsync"/> 异步版本。
+    /// </remarks>
+    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
+    [Obsolete("此同步方法可能导致死锁，请使用 DirectoryExistsAsync 异步版本", true)]
     public override bool DirectoryExists(string directoryPath)
     {
-        return DirectoryExistsAsync(directoryPath).GetAwaiter().GetResult();
+        throw new NotSupportedException(
+            "同步方法 DirectoryExists 已被移除以避免死锁。请使用 DirectoryExistsAsync 异步版本。" +
+            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
     }
 
+    /// <summary>
+    /// 创建目录（同步方法）
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ 此同步方法已被移除以避免死锁风险。
+    /// 请使用 <see cref="CreateDirectoryIfNotExistsAsync"/> 异步版本。
+    /// </remarks>
+    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
+    [Obsolete("此同步方法可能导致死锁，请使用 CreateDirectoryIfNotExistsAsync 异步版本", true)]
     public override void CreateDirectoryIfNotExists(string directoryPath)
     {
-        CreateDirectoryIfNotExistsAsync(directoryPath).GetAwaiter().GetResult();
+        throw new NotSupportedException(
+            "同步方法 CreateDirectoryIfNotExists 已被移除以避免死锁。请使用 CreateDirectoryIfNotExistsAsync 异步版本。" +
+            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
     }
 
+    /// <summary>
+    /// 删除文件（同步方法）
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ 此同步方法已被移除以避免死锁风险。
+    /// 请使用 <see cref="DeleteFileIfExistsAsync"/> 异步版本。
+    /// </remarks>
+    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
+    [Obsolete("此同步方法可能导致死锁，请使用 DeleteFileIfExistsAsync 异步版本", true)]
     public override void DeleteFileIfExists(string filePath)
     {
-        DeleteFileIfExistsAsync(filePath).GetAwaiter().GetResult();
+        throw new NotSupportedException(
+            "同步方法 DeleteFileIfExists 已被移除以避免死锁。请使用 DeleteFileIfExistsAsync 异步版本。" +
+            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
     }
 
     public override async Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             return await Client.FileExists(filePath, cancellationToken).ConfigureAwait(false);
@@ -116,7 +169,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             return await Client.DirectoryExists(directoryPath, cancellationToken).ConfigureAwait(false);
@@ -130,7 +183,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             if (!await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
@@ -144,7 +197,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             if (await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -160,28 +213,39 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     #region 文件传输操作
 
-    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 将提供的 <see cref="Stream"/> 上传到 FTP 服务器指定路径。
+    /// </summary>
+    /// <param name="inputStream">源数据流, 必须支持读取。</param>
+    /// <param name="destinationFilePath">目标文件路径, 使用 FTP 规范的正斜杠分隔符。</param>
+    /// <param name="overwrite">当目标文件已存在时是否覆盖。</param>
+    /// <param name="cancellationToken">用于取消上传操作的标记。</param>
+    /// <returns>返回包含上传结果的 <see cref="FileOperationResult"/>。</returns>
+    /// <example>
+    /// <code>
+    /// await using var stream = File.OpenRead("./assets/logo.png");
+    /// var result = await ftpFileSystem.UploadAsync(stream, "/images/logo.png", overwrite: true);
+    /// if (result.Success) { /* 处理成功 */ }
+    /// </code>
+    /// </example>
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        ArgumentNullException.ThrowIfNull(inputStream);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
+
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
-            // 使用适合FTP的路径分隔逻辑
-            string remoteDirectory;
-
+            // 提取目录路径并确保目录存在
             // FTP路径始终使用正斜杠
-            if (filePath.Contains('/'))
-            {
-                var lastSlashIndex = filePath.LastIndexOf('/');
-                remoteDirectory = filePath.Take(lastSlashIndex);
-            }
-            else
-            {
-                // 没有找到斜杠，整个路径被视为文件名，目录为空
-                remoteDirectory = string.Empty;
-            }
+            var remoteDirectory = destinationFilePath.Contains(FtpPathSeparator)
+                ? destinationFilePath.Take(destinationFilePath.LastIndexOf(FtpPathSeparator))
+                : string.Empty;
 
-            // 确保目录存在
-            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrEmpty(remoteDirectory))
+            {
+                await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
+            }
 
             // 执行上传
             var result = await RetryHelper.ExecuteAsync(
@@ -190,7 +254,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                     inputStream.Position = 0;
                     var status = await Client.UploadStream(
                         inputStream,
-                        filePath,
+                        destinationFilePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
                         token: cancellationToken).ConfigureAwait(false);
@@ -200,67 +264,152 @@ public class FtpFileSystem : RemoteFileSystemBase
                 "Upload file", cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
-                return FileOperationResult.CreateFailure($"上传文件失败: {filePath}");
+                return FileOperationResult.CreateFailure($"上传文件失败: {destinationFilePath}");
 
-            long fileSize = 0;
-            try { fileSize = await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false); } catch { /* 忽略 */ }
+            var fileSize = await TryGetFileSizeAsync(destinationFilePath, cancellationToken).ConfigureAwait(false);
 
-            return FileOperationResult.CreateSuccess(filePath, null, fileSize);
+            return FileOperationResult.CreateSuccess(destinationFilePath, null, fileSize);
         }
         catch (Exception ex)
         {
-            HandleException("Upload file", ex, $"Destination: {filePath}");
+            HandleException("Upload file", ex, $"Destination: {destinationFilePath}");
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
         }
     }
 
-    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// 将本地文件上传到 FTP 服务器并返回操作结果。
+    /// </summary>
+    /// <param name="localFilePath">要上传的本地文件完整路径。</param>
+    /// <param name="destinationFilePath">FTP 目标文件路径，包含文件名</param>
+    /// <param name="overwrite">当目标文件已存在时是否覆盖。</param>
+    /// <param name="cancellationToken">用于取消上传操作的标记。</param>
+    /// <returns>返回包含上传结果的 <see cref="FileOperationResult"/>。</returns>
+    /// <example>
+    /// <code>
+    /// var result = await ftpFileSystem.UploadFileAsync("C:/backup/data.json", "/remote/backup/data.json", overwrite: false);
+    /// if (!result.Success) { logger.LogWarning(result.ErrorMessage); }
+    /// </code>
+    /// </example>
+    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(localFilePath))
         {
             return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
         }
 
-        using var scope = CreateConnectionScope();
+        ArgumentException.ThrowIfNullOrEmpty(destinationFilePath);
+
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
-            var fileName = Path.GetFileName(localFilePath);
-            // 使用正斜杠（/）确保与FTP服务器路径格式一致
-            var filePath = destinationPath.EndsWith('/')
-                ? $"{destinationPath}{fileName}"
-                : $"{destinationPath}/{fileName}";
-
-            // 执行上传
             var result = await RetryHelper.ExecuteAsync(
                 async () =>
                 {
                     var status = await Client.UploadFile(
                         localFilePath,
-                        filePath,
+                        destinationFilePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
                         token: cancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
-                "Upload file", cancellationToken: cancellationToken).ConfigureAwait(false);
+                "Upload file",
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
-                return FileOperationResult.CreateFailure($"上传文件失败: {filePath}");
+            {
+                return FileOperationResult.CreateFailure($"上传文件失败: {destinationFilePath}");
+            }
 
             var fileInfo = new FileInfo(localFilePath);
-            return FileOperationResult.CreateSuccess(filePath, null, fileInfo.Length);
+            return FileOperationResult.CreateSuccess(destinationFilePath, null, fileInfo.Length);
         }
         catch (Exception ex)
         {
-            HandleException("Upload file", ex, $"Local: {localFilePath}, Destination: {destinationPath}");
+            HandleException(
+                "Upload file",
+                ex,
+                $"Local: {localFilePath}, FileName: {destinationFilePath}");
+            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// 将本地文件上传到 FTP 服务器指定目录并使用自定义文件名保存。
+    /// </summary>
+    /// <param name="localFilePath">要上传的本地文件完整路径。</param>
+    /// <param name="destinationDirectory">FTP 目标目录, 可为空或相对路径。</param>
+    /// <param name="destinationFileName">保存到 FTP 的文件名。</param>
+    /// <param name="overwrite">当目标文件已存在时是否覆盖。</param>
+    /// <param name="cancellationToken">用于取消上传操作的标记。</param>
+    /// <returns>返回包含上传结果的 <see cref="FileOperationResult"/>。</returns>
+    /// <example>
+    /// <code>
+    /// var result = await ftpFileSystem.UploadFileAsync("./logs/app.log", "/archive", "app-20251028.log", overwrite: true);
+    /// if (result.Success) { Console.WriteLine($"Uploaded to {result.RemotePath}"); }
+    /// </code>
+    /// </example>
+    public async Task<FileOperationResult> UploadFileAsync(
+        string localFilePath,
+        string destinationDirectory,
+        string destinationFileName,
+        bool overwrite = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(localFilePath))
+        {
+            return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
+        }
+
+        ArgumentException.ThrowIfNullOrEmpty(destinationFileName);
+
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        try
+        {
+            var sanitizedFileName = Path.GetFileName(destinationFileName);
+            var remotePath = BuildRemoteFilePath(destinationDirectory, sanitizedFileName);
+
+            var result = await RetryHelper.ExecuteAsync(
+                async () =>
+                {
+                    var status = await Client.UploadFile(
+                        localFilePath,
+                        remotePath,
+                        overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
+                        createRemoteDir: true,
+                        token: cancellationToken).ConfigureAwait(false);
+
+                    return status == FtpStatus.Success;
+                },
+                "Upload file",
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (!result)
+            {
+                return FileOperationResult.CreateFailure($"上传文件失败: {remotePath}");
+            }
+
+            var fileInfo = new FileInfo(localFilePath);
+            return FileOperationResult.CreateSuccess(remotePath, null, fileInfo.Length);
+        }
+        catch (Exception ex)
+        {
+            HandleException(
+                "Upload file",
+                ex,
+                $"Local: {localFilePath}, Directory: {destinationDirectory}, FileName: {destinationFileName}");
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
         }
     }
 
     public override async Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
+        ArgumentNullException.ThrowIfNull(outputStream);
+
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -284,9 +433,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件到流失败: {remoteFilePath}");
 
-            // 获取文件大小
-            long fileSize = 0;
-            try { fileSize = await Client.GetFileSize(remoteFilePath, token: cancellationToken).ConfigureAwait(false); } catch { /* 忽略获取大小失败 */ }
+            var fileSize = await TryGetFileSizeAsync(remoteFilePath, cancellationToken).ConfigureAwait(false);
 
             return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
         }
@@ -308,7 +455,10 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <exception cref="FileSystemException">当文件操作失败时抛出</exception>
     public override async Task<FileOperationResult> DownloadFileAsync(string remoteFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(localDestinationPath);
+
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -358,7 +508,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -393,7 +543,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             return await Client.GetModifiedTime(filePath, cancellationToken).ConfigureAwait(false);
@@ -410,7 +560,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task<IEnumerable<string>> ListDirectoryAsync(string? directoryPath = null, FtpObjectType type = FtpObjectType.File, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             FtpListItem[] items = directoryPath == null ?
@@ -432,7 +582,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             if (!string.IsNullOrWhiteSpace(directoryPath) && await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
@@ -449,7 +599,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task<int> UploadFilesAsync(IEnumerable<string> localFiles, string remoteDirectory, FtpRemoteExists remoteExistsMode = FtpRemoteExists.Overwrite, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             var fileInfos = localFiles.Where(File.Exists)
@@ -474,7 +624,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task<int> DownloadFilesAsync(string localDirectory, IEnumerable<string> remoteFiles, CancellationToken cancellationToken = default)
     {
-        using var scope = CreateConnectionScope();
+        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
         {
             if (!Directory.Exists(localDirectory))
@@ -490,4 +640,54 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
     }
     #endregion
+
+    #region 辅助方法
+
+    /// <summary>
+    /// 安全地获取文件大小,失败时返回 0
+    /// </summary>
+    private async Task<long> TryGetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static string BuildRemoteFilePath(string destinationDirectory, string fileName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+
+        // 规范化文件名: 移除路径分隔符
+        var sanitizedFileName = fileName.Replace('\\', FtpPathSeparator).Trim(FtpPathSeparator);
+        if (string.IsNullOrWhiteSpace(sanitizedFileName))
+        {
+            throw new System.ArgumentException("File name cannot be empty after sanitization.", nameof(fileName));
+        }
+
+        // 如果目录为空,直接返回文件名
+        if (string.IsNullOrWhiteSpace(destinationDirectory))
+        {
+            return sanitizedFileName;
+        }
+
+        // 规范化目录路径
+        var normalizedDirectory = destinationDirectory.Replace('\\', FtpPathSeparator).Trim();
+
+        // 处理根目录的特殊情况
+        return normalizedDirectory switch
+        {
+            "" => sanitizedFileName,
+            FtpRootPath => $"{FtpRootPath}{sanitizedFileName}",
+            _ => normalizedDirectory.EndsWith(FtpPathSeparator)
+                ? $"{normalizedDirectory}{sanitizedFileName}"
+                : $"{normalizedDirectory}{FtpPathSeparator}{sanitizedFileName}"
+        };
+    }
+    #endregion
 }
+

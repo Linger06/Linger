@@ -1,7 +1,5 @@
 # Linger.HttpClient.Contracts
 
-[中文](README_zh-CN.md) | [English](README.md)
-
 HTTP 客户端操作的标准接口和契约定义。
 
 ## 功能特性
@@ -114,6 +112,81 @@ else
     }
 }
 ```
+
+## JSON 序列化配置
+
+`HttpClientBase` 提供默认的 JSON 序列化配置，采用"安全为先"的策略：
+
+### 响应反序列化配置
+
+`HttpClientBase.DefaultResponseOptions` 用于反序列化 HTTP 响应：
+
+- **Encoder**: `JavaScriptEncoder.Default`（更安全的转义策略）
+- **数字解析**: 宽松（允许从字符串读取数字，`AllowReadingFromString`）
+- **其他配置**: 大小写不敏感、CamelCase、忽略 null、禁止尾逗号、禁止注释、忽略循环引用
+- **内置转换器**: `JsonObjectConverter`、`DateTimeConverter`、`DateTimeNullConverter`、`DataTableJsonConverter`
+
+### 请求序列化配置
+
+`HttpClientBase.DefaultRequestOptions` 用于序列化 HTTP 请求：
+
+- **Encoder**: `JavaScriptEncoder.Default`
+- **基于标准 Web 默认值**
+- **转换器**: 仅包含 `DateTimeConverter`
+
+### JSON 配置统一管理
+
+推荐使用 `Linger.Json.JsonDefaults` 获取统一的 JSON 配置:
+
+```csharp
+using Linger.Json;
+
+// 使用工厂方法获取预配置的选项
+var responseOptions = JsonDefaults.CreateResponseOptions();  // HTTP 响应
+var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP 请求
+
+// 在 WebAPI 中应用配置
+builder.Services.AddControllers()
+    .AddJsonOptions(options => 
+        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+```
+
+详细配置说明请参考 `Linger/Json/JsonDefaults.README.zh-CN.md`
+
+### 自定义配置
+
+推荐通过覆盖 `GetRequestJsonOptions()` / `GetResponseJsonOptions()` 提供自定义的 JSON 配置，而不是直接覆盖序列化实现。示例：
+
+```csharp
+using Linger.Json;
+using Linger.Json.JsonConverter;
+
+public class CustomHttpClient : HttpClientBase
+{
+    protected override JsonSerializerOptions GetRequestJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            WriteIndented = true
+        };
+        options.Converters.Add(new DateTimeConverter());
+        return options;
+    }
+
+    protected override JsonSerializerOptions GetResponseJsonOptions()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        {
+            PropertyNameCaseInsensitive = true
+        };
+        options.Converters.Add(new DateTimeConverter());
+        options.Converters.Add(new JsonObjectConverter());
+        return options;
+    }
+}
+```
+
+如果需要完全自定义序列化过程,也可以覆盖 `CreateHttpContent`,但优先推荐覆盖上述方法以保持行为一致性。
 
 ## 最佳实践
 

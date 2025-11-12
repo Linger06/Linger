@@ -1,7 +1,5 @@
 # Linger.Email
 
-> 📝 *查看此文档的其他语言版本：[English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## 概述
 
 Linger.Email 是一个专为 .NET 开发者设计的邮件发送工具库。它基于 MailKit 构建，让您能够轻松发送各种类型的邮件——无论是简单的文本通知，还是带有附件的复杂邮件。支持现代异步编程模式，让邮件发送不再阻塞您的应用程序。
@@ -60,6 +58,10 @@ var message = new EmailMessage
 
 // 发送邮件
 await email.SendAsync(message);
+
+// 支持取消操作的邮件发送
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+await email.SendAsync(message, cancellationToken: cts.Token);
 ```
 
 ### 发送漂亮的 HTML 邮件
@@ -270,10 +272,101 @@ catch (Exception ex)
 - **妥善保管凭据**：将邮箱密码存储在配置文件或密钥管理服务中，别写死在代码里
 - **验证邮箱格式**：发送前简单检查一下邮箱地址格式，避免无效发送
 
+### 取消操作支持
+
+所有异步邮件操作都支持 `CancellationToken`，让您能够优雅地取消操作：
+
+```csharp
+public class EmailService
+{
+    private readonly IEmail _email;
+    
+    public EmailService(IEmail email)
+    {
+        _email = email;
+    }
+    
+    // 带超时的邮件发送
+    public async Task<bool> SendEmailWithTimeoutAsync(EmailMessage message, int timeoutSeconds = 30)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+        
+        try
+        {
+            await _email.SendAsync(message, cancellationToken: cts.Token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("邮件发送超时被取消");
+            return false;
+        }
+    }
+    
+    // 支持外部取消的批量发送
+    public async Task SendBulkEmailsAsync(
+        List<EmailMessage> messages, 
+        CancellationToken cancellationToken)
+    {
+        foreach (var message in messages)
+        {
+            // 检查是否请求取消
+            cancellationToken.ThrowIfCancellationRequested();
+            
+            await _email.SendAsync(message, cancellationToken: cancellationToken);
+            
+            // 可选：邮件之间添加延迟
+            await Task.Delay(1000, cancellationToken);
+        }
+    }
+}
+```
+
+### 在 ASP.NET Core 中使用
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class EmailController : ControllerBase
+{
+    private readonly IEmailService _emailService;
+    
+    public EmailController(IEmailService emailService)
+    {
+        _emailService = emailService;
+    }
+    
+    [HttpPost("send")]
+    public async Task<IActionResult> SendEmail(
+        [FromBody] EmailRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            // 传递请求的取消令牌
+            // 如果客户端断开连接会自动取消
+            await _emailService.SendTextEmailAsync(
+                request.To,
+                request.Subject,
+                request.Body,
+                cancellationToken
+            );
+            
+            return Ok("邮件发送成功");
+        }
+        catch (OperationCanceledException)
+        {
+            return StatusCode(499, "请求被客户端取消");
+        }
+    }
+}
+```
+
 ### 性能优化
 - **复用连接**：发送多封邮件时，使用同一个 Email 实例，减少连接开销
 - **批量发送**：有大量邮件时，分批发送效果更好
 - **后台处理**：重要业务流程不要被邮件发送阻塞，可以放到后台队列处理
+- **使用取消令牌**：利用取消令牌避免在已取消操作上浪费资源
 
 ### 资源管理
 - **及时释放**：使用 `using` 语句确保资源正确释放
@@ -392,26 +485,13 @@ await email.SendAsync(alertMessage);
 
 ## 框架支持
 
-- .NET 9.0 ✅
-- .NET 8.0 ✅  
-- .NET Standard 2.0 ✅
+ - .NET 10.0
+ - .NET 9.0
+ - .NET 8.0
+ - .NET Standard 2.0
 
 兼容 Windows、Linux、macOS 等多个平台。
 
 ## 相关项目
 
 📖 **想要在 ASP.NET Core 中使用？** 请查看：[Linger.Email.AspNetCore README](../Linger.Email.AspNetCore/README.md)，提供了依赖注入和配置管理功能。
-
-## 开源许可
-
-本项目遵循 Linger 项目的开源许可协议。
-
-## 参与贡献
-
-我们欢迎各种形式的贡献：
-- 🐛 报告问题和建议改进
-- 💡 提出新功能需求  
-- 🔧 提交代码改进
-- 📖 完善文档说明
-
-请随时提交 Pull Request，让这个项目变得更好！

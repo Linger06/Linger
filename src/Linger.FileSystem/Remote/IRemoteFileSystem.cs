@@ -5,10 +5,23 @@ namespace Linger.FileSystem.Remote;
 /// </summary>
 public interface IRemoteFileSystem : IDisposable
 {
+    /// <summary>
+    /// 检查是否已连接
+    /// </summary>
     bool IsConnected();
-    //void Connect();
+
+    /// <summary>
+    /// 异步连接到远程服务器
+    /// </summary>
     Task ConnectAsync();
-    //void Disconnect();
+
+    /// <summary>
+    /// 异步断开与远程服务器的连接
+    /// </summary>
     Task DisconnectAsync();
+
+    /// <summary>
+    /// 获取服务器详细信息
+    /// </summary>
     string ServerDetails();
 }

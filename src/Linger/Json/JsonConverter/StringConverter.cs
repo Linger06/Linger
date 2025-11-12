@@ -3,7 +3,7 @@
 using System.Text.Json.Serialization;
 using Linger.Extensions.Core;
 
-namespace Linger.JsonConverter;
+namespace Linger.Json.JsonConverter;
 
 /// <summary>
 /// A custom JSON converter for <see cref="string"/> objects.
@@ -40,7 +40,7 @@ public class JsonStringConverter : JsonConverter<string>
             case JsonTokenType.Number:
                 {
                     var stringValue = reader.GetDouble();
-                    return stringValue.ToString(ExtensionMethodSetting.DefaultCulture);
+                    return stringValue.ToString(CultureInfo.InvariantCulture);
                 }
             case JsonTokenType.False or JsonTokenType.True:
                 return reader.GetBoolean().ToString();

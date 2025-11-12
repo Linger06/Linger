@@ -206,6 +206,30 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         return GetExcelCellValue(cell);
     }
 
+    /// <summary>
+    /// 检查指定行是否为空行
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="rowNum">行索引(0-based)</param>
+    /// <returns>如果该行为空则返回true</returns>
+    /// <remarks>
+    /// NPOI提供了原生的FirstCellNum属性来快速判断行是否为空：
+    /// - FirstCellNum t&lt; 0 表示该行所有单元格都为空
+    /// - 也可以使用 PhysicalNumberOfCells == 0 来判断
+    /// </remarks>
+    protected override bool IsRowEmpty(ISheet worksheet, int rowNum)
+    {
+        var row = worksheet.GetRow(rowNum);
+
+        // 如果行不存在，视为空行
+        if (row == null)
+            return true;
+
+        // 使用NPOI原生判断：FirstCellNum < 0 表示所有单元格都为空
+        // 这比遍历所有单元格要快得多
+        return row.FirstCellNum < 0;
+    }
+
     #region 私有辅助方法
 
     /// <summary>
@@ -248,7 +272,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 {
                     dateStyle = workbook.CreateCellStyle();
                     var format = workbook.CreateDataFormat();
-                    dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat); // 更新为新路径
+                    dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat);
                     styleCache[valueType] = dateStyle;
                 }
                 cell.CellStyle = dateStyle;
@@ -307,7 +331,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 浮点类型 - 使用统一的小数格式
             try
             {
-                var doubleValue = value.ToDoubleOrDefault();// Convert.ToDouble(value);
+                var doubleValue = value.ToDoubleOrDefault();
                 cell.SetCellValue(doubleValue);
 
                 // 应用浮点数样式
@@ -395,17 +419,17 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             titleStyle.VerticalAlignment = VerticalAlignment.Center;
 
             var titleFont = workbook.CreateFont();
-            titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleStyle.FontSize; // 更新为新路径
-            titleFont.IsBold = Options.StyleOptions.TitleStyle.Bold; // 更新为新路径
-            titleFont.FontName = Options.StyleOptions.TitleStyle.FontName; // 更新为新路径
+            titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleStyle.FontSize;
+            titleFont.IsBold = Options.StyleOptions.TitleStyle.Bold;
+            titleFont.FontName = Options.StyleOptions.TitleStyle.FontName;
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor)) // 更新为新路径
+            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor))
             {
                 try
                 {
                     // 尝试解析HTML颜色代码
-                    var colorStr = Options.StyleOptions.TitleStyle.FontColor.TrimStart('#'); // 更新为新路径
+                    var colorStr = Options.StyleOptions.TitleStyle.FontColor.TrimStart('#');
                     if (colorStr.Length == 6) // 标准RGB格式
                     {
                         var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
@@ -418,7 +442,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogDebug(ex, "设置标题文字颜色失败");
+                    logger?.LogWarning(ex, "设置标题文字颜色失败，将使用默认颜色");
                 }
             }
 
@@ -427,7 +451,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         }
         catch (Exception ex)
         {
-            logger?.LogDebug(ex, "设置标题行样式失败");
+            logger?.LogWarning(ex, "设置标题行样式失败，将使用默认样式");
         }
     }
 
@@ -445,7 +469,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             headerStyle.VerticalAlignment = VerticalAlignment.Center;
 
             // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor)) // 更新为新路径
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor))
             {
                 try
                 {
@@ -455,22 +479,22 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogDebug(ex, "设置表头背景色失败");
+                    logger?.LogWarning(ex, "设置表头背景色失败，将使用默认颜色");
                 }
             }
 
             var headerFont = workbook.CreateFont();
-            headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderStyle.FontSize; // 更新为新路径
-            headerFont.IsBold = Options.StyleOptions.HeaderStyle.Bold; // 更新为新路径
-            headerFont.FontName = Options.StyleOptions.HeaderStyle.FontName; // 更新为新路径
+            headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderStyle.FontSize;
+            headerFont.IsBold = Options.StyleOptions.HeaderStyle.Bold;
+            headerFont.FontName = Options.StyleOptions.HeaderStyle.FontName;
 
             // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor)) // 更新为新路径
+            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor))
             {
                 try
                 {
                     // 尝试解析HTML颜色代码
-                    var colorStr = Options.StyleOptions.HeaderStyle.FontColor.TrimStart('#'); // 更新为新路径
+                    var colorStr = Options.StyleOptions.HeaderStyle.FontColor.TrimStart('#');
                     if (colorStr.Length == 6) // 标准RGB格式
                     {
                         var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
@@ -483,7 +507,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogDebug(ex, "设置表头文字颜色失败");
+                    logger?.LogWarning(ex, "设置表头文字颜色失败，将使用默认颜色");
                 }
             }
 
@@ -495,7 +519,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         }
         catch (Exception ex)
         {
-            logger?.LogDebug(ex, "设置表头行样式失败");
+            logger?.LogWarning(ex, "设置表头行样式失败，将使用默认样式");
         }
     }
 
@@ -761,7 +785,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         // 创建日期样式
         var dateStyle = workbook.CreateCellStyle();
         var format = workbook.CreateDataFormat();
-        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat); // 更新为新路径
+        dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat);
         styleCache[typeof(DateTime)] = dateStyle;
 
         // 获取有ExcelColumn特性的列，如果没有则使用所有列

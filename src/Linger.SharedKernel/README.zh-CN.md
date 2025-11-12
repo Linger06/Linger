@@ -1,7 +1,5 @@
 # Linger.SharedKernel
 
-> 📝 *查看此文档: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 ## 概述
 
 Linger.SharedKernel 提供了使用 Linger 框架构建应用程序的核心领域原语和共享抽象。它作为跨多个项目实现领域驱动设计 (DDD) 模式的基础。
@@ -67,7 +65,7 @@ public class UserSearch : BaseSearch
 
 ```csharp
 // 创建分页搜索模型
-public class ProductPagedSearch : BaseSearchPageList
+public class ProductPagedSearch : BaseSearchPagedList
 {
     public decimal? MinPrice { get; set; }
     public decimal? MaxPrice { get; set; }
@@ -86,7 +84,7 @@ public class ProductService
     
     public async Task<PagedResult<ProductDto>> SearchProductsAsync(ProductPagedSearch search)
     {
-        // BaseSearchPageList 属性将处理分页
+        // BaseSearchPagedList 属性将处理分页
         var expression = search.GetSearchModelExpression<Product>();
         
         // 应用搜索表达式

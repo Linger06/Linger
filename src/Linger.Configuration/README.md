@@ -1,7 +1,5 @@
 ﻿# Linger.Configuration
 
-> 📝 *View this document in: [English](./README.md) | [中文](./README.zh-CN.md)*
-
 A lightweight configuration helper library for .NET applications.
 
 ## Overview

@@ -2,25 +2,27 @@
 
 namespace Linger.Configuration;
 
+/// <summary>
+/// Provides a singleton instance for accessing application configuration
+/// </summary>
 public class AppConfig
 {
-    private static AppConfig? s_instance;
+    private static readonly Lazy<AppConfig> s_instance = new(() => new AppConfig());
 
     private AppConfig()
     {
         Config = Build();
     }
 
+    /// <summary>
+    /// Gets the configuration root
+    /// </summary>
     public IConfigurationRoot Config { get; }
 
-    public static AppConfig Instance
-    {
-        get
-        {
-            s_instance ??= new AppConfig();
-            return s_instance;
-        }
-    }
+    /// <summary>
+    /// Gets the singleton instance of AppConfig
+    /// </summary>
+    public static AppConfig Instance => s_instance.Value;
 
     private static IConfigurationRoot Build()
     {

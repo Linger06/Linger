@@ -31,7 +31,7 @@ public class GuardExtensionsTests
         var str = "test";
 
         // Act & Assert
-        str.EnsureIsNotNullAndEmpty();
+        str.EnsureIsNotNullOrEmpty();
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public class GuardExtensionsTests
         var str = "";
 
         // Act & Assert
-        System.ArgumentException? exception = Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullAndEmpty());
+        System.ArgumentException? exception = Assert.Throws<System.ArgumentException>(() => str.EnsureIsNotNullOrEmpty());
         Assert.Equal("The value cannot be an empty string.", exception.Message);
     }
 
@@ -52,7 +52,7 @@ public class GuardExtensionsTests
         string? str = null;
 
         // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => str.EnsureIsNotNullAndEmpty());
+        Assert.Throws<System.ArgumentNullException>(() => str.EnsureIsNotNullOrEmpty());
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using System.IO;
 using Linger.Excel.Contracts;
 using Linger.Excel.EPPlus;
@@ -29,7 +29,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
-    public void DataTableToFile_GeneratesValidExcelFile()
+    public void DataTableToExcel_GeneratesValidExcelFile()
     {
         // Arrange
         var service = GetExcelService();
@@ -37,7 +37,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusExport_DataTable.xlsx");
 
         // Act
-        var result = service.DataTableToFile(dataTable, filePath, "测试表", "EPPlus导出测试");
+        var result = service.DataTableToExcel(dataTable, filePath, "测试表", "EPPlus导出测试");
 
         // Assert
         Assert.Equal(filePath, result);
@@ -46,7 +46,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
-    public void ListToFile_GeneratesValidExcelFile()
+    public void CollectionToExcel_GeneratesValidExcelFile()
     {
         // Arrange
         var service = GetExcelService();
@@ -54,7 +54,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusExport_List.xlsx");
 
         // Act
-        var result = service.ListToFile(list, filePath, "人员列表", "EPPlus导出测试");
+        var result = service.CollectionToExcel(list, filePath, "人员列表", "EPPlus导出测试");
 
         // Assert
         Assert.Equal(filePath, result);
@@ -63,14 +63,14 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
-    public void ConvertDataTableToMemoryStream_ReturnsValidStream()
+    public void DataTableToMemoryStream_ReturnsValidStream()
     {
         // Arrange
         var service = GetExcelService();
         var dataTable = GenerateTestDataTable(5);
 
         // Act
-        using var stream = service.ConvertDataTableToMemoryStream(dataTable, "测试表", "EPPlus内存流测试");
+        using var stream = service.DataTableToMemoryStream(dataTable, "测试表", "EPPlus内存流测试");
 
         // Assert
         Assert.NotNull(stream);
@@ -86,7 +86,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusImport_DataTable.xlsx");
 
         // 先导出Excel
-        service.DataTableToFile(originalData, filePath, "测试表", "EPPlus导入测试");
+        service.DataTableToExcel(originalData, filePath, "测试表", "EPPlus导入测试");
 
         // Act - 从Excel读取回来
         var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 1);
@@ -106,7 +106,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusImport_List.xlsx");
 
         // 先导出Excel
-        service.ListToFile(originalList, filePath, "人员列表", "EPPlus导入测试");
+        service.CollectionToExcel(originalList, filePath, "人员列表", "EPPlus导入测试");
 
         // Act - 从Excel读取回来
         var importedList = service.ExcelToList<TestPerson>(filePath, headerRowIndex: 1);
@@ -184,7 +184,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusExport_DataSet.xlsx");
 
         // Act
-        var result = service.DataSetToFile(dataSet, filePath);
+        var result = service.DataSetToExcel(dataSet, filePath);
 
         // Assert
         Assert.Equal(filePath, result);
@@ -237,7 +237,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var columnsOnlyFilePath = Path.Combine(TestFilesDir, "EPPlusExport_ColumnsOnlyDataSet.xlsx");
 
         // Act & Assert - 测试完全空的DataSet
-        var result1 = service.DataSetToFile(emptyDataSet, emptyFilePath);
+        var result1 = service.DataSetToExcel(emptyDataSet, emptyFilePath);
         Assert.Equal(emptyFilePath, result1);
         Assert.True(File.Exists(emptyFilePath));
         // 验证创建了默认工作表
@@ -245,7 +245,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         Assert.Null(importedData1);
 
         // Act & Assert - 测试包含空表的DataSet
-        var result2 = service.DataSetToFile(dataSetWithEmptyTable, emptyTableFilePath);
+        var result2 = service.DataSetToExcel(dataSetWithEmptyTable, emptyTableFilePath);
         Assert.Equal(emptyTableFilePath, result2);
         Assert.True(File.Exists(emptyTableFilePath));
         // 验证创建了默认工作表
@@ -253,7 +253,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         Assert.Null(importedData2);
 
         // Act & Assert - 测试只有列定义的表
-        var result3 = service.DataSetToFile(dataSetWithColumnsOnly, columnsOnlyFilePath);
+        var result3 = service.DataSetToExcel(dataSetWithColumnsOnly, columnsOnlyFilePath);
         Assert.Equal(columnsOnlyFilePath, result3);
         Assert.True(File.Exists(columnsOnlyFilePath));
         // 验证创建了工作表并包含列头但没有数据行
@@ -290,7 +290,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusExport_CustomSheetName.xlsx");
 
         // Act - 使用自定义的默认表名前缀
-        var result = service.DataSetToFile(dataSet, filePath, CUSTOM_PREFIX);
+        var result = service.DataSetToExcel(dataSet, filePath, CUSTOM_PREFIX);
 
         // Assert
         Assert.Equal(filePath, result);
@@ -322,7 +322,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusExport_LargeDataSet.xlsx");
 
         // Act
-        var result = service.ListToFile(largeList, filePath, "大数据集", "EPPlus并行处理测试");
+        var result = service.CollectionToExcel(largeList, filePath, "大数据集", "EPPlus并行处理测试");
 
         // Assert
         Assert.Equal(filePath, result);
@@ -357,7 +357,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "EPPlusExport_SpecialChars.xlsx");
 
         // Act
-        var result = service.DataTableToFile(dataTable, filePath);
+        var result = service.DataTableToExcel(dataTable, filePath);
 
         // Assert
         Assert.Equal(filePath, result);
@@ -401,7 +401,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         );
 
         var filePath = Path.Combine(TestFilesDir, "EPPlusImport_AllSheets.xlsx");
-        service.DataSetToFile(sourceDataSet, filePath);
+        service.DataSetToExcel(sourceDataSet, filePath);
 
         // Act
         var importedDataSet = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
@@ -452,7 +452,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         );
 
         var filePath = Path.Combine(TestFilesDir, "EPPlusImport_SelectedSheets.xlsx");
-        service.DataSetToFile(sourceDataSet, filePath);
+        service.DataSetToExcel(sourceDataSet, filePath);
 
         // Act
         var sheetsToImport = new[] { "部门信息", "项目信息" };
@@ -486,7 +486,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         );
 
         var filePath = Path.Combine(TestFilesDir, "EPPlusImport_FlexibleHeaders.xlsx");
-        service.DataSetToFile(sourceDataSet, filePath);
+        service.DataSetToExcel(sourceDataSet, filePath);
 
         // Act
         var importedDataSet = service.ExcelToDataSet(filePath, sheetName =>
@@ -537,7 +537,7 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         );
 
         var filePath = Path.Combine(TestFilesDir, "EPPlusImport_AsyncSelectedAndFlexible.xlsx");
-        service.DataSetToFile(sourceDataSet, filePath);
+        service.DataSetToExcel(sourceDataSet, filePath);
 
         // Act
         var sheetsToImport = new[] { "表一", "表三" };
@@ -557,6 +557,105 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
         Assert.NotNull(importedDataSet.Tables["表一"]);
         Assert.NotNull(importedDataSet.Tables["表三"]);
         Assert.Null(importedDataSet.Tables["表二"]);
+    }
+
+    #endregion
+
+    #region Empty Row Handling Tests
+
+    [Fact]
+    public void ExcelToDataTable_WithEmptyRows_SkipsEmptyRowsByDefault()
+    {
+        // Arrange
+        var service = GetExcelService();
+        
+        var sourceData = new DataTable("TestWithEmptyRows");
+        sourceData.Columns.Add("Id", typeof(int));
+        sourceData.Columns.Add("Name", typeof(string));
+        sourceData.Columns.Add("Value", typeof(decimal));
+
+        sourceData.Rows.Add(1, "Row1", 100M);
+        sourceData.Rows.Add(2, "Row2", 200M);
+        sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 空行
+        sourceData.Rows.Add(3, "Row3", 300M);
+        sourceData.Rows.Add(DBNull.Value, DBNull.Value, DBNull.Value); // 空行
+        sourceData.Rows.Add(4, "Row4", 400M);
+
+        var filePath = Path.Combine(TestFilesDir, "EPPlusImport_EmptyRows_Skip.xlsx");
+        service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+        // Act
+        var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: false);
+
+        // Assert
+        Assert.NotNull(importedData);
+        Assert.Equal(4, importedData.Rows.Count);
+        Assert.Equal(1, Convert.ToInt32(importedData.Rows[0]["Id"]));
+        Assert.Equal(4, Convert.ToInt32(importedData.Rows[3]["Id"]));
+    }
+
+    [Fact]
+    public void ExcelToDataTable_WithAddEmptyRowTrue_IncludesEmptyRows()
+    {
+        // Arrange
+        var service = GetExcelService();
+        
+        var sourceData = new DataTable("TestWithEmptyRows");
+        sourceData.Columns.Add("Id", typeof(int));
+        sourceData.Columns.Add("Name", typeof(string));
+
+        sourceData.Rows.Add(1, "Row1");
+        sourceData.Rows.Add(DBNull.Value, DBNull.Value);
+        sourceData.Rows.Add(2, "Row2");
+
+        var filePath = Path.Combine(TestFilesDir, "EPPlusImport_EmptyRows_Include.xlsx");
+        service.DataTableToExcel(sourceData, filePath, "TestSheet");
+
+        // Act
+        var importedData = service.ExcelToDataTable(filePath, headerRowIndex: 0, addEmptyRow: true);
+
+        // Assert
+        Assert.NotNull(importedData);
+        Assert.Equal(3, importedData.Rows.Count);
+        
+        // 验证第二行是空行
+        var row2 = importedData.Rows[1];
+        Assert.True(row2.ItemArray.All(item => item == DBNull.Value || item == null || string.IsNullOrEmpty(item?.ToString())));
+    }
+
+    [Fact]
+    public void ExcelToDataSet_WithEmptyRows_HandlesCorrectly()
+    {
+        // Arrange
+        var service = GetExcelService();
+        
+        var sourceDataSet = GenerateTestDataSet(
+            ("Sheet1", 0, table =>
+            {
+                table.Columns.Add("Id", typeof(int));
+                table.Columns.Add("Name", typeof(string));
+                
+                table.Rows.Add(1, "Data1");
+                table.Rows.Add(DBNull.Value, DBNull.Value);
+                table.Rows.Add(2, "Data2");
+                table.Rows.Add(DBNull.Value, DBNull.Value);
+                table.Rows.Add(3, "Data3");
+            })
+        );
+
+        var filePath = Path.Combine(TestFilesDir, "EPPlusImport_DataSet_EmptyRows.xlsx");
+        service.DataSetToExcel(sourceDataSet, filePath);
+
+        // Act
+        var withoutEmpty = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
+        var withEmpty = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: true);
+
+        // Assert
+        Assert.NotNull(withoutEmpty);
+        Assert.Equal(3, withoutEmpty.Tables["Sheet1"].Rows.Count); // 跳过空行
+        
+        Assert.NotNull(withEmpty);
+        Assert.Equal(5, withEmpty.Tables["Sheet1"].Rows.Count); // 包含空行
     }
 
     #endregion

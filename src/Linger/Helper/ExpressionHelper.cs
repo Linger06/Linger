@@ -317,7 +317,7 @@ public static class ExpressionHelper
     /// <example>
     /// <code>
     /// var expression = ExpressionHelper.CreateGreaterThanOrEqual&lt;MyClass&gt;("MyProperty", "value");
-    /// // Returns: p => p.MyProperty >= "value"
+    /// // Returns: p => p.MyProperty &gt;= "value"
     /// </code>
     /// </example>
     public static Expression<Func<T, bool>> CreateGreaterThanOrEqual<T>(string propertyName, string propertyValue)
@@ -684,7 +684,7 @@ public static class ExpressionHelper
 
         if (condition.Op is not CompareOperator.StdIn and not CompareOperator.StdNotIn)
         {
-            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, ExtensionMethodSetting.DefaultCulture);
+            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, CultureInfo.InvariantCulture);
         }
         else
         {

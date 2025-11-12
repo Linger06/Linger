@@ -1,4 +1,4 @@
-﻿namespace Linger.UnitTests.Extensions.Core;
+namespace Linger.UnitTests.Extensions.Core;
 
 public partial class StringExtensionsTests
 {
@@ -64,7 +64,7 @@ public partial class StringExtensionsTests
     {
         // Arrange
         var data = new SortedDictionary<string, string>();
-        IEnumerable<string>? list = query.Split('&').Where(p => p.IsNotNullAndEmpty());
+        IEnumerable<string>? list = query.Split('&').Where(p => p.IsNotNullOrEmpty());
         foreach (var param in list)
         {
             var keyValue = param.Split('=');
@@ -85,7 +85,7 @@ public partial class StringExtensionsTests
     {
         // Arrange
         var data = new List<KeyValuePair<string, string>>();
-        IEnumerable<string>? list = query.Split('&').Where(p => p.IsNotNullAndEmpty());
+        IEnumerable<string>? list = query.Split('&').Where(p => p.IsNotNullOrEmpty());
         foreach (var param in list)
         {
             var keyValue = param.Split('=');

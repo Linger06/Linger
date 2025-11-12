@@ -99,7 +99,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
 
     protected override void CloseWorkbook(ExcelPackage workbook)
     {
-        if (workbook is ExcelPackage package)
+        if (workbook is { } package)
         {
             try
             {
@@ -177,6 +177,38 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return GetExcelCellValue(cell.Value, isDateFormat);
     }
 
+    /// <summary>
+    /// 检查指定行是否为空行
+    /// </summary>
+    /// <param name="worksheet">工作表</param>
+    /// <param name="rowNum">行索引(1-based)</param>
+    /// <returns>如果该行为空则返回true</returns>
+    /// <remarks>
+    /// EPPlus没有像NPOI那样的FirstCellNum属性，需要遍历该行的单元格。
+    /// 使用ExcelRange获取整行，然后检查是否所有单元格都为空。
+    /// </remarks>
+    protected override bool IsRowEmpty(ExcelWorksheet worksheet, int rowNum)
+    {
+        // 获取工作表的列数范围
+        if (worksheet.Dimension == null)
+            return true;
+
+        var startCol = worksheet.Dimension.Start.Column;
+        var endCol = worksheet.Dimension.End.Column;
+
+        // 检查该行的所有单元格
+        for (int col = startCol; col <= endCol; col++)
+        {
+            var cell = worksheet.Cells[rowNum, col];
+            if (cell?.Value != null)
+            {
+                return false; // 找到非空单元格，该行不为空
+            }
+        }
+
+        return true; // 所有单元格都为空
+    }
+
     #region 私有辅助方法
 
     ///// <summary>
@@ -252,7 +284,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         }
         catch (Exception ex)
         {
-            logger?.LogDebug(ex, "设置标题行样式失败");
+            logger?.LogWarning(ex, "设置标题行样式失败，将使用默认样式");
         }
     }
 
@@ -275,7 +307,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         }
         catch (Exception ex)
         {
-            logger?.LogDebug(ex, "设置表头行样式失败");
+            logger?.LogWarning(ex, "设置表头行样式失败，将使用默认样式");
         }
     }
 
@@ -420,7 +452,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         var columns = GetExcelColumns(properties).ToList();
         if (columns.Count == 0)
         {
-            columns = properties.Select((p, i) => (Name: p.Name, ColumnName: p.Name, Index: i)).ToList();
+            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
         }
         columns = columns.OrderBy(c => c.Index).ToList();
 
