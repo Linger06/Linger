@@ -536,7 +536,7 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 ## API Standardization & Type Safety
 
-### .NET 10 Forward-Compatible Design
+### .NET 10 Compatibility (Now Supported)
 
 Methods like `LeftJoin`, `RightJoin`, `FullJoin` are fully compatible with .NET 10 standard. Zero code changes required when upgrading. Automatically switches via conditional compilation `#if !NET10_0_OR_GREATER`.
 
