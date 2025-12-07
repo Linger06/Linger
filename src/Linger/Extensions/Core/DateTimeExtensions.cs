@@ -5,16 +5,66 @@ namespace Linger.Extensions.Core;
 
 public static class DateTimeExtensions
 {
+    /// <summary>
+    /// Formats the <see cref="DateTime"/> as a date string using the specified format.
+    /// </summary>
+    /// <param name="dateTime">The date to format.</param>
+    /// <param name="format">The format string. Defaults to "yyyy-MM-dd".</param>
+    /// <returns>The formatted date string.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2024, 12, 25);
+    /// string result = date.ToFormatDate(); // "2024-12-25"
+    /// </code>
+    /// </example>
     public static string ToFormatDate(this DateTime dateTime, string format = "yyyy-MM-dd") => dateTime.ToString(format, CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// Formats the nullable <see cref="DateTime"/> as a date string using the specified format.
+    /// </summary>
+    /// <param name="dateTime">The nullable date to format.</param>
+    /// <param name="format">The format string. Defaults to "yyyy-MM-dd".</param>
+    /// <returns>The formatted date string, or <c>null</c> if the input is null.</returns>
     public static string? ToFormatDate(this DateTime? dateTime, string format = "yyyy-MM-dd") => dateTime?.ToString(format, CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// Formats the <see cref="DateTime"/> as a date and time string using the specified format.
+    /// </summary>
+    /// <param name="dateTime">The date and time to format.</param>
+    /// <param name="format">The format string. Defaults to "yyyy-MM-dd HH:mm:ss".</param>
+    /// <returns>The formatted date and time string.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime date = new DateTime(2024, 12, 25, 14, 30, 0);
+    /// string result = date.ToFormatDateTime(); // "2024-12-25 14:30:00"
+    /// </code>
+    /// </example>
     public static string ToFormatDateTime(this DateTime dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime.ToString(format, CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// Formats the nullable <see cref="DateTime"/> as a date and time string using the specified format.
+    /// </summary>
+    /// <param name="dateTime">The nullable date and time to format.</param>
+    /// <param name="format">The format string. Defaults to "yyyy-MM-dd HH:mm:ss".</param>
+    /// <returns>The formatted date and time string, or <c>null</c> if the input is null.</returns>
     public static string? ToFormatDateTime(this DateTime? dateTime, string format = "yyyy-MM-dd HH:mm:ss") => dateTime?.ToString(format, CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// Gets the time difference between two dates as a <see cref="TimeSpan"/>.
+    /// </summary>
+    /// <param name="dateTime1">The first date.</param>
+    /// <param name="dateTime2">The second date.</param>
+    /// <returns>A <see cref="TimeSpan"/> representing the difference between the two dates.</returns>
     public static TimeSpan GetDateDifference(this DateTime dateTime1, DateTime dateTime2) => dateTime1 - dateTime2;
 
+    /// <summary>
+    /// Gets the difference between two dates in the specified time unit.
+    /// </summary>
+    /// <param name="dateTime1">The first date.</param>
+    /// <param name="dateTime2">The second date. Uses current time if null.</param>
+    /// <param name="unit">The time unit to express the difference in.</param>
+    /// <param name="abs">If <c>true</c>, returns the absolute value of the difference.</param>
+    /// <returns>The difference between the dates in the specified unit.</returns>
     public static double GetDateDifference(this DateTime dateTime1, DateTime? dateTime2, TimeUnit unit, bool abs = false)
     {
         var date2 = dateTime2 ?? DateTime.Now;
@@ -35,11 +85,28 @@ public static class DateTimeExtensions
         return abs ? Math.Abs(dateDiff) : dateDiff;
     }
 
+    /// <summary>
+    /// Calculates the age in years based on the date of birth and the current date.
+    /// </summary>
+    /// <param name="dateOfBirth">The date of birth.</param>
+    /// <returns>The age in complete years.</returns>
+    /// <example>
+    /// <code>
+    /// DateTime birthDate = new DateTime(1990, 5, 15);
+    /// int age = birthDate.CalculateAge();
+    /// </code>
+    /// </example>
     public static int CalculateAge(this DateTime dateOfBirth)
     {
         return dateOfBirth.CalculateAge(DateTime.Now);
     }
 
+    /// <summary>
+    /// Calculates the age in years based on the date of birth and a reference date.
+    /// </summary>
+    /// <param name="dateOfBirth">The date of birth.</param>
+    /// <param name="referenceDate">The reference date to calculate age from.</param>
+    /// <returns>The age in complete years.</returns>
     public static int CalculateAge(this DateTime dateOfBirth, DateTime referenceDate)
     {
         var years = referenceDate.Year - dateOfBirth.Year;
@@ -52,27 +119,54 @@ public static class DateTimeExtensions
         return years;
     }
 
+    /// <summary>
+    /// Gets the number of days in the month of the specified date.
+    /// </summary>
+    /// <param name="date">The date to get the month's day count from.</param>
+    /// <returns>The number of days in the month.</returns>
     public static int GetCountDaysOfMonth(this DateTime date)
     {
         DateTime nextMonth = date.AddMonths(1);
         return new DateTime(nextMonth.Year, nextMonth.Month, 1).AddDays(-1).Day;
     }
 
+    /// <summary>
+    /// Determines whether the specified date is today.
+    /// </summary>
+    /// <param name="dt">The date to check.</param>
+    /// <returns><c>true</c> if the date is today; otherwise, <c>false</c>.</returns>
     public static bool IsToday(this DateTime dt)
     {
         return dt.Date == DateTime.Today;
     }
 
+    /// <summary>
+    /// Determines whether the specified date falls within the given range (inclusive).
+    /// </summary>
+    /// <param name="this">The date to check.</param>
+    /// <param name="minValue">The minimum date of the range.</param>
+    /// <param name="maxValue">The maximum date of the range.</param>
+    /// <returns><c>true</c> if the date is within the range; otherwise, <c>false</c>.</returns>
     public static bool InRange(this DateTime @this, DateTime minValue, DateTime maxValue)
     {
         return @this >= minValue && @this <= maxValue;
     }
 
+    /// <summary>
+    /// Gets the day of the year for the specified date.
+    /// </summary>
+    /// <param name="dateSrc">The source date.</param>
+    /// <returns>The day of the year (1-366).</returns>
     public static int DayInYear(this DateTime dateSrc)
     {
         return dateSrc.DayOfYear;
     }
 
+    /// <summary>
+    /// Gets the day of the week as an integer (Monday = 1, Sunday = 7).
+    /// </summary>
+    /// <param name="dateSrc">The source date.</param>
+    /// <returns>The day of the week as an integer (1-7).</returns>
     public static int DayInWeek(this DateTime dateSrc)
     {
         return dateSrc.DayOfWeek switch
@@ -82,26 +176,55 @@ public static class DateTimeExtensions
         };
     }
 
+    /// <summary>
+    /// Determines whether two dates have the same date component (ignoring time).
+    /// </summary>
+    /// <param name="date">The first date.</param>
+    /// <param name="dateToCompare">The date to compare with.</param>
+    /// <returns><c>true</c> if both dates have the same date component; otherwise, <c>false</c>.</returns>
     public static bool IsDateEqual(this DateTime date, DateTime dateToCompare)
     {
         return date.Date == dateToCompare.Date;
     }
 
+    /// <summary>
+    /// Determines whether two dates have the same time component (ignoring date).
+    /// </summary>
+    /// <param name="time">The first date/time.</param>
+    /// <param name="timeToCompare">The date/time to compare with.</param>
+    /// <returns><c>true</c> if both have the same time component; otherwise, <c>false</c>.</returns>
     public static bool IsTimeEqual(this DateTime time, DateTime timeToCompare)
     {
         return time.TimeOfDay == timeToCompare.TimeOfDay;
     }
 
+    /// <summary>
+    /// Adds the specified number of weeks to the date.
+    /// </summary>
+    /// <param name="date">The source date.</param>
+    /// <param name="value">The number of weeks to add (can be negative).</param>
+    /// <returns>A new <see cref="DateTime"/> that adds the specified number of weeks.</returns>
     public static DateTime AddWeeks(this DateTime date, int value)
     {
         return date.AddDays(value * 7);
     }
 
+    /// <summary>
+    /// Gets the total number of days in the specified year.
+    /// </summary>
+    /// <param name="year">The year to get the day count for.</param>
+    /// <returns>The number of days in the year (365 or 366).</returns>
     public static int GetDays(int year)
     {
         return GetDays(year, CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Gets the total number of days in the specified year using the specified culture's calendar.
+    /// </summary>
+    /// <param name="year">The year to get the day count for.</param>
+    /// <param name="culture">The culture whose calendar to use.</param>
+    /// <returns>The number of days in the year.</returns>
     public static int GetDays(int year, CultureInfo culture)
     {
         var first = new DateTime(year, 1, 1, culture.Calendar);
@@ -109,21 +232,43 @@ public static class DateTimeExtensions
         return first.GetDays(last);
     }
 
+    /// <summary>
+    /// Gets the total number of days in the year of the specified date.
+    /// </summary>
+    /// <param name="date">The date whose year to get the day count for.</param>
+    /// <returns>The number of days in the year.</returns>
     public static int GetDays(this DateTime date)
     {
         return GetDays(date.Year, CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Gets the total number of days in the year of the specified date using the specified culture's calendar.
+    /// </summary>
+    /// <param name="date">The date whose year to get the day count for.</param>
+    /// <param name="culture">The culture whose calendar to use.</param>
+    /// <returns>The number of days in the year.</returns>
     public static int GetDays(this DateTime date, CultureInfo culture)
     {
         return GetDays(date.Year, culture);
     }
 
+    /// <summary>
+    /// Gets the number of days between two dates.
+    /// </summary>
+    /// <param name="fromDate">The start date.</param>
+    /// <param name="toDate">The end date.</param>
+    /// <returns>The number of days between the two dates.</returns>
     public static int GetDays(this DateTime fromDate, DateTime toDate)
     {
         return Convert.ToInt32(toDate.Subtract(fromDate).TotalDays);
     }
 
+    /// <summary>
+    /// Determines whether the specified date is Easter Sunday.
+    /// </summary>
+    /// <param name="date">The date to check.</param>
+    /// <returns><c>true</c> if the date is Easter Sunday; otherwise, <c>false</c>.</returns>
     public static bool IsEaster(this DateTime date)
     {
         var y = date.Year;
@@ -147,51 +292,104 @@ public static class DateTimeExtensions
         return date == dtEasterSunday;
     }
 
+    /// <summary>
+    /// Determines whether the source date is before the specified date.
+    /// </summary>
+    /// <param name="source">The source date.</param>
+    /// <param name="other">The date to compare with.</param>
+    /// <returns><c>true</c> if the source date is before the other date; otherwise, <c>false</c>.</returns>
     public static bool IsBefore(this DateTime source, DateTime other)
     {
         return source.CompareTo(other) < 0;
     }
 
+    /// <summary>
+    /// Determines whether the source date is after the specified date.
+    /// </summary>
+    /// <param name="source">The source date.</param>
+    /// <param name="other">The date to compare with.</param>
+    /// <returns><c>true</c> if the source date is after the other date; otherwise, <c>false</c>.</returns>
     public static bool IsAfter(this DateTime source, DateTime other)
     {
         return source.CompareTo(other) > 0;
     }
 
+    /// <summary>
+    /// Gets the start of the day (00:00:00.000) for the specified date.
+    /// </summary>
+    /// <param name="dateTime">The date to get the start of day for.</param>
+    /// <returns>A <see cref="DateTime"/> representing the start of the day.</returns>
     public static DateTime StartOfDay(this DateTime dateTime)
     {
         return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day);
     }
 
+    /// <summary>
+    /// Gets the end of the day (23:59:59.999) for the specified date.
+    /// </summary>
+    /// <param name="date">The date to get the end of day for.</param>
+    /// <returns>A <see cref="DateTime"/> representing the end of the day.</returns>
     public static DateTime EndOfDay(this DateTime date)
     {
         return date.SetDateTime(hour: 23, minute: 59, second: 59, millisecond: 999);
     }
 
+    /// <summary>
+    /// Gets the first day of the month for the specified date.
+    /// </summary>
+    /// <param name="dateTime">The date to get the start of month for.</param>
+    /// <returns>A <see cref="DateTime"/> representing the first day of the month.</returns>
     public static DateTime StartOfMonth(this DateTime dateTime)
     {
         return new DateTime(dateTime.Year, dateTime.Month, 1);
     }
 
+    /// <summary>
+    /// Gets the last moment of the month (last day at 23:59:59.999) for the specified date.
+    /// </summary>
+    /// <param name="dateTime">The date to get the end of month for.</param>
+    /// <returns>A <see cref="DateTime"/> representing the end of the month.</returns>
     public static DateTime EndOfMonth(this DateTime dateTime)
     {
         return new DateTime(dateTime.Year, dateTime.Month, 1).AddMonths(1).AddMilliseconds(-1);
     }
 
+    /// <summary>
+    /// Gets the first day of the month for the specified date (alias for StartOfMonth).
+    /// </summary>
+    /// <param name="dateTime">The date to get the first day of month for.</param>
+    /// <returns>A <see cref="DateTime"/> representing the first day of the month.</returns>
     public static DateTime FirstDayOfMonth(this DateTime dateTime)
     {
         return new DateTime(dateTime.Year, dateTime.Month, 1);
     }
 
+    /// <summary>
+    /// Gets the last day of the month for the specified date.
+    /// </summary>
+    /// <param name="date">The date to get the last day of month for.</param>
+    /// <returns>A <see cref="DateTime"/> representing the last day of the month.</returns>
     public static DateTime LastDayOfMonth(this DateTime date)
     {
         return new DateTime(date.Year, date.Month, date.GetCountDaysOfMonth());
     }
 
+    /// <summary>
+    /// Gets the last moment of the year (December 31 at 23:59:59.999) for the specified date.
+    /// </summary>
+    /// <param name="dateTime">The date to get the end of year for.</param>
+    /// <returns>A <see cref="DateTime"/> representing the end of the year.</returns>
     public static DateTime EndOfYear(this DateTime dateTime)
     {
         return new DateTime(dateTime.Year, 1, 1).AddYears(1).AddMilliseconds(-1);
     }
 
+    /// <summary>
+    /// Converts the date to a specific time mode (start of day, end of day, or unchanged).
+    /// </summary>
+    /// <param name="dateTime">The date to convert.</param>
+    /// <param name="timeMode">The time mode to apply.</param>
+    /// <returns>A <see cref="DateTime"/> adjusted according to the specified time mode.</returns>
     public static DateTime ToDateTimeOfMode(this DateTime dateTime, TimeMode timeMode = TimeMode.Now)
     {
         return timeMode switch
@@ -202,6 +400,11 @@ public static class DateTimeExtensions
         };
     }
 
+    /// <summary>
+    /// Determines whether the year of the specified date is a leap year.
+    /// </summary>
+    /// <param name="date">The date to check.</param>
+    /// <returns><c>true</c> if the year is a leap year; otherwise, <c>false</c>.</returns>
     public static bool IsLeapYear(this DateTime date)
     {
         if (date.Year % 4 != 0)

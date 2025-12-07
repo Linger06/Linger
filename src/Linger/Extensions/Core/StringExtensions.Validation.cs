@@ -75,5 +75,10 @@ public static partial class StringExtensions
     /// <returns>Returns true if the string is not null and not empty; otherwise, false.</returns>
     public static bool IsNotNullOrEmpty([NotNullWhen(true)] this string? value) => !string.IsNullOrEmpty(value);
 
+    /// <summary>
+    /// Check if the specified string is not null and does not consist only of white-space characters.
+    /// </summary>
+    /// <param name="value">The string to check.</param>
+    /// <returns>Returns true if the string is not null and does not consist only of white-space characters; otherwise, false.</returns>
     public static bool IsNotNullOrWhiteSpace([NotNullWhen(true)] this string? value) => !string.IsNullOrWhiteSpace(value);
 }

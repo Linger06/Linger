@@ -90,12 +90,12 @@ public class IDataReaderExtensionsTests
     }
 
     [Fact]
-    public void HackType_ReturnsCorrectTypeForNullable()
+    public void ConvertToType_ReturnsCorrectTypeForNullable()
     {
-        var result = IDataReaderExtensions.HackType(null, typeof(int?));
+        var result = IDataReaderExtensions.ConvertToType(null, typeof(int?));
         Assert.Null(result);
 
-        result = IDataReaderExtensions.HackType(1, typeof(int?));
+        result = IDataReaderExtensions.ConvertToType(1, typeof(int?));
         Assert.Equal(1, result);
     }
 

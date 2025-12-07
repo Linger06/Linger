@@ -1,4 +1,3 @@
-// Moved from Polyfills/BCL/RequiredMemberAttribute.cs
 #pragma warning disable
 #if !NET7_0_OR_GREATER
 namespace System.Runtime.CompilerServices;

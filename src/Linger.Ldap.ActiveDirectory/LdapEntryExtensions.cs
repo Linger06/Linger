@@ -22,7 +22,7 @@ public static class LdapEntryExtensions
     /// <returns>An AdUserInfo object or null if input is null</returns>
     public static AdUserInfo? ToAdUser(this UserPrincipal userPrincipal)
     {
-        if (userPrincipal == null) return null;
+        if (userPrincipal is null) return null;
 
         if (userPrincipal.GetUnderlyingObject() is not DirectoryEntry directoryEntry) return null;
 
@@ -136,7 +136,7 @@ public static class LdapEntryExtensions
             if (!lastSet.HasValue) return null;
 
             // 获取域控制器�?DirectoryEntry
-            using var de = user.Context.ConnectedServer != null
+            using var de = user.Context.ConnectedServer is not null
                 ? new DirectoryEntry($"LDAP://{user.Context.ConnectedServer}")
                 : new DirectoryEntry();
 
@@ -268,11 +268,11 @@ public static class LdapEntryExtensions
         userInfo.HomeDirectory = GetPropertyValue(entry, LdapUserType.HomeDirectory);
         userInfo.ExMailboxDb = GetPropertyValue(entry, LdapUserType.ExMailboxDb);
         userInfo.ExtensionAttribute1 = GetPropertyValue(entry, LdapUserType.ExtensionAttribute1);
-        userInfo.UserType = GetPropertyValue(entry, LdapUserType.ExMailboxDb) != null ? "UserMailbox" : "User";
+        userInfo.UserType = GetPropertyValue(entry, LdapUserType.ExMailboxDb) is not null ? "UserMailbox" : "User";
         userInfo.MemberOf = GetMemberOf(entry);    // 添加 MemberOf 属性映�?
 
         var createdDate = GetPropertyValue(entry, LdapUserType.WhenCreated);
-        if (createdDate != null && DateTime.TryParse(createdDate, out var whenCreated))
+        if (createdDate is not null && DateTime.TryParse(createdDate, out var whenCreated))
         {
             userInfo.WhenCreated = whenCreated.ToLocalTime();
         }
@@ -283,7 +283,7 @@ public static class LdapEntryExtensions
         try
         {
             var userAccountControlStr = GetPropertyValue(entry, LdapUserType.UserAccountControl);
-            if (userAccountControlStr == null || !int.TryParse(userAccountControlStr, out var userAccountControl))
+            if (userAccountControlStr is null || !int.TryParse(userAccountControlStr, out var userAccountControl))
             {
                 SetDefaultSecurityInfo(userInfo);
                 return;
@@ -357,7 +357,7 @@ public static class LdapEntryExtensions
     {
         var pwdLastSet = GetPropertyValue(entry, LdapUserType.PwdLastSet);
 
-        if (pwdLastSet == null)
+        if (pwdLastSet is null)
         {
             userInfo.PwdLastSet = PasswordStatus.Unknown;
             userInfo.PwdExpirationLeftDays = PasswordStatus.Unknown;

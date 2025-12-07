@@ -9,6 +9,18 @@ public static partial class FileHelper
 {
     #region File Read Operations
 
+    /// <summary>
+    /// Reads all text content from the specified file.
+    /// </summary>
+    /// <param name="filename">The path to the file to read.</param>
+    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
+    /// <returns>A string containing all text from the file.</returns>
+    /// <exception cref="FileNotFoundException">Thrown when the specified file does not exist.</exception>
+    /// <example>
+    /// <code>
+    /// string content = FileHelper.ReadText("C:\\data\\config.txt");
+    /// </code>
+    /// </example>
     public static string ReadText(string filename, Encoding? encoding = null)
     {
         filename.EnsureFileExists();
@@ -19,6 +31,21 @@ public static partial class FileHelper
         return sr.ReadToEnd();
     }
 
+    /// <summary>
+    /// Attempts to read all text content from the specified file without throwing exceptions.
+    /// </summary>
+    /// <param name="filename">The path to the file to read.</param>
+    /// <param name="content">When this method returns, contains the file content if successful; otherwise, an empty string.</param>
+    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
+    /// <returns><c>true</c> if the file was read successfully; otherwise, <c>false</c>.</returns>
+    /// <example>
+    /// <code>
+    /// if (FileHelper.TryReadText("config.txt", out string content))
+    /// {
+    ///     Console.WriteLine(content);
+    /// }
+    /// </code>
+    /// </example>
     public static bool TryReadText(string filename, out string content, Encoding? encoding = null)
     {
         content = string.Empty;
@@ -42,6 +69,18 @@ public static partial class FileHelper
 
     #region File Write Operations
 
+    /// <summary>
+    /// Writes the specified text content to a file. Creates the directory structure if it doesn't exist.
+    /// </summary>
+    /// <param name="filePath">The path to the file to write.</param>
+    /// <param name="text">The text content to write.</param>
+    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
+    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
+    /// <example>
+    /// <code>
+    /// FileHelper.WriteText("C:\\data\\output.txt", "Hello, World!");
+    /// </code>
+    /// </example>
     public static void WriteText(string filePath, string text, Encoding? encoding = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -55,6 +94,17 @@ public static partial class FileHelper
         File.WriteAllText(filePath, text, encoding);
     }
 
+    /// <summary>
+    /// Appends the specified text content to a file. Creates the directory structure if it doesn't exist.
+    /// </summary>
+    /// <param name="filePath">The path to the file to append to.</param>
+    /// <param name="content">The text content to append.</param>
+    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
+    /// <example>
+    /// <code>
+    /// FileHelper.AppendText("C:\\logs\\app.log", "New log entry\n");
+    /// </code>
+    /// </example>
     public static void AppendText(string filePath, string content)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -68,8 +118,20 @@ public static partial class FileHelper
     }
 
     /// <summary>
-    /// 尝试写入文本，失败返回 false 不抛异常。
+    /// Attempts to write the specified text content to a file without throwing exceptions.
     /// </summary>
+    /// <param name="filePath">The path to the file to write.</param>
+    /// <param name="text">The text content to write.</param>
+    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
+    /// <returns><c>true</c> if the file was written successfully; otherwise, <c>false</c>.</returns>
+    /// <example>
+    /// <code>
+    /// if (FileHelper.TryWriteText("output.txt", "Hello"))
+    /// {
+    ///     Console.WriteLine("File saved successfully.");
+    /// }
+    /// </code>
+    /// </example>
     public static bool TryWriteText(string filePath, string text, Encoding? encoding = null)
     {
         try
@@ -84,8 +146,19 @@ public static partial class FileHelper
     }
 
     /// <summary>
-    /// 尝试追加文本，失败返回 false 不抛异常。
+    /// Attempts to append the specified text content to a file without throwing exceptions.
     /// </summary>
+    /// <param name="filePath">The path to the file to append to.</param>
+    /// <param name="content">The text content to append.</param>
+    /// <returns><c>true</c> if the content was appended successfully; otherwise, <c>false</c>.</returns>
+    /// <example>
+    /// <code>
+    /// if (FileHelper.TryAppendText("log.txt", "New entry"))
+    /// {
+    ///     Console.WriteLine("Log entry added.");
+    /// }
+    /// </code>
+    /// </example>
     public static bool TryAppendText(string filePath, string content)
     {
         try
@@ -103,6 +176,17 @@ public static partial class FileHelper
 
     #region File Operations
 
+    /// <summary>
+    /// Moves a file to the specified destination directory.
+    /// </summary>
+    /// <param name="sourceFilePath">The path of the file to move.</param>
+    /// <param name="destDirectoryPath">The destination directory path.</param>
+    /// <exception cref="FileNotFoundException">Thrown when the source file does not exist.</exception>
+    /// <example>
+    /// <code>
+    /// FileHelper.MoveFile("C:\\temp\\file.txt", "C:\\archive\\");
+    /// </code>
+    /// </example>
     public static void MoveFile(string sourceFilePath, string destDirectoryPath)
     {
         sourceFilePath.EnsureFileExists();
@@ -113,6 +197,17 @@ public static partial class FileHelper
         File.Move(sourceFilePath, destFileName);
     }
 
+    /// <summary>
+    /// Copies a file to the specified destination. Creates the directory structure if it doesn't exist.
+    /// </summary>
+    /// <param name="sourceFile">The path of the source file to copy.</param>
+    /// <param name="destFile">The destination file path.</param>
+    /// <exception cref="FileNotFoundException">Thrown when the source file does not exist.</exception>
+    /// <example>
+    /// <code>
+    /// FileHelper.CopyFile("C:\\source\\file.txt", "C:\\backup\\file.txt");
+    /// </code>
+    /// </example>
     public static void CopyFile(string sourceFile, string destFile)
     {
         sourceFile.EnsureFileExists();
@@ -128,6 +223,15 @@ public static partial class FileHelper
         File.Copy(sourceFile, normalizedDest, true);
     }
 
+    /// <summary>
+    /// Deletes the specified file if it exists. Does nothing if the file doesn't exist.
+    /// </summary>
+    /// <param name="file">The path of the file to delete.</param>
+    /// <example>
+    /// <code>
+    /// FileHelper.DeleteFileIfExists("C:\\temp\\obsolete.txt");
+    /// </code>
+    /// </example>
     public static void DeleteFileIfExists(string file)
     {
         if (string.IsNullOrEmpty(file))
@@ -139,6 +243,16 @@ public static partial class FileHelper
         }
     }
 
+    /// <summary>
+    /// Clears all content from the specified file, leaving an empty file.
+    /// </summary>
+    /// <param name="filePath">The path of the file to clear.</param>
+    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
+    /// <example>
+    /// <code>
+    /// FileHelper.ClearFile("C:\\logs\\app.log");
+    /// </code>
+    /// </example>
     public static void ClearFile(string filePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -146,6 +260,26 @@ public static partial class FileHelper
         File.WriteAllBytes(filePath, []);
     }
 
+    /// <summary>
+    /// Creates a new file with optional content. Creates the directory structure if it doesn't exist.
+    /// </summary>
+    /// <param name="filePath">The path of the file to create.</param>
+    /// <param name="content">The text content to write to the file. If null, buffer or empty file is created.</param>
+    /// <param name="buffer">The byte array to write to the file. Used if content is null.</param>
+    /// <param name="encoding">The character encoding to use for text content. Defaults to UTF-8.</param>
+    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
+    /// <example>
+    /// <code>
+    /// // Create with text content
+    /// FileHelper.CreateFile("output.txt", content: "Hello, World!");
+    /// 
+    /// // Create with binary content
+    /// FileHelper.CreateFile("data.bin", buffer: new byte[] { 0x01, 0x02, 0x03 });
+    /// 
+    /// // Create empty file
+    /// FileHelper.CreateFile("empty.txt");
+    /// </code>
+    /// </example>
     public static void CreateFile(string filePath, string? content = null, byte[]? buffer = null, Encoding? encoding = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -177,11 +311,17 @@ public static partial class FileHelper
     #region Search Operations
 
     /// <summary>
-    /// 检测指定目录中是否存在指定的文件,若要搜索子目录请使用重载方法.
+    /// Determines whether the specified directory contains files matching the search pattern.
     /// </summary>
-    /// <param name="directoryPath">指定目录的绝对路径</param>
-    /// <param name="searchPattern">模式字符串，"*"代表0或N个字符，"?"代表1个字符。 范例："Log*.xml"表示搜索所有以Log开头的Xml文件。</param>
-    /// <param name="isSearchChild"></param>
+    /// <param name="directoryPath">The absolute path of the directory to search.</param>
+    /// <param name="searchPattern">The search pattern. Use "*" for zero or more characters, "?" for a single character. Example: "Log*.xml" matches all XML files starting with "Log".</param>
+    /// <param name="isSearchChild">If <c>true</c>, searches subdirectories; otherwise, only searches the top directory.</param>
+    /// <returns><c>true</c> if matching files are found; otherwise, <c>false</c>.</returns>
+    /// <example>
+    /// <code>
+    /// bool hasLogs = FileHelper.Contains("C:\\logs", "*.log", isSearchChild: true);
+    /// </code>
+    /// </example>
     public static bool Contains(string directoryPath, string searchPattern, bool isSearchChild = false)
     {
         if (string.IsNullOrEmpty(directoryPath) || string.IsNullOrEmpty(searchPattern))
@@ -205,17 +345,18 @@ public static partial class FileHelper
     #region File Information
 
     /// <summary>
-    /// 获取指定文件的扩展信息，包括哈希、路径和文件大小等元数据。
+    /// Gets extended information for the specified file, including hash, path, and file size metadata.
     /// </summary>
-    /// <param name="fullFileName">目标文件的完整路径。</param>
-    /// <param name="relativeTo">用于计算相对路径的基准目录，默认为当前工作目录。</param>
-    /// <returns>返回包含文件元数据的 <see cref="ExtendedFileInfo"/> 实例；若文件不存在或路径无效则返回 <see langword="null"/>。</returns>
+    /// <param name="fullFileName">The full path of the target file.</param>
+    /// <param name="relativeTo">The base directory used to calculate relative paths. Defaults to the current working directory.</param>
+    /// <returns>An <see cref="ExtendedFileInfo"/> instance containing file metadata; or <see langword="null"/> if the file doesn't exist or the path is invalid.</returns>
     /// <example>
     /// <code>
-    /// var fileInfo = FileHelper.GetExistingFileInfo(@"C:\\logs\\app.log");
+    /// var fileInfo = FileHelper.GetExistingFileInfo(@"C:\logs\app.log");
     /// if (fileInfo is not null)
     /// {
-    ///     Console.WriteLine($"哈希值: {fileInfo.HashData}");
+    ///     Console.WriteLine($"Hash: {fileInfo.HashData}");
+    ///     Console.WriteLine($"Size: {fileInfo.FileSize}");
     /// }
     /// </code>
     /// </example>
@@ -255,13 +396,19 @@ public static partial class FileHelper
     #endregion
 
     /// <summary>
-    /// 获取指定目录下的所有子目录
+    /// Gets all subdirectories in the specified directory.
     /// </summary>
-    /// <param name="directoryPath">目录路径</param>
-    /// <param name="searchPattern">搜索模式，默认为"*"</param>
-    /// <param name="searchOption">搜索选项，是否包含子目录</param>
-    /// <param name="filter">自定义过滤器</param>
-    /// <returns>目录路径数组</returns>
+    /// <param name="directoryPath">The directory path to search.</param>
+    /// <param name="searchPattern">The search pattern. Defaults to "*" (all directories).</param>
+    /// <param name="searchOption">Specifies whether to search subdirectories.</param>
+    /// <param name="filter">An optional filter function to apply to the results.</param>
+    /// <returns>An array of directory paths.</returns>
+    /// <exception cref="ArgumentException">Thrown when directoryPath is null or empty.</exception>
+    /// <example>
+    /// <code>
+    /// string[] dirs = FileHelper.GetDirectories("C:\\Projects", "*.Net*");
+    /// </code>
+    /// </example>
     public static string[] GetDirectories(
         string directoryPath,
         string searchPattern = "*",
@@ -285,14 +432,21 @@ public static partial class FileHelper
     }
 
     /// <summary>
-    /// 获取指定目录下的所有文件名
+    /// Gets all file names in the specified directory.
     /// </summary>
-    /// <param name="directoryPath">目录路径</param>
-    /// <param name="searchPattern">搜索模式 (默认为 "*.*")</param>
-    /// <param name="containPath">是否包含完整路径</param>
-    /// <param name="containExtension">是否包含扩展名</param>
-    /// <param name="searchOption">搜索选项，是否包含子目录</param>
-    /// <returns>文件名列表</returns>
+    /// <param name="directoryPath">The directory path to search.</param>
+    /// <param name="searchPattern">The search pattern. Defaults to "*.*" (all files).</param>
+    /// <param name="containPath">If <c>true</c>, returns full file paths; otherwise, returns only file names.</param>
+    /// <param name="containExtension">If <c>true</c>, includes file extensions; otherwise, excludes them.</param>
+    /// <param name="searchOption">Specifies whether to search subdirectories.</param>
+    /// <returns>A list of file names or paths.</returns>
+    /// <exception cref="ArgumentException">Thrown when directoryPath is null or whitespace.</exception>
+    /// <exception cref="DirectoryNotFoundException">Thrown when the directory does not exist.</exception>
+    /// <example>
+    /// <code>
+    /// List&lt;string&gt; files = FileHelper.GetFileNames("C:\\docs", "*.pdf", containPath: false);
+    /// </code>
+    /// </example>
     public static List<string> GetFileNames(
         string directoryPath,
         string searchPattern = "*.*",
@@ -321,6 +475,20 @@ public static partial class FileHelper
         return result;
     }
 
+    /// <summary>
+    /// Determines whether the specified directory is empty (contains no files or subdirectories).
+    /// </summary>
+    /// <param name="directory">The directory path to check.</param>
+    /// <returns><c>true</c> if the directory is empty; otherwise, <c>false</c>.</returns>
+    /// <exception cref="DirectoryNotFoundException">Thrown when the directory does not exist.</exception>
+    /// <example>
+    /// <code>
+    /// if (FileHelper.IsEmptyDirectory("C:\\temp"))
+    /// {
+    ///     Console.WriteLine("Directory is empty.");
+    /// }
+    /// </code>
+    /// </example>
     public static bool IsEmptyDirectory(string directory)
     {
         directory.EnsureDirectoryExists();
@@ -329,6 +497,18 @@ public static partial class FileHelper
 
     #region Directory Copy Operations
 
+    /// <summary>
+    /// Recursively copies a directory and all its contents to the destination.
+    /// </summary>
+    /// <param name="srcDirectory">The source directory path.</param>
+    /// <param name="destDirectory">The destination directory path.</param>
+    /// <exception cref="ArgumentException">Thrown when srcDirectory or destDirectory is null or whitespace.</exception>
+    /// <exception cref="DirectoryNotFoundException">Thrown when the source directory does not exist.</exception>
+    /// <example>
+    /// <code>
+    /// FileHelper.CopyDir("C:\\source", "C:\\backup");
+    /// </code>
+    /// </example>
     public static void CopyDir(string srcDirectory, string destDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(srcDirectory);

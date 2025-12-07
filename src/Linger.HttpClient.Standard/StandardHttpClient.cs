@@ -167,7 +167,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             url = url.AppendQuery("culture=" + CultureInfo.CurrentUICulture.Name);
 
             // Append query parameters if provided
-            if (queryParams != null)
+            if (queryParams is not null)
             {
                 var queryString = HttpClientBase.BuildQueryString(queryParams);
                 if (!string.IsNullOrEmpty(queryString))
@@ -196,7 +196,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             };
 
 #if NETFRAMEWORK
-            if (httpMethod == HttpMethod.Get && content != null)
+            if (httpMethod == HttpMethod.Get && content is not null)
             {
                 _logger.LogError("[{RequestId}] Attempted to send content body with GET request", requestId);
                 throw new ProtocolViolationException("Cannot send a content-body with this verb-type.");
@@ -221,7 +221,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
                 _logger.LogDebug("[{RequestId}] Request headers: {Headers}",
                     requestId, string.Join(", ", request.Headers.Select(h => $"{h.Key}={string.Join(";", h.Value)}")));
 
-                if (content != null)
+                if (content is not null)
                 {
                     var contentType = content.Headers?.ContentType?.MediaType ?? "unknown";
                     _logger.LogDebug("[{RequestId}] Request content type: {ContentType}", requestId, contentType);

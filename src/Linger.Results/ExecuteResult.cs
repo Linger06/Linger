@@ -149,7 +149,7 @@ public class ExecuteResult<TValue> : ExecuteResult
     public ExecuteResult<TValue> Set(bool isSucceed, string message, TValue? result)
     {
         base.Set(isSucceed, message);
-        if (isSucceed && result != null)
+        if (isSucceed && result is not null)
         {
             Value = result;
         }

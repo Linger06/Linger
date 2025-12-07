@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Linger.Excel\Linger.Excel.csproj" />
+    <ProjectReference Include="..\..\src\Linger.Excel.Contracts\Linger.Excel.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Linger.Excel.ClosedXML\Linger.Excel.ClosedXML.csproj" />
+    <ProjectReference Include="..\..\src\Linger.Excel.Npoi\Linger.Excel.Npoi.csproj" />
+    <ProjectReference Include="..\..\src\Linger.Excel.EPPlus\Linger.Excel.EPPlus.csproj" />
+  </ItemGroup>
+
+</Project>

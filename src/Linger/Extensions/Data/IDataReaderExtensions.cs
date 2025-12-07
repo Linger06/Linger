@@ -82,7 +82,7 @@ public static class IDataReaderExtensions
                     {
                         if (!dr[property.Name].IsNullOrDbNull())
                         {
-                            property.SetValue(model, HackType(dr[property.Name], property.PropertyType), null);
+                            property.SetValue(model, ConvertToType(dr[property.Name], property.PropertyType), null);
                         }
                     }
                 }
@@ -121,7 +121,7 @@ public static class IDataReaderExtensions
                 {
                     if (!dr[pi.Name].IsNullOrDbNull())
                     {
-                        pi.SetValue(model, HackType(dr[pi.Name], pi.PropertyType), null);
+                        pi.SetValue(model, ConvertToType(dr[pi.Name], pi.PropertyType), null);
                     }
                 }
             }
@@ -169,7 +169,7 @@ public static class IDataReaderExtensions
     /// <param name="value">The value to convert.</param>
     /// <param name="conversionType">The type to convert to.</param>
     /// <returns>The converted value.</returns>
-    public static object? HackType(object? value, Type conversionType)
+    public static object? ConvertToType(object? value, Type conversionType)
     {
         if (conversionType.IsGenericType && conversionType.GetGenericTypeDefinition() == typeof(Nullable<>))
         {
