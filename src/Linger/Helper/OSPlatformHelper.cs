@@ -186,7 +186,7 @@ public static class OSPlatformHelper
         ArgumentNullException.ThrowIfNull(minimumVersion);
 #else
         if (minimumVersion is null)
-            throw new System.ArgumentNullException(nameof(minimumVersion));
+            throw new ArgumentNullException(nameof(minimumVersion));
 #endif
 
         return Environment.Version >= minimumVersion;

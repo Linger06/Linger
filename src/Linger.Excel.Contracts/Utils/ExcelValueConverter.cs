@@ -102,7 +102,7 @@ public static class ExcelValueConverter
 
         try
         {
-            // 处理不同的类型转�?
+            // 处理不同的类型转换
             if (actualType == typeof(string))
                 return value.ToString();
 

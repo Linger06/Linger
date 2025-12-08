@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Linger.EFCore.Converters;
 
@@ -16,6 +16,6 @@ public class StringCollectionConverter<T>(string separator = ";") : ValueConvert
         if (typeof(T) == typeof(IEnumerable<string>))
             return items;
 
-        throw new System.ArgumentException($"Unsupported collection type: {typeof(T)}");
+        throw new ArgumentException($"Unsupported collection type: {typeof(T)}");
     }
 }

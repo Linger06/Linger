@@ -572,11 +572,13 @@ int failed = doubleObj.ToIntOrDefault(0);  // Returns 0 (conversion fails)
 
 ## Polyfills Summary
 
-Provides forward-compatible Polyfills for BCL APIs & language features (for .NET Framework/Standard 2.0/legacy versions). Uses conditional compilation to automatically defer to framework built-ins when upgraded.
+Provides forward-compatible Polyfills for BCL APIs & language features (for .NET Framework/Standard 2.0/legacy versions). Uses conditional compilation to automatically defer to framework built-ins when upgraded. Implemented using C# 14 extension members syntax for cleaner code.
 
 | Category | Content | Source Location |
 |----------|---------|-----------------|
-| **Parameter Validation** | `ArgumentNullException.ThrowIfNull` (pre-.NET 6)<br>`ArgumentException.ThrowIfNullOrEmpty/WhiteSpace` (pre-.NET 8) | `Polyfills/ArgumentNullException.cs`<br>`Polyfills/ArgumentException.cs` |
+| **Parameter Validation** | `ArgumentNullException.ThrowIfNull` (pre-.NET 6)<br>`ArgumentException.ThrowIfNullOrEmpty/WhiteSpace` (pre-.NET 8)<br>`ArgumentOutOfRangeException.ThrowIfNegative/Zero/...` (pre-.NET 8) | `Polyfills/ArgumentNullException.cs`<br>`Polyfills/ArgumentException.cs`<br>`Polyfills/ArgumentOutOfRangeException.cs` |
+| **Hash Algorithms** | `MD5.HashData`, `SHA256.HashData`, `SHA384.HashData`, `SHA512.HashData` (pre-.NET 5) | `Polyfills/HashAlgorithm.cs` |
+| **Conversion Utilities** | `Convert.ToHexStringLower` (pre-.NET 9) | `Polyfills/Convert.cs` |
 | **Language Features** | `required` keyword support (C# 11)<br>`RequiredMemberAttribute`, `SetsRequiredMembersAttribute`, `CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **Nullability Attributes** | 11 attributes: `AllowNull`, `NotNull`, `MaybeNullWhen`, `NotNullIfNotNull`, etc. | `Polyfills/NullableAttributes.cs` |
 | **Collection Extensions** | `LeftJoin`, `RightJoin`, `FullJoin` ( .NET 10 compatible — Polyfills retained for older targets ) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |

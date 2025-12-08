@@ -243,7 +243,7 @@ public static partial class FileInfoExtensions
     /// <exception cref="IOException"></exception>
     public static long GetFileSize(this string filePath)
     {
-        // �?EnsureFileExists 完整执行 null/empty 与存在性校�?
+        // 由 EnsureFileExists 完整执行 null/empty 与存在性校验
         GuardExtensions.EnsureFileExists(filePath);
 
         return new FileInfo(filePath).Length;

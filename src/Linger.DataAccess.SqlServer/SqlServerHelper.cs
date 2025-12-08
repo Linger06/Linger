@@ -347,7 +347,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         // 不允许：空格、特殊字符、SQL 关键字符（如引号、分号等）
         if (identifier.Any(c => !char.IsLetterOrDigit(c) && c != '_' && c != '.'))
         {
-            throw new System.ArgumentException($"标识符 '{identifier}' 包含非法字符。只允许字母、数字、下划线和点号。", paramName);
+            throw new ArgumentException($"标识符 '{identifier}' 包含非法字符。只允许字母、数字、下划线和点号。", paramName);
         }
 
         // 防止 SQL 注入常见模式
@@ -356,7 +356,7 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             identifier.Contains("*/", StringComparison.Ordinal) ||
             identifier.Contains(';'))
         {
-            throw new System.ArgumentException($"标识符 '{identifier}' 包含非法的 SQL 注释或分隔符。", paramName);
+            throw new ArgumentException($"标识符 '{identifier}' 包含非法的 SQL 注释或分隔符。", paramName);
         }
     }
 }

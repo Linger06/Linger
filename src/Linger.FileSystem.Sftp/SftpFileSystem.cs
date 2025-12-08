@@ -733,7 +733,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var sanitizedFileName = fileName.Replace('\\', SftpPathSeparator).Trim(SftpPathSeparator);
         if (string.IsNullOrWhiteSpace(sanitizedFileName))
         {
-            throw new System.ArgumentException("File name cannot be empty after sanitization.", nameof(fileName));
+            throw new ArgumentException("File name cannot be empty after sanitization.", nameof(fileName));
         }
 
         // 如果目录为空，直接返回文件名

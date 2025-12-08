@@ -6,7 +6,7 @@ using System.Text;
 namespace Linger.DataAccess;
 
 /// <summary>
-///     �������ݿ���� �ӿ�
+///     Database interface.
 /// </summary>
 public interface IDatabase : IDisposable
 {

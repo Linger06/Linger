@@ -44,7 +44,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     /// <param name="logger">Optional logger for diagnostics</param>
     public StandardHttpClient(System.Net.Http.HttpClient httpClient, ILogger<StandardHttpClient>? logger = null)
     {
-        _httpClient = httpClient ?? throw new System.ArgumentNullException(nameof(httpClient));
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
         _ownsHttpClient = false; // External instance, we should not dispose it
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StandardHttpClient>.Instance;
         SetDefaultOptions();

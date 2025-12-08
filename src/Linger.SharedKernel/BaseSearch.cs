@@ -128,7 +128,7 @@ public class BaseSearch : IBaseSearch
                 }
 
                 MemberExpression left = Expression.Property(param, property); //x.name
-                MethodInfo? method = typeof(string).GetMethod("Contains", [typeof(string)]);
+                MethodInfo? method = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)]);
                 ConstantExpression right = Expression.Constant(text, property.PropertyType); //value
                 MethodCallExpression be = Expression.Call(left, method!, right);
 

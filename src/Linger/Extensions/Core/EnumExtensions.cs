@@ -83,7 +83,7 @@ public static class EnumExtensions
     public static T GetEnum<T>(this string itemName) where T : struct, Enum
     {
         if (string.IsNullOrEmpty(itemName))
-            throw new System.ArgumentException("Enum name cannot be null or empty", nameof(itemName));
+            throw new ArgumentException("Enum name cannot be null or empty", nameof(itemName));
 #if NET9_0_OR_GREATER
         return Enum.Parse<T>(itemName, true);
 #else
@@ -145,7 +145,7 @@ public static class EnumExtensions
         if (string.IsNullOrEmpty(itemName))
             return false;
 
-        return Enum.TryParse<T>(itemName, true, out value);
+        return Enum.TryParse(itemName, true, out value);
     }
 
     /// <summary>

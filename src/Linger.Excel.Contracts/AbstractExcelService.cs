@@ -118,7 +118,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     Task<string> IExcelService.CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName, string title, CancellationToken cancellationToken)
     {
-        return CollectionToExcelAsync<T>(list, fullFileName, sheetsName, title, action: null, styleAction: null, cancellationToken);
+        return CollectionToExcelAsync(list, fullFileName, sheetsName, title, action: null, styleAction: null, cancellationToken);
     }
 
     #endregion

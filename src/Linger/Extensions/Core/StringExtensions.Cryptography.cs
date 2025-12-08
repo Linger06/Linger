@@ -48,10 +48,10 @@ public static partial class StringExtensions
     public static string AesEncrypt(this string input, string key)
     {
         if (string.IsNullOrEmpty(input))
-            throw new System.ArgumentException("输入文本不能为null或空字符串", nameof(input));
+            throw new ArgumentException("输入文本不能为null或空字符串", nameof(input));
 
         if (string.IsNullOrEmpty(key))
-            throw new System.ArgumentException("密钥不能为null或空字符串", nameof(key));
+            throw new ArgumentException("密钥不能为null或空字符串", nameof(key));
         try
         {
             using var aes = Aes.Create();
@@ -110,10 +110,10 @@ public static partial class StringExtensions
     public static string AesDecrypt(this string encryptedInput, string key)
     {
         if (string.IsNullOrEmpty(encryptedInput))
-            throw new System.ArgumentException("加密文本不能为null或空字符串", nameof(encryptedInput));
+            throw new ArgumentException("加密文本不能为null或空字符串", nameof(encryptedInput));
 
         if (string.IsNullOrEmpty(key))
-            throw new System.ArgumentException("密钥不能为null或空字符串", nameof(key));
+            throw new ArgumentException("密钥不能为null或空字符串", nameof(key));
 
         try
         {

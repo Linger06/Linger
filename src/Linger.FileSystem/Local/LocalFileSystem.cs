@@ -12,7 +12,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     public LocalFileSystem(LocalFileSystemOptions options)
         : base(options.RetryOptions)
     {
-        _options = options ?? throw new System.ArgumentNullException(nameof(options));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
         RootDirectoryPath = options.RootDirectoryPath;
 
         // 确保根目录存在

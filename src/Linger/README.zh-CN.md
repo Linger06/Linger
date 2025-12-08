@@ -584,11 +584,13 @@ int failed = doubleObj.ToIntOrDefault(0);  // 返回 0（转换失败）
 
 ## Polyfill 汇总
 
-提供 BCL API 与语言特性的前向兼容 Polyfill（.NET Framework/Standard 2.0/旧版本），采用条件编译，升级新框架后自动让位。
+提供 BCL API 与语言特性的前向兼容 Polyfill（.NET Framework/Standard 2.0/旧版本），采用条件编译，升级新框架后自动让位。使用 C# 14 扩展成员语法实现，代码更简洁。
 
 | 类别 | 内容 | 源码位置 |
 |------|------|----------|
-| **参数验证** | `ArgumentNullException.ThrowIfNull` (.NET 6 前)<br>`ArgumentException.ThrowIfNullOrEmpty/WhiteSpace` (.NET 8 前) | `Polyfills/ArgumentNullException.cs`<br>`Polyfills/ArgumentException.cs` |
+| **参数验证** | `ArgumentNullException.ThrowIfNull` (.NET 6 前)<br>`ArgumentException.ThrowIfNullOrEmpty/WhiteSpace` (.NET 8 前)<br>`ArgumentOutOfRangeException.ThrowIfNegative/Zero/...` (.NET 8 前) | `Polyfills/ArgumentNullException.cs`<br>`Polyfills/ArgumentException.cs`<br>`Polyfills/ArgumentOutOfRangeException.cs` |
+| **哈希算法** | `MD5.HashData`、`SHA256.HashData`、`SHA384.HashData`、`SHA512.HashData` (.NET 5 前) | `Polyfills/HashAlgorithm.cs` |
+| **转换工具** | `Convert.ToHexStringLower` (.NET 9 前) | `Polyfills/Convert.cs` |
 | **语言特性** | `required` 关键字支持 (C# 11)<br>`RequiredMemberAttribute`、`SetsRequiredMembersAttribute`、`CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **可空性注解** | `AllowNull`、`NotNull`、`MaybeNullWhen`、`NotNullIfNotNull` 等 11 个特性 | `Polyfills/NullableAttributes.cs` |
 | **集合扩展** | `LeftJoin`、`RightJoin`、`FullJoin` ( .NET 10 兼容，向下保留 Polyfill ) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |

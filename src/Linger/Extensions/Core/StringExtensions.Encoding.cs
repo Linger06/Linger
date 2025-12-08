@@ -13,15 +13,12 @@ public static partial class StringExtensions
     public static byte[] ToMd5HashByte(this string input)
     {
         if (string.IsNullOrEmpty(input))
+        {
             return [];
+        }
 
         var inputBytes = Encoding.UTF8.GetBytes(input);
-#if NET5_0_OR_GREATER
         return MD5.HashData(inputBytes);
-#else
-        using var md5 = MD5.Create();
-        return md5.ComputeHash(inputBytes);
-#endif
     }
 
     /// <summary>
@@ -46,15 +43,12 @@ public static partial class StringExtensions
     public static byte[] ToSha256HashByte(this string input)
     {
         if (string.IsNullOrEmpty(input))
+        {
             return [];
+        }
 
         var inputBytes = Encoding.UTF8.GetBytes(input);
-#if NET5_0_OR_GREATER
         return SHA256.HashData(inputBytes);
-#else
-        using var sha256 = SHA256.Create();
-        return sha256.ComputeHash(inputBytes);
-#endif
     }
 
     /// <summary>
@@ -68,11 +62,7 @@ public static partial class StringExtensions
             return string.Empty;
 
         var hashBytes = input.ToSha256HashByte();
-#if NET9_0_OR_GREATER
         return Convert.ToHexStringLower(hashBytes);
-#else
-        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-#endif
     }
 
     /// <summary>

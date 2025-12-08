@@ -387,21 +387,7 @@ public static class ArrayExtensions
     /// <returns>The MD5 hash code string.</returns>
     public static string ToMd5HashCode(this byte[] inputHashBytes)
     {
-#if NET9_0_OR_GREATER
-        // Lowercase hex without separators for consistency
         return Convert.ToHexStringLower(inputHashBytes);
-#elif NET5_0_OR_GREATER
-        // Convert.ToHexString returns uppercase; normalize to lowercase
-        return Convert.ToHexString(inputHashBytes).ToLowerInvariant();
-#elif NETFRAMEWORK || NETSTANDARD2_0
-        // BitConverter uses hyphens and uppercase; remove hyphens and normalize to lowercase
-        return BitConverter.ToString(inputHashBytes).Replace("-", string.Empty).ToLowerInvariant();
-#else
-        return BitConverter
-            .ToString(inputHashBytes)
-            .Replace("-", string.Empty, StringComparison.Ordinal)
-            .ToLowerInvariant();
-#endif
     }
 
     #endregion
