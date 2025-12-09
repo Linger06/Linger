@@ -352,8 +352,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                         if (!row.IsNull(columnIndex))
                         {
                             var value = row[columnIndex];
-                            var convertedValue = ExcelValueConverter.TryConvertValue(value, property.PropertyType);
-                            if (convertedValue != null)
+                            if (TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue) && convertedValue is not null)
                             {
                                 property.SetValue(item, convertedValue);
                             }

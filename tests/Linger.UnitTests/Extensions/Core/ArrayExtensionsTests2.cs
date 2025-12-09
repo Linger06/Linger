@@ -60,4 +60,39 @@ public partial class ArrayExtensionsTests
         Assert.NotNull(result);
         Assert.Empty(result);
     }
+
+    [Fact]
+    public void ToBase64UrlString_ConvertsCorrectly()
+    {
+        byte[] value = { 1, 2, 3 };
+        var result = value.ToBase64UrlString();
+        Assert.Equal("AQID", result);
+    }
+
+    [Fact]
+    public void ToBase64UrlString_ReplacesSpecialCharacters()
+    {
+        // Bytes that produce '+' and '/' in standard Base64
+        // 0xFB + 0xFF = standard Base64 would produce "++//"
+        byte[] value = { 0xFB, 0xEF, 0xBE };
+        var result = value.ToBase64UrlString();
+
+        // Should not contain '+' or '/'
+        Assert.DoesNotContain("+", result);
+        Assert.DoesNotContain("/", result);
+        // Should contain '-' or '_' instead
+        Assert.True(result.Contains('-') || result.Contains('_') || !result.Contains('+') && !result.Contains('/'));
+    }
+
+    [Fact]
+    public void ToBase64UrlString_RemovesPadding()
+    {
+        // Single byte produces Base64 with padding "AQ=="
+        byte[] value = { 1 };
+        var result = value.ToBase64UrlString();
+
+        // Should not contain padding
+        Assert.DoesNotContain("=", result);
+        Assert.Equal("AQ", result);
+    }
 }

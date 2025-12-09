@@ -288,6 +288,27 @@ public static class ArrayExtensions
     }
 
     /// <summary>
+    /// Converts the current Byte[] sequence to a URL-safe Base64 encoded string.
+    /// </summary>
+    /// <param name="value">The Byte[] to convert.</param>
+    /// <returns>The converted string representation in URL-safe Base64.</returns>
+    /// <remarks>
+    /// URL-safe Base64 replaces '+' with '-' and '/' with '_', and removes padding '=' characters.
+    /// This makes the output safe for use in URLs without additional encoding.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// byte[] bytes = { 1, 2, 3, 4, 5 };
+    /// string base64UrlString = bytes.ToBase64UrlString();
+    /// // base64UrlString is "AQIDBAU" (URL-safe, no padding)
+    /// </code>
+    /// </example>
+    public static string ToBase64UrlString(this byte[] value)
+    {
+        return System.Buffers.Text.Base64Url.EncodeToString(value);
+    }
+
+    /// <summary>
     /// Converts the current Byte[] sequence to a Base64 encoded string for an image.
     /// </summary>
     /// <param name="value">The Byte[] to convert.</param>

@@ -6,7 +6,9 @@ namespace Linger.Extensions.Core;
 public static partial class StringExtensions
 {
     #region Regex Constants
+#if !NET10_0_OR_GREATER
     const string Ipv4RegexPattern = @"^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$";
+#endif
     const string DomainRegexPattern = @"^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?$";
     const string UrlRegexPattern = @"^https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]";
     const string EmailRegexPattern = @"^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
@@ -71,6 +73,87 @@ public static partial class StringExtensions
         return UrlRegex().IsMatch(input);
     }
 
+#if NET10_0_OR_GREATER
+    /// <summary>
+    /// 判断指定字符串是否为有效的 IP 地址（IPv4 或 IPv6）。
+    /// </summary>
+    /// <param name="input">要验证的字符串。</param>
+    /// <returns>如果字符串是有效的 IP 地址，则返回 true；否则返回 false。</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "192.168.1.1".IsIpAddress();              // true (IPv4)
+    /// bool ok2 = "::1".IsIpAddress();                       // true (IPv6)
+    /// bool ok3 = "2001:db8::1".IsIpAddress();              // true (IPv6)
+    /// bool no = "999.1.1.1".IsIpAddress();                  // false
+    /// </code>
+    /// </example>
+    public static bool IsIpAddress(this string? input)
+    {
+        if (input is null)
+            return false;
+
+        return System.Net.IPAddress.IsValid(input);
+    }
+
+    /// <summary>
+    /// 判断指定字符串是否为有效的 IPv4 地址。
+    /// 注意：只接受标准的点分十进制格式（如 192.168.1.1），不接受简写形式（如 192.168.1）。
+    /// </summary>
+    /// <param name="input">要验证的字符串。</param>
+    /// <returns>如果字符串是有效的 IPv4 地址，则返回 true；否则返回 false。</returns>
+    /// <example>
+    /// <code>
+    /// bool ok = "192.168.1.1".IsIpv4();   // true
+    /// bool no = "999.1.1.1".IsIpv4();     // false
+    /// bool no2 = "::1".IsIpv4();          // false (IPv6)
+    /// bool no3 = "192.168.1".IsIpv4();    // false (简写形式不支持)
+    /// </code>
+    /// </example>
+    public static bool IsIpv4(this string? input)
+    {
+        if (input is null)
+            return false;
+
+        // 验证格式：必须是标准的 4 段点分十进制格式
+        // IPAddress.TryParse 会接受简写形式如 "192.168.1"，但我们只接受标准格式
+        if (!System.Net.IPAddress.TryParse(input, out var ip)
+            || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return false;
+        }
+
+        // 确保原始输入是标准的 4 段格式（3 个点）
+        var dotCount = 0;
+        foreach (var c in input)
+        {
+            if (c == '.')
+                dotCount++;
+        }
+
+        return dotCount == 3;
+    }
+
+    /// <summary>
+    /// 判断指定字符串是否为有效的 IPv6 地址。
+    /// </summary>
+    /// <param name="input">要验证的字符串。</param>
+    /// <returns>如果字符串是有效的 IPv6 地址，则返回 true；否则返回 false。</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "::1".IsIpv6();                    // true
+    /// bool ok2 = "2001:db8::1".IsIpv6();           // true
+    /// bool no = "192.168.1.1".IsIpv6();            // false (IPv4)
+    /// </code>
+    /// </example>
+    public static bool IsIpv6(this string? input)
+    {
+        if (input is null)
+            return false;
+
+        return System.Net.IPAddress.TryParse(input, out var ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+    }
+#else
     [GeneratedRegex(Ipv4RegexPattern)]
     private static partial Regex Ipv4Regex();
 
@@ -92,6 +175,49 @@ public static partial class StringExtensions
 
         return Ipv4Regex().IsMatch(input);
     }
+
+    /// <summary>
+    /// 判断指定字符串是否为有效的 IP 地址（IPv4 或 IPv6）。
+    /// </summary>
+    /// <param name="input">要验证的字符串。</param>
+    /// <returns>如果字符串是有效的 IP 地址，则返回 true；否则返回 false。</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "192.168.1.1".IsIpAddress();              // true (IPv4)
+    /// bool ok2 = "::1".IsIpAddress();                       // true (IPv6)
+    /// bool ok3 = "2001:db8::1".IsIpAddress();              // true (IPv6)
+    /// bool no = "999.1.1.1".IsIpAddress();                  // false
+    /// </code>
+    /// </example>
+    public static bool IsIpAddress(this string? input)
+    {
+        if (input is null)
+            return false;
+
+        return System.Net.IPAddress.TryParse(input, out _);
+    }
+
+    /// <summary>
+    /// 判断指定字符串是否为有效的 IPv6 地址。
+    /// </summary>
+    /// <param name="input">要验证的字符串。</param>
+    /// <returns>如果字符串是有效的 IPv6 地址，则返回 true；否则返回 false。</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "::1".IsIpv6();                    // true
+    /// bool ok2 = "2001:db8::1".IsIpv6();           // true
+    /// bool no = "192.168.1.1".IsIpv6();            // false (IPv4)
+    /// </code>
+    /// </example>
+    public static bool IsIpv6(this string? input)
+    {
+        if (input is null)
+            return false;
+
+        return System.Net.IPAddress.TryParse(input, out var ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
+    }
+#endif
 
     [GeneratedRegex(DomainRegexPattern)]
     private static partial Regex DomainRegex();
@@ -213,6 +339,48 @@ public static partial class StringExtensions
             return false;
 
         return s_ipv4Regex.IsMatch(input);
+    }
+
+    /// <summary>
+    /// 判断指定字符串是否为有效的 IP 地址（IPv4 或 IPv6）。
+    /// </summary>
+    /// <param name="input">要验证的字符串。</param>
+    /// <returns>如果字符串是有效的 IP 地址，则返回 true；否则返回 false。</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "192.168.1.1".IsIpAddress();              // true (IPv4)
+    /// bool ok2 = "::1".IsIpAddress();                       // true (IPv6)
+    /// bool ok3 = "2001:db8::1".IsIpAddress();              // true (IPv6)
+    /// bool no = "999.1.1.1".IsIpAddress();                  // false
+    /// </code>
+    /// </example>
+    public static bool IsIpAddress(this string? input)
+    {
+        if (input is null)
+            return false;
+
+        return System.Net.IPAddress.TryParse(input, out _);
+    }
+
+    /// <summary>
+    /// 判断指定字符串是否为有效的 IPv6 地址。
+    /// </summary>
+    /// <param name="input">要验证的字符串。</param>
+    /// <returns>如果字符串是有效的 IPv6 地址，则返回 true；否则返回 false。</returns>
+    /// <example>
+    /// <code>
+    /// bool ok1 = "::1".IsIpv6();                    // true
+    /// bool ok2 = "2001:db8::1".IsIpv6();           // true
+    /// bool no = "192.168.1.1".IsIpv6();            // false (IPv4)
+    /// </code>
+    /// </example>
+    public static bool IsIpv6(this string? input)
+    {
+        if (input is null)
+            return false;
+
+        return System.Net.IPAddress.TryParse(input, out var ip)
+            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
     }
 
     /// <summary>

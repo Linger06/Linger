@@ -217,5 +217,89 @@ public class ExpressionExtensionsTests
         // Assert
         Assert.False(hasOrderBy);
     }
+
+    [Fact]
+    public void HasOrderBy_WithThenBy_ReturnsTrue()
+    {
+        // Arrange
+        var query = new List<TestEntity>
+        {
+            new() { Id = 1, Name = "John Doe", Age = 30 },
+            new() { Id = 2, Name = "Linger", Age = 25 }
+        }.AsQueryable().OrderBy(e => e.Name).ThenBy(e => e.Age);
+        
+        // Act
+        var hasOrderBy = query.HasOrderBy();
+        
+        // Assert
+        Assert.True(hasOrderBy);
+    }
+
+    [Fact]
+    public void HasOrderBy_WithThenByDescending_ReturnsTrue()
+    {
+        // Arrange
+        var query = new List<TestEntity>
+        {
+            new() { Id = 1, Name = "John Doe", Age = 30 },
+            new() { Id = 2, Name = "Linger", Age = 25 }
+        }.AsQueryable().OrderBy(e => e.Name).ThenByDescending(e => e.Age);
+        
+        // Act
+        var hasOrderBy = query.HasOrderBy();
+        
+        // Assert
+        Assert.True(hasOrderBy);
+    }
+
+    [Fact]
+    public void HasOrderBy_WithNullQuery_ReturnsFalse()
+    {
+        // Arrange
+        IQueryable<TestEntity>? query = null;
+        
+        // Act
+        var hasOrderBy = query.HasOrderBy();
+        
+        // Assert
+        Assert.False(hasOrderBy);
+    }
+
+    [Fact]
+    public void HasOrderBy_WithComplexQuery_WithOrderBy_ReturnsTrue()
+    {
+        // Arrange
+        var query = new List<TestEntity>
+        {
+            new() { Id = 1, Name = "John Doe", Age = 30 },
+            new() { Id = 2, Name = "Linger", Age = 25 }
+        }.AsQueryable()
+         .Where(e => e.Age > 20)
+         .OrderBy(e => e.Name)
+         .Select(e => new { e.Name, e.Age });
+        
+        // Act
+        var hasOrderBy = query.HasOrderBy();
+        
+        // Assert
+        Assert.True(hasOrderBy);
+    }
+
+    [Fact]
+    public void HasOrderBy_WithSelectOnly_ReturnsFalse()
+    {
+        // Arrange
+        var query = new List<TestEntity>
+        {
+            new() { Id = 1, Name = "John Doe", Age = 30 },
+            new() { Id = 2, Name = "Linger", Age = 25 }
+        }.AsQueryable().Select(e => e.Name);
+        
+        // Act
+        var hasOrderBy = query.HasOrderBy();
+        
+        // Assert
+        Assert.False(hasOrderBy);
+    }
 #endif
 }
