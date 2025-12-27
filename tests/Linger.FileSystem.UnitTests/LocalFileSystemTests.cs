@@ -239,11 +239,14 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task DownloadToStreamAsync_WithNullStream_ThrowsArgumentNullException()
+        public async Task DownloadToStreamAsync_WithNullStream_ReturnsFailureResult()
         {
-            // Act & Assert
-            await Assert.ThrowsAsync<System.ArgumentNullException>(() =>
-                _fileSystem.DownloadToStreamAsync("test.txt", null!));
+            // Act
+            var result = await _fileSystem.DownloadToStreamAsync("test.txt", null!);
+
+            // Assert
+            Assert.False(result.Success);
+            Assert.NotNull(result.ErrorMessage);
         }
 
         [Fact]
@@ -473,6 +476,240 @@ namespace Linger.FileSystem.Tests.Local
                 Assert.Contains(destPath, result.FilePath);
             }
         }
+
+        #region 流工厂与元数据方法测试
+
+        [Fact]
+        public async Task OpenReadAsync_WhenFileExists_ReturnsReadableStream()
+        {
+            // Arrange
+            var content = "Test Content for OpenReadAsync";
+            var filePath = Path.Combine(_testRootPath, "openread.txt");
+            File.WriteAllText(filePath, content);
+
+            // Act
+            using var stream = await _fileSystem.OpenReadAsync("openread.txt");
+
+            // Assert
+            Assert.NotNull(stream);
+            Assert.True(stream.CanRead);
+            using var reader = new StreamReader(stream);
+            var readContent = await reader.ReadToEndAsync();
+            Assert.Equal(content, readContent);
+        }
+
+        [Fact]
+        public async Task OpenReadAsync_WhenFileDoesNotExist_ThrowsFileNotFoundException()
+        {
+            // Act & Assert
+            await Assert.ThrowsAsync<FileNotFoundException>(() =>
+                _fileSystem.OpenReadAsync("nonexistent.txt"));
+        }
+
+        [Fact]
+        public async Task OpenWriteAsync_CreatesNewFile()
+        {
+            // Arrange
+            var filePath = "openwrite.txt";
+            var content = "Test Content for OpenWriteAsync";
+
+            // Act
+            using (var stream = await _fileSystem.OpenWriteAsync(filePath))
+            {
+                var bytes = Encoding.UTF8.GetBytes(content);
+                await stream.WriteAsync(bytes, 0, bytes.Length);
+            }
+
+            // Assert
+            var fullPath = Path.Combine(_testRootPath, filePath);
+            Assert.True(File.Exists(fullPath));
+            Assert.Equal(content, File.ReadAllText(fullPath));
+        }
+
+        [Fact]
+        public async Task OpenWriteAsync_WithOverwriteFalse_ThrowsWhenFileExists()
+        {
+            // Arrange
+            var filePath = "existing.txt";
+            var fullPath = Path.Combine(_testRootPath, filePath);
+            File.WriteAllText(fullPath, "existing content");
+
+            // Act & Assert
+            await Assert.ThrowsAsync<DuplicateFileException>(() =>
+                _fileSystem.OpenWriteAsync(filePath, overwrite: false));
+        }
+
+        [Fact]
+        public async Task OpenWriteAsync_WithOverwriteTrue_OverwritesExistingFile()
+        {
+            // Arrange
+            var filePath = "overwrite.txt";
+            var fullPath = Path.Combine(_testRootPath, filePath);
+            File.WriteAllText(fullPath, "old content");
+            var newContent = "new content";
+
+            // Act
+            using (var stream = await _fileSystem.OpenWriteAsync(filePath, overwrite: true))
+            {
+                var bytes = Encoding.UTF8.GetBytes(newContent);
+                await stream.WriteAsync(bytes, 0, bytes.Length);
+            }
+
+            // Assert
+            Assert.Equal(newContent, File.ReadAllText(fullPath));
+        }
+
+        [Fact]
+        public async Task GetReaderAsync_WhenFileExists_ReturnsStreamReader()
+        {
+            // Arrange
+            var content = "Test Content for GetReaderAsync";
+            var filePath = Path.Combine(_testRootPath, "getreader.txt");
+            File.WriteAllText(filePath, content);
+
+            // Act
+            using var reader = await _fileSystem.GetReaderAsync("getreader.txt");
+
+            // Assert
+            Assert.NotNull(reader);
+            var readContent = await reader.ReadToEndAsync();
+            Assert.Equal(content, readContent);
+        }
+
+        [Fact]
+        public async Task GetReaderAsync_WithEncoding_UsesSpecifiedEncoding()
+        {
+            // Arrange
+            var content = "中文内容测试";
+            var filePath = Path.Combine(_testRootPath, "encoding.txt");
+            File.WriteAllText(filePath, content, Encoding.UTF8);
+
+            // Act
+            using var reader = await _fileSystem.GetReaderAsync("encoding.txt", Encoding.UTF8);
+
+            // Assert
+            var readContent = await reader.ReadToEndAsync();
+            Assert.Equal(content, readContent);
+        }
+
+        [Fact]
+        public async Task GetWriterAsync_CreatesNewFileWithContent()
+        {
+            // Arrange
+            var filePath = "getwriter.txt";
+            var content = "Test Content for GetWriterAsync";
+
+            // Act
+            using (var writer = await _fileSystem.GetWriterAsync(filePath))
+            {
+                await writer.WriteAsync(content);
+            }
+
+            // Assert
+            var fullPath = Path.Combine(_testRootPath, filePath);
+            Assert.True(File.Exists(fullPath));
+            Assert.Equal(content, File.ReadAllText(fullPath));
+        }
+
+        [Fact]
+        public async Task GetWriterAsync_WithEncoding_UsesSpecifiedEncoding()
+        {
+            // Arrange
+            var filePath = "writer_encoding.txt";
+            var content = "中文内容写入测试";
+
+            // Act
+            using (var writer = await _fileSystem.GetWriterAsync(filePath, encoding: Encoding.UTF8))
+            {
+                await writer.WriteAsync(content);
+            }
+
+            // Assert
+            var fullPath = Path.Combine(_testRootPath, filePath);
+            var readContent = File.ReadAllText(fullPath, Encoding.UTF8);
+            Assert.Equal(content, readContent);
+        }
+
+        [Fact]
+        public async Task IsDirectoryAsync_WhenDirectoryExists_ReturnsTrue()
+        {
+            // Arrange
+            var dirPath = Path.Combine(_testRootPath, "testdir");
+            Directory.CreateDirectory(dirPath);
+
+            // Act
+            var result = await _fileSystem.IsDirectoryAsync("testdir");
+
+            // Assert
+            Assert.True(result);
+        }
+
+        [Fact]
+        public async Task IsDirectoryAsync_WhenDirectoryDoesNotExist_ReturnsFalse()
+        {
+            // Act
+            var result = await _fileSystem.IsDirectoryAsync("nonexistentdir");
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task IsDirectoryAsync_WhenPathIsFile_ReturnsFalse()
+        {
+            // Arrange
+            var filePath = Path.Combine(_testRootPath, "isfile.txt");
+            File.WriteAllText(filePath, "content");
+
+            // Act
+            var result = await _fileSystem.IsDirectoryAsync("isfile.txt");
+
+            // Assert
+            Assert.False(result);
+        }
+
+        [Fact]
+        public async Task GetFileSizeAsync_WhenFileExists_ReturnsCorrectSize()
+        {
+            // Arrange
+            var content = "Test Content for GetFileSizeAsync";
+            var filePath = Path.Combine(_testRootPath, "filesize.txt");
+            File.WriteAllText(filePath, content);
+            var expectedSize = new FileInfo(filePath).Length;
+
+            // Act
+            var result = await _fileSystem.GetFileSizeAsync("filesize.txt");
+
+            // Assert
+            Assert.NotNull(result);
+            Assert.Equal(expectedSize, result.Value);
+        }
+
+        [Fact]
+        public async Task GetFileSizeAsync_WhenFileDoesNotExist_ReturnsNull()
+        {
+            // Act
+            var result = await _fileSystem.GetFileSizeAsync("nonexistent.txt");
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        [Fact]
+        public async Task GetFileSizeAsync_WhenPathIsDirectory_ReturnsNull()
+        {
+            // Arrange
+            var dirPath = Path.Combine(_testRootPath, "sizedir");
+            Directory.CreateDirectory(dirPath);
+
+            // Act
+            var result = await _fileSystem.GetFileSizeAsync("sizedir");
+
+            // Assert
+            Assert.Null(result);
+        }
+
+        #endregion
     }
 
     public class FailingStream : Stream

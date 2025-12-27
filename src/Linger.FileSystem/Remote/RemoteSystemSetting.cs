@@ -67,6 +67,43 @@ public class RemoteSystemSetting
     public int OperationTimeout { get; set; } = 60000;
 
     /// <summary>
+    /// 批量操作的最大并发度（默认 1 表示串行）。
+    /// </summary>
+    /// <remarks>
+    /// 并发度过高可能触发服务器限流或连接数限制。
+    /// 建议在 FTP/SFTP 服务端允许的范围内谨慎调整。
+    /// </remarks>
+    public int MaxDegreeOfParallelism { get; set; } = 1;
+
+    /// <summary>
+    /// 连接池中连接的最大空闲时间（可选）。
+    /// </summary>
+    /// <remarks>
+    /// <para>超过此时间未使用的连接会在下次租借时被丢弃并重新创建。</para>
+    /// <para>设置为 <c>null</c> 表示不限制空闲时间（默认）。</para>
+    /// <para>建议设置为 1-5 分钟，以平衡连接复用和资源释放。</para>
+    /// </remarks>
+    public TimeSpan? ConnectionPoolIdleTimeout { get; set; }
+
+    /// <summary>
+    /// 批量操作中单个文件的最大重试次数（默认 0 表示不重试）。
+    /// </summary>
+    /// <remarks>
+    /// <para>当批量上传/下载/删除时，若单个文件操作失败，可自动重试。</para>
+    /// <para>设置为 0 表示不进行重试（默认）。</para>
+    /// <para>建议设置为 2-3 次，避免过多重试导致整体操作时间过长。</para>
+    /// </remarks>
+    public int BatchOperationRetryCount { get; set; }
+
+    /// <summary>
+    /// 批量操作重试的基础延迟时间（毫秒）。
+    /// </summary>
+    /// <remarks>
+    /// 仅当 <see cref="BatchOperationRetryCount"/> 大于 0 时生效。
+    /// </remarks>
+    public int BatchOperationRetryDelayMilliseconds { get; set; } = 1000;
+
+    /// <summary>
     /// 初始化FTP设置
     /// </summary>
     public static RemoteSystemSetting CreateFtp(string host, int port, string userName, string password)
@@ -128,7 +165,11 @@ public class RemoteSystemSetting
             CertificatePassphrase = CertificatePassphrase,
             ConnectionTimeout = ConnectionTimeout,
             OperationTimeout = OperationTimeout,
-            Encoding = Encoding
+            Encoding = Encoding,
+            MaxDegreeOfParallelism = MaxDegreeOfParallelism,
+            ConnectionPoolIdleTimeout = ConnectionPoolIdleTimeout,
+            BatchOperationRetryCount = BatchOperationRetryCount,
+            BatchOperationRetryDelayMilliseconds = BatchOperationRetryDelayMilliseconds
         };
     }
 

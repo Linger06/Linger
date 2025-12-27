@@ -158,7 +158,13 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
+#if NET6_0_OR_GREATER
+                CopyFolder(d, string.Concat(varToDirectory, d.AsSpan(d.LastIndexOf('\\'))));
+#else
+#pragma warning disable CA1845
                 CopyFolder(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
+#pragma warning restore CA1845
+#endif
             }
         }
 
@@ -167,7 +173,13 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
+#if NET6_0_OR_GREATER
+                File.Copy(s, string.Concat(varToDirectory, s.AsSpan(s.LastIndexOf('\\'))), true);
+#else
+#pragma warning disable CA1845
                 File.Copy(s, varToDirectory + s.Substring(s.LastIndexOf('\\')), true);
+#pragma warning restore CA1845
+#endif
             }
         }
     }
@@ -192,7 +204,13 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
+#if NET6_0_OR_GREATER
+                DeleteFolderFiles(d, string.Concat(varToDirectory, d.AsSpan(d.LastIndexOf('\\'))));
+#else
+#pragma warning disable CA1845
                 DeleteFolderFiles(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
+#pragma warning restore CA1845
+#endif
             }
         }
 
@@ -202,7 +220,13 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
+#if NET6_0_OR_GREATER
+                File.Delete(string.Concat(varToDirectory, s.AsSpan(s.LastIndexOf('\\'))));
+#else
+#pragma warning disable CA1845
                 File.Delete(varToDirectory + s.Substring(s.LastIndexOf('\\')));
+#pragma warning restore CA1845
+#endif
             }
         }
     }

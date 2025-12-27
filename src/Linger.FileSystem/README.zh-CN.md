@@ -96,6 +96,9 @@ ILocalFileSystem    IRemoteFileSystem
 - **连接管理**: 自动处理远程文件系统的连接和断开
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
 - **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理（内存减少 99.99%）
+- **批量操作进度报告**: 通过 `IProgress<BatchProgress>` 实时跟踪批量上传、下载和删除操作的进度
+- **连接池空闲超时**: 通过 `ConnectionPoolIdleTimeout` 配置自动清理连接池中的空闲连接
+- **批量操作重试**: 通过 `BatchOperationRetryCount` 和延迟设置为批量操作中的单个文件提供重试支持
 
 ## 支持的.NET版本
 
@@ -135,6 +138,85 @@ if (result.Success)
     Console.WriteLine($"文件上传成功: {result.FilePath}");
 }
 ```
+
+### 并发与批量操作（本地）
+
+本地批量操作支持通过 `LocalFileSystemOptions.MaxDegreeOfParallelism` 配置并发度，用于提升批量复制/删除的吞吐量：
+
+- 值为 1：串行执行（默认），资源占用低；
+- 值大于 1：并发执行（内部使用限流），适合大量文件批处理。
+
+示例：
+
+```csharp
+// 配置并发度并使用统一批量接口
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",
+    MaxDegreeOfParallelism = 4 // 1 串行，>1 并发
+};
+
+var localFs = new LocalFileSystem(options);
+
+// 批量上传到根目录下的相对目录（复制到 C:/Storage/uploads）
+var uploadResult = await localFs.UploadFilesAsync(new[]
+{
+    "C:/in/a.txt",
+    "C:/in/b.txt"
+}, "uploads", overwrite: true);
+Console.WriteLine($"上传成功: {uploadResult.SucceededFiles.Count}, 失败: {uploadResult.FailedFiles.Count}");
+
+// 批量下载：从根目录下的相对路径复制到指定本地目录
+var downloadResult = await localFs.DownloadFilesAsync(new[]
+{
+    "uploads/a.txt",
+    "uploads/b.txt"
+}, "C:/downloads", overwrite: true);
+Console.WriteLine($"下载成功: {downloadResult.SucceededFiles.Count}, 失败: {downloadResult.FailedFiles.Count}");
+
+// 批量删除：传入根内的相对路径
+var deleteResult = await localFs.DeleteFilesAsync(new[]
+{
+    "uploads/a.txt",
+    "uploads/b.txt"
+});
+Console.WriteLine($"删除成功: {deleteResult.SucceededFiles.Count}, 失败: {deleteResult.FailedFiles.Count}");
+```
+
+说明：上述批量接口返回 `BatchOperationResult`，其中包含 `SucceededFiles` 与 `FailedFiles`（失败项含错误信息与异常对象）。
+
+### 批量操作进度报告
+
+使用 `IProgress<BatchProgress>` 监控批量操作进度：
+
+```csharp
+// 创建进度处理器
+var progress = new Progress<BatchProgress>(p =>
+{
+    Console.WriteLine($"进度: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)");
+    Console.WriteLine($"当前文件: {p.CurrentFile}");
+    Console.WriteLine($"成功: {p.Succeeded}, 失败: {p.Failed}");
+});
+
+// 带进度报告的批量上传
+var uploadResult = await fileSystem.UploadFilesAsync(files, "/uploads", overwrite: true, progress);
+
+// 带进度报告的批量下载
+var downloadResult = await fileSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
+
+// 带进度报告的批量删除
+var deleteResult = await fileSystem.DeleteFilesAsync(filesToDelete, progress);
+```
+
+`BatchProgress` 结构包含：
+- `Completed`: 已处理的文件数（每个文件处理完成后报告）
+- `Total`: 总文件数
+- `CurrentFile`: 刚处理完成的文件路径
+- `Succeeded`: 成功的操作数
+- `Failed`: 失败的操作数
+- `PercentComplete`: 完成百分比 (0-100)
+
+**说明**: 进度报告在每个文件操作*完成后*发送，确保 `Completed` 始终反映准确的计数。
 
 ### 使用FTP文件系统
 
@@ -246,6 +328,53 @@ bool exists = await fileSystem.DirectoryExistsAsync("uploads/images");
 
 // 创建目录
 await fileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
+
+// 判断路径是否为目录
+if (await fileSystem.IsDirectoryAsync("uploads/images"))
+{
+    Console.WriteLine("路径是一个目录");
+}
+```
+
+### 流工厂 API
+
+高效的流式操作，无需将整个文件加载到内存：
+
+```csharp
+// 打开文件进行读取（返回原始 Stream）
+await using var readStream = await fileSystem.OpenReadAsync("data/large-file.bin", cancellationToken);
+await ProcessLargeFileAsync(readStream);
+
+// 打开文件进行写入
+await using var writeStream = await fileSystem.OpenWriteAsync("output/result.bin", overwrite: true, cancellationToken);
+await writeStream.WriteAsync(data, cancellationToken);
+
+// 使用 StreamReader 读取文本文件
+using var reader = await fileSystem.GetReaderAsync("logs/app.log", Encoding.UTF8, cancellationToken);
+while (await reader.ReadLineAsync() is { } line)
+{
+    ProcessLine(line);
+}
+
+// 使用 StreamWriter 写入文本文件
+await using var writer = await fileSystem.GetWriterAsync("output/report.csv", overwrite: true, Encoding.UTF8, cancellationToken);
+await writer.WriteLineAsync("Name,Value");
+await writer.WriteLineAsync("Item1,100");
+```
+
+### 元数据查询 API
+
+```csharp
+// 获取文件大小（如果文件不存在则返回 null）
+var fileSize = await fileSystem.GetFileSizeAsync("uploads/document.pdf", cancellationToken);
+if (fileSize.HasValue)
+{
+    Console.WriteLine($"文件大小: {fileSize.Value} 字节");
+}
+else
+{
+    Console.WriteLine("文件不存在");
+}
 ```
 
 ## 配置选项
@@ -286,6 +415,15 @@ var remoteSetting = new RemoteSystemSetting
     Type = "FTP",                              // 类型: "FTP" 或 "SFTP"
     ConnectionTimeout = 30000,                 // 连接超时(毫秒)
     OperationTimeout = 60000,                  // 操作超时(毫秒)
+    MaxDegreeOfParallelism = 4,                // 批量操作并发度
+    
+    // 连接池空闲超时（空闲超过此时间的连接将被重新创建）
+    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
+    
+    // 批量操作单文件重试设置
+    BatchOperationRetryCount = 3,              // 每个文件的重试次数（0 = 不重试）
+    BatchOperationRetryDelayMilliseconds = 1000, // 重试之间的延迟
+    
     // SFTP特定设置
     CertificatePath = "",                      // 证书路径
     CertificatePassphrase = ""                 // 证书口令

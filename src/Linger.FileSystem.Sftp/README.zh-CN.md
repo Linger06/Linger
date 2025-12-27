@@ -18,6 +18,7 @@ dotnet add package Linger.FileSystem.Sftp
 - 超时配置
 - 与 Linger.FileSystem 抽象无缝集成
 - 支持多个 .NET 框架（net9.0、net8.0、netstandard2.0）
+- 统一的批量操作接口与并发控制（`MaxDegreeOfParallelism`）
 
 ## 基本用法
 
@@ -173,26 +174,91 @@ var localFiles = new[]
     @"C:\local\file3.txt"
 };
 
-foreach (var localFile in localFiles)
+// 使用统一的批量接口进行上传/下载/删除
+// 建议结合并发开关提升吞吐量
+var settings = new RemoteSystemSetting
 {
-    var fileName = Path.GetFileName(localFile);
-    var remotePath = $"/remote/uploads/{fileName}";
-    
-    // 带进度跟踪的上传
-    await sftpSystem.CopyFileAsync(localFile, remotePath);
-    Console.WriteLine($"已上传：{fileName}");
-}
+    Host = "sftp.example.com",
+    Port = 22,
+    UserName = "username",
+    Password = "password",
+    ConnectionTimeout = 15000,
+    OperationTimeout = 60000,
+    MaxDegreeOfParallelism = 4 // 1 串行，>1 并发（每任务独立连接）
+};
 
-// 下载多个文件
-var remoteFiles = sftpSystem.GetFiles("/remote/downloads", "*.txt");
-foreach (var remoteFile in remoteFiles)
+var sftp = new SftpFileSystem(settings);
+await sftp.ConnectAsync();
+
+// 批量上传
+var uploadResult = await sftp.UploadFilesAsync(new[]
 {
-    var fileName = Path.GetFileName(remoteFile);
-    var localPath = Path.Combine(@"C:\local\downloads", fileName);
-    
-    await sftpSystem.CopyFileAsync(remoteFile, localPath);
-    Console.WriteLine($"已下载：{fileName}");
-}
+    "C:/local/file1.txt",
+    "C:/local/file2.txt"
+}, "/remote/uploads", overwrite: true);
+Console.WriteLine($"上传成功: {uploadResult.SucceededFiles.Count}, 失败: {uploadResult.FailedFiles.Count}");
+
+// 批量下载
+var downloadResult = await sftp.DownloadFilesAsync(new[]
+{
+    "/remote/uploads/file1.txt",
+    "/remote/uploads/file2.txt"
+}, "C:/downloads", overwrite: true);
+Console.WriteLine($"下载成功: {downloadResult.SucceededFiles.Count}, 失败: {downloadResult.FailedFiles.Count}");
+
+// 批量删除
+var deleteResult = await sftp.DeleteFilesAsync(new[]
+{
+    "/remote/uploads/file1.txt",
+    "/remote/uploads/file2.txt"
+});
+Console.WriteLine($"删除成功: {deleteResult.SucceededFiles.Count}, 失败: {deleteResult.FailedFiles.Count}");
+
+await sftp.DisconnectAsync();
+
+// 失败详情在 FailedFiles 中，包含文件路径、错误信息与异常对象
+
+```
+
+### 批量操作进度报告
+
+使用 `IProgress<BatchProgress>` 参数监控批量操作进度：
+
+```csharp
+// 创建进度处理器
+var progress = new Progress<BatchProgress>(p =>
+{
+    Console.WriteLine($"进度: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)");
+    Console.WriteLine($"当前文件: {p.CurrentFile}");
+    Console.WriteLine($"成功: {p.Succeeded}, 失败: {p.Failed}");
+});
+
+// 带进度报告的批量上传
+var result = await sftp.UploadFilesAsync(files, "/remote/uploads", overwrite: true, progress);
+
+// 带进度报告的批量下载
+var downloadResult = await sftp.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
+
+// 带进度报告的批量删除
+var deleteResult = await sftp.DeleteFilesAsync(filesToDelete, progress);
+```
+
+`BatchProgress` 结构包含：
+- `Completed`: 已处理的文件数（每个文件处理完成后报告）
+- `Total`: 总文件数
+- `CurrentFile`: 刚处理完成的文件路径
+- `Succeeded`: 成功的操作数
+- `Failed`: 失败的操作数
+- `PercentComplete`: 完成百分比 (0-100)
+
+**说明**: 进度报告在每个文件操作*完成后*发送，确保 `Completed` 始终反映准确的计数。
+
+### 并发支持
+
+通过设置 `RemoteSystemSetting.MaxDegreeOfParallelism` 控制批量操作并发度：
+
+- 值为 1：使用单连接串行执行，资源占用低，适合小规模任务；
+- 值大于 1：每个任务使用独立的 `SftpClient` 连接，避免线程安全问题并提高吞吐量。
 ```
 
 ### 自定义连接设置
@@ -210,11 +276,19 @@ var settings = new RemoteSystemSetting
     ConnectionTimeout = 30000,    // 30 秒
     OperationTimeout = 120000,    // 2 分钟
     
-    // 编码设置（如果需要特殊字符支持）
-    Encoding = Encoding.UTF8,
+    // 批量操作并发度
+    MaxDegreeOfParallelism = 4,
     
-    // 文件操作的缓冲区大小（可选优化）
-    BufferSize = 32768  // 32KB 缓冲区
+    // 连接池空闲超时（可选）
+    // 空闲超过此时间的连接将被丢弃并重新创建
+    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
+    
+    // 批量操作的单文件重试次数（0 = 不重试）
+    BatchOperationRetryCount = 3,
+    BatchOperationRetryDelayMilliseconds = 1000,
+    
+    // 编码设置（如果需要特殊字符支持）
+    Encoding = Encoding.UTF8
 };
 
 // 增强的重试配置
@@ -446,11 +520,19 @@ var settings = new RemoteSystemSetting
     ConnectionTimeout = 30000,    // 30 秒
     OperationTimeout = 120000,    // 2 分钟
     
-    // 编码设置（如果需要特殊字符支持）
-    Encoding = Encoding.UTF8,
+    // 批量操作并发度
+    MaxDegreeOfParallelism = 4,
     
-    // 文件操作的缓冲区大小（可选优化）
-    BufferSize = 32768  // 32KB 缓冲区
+    // 连接池空闲超时（可选）
+    // 空闲超过此时间的连接将被丢弃并重新创建
+    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
+    
+    // 批量操作的单文件重试次数（0 = 不重试）
+    BatchOperationRetryCount = 3,
+    BatchOperationRetryDelayMilliseconds = 1000,
+    
+    // 编码设置（如果需要特殊字符支持）
+    Encoding = Encoding.UTF8
 };
 
 // 增强的重试配置

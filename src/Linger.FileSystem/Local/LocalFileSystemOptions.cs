@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Linger.FileSystem.Local;
 
 /// <summary>
@@ -14,6 +16,11 @@ public class LocalFileSystemOptions
     /// 重试选项
     /// </summary>
     public RetryOptions? RetryOptions { get; set; }
+
+    /// <summary>
+    /// 默认文本编码
+    /// </summary>
+    public Encoding TextEncoding { get; set; } = Encoding.UTF8;
 
     /// <summary>
     /// 默认命名规则
@@ -71,4 +78,9 @@ public class LocalFileSystemOptions
     /// 验证失败时是否自动清理文件
     /// </summary>
     public bool CleanupOnValidationFailure { get; set; } = true;
+
+    /// <summary>
+    /// 批量操作的最大并发度（默认 1 表示串行）
+    /// </summary>
+    public int MaxDegreeOfParallelism { get; set; } = 1;
 }

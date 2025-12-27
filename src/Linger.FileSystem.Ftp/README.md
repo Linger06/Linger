@@ -150,16 +150,61 @@ bool exists = await ftpSystem.DirectoryExistsAsync("/public_html/uploads");
 ### Batch File Operations
 
 ```csharp
-// Batch upload files
-string[] localFiles = { "file1.txt", "file2.txt", "file3.txt" };
-int uploadedCount = await ftpSystem.UploadFilesAsync(localFiles, "/remote/uploads");
-Console.WriteLine($"Uploaded {uploadedCount} files");
+// Batch upload to a remote directory
+var localFiles = new[] { "C:/data/a.txt", "C:/data/b.txt", "C:/data/c.txt" };
+var uploadResult = await ftpSystem.UploadFilesAsync(localFiles, "/remote/uploads", overwrite: true);
+Console.WriteLine($"Uploaded: {uploadResult.SucceededFiles.Count}, Failed: {uploadResult.FailedFiles.Count}");
 
-// Batch download files
-string[] remoteFiles = { "/remote/file1.txt", "/remote/file2.txt" };
-int downloadedCount = await ftpSystem.DownloadFilesAsync("C:/Downloads", remoteFiles);
-Console.WriteLine($"Downloaded {downloadedCount} files");
+// Batch download into a local directory
+var remoteFiles = new[] { "/remote/uploads/a.txt", "/remote/uploads/b.txt" };
+var downloadResult = await ftpSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true);
+Console.WriteLine($"Downloaded: {downloadResult.SucceededFiles.Count}, Failed: {downloadResult.FailedFiles.Count}");
+
+// Batch delete
+var deleteResult = await ftpSystem.DeleteFilesAsync(new[]
+{
+    "/remote/uploads/a.txt",
+    "/remote/uploads/b.txt"
+});
+Console.WriteLine($"Deleted: {deleteResult.SucceededFiles.Count}, Failed: {deleteResult.FailedFiles.Count}");
 ```
+
+Each batch call returns a `BatchOperationResult` containing `SucceededFiles` and `FailedFiles` with detailed error information.
+
+### Batch Operation Progress Reporting
+
+You can monitor batch operation progress using the `IProgress<BatchProgress>` parameter:
+
+```csharp
+// Create a progress handler
+var progress = new Progress<BatchProgress>(p =>
+{
+    Console.WriteLine($"Progress: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)");
+    Console.WriteLine($"Current file: {p.CurrentFile}");
+    Console.WriteLine($"Succeeded: {p.Succeeded}, Failed: {p.Failed}");
+});
+
+// Batch upload with progress reporting
+var localFiles = new[] { "C:/data/a.txt", "C:/data/b.txt", "C:/data/c.txt" };
+var result = await ftpSystem.UploadFilesAsync(localFiles, "/remote/uploads", overwrite: true, progress);
+
+// Batch download with progress
+var remoteFiles = new[] { "/remote/uploads/a.txt", "/remote/uploads/b.txt" };
+var downloadResult = await ftpSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
+
+// Batch delete with progress
+var deleteResult = await ftpSystem.DeleteFilesAsync(new[] { "/remote/old.txt" }, progress);
+```
+
+The `BatchProgress` struct provides:
+- `Completed`: Number of files processed (reported after each file completes)
+- `Total`: Total number of files
+- `CurrentFile`: Path of the file that was just processed
+- `Succeeded`: Number of successful operations
+- `Failed`: Number of failed operations
+- `PercentComplete`: Completion percentage (0-100)
+
+**Note**: Progress is reported *after* each file operation completes, ensuring `Completed` always reflects the accurate count.
 
 ### Custom Connection Settings
 
@@ -170,9 +215,20 @@ var settings = new RemoteSystemSetting
     Port = 21,
     UserName = "username",
     Password = "password",
-    ConnectionTimeout = 30000,      // 30 seconds connection timeout
-    OperationTimeout = 120000,      // 2 minutes operation timeout
-    Type = "FTP"
+    ConnectionTimeout = 30000,           // 30 seconds connection timeout
+    OperationTimeout = 120000,           // 2 minutes operation timeout
+    Type = "FTP",
+    
+    // Concurrency for batch operations: 1 = serial, >1 = parallel
+    MaxDegreeOfParallelism = 4,
+    
+    // Connection pool idle timeout (optional)
+    // Connections idle longer than this will be discarded and recreated
+    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
+    
+    // Per-file retry for batch operations (0 = no retry)
+    BatchOperationRetryCount = 3,
+    BatchOperationRetryDelayMilliseconds = 1000
 };
 
 // Advanced retry configuration
@@ -185,6 +241,36 @@ var retryOptions = new RetryOptions
 };
 
 var ftpSystem = new FtpFileSystem(settings, retryOptions);
+
+### Concurrency for Batch Operations
+
+You can control parallelism for batch upload/download/delete via `RemoteSystemSetting.MaxDegreeOfParallelism`.
+
+Behavior:
+- `MaxDegreeOfParallelism = 1`: single connection, serial execution.
+- `MaxDegreeOfParallelism > 1`: per-task independent `AsyncFtpClient` connections for thread safety and throughput.
+
+Example:
+
+```csharp
+var settings = new RemoteSystemSetting
+{
+    Host = "ftp.example.com",
+    Port = 21,
+    UserName = "username",
+    Password = "password",
+    ConnectionTimeout = 15000,
+    OperationTimeout = 60000,
+    MaxDegreeOfParallelism = 4
+};
+
+var ftp = new FtpFileSystem(settings);
+await ftp.ConnectAsync();
+
+var files = new[] { "C:/data/a.txt", "C:/data/b.txt", "C:/data/c.txt" };
+var result = await ftp.UploadFilesAsync(files, "/remote/uploads", overwrite: true);
+Console.WriteLine($"Uploaded: {result.SucceededFiles.Count}, Failed: {result.FailedFiles.Count}");
+```
 ```
 
 ### File Information and Metadata

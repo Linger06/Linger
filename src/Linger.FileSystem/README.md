@@ -96,6 +96,9 @@ This library uses the following design patterns:
 - **Connection Management**: Automatic handling of remote file system connections and disconnections
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
 - **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing (99.99% memory reduction)
+- **Batch Operation Progress**: Real-time progress tracking via `IProgress<BatchProgress>` for batch upload, download, and delete operations
+- **Connection Pool Idle Timeout**: Automatic cleanup of idle connections in the pool with configurable timeout via `ConnectionPoolIdleTimeout`
+- **Batch Operation Retry**: Per-file retry support for batch operations with configurable `BatchOperationRetryCount` and delay settings
 
 ## Supported .NET Versions
 
@@ -135,6 +138,85 @@ if (result.Success)
     Console.WriteLine($"File uploaded successfully: {result.FilePath}");
 }
 ```
+
+### Concurrency and Batch (Local)
+
+Local batch operations support configurable parallelism via `LocalFileSystemOptions.MaxDegreeOfParallelism`:
+
+- `1`: serial execution (default), lower resource usage
+- `>1`: parallel execution (internally throttled), ideal for large batches
+
+Example:
+
+```csharp
+// Configure parallelism and use unified batch operations
+var options = new LocalFileSystemOptions
+{
+    RootDirectoryPath = "C:/Storage",
+    MaxDegreeOfParallelism = 4 // 1 = serial, >1 = parallel
+};
+
+var localFs = new LocalFileSystem(options);
+
+// Batch upload into a directory under the root (copies into C:/Storage/uploads)
+var uploadResult = await localFs.UploadFilesAsync(new[]
+{
+    "C:/in/a.txt",
+    "C:/in/b.txt"
+}, "uploads", overwrite: true);
+Console.WriteLine($"Uploaded: {uploadResult.SucceededFiles.Count}, Failed: {uploadResult.FailedFiles.Count}");
+
+// Batch download: copy from root-relative paths into a local directory
+var downloadResult = await localFs.DownloadFilesAsync(new[]
+{
+    "uploads/a.txt",
+    "uploads/b.txt"
+}, "C:/downloads", overwrite: true);
+Console.WriteLine($"Downloaded: {downloadResult.SucceededFiles.Count}, Failed: {downloadResult.FailedFiles.Count}");
+
+// Batch delete: pass root-relative paths
+var deleteResult = await localFs.DeleteFilesAsync(new[]
+{
+    "uploads/a.txt",
+    "uploads/b.txt"
+});
+Console.WriteLine($"Deleted: {deleteResult.SucceededFiles.Count}, Failed: {deleteResult.FailedFiles.Count}");
+```
+
+These batch APIs return `BatchOperationResult` with `SucceededFiles` and `FailedFiles` (failed items include error message and exception).
+
+### Batch Operation Progress Reporting
+
+Use `IProgress<BatchProgress>` to monitor the progress of batch operations:
+
+```csharp
+// Create a progress handler
+var progress = new Progress<BatchProgress>(p =>
+{
+    Console.WriteLine($"Progress: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)");
+    Console.WriteLine($"Current file: {p.CurrentFile}");
+    Console.WriteLine($"Succeeded: {p.Succeeded}, Failed: {p.Failed}");
+});
+
+// Batch upload with progress
+var uploadResult = await fileSystem.UploadFilesAsync(files, "/uploads", overwrite: true, progress);
+
+// Batch download with progress
+var downloadResult = await fileSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
+
+// Batch delete with progress
+var deleteResult = await fileSystem.DeleteFilesAsync(filesToDelete, progress);
+```
+
+`BatchProgress` structure contains:
+- `Completed`: Number of files processed (reported after each file completes)
+- `Total`: Total number of files
+- `CurrentFile`: Path of the file that was just processed
+- `Succeeded`: Number of successful operations
+- `Failed`: Number of failed operations
+- `PercentComplete`: Completion percentage (0-100)
+
+**Note**: Progress is reported *after* each file operation completes, ensuring `Completed` always reflects the accurate count.
 
 ### Using FTP File System
 
@@ -246,6 +328,53 @@ bool exists = await fileSystem.DirectoryExistsAsync("uploads/images");
 
 // Create directory
 await fileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
+
+// Check if path is a directory
+if (await fileSystem.IsDirectoryAsync("uploads/images"))
+{
+    Console.WriteLine("Path is a directory");
+}
+```
+
+### Stream Factory API
+
+For efficient streaming operations without loading entire files into memory:
+
+```csharp
+// Open file for reading (returns raw Stream)
+await using var readStream = await fileSystem.OpenReadAsync("data/large-file.bin", cancellationToken);
+await ProcessLargeFileAsync(readStream);
+
+// Open file for writing
+await using var writeStream = await fileSystem.OpenWriteAsync("output/result.bin", overwrite: true, cancellationToken);
+await writeStream.WriteAsync(data, cancellationToken);
+
+// Text file reading with StreamReader
+using var reader = await fileSystem.GetReaderAsync("logs/app.log", Encoding.UTF8, cancellationToken);
+while (await reader.ReadLineAsync() is { } line)
+{
+    ProcessLine(line);
+}
+
+// Text file writing with StreamWriter
+await using var writer = await fileSystem.GetWriterAsync("output/report.csv", overwrite: true, Encoding.UTF8, cancellationToken);
+await writer.WriteLineAsync("Name,Value");
+await writer.WriteLineAsync("Item1,100");
+```
+
+### Metadata Query API
+
+```csharp
+// Get file size (returns null if file doesn't exist)
+var fileSize = await fileSystem.GetFileSizeAsync("uploads/document.pdf", cancellationToken);
+if (fileSize.HasValue)
+{
+    Console.WriteLine($"File size: {fileSize.Value} bytes");
+}
+else
+{
+    Console.WriteLine("File not found");
+}
 ```
 
 ## Configuration Options
@@ -286,6 +415,15 @@ var remoteSetting = new RemoteSystemSetting
     Type = "FTP",                              // Type: "FTP" or "SFTP"
     ConnectionTimeout = 30000,                 // Connection timeout (milliseconds)
     OperationTimeout = 60000,                  // Operation timeout (milliseconds)
+    MaxDegreeOfParallelism = 4,                // Batch operation concurrency
+    
+    // Connection pool idle timeout (connections idle longer than this will be recreated)
+    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
+    
+    // Batch operation per-file retry settings
+    BatchOperationRetryCount = 3,              // Retry count per file (0 = no retry)
+    BatchOperationRetryDelayMilliseconds = 1000, // Delay between retries
+    
     // SFTP specific settings
     CertificatePath = "",                      // Certificate path
     CertificatePassphrase = ""                 // Certificate passphrase
