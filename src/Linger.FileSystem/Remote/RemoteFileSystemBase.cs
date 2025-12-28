@@ -84,49 +84,42 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     #endregion
 
     /// <summary>
-    /// 异步连接作用域，用于自动连接和释放连接
+    /// 异步连接作用域，用于确保操作前已连接
     /// </summary>
+    /// <remarks>
+    /// <para>此作用域确保在执行操作前建立连接，但不会在作用域结束时断开连接。</para>
+    /// <para>连接保持到实例被 Dispose，避免每次操作都重新连接的开销。</para>
+    /// </remarks>
     protected sealed class AsyncConnectionScope : IAsyncDisposable
     {
-        private readonly RemoteFileSystemBase _fileSystem;
-        private readonly bool _wasConnected;
         private bool _disposed;
 
-        private AsyncConnectionScope(RemoteFileSystemBase fileSystem, bool wasConnected)
+        private AsyncConnectionScope()
         {
-            _fileSystem = fileSystem;
-            _wasConnected = wasConnected;
         }
 
         /// <summary>
-        /// 创建异步连接作用域
+        /// 创建异步连接作用域，确保已建立连接
         /// </summary>
         public static async Task<AsyncConnectionScope> CreateAsync(RemoteFileSystemBase fileSystem)
         {
-            var wasConnected = fileSystem.IsConnected();
-
-            if (!wasConnected)
+            if (!fileSystem.IsConnected())
             {
                 fileSystem.LogDebug("Connecting to {ServerDetails}...", fileSystem.ServerDetailsString);
                 await fileSystem.ConnectAsync().ConfigureAwait(false);
                 fileSystem.LogDebug("Connected to {ServerDetails}", fileSystem.ServerDetailsString);
             }
 
-            return new AsyncConnectionScope(fileSystem, wasConnected);
+            return new AsyncConnectionScope();
         }
 
-        public async ValueTask DisposeAsync()
+        /// <summary>
+        /// 作用域结束时不断开连接，连接保持到实例被 Dispose
+        /// </summary>
+        public ValueTask DisposeAsync()
         {
-            if (_disposed)
-                return;
-
-            if (!_wasConnected && _fileSystem.IsConnected())
-            {
-                _fileSystem.LogDebug("Disconnecting from {ServerDetails}...", _fileSystem.ServerDetailsString);
-                await _fileSystem.DisconnectAsync().ConfigureAwait(false);
-            }
-
             _disposed = true;
+            return default;
         }
     }
 
