@@ -1,7 +1,6 @@
 using Linger.Helper.PathHelpers;
 using System.Text;
 using System.Collections.Concurrent;
-using System.Threading;
 
 namespace Linger.FileSystem.Local;
 
@@ -54,14 +53,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     // 这是本地文件系统，所以IsRemoteFileSystem保持为false (默认)
 
     /// <summary>
-    /// 检查根目录是否存在（同步方法 - 已过时）
+    /// 检查根目录是否存在
     /// </summary>
-    [Obsolete("为保持 API 一致性，请使用 ExistsAsync 异步版本", false)]
     public bool Exists()
     {
-#pragma warning disable CS0618 // 类型或成员已过时
-        return DirectoryExists(RootDirectoryPath);
-#pragma warning restore CS0618 // 类型或成员已过时
+        return StandardPathHelper.Exists(RootDirectoryPath, false);
     }
 
     /// <summary>
@@ -73,14 +69,14 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     }
 
     /// <summary>
-    /// 如果根目录不存在则创建它（同步方法 - 已过时）
+    /// 如果根目录不存在则创建它
     /// </summary>
-    [Obsolete("为保持 API 一致性，请使用 CreateIfNotExistsAsync 异步版本", false)]
     public void CreateIfNotExists()
     {
-#pragma warning disable CS0618 // 类型或成员已过时
-        CreateDirectoryIfNotExists(RootDirectoryPath);
-#pragma warning restore CS0618 // 类型或成员已过时
+        if (!StandardPathHelper.Exists(RootDirectoryPath, false))
+        {
+            Directory.CreateDirectory(RootDirectoryPath);
+        }
     }
 
     /// <summary>
@@ -91,89 +87,33 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         return CreateDirectoryIfNotExistsAsync(RootDirectoryPath, cancellationToken);
     }
 
-    /// <summary>
-    /// 创建目录（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
-    /// </remarks>
-    [Obsolete("为保持 API 一致性,请使用 CreateDirectoryIfNotExistsAsync 异步版本", false)]
-    public override void CreateDirectoryIfNotExists(string directoryPath)
-    {
-        var realPath = GetRealPath(directoryPath);
-        Directory.CreateDirectory(realPath);
-    }
-
-    /// <summary>
-    /// 删除文件（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
-    /// </remarks>
-    [Obsolete("为保持 API 一致性,请使用 DeleteFileIfExistsAsync 异步版本", false)]
-    public override void DeleteFileIfExists(string filePath)
-    {
-        var realPath = GetRealPath(filePath);
-        FileHelper.DeleteFileIfExists(realPath);
-    }
-
-    /// <summary>
-    /// 检查目录是否存在（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
-    /// </remarks>
-    [Obsolete("为保持 API 一致性,请使用 DirectoryExistsAsync 异步版本", false)]
-    public override bool DirectoryExists(string directoryPath)
-    {
-        var realPath = GetRealPath(directoryPath);
-        return StandardPathHelper.Exists(realPath, false);
-    }
-
-    /// <summary>
-    /// 检查文件是否存在（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// 对于本地文件系统,此方法不会导致死锁,但为保持 API 一致性,建议使用异步版本。
-    /// </remarks>
-    [Obsolete("为保持 API 一致性,请使用 FileExistsAsync 异步版本", false)]
-    public override bool FileExists(string filePath)
-    {
-        var realPath = GetRealPath(filePath);
-        return StandardPathHelper.Exists(realPath, true);
-    }
-
     public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-#pragma warning disable CS0618 // 类型或成员已过时
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(FileExists(filePath));
-#pragma warning restore CS0618 // 类型或成员已过时
+        var realPath = GetRealPath(filePath);
+        return Task.FromResult(StandardPathHelper.Exists(realPath, true));
     }
 
     public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-#pragma warning disable CS0618 // 类型或成员已过时
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(DirectoryExists(directoryPath));
-#pragma warning restore CS0618 // 类型或成员已过时
+        var realPath = GetRealPath(directoryPath);
+        return Task.FromResult(StandardPathHelper.Exists(realPath, false));
     }
 
     public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-#pragma warning disable CS0618 // 类型或成员已过时
         cancellationToken.ThrowIfCancellationRequested();
-        CreateDirectoryIfNotExists(directoryPath);
-#pragma warning restore CS0618 // 类型或成员已过时
+        var realPath = GetRealPath(directoryPath);
+        Directory.CreateDirectory(realPath);
         return Task.CompletedTask;
     }
 
     public override Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-#pragma warning disable CS0618 // 类型或成员已过时
         cancellationToken.ThrowIfCancellationRequested();
-        DeleteFileIfExists(filePath);
-#pragma warning restore CS0618 // 类型或成员已过时
+        var realPath = GetRealPath(filePath);
+        FileHelper.DeleteFileIfExists(realPath);
         return Task.CompletedTask;
     }
 
@@ -369,13 +309,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         // 验证文件完整性（可选，配置项控制是否需要重新读取文件验证）
         var fileInfo = new FileInfo(relativeFilePath);
 
-        if (_options.ValidateFileIntegrity && _options.CleanupOnValidationFailure)
+        if (_options.ValidationLevel != FileValidationLevel.None)
         {
-            // 只有在需要双重校验时才重新读取文件
+            // 根据验证级别进行校验
 #if NET8_0_OR_GREATER
-            await ValidateFileIntegrityAsync(fileInfo, sourceHashData).ConfigureAwait(false);
+            await ValidateFileAsync(fileInfo, sourceHashData, totalBytes).ConfigureAwait(false);
 #else
-            ValidateFileIntegrity(fileInfo, sourceHashData);
+            ValidateFile(fileInfo, sourceHashData, totalBytes);
 #endif
         }
 
@@ -395,18 +335,38 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
 
     private
 #if NET8_0_OR_GREATER
-       async Task ValidateFileIntegrityAsync
+       async Task ValidateFileAsync
 #else
-        void ValidateFileIntegrity
+        void ValidateFile
 #endif
-     // 验证文件完整性时使用配置
-     (FileInfo fileInfo, string sourceHashData)
+     // 根据配置的验证级别进行文件验证
+     (FileInfo fileInfo, string sourceHashData, long expectedSize)
     {
-        if (!_options.ValidateFileIntegrity)
+        if (_options.ValidationLevel == FileValidationLevel.None)
             return;
 
-        // 验证文件MD5
+        // 验证文件大小（SizeOnly 和 Full 都会执行）
+        if (expectedSize > 0)
+        {
+            fileInfo.Refresh(); // 确保获取最新的文件信息
+            if (fileInfo.Length != expectedSize)
+            {
+                var ex = new InvalidOperationException($"File validation failed: Size mismatch for {fileInfo.FullName}. Expected: {expectedSize}, Actual: {fileInfo.Length}");
 
+                if (_options.CleanupOnValidationFailure)
+                {
+                    try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
+                }
+
+                throw ex;
+            }
+        }
+
+        // 如果是 SizeOnly，不需要验证 MD5
+        if (_options.ValidationLevel == FileValidationLevel.SizeOnly)
+            return;
+
+        // Full 级别：验证文件 MD5
         var stream = fileInfo.OpenRead();
 
 #if NET8_0_OR_GREATER
@@ -418,25 +378,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
             var uploadedFileHash = stream.ComputeHashMd5();
             if (uploadedFileHash != sourceHashData)
             {
-                var ex = new InvalidOperationException($"File integrity check failed: MD5 hash mismatch for {fileInfo.FullName}");
-
-                // 根据配置决定是否清理
-                if (_options.CleanupOnValidationFailure)
-                {
-                    try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
-                }
-
-                throw ex;
-            }
-        }
-
-        // 验证文件元数据
-        if (_options.ValidateFileMetadata)
-        {
-            var metadata = FileHelper.GetExistingFileInfo(fileInfo.FullName);
-            if (metadata?.HashData != null && metadata.HashData != sourceHashData)
-            {
-                var ex = new InvalidOperationException($"File integrity check failed: Metadata hash mismatch for {fileInfo.FullName}");
+                var ex = new InvalidOperationException($"File validation failed: MD5 hash mismatch for {fileInfo.FullName}");
 
                 if (_options.CleanupOnValidationFailure)
                 {
@@ -448,17 +390,19 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         }
     }
 
-    public Task<UploadedInfo> UploadAsync(string sourceFilePathName, string containerName, string destPath = "", NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
+    public async Task<UploadedInfo> UploadAsync(string sourceFilePathName, string containerName, string destPath = "", NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         var fileInfo = new FileInfo(sourceFilePathName);
-        // 先将文件内容读入内存流中
-        using var memoryStream = new MemoryStream();
-        using FileStream fileStream = fileInfo.OpenRead();
-        fileStream.CopyTo(memoryStream);
-        // 重置内存流位置
-        memoryStream.Position = 0;
-        // 使用内存流进行上传
-        return UploadAsync(memoryStream, fileInfo.Name, containerName, destPath, namingRule, overwrite, useSequencedName);
+        var fileStream = fileInfo.OpenRead();
+
+#if NET8_0_OR_GREATER
+        await using (fileStream.ConfigureAwait(false))
+#else
+        using (fileStream)
+#endif
+        {
+            return await UploadAsync(fileStream, fileInfo.Name, containerName, destPath, namingRule, overwrite, useSequencedName).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -749,12 +693,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         return filePath;
     }
 
-    public async Task DeleteAsync(string filePath)
-    {
-        var realPath = GetRealPath(filePath);
-        await DeleteFileIfExistsAsync(realPath).ConfigureAwait(false);
-    }
-
     public override Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -823,9 +761,8 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     public override Task<bool> IsDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-#pragma warning disable CS0618
-        return Task.FromResult(DirectoryExists(directoryPath));
-#pragma warning restore CS0618
+        var realPath = GetRealPath(directoryPath);
+        return Task.FromResult(StandardPathHelper.Exists(realPath, false));
     }
 
     public override Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
@@ -917,22 +854,21 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         }
     }
 
-    public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
+    public override Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var realPath = GetRealPath(filePath);
-            if (!File.Exists(realPath))
+            if (File.Exists(realPath))
             {
-                return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
+                File.Delete(realPath);
             }
-
-            await Task.Run(() => File.Delete(realPath), cancellationToken).ConfigureAwait(false);
-            return FileOperationResult.CreateSuccess(filePath);
+            return Task.FromResult(FileOperationResult.CreateSuccess(filePath));
         }
         catch (Exception ex)
         {
-            return FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex);
+            return Task.FromResult(FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex));
         }
     }
 
@@ -982,10 +918,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         var total = paths.Count;
         var completed = 0;
 
-        var degree = _options.MaxDegreeOfParallelism;
-        if (degree is int d && d > 1)
+        if (_options.MaxDegreeOfParallelism > 1)
         {
-            using var semaphore = new SemaphoreSlim(d, d);
+            using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
             var tasks = paths.Select(async sourcePath =>
             {
                 await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -1002,7 +937,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
 
                     try
                     {
-                        await Task.Run(() => File.Copy(sourcePath, destPath, overwrite), cancellationToken).ConfigureAwait(false);
+                        File.Copy(sourcePath, destPath, overwrite);
                         succeeded.Add(sourcePath);
                     }
                     catch (Exception ex)
@@ -1039,7 +974,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
 
                 try
                 {
-                    await Task.Run(() => File.Copy(sourcePath, destPath, overwrite), cancellationToken).ConfigureAwait(false);
+                    File.Copy(sourcePath, destPath, overwrite);
                     succeeded.Add(sourcePath);
                 }
                 catch (Exception ex)
@@ -1111,10 +1046,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         var total = paths.Count;
         var completed = 0;
 
-        var degree = _options.MaxDegreeOfParallelism;
-        if (degree is int d && d > 1)
+        if (_options.MaxDegreeOfParallelism > 1)
         {
-            using var semaphore = new SemaphoreSlim(d, d);
+            using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
             var tasks = paths.Select(async remotePath =>
             {
                 await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -1132,7 +1066,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
 
                     try
                     {
-                        await Task.Run(() => File.Copy(sourcePath, destPath, overwrite), cancellationToken).ConfigureAwait(false);
+                        File.Copy(sourcePath, destPath, overwrite);
                         succeeded.Add(remotePath);
                     }
                     catch (Exception ex)
@@ -1170,7 +1104,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
 
                 try
                 {
-                    await Task.Run(() => File.Copy(sourcePath, destPath, overwrite), cancellationToken).ConfigureAwait(false);
+                    File.Copy(sourcePath, destPath, overwrite);
                     succeeded.Add(remotePath);
                 }
                 catch (Exception ex)
@@ -1221,10 +1155,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         var total = paths.Count;
         var completed = 0;
 
-        var degree = _options.MaxDegreeOfParallelism;
-        if (degree is int d && d > 1)
+        if (_options.MaxDegreeOfParallelism > 1)
         {
-            using var semaphore = new SemaphoreSlim(d, d);
+            using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
             var tasks = paths.Select(async filePath =>
             {
                 await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -1235,7 +1168,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                     {
                         if (File.Exists(realPath))
                         {
-                            await Task.Run(() => File.Delete(realPath), cancellationToken).ConfigureAwait(false);
+                            File.Delete(realPath);
                         }
                         succeeded.Add(filePath);
                     }
@@ -1265,7 +1198,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 {
                     if (File.Exists(realPath))
                     {
-                        await Task.Run(() => File.Delete(realPath), cancellationToken).ConfigureAwait(false);
+                        File.Delete(realPath);
                     }
                     succeeded.Add(filePath);
                 }
@@ -1329,17 +1262,4 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     }
 
     #endregion
-}
-
-public class UploadedInfo : ExtendedFileInfo
-{
-    /// <summary>
-    /// Gets or sets the new file name.
-    /// </summary>
-    public string? NewFileName { get; set; }
-
-    /// <summary>
-    /// 除 destRootPath 以外的存储位置
-    /// </summary>
-    public string FilePath { get; set; } = null!;
 }

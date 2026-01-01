@@ -1,5 +1,4 @@
 using System.Text;
-using System.Threading;
 
 namespace Linger.FileSystem;
 
@@ -16,7 +15,7 @@ namespace Linger.FileSystem;
 /// </list>
 /// <para>所有方法均支持 <see cref="CancellationToken"/>，可在长时间操作中安全取消。</para>
 /// </remarks>
-public interface IFileSystemOperations : IFileSystem, IAsyncFileSystem
+public interface IFileSystemOperations : IAsyncFileSystem
 {
     /// <summary>
     /// 异步打开文件并返回可读流。

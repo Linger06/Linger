@@ -1,11 +1,9 @@
-using System.Threading;
-
 namespace Linger.FileSystem.Local;
 
 /// <summary>
-/// 本地文件系统接口，扩展了 <see cref="IFileSystemOperations"/> 以提供本地文件系统特有的功能。
+/// 本地文件系统接口，扩展了 <see cref="IFileSystemOperations"/> 和 <see cref="IBatchFileSystemOperations"/> 以提供本地文件系统特有的功能。
 /// </summary>
-public interface ILocalFileSystem : IFileSystemOperations
+public interface ILocalFileSystem : IFileSystemOperations, IBatchFileSystemOperations
 {
     /// <summary>
     /// 获取根目录路径。
@@ -16,7 +14,6 @@ public interface ILocalFileSystem : IFileSystemOperations
     /// 检查根目录是否存在。
     /// </summary>
     /// <returns>如果根目录存在，则为 <c>true</c>；否则为 <c>false</c>。</returns>
-    [Obsolete("为保持 API 一致性，请使用 ExistsAsync 异步版本", false)]
     bool Exists();
 
     /// <summary>
@@ -29,7 +26,6 @@ public interface ILocalFileSystem : IFileSystemOperations
     /// <summary>
     /// 如果根目录不存在则创建它。
     /// </summary>
-    [Obsolete("为保持 API 一致性，请使用 CreateIfNotExistsAsync 异步版本", false)]
     void CreateIfNotExists();
 
     /// <summary>

@@ -65,14 +65,16 @@ public class LocalFileSystemOptions
     }
 
     /// <summary>
-    /// 是否验证文件完整性
+    /// 文件验证级别
     /// </summary>
-    public bool ValidateFileIntegrity { get; set; } = true;
-
-    /// <summary>
-    /// 是否验证文件元数据
-    /// </summary>
-    public bool ValidateFileMetadata { get; set; } = true;
+    /// <remarks>
+    /// <list type="bullet">
+    ///   <item><description><see cref="FileValidationLevel.None"/>: 不验证（最快，适用于信任环境）</description></item>
+    ///   <item><description><see cref="FileValidationLevel.SizeOnly"/>: 只验证文件大小（轻量级，开销极小）</description></item>
+    ///   <item><description><see cref="FileValidationLevel.Full"/>: 完整验证：大小 + MD5 哈希（最安全，有额外 I/O 开销）</description></item>
+    /// </list>
+    /// </remarks>
+    public FileValidationLevel ValidationLevel { get; set; } = FileValidationLevel.Full;
 
     /// <summary>
     /// 验证失败时是否自动清理文件

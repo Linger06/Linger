@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Linger.Helper;
 
 namespace Linger.FileSystem.Remote;
 
@@ -92,8 +93,6 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// </remarks>
     protected sealed class AsyncConnectionScope : IAsyncDisposable
     {
-        private bool _disposed;
-
         private AsyncConnectionScope()
         {
         }
@@ -118,7 +117,6 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         /// </summary>
         public ValueTask DisposeAsync()
         {
-            _disposed = true;
             return default;
         }
     }
@@ -220,59 +218,21 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>操作是否成功</returns>
     /// <remarks>
-    /// 当 <see cref="RemoteSystemSetting.BatchOperationRetryCount"/> 大于 0 时启用重试。
-    /// 重试间隔使用线性退避策略：delay * attempts。
+    /// 当 <see cref="RemoteSystemSetting.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
     /// </remarks>
     protected async Task<bool> ExecuteWithBatchRetryAsync(Func<Task<bool>> operation, CancellationToken cancellationToken)
     {
-        var retryCount = Setting.BatchOperationRetryCount;
-        if (retryCount <= 0)
+        var retryOptions = Setting.BatchRetryOptions;
+        if (retryOptions is null)
         {
             return await operation().ConfigureAwait(false);
         }
 
-        var delayMs = Setting.BatchOperationRetryDelayMilliseconds;
-        var attempts = 0;
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            attempts++;
-
-            try
-            {
-                var result = await operation().ConfigureAwait(false);
-                if (result)
-                {
-                    return true;
-                }
-
-                // 操作返回 false，可能需要重试
-                if (attempts > retryCount)
-                {
-                    return false;
-                }
-
-                LogDebug("Batch operation returned false, retrying (attempt {Attempt}/{MaxAttempts})...", attempts, retryCount + 1);
-                await Task.Delay(delayMs * attempts, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                if (attempts > retryCount)
-                {
-                    LogDebug("Batch operation failed after {Attempts} attempts: {Error}", attempts, ex.Message);
-
-                    throw;
-                }
-
-                LogDebug("Batch operation failed (attempt {Attempt}/{MaxAttempts}): {Error}, retrying...", attempts, retryCount + 1, ex.Message);
-                await Task.Delay(delayMs * attempts, cancellationToken).ConfigureAwait(false);
-            }
-        }
+        var helper = new RetryHelper(retryOptions);
+        return await helper.ExecuteAsync(
+            operation,
+            "batch operation",
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -281,50 +241,23 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// <param name="operation">要执行的异步操作</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <remarks>
-    /// 当 <see cref="RemoteSystemSetting.BatchOperationRetryCount"/> 大于 0 时启用重试。
+    /// 当 <see cref="RemoteSystemSetting.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
     /// 适用于抛出异常表示失败的操作。
     /// </remarks>
     protected async Task ExecuteWithBatchRetryAsync(Func<Task> operation, CancellationToken cancellationToken)
     {
-        var retryCount = Setting.BatchOperationRetryCount;
-        if (retryCount <= 0)
+        var retryOptions = Setting.BatchRetryOptions;
+        if (retryOptions is null)
         {
             await operation().ConfigureAwait(false);
-
             return;
         }
 
-        var delayMs = Setting.BatchOperationRetryDelayMilliseconds;
-        var attempts = 0;
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            attempts++;
-
-            try
-            {
-                await operation().ConfigureAwait(false);
-
-                return;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                if (attempts > retryCount)
-                {
-                    LogDebug("Batch operation failed after {Attempts} attempts: {Error}", attempts, ex.Message);
-
-                    throw;
-                }
-
-                LogDebug("Batch operation failed (attempt {Attempt}/{MaxAttempts}): {Error}, retrying...", attempts, retryCount + 1, ex.Message);
-                await Task.Delay(delayMs * attempts, cancellationToken).ConfigureAwait(false);
-            }
-        }
+        var helper = new RetryHelper(retryOptions);
+        await helper.ExecuteAsync(
+            operation,
+            "batch operation",
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     #endregion

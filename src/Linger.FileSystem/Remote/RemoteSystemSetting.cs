@@ -1,4 +1,5 @@
 using System.Text;
+using Linger.Helper;
 
 namespace Linger.FileSystem.Remote;
 
@@ -86,22 +87,22 @@ public class RemoteSystemSetting
     public TimeSpan? ConnectionPoolIdleTimeout { get; set; }
 
     /// <summary>
-    /// 批量操作中单个文件的最大重试次数（默认 0 表示不重试）。
+    /// 批量操作的重试选项（可选）。
     /// </summary>
     /// <remarks>
     /// <para>当批量上传/下载/删除时，若单个文件操作失败，可自动重试。</para>
-    /// <para>设置为 0 表示不进行重试（默认）。</para>
-    /// <para>建议设置为 2-3 次，避免过多重试导致整体操作时间过长。</para>
+    /// <para>设置为 <c>null</c> 表示不进行重试（默认）。</para>
+    /// <para>示例：</para>
+    /// <code>
+    /// BatchRetryOptions = new RetryOptions
+    /// {
+    ///     MaxRetryAttempts = 3,
+    ///     DelayMilliseconds = 1000,
+    ///     UseExponentialBackoff = true
+    /// }
+    /// </code>
     /// </remarks>
-    public int BatchOperationRetryCount { get; set; }
-
-    /// <summary>
-    /// 批量操作重试的基础延迟时间（毫秒）。
-    /// </summary>
-    /// <remarks>
-    /// 仅当 <see cref="BatchOperationRetryCount"/> 大于 0 时生效。
-    /// </remarks>
-    public int BatchOperationRetryDelayMilliseconds { get; set; } = 1000;
+    public RetryOptions? BatchRetryOptions { get; set; }
 
     /// <summary>
     /// 初始化FTP设置
@@ -168,8 +169,7 @@ public class RemoteSystemSetting
             Encoding = Encoding,
             MaxDegreeOfParallelism = MaxDegreeOfParallelism,
             ConnectionPoolIdleTimeout = ConnectionPoolIdleTimeout,
-            BatchOperationRetryCount = BatchOperationRetryCount,
-            BatchOperationRetryDelayMilliseconds = BatchOperationRetryDelayMilliseconds
+            BatchRetryOptions = BatchRetryOptions
         };
     }
 

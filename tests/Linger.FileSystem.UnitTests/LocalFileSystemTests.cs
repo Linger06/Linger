@@ -155,26 +155,26 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public void DirectoryExists_WhenDirectoryDoesNotExist_ReturnsFalse()
+        public async Task DirectoryExistsAsync_WhenDirectoryDoesNotExist_ReturnsFalse()
         {
             // Arrange
             var nonExistentPath = "nonexistent";
 
             // Act
-            var result = _fileSystem.DirectoryExists(nonExistentPath);
+            var result = await _fileSystem.DirectoryExistsAsync(nonExistentPath);
 
             // Assert
             Assert.False(result);
         }
 
         [Fact]
-        public void FileExists_WhenFileDoesNotExist_ReturnsFalse()
+        public async Task FileExistsAsync_WhenFileDoesNotExist_ReturnsFalse()
         {
             // Arrange
             var nonExistentFile = "nonexistent.txt";
 
             // Act
-            var result = _fileSystem.FileExists(nonExistentFile);
+            var result = await _fileSystem.FileExistsAsync(nonExistentFile);
 
             // Assert
             Assert.False(result);
@@ -308,7 +308,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public void GetRealPath_WithRelativePath_ReturnsFullPath()
+        public async Task GetRealPath_WithRelativePath_ReturnsFullPath()
         {
             // Arrange
             var relativePath = "test/file.txt";
@@ -319,7 +319,7 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(filePath, "test");
 
             // Assert
-            Assert.True(_fileSystem.FileExists(relativePath));
+            Assert.True(await _fileSystem.FileExistsAsync(relativePath));
         }
 
         [Fact]
