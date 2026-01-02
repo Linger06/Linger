@@ -9,7 +9,7 @@ namespace Linger.Excel.Contracts;
 /// 构造函数
 /// </remarks>
 /// <param name="options">Excel配置选项</param>
-/// <param name="logger">日志记录器</param>
+/// <param name="logger">日志记录器，为 <c>null</c> 时使用 <see cref="NullLogger"/>。</param>
 public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? options = null, ILogger? logger = null) : IExcelService, IExcel<TWorksheet>
     where TWorkbook : class
     where TWorksheet : class
@@ -22,7 +22,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 日志记录器
     /// </summary>
-    protected readonly ILogger? Logger = logger;
+    protected readonly ILogger Logger = logger ?? NullLogger.Instance;
 
     #region IExcelService简单实现 - 调用IExcel实现
 
@@ -302,17 +302,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger?.LogTrace("开始异步读取Excel文件: {FilePath}", filePath);
+        Logger.LogTrace("开始异步读取Excel文件: {FilePath}", filePath);
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            Logger?.LogWarning("文件路径为空");
+            Logger.LogWarning("文件路径为空");
             return null;
         }
 
         if (!File.Exists(filePath))
         {
-            Logger?.LogWarning("文件不存在: {FilePath}", filePath);
+            Logger.LogWarning("文件不存在: {FilePath}", filePath);
             return null;
         }
 
@@ -327,7 +327,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件异步读取失败: {FilePath}", filePath);
             throw;
         }
     }
@@ -337,17 +337,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new()
     {
-        Logger?.LogTrace("开始异步读取Excel文件并转换为对象列表: {FilePath}", filePath);
+        Logger.LogTrace("开始异步读取Excel文件并转换为对象列表: {FilePath}", filePath);
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            Logger?.LogWarning("文件路径为空");
+            Logger.LogWarning("文件路径为空");
             return null;
         }
 
         if (!File.Exists(filePath))
         {
-            Logger?.LogWarning("文件不存在: {FilePath}", filePath);
+            Logger.LogWarning("文件不存在: {FilePath}", filePath);
             return null;
         }
 
@@ -362,7 +362,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取并转换为对象列表失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件异步读取并转换为对象列表失败: {FilePath}", filePath);
             throw;
         }
     }
@@ -372,17 +372,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
+        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            Logger?.LogWarning("文件路径为空");
+            Logger.LogWarning("文件路径为空");
             return null;
         }
 
         if (!File.Exists(filePath))
         {
-            Logger?.LogWarning("文件不存在: {FilePath}", filePath);
+            Logger.LogWarning("文件不存在: {FilePath}", filePath);
             return null;
         }
 
@@ -397,7 +397,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
             throw;
         }
     }
@@ -407,17 +407,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
+        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            Logger?.LogWarning("文件路径为空");
+            Logger.LogWarning("文件路径为空");
             return null;
         }
 
         if (!File.Exists(filePath))
         {
-            Logger?.LogWarning("文件不存在: {FilePath}", filePath);
+            Logger.LogWarning("文件不存在: {FilePath}", filePath);
             return null;
         }
 
@@ -432,7 +432,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
             throw;
         }
     }
@@ -442,17 +442,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
+        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            Logger?.LogWarning("文件路径为空");
+            Logger.LogWarning("文件路径为空");
             return null;
         }
 
         if (!File.Exists(filePath))
         {
-            Logger?.LogWarning("文件不存在: {FilePath}", filePath);
+            Logger.LogWarning("文件不存在: {FilePath}", filePath);
             return null;
         }
 
@@ -467,7 +467,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
             throw;
         }
     }
@@ -477,17 +477,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger?.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
+        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
 
         if (string.IsNullOrWhiteSpace(filePath))
         {
-            Logger?.LogWarning("文件路径为空");
+            Logger.LogWarning("文件路径为空");
             return null;
         }
 
         if (!File.Exists(filePath))
         {
-            Logger?.LogWarning("文件不存在: {FilePath}", filePath);
+            Logger.LogWarning("文件不存在: {FilePath}", filePath);
             return null;
         }
 
@@ -502,7 +502,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件异步读取并转换为DataSet失败: {FilePath}", filePath);
             throw;
         }
     }
@@ -516,7 +516,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         using var ms = DataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
         if (ms == null)
         {
-            Logger?.LogError("转换DataTable到MemoryStream失败");
+            Logger.LogError("转换DataTable到MemoryStream失败");
             throw new InvalidOperationException("转换DataTable到MemoryStream失败");
         }
 
@@ -533,7 +533,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         using var ms = CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
         if (ms == null)
         {
-            Logger?.LogError("转换对象列表到MemoryStream失败");
+            Logger.LogError("转换对象列表到MemoryStream失败");
             throw new InvalidOperationException("转换对象列表到MemoryStream失败");
         }
 

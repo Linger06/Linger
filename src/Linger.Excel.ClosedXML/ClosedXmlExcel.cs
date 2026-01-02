@@ -123,7 +123,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         }
         catch (Exception ex)
         {
-            logger?.LogError(ex, "关闭ClosedXML工作簿时出错");
+            Logger.LogError(ex, "关闭ClosedXML工作簿时出错");
         }
     }
 
@@ -296,7 +296,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogDebug(ex, "设置标题背景色失败");
+                    Logger.LogDebug(ex, "设置标题背景色失败");
                     titleRange.Style.Fill.BackgroundColor = XLColor.LightGray;
                 }
             }
@@ -311,13 +311,13 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogDebug(ex, "设置标题文字颜色失败");
+                    Logger.LogDebug(ex, "设置标题文字颜色失败");
                 }
             }
         }
         catch (Exception ex)
         {
-            logger?.LogDebug(ex, "设置标题行样式失败");
+            Logger.LogDebug(ex, "设置标题行样式失败");
         }
     }
 
@@ -344,7 +344,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogDebug(ex, "设置表头背景色失败");
+                    Logger.LogDebug(ex, "设置表头背景色失败");
                     headerCell.Style.Fill.BackgroundColor = XLColor.LightGray;
                 }
             }
@@ -359,7 +359,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 }
                 catch (Exception ex)
                 {
-                    logger?.LogDebug(ex, "设置表头文字颜色失败");
+                    Logger.LogDebug(ex, "设置表头文字颜色失败");
                 }
             }
 
@@ -368,7 +368,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         }
         catch (Exception ex)
         {
-            logger?.LogDebug(ex, "设置表头行样式失败");
+            Logger.LogDebug(ex, "设置表头行样式失败");
         }
     }
 
@@ -447,7 +447,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         if (useParallelProcessing)
         {
             // 并行处理大数据集
-            logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
+            Logger.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
 
             // 使用批处理提高性能
             var batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
@@ -523,7 +523,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         if (useParallelProcessing)
         {
             // 并行处理大数据集
-            logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
+            Logger.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
 
             // 使用批处理提高性能
             var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;

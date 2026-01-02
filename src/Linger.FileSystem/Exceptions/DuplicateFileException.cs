@@ -25,7 +25,7 @@ public class DuplicateFileException : FileSystemException
     /// </summary>
     /// <param name="filePath">The path of the duplicate file.</param>
     /// <param name="innerException">The exception that is the cause of the current exception.</param>
-    public DuplicateFileException(string? filePath, Exception? innerException) 
+    public DuplicateFileException(string? filePath, Exception? innerException)
         : base("DuplicateFile", filePath, $"File already exists: {filePath}", innerException)
     {
     }

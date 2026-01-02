@@ -36,9 +36,9 @@ public class SftpFileSystem : RemoteFileSystemBase
         : base(setting, retryOptions, logger)
     {
         Client = CreateClient();
-        LogDebug("SftpFileSystem created for {Host}:{Port}, Auth: {AuthType}", 
-            setting.Host, 
-            setting.Port, 
+        Logger.LogDebug("SftpFileSystem created for {Host}:{Port}, Auth: {AuthType}",
+            setting.Host,
+            setting.Port,
             setting.CertificatePath.IsNotNullOrEmpty() ? "Certificate" : "Password");
     }
 
@@ -79,9 +79,9 @@ public class SftpFileSystem : RemoteFileSystemBase
     {
         if (Client is { IsConnected: false })
         {
-            LogInformation("Connecting to SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
+            Logger.LogInformation("Connecting to SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
             Client.Connect();
-            LogInformation("Connected to SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
+            Logger.LogInformation("Connected to SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
         }
     }
 
@@ -95,7 +95,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     {
         if (Client?.IsConnected == true)
         {
-            LogDebug("Disconnecting from SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
+            Logger.LogDebug("Disconnecting from SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
             Client.Disconnect();
         }
     }
@@ -234,7 +234,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
 
-        LogDebug("SFTP Upload starting: {Destination}, Overwrite: {Overwrite}", destinationFilePath, overwrite);
+        Logger.LogDebug("SFTP Upload starting: {Destination}, Overwrite: {Overwrite}", destinationFilePath, overwrite);
 
         await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
@@ -251,7 +251,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             // 检查文件是否存在
             if (await FileExistsAsync(destinationFilePath, cancellationToken).ConfigureAwait(false) && !overwrite)
             {
-                LogWarning("SFTP Upload failed - file already exists: {Destination}", destinationFilePath);
+                Logger.LogWarning("SFTP Upload failed - file already exists: {Destination}", destinationFilePath);
                 return FileOperationResult.CreateFailure($"远程文件已存在 {destinationFilePath}");
             }
 
@@ -279,7 +279,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
             // 获取文件大小
             var fileSize = TryGetFileSize(destinationFilePath);
-            LogInformation("SFTP Upload completed: {Destination}, Size: {Size} bytes", destinationFilePath, fileSize);
+            Logger.LogInformation("SFTP Upload completed: {Destination}, Size: {Size} bytes", destinationFilePath, fileSize);
 
             return FileOperationResult.CreateSuccess(destinationFilePath, null, fileSize);
         }
@@ -655,7 +655,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         if (filePaths.Count == 0)
             return BatchOperationResult.Empty;
 
-        LogDebug("SFTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
+        Logger.LogDebug("SFTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
 
         // 先确保远程目录存在（使用主连接串行执行一次）
         await using (await CreateConnectionScopeAsync().ConfigureAwait(false))
@@ -784,7 +784,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var succeededList = succeeded.ToList();
         var failedList = failed.ToList();
 
-        LogInformation("SFTP Batch upload completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+        Logger.LogInformation("SFTP Batch upload completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
 
         return new BatchOperationResult
         {
@@ -817,7 +817,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         if (filePaths.Count == 0)
             return BatchOperationResult.Empty;
 
-        LogDebug("SFTP Batch download starting: {Count} files to {Directory}", filePaths.Count, localDirectory);
+        Logger.LogDebug("SFTP Batch download starting: {Count} files to {Directory}", filePaths.Count, localDirectory);
 
         if (!Directory.Exists(localDirectory))
             Directory.CreateDirectory(localDirectory);
@@ -934,7 +934,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var succeededList = succeeded.ToList();
         var failedList = failed.ToList();
 
-        LogInformation("SFTP Batch download completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+        Logger.LogInformation("SFTP Batch download completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
 
         return new BatchOperationResult
         {
@@ -963,7 +963,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         if (paths.Count == 0)
             return BatchOperationResult.Empty;
 
-        LogDebug("SFTP Batch delete starting: {Count} files", paths.Count);
+        Logger.LogDebug("SFTP Batch delete starting: {Count} files", paths.Count);
 
         var succeeded = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<BatchOperationFailure>();
@@ -1047,7 +1047,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var succeededList = succeeded.ToList();
         var failedList = failed.ToList();
 
-        LogInformation("SFTP Batch delete completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+        Logger.LogInformation("SFTP Batch delete completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
 
         return new BatchOperationResult
         {

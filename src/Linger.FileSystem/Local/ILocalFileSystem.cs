@@ -48,10 +48,10 @@ public interface ILocalFileSystem : IFileSystemOperations, IBatchFileSystemOpera
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>上传结果信息。</returns>
     Task<UploadedInfo> UploadAsync(
-        Stream inputStream, 
-        string sourceFileName, 
-        string containerName = "", 
-        string destPath = "", 
+        Stream inputStream,
+        string sourceFileName,
+        string containerName = "",
+        string destPath = "",
         NamingRule? namingRule = null,
         bool? overwrite = null,
         bool? useSequencedName = null,

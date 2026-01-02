@@ -37,7 +37,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         : base(setting, retryOptions, logger)
     {
         Client = CreateClient();
-        LogDebug("FtpFileSystem created for {Host}:{Port}", setting.Host, setting.Port);
+        Logger.LogDebug("FtpFileSystem created for {Host}:{Port}", setting.Host, setting.Port);
     }
 
     private AsyncFtpClient CreateClient()
@@ -77,9 +77,9 @@ public class FtpFileSystem : RemoteFileSystemBase
     {
         if (!Client.IsConnected)
         {
-            LogInformation("Connecting to FTP server: {Host}:{Port}", Setting.Host, Setting.Port);
+            Logger.LogInformation("Connecting to FTP server: {Host}:{Port}", Setting.Host, Setting.Port);
             await Client.AutoConnect().ConfigureAwait(false);
-            LogInformation("Connected to FTP server: {Host}:{Port}", Setting.Host, Setting.Port);
+            Logger.LogInformation("Connected to FTP server: {Host}:{Port}", Setting.Host, Setting.Port);
         }
     }
 
@@ -87,7 +87,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     {
         if (Client.IsConnected)
         {
-            LogDebug("Disconnecting from FTP server: {Host}:{Port}", Setting.Host, Setting.Port);
+            Logger.LogDebug("Disconnecting from FTP server: {Host}:{Port}", Setting.Host, Setting.Port);
             await Client.Disconnect().ConfigureAwait(false);
         }
     }
@@ -113,7 +113,7 @@ public class FtpFileSystem : RemoteFileSystemBase
             return;
 
         await DisconnectAsync().ConfigureAwait(false);
-        
+
         if (!Client.IsDisposed)
             Client.Dispose();
 
@@ -205,7 +205,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
 
-        LogDebug("FTP Upload starting: {Destination}, Overwrite: {Overwrite}", destinationFilePath, overwrite);
+        Logger.LogDebug("FTP Upload starting: {Destination}, Overwrite: {Overwrite}", destinationFilePath, overwrite);
 
         await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
         try
@@ -239,12 +239,12 @@ public class FtpFileSystem : RemoteFileSystemBase
 
             if (!result)
             {
-                LogWarning("FTP Upload failed: {Destination}", destinationFilePath);
+                Logger.LogWarning("FTP Upload failed: {Destination}", destinationFilePath);
                 return FileOperationResult.CreateFailure($"上传文件失败: {destinationFilePath}");
             }
 
             var fileSize = await TryGetFileSizeAsync(destinationFilePath, cancellationToken).ConfigureAwait(false);
-            LogInformation("FTP Upload completed: {Destination}, Size: {Size} bytes", destinationFilePath, fileSize);
+            Logger.LogInformation("FTP Upload completed: {Destination}, Size: {Size} bytes", destinationFilePath, fileSize);
 
             return FileOperationResult.CreateSuccess(destinationFilePath, null, fileSize);
         }
@@ -596,7 +596,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         if (filePaths.Count == 0)
             return BatchOperationResult.Empty;
 
-        LogDebug("FTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
+        Logger.LogDebug("FTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
 
         var succeeded = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<BatchOperationFailure>();
@@ -717,7 +717,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         var succeededList = succeeded.ToList();
         var failedList = failed.ToList();
 
-        LogInformation("FTP Batch upload completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+        Logger.LogInformation("FTP Batch upload completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
 
         return new BatchOperationResult
         {
@@ -750,7 +750,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         if (filePaths.Count == 0)
             return BatchOperationResult.Empty;
 
-        LogDebug("FTP Batch download starting: {Count} files to {Directory}", filePaths.Count, localDirectory);
+        Logger.LogDebug("FTP Batch download starting: {Count} files to {Directory}", filePaths.Count, localDirectory);
 
         if (!Directory.Exists(localDirectory))
             Directory.CreateDirectory(localDirectory);
@@ -857,7 +857,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         var succeededList = succeeded.ToList();
         var failedList = failed.ToList();
 
-        LogInformation("FTP Batch download completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+        Logger.LogInformation("FTP Batch download completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
 
         return new BatchOperationResult
         {
@@ -886,7 +886,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         if (paths.Count == 0)
             return BatchOperationResult.Empty;
 
-        LogDebug("FTP Batch delete starting: {Count} files", paths.Count);
+        Logger.LogDebug("FTP Batch delete starting: {Count} files", paths.Count);
 
         var succeeded = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<BatchOperationFailure>();
@@ -964,7 +964,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         var succeededList = succeeded.ToList();
         var failedList = failed.ToList();
 
-        LogInformation("FTP Batch delete completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+        Logger.LogInformation("FTP Batch delete completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
 
         return new BatchOperationResult
         {
@@ -1211,4 +1211,3 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     #endregion
 }
-

@@ -44,7 +44,7 @@ public sealed class ConnectionPool<T> : IAsyncDisposable where T : class
     private readonly Action<T>? _disposeSync;
     private readonly TimeSpan? _maxIdleTime;
 
-    private readonly ConcurrentBag<PooledConnection> _available = new();
+    private readonly ConcurrentBag<PooledConnection> _available = [];
     private readonly SemaphoreSlim _semaphore;
     private bool _disposed;
 

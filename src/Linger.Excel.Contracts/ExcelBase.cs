@@ -19,7 +19,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -30,7 +30,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件读取失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -42,7 +42,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -53,7 +53,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取并转换为对象列表失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件读取并转换为对象列表失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -65,7 +65,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -76,7 +76,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -88,7 +88,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -99,7 +99,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -111,7 +111,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -122,7 +122,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -134,7 +134,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
-            Logger?.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
+            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
             return null;
         }
 
@@ -145,7 +145,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
+            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
             return null;
         }
     }
@@ -180,7 +180,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (dataSet == null || dataSet.Tables.Count == 0)
         {
-            Logger?.LogWarning("要导出的DataSet为空或不包含任何DataTable");
+            Logger.LogWarning("要导出的DataSet为空或不包含任何DataTable");
             dataSet = new DataSet();
             // 使用"Sheet1"作为空DataSet的默认工作表名称，而不是仅使用前缀
             dataSet.Tables.Add(new DataTable($"{defaultSheetName}1"));
@@ -197,7 +197,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
-                    Logger?.LogInformation("导出DataSet到Excel[表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
+                    Logger.LogInformation("导出DataSet到Excel[表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
                         dataSet.Tables.Count, sw.ElapsedMilliseconds);
                 }
             }
@@ -212,7 +212,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "导出DataSet到Excel失败");
+            Logger.LogError(ex, "导出DataSet到Excel失败");
             throw new InvalidOperationException("导出DataSet到Excel失败", ex);
         }
     }
@@ -224,7 +224,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (stream == null || stream.Length == 0)
         {
-            Logger?.LogWarning("Excel流为空");
+            Logger.LogWarning("Excel流为空");
             return null;
         }
 
@@ -236,7 +236,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             workbook = OpenWorkbook(stream);
             if (workbook == null)
             {
-                Logger?.LogWarning("无法打开Excel工作簿");
+                Logger.LogWarning("无法打开Excel工作簿");
                 return null;
             }
 
@@ -244,13 +244,13 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             var worksheet = GetWorksheet(workbook, sheetName);
             if (worksheet == null)
             {
-                Logger?.LogWarning("工作表不存在: {SheetName}", sheetName ?? "默认");
+                Logger.LogWarning("工作表不存在: {SheetName}", sheetName ?? "默认");
                 return null;
             }
 
             if (!HasData(worksheet))
             {
-                Logger?.LogWarning("工作表为空: {SheetName}", sheetName ?? "默认");
+                Logger.LogWarning("工作表为空: {SheetName}", sheetName ?? "默认");
                 return null;
             }
 
@@ -264,7 +264,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                 sw.Stop();
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
-                    Logger?.LogInformation(
+                    Logger.LogInformation(
                         "从Excel流导入到DataTable[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
                         dataTable?.Rows.Count ?? 0,
                         dataTable?.Columns.Count ?? 0,
@@ -280,7 +280,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel流读取失败");
+            Logger.LogError(ex, "从Excel流读取失败");
             return null;
         }
         finally
@@ -360,7 +360,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                     }
                     catch (Exception ex)
                     {
-                        Logger?.LogWarning(ex, "转换Excel单元格值到对象属性时出错: 列={Column}, 属性={Property}", dataTable.Columns[columnIndex].ColumnName, property.Name);
+                        Logger.LogWarning(ex, "转换Excel单元格值到对象属性时出错: 列={Column}, 属性={Property}", dataTable.Columns[columnIndex].ColumnName, property.Name);
                     }
                 }
 
@@ -371,7 +371,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "将DataTable转换为对象列表时出错");
+            Logger.LogError(ex, "将DataTable转换为对象列表时出错");
             return null;
         }
     }
@@ -391,7 +391,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (stream == null || stream.Length == 0)
         {
-            Logger?.LogWarning("Excel流为空");
+            Logger.LogWarning("Excel流为空");
             return null;
         }
 
@@ -403,7 +403,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             workbook = OpenWorkbook(stream);
             if (workbook == null)
             {
-                Logger?.LogWarning("无法打开Excel工作簿");
+                Logger.LogWarning("无法打开Excel工作簿");
                 return null;
             }
 
@@ -413,7 +413,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             var targetSheetNames = GetTargetSheetNames(workbook, sheetNames);
             if (targetSheetNames == null || targetSheetNames.Count == 0)
             {
-                Logger?.LogWarning("工作簿中没有找到要处理的工作表");
+                Logger.LogWarning("工作簿中没有找到要处理的工作表");
                 return dataSet;
             }
 
@@ -428,7 +428,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                     var worksheet = GetWorksheet(workbook, sheetName);
                     if (worksheet == null || !HasData(worksheet))
                     {
-                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
                         continue;
                     }
 
@@ -445,7 +445,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
-                    Logger?.LogInformation(
+                    Logger.LogInformation(
                         "从Excel流导入到DataSet[工作表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
                         dataSet.Tables.Count,
                         sw.ElapsedMilliseconds);
@@ -459,7 +459,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                     var worksheet = GetWorksheet(workbook, sheetName);
                     if (worksheet == null || !HasData(worksheet))
                     {
-                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
                         continue;
                     }
 
@@ -478,7 +478,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel流读取并转换为DataSet失败");
+            Logger.LogError(ex, "从Excel流读取并转换为DataSet失败");
             return null;
         }
         finally
@@ -506,7 +506,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (stream == null || stream.Length == 0)
         {
-            Logger?.LogWarning("Excel流为空");
+            Logger.LogWarning("Excel流为空");
             return null;
         }
 
@@ -518,7 +518,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             workbook = OpenWorkbook(stream);
             if (workbook == null)
             {
-                Logger?.LogWarning("无法打开Excel工作簿");
+                Logger.LogWarning("无法打开Excel工作簿");
                 return null;
             }
 
@@ -528,7 +528,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             var targetSheetNames = GetTargetSheetNames(workbook, sheetNames);
             if (targetSheetNames == null || targetSheetNames.Count == 0)
             {
-                Logger?.LogWarning("工作簿中没有找到要处理的工作表");
+                Logger.LogWarning("工作簿中没有找到要处理的工作表");
                 return dataSet;
             }
 
@@ -543,7 +543,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                     var worksheet = GetWorksheet(workbook, sheetName);
                     if (worksheet == null || !HasData(worksheet))
                     {
-                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
                         continue;
                     }
 
@@ -563,7 +563,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
-                    Logger?.LogInformation(
+                    Logger.LogInformation(
                         "从Excel流导入到DataSet[工作表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
                         dataSet.Tables.Count,
                         sw.ElapsedMilliseconds);
@@ -577,7 +577,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                     var worksheet = GetWorksheet(workbook, sheetName);
                     if (worksheet == null || !HasData(worksheet))
                     {
-                        Logger?.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
                         continue;
                     }
 
@@ -599,7 +599,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "从Excel流读取并转换为DataSet失败");
+            Logger.LogError(ex, "从Excel流读取并转换为DataSet失败");
             return null;
         }
         finally
@@ -645,7 +645,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             }
             else
             {
-                Logger?.LogWarning("请求的工作表不存在: {SheetName}", requestedName);
+                Logger.LogWarning("请求的工作表不存在: {SheetName}", requestedName);
             }
         }
 
@@ -664,7 +664,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (list == null)
         {
-            Logger?.LogWarning("要导出的列表为空");
+            Logger.LogWarning("要导出的列表为空");
             list = [];
         }
 
@@ -679,7 +679,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
-                    Logger?.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
+                    Logger.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
                         list.Count, sw.ElapsedMilliseconds);
                 }
             }
@@ -698,7 +698,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "导出列表到Excel失败");
+            Logger.LogError(ex, "导出列表到Excel失败");
             throw new InvalidOperationException("导出列表到Excel失败", ex);
         }
     }
@@ -715,7 +715,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (dataTable == null)
         {
-            Logger?.LogWarning("要导出的DataTable为空");
+            Logger.LogWarning("要导出的DataTable为空");
             dataTable = new DataTable();
         }
 
@@ -730,7 +730,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
-                    Logger?.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                    Logger.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
                         dataTable.Rows.Count, dataTable.Columns.Count, sw.ElapsedMilliseconds);
                 }
             }
@@ -749,7 +749,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
         catch (Exception ex)
         {
-            Logger?.LogError(ex, "导出DataTable到Excel失败");
+            Logger.LogError(ex, "导出DataTable到Excel失败");
             throw new InvalidOperationException("导出DataTable到Excel失败", ex);
         }
     }
@@ -931,7 +931,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         var columnCount = EstimateColumnCount(worksheet);
         if (columnCount <= 0)
         {
-            Logger?.LogWarning("工作表为空或无法确定列数");
+            Logger.LogWarning("工作表为空或无法确定列数");
             return dataTable;
         }
 

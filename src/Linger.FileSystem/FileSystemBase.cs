@@ -50,30 +50,6 @@ public abstract class FileSystemBase : IFileSystemOperations
         throw new FileSystemException(operation, path, message, ex);
     }
 
-    /// <summary>
-    /// 记录调试级别日志
-    /// </summary>
-    protected void LogDebug(string message, params object[] args)
-    {
-        Logger.LogDebug(message, args);
-    }
-
-    /// <summary>
-    /// 记录信息级别日志
-    /// </summary>
-    protected void LogInformation(string message, params object[] args)
-    {
-        Logger.LogInformation(message, args);
-    }
-
-    /// <summary>
-    /// 记录警告级别日志
-    /// </summary>
-    protected void LogWarning(string message, params object[] args)
-    {
-        Logger.LogWarning(message, args);
-    }
-
     #endregion
 
     #region IAsyncFileSystem 实现

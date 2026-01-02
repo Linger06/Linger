@@ -32,7 +32,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
 
         // 确保根目录存在
         Directory.CreateDirectory(RootDirectoryPath);
-        LogDebug("LocalFileSystem initialized with root path: {RootPath}", RootDirectoryPath);
+        Logger.LogDebug("LocalFileSystem initialized with root path: {RootPath}", RootDirectoryPath);
     }
 
     /// <summary>
@@ -130,7 +130,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentException.ThrowIfNullOrEmpty(sourceFileName);
 
-        LogDebug("Starting upload: {FileName} to container: {Container}, path: {Path}", sourceFileName, containerName, destPath);
+        Logger.LogDebug("Starting upload: {FileName} to container: {Container}, path: {Path}", sourceFileName, containerName, destPath);
 
         // 使用传入的值或默认值
         var effectiveNamingRule = namingRule ?? _options.DefaultNamingRule;
@@ -151,7 +151,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
             ex => ex is not DuplicateFileException,
             cancellationToken: cancellationToken).ConfigureAwait(false); // 文件重复异常不重试
 
-        LogInformation("Upload completed: {FileName} -> {NewFileName}, Size: {Size}", sourceFileName, result.NewFileName ?? string.Empty, result.FileSize);
+        Logger.LogInformation("Upload completed: {FileName} -> {NewFileName}, Size: {Size}", sourceFileName, result.NewFileName ?? string.Empty, result.FileSize);
         return result;
     }
 
@@ -538,7 +538,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         ArgumentException.ThrowIfNullOrEmpty(sourceFilePath);
         ArgumentException.ThrowIfNullOrEmpty(localDestinationPath);
 
-        LogDebug("Starting download: {Source} -> {Destination}", sourceFilePath, localDestinationPath);
+        Logger.LogDebug("Starting download: {Source} -> {Destination}", sourceFilePath, localDestinationPath);
 
         return await RetryHelper.ExecuteAsync(
             async () =>
@@ -904,7 +904,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         IProgress<BatchProgress>? progress,
         CancellationToken cancellationToken = default)
     {
-        var paths = localFilePaths?.ToList() ?? new List<string>();
+        var paths = localFilePaths?.ToList() ?? [];
         if (paths.Count == 0)
         {
             return BatchOperationResult.Empty;
@@ -1033,7 +1033,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         IProgress<BatchProgress>? progress,
         CancellationToken cancellationToken = default)
     {
-        var paths = remoteFilePaths?.ToList() ?? new List<string>();
+        var paths = remoteFilePaths?.ToList() ?? [];
         if (paths.Count == 0)
         {
             return BatchOperationResult.Empty;
@@ -1144,7 +1144,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         IProgress<BatchProgress>? progress,
         CancellationToken cancellationToken = default)
     {
-        var paths = filePaths?.ToList() ?? new List<string>();
+        var paths = filePaths?.ToList() ?? [];
         if (paths.Count == 0)
         {
             return BatchOperationResult.Empty;

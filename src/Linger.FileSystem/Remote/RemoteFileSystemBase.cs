@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using Linger.Helper;
 
 namespace Linger.FileSystem.Remote;
 
@@ -47,7 +46,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
             throw new ArgumentException($"Host cannot be null or empty: {nameof(setting.Host)}");
 
         ServerDetailsString = FormatServerDetails();
-        LogDebug("RemoteFileSystem initialized: {ServerDetails}", ServerDetailsString);
+        Logger.LogDebug("RemoteFileSystem initialized: {ServerDetails}", ServerDetailsString);
     }
 
     /// <summary>
@@ -65,7 +64,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     public abstract Task ConnectAsync();
     public abstract Task DisconnectAsync();
     public abstract void Dispose();
-    
+
     /// <summary>
     /// 异步释放资源
     /// </summary>
@@ -75,12 +74,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         if (Disposed)
             return;
 
-        LogDebug("Disposing remote file system: {ServerDetails}", ServerDetailsString);
+        Logger.LogDebug("Disposing remote file system: {ServerDetails}", ServerDetailsString);
         await DisconnectAsync().ConfigureAwait(false);
         Dispose();
         GC.SuppressFinalize(this);
     }
-    
+
     public virtual string ServerDetails() => ServerDetailsString;
     #endregion
 
@@ -104,9 +103,9 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         {
             if (!fileSystem.IsConnected())
             {
-                fileSystem.LogDebug("Connecting to {ServerDetails}...", fileSystem.ServerDetailsString);
+                fileSystem.Logger.LogDebug("Connecting to {ServerDetails}...", fileSystem.ServerDetailsString);
                 await fileSystem.ConnectAsync().ConfigureAwait(false);
-                fileSystem.LogDebug("Connected to {ServerDetails}", fileSystem.ServerDetailsString);
+                fileSystem.Logger.LogDebug("Connected to {ServerDetails}", fileSystem.ServerDetailsString);
             }
 
             return new AsyncConnectionScope();
