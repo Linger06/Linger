@@ -138,7 +138,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() => Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile, cancellationToken).ConfigureAwait(false);
@@ -152,7 +152,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() => Client.Exists(directoryPath) && Client.GetAttributes(directoryPath).IsDirectory, cancellationToken).ConfigureAwait(false);
@@ -166,7 +166,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             await Task.Run(() =>
@@ -195,7 +195,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             await Task.Run(() =>
@@ -236,7 +236,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
         Logger.LogDebug("SFTP Upload starting: {Destination}, Overwrite: {Overwrite}", destinationFilePath, overwrite);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             // 提取目录路径
@@ -385,7 +385,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
         ArgumentNullException.ThrowIfNull(outputStream);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -429,7 +429,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(localDestinationPath);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -472,7 +472,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -493,73 +493,11 @@ public class SftpFileSystem : RemoteFileSystemBase
     #region SFTP特有功能
 
     /// <summary>
-    /// 列出目录中的文件（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="ListFilesAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 ListFilesAsync 异步版本", true)]
-    public List<string> ListFiles(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 ListFiles 已被移除。请使用 ListFilesAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 列出目录中的子目录（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="ListDirectoriesAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 ListDirectoriesAsync 异步版本", true)]
-    public List<string> ListDirectories(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 ListDirectories 已被移除。请使用 ListDirectoriesAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 设置工作目录（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="SetWorkingDirectoryAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 SetWorkingDirectoryAsync 异步版本", true)]
-    public void SetWorkingDirectory(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 SetWorkingDirectory 已被移除。请使用 SetWorkingDirectoryAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 设置根目录为工作目录（同步方法 - 已过时）
-    /// </summary>
-    [Obsolete("请使用 SetRootAsWorkingDirectoryAsync 异步版本", true)]
-    public void SetRootAsWorkingDirectory()
-    {
-        throw new NotSupportedException(
-            "同步方法 SetRootAsWorkingDirectory 已被移除。请使用 SetRootAsWorkingDirectoryAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 获取文件最后修改时间（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="GetLastModifiedTimeAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 GetLastModifiedTimeAsync 异步版本", true)]
-    public DateTime GetLastModifiedTime(string remotePath)
-    {
-        throw new NotSupportedException(
-            "同步方法 GetLastModifiedTime 已被移除。请使用 GetLastModifiedTimeAsync 异步版本。");
-    }
-
-    /// <summary>
     /// 异步获取文件修改时间
     /// </summary>
     public async Task<DateTime> GetLastModifiedTimeAsync(string remotePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -580,7 +518,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// </summary>
     public override async Task<IReadOnlyList<string>> ListFilesAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -608,7 +546,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// </summary>
     public override async Task<IReadOnlyList<string>> ListDirectoriesAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -634,21 +572,11 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 批量上传文件
     /// </summary>
-    public override Task<BatchOperationResult> UploadFilesAsync(
-        IEnumerable<string> localFilePaths,
-        string remoteDirectory,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default)
-        => UploadFilesAsync(localFilePaths, remoteDirectory, overwrite, null, cancellationToken);
-
-    /// <summary>
-    /// 批量上传文件（带进度报告）
-    /// </summary>
     public override async Task<BatchOperationResult> UploadFilesAsync(
         IEnumerable<string> localFilePaths,
         string remoteDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var filePaths = localFilePaths.ToList();
@@ -658,10 +586,8 @@ public class SftpFileSystem : RemoteFileSystemBase
         Logger.LogDebug("SFTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
 
         // 先确保远程目录存在（使用主连接串行执行一次）
-        await using (await CreateConnectionScopeAsync().ConfigureAwait(false))
-        {
-            await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
-        }
+        await EnsureConnectedAsync().ConfigureAwait(false);
+        await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
 
         var succeeded = new ConcurrentBag<string>();
         var failed = new ConcurrentBag<BatchOperationFailure>();
@@ -671,7 +597,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var degree = Setting.MaxDegreeOfParallelism;
         if (degree <= 1)
         {
-            await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+            await EnsureConnectedAsync().ConfigureAwait(false);
             foreach (var localPath in filePaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -796,21 +722,11 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 批量下载文件
     /// </summary>
-    public override Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
-        string localDirectory,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default)
-        => DownloadFilesAsync(remoteFilePaths, localDirectory, overwrite, null, cancellationToken);
-
-    /// <summary>
-    /// 批量下载文件（带进度报告）
-    /// </summary>
     public override async Task<BatchOperationResult> DownloadFilesAsync(
         IEnumerable<string> remoteFilePaths,
         string localDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var filePaths = remoteFilePaths.ToList();
@@ -830,7 +746,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var degree = Setting.MaxDegreeOfParallelism;
         if (degree <= 1)
         {
-            await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+            await EnsureConnectedAsync().ConfigureAwait(false);
             foreach (var remotePath in filePaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -946,17 +862,9 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 批量删除文件
     /// </summary>
-    public override Task<BatchOperationResult> DeleteFilesAsync(
-        IEnumerable<string> filePaths,
-        CancellationToken cancellationToken = default)
-        => DeleteFilesAsync(filePaths, null, cancellationToken);
-
-    /// <summary>
-    /// 批量删除文件（带进度报告）
-    /// </summary>
     public override async Task<BatchOperationResult> DeleteFilesAsync(
         IEnumerable<string> filePaths,
-        IProgress<BatchProgress>? progress,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var paths = filePaths.ToList();
@@ -973,7 +881,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var degree = Setting.MaxDegreeOfParallelism;
         if (degree <= 1)
         {
-            await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+            await EnsureConnectedAsync().ConfigureAwait(false);
             foreach (var filePath in paths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -1061,7 +969,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             await Task.Run(() =>
@@ -1198,7 +1106,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -1225,7 +1133,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -1304,7 +1212,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>

@@ -39,6 +39,8 @@ public static class GuidCode
     /// Gets a new GUID.
     /// </summary>
     /// <returns>A new GUID.</returns>
+    /// <remarks>This method is obsolete. Use <see cref="Guid.NewGuid()"/> directly.</remarks>
+    [Obsolete("Use Guid.NewGuid() directly. This method will be removed in a future version.")]
     public static Guid NewGuid()
     {
         return Guid.NewGuid();

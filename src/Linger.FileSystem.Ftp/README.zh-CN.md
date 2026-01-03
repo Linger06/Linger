@@ -1,4 +1,4 @@
-# Linger.FileSystem.Ftp
+﻿# Linger.FileSystem.Ftp
 
 ## 概述
 
@@ -38,7 +38,7 @@ var settings = new RemoteSystemSetting
 // 配置重试选项
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -184,17 +184,20 @@ var settings = new RemoteSystemSetting
     // 空闲超过此时间的连接将被丢弃并重新创建
     ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
     
-    // 批量操作的单文件重试次数（0 = 不重试）
-    BatchOperationRetryCount = 3,
-    BatchOperationRetryDelayMilliseconds = 1000
+    // 批量操作重试设置
+    BatchRetryOptions = new RetryOptions
+    {
+        MaxRetryAttempts = 3,
+        DelayMilliseconds = 1000
+    }
 };
 
 var ftp = new FtpFileSystem(settings);
 ```
 
 重试配置说明：
-- `BatchOperationRetryCount`: 当单个文件操作失败时，最多重试的次数
-- `BatchOperationRetryDelayMilliseconds`: 重试间隔（使用线性退避：delay * attempts）
+- `MaxRetryAttempts`: 当单个文件操作失败时，最多重试的次数
+- `DelayMilliseconds`: 重试间隔
 
 ### 文件上传方法
 

@@ -127,7 +127,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Client.FileExists(filePath, cancellationToken).ConfigureAwait(false);
@@ -141,7 +141,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Client.DirectoryExists(directoryPath, cancellationToken).ConfigureAwait(false);
@@ -155,7 +155,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
@@ -169,7 +169,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -207,7 +207,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
         Logger.LogDebug("FTP Upload starting: {Destination}, Overwrite: {Overwrite}", destinationFilePath, overwrite);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             // 提取目录路径并确保目录存在
@@ -278,7 +278,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
         ArgumentException.ThrowIfNullOrEmpty(destinationFilePath);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             var result = await RetryHelper.ExecuteAsync(
@@ -343,7 +343,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
         ArgumentException.ThrowIfNullOrEmpty(destinationFileName);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             var sanitizedFileName = Path.GetFileName(destinationFileName);
@@ -387,7 +387,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
         ArgumentNullException.ThrowIfNull(outputStream);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -436,7 +436,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(localDestinationPath);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -486,7 +486,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -521,7 +521,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Client.GetModifiedTime(filePath, cancellationToken).ConfigureAwait(false);
@@ -538,7 +538,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task<IEnumerable<string>> ListDirectoryAsync(string? directoryPath = null, FtpObjectType type = FtpObjectType.File, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             FtpListItem[] items = directoryPath == null ?
@@ -560,7 +560,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!string.IsNullOrWhiteSpace(directoryPath) && await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
@@ -575,21 +575,11 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 批量上传文件
     /// </summary>
-    public override Task<BatchOperationResult> UploadFilesAsync(
-        IEnumerable<string> localFilePaths,
-        string remoteDirectory,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default)
-        => UploadFilesAsync(localFilePaths, remoteDirectory, overwrite, null, cancellationToken);
-
-    /// <summary>
-    /// 批量上传文件（带进度报告）
-    /// </summary>
     public override async Task<BatchOperationResult> UploadFilesAsync(
         IEnumerable<string> localFilePaths,
         string remoteDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var filePaths = localFilePaths.ToList();
@@ -606,7 +596,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         var degree = Setting.MaxDegreeOfParallelism;
         if (degree <= 1)
         {
-            await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+            await EnsureConnectedAsync().ConfigureAwait(false);
             foreach (var localPath in filePaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -729,21 +719,11 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 批量下载文件
     /// </summary>
-    public override Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
-        string localDirectory,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default)
-        => DownloadFilesAsync(remoteFilePaths, localDirectory, overwrite, null, cancellationToken);
-
-    /// <summary>
-    /// 批量下载文件（带进度报告）
-    /// </summary>
     public override async Task<BatchOperationResult> DownloadFilesAsync(
         IEnumerable<string> remoteFilePaths,
         string localDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var filePaths = remoteFilePaths.ToList();
@@ -763,7 +743,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         var degree = Setting.MaxDegreeOfParallelism;
         if (degree <= 1)
         {
-            await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+            await EnsureConnectedAsync().ConfigureAwait(false);
             foreach (var remotePath in filePaths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -869,17 +849,9 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 批量删除文件
     /// </summary>
-    public override Task<BatchOperationResult> DeleteFilesAsync(
-        IEnumerable<string> filePaths,
-        CancellationToken cancellationToken = default)
-        => DeleteFilesAsync(filePaths, null, cancellationToken);
-
-    /// <summary>
-    /// 批量删除文件（带进度报告）
-    /// </summary>
     public override async Task<BatchOperationResult> DeleteFilesAsync(
         IEnumerable<string> filePaths,
-        IProgress<BatchProgress>? progress,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var paths = filePaths.ToList();
@@ -896,7 +868,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         var degree = Setting.MaxDegreeOfParallelism;
         if (degree <= 1)
         {
-            await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+            await EnsureConnectedAsync().ConfigureAwait(false);
             foreach (var filePath in paths)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -980,7 +952,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         string directoryPath,
         CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             var items = await Client.GetListing(directoryPath, token: cancellationToken).ConfigureAwait(false);
@@ -1003,7 +975,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         string directoryPath,
         CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             var items = await Client.GetListing(directoryPath, token: cancellationToken).ConfigureAwait(false);
@@ -1107,7 +1079,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -1131,7 +1103,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!overwrite && await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -1193,7 +1165,7 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))

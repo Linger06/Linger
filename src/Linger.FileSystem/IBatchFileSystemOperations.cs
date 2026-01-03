@@ -122,8 +122,7 @@ public class BatchOperationFailure
 /// </summary>
 /// <remarks>
 /// <para>此接口提供文件系统的批量操作功能，适用于需要处理多个文件的场景。</para>
-/// <para>所有方法均为异步方法，支持取消操作。</para>
-/// <para>若需进度报告，请使用带 <see cref="IProgress{BatchProgress}"/> 参数的重载方法。</para>
+/// <para>所有方法均为异步方法，支持取消操作和进度报告。</para>
 /// </remarks>
 public interface IBatchFileSystemOperations
 {
@@ -133,32 +132,15 @@ public interface IBatchFileSystemOperations
     /// <param name="localFilePaths">本地文件路径列表</param>
     /// <param name="remoteDirectory">远程目标目录</param>
     /// <param name="overwrite">是否覆盖已存在的文件</param>
+    /// <param name="progress">进度报告回调（可选）</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>批量操作结果</returns>
     /// <example>
     /// <code>
-    /// var files = new[] { "file1.txt", "file2.txt", "file3.txt" };
+    /// // 不带进度报告
     /// var result = await fileSystem.UploadFilesAsync(files, "/remote/uploads", overwrite: true);
-    /// Console.WriteLine($"成功: {result.SuccessCount}, 失败: {result.FailureCount}");
-    /// </code>
-    /// </example>
-    Task<BatchOperationResult> UploadFilesAsync(
-        IEnumerable<string> localFilePaths,
-        string remoteDirectory,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 批量上传本地文件到远程目录（带进度报告）
-    /// </summary>
-    /// <param name="localFilePaths">本地文件路径列表</param>
-    /// <param name="remoteDirectory">远程目标目录</param>
-    /// <param name="overwrite">是否覆盖已存在的文件</param>
-    /// <param name="progress">进度报告回调</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>批量操作结果</returns>
-    /// <example>
-    /// <code>
+    /// 
+    /// // 带进度报告
     /// var progress = new Progress&lt;BatchProgress&gt;(p =>
     ///     Console.WriteLine($"进度: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)"));
     /// var result = await fileSystem.UploadFilesAsync(files, "/remote/uploads", true, progress);
@@ -167,8 +149,8 @@ public interface IBatchFileSystemOperations
     Task<BatchOperationResult> UploadFilesAsync(
         IEnumerable<string> localFilePaths,
         string remoteDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -177,6 +159,7 @@ public interface IBatchFileSystemOperations
     /// <param name="remoteFilePaths">远程文件路径列表</param>
     /// <param name="localDirectory">本地目标目录</param>
     /// <param name="overwrite">是否覆盖已存在的文件</param>
+    /// <param name="progress">进度报告回调（可选）</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>批量操作结果</returns>
     /// <example>
@@ -193,35 +176,14 @@ public interface IBatchFileSystemOperations
         IEnumerable<string> remoteFilePaths,
         string localDirectory,
         bool overwrite = false,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 批量下载远程文件到本地目录（带进度报告）
-    /// </summary>
-    /// <param name="remoteFilePaths">远程文件路径列表</param>
-    /// <param name="localDirectory">本地目标目录</param>
-    /// <param name="overwrite">是否覆盖已存在的文件</param>
-    /// <param name="progress">进度报告回调</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>批量操作结果</returns>
-    /// <example>
-    /// <code>
-    /// var progress = new Progress&lt;BatchProgress&gt;(p =>
-    ///     Console.WriteLine($"下载进度: {p.Completed}/{p.Total} - {p.CurrentFile}"));
-    /// var result = await fileSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", true, progress);
-    /// </code>
-    /// </example>
-    Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
-        string localDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 批量删除文件
     /// </summary>
     /// <param name="filePaths">要删除的文件路径列表</param>
+    /// <param name="progress">进度报告回调（可选）</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>批量操作结果</returns>
     /// <example>
@@ -233,25 +195,7 @@ public interface IBatchFileSystemOperations
     /// </example>
     Task<BatchOperationResult> DeleteFilesAsync(
         IEnumerable<string> filePaths,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 批量删除文件（带进度报告）
-    /// </summary>
-    /// <param name="filePaths">要删除的文件路径列表</param>
-    /// <param name="progress">进度报告回调</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>批量操作结果</returns>
-    /// <example>
-    /// <code>
-    /// var progress = new Progress&lt;BatchProgress&gt;(p =>
-    ///     Console.WriteLine($"删除进度: {p.PercentComplete:F1}%"));
-    /// var result = await fileSystem.DeleteFilesAsync(filesToDelete, progress);
-    /// </code>
-    /// </example>
-    Task<BatchOperationResult> DeleteFilesAsync(
-        IEnumerable<string> filePaths,
-        IProgress<BatchProgress>? progress,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

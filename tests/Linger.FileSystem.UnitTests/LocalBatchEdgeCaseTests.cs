@@ -47,7 +47,7 @@ namespace Linger.FileSystem.Tests.Local
             cts.Cancel();
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-                await _fs.UploadFilesAsync(files, "dst", overwrite: true, cts.Token));
+                await _fs.UploadFilesAsync(files, "dst", overwrite: true, cancellationToken: cts.Token));
         }
 
         [Fact]
@@ -64,7 +64,7 @@ namespace Linger.FileSystem.Tests.Local
             cts.Cancel();
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-                await _fs.DownloadFilesAsync(remotePaths, Path.Combine(_root, "out"), overwrite: true, cts.Token));
+                await _fs.DownloadFilesAsync(remotePaths, Path.Combine(_root, "out"), overwrite: true, cancellationToken: cts.Token));
         }
 
         [Fact]
@@ -81,7 +81,7 @@ namespace Linger.FileSystem.Tests.Local
             cts.Cancel();
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-                await _fs.DeleteFilesAsync(paths, cts.Token));
+                await _fs.DeleteFilesAsync(paths, cancellationToken: cts.Token));
         }
 
         #endregion

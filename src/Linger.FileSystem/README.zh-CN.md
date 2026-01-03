@@ -1,4 +1,4 @@
-# Linger.FileSystem
+﻿# Linger.FileSystem
 
 Linger.FileSystem 是一个统一的文件系统抽象库，提供了对多种文件系统的一致访问接口，包括本地文件系统、FTP和SFTP。通过这个库，您可以使用相同的API操作不同类型的文件系统，简化开发过程，提高代码复用性。
 
@@ -28,20 +28,17 @@ dotnet add package Linger.FileSystem.Sftp
 ### 核心接口层次
 
 ```
-IFileSystem (🚫 已过时)         IAsyncFileSystem (✅ 推荐)
-    │                              │
-    └───────────────┬──────────────┘
-                    │
-          IFileSystemOperations
+              IFileSystem
+                   │
+         IFileSystemOperations
            /            \
 ILocalFileSystem    IRemoteFileSystem
 ```
 
 ### 核心接口
 
-- **IFileSystem**: ⚠️ 已过时 - 定义基本同步文件操作接口（建议迁移到 IAsyncFileSystem）
-- **IAsyncFileSystem**: ✅ 推荐 - 定义基本异步文件操作接口
-- **IFileSystemOperations**: 统一的文件系统操作接口，继承自上述两个接口
+- **IFileSystem**: 定义基本文件操作接口
+- **IFileSystemOperations**: 统一的文件系统操作接口，继承自 IFileSystem
 - **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
 - **IRemoteFileSystem**: 远程文件系统连接管理接口
 
@@ -72,8 +69,6 @@ ILocalFileSystem    IRemoteFileSystem
 - **适配器模式**: 将FluentFTP和SSH.NET等不同的文件系统API适配到统一接口
 - **简单工厂**: 各个文件系统类内部的CreateClient()方法用于创建具体的客户端实例
 - **命令模式**: 通过FileOperationResult封装操作结果，统一处理执行状态
-- **组合模式**: 通过接口组合(IFileSystem和IAsyncFileSystem)构建更复杂的IFileSystemOperations
-- **代理模式**: 远程文件系统的连接管理使用ConnectionScope作为代理，控制资源访问
 
 ### 关键流程
 
@@ -84,7 +79,7 @@ ILocalFileSystem    IRemoteFileSystem
    - 返回统一的FileOperationResult结果
 
 2. **远程系统连接管理**:
-   - 使用ConnectionScope确保连接的正确打开和关闭
+   - 使用 `EnsureConnectedAsync()` 自动管理连接
    - 自动连接、操作、关闭的生命周期管理
 
 ## 主要特点
@@ -98,7 +93,7 @@ ILocalFileSystem    IRemoteFileSystem
 - **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理（内存减少 99.99%）
 - **批量操作进度报告**: 通过 `IProgress<BatchProgress>` 实时跟踪批量上传、下载和删除操作的进度
 - **连接池空闲超时**: 通过 `ConnectionPoolIdleTimeout` 配置自动清理连接池中的空闲连接
-- **批量操作重试**: 通过 `BatchOperationRetryCount` 和延迟设置为批量操作中的单个文件提供重试支持
+- **批量操作重试**: 通过 `BatchRetryOptions` 配置为批量操作中的单个文件提供重试支持
 
 ## 支持的.NET版本
 
@@ -388,14 +383,13 @@ var options = new LocalFileSystemOptions
     DefaultNamingRule = NamingRule.Md5,        // 默认命名规则: Md5、Uuid、Normal
     DefaultOverwrite = false,                  // 是否默认覆盖同名文件
     DefaultUseSequencedName = true,            // 文件名冲突时是否使用序号命名
-    ValidateFileIntegrity = true,              // 是否验证文件完整性
-    ValidateFileMetadata = false,              // 是否验证文件元数据
+    ValidationLevel = FileValidationLevel.Full, // 验证级别: None(不验证)、SizeOnly(仅大小)、Full(完整)
     CleanupOnValidationFailure = true,         // 验证失败时是否清理文件
     UploadBufferSize = 81920,                  // 上传缓冲区大小
     DownloadBufferSize = 81920,                // 下载缓冲区大小
     RetryOptions = new RetryOptions 
     { 
-        MaxRetryCount = 3, 
+        MaxRetryAttempts = 3, 
         DelayMilliseconds = 1000 
     }
 };
@@ -420,9 +414,12 @@ var remoteSetting = new RemoteSystemSetting
     // 连接池空闲超时（空闲超过此时间的连接将被重新创建）
     ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
     
-    // 批量操作单文件重试设置
-    BatchOperationRetryCount = 3,              // 每个文件的重试次数（0 = 不重试）
-    BatchOperationRetryDelayMilliseconds = 1000, // 重试之间的延迟
+    // 批量操作重试设置
+    BatchRetryOptions = new RetryOptions
+    {
+        MaxRetryAttempts = 3,
+        DelayMilliseconds = 1000
+    },
     
     // SFTP特定设置
     CertificatePath = "",                      // 证书路径
@@ -627,7 +624,7 @@ catch (FileSystemException ex)
 ```csharp
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 5,                        // 最多重试5次
+    MaxRetryAttempts = 5,                     // 最多重试5次
     DelayMilliseconds = 1000,                 // 初始延迟1秒
     MaxDelayMilliseconds = 30000,             // 最大延迟30秒
     UseExponentialBackoff = true              // 使用指数退避算法
@@ -742,14 +739,13 @@ var options = new LocalFileSystemOptions
     DefaultNamingRule = NamingRule.Md5,        // 默认命名规则: Md5、Uuid、Normal
     DefaultOverwrite = false,                  // 是否默认覆盖同名文件
     DefaultUseSequencedName = true,            // 文件名冲突时是否使用序号命名
-    ValidateFileIntegrity = true,              // 是否验证文件完整性
-    ValidateFileMetadata = false,              // 是否验证文件元数据
+    ValidationLevel = FileValidationLevel.Full, // 验证级别: None(不验证)、SizeOnly(仅大小)、Full(完整)
     CleanupOnValidationFailure = true,         // 验证失败时是否清理文件
     UploadBufferSize = 262144,                 // 增加到256KB以提升大文件上传性能
     DownloadBufferSize = 262144,               // 增加到256KB以提升大文件下载性能
     RetryOptions = new RetryOptions 
     { 
-        MaxRetryCount = 3, 
+        MaxRetryAttempts = 3, 
         DelayMilliseconds = 1000 
     }
 };
@@ -764,209 +760,6 @@ var options = new LocalFileSystemOptions
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
 await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
 ```
-
-## 迁移指南
-
-### 从同步方法迁移到异步方法
-
-⚠️ `IFileSystem` 接口中的同步方法已被标记为过时，建议迁移到异步版本以避免潜在的死锁和性能问题。
-
-#### 为什么要迁移？
-
-同步方法在现代应用程序中可能导致：
-- **死锁风险**: 在 ASP.NET Core 等异步上下文中调用同步方法可能导致死锁
-- **性能问题**: 阻塞线程池线程，降低应用程序的整体吞吐量
-- **可扩展性限制**: 无法充分利用异步 I/O 的优势
-
-#### 迁移步骤
-
-**步骤 1: 更改接口类型**
-
-```csharp
-// ❌ 旧代码（使用同步接口）
-IFileSystem fs = new LocalFileSystem("C:/Storage");
-
-// ✅ 新代码 - 使用异步接口
-IAsyncFileSystem fs = new LocalFileSystem("C:/Storage");
-
-// ✅ 或使用完整的操作接口（推荐）
-IFileSystemOperations fs = new LocalFileSystem("C:/Storage");
-```
-
-**步骤 2: 更新方法调用**
-
-```csharp
-// ❌ 旧代码（同步调用）
-bool exists = fs.FileExists("/file.txt");
-fs.CreateDirectoryIfNotExists("/uploads");
-fs.DeleteFileIfExists("/temp.txt");
-
-// ✅ 新代码（异步调用）
-bool exists = await fs.FileExistsAsync("/file.txt");
-await fs.CreateDirectoryIfNotExistsAsync("/uploads");
-await fs.DeleteFileIfExistsAsync("/temp.txt");
-```
-
-**步骤 3: 更新方法签名为异步**
-
-```csharp
-// ❌ 旧方法签名（同步）
-public void ProcessFile(string filePath)
-{
-    if (fs.FileExists(filePath))
-    {
-        // 处理文件...
-        fs.DeleteFileIfExists(filePath);
-    }
-}
-
-// ✅ 新方法签名（异步）
-public async Task ProcessFileAsync(string filePath)
-{
-    if (await fs.FileExistsAsync(filePath))
-    {
-        // 处理文件...
-        await fs.DeleteFileIfExistsAsync(filePath);
-    }
-}
-```
-
-**步骤 4: 更新调用链**
-
-```csharp
-// ❌ 旧代码
-public class FileProcessor
-{
-    public void Run()
-    {
-        ProcessFile("data.txt");
-    }
-}
-
-// ✅ 新代码
-public class FileProcessor
-{
-    public async Task RunAsync()
-    {
-        await ProcessFileAsync("data.txt");
-    }
-}
-```
-
-#### 常见场景迁移示例
-
-**场景 1: 文件上传前检查**
-
-```csharp
-// ❌ 旧代码
-public FileOperationResult UploadFile(Stream stream, string path)
-{
-    if (fs.FileExists(path))
-    {
-        return FileOperationResult.Fail("文件已存在");
-    }
-    return fs.UploadAsync(stream, path).GetAwaiter().GetResult(); // 危险！
-}
-
-// ✅ 新代码
-public async Task<FileOperationResult> UploadFileAsync(Stream stream, string path)
-{
-    if (await fs.FileExistsAsync(path))
-    {
-        return FileOperationResult.Fail("文件已存在");
-    }
-    return await fs.UploadAsync(stream, path);
-}
-```
-
-**场景 2: 批量文件处理**
-
-```csharp
-// ❌ 旧代码
-public void ProcessFiles(string[] filePaths)
-{
-    foreach (var path in filePaths)
-    {
-        if (fs.FileExists(path))
-        {
-            // 处理文件...
-        }
-    }
-}
-
-// ✅ 新代码
-public async Task ProcessFilesAsync(string[] filePaths)
-{
-    foreach (var path in filePaths)
-    {
-        if (await fs.FileExistsAsync(path))
-        {
-            // 处理文件...
-        }
-    }
-}
-
-// ✅✅ 更好的方式 - 并行处理
-public async Task ProcessFilesAsync(string[] filePaths)
-{
-    var tasks = filePaths.Select(async path =>
-    {
-        if (await fs.FileExistsAsync(path))
-        {
-            // 处理文件...
-        }
-    });
-    await Task.WhenAll(tasks);
-}
-```
-
-**场景 3: ASP.NET Core 控制器**
-
-```csharp
-// ❌ 旧代码（可能导致死锁！）
-[HttpGet]
-public IActionResult GetFile(string path)
-{
-    if (!fs.FileExists(path))  // 同步调用可能死锁
-    {
-        return NotFound();
-    }
-    // ...
-}
-
-// ✅ 新代码
-[HttpGet]
-public async Task<IActionResult> GetFileAsync(string path)
-{
-    if (!await fs.FileExistsAsync(path))
-    {
-        return NotFound();
-    }
-    // ...
-}
-```
-
-#### 迁移检查清单
-
-- [ ] 将所有 `IFileSystem` 类型声明改为 `IAsyncFileSystem` 或 `IFileSystemOperations`
-- [ ] 将所有同步方法调用改为异步版本（添加 `Async` 后缀和 `await`）
-- [ ] 将方法签名改为返回 `Task` 或 `Task<T>`
-- [ ] 移除所有 `.GetAwaiter().GetResult()` 或 `.Wait()` 调用
-- [ ] 更新单元测试为异步测试方法
-- [ ] 在 ASP.NET Core 中确保控制器方法为异步
-
-#### 向后兼容性
-
-如果您的代码库需要同时支持旧代码，可以保留同步方法但添加编译警告抑制：
-
-```csharp
-#pragma warning disable CS0618 // 类型或成员已过时
-IFileSystem fs = new LocalFileSystem("C:/Storage");
-bool exists = fs.FileExists("/file.txt");
-#pragma warning restore CS0618
-```
-
-但建议尽快完成迁移，因为同步方法可能在未来版本中被完全移除。
 
 ## 贡献
 

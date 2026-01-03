@@ -104,75 +104,6 @@ public class RemoteSystemSetting
     public RetryOptions? BatchRetryOptions { get; set; }
 
     /// <summary>
-    /// 初始化FTP设置
-    /// </summary>
-    public static RemoteSystemSetting CreateFtp(string host, int port, string userName, string password)
-    {
-        return new RemoteSystemSetting
-        {
-            Host = host,
-            Port = port,
-            UserName = userName,
-            Password = password,
-            Type = "FTP"
-        };
-    }
-
-    /// <summary>
-    /// 初始化SFTP设置
-    /// </summary>
-    public static RemoteSystemSetting CreateSftp(string host, int port, string userName, string password)
-    {
-        return new RemoteSystemSetting
-        {
-            Host = host,
-            Port = port,
-            UserName = userName,
-            Password = password,
-            Type = "SFTP"
-        };
-    }
-
-    /// <summary>
-    /// 初始化SFTP设置（使用私钥文件）
-    /// </summary>
-    public static RemoteSystemSetting CreateSftpWithCertificate(string host, int port, string userName, string certificatePath, string? certificatePassphrase = null)
-    {
-        return new RemoteSystemSetting
-        {
-            Host = host,
-            Port = port,
-            UserName = userName,
-            CertificatePath = certificatePath,
-            CertificatePassphrase = certificatePassphrase,
-            Type = "SFTP"
-        };
-    }
-
-    /// <summary>
-    /// 创建连接设置的克隆
-    /// </summary>
-    public RemoteSystemSetting Clone()
-    {
-        return new RemoteSystemSetting
-        {
-            Host = Host,
-            Port = Port,
-            UserName = UserName,
-            Password = Password,
-            Type = Type,
-            CertificatePath = CertificatePath,
-            CertificatePassphrase = CertificatePassphrase,
-            ConnectionTimeout = ConnectionTimeout,
-            OperationTimeout = OperationTimeout,
-            Encoding = Encoding,
-            MaxDegreeOfParallelism = MaxDegreeOfParallelism,
-            ConnectionPoolIdleTimeout = ConnectionPoolIdleTimeout,
-            BatchRetryOptions = BatchRetryOptions
-        };
-    }
-
-    /// <summary>
     /// 检查连接设置是否有效
     /// </summary>
     public bool IsValid()
@@ -182,13 +113,5 @@ public class RemoteSystemSetting
 
         // 检查认证方式：必须有密码或者证书路径
         return !string.IsNullOrEmpty(Password) || !string.IsNullOrEmpty(CertificatePath);
-    }
-
-    /// <summary>
-    /// 获取不包含敏感信息的连接字符串（用于日志记录）
-    /// </summary>
-    public string ToSafeString()
-    {
-        return $"{Type}://{UserName}@{Host}:{Port}";
     }
 }

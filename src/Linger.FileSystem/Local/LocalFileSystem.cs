@@ -885,23 +885,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// Console.WriteLine($"成功 {result.SuccessCount}, 失败 {result.FailureCount}");
     /// </code>
     /// </example>
-    public Task<BatchOperationResult> UploadFilesAsync(
-        IEnumerable<string> localFilePaths,
-        string remoteDirectory,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default)
-    {
-        return UploadFilesAsync(localFilePaths, remoteDirectory, overwrite, null, cancellationToken);
-    }
-
-    /// <summary>
-    /// 批量"上传"本地文件到目标目录（本地实现为拷贝到目标目录），支持进度报告
-    /// </summary>
     public async Task<BatchOperationResult> UploadFilesAsync(
         IEnumerable<string> localFilePaths,
         string remoteDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var paths = localFilePaths?.ToList() ?? [];
@@ -1006,31 +994,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// foreach (var fail in result.FailedFiles) Console.WriteLine(fail.ErrorMessage);
     /// </code>
     /// </example>
-    public Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
-        string localDirectory,
-        bool overwrite = false,
-        CancellationToken cancellationToken = default)
-    {
-        return DownloadFilesAsync(remoteFilePaths, localDirectory, overwrite, null, cancellationToken);
-    }
-
-    /// <summary>
-    /// 批量"下载"文件到本地目录（本地实现为从根目录拷贝到指定目录），支持进度报告
-    /// </summary>
-    /// <example>
-    /// <code>
-    /// var fs = new LocalFileSystem(new LocalFileSystemOptions { RootDirectoryPath = "/data" });
-    /// var progress = new Progress&lt;BatchProgress&gt;(p =&gt; Console.WriteLine($"{p.Completed}/{p.Total}"));
-    /// var result = await fs.DownloadFilesAsync(new[] { "docs/a.txt", "docs/b.txt" }, "C:/out", overwrite: true, progress);
-    /// foreach (var fail in result.FailedFiles) Console.WriteLine(fail.ErrorMessage);
-    /// </code>
-    /// </example>
     public async Task<BatchOperationResult> DownloadFilesAsync(
         IEnumerable<string> remoteFilePaths,
         string localDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var paths = remoteFilePaths?.ToList() ?? [];
@@ -1129,19 +1097,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// <summary>
     /// 批量删除文件（相对根目录路径）
     /// </summary>
-    public Task<BatchOperationResult> DeleteFilesAsync(
-        IEnumerable<string> filePaths,
-        CancellationToken cancellationToken = default)
-    {
-        return DeleteFilesAsync(filePaths, null, cancellationToken);
-    }
-
-    /// <summary>
-    /// 批量删除文件（相对根目录路径），支持进度报告
-    /// </summary>
     public async Task<BatchOperationResult> DeleteFilesAsync(
         IEnumerable<string> filePaths,
-        IProgress<BatchProgress>? progress,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var paths = filePaths?.ToList() ?? [];

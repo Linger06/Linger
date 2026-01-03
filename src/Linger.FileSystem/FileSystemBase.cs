@@ -52,7 +52,7 @@ public abstract class FileSystemBase : IFileSystemOperations
 
     #endregion
 
-    #region IAsyncFileSystem 实现
+    #region IFileSystem 实现
 
     public abstract Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default);
 

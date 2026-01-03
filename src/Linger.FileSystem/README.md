@@ -1,4 +1,4 @@
-# Linger.FileSystem
+﻿# Linger.FileSystem
 
 A unified file system abstraction library providing a consistent interface for accessing different file systems, including local file system, FTP, and SFTP. With this library, you can use the same API to operate on different types of file systems, simplifying the development process and improving code reusability.
 
@@ -28,20 +28,17 @@ dotnet add package Linger.FileSystem.Sftp
 ### Core Interface Hierarchy
 
 ```
-IFileSystem                   IAsyncFileSystem
-    │                              │
-    └───────────────┬──────────────┘
-                    │
-          IFileSystemOperations
+              IFileSystem
+                   │
+         IFileSystemOperations
            /            \
 ILocalFileSystem    IRemoteFileSystem
 ```
 
 ### Core Interfaces
 
-- **IFileSystem**: Defines basic synchronous file operation interfaces
-- **IAsyncFileSystem**: Defines basic asynchronous file operation interfaces
-- **IFileSystemOperations**: Unified file system operation interface, inheriting from the above two interfaces
+- **IFileSystem**: Defines basic file operation interfaces
+- **IFileSystemOperations**: Unified file system operation interface, inheriting from IFileSystem
 - **ILocalFileSystem**: Local file system specific interface, extending unique functionalities
 - **IRemoteFileSystem**: Remote file system connection management interface
 
@@ -72,8 +69,6 @@ This library uses the following design patterns:
 - **Adapter Pattern**: Adapts different file system APIs like FluentFTP and SSH.NET to a unified interface
 - **Simple Factory**: The CreateClient() method within each file system class creates specific client instances
 - **Command Pattern**: Encapsulates operation results through FileOperationResult for unified execution status handling
-- **Composite Pattern**: Builds more complex IFileSystemOperations through interface composition (IFileSystem and IAsyncFileSystem)
-- **Proxy Pattern**: Remote file system connection management uses ConnectionScope as a proxy to control resource access
 
 ### Key Workflows
 
@@ -84,7 +79,7 @@ This library uses the following design patterns:
    - Returns unified FileOperationResult
 
 2. **Remote System Connection Management**:
-   - Uses ConnectionScope to ensure proper connection opening and closing
+   - Uses `EnsureConnectedAsync()` for automatic connection management
    - Automatic connection, operation, and disconnection lifecycle management
 
 ## Key Features
@@ -98,7 +93,7 @@ This library uses the following design patterns:
 - **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing (99.99% memory reduction)
 - **Batch Operation Progress**: Real-time progress tracking via `IProgress<BatchProgress>` for batch upload, download, and delete operations
 - **Connection Pool Idle Timeout**: Automatic cleanup of idle connections in the pool with configurable timeout via `ConnectionPoolIdleTimeout`
-- **Batch Operation Retry**: Per-file retry support for batch operations with configurable `BatchOperationRetryCount` and delay settings
+- **Batch Operation Retry**: Per-file retry support for batch operations with configurable `BatchRetryOptions` settings
 
 ## Supported .NET Versions
 
@@ -388,14 +383,13 @@ var options = new LocalFileSystemOptions
     DefaultNamingRule = NamingRule.Md5,        // Default naming rule: Md5, Uuid, Normal
     DefaultOverwrite = false,                  // Whether to overwrite files with same name by default
     DefaultUseSequencedName = true,            // Whether to use sequence naming on file name conflicts
-    ValidateFileIntegrity = true,              // Whether to validate file integrity
-    ValidateFileMetadata = false,              // Whether to validate file metadata
+    ValidationLevel = FileValidationLevel.Full, // Validation level: None, SizeOnly, Full
     CleanupOnValidationFailure = true,         // Whether to cleanup files on validation failure
     UploadBufferSize = 81920,                  // Upload buffer size
     DownloadBufferSize = 81920,                // Download buffer size
     RetryOptions = new RetryOptions 
     { 
-        MaxRetryCount = 3, 
+        MaxRetryAttempts = 3, 
         DelayMilliseconds = 1000 
     }
 };
@@ -420,9 +414,12 @@ var remoteSetting = new RemoteSystemSetting
     // Connection pool idle timeout (connections idle longer than this will be recreated)
     ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
     
-    // Batch operation per-file retry settings
-    BatchOperationRetryCount = 3,              // Retry count per file (0 = no retry)
-    BatchOperationRetryDelayMilliseconds = 1000, // Delay between retries
+    // Batch operation retry settings
+    BatchRetryOptions = new RetryOptions
+    {
+        MaxRetryAttempts = 3,
+        DelayMilliseconds = 1000
+    },
     
     // SFTP specific settings
     CertificatePath = "",                      // Certificate path
@@ -627,7 +624,7 @@ catch (FileSystemException ex)
 ```csharp
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 5,                        // Maximum 5 retries
+    MaxRetryAttempts = 5,                        // Maximum 5 retries
     DelayMilliseconds = 1000,                 // Initial delay 1 second
     MaxDelayMilliseconds = 30000,             // Maximum delay 30 seconds
     UseExponentialBackoff = true              // Use exponential backoff algorithm
@@ -742,14 +739,13 @@ var options = new LocalFileSystemOptions
     DefaultNamingRule = NamingRule.Md5,        // Default naming rule: Md5, Uuid, Normal
     DefaultOverwrite = false,                  // Whether to overwrite files with same name by default
     DefaultUseSequencedName = true,            // Whether to use sequence naming on file name conflicts
-    ValidateFileIntegrity = true,              // Whether to validate file integrity
-    ValidateFileMetadata = false,              // Whether to validate file metadata
+    ValidationLevel = FileValidationLevel.Full, // Validation level: None, SizeOnly, Full
     CleanupOnValidationFailure = true,         // Whether to cleanup files on validation failure
     UploadBufferSize = 262144,                 // Increase to 256KB to improve large file upload performance
     DownloadBufferSize = 262144,               // Increase to 256KB to improve large file download performance
     RetryOptions = new RetryOptions 
     { 
-        MaxRetryCount = 3, 
+        MaxRetryAttempts = 3, 
         DelayMilliseconds = 1000 
     }
 };

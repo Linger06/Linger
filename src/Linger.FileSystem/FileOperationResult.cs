@@ -12,37 +12,37 @@ public class FileOperationResult
     /// <summary>
     /// 操作是否成功
     /// </summary>
-    public bool Success { get; private set; }
+    public bool Success { get; init; }
 
     /// <summary>
     /// 错误信息（如果操作失败）
     /// </summary>
-    public string? ErrorMessage { get; private set; }
+    public string? ErrorMessage { get; init; }
 
     /// <summary>
     /// 异常信息（如果操作失败）
     /// </summary>
-    public Exception? Exception { get; private set; }
+    public Exception? Exception { get; init; }
 
     /// <summary>
     /// 文件路径
     /// </summary>
-    public string? FilePath { get; private set; }
+    public string? FilePath { get; init; }
 
     /// <summary>
     /// 完整文件路径（本地文件系统适用）
     /// </summary>
-    public string? FullFilePath { get; private set; }
+    public string? FullFilePath { get; init; }
 
     /// <summary>
     /// 文件大小（字节）
     /// </summary>
-    public long FileSize { get; private set; }
+    public long FileSize { get; init; }
 
     /// <summary>
     /// 文件哈希值（如MD5）
     /// </summary>
-    public string? FileHash { get; private set; }
+    public string? FileHash { get; init; }
 
     /// <summary>
     /// 创建成功的操作结果

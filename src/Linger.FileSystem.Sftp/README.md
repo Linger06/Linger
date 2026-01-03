@@ -1,4 +1,4 @@
-# Linger.FileSystem.Sftp
+﻿# Linger.FileSystem.Sftp
 
 ## Overview
 
@@ -39,7 +39,7 @@ var settings = new RemoteSystemSetting
 // Configure retry options
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -273,9 +273,12 @@ var settings = new RemoteSystemSetting
     // Connections idle longer than this will be discarded and recreated
     ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
     
-    // Per-file retry for batch operations (0 = no retry)
-    BatchOperationRetryCount = 3,
-    BatchOperationRetryDelayMilliseconds = 1000,
+    // Batch operation retry settings
+    BatchRetryOptions = new RetryOptions
+    {
+        MaxRetryAttempts = 3,
+        DelayMilliseconds = 1000
+    },
     
     // Encoding settings (if needed for special characters)
     Encoding = Encoding.UTF8
@@ -284,10 +287,10 @@ var settings = new RemoteSystemSetting
 // Enhanced retry configuration
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 5,
+    MaxRetryAttempts = 5,
     DelayMilliseconds = 2000,
     MaxDelayMilliseconds = 10000,
-    BackoffMultiplier = 2.0 // Exponential backoff
+    UseExponentialBackoff = true // Exponential backoff
 };
 
 using var sftpSystem = new SftpFileSystem(settings, retryOptions);
@@ -406,10 +409,10 @@ var productionSettings = new RemoteSystemSetting
 
 var productionRetry = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 5000,
     MaxDelayMilliseconds = 30000,
-    BackoffMultiplier = 2.0
+    UseExponentialBackoff = true
 };
 ```
 
@@ -429,7 +432,7 @@ var devSettings = new RemoteSystemSetting
 
 var devRetry = new RetryOptions
 {
-    MaxRetryCount = 1,
+    MaxRetryAttempts = 1,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -441,7 +444,7 @@ var devRetry = new RetryOptions
 // In your startup class
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddSingleton<IFileSystem>(provider => {
+    services.AddSingleton<IFileSystemOperations>(provider => {
         var settings = new RemoteSystemSetting
         {
             Host = "sftp.example.com",
@@ -454,7 +457,7 @@ public void ConfigureServices(IServiceCollection services)
         
         var retryOptions = new RetryOptions
         {
-            MaxRetryCount = 3,
+            MaxRetryAttempts = 3,
             DelayMilliseconds = 1000,
             MaxDelayMilliseconds = 5000
         };

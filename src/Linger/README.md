@@ -163,6 +163,12 @@ using Linger.Helper;
 FileHelper.WriteText("data.txt", "Hello World");
 string content = FileHelper.ReadText("data.txt");
 
+// Try-style file reading (won't throw if file doesn't exist)
+if (FileHelper.TryReadText("config.txt", out string configContent))
+{
+    Console.WriteLine(configContent);
+}
+
 // File copy with directory creation
 FileHelper.CopyFile("source.txt", "backup/dest.txt");
 
@@ -170,8 +176,19 @@ FileHelper.CopyFile("source.txt", "backup/dest.txt");
 FileHelper.DeleteFileIfExists("temp.txt");
 
 // Directory operations
+FileHelper.CopyDir("sourceFolder", "backupFolder"); // Recursive copy
 FileHelper.EnsureDirectoryExists("logs/2024");
+FileHelper.ClearDirectory("temp"); // Clear all files and subdirectories
 ```
+
+> **⚠️ Deprecated Methods**: The following methods are deprecated and will be removed in a future version:
+> - `IsExistFile()` → Use `File.Exists()` directly
+> - `IsExistDirectory()` → Use `Directory.Exists()` directly
+> - `ReadTxt()` → Use `ReadText()` or `TryReadText()`
+> - `WriteTxt()` → Use `WriteText()`
+> - `Copy()` → Use `CopyFile()`
+> - `CopyFolder()` → Use `CopyDir()`
+> - `GetFileName()` → Use `Path.GetFileName()` directly
 
 ### Collection Extensions
 
@@ -346,6 +363,7 @@ builder.Services.AddControllers()
 
 ```csharp
 using Linger.Extensions.Core;
+using Linger.Helper;
 
 // GUID checking
 Guid guid = Guid.NewGuid();
@@ -363,11 +381,19 @@ bool isNotNullOrEmpty = nullableGuid.IsNotNullOrEmpty(); // Check if neither nul
 long longValue = guid.ToInt64(); // Convert to Int64
 int intValue = guid.ToInt32(); // Convert to Int32
 
-// .NET 9+ feature: V7 GUID timestamp extraction
+// GuidCode helper class - Generate unique identifiers
+string uniqueId = GuidCode.NewId; // DateTime + GUID based unique ID
+string dateGuid = GuidCode.NewDateGuid; // Short date-based unique ID
+long uniqueCode = GuidCode.GetInt64UniqueCode(); // Unique Int64 code
+
+// .NET 9+ feature: V7 GUID generation and timestamp extraction
 #if NET9_0_OR_GREATER
-DateTimeOffset timestamp = guid.GetTimestamp(); // Only for V7 GUIDs
+Guid v7Guid = Guid.CreateVersion7(); // Create V7 GUID
+DateTimeOffset timestamp = v7Guid.GetTimestamp(); // Extract timestamp from V7 GUID
 #endif
 ```
+
+> **⚠️ Deprecated**: `GuidCode.NewGuid()` → Use `Guid.NewGuid()` directly
 
 ### Array Extensions
 

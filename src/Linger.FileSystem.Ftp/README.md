@@ -1,4 +1,4 @@
-# Linger.FileSystem.Ftp
+﻿# Linger.FileSystem.Ftp
 
 ## Overview
 
@@ -37,7 +37,7 @@ var settings = new RemoteSystemSetting
 // Configure retry options
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -94,7 +94,7 @@ result = await ftpSystem.UploadFileAsync(
 // In your startup class
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddSingleton<IFileSystem>(provider => {
+    services.AddSingleton<IFileSystemOperations>(provider => {
         var settings = new RemoteSystemSetting
         {
             Host = "ftp.example.com",
@@ -107,7 +107,7 @@ public void ConfigureServices(IServiceCollection services)
         
         var retryOptions = new RetryOptions
         {
-            MaxRetryCount = 3,
+            MaxRetryAttempts = 3,
             DelayMilliseconds = 1000,
             MaxDelayMilliseconds = 5000
         };
@@ -226,15 +226,18 @@ var settings = new RemoteSystemSetting
     // Connections idle longer than this will be discarded and recreated
     ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
     
-    // Per-file retry for batch operations (0 = no retry)
-    BatchOperationRetryCount = 3,
-    BatchOperationRetryDelayMilliseconds = 1000
+    // Batch operation retry settings
+    BatchRetryOptions = new RetryOptions
+    {
+        MaxRetryAttempts = 3,
+        DelayMilliseconds = 1000
+    }
 };
 
 // Advanced retry configuration
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 5,
+    MaxRetryAttempts = 5,
     DelayMilliseconds = 2000,
     MaxDelayMilliseconds = 30000,
     UseExponentialBackoff = true    // Use exponential backoff for retries
@@ -347,7 +350,7 @@ catch (TimeoutException ex)
 ```csharp
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 10,             // Retry up to 10 times
+    MaxRetryAttempts = 10,             // Retry up to 10 times
     DelayMilliseconds = 1000,       // Start with 1 second delay
     MaxDelayMilliseconds = 60000,   // Maximum 60 seconds delay
     UseExponentialBackoff = true    // Increase delay exponentially

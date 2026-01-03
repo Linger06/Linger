@@ -1,4 +1,4 @@
-# Linger.FileSystem.Sftp
+﻿# Linger.FileSystem.Sftp
 
 ## 概述
 
@@ -39,7 +39,7 @@ var settings = new RemoteSystemSetting
 // 配置重试选项
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -283,9 +283,12 @@ var settings = new RemoteSystemSetting
     // 空闲超过此时间的连接将被丢弃并重新创建
     ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
     
-    // 批量操作的单文件重试次数（0 = 不重试）
-    BatchOperationRetryCount = 3,
-    BatchOperationRetryDelayMilliseconds = 1000,
+    // 批量操作重试设置
+    BatchRetryOptions = new RetryOptions
+    {
+        MaxRetryAttempts = 3,
+        DelayMilliseconds = 1000
+    },
     
     // 编码设置（如果需要特殊字符支持）
     Encoding = Encoding.UTF8
@@ -294,10 +297,10 @@ var settings = new RemoteSystemSetting
 // 增强的重试配置
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 5,
+    MaxRetryAttempts = 5,
     DelayMilliseconds = 2000,
     MaxDelayMilliseconds = 10000,
-    BackoffMultiplier = 2.0 // 指数退避
+    UseExponentialBackoff = true // 指数退避
 };
 
 using var sftpSystem = new SftpFileSystem(settings, retryOptions);
@@ -416,10 +419,10 @@ var productionSettings = new RemoteSystemSetting
 
 var productionRetry = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 5000,
     MaxDelayMilliseconds = 30000,
-    BackoffMultiplier = 2.0
+    UseExponentialBackoff = true
 };
 ```
 
@@ -439,7 +442,7 @@ var devSettings = new RemoteSystemSetting
 
 var devRetry = new RetryOptions
 {
-    MaxRetryCount = 1,
+    MaxRetryAttempts = 1,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -502,93 +505,6 @@ foreach (var remoteFile in remoteFiles)
     
     await sftpSystem.CopyFileAsync(remoteFile, localPath);
     Console.WriteLine($"已下载：{fileName}");
-}
-```
-
-### 自定义连接设置
-
-```csharp
-// 使用自定义配置的高级 SFTP 设置
-var settings = new RemoteSystemSetting
-{
-    Host = "sftp.example.com",
-    Port = 2222, // 自定义端口
-    UserName = "username",
-    Password = "password",
-    
-    // 连接设置
-    ConnectionTimeout = 30000,    // 30 秒
-    OperationTimeout = 120000,    // 2 分钟
-    
-    // 批量操作并发度
-    MaxDegreeOfParallelism = 4,
-    
-    // 连接池空闲超时（可选）
-    // 空闲超过此时间的连接将被丢弃并重新创建
-    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
-    
-    // 批量操作的单文件重试次数（0 = 不重试）
-    BatchOperationRetryCount = 3,
-    BatchOperationRetryDelayMilliseconds = 1000,
-    
-    // 编码设置（如果需要特殊字符支持）
-    Encoding = Encoding.UTF8
-};
-
-// 增强的重试配置
-var retryOptions = new RetryOptions
-{
-    MaxRetryCount = 5,
-    DelayMilliseconds = 2000,
-    MaxDelayMilliseconds = 10000,
-    BackoffMultiplier = 2.0 // 指数退避
-};
-
-using var sftpSystem = new SftpFileSystem(settings, retryOptions);
-```
-
-### 错误处理和连接管理
-
-```csharp
-try
-{
-    sftpSystem.Connect();
-    
-    // 执行带自动重试的操作
-    if (sftpSystem.FileExists("/remote/important-file.txt"))
-    {
-        var content = sftpSystem.ReadAllText("/remote/important-file.txt");
-        
-        // 安全地处理内容
-        if (!string.IsNullOrEmpty(content))
-        {
-            // 保存备份
-            sftpSystem.WriteAllText("/remote/backup/important-file.bak", content);
-        }
-    }
-}
-catch (SftpException ex)
-{
-    Console.WriteLine($"SFTP 错误：{ex.Message}");
-    // 处理 SFTP 特定错误
-}
-catch (SshException ex)
-{
-    Console.WriteLine($"SSH 错误：{ex.Message}");
-    // 处理 SSH 连接错误
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"一般错误：{ex.Message}");
-    // 处理其他错误
-}
-finally
-{
-    // 确保断开连接
-    if (sftpSystem.IsConnected)
-    {
-        sftpSystem.Disconnect();
-    }
 }
 ```
 
@@ -660,10 +576,10 @@ var productionSettings = new RemoteSystemSetting
 
 var productionRetry = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 5000,
     MaxDelayMilliseconds = 30000,
-    BackoffMultiplier = 2.0
+    UseExponentialBackoff = true
 };
 ```
 
@@ -683,7 +599,7 @@ var devSettings = new RemoteSystemSetting
 
 var devRetry = new RetryOptions
 {
-    MaxRetryCount = 1,
+    MaxRetryAttempts = 1,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -695,7 +611,7 @@ var devRetry = new RetryOptions
 // 在您的启动类中
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddSingleton<IFileSystem>(provider => {
+    services.AddSingleton<IFileSystemOperations>(provider => {
         var settings = new RemoteSystemSetting
         {
             Host = "sftp.example.com",
@@ -708,7 +624,7 @@ public void ConfigureServices(IServiceCollection services)
         
         var retryOptions = new RetryOptions
         {
-            MaxRetryCount = 3,
+            MaxRetryAttempts = 3,
             DelayMilliseconds = 1000,
             MaxDelayMilliseconds = 5000
         };

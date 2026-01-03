@@ -84,48 +84,26 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     #endregion
 
     /// <summary>
-    /// 异步连接作用域，用于确保操作前已连接
+    /// 确保已建立连接。如果尚未连接，则自动连接。
     /// </summary>
     /// <remarks>
-    /// <para>此作用域确保在执行操作前建立连接，但不会在作用域结束时断开连接。</para>
+    /// <para>此方法是推荐的连接检查方式，比 <see cref="CreateConnectionScopeAsync"/> 更简洁。</para>
     /// <para>连接保持到实例被 Dispose，避免每次操作都重新连接的开销。</para>
     /// </remarks>
-    protected sealed class AsyncConnectionScope : IAsyncDisposable
+    /// <example>
+    /// <code>
+    /// await EnsureConnectedAsync();
+    /// // 执行文件操作...
+    /// </code>
+    /// </example>
+    protected async Task EnsureConnectedAsync()
     {
-        private AsyncConnectionScope()
+        if (!IsConnected())
         {
+            Logger.LogDebug("Connecting to {ServerDetails}...", ServerDetailsString);
+            await ConnectAsync().ConfigureAwait(false);
+            Logger.LogDebug("Connected to {ServerDetails}", ServerDetailsString);
         }
-
-        /// <summary>
-        /// 创建异步连接作用域，确保已建立连接
-        /// </summary>
-        public static async Task<AsyncConnectionScope> CreateAsync(RemoteFileSystemBase fileSystem)
-        {
-            if (!fileSystem.IsConnected())
-            {
-                fileSystem.Logger.LogDebug("Connecting to {ServerDetails}...", fileSystem.ServerDetailsString);
-                await fileSystem.ConnectAsync().ConfigureAwait(false);
-                fileSystem.Logger.LogDebug("Connected to {ServerDetails}", fileSystem.ServerDetailsString);
-            }
-
-            return new AsyncConnectionScope();
-        }
-
-        /// <summary>
-        /// 作用域结束时不断开连接，连接保持到实例被 Dispose
-        /// </summary>
-        public ValueTask DisposeAsync()
-        {
-            return default;
-        }
-    }
-
-    /// <summary>
-    /// 创建异步连接作用域
-    /// </summary>
-    protected virtual Task<AsyncConnectionScope> CreateConnectionScopeAsync()
-    {
-        return AsyncConnectionScope.CreateAsync(this);
     }
 
     /// <summary>
@@ -157,44 +135,22 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         IEnumerable<string> localFilePaths,
         string remoteDirectory,
         bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
-
-    /// <inheritdoc />
-    public virtual Task<BatchOperationResult> UploadFilesAsync(
-        IEnumerable<string> localFilePaths,
-        string remoteDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
-        CancellationToken cancellationToken = default)
-        => UploadFilesAsync(localFilePaths, remoteDirectory, overwrite, cancellationToken);
 
     /// <inheritdoc />
     public abstract Task<BatchOperationResult> DownloadFilesAsync(
         IEnumerable<string> remoteFilePaths,
         string localDirectory,
         bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
-
-    /// <inheritdoc />
-    public virtual Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
-        string localDirectory,
-        bool overwrite,
-        IProgress<BatchProgress>? progress,
-        CancellationToken cancellationToken = default)
-        => DownloadFilesAsync(remoteFilePaths, localDirectory, overwrite, cancellationToken);
 
     /// <inheritdoc />
     public abstract Task<BatchOperationResult> DeleteFilesAsync(
         IEnumerable<string> filePaths,
+        IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
-
-    /// <inheritdoc />
-    public virtual Task<BatchOperationResult> DeleteFilesAsync(
-        IEnumerable<string> filePaths,
-        IProgress<BatchProgress>? progress,
-        CancellationToken cancellationToken = default)
-        => DeleteFilesAsync(filePaths, cancellationToken);
 
     /// <inheritdoc />
     public abstract Task<IReadOnlyList<string>> ListFilesAsync(
