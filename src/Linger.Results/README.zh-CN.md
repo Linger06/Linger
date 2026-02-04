@@ -111,18 +111,20 @@ var userOrGuest = result.GetValueOrDefault(new User { Name = "访客" });
 ```csharp
 // 使用扩展方法进行链式操作
 var finalResult = GetUser(123)
+    .Ensure(user => user.IsActive, new Error("User.Inactive", "用户未激活"))
     .Map(user => user.Email)
-    .Bind(email => SendEmail(email))
-    .Ensure(success => success, new Error("EmailError", "邮件发送失败"));
+    .Bind(email => SendEmail(email));
 ```
 
 ### 异步支持
 
+所有异步扩展方法都需要 `CancellationToken` 参数以支持取消操作：
+
 ```csharp
-// 异步操作
+// 带 CancellationToken 的异步操作
 var result = await GetUserAsync(123)
-    .MapAsync(async user => await GetUserPreferencesAsync(user))
-    .BindAsync(async prefs => await UpdatePreferencesAsync(prefs));
+    .MapAsync(async (user, token) => await GetUserPreferencesAsync(user, token), cancellationToken)
+    .BindAsync(async (prefs, token) => await UpdatePreferencesAsync(prefs, token), cancellationToken);
 ```
 
 ### 支持 CancellationToken 的异步操作
@@ -199,9 +201,23 @@ public async Task<Result<User>> UpdateUserWithCancellationAsync(
 // 基于布尔条件创建结果
 public Result ValidatePassword(string password)
 {
-    return Result.Create(password.Length >= 8)
-        .Ensure(() => password.Any(char.IsUpper), new Error("Password", "密码必须包含大写字母"))
-        .Ensure(() => password.Any(char.IsDigit), new Error("Password", "密码必须包含数字"));
+    var results = new[]
+    {
+        Result.Create(password.Length >= 8),
+        Result.Create(password.Any(char.IsUpper)),
+        Result.Create(password.Any(char.IsDigit))
+    };
+    
+    return results.Combine();
+}
+
+// 或者使用 Ensure 与 Result<T> 进行链式验证
+public Result<string> ValidateAndReturnPassword(string password)
+{
+    return Result.Success(password)
+        .Ensure(p => p.Length >= 8, new Error("Password", "密码至少需要8个字符"))
+        .Ensure(p => p.Any(char.IsUpper), new Error("Password", "密码必须包含大写字母"))
+        .Ensure(p => p.Any(char.IsDigit), new Error("Password", "密码必须包含数字"));
 }
 ```
 
@@ -335,7 +351,7 @@ var user = userResult.Value; // 可能抛出 InvalidOperationException
 
 ```csharp
 // 使用 Try 方法捕获异常并转换为结果
-var result = ResultFunctionalExtensions.Try(
+var result = ResultExtensions.Try(
     () => SomeOperationThatMightThrow(),
     ex => ex.ToError()
 );
@@ -388,50 +404,53 @@ public Result<User> Authenticate(string username, string password)
 ### 条件分支处理
 
 ```csharp
-public async Task<Result<OrderConfirmation>> ProcessOrder(Order order)
+public async Task<Result<OrderConfirmation>> ProcessOrder(Order order, CancellationToken cancellationToken)
 {
     // 链式处理订单流程
     return await ValidateOrder(order)
-        .BindAsync(async validOrder => 
+        .BindAsync(async (validOrder, token) => 
         {
             // 根据支付方式选择不同处理路径
             if (validOrder.PaymentMethod == PaymentMethod.CreditCard)
-                return await ProcessCreditCardPayment(validOrder);
+                return await ProcessCreditCardPayment(validOrder, token);
             else if (validOrder.PaymentMethod == PaymentMethod.BankTransfer)
-                return await ProcessBankTransfer(validOrder);
+                return await ProcessBankTransfer(validOrder, token);
             else
                 return Result<OrderConfirmation>.Failure("不支持的支付方式");
-        })
-        .TapAsync(async confirmation => 
-        {
-            // 成功时执行副作用操作，但不改变结果
-            await SendConfirmationEmail(confirmation);
-            await UpdateInventory(order);
-        });
+        }, cancellationToken);
 }
 ```
 
-## ResultStatus 枚举扩展
+## ResultStatus 枚举
 
-默认的 `ResultStatus` 枚举包含 `Ok`、`NotFound` 和 `Error`。您可以根据需要扩展此枚举以包含更多状态：
+`ResultStatus` 枚举包含三种状态：
+
+- `Ok` - 操作成功
+- `NotFound` - 资源未找到
+- `Error` - 操作失败
+
+对于额外的状态码，您可以使用 `Error` 配合特定的错误码：
 
 ```csharp
-// 在您的项目中创建一个部分类扩展
-namespace Linger.Results
+// 为不同场景定义领域特定的错误码
+public static class StatusErrors
 {
-    public enum ResultStatus
-    {
-        // 已有的状态
-        Ok,
-        NotFound,
-        Error,
+    public static readonly Error Unauthorized = new("Status.Unauthorized", "需要身份验证");
+    public static readonly Error Forbidden = new("Status.Forbidden", "拒绝访问");
+    public static readonly Error Conflict = new("Status.Conflict", "资源冲突");
+    public static readonly Error ValidationError = new("Status.ValidationError", "验证失败");
+}
+
+// 使用示例
+public Result<User> GetUser(int id, string token)
+{
+    if (!IsValidToken(token))
+        return Result.Failure(StatusErrors.Unauthorized);
         
-        // 新增自定义状态
-        Unauthorized,
-        Forbidden,
-        Conflict,
-        ValidationError
-    }
+    if (!HasPermission(token, "read:users"))
+        return Result.Failure(StatusErrors.Forbidden);
+        
+    // ...
 }
 ```
 
@@ -486,3 +505,33 @@ namespace Linger.Results
 ## 许可证
 
 MIT
+
+## 从 ExecuteResult 迁移
+
+> ⚠️ **注意**: `ExecuteResult`、`ExecuteResult<T>` 和 `ErrorObj` 已被标记为过时，将在未来版本中删除。请迁移到 `Result` 和 `Result<T>`。
+
+```csharp
+// 旧代码（已过时）
+var result = new ExecuteResult(true, "Success");
+var resultWithValue = new ExecuteResult<User>(user);
+
+// 新代码（推荐）
+var result = Result.Success();
+var resultWithValue = Result.Success(user);
+
+// 访问错误
+// 旧: result.Message
+// 新: result.FirstError.Message 或 result.Errors
+```
+
+### FirstError 属性
+
+`Result` 和 `Result<T>` 现在都有 `FirstError` 属性，可以方便地访问第一个错误：
+
+```csharp
+// 旧方式
+var message = result.Errors.FirstOrDefault()?.Message ?? "";
+
+// 新方式
+var message = result.FirstError.Message; // 如果没有错误，返回 Error.None
+```

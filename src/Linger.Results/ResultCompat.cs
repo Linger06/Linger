@@ -1,8 +1,9 @@
 namespace Linger.Results;
 
 /// <summary>
-/// 提供 Result 和 ExecuteResult 之间的兼容层，简化迁移过程
+/// 提供 Result 和 ExecuteResult 之间的兼容层（已过时）
 /// </summary>
+[Obsolete("ExecuteResult is obsolete. This compatibility layer will be removed in a future version.")]
 public static class ResultCompat
 {
     /// <summary>

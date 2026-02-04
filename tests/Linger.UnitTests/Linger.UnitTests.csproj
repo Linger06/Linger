@@ -12,4 +12,8 @@
       <ProjectReference Include="..\..\src\Linger\Linger.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Update="xunit.v3" Version="3.2.2" />
+    </ItemGroup>
+
 </Project>

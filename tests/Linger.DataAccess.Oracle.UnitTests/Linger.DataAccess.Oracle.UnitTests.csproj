@@ -7,12 +7,16 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.0" />
+        <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.100" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Linger.DataAccess.Oracle\Linger.DataAccess.Oracle.csproj" />
         <ProjectReference Include="..\..\src\Linger\Linger.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Update="xunit.v3" Version="3.2.2" />
     </ItemGroup>
 
 </Project>

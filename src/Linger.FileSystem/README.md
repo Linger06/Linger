@@ -23,65 +23,6 @@ dotnet add package Linger.FileSystem.Ftp
 dotnet add package Linger.FileSystem.Sftp
 ```
 
-## Architecture Design
-
-### Core Interface Hierarchy
-
-```
-              IFileSystem
-                   │
-         IFileSystemOperations
-           /            \
-ILocalFileSystem    IRemoteFileSystem
-```
-
-### Core Interfaces
-
-- **IFileSystem**: Defines basic file operation interfaces
-- **IFileSystemOperations**: Unified file system operation interface, inheriting from IFileSystem
-- **ILocalFileSystem**: Local file system specific interface, extending unique functionalities
-- **IRemoteFileSystem**: Remote file system connection management interface
-
-### Implementation Class Hierarchy
-
-```
-                FileSystemBase
-                /           \
-   LocalFileSystem     RemoteFileSystemBase
-                         /         \
-               FtpFileSystem    SftpFileSystem
-```
-
-### Base Classes
-
-- **FileSystemBase**: Abstract base class for all file systems, implementing the IFileSystemOperations interface
-- **RemoteFileSystemBase**: Abstract base class for remote file systems, inheriting from FileSystemBase and implementing IRemoteFileSystem
-- **LocalFileSystem**: Concrete implementation of local file system
-- **FtpFileSystem**: FTP file system implementation based on FluentFTP library
-- **SftpFileSystem**: SFTP file system implementation based on SSH.NET library
-
-### Design Patterns
-
-This library uses the following design patterns:
-
-- **Strategy Pattern**: Different file systems implement the same interface (IFileSystemOperations) but have their own implementation strategies
-- **Template Method**: Defines algorithm skeleton in FileSystemBase base class, with subclasses implementing specific steps
-- **Adapter Pattern**: Adapts different file system APIs like FluentFTP and SSH.NET to a unified interface
-- **Simple Factory**: The CreateClient() method within each file system class creates specific client instances
-- **Command Pattern**: Encapsulates operation results through FileOperationResult for unified execution status handling
-
-### Key Workflows
-
-1. **File Upload Workflow**:
-   - Client calls IFileSystemOperations.UploadAsync
-   - Executes different implementations based on actual file system type
-   - Applies configured file naming rules and validation measures
-   - Returns unified FileOperationResult
-
-2. **Remote System Connection Management**:
-   - Uses `EnsureConnectedAsync()` for automatic connection management
-   - Automatic connection, operation, and disconnection lifecycle management
-
 ## Key Features
 
 - **Unified Interface**: Consistent API through `IFileSystemOperations` interface to operate different types of file systems
@@ -90,7 +31,7 @@ This library uses the following design patterns:
 - **Automatic Retry**: Built-in retry mechanism with configurable retry count and delay for improved operation reliability
 - **Connection Management**: Automatic handling of remote file system connections and disconnections
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
-- **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing (99.99% memory reduction)
+- **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing, supporting files of any size
 - **Batch Operation Progress**: Real-time progress tracking via `IProgress<BatchProgress>` for batch upload, download, and delete operations
 - **Connection Pool Idle Timeout**: Automatic cleanup of idle connections in the pool with configurable timeout via `ConnectionPoolIdleTimeout`
 - **Batch Operation Retry**: Per-file retry support for batch operations with configurable `BatchRetryOptions` settings
@@ -99,21 +40,7 @@ This library uses the following design patterns:
 
 - .NET Framework 4.6.2+
 - .NET Standard 2.0+
-- .NET Core 2.0+/.NET 5+
-
-## Installation
-
-Install via NuGet Package Manager:
-
-```
-Install-Package Linger.FileSystem
-```
-
-Or using .NET CLI:
-
-```
-dotnet add package Linger.FileSystem
-```
+- .NET 5+
 
 ## Quick Start
 
@@ -431,14 +358,24 @@ var remoteSetting = new RemoteSystemSetting
 
 ### Local File System Advanced Features
 
+#### File Naming Rules
+
+The local file system supports three file naming rules:
+
+- **Normal**: Keep original file name
+- **Md5**: Use MD5 hash of file content for naming, ideal for deduplication
+- **Uuid**: Use UUID to generate unique file name, ideal for avoiding conflicts
+
+#### Advanced Upload Example
+
 ```csharp
-// Use advanced upload functionality
+// Use advanced upload functionality (with naming rule)
 var uploadedInfo = await localFs.UploadAsync(
     stream,
     "source-file.txt",  // Source file name
     "container1",       // Container name
     "images",           // Target path
-    NamingRule.Md5,     // Naming rule
+    NamingRule.Md5,     // Naming rule: Normal, Md5, Uuid
     false,              // Whether to overwrite
     true                // Whether to use sequence naming
 );
@@ -634,122 +571,22 @@ var retryOptions = new RetryOptions
 var ftpFs = new FtpFileSystem(remoteSetting, retryOptions);
 ```
 
-## File Naming Rules
+## Performance Optimization
 
-The local file system supports three file naming rules:
+### Buffer Size Tuning
 
-- **Normal**: Keep original file name
-- **Md5**: Use MD5 hash of file content for naming
-- **Uuid**: Use UUID to generate unique file name
-
-```csharp
-// Use MD5 naming rule
-var result = await localFs.UploadAsync(
-    fileStream, 
-    "source.txt", 
-    "container", 
-    "uploads", 
-    NamingRule.Md5
-);
-
-// Use UUID naming rule
-result = await localFs.UploadAsync(
-    fileStream, 
-    "source.txt", 
-    "container", 
-    "uploads", 
-    NamingRule.Uuid
-);
-```
-
-## Advanced Optimization Recommendations
-
-### Local File System - Streaming Upload Optimization (v1.0.0+)
-
-The local file system now uses streaming optimization to significantly reduce memory consumption during file uploads:
-
-**Optimization Highlights:**
-- ✅ **IncrementalHash**: Calculates MD5 hash incrementally instead of loading entire file into memory
-- ✅ **ArrayPool<byte>**: Reuses buffer memory to reduce GC pressure
-- ✅ **Streaming I/O**: Processes files in chunks, maintaining constant memory usage regardless of file size
-
-**Performance Improvement:**
-
-| File Size | Old Implementation | New Implementation | Memory Reduction |
-|-----------|-------------------|-------------------|------------------|
-| 100MB | ~100MB | ~8-256KB (buffer size) | 99.9%+ |
-| 1GB | ~1GB | ~8-256KB (buffer size) | 99.99%+ |
-| 10GB | ❌ Out of memory | ~8-256KB (buffer size) | ✅ Supported |
-
-**Technical Details:**
-
-```csharp
-// Old approach (Memory-intensive)
-var memoryStream = new MemoryStream();
-await inputStream.CopyToAsync(memoryStream);
-byte[] fileBytes = memoryStream.ToArray(); // Entire file in memory!
-string hash = CalculateMD5(fileBytes);
-
-// New approach (Streaming with IncrementalHash)
-using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
-try
-{
-    int bytesRead;
-    while ((bytesRead = await inputStream.ReadAsync(buffer)) > 0)
-    {
-        await outputStream.WriteAsync(buffer, 0, bytesRead);
-        md5.AppendData(buffer, 0, bytesRead);  // Incremental hash update
-    }
-    string hash = BitConverter.ToString(md5.GetHashAndReset())...;
-}
-finally
-{
-    ArrayPool<byte>.Shared.Return(buffer);  // Return buffer to pool
-}
-```
-
-**When This Optimization Applies:**
-
-- ✅ MD5 naming rule: Uses temporary file for streaming hash calculation
-- ✅ UUID naming rule: Direct streaming to destination file
-- ✅ Normal naming rule: Direct streaming to destination file
-
-**Buffer Configuration:**
+Default buffer size is 81920 bytes (80KB). For large file processing scenarios, you can increase the buffer size to improve throughput:
 
 ```csharp
 var options = new LocalFileSystemOptions
 {
     RootDirectoryPath = "C:/Storage",
-    UploadBufferSize = 262144,  // 256KB buffer (default: 81920 = 80KB)
-    // Larger buffers improve performance for large files
-    // but increase memory per concurrent upload
+    UploadBufferSize = 262144,    // 256KB - suitable for large file uploads
+    DownloadBufferSize = 262144   // 256KB - suitable for large file downloads
 };
 ```
 
-### Buffer and Memory Management
-
-To improve large file processing performance, consider the following optimizations:
-
-```csharp
-// Configure more efficient buffer size
-var options = new LocalFileSystemOptions
-{
-    RootDirectoryPath = "C:/Storage",          // Root directory path
-    DefaultNamingRule = NamingRule.Md5,        // Default naming rule: Md5, Uuid, Normal
-    DefaultOverwrite = false,                  // Whether to overwrite files with same name by default
-    DefaultUseSequencedName = true,            // Whether to use sequence naming on file name conflicts
-    ValidationLevel = FileValidationLevel.Full, // Validation level: None, SizeOnly, Full
-    CleanupOnValidationFailure = true,         // Whether to cleanup files on validation failure
-    UploadBufferSize = 262144,                 // Increase to 256KB to improve large file upload performance
-    DownloadBufferSize = 262144,               // Increase to 256KB to improve large file download performance
-    RetryOptions = new RetryOptions 
-    { 
-        MaxRetryAttempts = 3, 
-        DelayMilliseconds = 1000 
-    }
-};
-```
+> 💡 Larger buffers improve performance for large files but increase memory usage per concurrent operation.
 
 ### Batch Operation Optimization
 
@@ -760,6 +597,65 @@ For scenarios requiring processing of large numbers of files, use batch processi
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
 await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
 ```
+
+## Architecture Design
+
+### Core Interface Hierarchy
+
+```
+              IFileSystem
+                   │
+         IFileSystemOperations
+           /            \
+ILocalFileSystem    IRemoteFileSystem
+```
+
+### Core Interfaces
+
+- **IFileSystem**: Defines basic file operation interfaces
+- **IFileSystemOperations**: Unified file system operation interface, inheriting from IFileSystem
+- **ILocalFileSystem**: Local file system specific interface, extending unique functionalities
+- **IRemoteFileSystem**: Remote file system connection management interface
+
+### Implementation Class Hierarchy
+
+```
+                FileSystemBase
+                /           \
+   LocalFileSystem     RemoteFileSystemBase
+                         /         \
+               FtpFileSystem    SftpFileSystem
+```
+
+### Base Classes
+
+- **FileSystemBase**: Abstract base class for all file systems, implementing the IFileSystemOperations interface
+- **RemoteFileSystemBase**: Abstract base class for remote file systems, inheriting from FileSystemBase and implementing IRemoteFileSystem
+- **LocalFileSystem**: Concrete implementation of local file system
+- **FtpFileSystem**: FTP file system implementation based on FluentFTP library
+- **SftpFileSystem**: SFTP file system implementation based on SSH.NET library
+
+### Design Patterns
+
+This library uses the following design patterns:
+
+- **Strategy Pattern**: Different file systems implement the same interface (IFileSystemOperations) but have their own implementation strategies
+- **Template Method**: Defines algorithm skeleton in FileSystemBase base class, with subclasses implementing specific steps
+- **Adapter Pattern**: Adapts different file system APIs like FluentFTP and SSH.NET to a unified interface
+- **Simple Factory**: The CreateClient() method within each file system class creates specific client instances
+- **Command Pattern**: Encapsulates operation results through FileOperationResult for unified execution status handling
+
+### Key Workflows
+
+1. **File Upload Workflow**:
+   - Client calls IFileSystemOperations.UploadAsync
+   - Executes different implementations based on actual file system type
+   - Applies configured file naming rules and validation measures
+   - Returns unified FileOperationResult
+
+2. **Remote System Connection Management**:
+   - Uses `EnsureConnectedAsync()` for automatic connection management
+   - Automatic connection, operation, and disconnection lifecycle management
 
 ## Contributing
 

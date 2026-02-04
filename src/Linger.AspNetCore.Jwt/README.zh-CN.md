@@ -1,4 +1,4 @@
-# Linger.AspNetCore.Jwt
+﻿# Linger.AspNetCore.Jwt
 
 一个用于处理 JWT 认证并可选支持刷新令牌的 C# 辅助库，聚焦“简单集成 + 可扩展 + 安全实践”。
 
@@ -12,7 +12,6 @@
 - [扩展 Claims](#扩展-claims)
 - [启用刷新令牌](#启用刷新令牌)
 - [控制器示例](#控制器示例)
-- [客户端自动刷新（概览）](#客户端自动刷新概览)
 - [刷新令牌工作流程说明](#刷新令牌工作流程说明)
 - [安全最佳实践](#安全最佳实践)
 - [高级功能](#高级功能)
@@ -28,7 +27,7 @@
 - ✅ 易扩展：重写 `GetClaimsAsync` 即可添加角色 / 权限 / 租户
 
 ## 支持平台
-- .NET 8.0+ ASP.NET Core
+.NET 8.0+ ASP.NET Core
 
 ## 安装
 ```bash
@@ -93,7 +92,8 @@ $Env:SECRET = "Prod_YourLongSecret_AtLeast32Chars"
 
 ## 注册与集成方式
 ```csharp
-// 简洁方式uilder.Services.ConfigureJwt(builder.Configuration);
+// 简洁方式
+builder.Services.ConfigureJwt(builder.Configuration);
 
 // 自行绑定 + 多认证共存
 var opt = builder.Configuration.GetGeneric<JwtOption>("JwtOptions");
@@ -108,11 +108,12 @@ builder.Services.AddAuthentication(o =>
 
 // 可选实现注入
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IJwtService, CustomJwtServices>();
+builder.Services.AddScoped<IJwtService, CustomJwtService>();
 builder.Services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
 builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
 builder.Services.AddScoped<IRefreshableJwtService, DbJwtService>();
 ```
+
 ## 扩展 Claims
 默认：
 ```csharp
@@ -121,7 +122,7 @@ protected virtual Task<List<Claim>> GetClaimsAsync(string userId) =>
 ```
 自定义：
 ```csharp
-public class CustomJwtServices(CrudAppContext db, JwtOption opt, ILogger? logger = null) : JwtService(opt, logger)
+public class CustomJwtService(AppDbContext db, JwtOption opt, ILogger? logger = null) : JwtService(opt, logger)
 {
     protected override async Task<List<Claim>> GetClaimsAsync(string userId)
     {
@@ -174,7 +175,7 @@ public class DbJwtService : JwtServiceWithRefresh
 
 ## 控制器示例
 
-### 推荐方式 (使用 TryRefreshTokenAsync)
+### 推荐方式 (使用 RefreshTokenResultAsync)
 ```csharp
 public class AuthController(IJwtService jwt, IUserService users) : ControllerBase
 {
@@ -189,7 +190,7 @@ public class AuthController(IJwtService jwt, IUserService users) : ControllerBas
     [HttpPost("refresh")] 
     public async Task<IActionResult> Refresh(Token token)
     { 
-        var result = await jwt.TryRefreshTokenAsync(token);
+        var result = await jwt.RefreshTokenResultAsync(token);
         if (result.Success) 
             return Ok(result.Token);
         
@@ -197,6 +198,8 @@ public class AuthController(IJwtService jwt, IUserService users) : ControllerBas
     }
 }
 ```
+
+> **💡 提示**: `TryRefreshTokenAsync` 已弃用，请使用 `RefreshTokenResultAsync` 替代。
 
 ### 备选方式 (使用异常处理)
 ```csharp
@@ -222,10 +225,8 @@ public async Task<IActionResult> Refresh(Token token)
 }
 ```
 
-> **💡 提示**: `TryRefreshTokenAsync` 方法遵循 C# 的 Try 模式惯例,性能更好且代码更清晰。
+> **💡 提示**: `RefreshTokenResultAsync` 方法遵循结果模式，避免异常开销，性能更好且代码更清晰。
 
-## 客户端自动刷新（概览）
-若只需演示，可参考“快速入门示例”；生产建议使用弹性策略防止并发重复刷新。
 
 ---
 

@@ -4,4 +4,8 @@
     <ProjectReference Include="..\..\src\Linger.DataAccess.SqlServer\Linger.DataAccess.SqlServer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Update="xunit.v3" Version="3.2.2" />
+  </ItemGroup>
+
 </Project>

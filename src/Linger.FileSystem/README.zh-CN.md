@@ -23,65 +23,6 @@ dotnet add package Linger.FileSystem.Ftp
 dotnet add package Linger.FileSystem.Sftp
 ```
 
-## 架构设计
-
-### 核心接口层次
-
-```
-              IFileSystem
-                   │
-         IFileSystemOperations
-           /            \
-ILocalFileSystem    IRemoteFileSystem
-```
-
-### 核心接口
-
-- **IFileSystem**: 定义基本文件操作接口
-- **IFileSystemOperations**: 统一的文件系统操作接口，继承自 IFileSystem
-- **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
-- **IRemoteFileSystem**: 远程文件系统连接管理接口
-
-### 实现类层次
-
-```
-                FileSystemBase
-                /           \
-   LocalFileSystem     RemoteFileSystemBase
-                         /         \
-               FtpFileSystem    SftpFileSystem
-```
-
-### 基础类
-
-- **FileSystemBase**: 所有文件系统的抽象基类，实现了IFileSystemOperations接口
-- **RemoteFileSystemBase**: 远程文件系统的抽象基类，继承自FileSystemBase，实现了IRemoteFileSystem
-- **LocalFileSystem**: 本地文件系统具体实现
-- **FtpFileSystem**: FTP文件系统实现，基于FluentFTP库
-- **SftpFileSystem**: SFTP文件系统实现，基于SSH.NET库
-
-### 设计模式
-
-该库使用了以下设计模式：
-
-- **策略模式**: 不同文件系统实现相同接口(IFileSystemOperations)但有各自的实现策略
-- **模板方法**: 在FileSystemBase基类中定义算法骨架，子类实现具体步骤
-- **适配器模式**: 将FluentFTP和SSH.NET等不同的文件系统API适配到统一接口
-- **简单工厂**: 各个文件系统类内部的CreateClient()方法用于创建具体的客户端实例
-- **命令模式**: 通过FileOperationResult封装操作结果，统一处理执行状态
-
-### 关键流程
-
-1. **文件上传流程**:
-   - 客户端调用IFileSystemOperations.UploadAsync
-   - 根据实际文件系统类型执行不同实现 
-   - 应用配置的文件命名规则和验证措施
-   - 返回统一的FileOperationResult结果
-
-2. **远程系统连接管理**:
-   - 使用 `EnsureConnectedAsync()` 自动管理连接
-   - 自动连接、操作、关闭的生命周期管理
-
 ## 主要特点
 
 - **统一接口**: 通过 `IFileSystemOperations` 接口提供的一致API操作不同类型的文件系统
@@ -90,7 +31,7 @@ ILocalFileSystem    IRemoteFileSystem
 - **自动重试**: 内置重试机制，可以配置重试次数和延迟，提高操作可靠性
 - **连接管理**: 自动处理远程文件系统的连接和断开
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
-- **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理（内存减少 99.99%）
+- **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理，支持任意大小文件
 - **批量操作进度报告**: 通过 `IProgress<BatchProgress>` 实时跟踪批量上传、下载和删除操作的进度
 - **连接池空闲超时**: 通过 `ConnectionPoolIdleTimeout` 配置自动清理连接池中的空闲连接
 - **批量操作重试**: 通过 `BatchRetryOptions` 配置为批量操作中的单个文件提供重试支持
@@ -99,21 +40,7 @@ ILocalFileSystem    IRemoteFileSystem
 
 - .NET Framework 4.6.2+
 - .NET Standard 2.0+
-- .NET Core 2.0+/.NET 5+
-
-## 安装
-
-通过NuGet包管理器安装:
-
-```
-Install-Package Linger.FileSystem
-```
-
-或使用.NET CLI:
-
-```
-dotnet add package Linger.FileSystem
-```
+- .NET 5+
 
 ## 快速入门
 
@@ -431,14 +358,24 @@ var remoteSetting = new RemoteSystemSetting
 
 ### 本地文件系统高级功能
 
+#### 文件命名规则
+
+本地文件系统支持三种文件命名规则：
+
+- **Normal**: 保持原始文件名
+- **Md5**: 使用文件内容的MD5哈希值命名，适合去重场景
+- **Uuid**: 使用UUID生成唯一文件名，适合避免冲突
+
+#### 高级上传示例
+
 ```csharp
-// 使用高级上传功能
+// 使用高级上传功能（指定命名规则）
 var uploadedInfo = await localFs.UploadAsync(
     stream,
     "source-file.txt",  // 源文件名
     "container1",       // 容器名
     "images",           // 目标路径
-    NamingRule.Md5,     // 命名规则
+    NamingRule.Md5,     // 命名规则: Normal、Md5、Uuid
     false,              // 是否覆盖
     true                // 是否使用序号命名
 );
@@ -634,122 +571,22 @@ var retryOptions = new RetryOptions
 var ftpFs = new FtpFileSystem(remoteSetting, retryOptions);
 ```
 
-## 文件命名规则
+## 性能优化
 
-本地文件系统支持三种文件命名规则：
+### 缓冲区大小调优
 
-- **Normal**: 保持原始文件名
-- **Md5**: 使用文件内容的MD5哈希值命名
-- **Uuid**: 使用UUID生成唯一文件名
-
-```csharp
-// 使用MD5命名规则
-var result = await localFs.UploadAsync(
-    fileStream, 
-    "source.txt", 
-    "container", 
-    "uploads", 
-    NamingRule.Md5
-);
-
-// 使用UUID命名规则
-result = await localFs.UploadAsync(
-    fileStream, 
-    "source.txt", 
-    "container", 
-    "uploads", 
-    NamingRule.Uuid
-);
-```
-
-## 高级优化建议
-
-### 本地文件系统 - 流式上传优化（v1.0.0+）
-
-本地文件系统现已使用流式优化技术，显著降低文件上传时的内存占用：
-
-**优化亮点：**
-- ✅ **IncrementalHash**：增量计算 MD5 哈希值，无需将整个文件加载到内存
-- ✅ **ArrayPool<byte>**：重用缓冲区内存，减少 GC 压力
-- ✅ **流式 I/O**：分块处理文件，内存占用恒定，与文件大小无关
-
-**性能提升：**
-
-| 文件大小 | 旧实现 | 新实现 | 内存减少 |
-|---------|--------|--------|---------|
-| 100MB | ~100MB | ~8-256KB（缓冲区大小） | 99.9%+ |
-| 1GB | ~1GB | ~8-256KB（缓冲区大小） | 99.99%+ |
-| 10GB | ❌ 内存溢出 | ~8-256KB（缓冲区大小） | ✅ 支持 |
-
-**技术细节：**
-
-```csharp
-// 旧方式（内存密集型）
-var memoryStream = new MemoryStream();
-await inputStream.CopyToAsync(memoryStream);
-byte[] fileBytes = memoryStream.ToArray(); // 整个文件在内存中！
-string hash = CalculateMD5(fileBytes);
-
-// 新方式（流式 + IncrementalHash）
-using var md5 = IncrementalHash.CreateHash(HashAlgorithmName.MD5);
-var buffer = ArrayPool<byte>.Shared.Rent(bufferSize);
-try
-{
-    int bytesRead;
-    while ((bytesRead = await inputStream.ReadAsync(buffer)) > 0)
-    {
-        await outputStream.WriteAsync(buffer, 0, bytesRead);
-        md5.AppendData(buffer, 0, bytesRead);  // 增量更新哈希
-    }
-    string hash = BitConverter.ToString(md5.GetHashAndReset())...;
-}
-finally
-{
-    ArrayPool<byte>.Shared.Return(buffer);  // 归还缓冲区到池
-}
-```
-
-**优化适用场景：**
-
-- ✅ MD5 命名规则：使用临时文件进行流式哈希计算
-- ✅ UUID 命名规则：直接流式写入目标文件
-- ✅ Normal 命名规则：直接流式写入目标文件
-
-**缓冲区配置：**
+默认缓冲区大小为 81920 字节（80KB）。对于大文件处理场景，可以适当增大缓冲区以提升吞吐量：
 
 ```csharp
 var options = new LocalFileSystemOptions
 {
     RootDirectoryPath = "C:/Storage",
-    UploadBufferSize = 262144,  // 256KB 缓冲区（默认：81920 = 80KB）
-    // 更大的缓冲区可提升大文件性能
-    // 但会增加每个并发上传的内存占用
+    UploadBufferSize = 262144,    // 256KB - 适合大文件上传
+    DownloadBufferSize = 262144   // 256KB - 适合大文件下载
 };
 ```
 
-### 缓冲区与内存管理
-
-为提高大文件处理性能，可以考虑以下优化：
-
-```csharp
-// 配置更高效的缓冲区大小
-var options = new LocalFileSystemOptions
-{
-    RootDirectoryPath = "C:/Storage",          // 根目录路径
-    DefaultNamingRule = NamingRule.Md5,        // 默认命名规则: Md5、Uuid、Normal
-    DefaultOverwrite = false,                  // 是否默认覆盖同名文件
-    DefaultUseSequencedName = true,            // 文件名冲突时是否使用序号命名
-    ValidationLevel = FileValidationLevel.Full, // 验证级别: None(不验证)、SizeOnly(仅大小)、Full(完整)
-    CleanupOnValidationFailure = true,         // 验证失败时是否清理文件
-    UploadBufferSize = 262144,                 // 增加到256KB以提升大文件上传性能
-    DownloadBufferSize = 262144,               // 增加到256KB以提升大文件下载性能
-    RetryOptions = new RetryOptions 
-    { 
-        MaxRetryAttempts = 3, 
-        DelayMilliseconds = 1000 
-    }
-};
-```
+> 💡 更大的缓冲区可提升大文件性能，但会增加每个并发操作的内存占用。
 
 ### 批量操作优化
 
@@ -760,6 +597,65 @@ var options = new LocalFileSystemOptions
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
 await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
 ```
+
+## 架构设计
+
+### 核心接口层次
+
+```
+              IFileSystem
+                   │
+         IFileSystemOperations
+           /            \
+ILocalFileSystem    IRemoteFileSystem
+```
+
+### 核心接口
+
+- **IFileSystem**: 定义基本文件操作接口
+- **IFileSystemOperations**: 统一的文件系统操作接口，继承自 IFileSystem
+- **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
+- **IRemoteFileSystem**: 远程文件系统连接管理接口
+
+### 实现类层次
+
+```
+                FileSystemBase
+                /           \
+   LocalFileSystem     RemoteFileSystemBase
+                         /         \
+               FtpFileSystem    SftpFileSystem
+```
+
+### 基础类
+
+- **FileSystemBase**: 所有文件系统的抽象基类，实现了IFileSystemOperations接口
+- **RemoteFileSystemBase**: 远程文件系统的抽象基类，继承自FileSystemBase，实现了IRemoteFileSystem
+- **LocalFileSystem**: 本地文件系统具体实现
+- **FtpFileSystem**: FTP文件系统实现，基于FluentFTP库
+- **SftpFileSystem**: SFTP文件系统实现，基于SSH.NET库
+
+### 设计模式
+
+该库使用了以下设计模式：
+
+- **策略模式**: 不同文件系统实现相同接口(IFileSystemOperations)但有各自的实现策略
+- **模板方法**: 在FileSystemBase基类中定义算法骨架，子类实现具体步骤
+- **适配器模式**: 将FluentFTP和SSH.NET等不同的文件系统API适配到统一接口
+- **简单工厂**: 各个文件系统类内部的CreateClient()方法用于创建具体的客户端实例
+- **命令模式**: 通过FileOperationResult封装操作结果，统一处理执行状态
+
+### 关键流程
+
+1. **文件上传流程**:
+   - 客户端调用IFileSystemOperations.UploadAsync
+   - 根据实际文件系统类型执行不同实现 
+   - 应用配置的文件命名规则和验证措施
+   - 返回统一的FileOperationResult结果
+
+2. **远程系统连接管理**:
+   - 使用 `EnsureConnectedAsync()` 自动管理连接
+   - 自动连接、操作、关闭的生命周期管理
 
 ## 贡献
 

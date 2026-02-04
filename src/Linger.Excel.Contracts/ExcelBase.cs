@@ -1118,4 +1118,20 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     protected abstract MemoryStream SaveWorkbookToStream(TWorkbook workbook);
 
     #endregion
+
+    /// <summary>
+    /// DataTable to Excel file
+    /// </summary>
+    [Obsolete("Please use DataTableToExcel instead. This method will be removed in a future release.")]
+    public string DataTableToFile(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+        => DataTableToExcel(dataTable, fullFileName, sheetsName, title, action, styleAction);
+
+    /// <summary>
+    /// DataSet to Excel file
+    /// </summary>
+    [Obsolete("Please use DataSetToExcel instead. This method will be removed in a future release.")]
+    public string DataSetToFile(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+        => DataSetToExcel(dataSet, fullFileName, defaultSheetName, action, styleAction);
 }
