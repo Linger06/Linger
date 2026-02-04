@@ -293,6 +293,67 @@ public class IEnumerableExtensionsPolyfillsTests
     }
 #endif
 
+#if !NET9_0_OR_GREATER
+    [Fact]
+    public void Index_ReturnsElementsWithIndex()
+    {
+        // Arrange
+        var items = new[] { "a", "b", "c" };
+
+        // Act
+        var result = items.Index().ToList();
+
+        // Assert
+        Assert.Equal(3, result.Count);
+        Assert.Equal((0, "a"), result[0]);
+        Assert.Equal((1, "b"), result[1]);
+        Assert.Equal((2, "c"), result[2]);
+    }
+
+    [Fact]
+    public void Index_WithEmptySource_ReturnsEmptySequence()
+    {
+        // Arrange
+        var items = Array.Empty<string>();
+
+        // Act
+        var result = items.Index().ToList();
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Index_ThrowsArgumentNullException_WhenSourceIsNull()
+    {
+        // Arrange
+        IEnumerable<string>? source = null;
+
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => source!.Index().ToList());
+    }
+
+    [Fact]
+    public void Index_CanBeUsedInForeach()
+    {
+        // Arrange
+        var items = new[] { "apple", "banana", "cherry" };
+        var results = new List<string>();
+
+        // Act
+        foreach (var (index, item) in items.Index())
+        {
+            results.Add($"{index}:{item}");
+        }
+
+        // Assert
+        Assert.Equal(3, results.Count);
+        Assert.Equal("0:apple", results[0]);
+        Assert.Equal("1:banana", results[1]);
+        Assert.Equal("2:cherry", results[2]);
+    }
+#endif
+
     private class Person
     {
         public int Id { get; set; }

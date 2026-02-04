@@ -10,6 +10,137 @@ namespace Linger.Results.AspNetCore;
 public static class ResultExtensions
 {
     /// <summary>
+    /// 兼容旧用法：将Result转换为ActionResult，并指定成功和失败时的状态码（已过时，推荐使用分开重载）。
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <param name="failureStatusCode">失败时返回的HTTP状态码，null时自动映射</param>
+    /// <returns>对应的ActionResult对象</returns>
+    [Obsolete("请使用 ToActionResult(successStatusCode) 或 ToActionResult(successStatusCode, failureStatusCode) 重载。此方法将在后续版本移除。", false)]
+    public static ActionResult ToActionResult(
+        this Result result,
+        int successStatusCode = StatusCodes.Status200OK,
+        int? failureStatusCode = null)
+    {
+        if (result.IsSuccess)
+        {
+            return new ObjectResult(result)
+            {
+                StatusCode = successStatusCode
+            };
+        }
+
+        return new ObjectResult(result.Errors)
+        {
+            StatusCode = failureStatusCode ?? GetFailureStatusCode(result)
+        };
+    }
+
+    /// <summary>
+    /// 兼容旧用法：将Result{T}转换为ActionResult{T}，并指定成功和失败时的状态码（已过时，推荐使用分开重载）。
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <param name="failureStatusCode">失败时返回的HTTP状态码，null时自动映射</param>
+    /// <returns>对应的ActionResult{T}对象</returns>
+    [Obsolete("请使用 ToActionResult<T>(successStatusCode) 或 ToActionResult<T>(successStatusCode, failureStatusCode) 重载。此方法将在后续版本移除。", false)]
+    public static ActionResult<T> ToActionResult<T>(
+        this Result<T> result,
+        int successStatusCode = StatusCodes.Status200OK,
+        int? failureStatusCode = null)
+    {
+        if (result.IsSuccess)
+        {
+            return new ObjectResult(result.Value)
+            {
+                StatusCode = successStatusCode
+            };
+        }
+
+        return new ObjectResult(result.Errors)
+        {
+            StatusCode = failureStatusCode ?? GetFailureStatusCode(result)
+        };
+    }
+
+    /// <summary>
+    /// 兼容旧用法：将Result转换为IResult，并指定成功和失败时的状态码（已过时，推荐使用分开重载）。
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <param name="failureStatusCode">失败时返回的HTTP状态码，null时自动映射</param>
+    /// <returns>对应的IResult对象</returns>
+    [Obsolete("请使用 ToHttpResult(successStatusCode) 或 ToHttpResult(successStatusCode, failureStatusCode) 重载。此方法将在后续版本移除。", false)]
+    public static IResult ToHttpResult(
+        this Result result,
+        int successStatusCode = StatusCodes.Status200OK,
+        int? failureStatusCode = null)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.StatusCode(successStatusCode);
+        }
+
+        var statusCode = failureStatusCode ?? GetFailureStatusCode(result);
+        var problemDetails = CreateProblemDetails(result, statusCode);
+        return Microsoft.AspNetCore.Http.Results.Problem(problemDetails);
+    }
+
+    /// <summary>
+    /// 兼容旧用法：将Result{T}转换为IResult，并指定成功和失败时的状态码（已过时，推荐使用分开重载）。
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <param name="failureStatusCode">失败时返回的HTTP状态码，null时自动映射</param>
+    /// <returns>对应的IResult对象</returns>
+    [Obsolete("请使用 ToHttpResult<T>(successStatusCode) 或 ToHttpResult<T>(successStatusCode, failureStatusCode) 重载。此方法将在后续版本移除。", false)]
+    public static IResult ToHttpResult<T>(
+        this Result<T> result,
+        int successStatusCode = StatusCodes.Status200OK,
+        int? failureStatusCode = null)
+    {
+        if (result.IsSuccess)
+        {
+            return successStatusCode switch
+            {
+                StatusCodes.Status200OK => Microsoft.AspNetCore.Http.Results.Ok(result.Value),
+                StatusCodes.Status201Created => Microsoft.AspNetCore.Http.Results.Created(string.Empty, result.Value),
+                StatusCodes.Status202Accepted => Microsoft.AspNetCore.Http.Results.Accepted(string.Empty, result.Value),
+                _ => Microsoft.AspNetCore.Http.Results.Json(result.Value, statusCode: successStatusCode)
+            };
+        }
+
+        var statusCode = failureStatusCode ?? GetFailureStatusCode(result);
+        var problemDetails = CreateProblemDetails(result, statusCode);
+        return Microsoft.AspNetCore.Http.Results.Problem(problemDetails);
+    }
+
+    /// <summary>
+    /// 兼容旧用法：Minimal API 下的 ToResult，等价于 ToHttpResult（已过时，推荐使用 ToHttpResult）。
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <returns>对应的IResult对象</returns>
+    [Obsolete("请使用 ToHttpResult 替代 ToResult。此方法将在后续版本移除。", false)]
+    public static IResult ToResult(this Result result)
+    {
+        return ToHttpResult(result);
+    }
+
+    /// <summary>
+    /// 兼容旧用法：Minimal API 下的 ToResult<T>，等价于 ToHttpResult<T>（已过时，推荐使用 ToHttpResult）。
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <returns>对应的IResult对象</returns>
+    [Obsolete("请使用 ToHttpResult 替代 ToResult。此方法将在后续版本移除。", false)]
+    public static IResult ToResult<T>(this Result<T> result)
+    {
+        return ToHttpResult(result);
+    }
+
+    /// <summary>
     /// 将Result转换为ActionResult
     /// </summary>
     /// <param name="result">要转换的Result对象</param>
@@ -21,15 +152,31 @@ public static class ResultExtensions
             return new OkObjectResult(result);
         }
 
-        var statusCode = result.Status switch
+        return new ObjectResult(result.Errors)
         {
-            ResultStatus.NotFound => StatusCodes.Status404NotFound,
-            _ => StatusCodes.Status400BadRequest
+            StatusCode = GetFailureStatusCode(result)
         };
+    }
+
+    /// <summary>
+    /// 将Result转换为ActionResult，并指定成功时的状态码
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <returns>对应的ActionResult对象，失败时根据Result状态自动确定状态码</returns>
+    public static ActionResult ToActionResult(this Result result, int successStatusCode)
+    {
+        if (result.IsSuccess)
+        {
+            return new ObjectResult(result)
+            {
+                StatusCode = successStatusCode
+            };
+        }
 
         return new ObjectResult(result.Errors)
         {
-            StatusCode = statusCode
+            StatusCode = GetFailureStatusCode(result)
         };
     }
 
@@ -40,10 +187,7 @@ public static class ResultExtensions
     /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
     /// <param name="failureStatusCode">失败时返回的HTTP状态码</param>
     /// <returns>对应的ActionResult对象</returns>
-    public static ActionResult ToActionResult(
-        this Result result,
-        int successStatusCode = StatusCodes.Status200OK,
-        int failureStatusCode = StatusCodes.Status400BadRequest)
+    public static ActionResult ToActionResult(this Result result, int successStatusCode, int failureStatusCode)
     {
         if (result.IsSuccess)
         {
@@ -72,15 +216,32 @@ public static class ResultExtensions
             return new OkObjectResult(result.Value);
         }
 
-        var statusCode = result.Status switch
+        return new ObjectResult(result.Errors)
         {
-            ResultStatus.NotFound => StatusCodes.Status404NotFound,
-            _ => StatusCodes.Status400BadRequest
+            StatusCode = GetFailureStatusCode(result)
         };
+    }
+
+    /// <summary>
+    /// 将Result{T}转换为ActionResult{T}，并指定成功时的状态码
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <returns>对应的ActionResult{T}对象，失败时根据Result状态自动确定状态码</returns>
+    public static ActionResult<T> ToActionResult<T>(this Result<T> result, int successStatusCode)
+    {
+        if (result.IsSuccess)
+        {
+            return new ObjectResult(result.Value)
+            {
+                StatusCode = successStatusCode
+            };
+        }
 
         return new ObjectResult(result.Errors)
         {
-            StatusCode = statusCode
+            StatusCode = GetFailureStatusCode(result)
         };
     }
 
@@ -92,10 +253,7 @@ public static class ResultExtensions
     /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
     /// <param name="failureStatusCode">失败时返回的HTTP状态码</param>
     /// <returns>对应的ActionResult{T}对象</returns>
-    public static ActionResult<T> ToActionResult<T>(
-        this Result<T> result,
-        int successStatusCode = StatusCodes.Status200OK,
-        int failureStatusCode = StatusCodes.Status400BadRequest)
+    public static ActionResult<T> ToActionResult<T>(this Result<T> result, int successStatusCode, int failureStatusCode)
     {
         if (result.IsSuccess)
         {
@@ -115,11 +273,29 @@ public static class ResultExtensions
     /// 将Result转换为ProblemDetails格式的ActionResult
     /// </summary>
     /// <param name="result">要转换的Result对象</param>
+    /// <returns>成功时返回200 OK，失败时根据Result状态返回对应的ProblemDetails</returns>
+    public static ActionResult ToProblemDetails(this Result result)
+    {
+        if (result.IsSuccess)
+        {
+            return new OkObjectResult(result);
+        }
+
+        var statusCode = GetFailureStatusCode(result);
+        var problemDetails = CreateProblemDetails(result, statusCode);
+        return new ObjectResult(problemDetails)
+        {
+            StatusCode = statusCode
+        };
+    }
+
+    /// <summary>
+    /// 将Result转换为ProblemDetails格式的ActionResult，并指定失败时的状态码
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
     /// <param name="failureStatusCode">失败时返回的HTTP状态码</param>
     /// <returns>成功时返回200 OK，失败时返回ProblemDetails</returns>
-    public static ActionResult ToProblemDetails(
-        this Result result,
-        int failureStatusCode = StatusCodes.Status400BadRequest)
+    public static ActionResult ToProblemDetails(this Result result, int failureStatusCode)
     {
         if (result.IsSuccess)
         {
@@ -138,11 +314,30 @@ public static class ResultExtensions
     /// </summary>
     /// <typeparam name="T">结果值的类型</typeparam>
     /// <param name="result">要转换的Result{T}对象</param>
+    /// <returns>成功时返回200 OK和结果值，失败时根据Result状态返回对应的ProblemDetails</returns>
+    public static ActionResult ToProblemDetails<T>(this Result<T> result)
+    {
+        if (result.IsSuccess)
+        {
+            return new OkObjectResult(result.Value);
+        }
+
+        var statusCode = GetFailureStatusCode(result);
+        var problemDetails = CreateProblemDetails(result, statusCode);
+        return new ObjectResult(problemDetails)
+        {
+            StatusCode = statusCode
+        };
+    }
+
+    /// <summary>
+    /// 将Result{T}转换为ProblemDetails格式的ActionResult，并指定失败时的状态码
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
     /// <param name="failureStatusCode">失败时返回的HTTP状态码</param>
     /// <returns>成功时返回200 OK和结果值，失败时返回ProblemDetails</returns>
-    public static ActionResult ToProblemDetails<T>(
-        this Result<T> result,
-        int failureStatusCode = StatusCodes.Status400BadRequest)
+    public static ActionResult ToProblemDetails<T>(this Result<T> result, int failureStatusCode)
     {
         if (result.IsSuccess)
         {
@@ -168,11 +363,11 @@ public static class ResultExtensions
     /// app.MapGet("/api/status", () =>
     /// {
     ///     var result = SomeOperation();
-    ///     return result.ToResult();
+    ///     return result.ToHttpResult();
     /// });
     /// </code>
     /// </example>
-    public static IResult ToResult(this Result result)
+    public static IResult ToHttpResult(this Result result)
     {
         if (result.IsSuccess)
         {
@@ -194,11 +389,11 @@ public static class ResultExtensions
     /// app.MapGet("/api/users/{id}", (int id) =>
     /// {
     ///     var result = GetUser(id);
-    ///     return result.ToResult();
+    ///     return result.ToHttpResult();
     /// });
     /// </code>
     /// </example>
-    public static IResult ToResult<T>(this Result<T> result)
+    public static IResult ToHttpResult<T>(this Result<T> result)
     {
         if (result.IsSuccess)
         {
@@ -210,25 +405,40 @@ public static class ResultExtensions
     }
 
     /// <summary>
+    /// 将Result转换为IResult，并指定成功时的状态码，用于Minimal API
+    /// </summary>
+    /// <param name="result">要转换的Result对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <returns>对应的IResult对象，失败时根据Result状态自动确定状态码</returns>
+    /// <example>
+    /// <code>
+    /// app.MapPost("/api/users", (CreateUserRequest request) =>
+    /// {
+    ///     var result = CreateUser(request);
+    ///     return result.ToHttpResult(StatusCodes.Status201Created);
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToHttpResult(this Result result, int successStatusCode)
+    {
+        if (result.IsSuccess)
+        {
+            return Microsoft.AspNetCore.Http.Results.StatusCode(successStatusCode);
+        }
+
+        var statusCode = GetFailureStatusCode(result);
+        var problemDetails = CreateProblemDetails(result, statusCode);
+        return Microsoft.AspNetCore.Http.Results.Problem(problemDetails);
+    }
+
+    /// <summary>
     /// 将Result转换为IResult，并指定成功和失败时的状态码，用于Minimal API
     /// </summary>
     /// <param name="result">要转换的Result对象</param>
     /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
     /// <param name="failureStatusCode">失败时返回的HTTP状态码</param>
     /// <returns>对应的IResult对象</returns>
-    /// <example>
-    /// <code>
-    /// app.MapPost("/api/users", (CreateUserRequest request) =>
-    /// {
-    ///     var result = CreateUser(request);
-    ///     return result.ToResult(StatusCodes.Status201Created);
-    /// });
-    /// </code>
-    /// </example>
-    public static IResult ToResult(
-        this Result result,
-        int successStatusCode = StatusCodes.Status200OK,
-        int failureStatusCode = StatusCodes.Status400BadRequest)
+    public static IResult ToHttpResult(this Result result, int successStatusCode, int failureStatusCode)
     {
         if (result.IsSuccess)
         {
@@ -236,6 +446,40 @@ public static class ResultExtensions
         }
 
         var problemDetails = CreateProblemDetails(result, failureStatusCode);
+        return Microsoft.AspNetCore.Http.Results.Problem(problemDetails);
+    }
+
+    /// <summary>
+    /// 将Result{T}转换为IResult，并指定成功时的状态码，用于Minimal API
+    /// </summary>
+    /// <typeparam name="T">结果值的类型</typeparam>
+    /// <param name="result">要转换的Result{T}对象</param>
+    /// <param name="successStatusCode">成功时返回的HTTP状态码</param>
+    /// <returns>对应的IResult对象，失败时根据Result状态自动确定状态码</returns>
+    /// <example>
+    /// <code>
+    /// app.MapPut("/api/users/{id}", (int id, UpdateUserRequest request) =>
+    /// {
+    ///     var result = UpdateUser(id, request);
+    ///     return result.ToHttpResult(StatusCodes.Status200OK);
+    /// });
+    /// </code>
+    /// </example>
+    public static IResult ToHttpResult<T>(this Result<T> result, int successStatusCode)
+    {
+        if (result.IsSuccess)
+        {
+            return successStatusCode switch
+            {
+                StatusCodes.Status200OK => Microsoft.AspNetCore.Http.Results.Ok(result.Value),
+                StatusCodes.Status201Created => Microsoft.AspNetCore.Http.Results.Created(string.Empty, result.Value),
+                StatusCodes.Status202Accepted => Microsoft.AspNetCore.Http.Results.Accepted(string.Empty, result.Value),
+                _ => Microsoft.AspNetCore.Http.Results.Json(result.Value, statusCode: successStatusCode)
+            };
+        }
+
+        var statusCode = GetFailureStatusCode(result);
+        var problemDetails = CreateProblemDetails(result, statusCode);
         return Microsoft.AspNetCore.Http.Results.Problem(problemDetails);
     }
 
@@ -252,14 +496,11 @@ public static class ResultExtensions
     /// app.MapPut("/api/users/{id}", (int id, UpdateUserRequest request) =>
     /// {
     ///     var result = UpdateUser(id, request);
-    ///     return result.ToResult(StatusCodes.Status200OK, StatusCodes.Status404NotFound);
+    ///     return result.ToHttpResult(StatusCodes.Status200OK, StatusCodes.Status404NotFound);
     /// });
     /// </code>
     /// </example>
-    public static IResult ToResult<T>(
-        this Result<T> result,
-        int successStatusCode = StatusCodes.Status200OK,
-        int failureStatusCode = StatusCodes.Status400BadRequest)
+    public static IResult ToHttpResult<T>(this Result<T> result, int successStatusCode, int failureStatusCode)
     {
         if (result.IsSuccess)
         {
@@ -359,6 +600,20 @@ public static class ResultExtensions
     #region Helper Methods
 
     /// <summary>
+    /// 根据 Result 状态获取对应的 HTTP 失败状态码
+    /// </summary>
+    /// <param name="result">Result 对象</param>
+    /// <returns>对应的 HTTP 状态码</returns>
+    private static int GetFailureStatusCode(Result result)
+    {
+        return result.Status switch
+        {
+            ResultStatus.NotFound => StatusCodes.Status404NotFound,
+            _ => StatusCodes.Status400BadRequest
+        };
+    }
+
+    /// <summary>
     /// 创建ProblemDetails对象
     /// </summary>
     /// <param name="result">Result对象</param>
@@ -366,7 +621,7 @@ public static class ResultExtensions
     /// <returns>ProblemDetails对象</returns>
     private static ProblemDetails CreateProblemDetails(Result result, int? statusCode = null)
     {
-        var code = statusCode ?? (result.Status == ResultStatus.NotFound ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest);
+        var code = statusCode ?? GetFailureStatusCode(result);
 
         var problemDetails = new ProblemDetails
         {
@@ -401,9 +656,9 @@ public static class ResultExtensions
     /// <returns>IResult对象</returns>
     private static IResult CreateErrorResult(Result result, ProblemDetails problemDetails)
     {
-        return result.Status switch
+        return GetFailureStatusCode(result) switch
         {
-            ResultStatus.NotFound => Microsoft.AspNetCore.Http.Results.NotFound(problemDetails),
+            StatusCodes.Status404NotFound => Microsoft.AspNetCore.Http.Results.NotFound(problemDetails),
             _ => Microsoft.AspNetCore.Http.Results.BadRequest(problemDetails)
         };
     }

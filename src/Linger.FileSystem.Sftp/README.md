@@ -1,4 +1,4 @@
-# Linger.FileSystem.Sftp
+﻿# Linger.FileSystem.Sftp
 
 ## Overview
 
@@ -18,6 +18,7 @@ dotnet add package Linger.FileSystem.Sftp
 - Timeout configurations
 - Integration with the Linger.FileSystem abstraction
 - Supports multiple .NET frameworks (net9.0, net8.0, netstandard2.0)
+- Unified batch operations and concurrency control (`MaxDegreeOfParallelism`)
 
 ## Basic Usage
 
@@ -38,7 +39,7 @@ var settings = new RemoteSystemSetting
 // Configure retry options
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -165,35 +166,90 @@ foreach (var dir in directories)
 ### Batch Operations
 
 ```csharp
-// Upload multiple files
-var localFiles = new[]
+// Use the unified batch operations interface
+// Combine with concurrency to improve throughput
+var settings = new RemoteSystemSetting
 {
-    @"C:\local\file1.txt",
-    @"C:\local\file2.txt",
-    @"C:\local\file3.txt"
+    Host = "sftp.example.com",
+    Port = 22,
+    UserName = "username",
+    Password = "password",
+    ConnectionTimeout = 15000,
+    OperationTimeout = 60000,
+    MaxDegreeOfParallelism = 4 // 1 = serial, >1 = parallel (per-task connection)
 };
 
-foreach (var localFile in localFiles)
-{
-    var fileName = Path.GetFileName(localFile);
-    var remotePath = $"/remote/uploads/{fileName}";
-    
-    // Upload with progress tracking
-    await sftpSystem.CopyFileAsync(localFile, remotePath);
-    Console.WriteLine($"Uploaded: {fileName}");
-}
+var sftp = new SftpFileSystem(settings);
+await sftp.ConnectAsync();
 
-// Download multiple files
-var remoteFiles = sftpSystem.GetFiles("/remote/downloads", "*.txt");
-foreach (var remoteFile in remoteFiles)
+// Batch upload
+var uploadResult = await sftp.UploadFilesAsync(new[]
 {
-    var fileName = Path.GetFileName(remoteFile);
-    var localPath = Path.Combine(@"C:\local\downloads", fileName);
-    
-    await sftpSystem.CopyFileAsync(remoteFile, localPath);
-    Console.WriteLine($"Downloaded: {fileName}");
-}
+    "C:/local/file1.txt",
+    "C:/local/file2.txt"
+}, "/remote/uploads", overwrite: true);
+Console.WriteLine($"Uploaded: {uploadResult.SucceededFiles.Count}, Failed: {uploadResult.FailedFiles.Count}");
+
+// Batch download
+var downloadResult = await sftp.DownloadFilesAsync(new[]
+{
+    "/remote/uploads/file1.txt",
+    "/remote/uploads/file2.txt"
+}, "C:/downloads", overwrite: true);
+Console.WriteLine($"Downloaded: {downloadResult.SucceededFiles.Count}, Failed: {downloadResult.FailedFiles.Count}");
+
+// Batch delete
+var deleteResult = await sftp.DeleteFilesAsync(new[]
+{
+    "/remote/uploads/file1.txt",
+    "/remote/uploads/file2.txt"
+});
+Console.WriteLine($"Deleted: {deleteResult.SucceededFiles.Count}, Failed: {deleteResult.FailedFiles.Count}");
+
+await sftp.DisconnectAsync();
+
+// Failed items are available in FailedFiles with path, message, and exception
 ```
+
+### Batch Operation Progress Reporting
+
+Monitor batch operation progress using the `IProgress<BatchProgress>` parameter:
+
+```csharp
+// Create a progress handler
+var progress = new Progress<BatchProgress>(p =>
+{
+    Console.WriteLine($"Progress: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)");
+    Console.WriteLine($"Current file: {p.CurrentFile}");
+    Console.WriteLine($"Succeeded: {p.Succeeded}, Failed: {p.Failed}");
+});
+
+// Batch upload with progress
+var result = await sftp.UploadFilesAsync(files, "/remote/uploads", overwrite: true, progress);
+
+// Batch download with progress
+var downloadResult = await sftp.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
+
+// Batch delete with progress
+var deleteResult = await sftp.DeleteFilesAsync(filesToDelete, progress);
+```
+
+The `BatchProgress` struct provides:
+- `Completed`: Number of files processed (reported after each file completes)
+- `Total`: Total number of files
+- `CurrentFile`: Path of the file that was just processed
+- `Succeeded`: Number of successful operations
+- `Failed`: Number of failed operations  
+- `PercentComplete`: Completion percentage (0-100)
+
+**Note**: Progress is reported *after* each file operation completes, ensuring `Completed` always reflects the accurate count.
+
+### Concurrency
+
+Control parallelism for batch operations via `RemoteSystemSetting.MaxDegreeOfParallelism`:
+
+- `1`: single connection, serial execution (lower resource usage).
+- `>1`: independent `SftpClient` connection per task for thread safety and improved throughput.
 
 ### Custom Connection Settings
 
@@ -210,20 +266,31 @@ var settings = new RemoteSystemSetting
     ConnectionTimeout = 30000,    // 30 seconds
     OperationTimeout = 120000,    // 2 minutes
     
-    // Encoding settings (if needed for special characters)
-    Encoding = Encoding.UTF8,
+    // Concurrency for batch operations
+    MaxDegreeOfParallelism = 4,
     
-    // Buffer size for file operations (optional optimization)
-    BufferSize = 32768  // 32KB buffer
+    // Connection pool idle timeout (optional)
+    // Connections idle longer than this will be discarded and recreated
+    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
+    
+    // Batch operation retry settings
+    BatchRetryOptions = new RetryOptions
+    {
+        MaxRetryAttempts = 3,
+        DelayMilliseconds = 1000
+    },
+    
+    // Encoding settings (if needed for special characters)
+    Encoding = Encoding.UTF8
 };
 
 // Enhanced retry configuration
 var retryOptions = new RetryOptions
 {
-    MaxRetryCount = 5,
+    MaxRetryAttempts = 5,
     DelayMilliseconds = 2000,
     MaxDelayMilliseconds = 10000,
-    BackoffMultiplier = 2.0 // Exponential backoff
+    UseExponentialBackoff = true // Exponential backoff
 };
 
 using var sftpSystem = new SftpFileSystem(settings, retryOptions);
@@ -342,10 +409,10 @@ var productionSettings = new RemoteSystemSetting
 
 var productionRetry = new RetryOptions
 {
-    MaxRetryCount = 3,
+    MaxRetryAttempts = 3,
     DelayMilliseconds = 5000,
     MaxDelayMilliseconds = 30000,
-    BackoffMultiplier = 2.0
+    UseExponentialBackoff = true
 };
 ```
 
@@ -365,7 +432,7 @@ var devSettings = new RemoteSystemSetting
 
 var devRetry = new RetryOptions
 {
-    MaxRetryCount = 1,
+    MaxRetryAttempts = 1,
     DelayMilliseconds = 1000,
     MaxDelayMilliseconds = 5000
 };
@@ -377,7 +444,7 @@ var devRetry = new RetryOptions
 // In your startup class
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddSingleton<IFileSystem>(provider => {
+    services.AddSingleton<IFileSystemOperations>(provider => {
         var settings = new RemoteSystemSetting
         {
             Host = "sftp.example.com",
@@ -390,7 +457,7 @@ public void ConfigureServices(IServiceCollection services)
         
         var retryOptions = new RetryOptions
         {
-            MaxRetryCount = 3,
+            MaxRetryAttempts = 3,
             DelayMilliseconds = 1000,
             MaxDelayMilliseconds = 5000
         };

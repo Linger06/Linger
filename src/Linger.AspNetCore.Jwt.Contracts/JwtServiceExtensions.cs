@@ -51,7 +51,7 @@ public static class JwtServiceExtensions
     /// <param name="jwtService">The JWT service instance</param>
     /// <param name="token">The token to refresh</param>
     /// <returns>A <see cref="RefreshResult"/> containing the operation result</returns>
-    public static async Task<RefreshResult> TryRefreshTokenAsync(this IJwtService jwtService, Token token)
+    public static async Task<RefreshResult> RefreshTokenResultAsync(this IJwtService jwtService, Token token)
     {
         if (jwtService is not IRefreshableJwtService refreshableService)
         {
@@ -67,5 +67,24 @@ public static class JwtServiceExtensions
         {
             return new RefreshResult(false, null, ex.Message);
         }
+    }
+
+    [Obsolete("Use RefreshTokenResultAsync instead. This method will be removed in a future version.")]
+    public static async Task<(bool Success, Token? NewToken)> TryRefreshTokenAsync(this IJwtService jwtService, Token token)
+    {
+        if (jwtService is IRefreshableJwtService refreshableService)
+        {
+            try
+            {
+                var newToken = await refreshableService.RefreshTokenAsync(token).ConfigureAwait(false);
+                return (true, newToken);
+            }
+            catch (Exception)
+            {
+                return (false, null);
+            }
+        }
+
+        return (false, null);
     }
 }

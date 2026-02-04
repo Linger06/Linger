@@ -254,7 +254,7 @@ public static class DataTableExtensions
         {
             if (!left.ContainAllColumns(x.ColumnName))
             {
-                throw new System.ArgumentException($"{nameof(leftCols)} have columns not in {nameof(left)}");
+                throw new ArgumentException($"{nameof(leftCols)} have columns not in {nameof(left)}");
             }
         });
 
@@ -262,7 +262,7 @@ public static class DataTableExtensions
         {
             if (!right.ContainAllColumns(x.ColumnName))
             {
-                throw new System.ArgumentException($"{nameof(rightCols)} have columns not in {nameof(right)}");
+                throw new ArgumentException($"{nameof(rightCols)} have columns not in {nameof(right)}");
             }
         });
 
@@ -377,7 +377,7 @@ public static class DataTableExtensions
         {
             if (!source.Columns.Contains(column.ColumnName))
             {
-                throw new System.ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
+                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
             }
         }
 
@@ -714,66 +714,15 @@ public static class DataTableExtensions
 
         try
         {
-            // Performance optimization: Use type-specific conversion based on property type
-            var convertedValue = ConvertValueToPropertyType(value, property.PropertyType);
-            property.SetValue(obj, convertedValue);
+            if (Helper.TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue))
+            {
+                property.SetValue(obj, convertedValue);
+            }
         }
         catch
         {
             // Silent fail for incompatible conversions to maintain compatibility
             // In production, you might want to log this or use a different strategy
         }
-    }
-
-    /// <summary>
-    /// Optimized value conversion that minimizes boxing and uses efficient conversion paths.
-    /// </summary>
-    /// <param name="value">The value to convert.</param>
-    /// <param name="targetType">The target type.</param>
-    /// <returns>The converted value.</returns>
-    private static object? ConvertValueToPropertyType(object? value, Type targetType)
-    {
-        if (value is null || value == DBNull.Value)
-            return null;
-
-        // Fast path for exact type matches (avoids conversion overhead)
-        if (value.GetType() == targetType)
-            return value;        // Handle nullable types
-        Type actualType = Nullable.GetUnderlyingType(targetType) ?? targetType;        // Handle enums specifically
-        if (actualType.IsEnum)
-        {
-            if (value == null || value == DBNull.Value)
-                return Enum.ToObject(actualType, 0);
-
-            if (value is string stringValue)
-            {
-                return Enum.Parse(actualType, stringValue, true);
-            }
-
-            // For numeric values, convert to the enum
-            return Enum.ToObject(actualType, value);
-        }
-
-        // Special case: Converting double to DateTime (assume OADate)
-        if (actualType == typeof(DateTime) && value is double doubleValue)
-        {
-            return DateTime.FromOADate(doubleValue);
-        }
-
-        // Optimized conversion using pattern matching for common types
-        return actualType.Name switch
-        {
-            nameof(String) => value.ToStringOrDefault(),
-            nameof(Int16) => value.ToShortOrDefault(),
-            nameof(Int32) => value.ToIntOrDefault(),
-            nameof(Int64) => value.ToLongOrDefault(),
-            nameof(Single) => value.ToFloatOrDefault(),
-            nameof(Double) => value.ToDoubleOrDefault(),
-            nameof(Decimal) => value.ToDecimalOrDefault(),
-            nameof(Boolean) => value.ToBoolOrDefault(),
-            nameof(DateTime) => value.ToDateTimeOrDefault(),
-            nameof(Guid) => value.ToGuidOrDefault(),
-            _ => Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture) // Fallback for other types
-        };
     }
 }

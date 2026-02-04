@@ -48,7 +48,7 @@ public static class MultipartHelper
         content.Add(fileContent, fileFieldName, fileName);
 
         // 添加表单数据
-        if (formData != null)
+        if (formData is not null)
         {
             foreach (var field in formData)
             {

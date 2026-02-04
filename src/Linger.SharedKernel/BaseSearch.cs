@@ -65,7 +65,7 @@ public class BaseSearch : IBaseSearch
                 var value = propertySVm.GetValue(this);
 
                 //空值
-                if (value == null)
+                if (value is null)
                 {
                     continue;
                 }
@@ -79,11 +79,11 @@ public class BaseSearch : IBaseSearch
                 MemberExpression left = Expression.Property(param, property); //x.name
                 ConstantExpression right = Expression.Constant(value, property.PropertyType); //value
                 BinaryExpression be = Expression.Equal(left, right); //x=>x.name == value
-                condition2 = condition2 == null ? be : Expression.And(condition2, be);
+                condition2 = condition2 is null ? be : Expression.And(condition2, be);
             }
         }
 
-        Expression<Func<TEntity, bool>> pre2 = condition2 == null ? Expression.Lambda<Func<TEntity, bool>>(Expression.Constant(true), param) : Expression.Lambda<Func<TEntity, bool>>(condition2, param);
+        Expression<Func<TEntity, bool>> pre2 = condition2 is null ? Expression.Lambda<Func<TEntity, bool>>(Expression.Constant(true), param) : Expression.Lambda<Func<TEntity, bool>>(condition2, param);
 
         return pre2;
     }
@@ -113,7 +113,7 @@ public class BaseSearch : IBaseSearch
 
         Expression<Func<TEntity, bool>> pre;
 
-        if (text != null)
+        if (text is not null)
         {
             foreach (PropertyInfo property in properties)
             {
@@ -128,11 +128,11 @@ public class BaseSearch : IBaseSearch
                 }
 
                 MemberExpression left = Expression.Property(param, property); //x.name
-                MethodInfo? method = typeof(string).GetMethod("Contains", [typeof(string)]);
+                MethodInfo? method = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)]);
                 ConstantExpression right = Expression.Constant(text, property.PropertyType); //value
                 MethodCallExpression be = Expression.Call(left, method!, right);
 
-                if (condition == null)
+                if (condition is null)
                 {
                     condition = be;
                 }
@@ -143,7 +143,7 @@ public class BaseSearch : IBaseSearch
             }
 
             // If no string properties were found, return a true condition
-            pre = condition != null
+            pre = condition is not null
                 ? Expression.Lambda<Func<TEntity, bool>>(condition, param)
                 : Expression.Lambda<Func<TEntity, bool>>(Expression.Constant(true), param);
         }

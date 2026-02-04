@@ -22,7 +22,7 @@ public class GuardExtensionsTests
         // Arrange
         object obj = new object();
 
-        // Act & Assert (不应该抛出异�?
+        // Act & Assert (不应该抛出异常)
         obj.EnsureIsNotNull("testParam");
     }
 

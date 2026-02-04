@@ -549,14 +549,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-#if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
-#else
-        if (batchSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(batchSize));
-        }
-#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -595,14 +588,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(parameters);
-#if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
-#else
-        if (batchSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(batchSize));
-        }
-#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -643,14 +629,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(values);
-#if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
-#else
-        if (batchSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(batchSize));
-        }
-#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;
@@ -687,14 +666,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(values);
-#if NET6_0_OR_GREATER
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
-#else
-        if (batchSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(batchSize));
-        }
-#endif
 
         var dataTable = new DataTable();
         var pageNumber = 1;

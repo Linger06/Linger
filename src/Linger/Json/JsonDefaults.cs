@@ -37,17 +37,13 @@ public static class JsonDefaults
     /// </example>
     public static JsonSerializerOptions CreateResponseOptions()
     {
-        // 基于标准 Web 默认值,然后进行安全加固并启用对数字的只读宽容处理
         var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            // 安全加固和一致性
             Encoder = JavaScriptEncoder.Default,
             ReferenceHandler = ReferenceHandler.IgnoreCycles,
-            // 只读宽容性以实现互操作:在反序列化时接受数字字符串
             NumberHandling = JsonNumberHandling.AllowReadingFromString
         };
 
-        // 保留项目特定的转换器
         jsonOptions.Converters.Add(new JsonObjectConverter());
         jsonOptions.Converters.Add(new DateTimeConverter());
         jsonOptions.Converters.Add(new DateTimeNullConverter());

@@ -24,6 +24,9 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
   - [Enum Extensions](#enum-extensions)  
   - [Parameter Validation](#parameter-validation)
 - [Advanced Features](#advanced-features)
+  - [Retry Helper](#retry-helper)
+  - [Expression Helper](#expression-helper)
+  - [Path Operations](#path-operations)
 - [Best Practices](#best-practices)
 - [API Standardization & Type Safety](#api-standardization--type-safety)
   - [.NET 10 Compatibility (Now Supported)](#net-10-compatibility-now-supported)
@@ -31,7 +34,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 
 ## Features
 
-### 🚀 Core Extensions
+### Core Extensions
 - **String Extensions**: Rich string operations, validation, conversion, and formatting utilities
 - **String Cryptography Extensions**: Secure AES encryption/decryption functionality for data protection
 - **DateTime Extensions**: Date and time manipulation, formatting, and calculations
@@ -41,20 +44,20 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **Array Extensions**: Array processing and manipulation utilities
 - **GUID Extensions**: GUID operation and validation utilities
 
-### 📦 Collection Extensions
+### Collection Extensions
 - **List Extensions**: Enhanced list operations and processing
 - **Collection Extensions**: General collection utilities and transformations
 
-### 💾 Data Extensions
+### Data Extensions
 - **DataTable Extensions**: DataTable operation utilities
 - **Data Conversion**: Safe data type conversion and transformation
 
-### 📁 File System Operations
+### File System Operations
 - **File Helper**: Comprehensive file operations (read, write, copy, move, delete)
 - **Path Helper**: Cross-platform path operations and validation
 - **Directory Operations**: Directory management and traversal utilities
 
-### 🔧 Helper Classes
+### Helper Classes
 - **Expression Helper**: Expression tree operations and utilities
 - **Retry Helper**: Robust retry mechanisms for operations
 - **Property Helper**: Reflection-based property operations
@@ -62,11 +65,11 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **OS Platform Helper**: Cross-platform operating system detection
 - **Parameter Validation Extensions**: Defensive programming and input validation utilities
 
-### 🌐 JSON Support
+### JSON Support
 - **JSON Extensions**: Simplified JSON serialization and deserialization
 - **Custom Converters**: Specialized JSON converters for complex types (DateTime, DataTable, JsonObject, etc.)
 - **JSON Defaults**: `JsonDefaults` provides unified JSON serialization configuration
-    - Detailed documentation: `Linger/Json/JsonDefaults.README.md`
+    - Detailed documentation: [JsonDefaults.README.md](Json/JsonDefaults.README.md)
 
 ## Installation
 
@@ -98,15 +101,11 @@ string number = "123";
 int result = number.ToIntOrDefault(0); // Returns 123, or 0 if conversion fails
 int? nullableResult = number.ToIntOrNull(); // Returns nullable type
 
-// String manipulation
-string text = "  Hello World  ";
-string cleaned = text.Trim(); // Removes whitespace from both ends (.NET native method)
-
 // String extraction
-string longText = "Hello World";
-string leftPart = longText.Take(5); // Get left 5 characters: Hello
-string rightPart = longText.TakeLast(5); // Get right 5 characters: World
-string part = longText.Truncate(20); // Won't throw if length exceeds
+string text = "Hello World";
+string leftPart = text.Take(5); // Get left 5 characters: Hello
+string rightPart = text.TakeLast(5); // Get right 5 characters: World
+string part = text.Truncate(20); // Won't throw if length exceeds
 
 // String checks
 bool isEmpty = text.IsNullOrEmpty();
@@ -126,7 +125,7 @@ string aesKey = "mySecretKey12345"; // AES key
 string aesEncrypted = data.AesEncrypt(aesKey);    // AES-256-CBC mode, auto-generates random IV
 string aesDecrypted = aesEncrypted.AesDecrypt(aesKey); // Auto-extracts IV and decrypts
 
-// ✨ Security Features:
+// Security Features:
 // - Random IV per encryption, same plaintext produces different ciphertext
 // - Variable key length, internally uses SHA256 to process to 32 bytes
 // - IV automatically included in ciphertext, auto-extracted during decryption
@@ -163,6 +162,12 @@ using Linger.Helper;
 FileHelper.WriteText("data.txt", "Hello World");
 string content = FileHelper.ReadText("data.txt");
 
+// Try-style file reading (won't throw if file doesn't exist)
+if (FileHelper.TryReadText("config.txt", out string configContent))
+{
+    Console.WriteLine(configContent);
+}
+
 // File copy with directory creation
 FileHelper.CopyFile("source.txt", "backup/dest.txt");
 
@@ -170,8 +175,19 @@ FileHelper.CopyFile("source.txt", "backup/dest.txt");
 FileHelper.DeleteFileIfExists("temp.txt");
 
 // Directory operations
-FileHelper.EnsureDirectoryExists("logs/2024");
+FileHelper.CopyDir("sourceFolder", "backupFolder"); // Recursive copy
+FileHelper.EnsureDirectoryExists("logs/2026");
+FileHelper.ClearDirectory("temp"); // Clear all files and subdirectories
 ```
+
+> **⚠️ Deprecated Methods**: The following methods are deprecated and will be removed in a future version:
+> - `IsExistFile()` → Use `File.Exists()` directly
+> - `IsExistDirectory()` → Use `Directory.Exists()` directly
+> - `ReadTxt()` → Use `ReadText()` or `TryReadText()`
+> - `WriteTxt()` → Use `WriteText()`
+> - `Copy()` → Use `CopyFile()`
+> - `CopyFolder()` → Use `CopyDir()`
+> - `GetFileName()` → Use `Path.GetFileName()` directly
 
 ### Collection Extensions
 
@@ -195,8 +211,8 @@ list.ForEach(Console.WriteLine); // Print each element
 // Convert to DataTable
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 
-// 🚀 .NET 10+ Join operations — compatibility (now supported)
-// 💡 Note: Polyfill implementations are used on older target frameworks; on .NET 10+ targets the framework native implementations will be used
+// .NET 10+ Join operations — compatibility (now supported)
+// Note: Polyfill implementations are used on older target frameworks; on .NET 10+ targets the framework native implementations will be used
 
 // Left Join (Left Outer Join) - Keep all left-side records
 var employees = new List<Employee> 
@@ -235,18 +251,18 @@ var fullJoinResult = employees.FullJoin(
     (emp, dept) => new { Employee = emp?.Name ?? "No Employee", Department = dept?.Name ?? "No Department" }
 );
 
-// 💡 Simplified version: Returns tuples
+// Simplified version: Returns tuples
 var tupleResult = employees.LeftJoin(departments, e => e.DeptId, d => d.Id);
 // Returns IEnumerable<Tuple<Employee, Department?>>
 
-// 💡 Support for custom equality comparers
+// Support for custom equality comparers
 var caseInsensitiveJoin = stringList1.LeftJoin(
     stringList2, s => s, s => s,
     (s1, s2) => new { Left = s1, Right = s2 },
     StringComparer.OrdinalIgnoreCase
 );
 
-// ✅ .NET 10+ Built-in Compatible: Method signatures match the standard, no code changes required when upgrading
+// .NET 10+ Built-in Compatible: Method signatures match the standard, no code changes required when upgrading
 ```
 
 ### Object Extensions
@@ -263,8 +279,9 @@ double doubleValue = stringObj.ToDoubleOrDefault(0.0); // Success: 123.0
 // Strict type safety: Non-string objects return default values
 object numberObj = 123.45;
 int invalidInt = numberObj.ToIntOrDefault(0);         // Returns 0 (default value)
+```
 
-// 📊 Supported numeric type conversions
+**Supported Numeric Type Conversions**
 
 | Method | Range | Method | Range |
 |--------|-------|--------|-------|
@@ -275,6 +292,7 @@ int invalidInt = numberObj.ToIntOrDefault(0);         // Returns 0 (default valu
 | `ToFloatOrDefault` | Single precision | `ToDoubleOrDefault` | Double precision |
 | `ToDecimalOrDefault` | High precision | - | - |
 
+```csharp
 // Other type conversions
 DateTime dateValue = stringObj.ToDateTimeOrDefault(DateTime.MinValue);
 Guid guidValue = "550e8400-e29b-41d4-a716-446655440000".ToGuidOrDefault();
@@ -284,13 +302,13 @@ bool boolValue = stringObj.ToBoolOrDefault(false);
 object obj = GetSomeObject();
 string result = obj.ToStringOrDefault("default"); // Returns default when null
 
-// 🔍 Type checking methods (supports all numeric types)
+// Type checking methods (supports all numeric types)
 object testObj = (byte)255;
 bool isByte = testObj.IsByte();                      // Check if byte type
 bool isNumeric = testObj.IsNumeric();                // Check if any numeric type
 bool isUnsigned = testObj.IsAnyUnsignedInteger();    // Check if unsigned integer type
 
-// ? Performance-optimized Try-style conversion - avoid default value masking failure
+// Performance-optimized Try-style conversion - avoid default value masking failure
 if ("123".TryToInt(out var parsedInt)) { /* parsedInt = 123 */ }
 if (!"bad data".TryToDecimal(out var decVal)) { /* decVal = 0, conversion failed */ }
 
@@ -330,7 +348,7 @@ string name = dynamicObj.Name; // Access properties
 string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
 DataTable? dataTable = jsonArray.ToDataTable();
 
-// 🏭 Use JsonDefaults for unified configuration
+// Use JsonDefaults for unified configuration
 var responseOptions = JsonDefaults.CreateResponseOptions();  // HTTP responses
 var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP requests
 
@@ -339,13 +357,14 @@ builder.Services.AddControllers()
     .AddJsonOptions(options => 
         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
-// 💡 For detailed configuration documentation, see: Linger/Json/JsonDefaults.README.md
+// For detailed configuration documentation, see: Json/JsonDefaults.README.md
 ```
 
 ### GUID Extensions
 
 ```csharp
 using Linger.Extensions.Core;
+using Linger.Helper;
 
 // GUID checking
 Guid guid = Guid.NewGuid();
@@ -363,11 +382,19 @@ bool isNotNullOrEmpty = nullableGuid.IsNotNullOrEmpty(); // Check if neither nul
 long longValue = guid.ToInt64(); // Convert to Int64
 int intValue = guid.ToInt32(); // Convert to Int32
 
-// .NET 9+ feature: V7 GUID timestamp extraction
+// GuidCode helper class - Generate unique identifiers
+string uniqueId = GuidCode.NewId; // DateTime + GUID based unique ID
+string dateGuid = GuidCode.NewDateGuid; // Short date-based unique ID
+long uniqueCode = GuidCode.GetInt64UniqueCode(); // Unique Int64 code
+
+// .NET 9+ feature: V7 GUID generation and timestamp extraction
 #if NET9_0_OR_GREATER
-DateTimeOffset timestamp = guid.GetTimestamp(); // Only for V7 GUIDs
+Guid v7Guid = Guid.CreateVersion7(); // Create V7 GUID
+DateTimeOffset timestamp = v7Guid.GetTimestamp(); // Extract timestamp from V7 GUID
 #endif
 ```
+
+> **⚠️ Deprecated**: `GuidCode.NewGuid()` → Use `Guid.NewGuid()` directly
 
 ### Array Extensions
 
@@ -418,13 +445,13 @@ using Linger;
 
 public void ProcessData(string data, IEnumerable<int> numbers)
 {
-    // 🔄 Parameter validation polyfill for pre-.NET 8 versions
+    // Parameter validation polyfill for pre-.NET 8 versions
     ArgumentNullException.ThrowIfNull(data);                    // Ensure not null
     ArgumentException.ThrowIfNullOrEmpty(data);                 // Ensure not null or empty string
     ArgumentException.ThrowIfNullOrWhiteSpace(data);            // Ensure not null, empty or whitespace
     ArgumentNullException.ThrowIfNull(numbers);                 // Ensure collection is not null
     
-    // ? Framework support: .NET 6+ uses built-in implementation, .NET 5 and below uses Linger Polyfill
+    // Framework support: .NET 6+ uses built-in implementation, .NET 5 and below uses Linger Polyfill
     // When upgrading to .NET 8+, just remove "using Linger;", no other code changes required
 }
 ```
@@ -536,7 +563,7 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 ## API Standardization & Type Safety
 
-### .NET 10 Forward-Compatible Design
+### .NET 10 Compatibility (Now Supported)
 
 Methods like `LeftJoin`, `RightJoin`, `FullJoin` are fully compatible with .NET 10 standard. Zero code changes required when upgrading. Automatically switches via conditional compilation `#if !NET10_0_OR_GREATER`.
 
@@ -557,10 +584,10 @@ int failed = doubleObj.ToIntOrDefault(0);  // Returns 0 (conversion fails)
 
 ### Performance Benefits
 
-- ? Zero-overhead same-type conversion
-- ? Avoids exceptions, returns default values for better performance
-- ? Smart fallback strategy, string conversion only when needed
-- ? Unified API naming pattern
+- Zero-overhead same-type conversion
+- Avoids exceptions, returns default values for better performance
+- Smart fallback strategy, string conversion only when needed
+- Unified API naming pattern
 
 ## Best Practices
 
@@ -572,11 +599,13 @@ int failed = doubleObj.ToIntOrDefault(0);  // Returns 0 (conversion fails)
 
 ## Polyfills Summary
 
-Provides forward-compatible Polyfills for BCL APIs & language features (for .NET Framework/Standard 2.0/legacy versions). Uses conditional compilation to automatically defer to framework built-ins when upgraded.
+Provides forward-compatible Polyfills for BCL APIs & language features (for .NET Framework/Standard 2.0/legacy versions). Uses conditional compilation to automatically defer to framework built-ins when upgraded. Implemented using C# 14 extension members syntax for cleaner code.
 
 | Category | Content | Source Location |
 |----------|---------|-----------------|
-| **Parameter Validation** | `ArgumentNullException.ThrowIfNull` (pre-.NET 6)<br>`ArgumentException.ThrowIfNullOrEmpty/WhiteSpace` (pre-.NET 8) | `Polyfills/ArgumentNullException.cs`<br>`Polyfills/ArgumentException.cs` |
+| **Parameter Validation** | `ArgumentNullException.ThrowIfNull` (pre-.NET 6)<br>`ArgumentException.ThrowIfNullOrEmpty/WhiteSpace` (pre-.NET 8)<br>`ArgumentOutOfRangeException.ThrowIfNegative/Zero/...` (pre-.NET 8) | `Polyfills/ArgumentNullException.cs`<br>`Polyfills/ArgumentException.cs`<br>`Polyfills/ArgumentOutOfRangeException.cs` |
+| **Hash Algorithms** | `MD5.HashData`, `SHA256.HashData`, `SHA384.HashData`, `SHA512.HashData` (pre-.NET 5) | `Polyfills/HashAlgorithm.cs` |
+| **Conversion Utilities** | `Convert.ToHexStringLower` (pre-.NET 9) | `Polyfills/Convert.cs` |
 | **Language Features** | `required` keyword support (C# 11)<br>`RequiredMemberAttribute`, `SetsRequiredMembersAttribute`, `CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **Nullability Attributes** | 11 attributes: `AllowNull`, `NotNull`, `MaybeNullWhen`, `NotNullIfNotNull`, etc. | `Polyfills/NullableAttributes.cs` |
 | **Collection Extensions** | `LeftJoin`, `RightJoin`, `FullJoin` ( .NET 10 compatible — Polyfills retained for older targets ) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |

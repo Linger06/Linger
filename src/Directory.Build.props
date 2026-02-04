@@ -14,5 +14,11 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>    
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    
+    <!-- Repository metadata -->
+    <RepositoryUrl>https://github.com/Linger06/Linger</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageProjectUrl>https://github.com/Linger06/Linger</PackageProjectUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>  
 </Project>

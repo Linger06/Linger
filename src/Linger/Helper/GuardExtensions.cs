@@ -77,7 +77,7 @@ public static class GuardExtensions
     public static object? EnsureIsNull(this object? value, [CallerArgumentExpression(nameof(value))] string? paramName = null, string? message = null)
     {
         if (value is not null)
-            throw new System.ArgumentException(message ?? "Value should be null", paramName ?? nameof(value));
+            throw new ArgumentException(message ?? "Value should be null", paramName ?? nameof(value));
         return value;
     }
 
@@ -92,7 +92,7 @@ public static class GuardExtensions
     public static bool EnsureIsTrue(this bool condition, [CallerArgumentExpression(nameof(condition))] string? paramName = null, string? message = null)
     {
         if (!condition)
-            throw new System.ArgumentException(message ?? "Condition must be true", paramName);
+            throw new ArgumentException(message ?? "Condition must be true", paramName);
         return condition;
     }
 
@@ -107,7 +107,7 @@ public static class GuardExtensions
     public static bool EnsureIsFalse(this bool condition, [CallerArgumentExpression(nameof(condition))] string? paramName = null, string? message = null)
     {
         if (condition)
-            throw new System.ArgumentException(message ?? "Condition must be false", paramName);
+            throw new ArgumentException(message ?? "Condition must be false", paramName);
         return condition;
     }
 
@@ -149,7 +149,7 @@ public static class GuardExtensions
 
         if (filePath.IsEmpty())
         {
-            throw new System.ArgumentException("File path cannot be empty", paramName ?? nameof(filePath));
+            throw new ArgumentException("File path cannot be empty", paramName ?? nameof(filePath));
         }
 
         if (!StandardPathHelper.Exists(filePath, true))
@@ -175,7 +175,7 @@ public static class GuardExtensions
 
         if (directory.IsEmpty())
         {
-            throw new System.ArgumentException("Directory path cannot be empty", paramName ?? nameof(directory));
+            throw new ArgumentException("Directory path cannot be empty", paramName ?? nameof(directory));
         }
 
         if (!StandardPathHelper.Exists(directory, false))
@@ -203,7 +203,7 @@ public static class GuardExtensions
         {
             if (c.Count == 0)
             {
-                throw new System.ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
+                throw new ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
             }
             return collection;
         }
@@ -211,7 +211,7 @@ public static class GuardExtensions
         {
             if (roc.Count == 0)
             {
-                throw new System.ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
+                throw new ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
             }
             return collection;
         }
@@ -220,7 +220,7 @@ public static class GuardExtensions
         using var e = collection.GetEnumerator();
         if (!e.MoveNext())
         {
-            throw new System.ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
+            throw new ArgumentException(message ?? "Collection cannot be empty", paramName ?? nameof(collection));
         }
         return collection;
     }

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace Linger.FileSystem.Local;
 
 /// <summary>
@@ -14,6 +16,11 @@ public class LocalFileSystemOptions
     /// 重试选项
     /// </summary>
     public RetryOptions? RetryOptions { get; set; }
+
+    /// <summary>
+    /// 默认文本编码
+    /// </summary>
+    public Encoding TextEncoding { get; set; } = Encoding.UTF8;
 
     /// <summary>
     /// 默认命名规则
@@ -58,17 +65,24 @@ public class LocalFileSystemOptions
     }
 
     /// <summary>
-    /// 是否验证文件完整性
+    /// 文件验证级别
     /// </summary>
-    public bool ValidateFileIntegrity { get; set; } = true;
-
-    /// <summary>
-    /// 是否验证文件元数据
-    /// </summary>
-    public bool ValidateFileMetadata { get; set; } = true;
+    /// <remarks>
+    /// <list type="bullet">
+    ///   <item><description><see cref="FileValidationLevel.None"/>: 不验证（最快，适用于信任环境）</description></item>
+    ///   <item><description><see cref="FileValidationLevel.SizeOnly"/>: 只验证文件大小（轻量级，开销极小）</description></item>
+    ///   <item><description><see cref="FileValidationLevel.Full"/>: 完整验证：大小 + MD5 哈希（最安全，有额外 I/O 开销）</description></item>
+    /// </list>
+    /// </remarks>
+    public FileValidationLevel ValidationLevel { get; set; } = FileValidationLevel.Full;
 
     /// <summary>
     /// 验证失败时是否自动清理文件
     /// </summary>
     public bool CleanupOnValidationFailure { get; set; } = true;
+
+    /// <summary>
+    /// 批量操作的最大并发度（默认 1 表示串行）
+    /// </summary>
+    public int MaxDegreeOfParallelism { get; set; } = 1;
 }

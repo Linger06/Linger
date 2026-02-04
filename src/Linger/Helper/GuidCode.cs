@@ -22,6 +22,19 @@ public static class GuidCode
     }
 
     /// <summary>
+    /// Gets a new identifier based on the current date and time.
+    /// </summary>
+    [Obsolete("Use NewId instead. This method generates the same Id in same seconds. This method will be removed in a future release.")]
+    public static string NewDateTimeId
+    {
+        get
+        {
+            var id = DateTime.Now.ToString("yyyyMMddHHmmssfffffff", ExtensionMethodSetting.DefaultCulture);
+            return id;
+        }
+    }
+
+    /// <summary>
     /// Gets a new unique identifier based on the current date and a GUID.
     /// </summary>
     public static string NewDateGuid
@@ -39,6 +52,8 @@ public static class GuidCode
     /// Gets a new GUID.
     /// </summary>
     /// <returns>A new GUID.</returns>
+    /// <remarks>This method is obsolete. Use <see cref="Guid.NewGuid()"/> directly.</remarks>
+    [Obsolete("Use Guid.NewGuid() directly. This method will be removed in a future version.")]
     public static Guid NewGuid()
     {
         return Guid.NewGuid();

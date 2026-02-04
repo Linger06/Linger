@@ -9,11 +9,21 @@ public static partial class FileHelper
     /// 检测指定文件是否存在,如果存在则返回true。
     /// </summary>
     /// <param name="filePath">文件的绝对路径</param>
+    /// <remarks>This method is obsolete. Use <see cref="File.Exists(string)"/> directly.</remarks>
+    [Obsolete("Use File.Exists() directly. This method will be removed in a future version.")]
     public static bool IsExistFile(string filePath)
     {
         return File.Exists(filePath);
     }
 
+    /// <summary>
+    /// Writes text content to a file.
+    /// </summary>
+    /// <param name="fileName">The file name to write to.</param>
+    /// <param name="content">The content to write.</param>
+    /// <param name="encoding">The encoding to use. Defaults to UTF-8.</param>
+    /// <remarks>This method is obsolete. Use <see cref="WriteText(string, string, Encoding?)"/> instead.</remarks>
+    [Obsolete("Use WriteText() instead. This method will be removed in a future version.")]
     public static void WriteTxt(string fileName, string content, Encoding? encoding = null)
     {
         var filePath = fileName.GetFilePathString();
@@ -31,6 +41,8 @@ public static partial class FileHelper
     /// </summary>
     /// <param name="sourceFilePath">源文件的绝对路径</param>
     /// <param name="destFilePath">目标文件的绝对路径</param>
+    /// <remarks>This method is obsolete. Use <see cref="CopyFile(string, string)"/> instead.</remarks>
+    [Obsolete("Use CopyFile() instead. This method will be removed in a future version.")]
     public static void Copy(string sourceFilePath, string destFilePath)
     {
         File.Copy(sourceFilePath, destFilePath, true);
@@ -62,6 +74,14 @@ public static partial class FileHelper
         return (int)fi.Length;
     }
 
+    /// <summary>
+    /// Reads text content from a file.
+    /// </summary>
+    /// <param name="filename">The file name to read from.</param>
+    /// <param name="encoding">The encoding to use. Defaults to UTF-8.</param>
+    /// <returns>The file content, or empty string if file doesn't exist or read fails.</returns>
+    /// <remarks>This method is obsolete. Use <see cref="ReadText(string, Encoding?)"/> or <see cref="TryReadText(string, out string, Encoding?)"/> instead.</remarks>
+    [Obsolete("Use ReadText() or TryReadText() instead. This method will be removed in a future version.")]
     public static string ReadTxt(string filename, Encoding? encoding = null)
     {
         encoding ??= Encoding.UTF8;
@@ -90,6 +110,8 @@ public static partial class FileHelper
     /// </summary>
     /// <param name="directoryPath">目录的绝对路径</param>
     /// <returns></returns>
+    /// <remarks>This method is obsolete. Use <see cref="Directory.Exists(string)"/> directly.</remarks>
+    [Obsolete("Use Directory.Exists() directly. This method will be removed in a future version.")]
     public static bool IsExistDirectory(string directoryPath)
     {
         return Directory.Exists(directoryPath);
@@ -132,7 +154,7 @@ public static partial class FileHelper
     /// <param name="directoryPath">要创建的目录路径包括目录名</param>
     public static void CreateDirectoryIfNotExists(string directoryPath)
     {
-        if (!IsExistDirectory(directoryPath))
+        if (!Directory.Exists(directoryPath))
         {
             _ = Directory.CreateDirectory(directoryPath);
         }
@@ -143,6 +165,8 @@ public static partial class FileHelper
     /// </summary>
     /// <param name="varFromDirectory">源文件夹路径</param>
     /// <param name="varToDirectory">目标文件夹路径</param>
+    /// <remarks>This method is obsolete. Use <see cref="CopyDir(string, string)"/> instead.</remarks>
+    [Obsolete("Use CopyDir() instead. This method will be removed in a future version.")]
     public static void CopyFolder(string varFromDirectory, string varToDirectory)
     {
         _ = Directory.CreateDirectory(varToDirectory);
@@ -158,7 +182,8 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
-                CopyFolder(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
+                var destDir = Path.Combine(varToDirectory, Path.GetFileName(d));
+                CopyFolder(d, destDir);
             }
         }
 
@@ -167,7 +192,8 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
-                File.Copy(s, varToDirectory + s.Substring(s.LastIndexOf('\\')), true);
+                var destFile = Path.Combine(varToDirectory, Path.GetFileName(s));
+                File.Copy(s, destFile, true);
             }
         }
     }
@@ -192,7 +218,8 @@ public static partial class FileHelper
         {
             foreach (var d in directories)
             {
-                DeleteFolderFiles(d, varToDirectory + d.Substring(d.LastIndexOf('\\')));
+                var destDir = Path.Combine(varToDirectory, Path.GetFileName(d));
+                DeleteFolderFiles(d, destDir);
             }
         }
 
@@ -202,7 +229,8 @@ public static partial class FileHelper
         {
             foreach (var s in files)
             {
-                File.Delete(varToDirectory + s.Substring(s.LastIndexOf('\\')));
+                var destFile = Path.Combine(varToDirectory, Path.GetFileName(s));
+                File.Delete(destFile);
             }
         }
     }
@@ -211,6 +239,8 @@ public static partial class FileHelper
     /// 从文件的绝对路径中获取文件名( 包含扩展名 )
     /// </summary>
     /// <param name="filePath">文件的绝对路径</param>
+    /// <remarks>This method is obsolete. Use <see cref="Path.GetFileName(string)"/> directly.</remarks>
+    [Obsolete("Use Path.GetFileName() directly. This method will be removed in a future version.")]
     public static string GetFileName(string filePath)
     {
         //获取文件的名称

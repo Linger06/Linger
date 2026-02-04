@@ -33,7 +33,7 @@ public static class IQueryableExtensions
     {
         var command = isOrderByAsc ? "OrderBy" : "OrderByDescending";
         Type type = typeof(T);
-        PropertyInfo property = type.GetProperty(orderByPropertyName) ?? throw new System.ArgumentException($"Cannot find Property:{nameof(orderByPropertyName)} in {nameof(T)}");
+        PropertyInfo property = type.GetProperty(orderByPropertyName) ?? throw new ArgumentException($"Cannot find Property:{nameof(orderByPropertyName)} in {nameof(T)}");
         ParameterExpression parameter = Expression.Parameter(type, "p");
         MemberExpression propertyAccess = Expression.MakeMemberAccess(parameter, property);
         LambdaExpression orderByExpression = Expression.Lambda(propertyAccess, parameter);
@@ -123,7 +123,7 @@ public static class IQueryableExtensions
 
         if (orderByPropertyList.Length == 0)
         {
-            throw new System.ArgumentException("The length of params cannot be zero", nameof(orderByPropertyList));
+            throw new ArgumentException("The length of params cannot be zero", nameof(orderByPropertyList));
         }
 
         if (orderByPropertyList.Length == 1)

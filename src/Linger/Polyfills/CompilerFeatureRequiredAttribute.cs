@@ -13,5 +13,5 @@ public sealed class CompilerFeatureRequiredAttribute : Attribute
 }
 
 // Support for init accessors on older TFMs
-internal static class IsExternalInit { }
+public static class IsExternalInit { }
 #endif

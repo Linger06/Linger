@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Linger.Excel.Contracts.Utils;
 
 /// <summary>
@@ -90,77 +88,8 @@ public static class ExcelValueConverter
     }
 
     /// <summary>
-    /// 尝试将值转换为目标类型
-    /// </summary>
-    public static object? TryConvertValue(object? value, Type targetType)
-    {
-        if (value == null || value is DBNull)
-            return null;
-
-        // 获取Nullable的基础类型
-        Type actualType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-        try
-        {
-            // 处理不同的类型转�?
-            if (actualType == typeof(string))
-                return value.ToString();
-
-            if (actualType == typeof(int))
-                return value.ToIntOrDefault();
-
-            if (actualType == typeof(long))
-                return value.ToLongOrDefault();
-
-            if (actualType == typeof(decimal))
-                return value.ToDecimalOrDefault();
-
-            if (actualType == typeof(double))
-                return value.ToDoubleOrDefault();
-
-            if (actualType == typeof(float))
-                return value.ToFloatOrDefault();
-
-            if (actualType == typeof(bool))
-            {
-                //if (value is string str)
-                //{
-                //    str = str.Trim().ToLower();
-                //    return str == "true" || str == "yes" || str == "y" || str == "1";
-                //}
-                return value.ToBoolOrDefault();
-            }
-
-            if (actualType == typeof(DateTime))
-            {
-                if (value is double d)
-                    return DateTime.FromOADate(d);
-
-                if (value is string s)
-                    return DateTime.Parse(s, CultureInfo.CurrentCulture);
-
-                return value.ToDateTimeOrDefault();
-            }
-
-            if (actualType.IsEnum)
-            {
-                if (value is string s)
-                    return Enum.Parse(actualType, s, true);
-
-                return Enum.ToObject(actualType, value.ToIntOrDefault());
-            }
-
-            // 其他类型尝试直接转换
-            return Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    /// <summary>
     /// 获取Excel列名 (A, B, ..., Z, AA, AB, ...)
+    /// </summary>
     /// </summary>
     public static string GetExcelColumnName(int columnIndex)
     {

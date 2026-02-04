@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Reflection;
 using Linger.Extensions.Core;
 
@@ -82,7 +81,7 @@ public static class IDataReaderExtensions
                     {
                         if (!dr[property.Name].IsNullOrDbNull())
                         {
-                            property.SetValue(model, HackType(dr[property.Name], property.PropertyType), null);
+                            property.SetValue(model, ConvertToType(dr[property.Name], property.PropertyType), null);
                         }
                     }
                 }
@@ -121,7 +120,7 @@ public static class IDataReaderExtensions
                 {
                     if (!dr[pi.Name].IsNullOrDbNull())
                     {
-                        pi.SetValue(model, HackType(dr[pi.Name], pi.PropertyType), null);
+                        pi.SetValue(model, ConvertToType(dr[pi.Name], pi.PropertyType), null);
                     }
                 }
             }
@@ -169,19 +168,11 @@ public static class IDataReaderExtensions
     /// <param name="value">The value to convert.</param>
     /// <param name="conversionType">The type to convert to.</param>
     /// <returns>The converted value.</returns>
-    public static object? HackType(object? value, Type conversionType)
+    /// <remarks>
+    /// This method delegates to <see cref="Helper.TypeConverter.ConvertTo"/> for unified type conversion.
+    /// </remarks>
+    public static object? ConvertToType(object? value, Type conversionType)
     {
-        if (conversionType.IsGenericType && conversionType.GetGenericTypeDefinition() == typeof(Nullable<>))
-        {
-            if (value.IsNull())
-            {
-                return null;
-            }
-
-            var nullableConverter = new NullableConverter(conversionType);
-            conversionType = nullableConverter.UnderlyingType;
-        }
-
-        return Convert.ChangeType(value, conversionType, CultureInfo.InvariantCulture);
+        return Helper.TypeConverter.ConvertTo(value, conversionType);
     }
 }

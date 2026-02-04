@@ -104,7 +104,7 @@ public static class TypeExtensions
     /// </example>
     public static PropertyInfo? GetSingleProperty(this Type self, string name)
     {
-        var fullName = self.FullName ?? throw new System.ArgumentException(nameof(self.FullName));
+        var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
 
         var properties = s_propertyCache.GetOrAdd(fullName, _ => self.GetProperties());
         return properties.FirstOrDefault(x => x.Name == name);
@@ -306,7 +306,7 @@ public static class TypeExtensions
 #if NET5_0_OR_GREATER
     public static Dictionary<PropertyInfo, E?> AttrValues<E>(this Type type) where E : Attribute
 #else
-    public static Dictionary<PropertyInfo, E> AttrValues<E>(this Type type) where E : System.Attribute
+    public static Dictionary<PropertyInfo, E> AttrValues<E>(this Type type) where E : Attribute
 #endif
     {
         return type.AttrPropValues<E>();
@@ -321,7 +321,7 @@ public static class TypeExtensions
 #if NET5_0_OR_GREATER
     public static Dictionary<PropertyInfo, E?> AttrPropValues<E>(this Type type) where E : Attribute
 #else
-    public static Dictionary<PropertyInfo, E> AttrPropValues<E>(this Type type) where E : System.Attribute
+    public static Dictionary<PropertyInfo, E> AttrPropValues<E>(this Type type) where E : Attribute
 #endif
     {
         IEnumerable<PropertyInfo> props = type.AttrProps<E>();

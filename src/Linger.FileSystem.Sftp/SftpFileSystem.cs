@@ -2,30 +2,44 @@ using Linger.Extensions.Core;
 using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Remote;
 using Linger.Helper;
+using Microsoft.Extensions.Logging;
 using Renci.SshNet;
+using System.Collections.Concurrent;
 
 namespace Linger.FileSystem.Sftp;
 
 /// <summary>
 /// SFTP文件系统实现
 /// </summary>
+/// <remarks>
+/// <para>此实现基于 SSH.NET 库，提供完整的 SFTP 文件操作支持。</para>
+/// <para>支持密码认证和私钥证书认证两种方式。</para>
+/// </remarks>
 public class SftpFileSystem : RemoteFileSystemBase
 {
     private const char SftpPathSeparator = '/';
     private const string SftpRootPath = "/";
-    private bool _disposed;
 
     /// <summary>
     /// SFTP客户端
     /// </summary>
     protected SftpClient Client { get; }
-    private static readonly char[] s_separator = new char[] { '/', '\\' };
+    private static readonly char[] s_separator = ['/', '\\'];
 
-    // 确保正确初始化客户端
-    public SftpFileSystem(RemoteSystemSetting setting, RetryOptions? retryOptions = null)
-        : base(setting, retryOptions)
+    /// <summary>
+    /// 初始化 <see cref="SftpFileSystem"/> 的新实例。
+    /// </summary>
+    /// <param name="setting">远程服务器连接设置。</param>
+    /// <param name="retryOptions">重试选项（可选）。</param>
+    /// <param name="logger">日志记录器（可选）。</param>
+    public SftpFileSystem(RemoteSystemSetting setting, RetryOptions? retryOptions = null, ILogger<SftpFileSystem>? logger = null)
+        : base(setting, retryOptions, logger)
     {
         Client = CreateClient();
+        Logger.LogDebug("SftpFileSystem created for {Host}:{Port}, Auth: {AuthType}",
+            setting.Host,
+            setting.Port,
+            setting.CertificatePath.IsNotNullOrEmpty() ? "Certificate" : "Password");
     }
 
     private SftpClient CreateClient()
@@ -64,7 +78,11 @@ public class SftpFileSystem : RemoteFileSystemBase
     public void Connect()
     {
         if (Client is { IsConnected: false })
+        {
+            Logger.LogInformation("Connecting to SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
             Client.Connect();
+            Logger.LogInformation("Connected to SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
+        }
     }
 
     public override Task ConnectAsync()
@@ -76,7 +94,10 @@ public class SftpFileSystem : RemoteFileSystemBase
     public void Disconnect()
     {
         if (Client?.IsConnected == true)
+        {
+            Logger.LogDebug("Disconnecting from SFTP server: {Host}:{Port}", Setting.Host, Setting.Port);
             Client.Disconnect();
+        }
     }
 
     public override Task DisconnectAsync()
@@ -87,12 +108,27 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override void Dispose()
     {
-        if (_disposed)
+        if (Disposed)
             return;
 
         Client?.Dispose();
 
-        _disposed = true;
+        Disposed = true;
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// 异步释放 SFTP 客户端资源
+    /// </summary>
+    public override async ValueTask DisposeAsync()
+    {
+        if (Disposed)
+            return;
+
+        await DisconnectAsync().ConfigureAwait(false);
+        Client?.Dispose();
+
+        Disposed = true;
         GC.SuppressFinalize(this);
     }
 
@@ -100,73 +136,9 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     #region 文件操作基本方法
 
-    /// <summary>
-    /// 检查文件是否存在（同步方法 - 已移除）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 此同步方法已被移除以避免死锁风险。
-    /// 请使用 <see cref="FileExistsAsync"/> 异步版本。
-    /// </remarks>
-    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
-    [Obsolete("此同步方法可能导致死锁，请使用 FileExistsAsync 异步版本", true)]
-    public override bool FileExists(string filePath)
-    {
-        throw new NotSupportedException(
-            "同步方法 FileExists 已被移除以避免死锁。请使用 FileExistsAsync 异步版本。" +
-            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
-    }
-
-    /// <summary>
-    /// 检查目录是否存在（同步方法 - 已移除）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 此同步方法已被移除以避免死锁风险。
-    /// 请使用 <see cref="DirectoryExistsAsync"/> 异步版本。
-    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
-    /// </remarks>
-    [Obsolete("此同步方法可能导致死锁，请使用 DirectoryExistsAsync 异步版本", true)]
-    public override bool DirectoryExists(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 DirectoryExists 已被移除以避免死锁。请使用 DirectoryExistsAsync 异步版本。" +
-            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
-    }
-
-    /// <summary>
-    /// 创建目录（同步方法 - 已移除）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 此同步方法已被移除以避免死锁风险。
-    /// 请使用 <see cref="CreateDirectoryIfNotExistsAsync"/> 异步版本。
-    /// </remarks>
-    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
-    [Obsolete("此同步方法可能导致死锁，请使用 CreateDirectoryIfNotExistsAsync 异步版本", true)]
-    public override void CreateDirectoryIfNotExists(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 CreateDirectoryIfNotExists 已被移除以避免死锁。请使用 CreateDirectoryIfNotExistsAsync 异步版本。" +
-            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
-    }
-
-    /// <summary>
-    /// 删除文件（同步方法 - 已移除）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 此同步方法已被移除以避免死锁风险。
-    /// 请使用 <see cref="DeleteFileIfExistsAsync"/> 异步版本。
-    /// </remarks>
-    /// <exception cref="NotSupportedException">同步方法不再受支持</exception>
-    [Obsolete("此同步方法可能导致死锁，请使用 DeleteFileIfExistsAsync 异步版本", true)]
-    public override void DeleteFileIfExists(string filePath)
-    {
-        throw new NotSupportedException(
-            "同步方法 DeleteFileIfExists 已被移除以避免死锁。请使用 DeleteFileIfExistsAsync 异步版本。" +
-            "参考迁移指南: https://github.com/Linger06/Linger/blob/develop/src/Linger.FileSystem/README.zh-CN.md#迁移指南");
-    }
-
     public override async Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() => Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile, cancellationToken).ConfigureAwait(false);
@@ -180,7 +152,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() => Client.Exists(directoryPath) && Client.GetAttributes(directoryPath).IsDirectory, cancellationToken).ConfigureAwait(false);
@@ -194,7 +166,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             await Task.Run(() =>
@@ -223,7 +195,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             await Task.Run(() =>
@@ -262,7 +234,9 @@ public class SftpFileSystem : RemoteFileSystemBase
         ArgumentNullException.ThrowIfNull(inputStream);
         ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        Logger.LogDebug("SFTP Upload starting: {Destination}, Overwrite: {Overwrite}", destinationFilePath, overwrite);
+
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             // 提取目录路径
@@ -276,7 +250,10 @@ public class SftpFileSystem : RemoteFileSystemBase
 
             // 检查文件是否存在
             if (await FileExistsAsync(destinationFilePath, cancellationToken).ConfigureAwait(false) && !overwrite)
+            {
+                Logger.LogWarning("SFTP Upload failed - file already exists: {Destination}", destinationFilePath);
                 return FileOperationResult.CreateFailure($"远程文件已存在 {destinationFilePath}");
+            }
 
             // 执行上传
             await RetryHelper.ExecuteAsync(
@@ -290,9 +267,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                             inputStream.Position = 0;
                         }
 
-#pragma warning disable CS0618 // 类型或成员已过时
-                        if (FileExists(destinationFilePath) && overwrite)
-#pragma warning restore CS0618 // 类型或成员已过时
+                        if (Client.Exists(destinationFilePath) && overwrite)
                             Client.DeleteFile(destinationFilePath);
 
                         Client.UploadFile(inputStream, destinationFilePath);
@@ -304,6 +279,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
             // 获取文件大小
             var fileSize = TryGetFileSize(destinationFilePath);
+            Logger.LogInformation("SFTP Upload completed: {Destination}, Size: {Size} bytes", destinationFilePath, fileSize);
 
             return FileOperationResult.CreateSuccess(destinationFilePath, null, fileSize);
         }
@@ -409,7 +385,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
         ArgumentNullException.ThrowIfNull(outputStream);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -453,7 +429,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         ArgumentException.ThrowIfNullOrWhiteSpace(remoteFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(localDestinationPath);
 
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
@@ -496,7 +472,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
@@ -517,73 +493,11 @@ public class SftpFileSystem : RemoteFileSystemBase
     #region SFTP特有功能
 
     /// <summary>
-    /// 列出目录中的文件（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="ListFilesAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 ListFilesAsync 异步版本", true)]
-    public List<string> ListFiles(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 ListFiles 已被移除。请使用 ListFilesAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 列出目录中的子目录（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="ListDirectoriesAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 ListDirectoriesAsync 异步版本", true)]
-    public List<string> ListDirectories(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 ListDirectories 已被移除。请使用 ListDirectoriesAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 设置工作目录（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="SetWorkingDirectoryAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 SetWorkingDirectoryAsync 异步版本", true)]
-    public void SetWorkingDirectory(string directoryPath)
-    {
-        throw new NotSupportedException(
-            "同步方法 SetWorkingDirectory 已被移除。请使用 SetWorkingDirectoryAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 设置根目录为工作目录（同步方法 - 已过时）
-    /// </summary>
-    [Obsolete("请使用 SetRootAsWorkingDirectoryAsync 异步版本", true)]
-    public void SetRootAsWorkingDirectory()
-    {
-        throw new NotSupportedException(
-            "同步方法 SetRootAsWorkingDirectory 已被移除。请使用 SetRootAsWorkingDirectoryAsync 异步版本。");
-    }
-
-    /// <summary>
-    /// 获取文件最后修改时间（同步方法 - 已过时）
-    /// </summary>
-    /// <remarks>
-    /// ⚠️ 请使用 <see cref="GetLastModifiedTimeAsync"/> 异步版本。
-    /// </remarks>
-    [Obsolete("请使用 GetLastModifiedTimeAsync 异步版本", true)]
-    public DateTime GetLastModifiedTime(string remotePath)
-    {
-        throw new NotSupportedException(
-            "同步方法 GetLastModifiedTime 已被移除。请使用 GetLastModifiedTimeAsync 异步版本。");
-    }
-
-    /// <summary>
     /// 异步获取文件修改时间
     /// </summary>
     public async Task<DateTime> GetLastModifiedTimeAsync(string remotePath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -602,9 +516,9 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <summary>
     /// 异步获取目录文件列表
     /// </summary>
-    public async Task<List<string>> ListFilesAsync(string directoryPath, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<string>> ListFilesAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -612,9 +526,9 @@ public class SftpFileSystem : RemoteFileSystemBase
                 cancellationToken.ThrowIfCancellationRequested();
 
                 if (!Client.Exists(directoryPath) || !Client.GetAttributes(directoryPath).IsDirectory)
-                    return new List<string>();
+                    return (IReadOnlyList<string>)[];
 
-                return Client.ListDirectory(directoryPath)
+                return (IReadOnlyList<string>)Client.ListDirectory(directoryPath)
                     .Where(file => !file.IsDirectory && !file.Name.StartsWith('.'))
                     .Select(file => file.Name)
                     .ToList();
@@ -623,16 +537,16 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List files", ex, directoryPath);
-            return new List<string>();
+            return [];
         }
     }
 
     /// <summary>
     /// 异步获取子目录列表
     /// </summary>
-    public async Task<List<string>> ListDirectoriesAsync(string directoryPath, CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<string>> ListDirectoriesAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             return await Task.Run(() =>
@@ -640,9 +554,9 @@ public class SftpFileSystem : RemoteFileSystemBase
                 cancellationToken.ThrowIfCancellationRequested();
 
                 if (!Client.Exists(directoryPath) || !Client.GetAttributes(directoryPath).IsDirectory)
-                    return new List<string>();
+                    return (IReadOnlyList<string>)[];
 
-                return Client.ListDirectory(directoryPath)
+                return (IReadOnlyList<string>)Client.ListDirectory(directoryPath)
                     .Where(file => file.IsDirectory && !file.Name.StartsWith('.') && file.Name != "." && file.Name != "..")
                     .Select(file => file.Name)
                     .ToList();
@@ -651,8 +565,403 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List directories", ex, directoryPath);
-            return new List<string>();
+            return [];
         }
+    }
+
+    /// <summary>
+    /// 批量上传文件
+    /// </summary>
+    public override async Task<BatchOperationResult> UploadFilesAsync(
+        IEnumerable<string> localFilePaths,
+        string remoteDirectory,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var filePaths = localFilePaths.ToList();
+        if (filePaths.Count == 0)
+            return BatchOperationResult.Empty;
+
+        Logger.LogDebug("SFTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
+
+        // 先确保远程目录存在（使用主连接串行执行一次）
+        await EnsureConnectedAsync().ConfigureAwait(false);
+        await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
+
+        var succeeded = new ConcurrentBag<string>();
+        var failed = new ConcurrentBag<BatchOperationFailure>();
+        var total = filePaths.Count;
+        var completed = 0;
+
+        var degree = Setting.MaxDegreeOfParallelism;
+        if (degree <= 1)
+        {
+            await EnsureConnectedAsync().ConfigureAwait(false);
+            foreach (var localPath in filePaths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (!File.Exists(localPath))
+                {
+                    failed.Add(new BatchOperationFailure(localPath, "本地文件不存在"));
+                    var c1 = Interlocked.Increment(ref completed);
+                    progress?.Report(new BatchProgress(c1, total, localPath, succeeded.Count, failed.Count));
+                    continue;
+                }
+
+                try
+                {
+                    var fileName = Path.GetFileName(localPath);
+                    var remotePath = $"{remoteDirectory.TrimEnd(SftpPathSeparator)}{SftpPathSeparator}{fileName}";
+
+                    await ExecuteWithBatchRetryAsync(async () =>
+                    {
+                        await Task.Run(() =>
+                        {
+                            if (Client.Exists(remotePath) && !overwrite)
+                            {
+                                throw new InvalidOperationException($"远程文件已存在: {remotePath}");
+                            }
+
+                            if (Client.Exists(remotePath) && overwrite)
+                            {
+                                Client.DeleteFile(remotePath);
+                            }
+
+                            using var fileStream = File.OpenRead(localPath);
+                            Client.UploadFile(fileStream, remotePath);
+                        }, cancellationToken).ConfigureAwait(false);
+                        return true;
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    succeeded.Add(localPath);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(new BatchOperationFailure(localPath, ex.Message, ex));
+                }
+
+                var c2 = Interlocked.Increment(ref completed);
+                progress?.Report(new BatchProgress(c2, total, localPath, succeeded.Count, failed.Count));
+            }
+        }
+        else
+        {
+            await using var pool = CreateConnectionPool(degree);
+            var tasks = filePaths.Select(localPath => Task.Run(async () =>
+            {
+                SftpClient? client = null;
+                try
+                {
+                    if (!File.Exists(localPath))
+                    {
+                        failed.Add(new BatchOperationFailure(localPath, "本地文件不存在"));
+                        return;
+                    }
+
+                    client = await pool.RentAsync(cancellationToken).ConfigureAwait(false);
+
+                    var fileName = Path.GetFileName(localPath);
+                    var remotePath = $"{remoteDirectory.TrimEnd(SftpPathSeparator)}{SftpPathSeparator}{fileName}";
+
+                    var currentClient = client;
+                    await ExecuteWithBatchRetryAsync(async () =>
+                    {
+                        await Task.Run(() =>
+                        {
+                            if (currentClient.Exists(remotePath) && !overwrite)
+                            {
+                                throw new InvalidOperationException($"远程文件已存在: {remotePath}");
+                            }
+                            if (currentClient.Exists(remotePath) && overwrite)
+                            {
+                                currentClient.DeleteFile(remotePath);
+                            }
+
+                            using var fileStream = File.OpenRead(localPath);
+                            currentClient.UploadFile(fileStream, remotePath);
+                        }, cancellationToken).ConfigureAwait(false);
+                        return true;
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    succeeded.Add(localPath);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(new BatchOperationFailure(localPath, ex.Message, ex));
+                }
+                finally
+                {
+                    if (client is not null)
+                    {
+                        pool.Return(client);
+                    }
+
+                    var currentCompleted = Interlocked.Increment(ref completed);
+                    progress?.Report(new BatchProgress(currentCompleted, total, localPath, succeeded.Count, failed.Count));
+                }
+            }, cancellationToken)).ToArray();
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
+
+        var succeededList = succeeded.ToList();
+        var failedList = failed.ToList();
+
+        Logger.LogInformation("SFTP Batch upload completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+
+        return new BatchOperationResult
+        {
+            SucceededFiles = succeededList,
+            FailedFiles = failedList
+        };
+    }
+
+    /// <summary>
+    /// 批量下载文件
+    /// </summary>
+    public override async Task<BatchOperationResult> DownloadFilesAsync(
+        IEnumerable<string> remoteFilePaths,
+        string localDirectory,
+        bool overwrite = false,
+        IProgress<BatchProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var filePaths = remoteFilePaths.ToList();
+        if (filePaths.Count == 0)
+            return BatchOperationResult.Empty;
+
+        Logger.LogDebug("SFTP Batch download starting: {Count} files to {Directory}", filePaths.Count, localDirectory);
+
+        if (!Directory.Exists(localDirectory))
+            Directory.CreateDirectory(localDirectory);
+
+        var succeeded = new ConcurrentBag<string>();
+        var failed = new ConcurrentBag<BatchOperationFailure>();
+        var total = filePaths.Count;
+        var completed = 0;
+
+        var degree = Setting.MaxDegreeOfParallelism;
+        if (degree <= 1)
+        {
+            await EnsureConnectedAsync().ConfigureAwait(false);
+            foreach (var remotePath in filePaths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    var fileName = Path.GetFileName(remotePath);
+                    var localPath = Path.Combine(localDirectory, fileName);
+
+                    if (File.Exists(localPath) && !overwrite)
+                    {
+                        failed.Add(new BatchOperationFailure(remotePath, $"本地文件已存在: {localPath}"));
+                        var c1 = Interlocked.Increment(ref completed);
+                        progress?.Report(new BatchProgress(c1, total, remotePath, succeeded.Count, failed.Count));
+                        continue;
+                    }
+
+                    await ExecuteWithBatchRetryAsync(async () =>
+                    {
+                        await Task.Run(() =>
+                        {
+                            if (!Client.Exists(remotePath) || !Client.GetAttributes(remotePath).IsRegularFile)
+                            {
+                                throw new FileNotFoundException("远程文件不存在", remotePath);
+                            }
+
+                            using var fileStream = File.Create(localPath);
+                            Client.DownloadFile(remotePath, fileStream);
+                        }, cancellationToken).ConfigureAwait(false);
+                        return true;
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    succeeded.Add(remotePath);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(new BatchOperationFailure(remotePath, ex.Message, ex));
+                }
+
+                var c2 = Interlocked.Increment(ref completed);
+                progress?.Report(new BatchProgress(c2, total, remotePath, succeeded.Count, failed.Count));
+            }
+        }
+        else
+        {
+            await using var pool = CreateConnectionPool(degree);
+            var tasks = filePaths.Select(remotePath => Task.Run(async () =>
+            {
+                SftpClient? client = null;
+                try
+                {
+                    var fileName = Path.GetFileName(remotePath);
+                    var localPath = Path.Combine(localDirectory, fileName);
+
+                    if (File.Exists(localPath) && !overwrite)
+                    {
+                        failed.Add(new BatchOperationFailure(remotePath, $"本地文件已存在: {localPath}"));
+                        return;
+                    }
+
+                    client = await pool.RentAsync(cancellationToken).ConfigureAwait(false);
+
+                    var currentClient = client;
+                    await ExecuteWithBatchRetryAsync(async () =>
+                    {
+                        await Task.Run(() =>
+                        {
+                            if (!currentClient.Exists(remotePath) || !currentClient.GetAttributes(remotePath).IsRegularFile)
+                            {
+                                throw new FileNotFoundException("远程文件不存在", remotePath);
+                            }
+
+                            using var fileStream = File.Create(localPath);
+                            currentClient.DownloadFile(remotePath, fileStream);
+                        }, cancellationToken).ConfigureAwait(false);
+                        return true;
+                    }, cancellationToken).ConfigureAwait(false);
+
+                    succeeded.Add(remotePath);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(new BatchOperationFailure(remotePath, ex.Message, ex));
+                }
+                finally
+                {
+                    if (client is not null)
+                    {
+                        pool.Return(client);
+                    }
+
+                    var currentCompleted = Interlocked.Increment(ref completed);
+                    progress?.Report(new BatchProgress(currentCompleted, total, remotePath, succeeded.Count, failed.Count));
+                }
+            }, cancellationToken)).ToArray();
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
+
+        var succeededList = succeeded.ToList();
+        var failedList = failed.ToList();
+
+        Logger.LogInformation("SFTP Batch download completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+
+        return new BatchOperationResult
+        {
+            SucceededFiles = succeededList,
+            FailedFiles = failedList
+        };
+    }
+
+    /// <summary>
+    /// 批量删除文件
+    /// </summary>
+    public override async Task<BatchOperationResult> DeleteFilesAsync(
+        IEnumerable<string> filePaths,
+        IProgress<BatchProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        var paths = filePaths.ToList();
+        if (paths.Count == 0)
+            return BatchOperationResult.Empty;
+
+        Logger.LogDebug("SFTP Batch delete starting: {Count} files", paths.Count);
+
+        var succeeded = new ConcurrentBag<string>();
+        var failed = new ConcurrentBag<BatchOperationFailure>();
+        var total = paths.Count;
+        var completed = 0;
+
+        var degree = Setting.MaxDegreeOfParallelism;
+        if (degree <= 1)
+        {
+            await EnsureConnectedAsync().ConfigureAwait(false);
+            foreach (var filePath in paths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    await ExecuteWithBatchRetryAsync(async () =>
+                    {
+                        await Task.Run(() =>
+                        {
+                            if (Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile)
+                            {
+                                Client.DeleteFile(filePath);
+                            }
+                        }, cancellationToken).ConfigureAwait(false);
+                    }, cancellationToken).ConfigureAwait(false);
+                    succeeded.Add(filePath);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(new BatchOperationFailure(filePath, ex.Message, ex));
+                }
+
+                var c = Interlocked.Increment(ref completed);
+                progress?.Report(new BatchProgress(c, total, filePath, succeeded.Count, failed.Count));
+            }
+        }
+        else
+        {
+            await using var pool = CreateConnectionPool(degree);
+            var tasks = paths.Select(filePath => Task.Run(async () =>
+            {
+                SftpClient? client = null;
+                try
+                {
+                    client = await pool.RentAsync(cancellationToken).ConfigureAwait(false);
+
+                    var currentClient = client;
+                    await ExecuteWithBatchRetryAsync(async () =>
+                    {
+                        await Task.Run(() =>
+                        {
+                            if (currentClient.Exists(filePath) && currentClient.GetAttributes(filePath).IsRegularFile)
+                            {
+                                currentClient.DeleteFile(filePath);
+                            }
+                        }, cancellationToken).ConfigureAwait(false);
+                    }, cancellationToken).ConfigureAwait(false);
+                    succeeded.Add(filePath);
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(new BatchOperationFailure(filePath, ex.Message, ex));
+                }
+                finally
+                {
+                    if (client is not null)
+                    {
+                        pool.Return(client);
+                    }
+
+                    var currentCompleted = Interlocked.Increment(ref completed);
+                    progress?.Report(new BatchProgress(currentCompleted, total, filePath, succeeded.Count, failed.Count));
+                }
+            }, cancellationToken)).ToArray();
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
+
+        progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
+
+        var succeededList = succeeded.ToList();
+        var failedList = failed.ToList();
+
+        Logger.LogInformation("SFTP Batch delete completed: {Succeeded} succeeded, {Failed} failed", succeededList.Count, failedList.Count);
+
+        return new BatchOperationResult
+        {
+            SucceededFiles = succeededList,
+            FailedFiles = failedList
+        };
     }
 
     /// <summary>
@@ -660,7 +969,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// </summary>
     public async Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
-        await using var scope = await CreateConnectionScopeAsync().ConfigureAwait(false);
+        await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
             await Task.Run(() =>
@@ -686,6 +995,40 @@ public class SftpFileSystem : RemoteFileSystemBase
     #endregion
 
     #region 辅助方法
+
+    /// <summary>
+    /// 创建 SFTP 连接池，用于批量操作中复用连接
+    /// </summary>
+    /// <param name="poolSize">池大小，通常与 MaxDegreeOfParallelism 一致</param>
+    /// <returns>SFTP 连接池</returns>
+    private ConnectionPool<SftpClient> CreateConnectionPool(int poolSize)
+    {
+        return new ConnectionPool<SftpClient>(
+            poolSize,
+            factory: ct =>
+            {
+                ct.ThrowIfCancellationRequested();
+                var client = CreateClient();
+                client.Connect();
+
+                return Task.FromResult(client);
+            },
+            healthCheck: c => c.IsConnected,
+            disposeSync: c =>
+            {
+                try
+                {
+                    c.Disconnect();
+                }
+                catch
+                {
+                    // ignored
+                }
+
+                c.Dispose();
+            },
+            maxIdleTime: Setting.ConnectionPoolIdleTimeout);
+    }
 
     /// <summary>
     /// 从 SFTP 文件路径中提取目录路径
@@ -733,7 +1076,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         var sanitizedFileName = fileName.Replace('\\', SftpPathSeparator).Trim(SftpPathSeparator);
         if (string.IsNullOrWhiteSpace(sanitizedFileName))
         {
-            throw new System.ArgumentException("File name cannot be empty after sanitization.", nameof(fileName));
+            throw new ArgumentException("File name cannot be empty after sanitization.", nameof(fileName));
         }
 
         // 如果目录为空，直接返回文件名
@@ -754,6 +1097,138 @@ public class SftpFileSystem : RemoteFileSystemBase
                 ? $"{normalizedDirectory}{sanitizedFileName}"
                 : $"{normalizedDirectory}{SftpPathSeparator}{sanitizedFileName}"
         };
+    }
+
+    #endregion
+
+    #region 流工厂与元数据方法
+
+    /// <inheritdoc />
+    public override async Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        await EnsureConnectedAsync().ConfigureAwait(false);
+        try
+        {
+            return await Task.Run(() =>
+            {
+                if (!Client.Exists(filePath) || !Client.GetAttributes(filePath).IsRegularFile)
+                {
+                    throw new FileNotFoundException("Remote file not found", filePath);
+                }
+
+                return Client.OpenRead(filePath);
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (FileNotFoundException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            HandleException("Open file for reading", ex, filePath);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
+    public override async Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        await EnsureConnectedAsync().ConfigureAwait(false);
+        try
+        {
+            return await Task.Run(() =>
+            {
+                if (!overwrite && Client.Exists(filePath) && Client.GetAttributes(filePath).IsRegularFile)
+                {
+                    throw new FileSystemException("Open file for writing", filePath, $"File already exists: {filePath}");
+                }
+
+                // 确保目录存在
+                var directory = GetSftpDirectoryPath(filePath);
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    EnsureDirectoryExists(directory);
+                }
+
+                return Client.OpenWrite(filePath);
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (FileSystemException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            HandleException("Open file for writing", ex, filePath);
+            throw;
+        }
+    }
+
+    private void EnsureDirectoryExists(string directoryPath)
+    {
+        if (Client.Exists(directoryPath) && Client.GetAttributes(directoryPath).IsDirectory)
+            return;
+
+        var paths = directoryPath.Split(s_separator, StringSplitOptions.RemoveEmptyEntries);
+        var currentPath = string.Empty;
+
+        foreach (var path in paths)
+        {
+            currentPath += SftpPathSeparator + path;
+
+            if (!Client.Exists(currentPath) || !Client.GetAttributes(currentPath).IsDirectory)
+                Client.CreateDirectory(currentPath);
+        }
+    }
+
+    /// <inheritdoc />
+    public override async Task<StreamReader> GetReaderAsync(string filePath, System.Text.Encoding? encoding = null, CancellationToken cancellationToken = default)
+    {
+        var stream = await OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
+#if NET6_0_OR_GREATER
+        return new StreamReader(stream, encoding ?? System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+#else
+        return new StreamReader(stream, encoding ?? System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+#endif
+    }
+
+    /// <inheritdoc />
+    public override async Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, System.Text.Encoding? encoding = null, CancellationToken cancellationToken = default)
+    {
+        var stream = await OpenWriteAsync(filePath, overwrite, cancellationToken).ConfigureAwait(false);
+#if NET6_0_OR_GREATER
+        return new StreamWriter(stream, encoding ?? System.Text.Encoding.UTF8, leaveOpen: false);
+#else
+        return new StreamWriter(stream, encoding ?? System.Text.Encoding.UTF8, bufferSize: 1024, leaveOpen: false);
+#endif
+    }
+
+    /// <inheritdoc />
+    public override async Task<bool> IsDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public override async Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        await EnsureConnectedAsync().ConfigureAwait(false);
+        try
+        {
+            return await Task.Run(() =>
+            {
+                if (!Client.Exists(filePath) || !Client.GetAttributes(filePath).IsRegularFile)
+                {
+                    return (long?)null;
+                }
+
+                return Client.GetAttributes(filePath).Size;
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     #endregion

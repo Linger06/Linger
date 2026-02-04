@@ -15,7 +15,7 @@ public static class LdapEntryExtensions
     public static AdUserInfo? ToAdUser(this LdapEntry user)
     {
         var attributeSet = user.GetAttributeSet();
-        if (attributeSet == null) return null;
+        if (attributeSet is null) return null;
 
         var userInfo = new AdUserInfo();
 
@@ -135,7 +135,7 @@ public static class LdapEntryExtensions
 
     private static DateTime? ParseWhenCreated(LdapAttribute? attribute)
     {
-        if (attribute == null) return null;
+        if (attribute is null) return null;
 
         try
         {

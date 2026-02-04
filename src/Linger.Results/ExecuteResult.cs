@@ -1,5 +1,9 @@
 namespace Linger.Results;
 
+/// <summary>
+///     执行返回结果（已过时，请使用 <see cref="Result"/> 代替）
+/// </summary>
+[Obsolete("Use Result instead. This type will be removed in a future version.")]
 public class ExecuteResult
 {
     public ExecuteResult(bool isSucceed, string message)
@@ -112,9 +116,10 @@ public class ExecuteResult
 }
 
 /// <summary>
-///     执行返回结果
+///     执行返回结果（已过时，请使用 <see cref="Result{TValue}"/> 代替）
 /// </summary>
 /// <typeparam name="TValue">结果值的类型</typeparam>
+[Obsolete("Use Result<TValue> instead. This type will be removed in a future version.")]
 public class ExecuteResult<TValue> : ExecuteResult
 {
     public ExecuteResult()
@@ -149,7 +154,7 @@ public class ExecuteResult<TValue> : ExecuteResult
     public ExecuteResult<TValue> Set(bool isSucceed, string message, TValue? result)
     {
         base.Set(isSucceed, message);
-        if (isSucceed && result != null)
+        if (isSucceed && result is not null)
         {
             Value = result;
         }

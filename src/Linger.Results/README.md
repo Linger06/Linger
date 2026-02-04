@@ -111,18 +111,20 @@ var userOrGuest = result.GetValueOrDefault(new User { Name = "Guest" });
 ```csharp
 // Use extension methods for method chaining
 var finalResult = GetUser(123)
+    .Ensure(user => user.IsActive, new Error("User.Inactive", "User is not active"))
     .Map(user => user.Email)
-    .Bind(email => SendEmail(email))
-    .Ensure(success => success, new Error("EmailError", "Email sending failed"));
+    .Bind(email => SendEmail(email));
 ```
 
 ### Async Support
 
+All async extension methods require a `CancellationToken` parameter for proper cancellation support:
+
 ```csharp
-// Async operations
+// Async operations with CancellationToken
 var result = await GetUserAsync(123)
-    .MapAsync(async user => await GetUserPreferencesAsync(user))
-    .BindAsync(async prefs => await UpdatePreferencesAsync(prefs));
+    .MapAsync(async (user, token) => await GetUserPreferencesAsync(user, token), cancellationToken)
+    .BindAsync(async (prefs, token) => await UpdatePreferencesAsync(prefs, token), cancellationToken);
 ```
 
 ### Async Support with CancellationToken
@@ -199,9 +201,23 @@ public async Task<Result<User>> UpdateUserWithCancellationAsync(
 // Create results based on boolean conditions
 public Result ValidatePassword(string password)
 {
-    return Result.Create(password.Length >= 8)
-        .Ensure(() => password.Any(char.IsUpper), new Error("Password", "Password must contain uppercase letters"))
-        .Ensure(() => password.Any(char.IsDigit), new Error("Password", "Password must contain digits"));
+    var results = new[]
+    {
+        Result.Create(password.Length >= 8),
+        Result.Create(password.Any(char.IsUpper)),
+        Result.Create(password.Any(char.IsDigit))
+    };
+    
+    return results.Combine();
+}
+
+// Or use Ensure with Result<T> for chained validation
+public Result<string> ValidateAndReturnPassword(string password)
+{
+    return Result.Success(password)
+        .Ensure(p => p.Length >= 8, new Error("Password", "Password must be at least 8 characters"))
+        .Ensure(p => p.Any(char.IsUpper), new Error("Password", "Password must contain uppercase letters"))
+        .Ensure(p => p.Any(char.IsDigit), new Error("Password", "Password must contain digits"));
 }
 ```
 
@@ -345,7 +361,7 @@ var user = userResult.Value; // May throw InvalidOperationException
 
 ```csharp
 // Use Try method to catch exceptions and convert to results
-var result = ResultFunctionalExtensions.Try(
+var result = ResultExtensions.Try(
     () => SomeOperationThatMightThrow(),
     ex => ex.ToError()
 );
@@ -398,50 +414,53 @@ public Result<User> Authenticate(string username, string password)
 ### Conditional Branch Processing
 
 ```csharp
-public async Task<Result<OrderConfirmation>> ProcessOrder(Order order)
+public async Task<Result<OrderConfirmation>> ProcessOrder(Order order, CancellationToken cancellationToken)
 {
     // Chain process order workflow
     return await ValidateOrder(order)
-        .BindAsync(async validOrder => 
+        .BindAsync(async (validOrder, token) => 
         {
             // Choose different processing paths based on payment method
             if (validOrder.PaymentMethod == PaymentMethod.CreditCard)
-                return await ProcessCreditCardPayment(validOrder);
+                return await ProcessCreditCardPayment(validOrder, token);
             else if (validOrder.PaymentMethod == PaymentMethod.BankTransfer)
-                return await ProcessBankTransfer(validOrder);
+                return await ProcessBankTransfer(validOrder, token);
             else
                 return Result<OrderConfirmation>.Failure("Unsupported payment method");
-        })
-        .TapAsync(async confirmation => 
-        {
-            // Execute side effect operations on success, but don't change the result
-            await SendConfirmationEmail(confirmation);
-            await UpdateInventory(order);
-        });
+        }, cancellationToken);
 }
 ```
 
-## ResultStatus Enum Extension
+## ResultStatus Enum
 
-The default `ResultStatus` enum includes `Ok`, `NotFound`, and `Error`. You can extend this enum to include more statuses as needed:
+The `ResultStatus` enum includes three states:
+
+- `Ok` - Operation succeeded
+- `NotFound` - Resource not found  
+- `Error` - Operation failed
+
+For additional status codes, you can use `Error` with specific error codes:
 
 ```csharp
-// Create a partial class extension in your project
-namespace Linger.Results
+// Define domain-specific error codes for different scenarios
+public static class StatusErrors
 {
-    public enum ResultStatus
-    {
-        // Existing statuses
-        Ok,
-        NotFound,
-        Error,
+    public static readonly Error Unauthorized = new("Status.Unauthorized", "Authentication required");
+    public static readonly Error Forbidden = new("Status.Forbidden", "Access denied");
+    public static readonly Error Conflict = new("Status.Conflict", "Resource conflict");
+    public static readonly Error ValidationError = new("Status.ValidationError", "Validation failed");
+}
+
+// Usage
+public Result<User> GetUser(int id, string token)
+{
+    if (!IsValidToken(token))
+        return Result.Failure(StatusErrors.Unauthorized);
         
-        // New custom statuses
-        Unauthorized,
-        Forbidden,
-        Conflict,
-        ValidationError
-    }
+    if (!HasPermission(token, "read:users"))
+        return Result.Failure(StatusErrors.Forbidden);
+        
+    // ...
 }
 ```
 
@@ -488,3 +507,33 @@ namespace Linger.Results
 ## License
 
 MIT
+
+## Migration from ExecuteResult
+
+> ⚠️ **Note**: `ExecuteResult`, `ExecuteResult<T>`, and `ErrorObj` are now obsolete and will be removed in a future version. Please migrate to `Result` and `Result<T>`.
+
+```csharp
+// Old code (deprecated)
+var result = new ExecuteResult(true, "Success");
+var resultWithValue = new ExecuteResult<User>(user);
+
+// New code (recommended)
+var result = Result.Success();
+var resultWithValue = Result.Success(user);
+
+// Accessing errors
+// Old: result.Message
+// New: result.FirstError.Message or result.Errors
+```
+
+### FirstError Property
+
+Both `Result` and `Result<T>` now have a `FirstError` property for convenient access to the first error:
+
+```csharp
+// Old way
+var message = result.Errors.FirstOrDefault()?.Message ?? "";
+
+// New way
+var message = result.FirstError.Message; // Returns Error.None if no errors
+```

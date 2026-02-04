@@ -12,8 +12,8 @@ public static partial class IEnumerableExtensions
     public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source,
         Func<TSource, TKey> keySelector)
     {
-        if (source == null) throw new System.ArgumentNullException(nameof(source));
-        if (keySelector == null) throw new System.ArgumentNullException(nameof(keySelector));
+        if (source == null) throw new ArgumentNullException(nameof(source));
+        if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
         var hash = new HashSet<TKey>();
         return source.Where(p => hash.Add(keySelector(p)));
@@ -106,6 +106,44 @@ public static partial class IEnumerableExtensions
         )
     {
         return LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i), comparer);
+    }
+#endif
+
+#if !NET9_0_OR_GREATER
+    /// <summary>
+    /// Returns an enumerable that incorporates the element's index into a tuple.
+    /// </summary>
+    /// <typeparam name="TSource">The type of the elements of <paramref name="source"/>.</typeparam>
+    /// <param name="source">The source enumerable providing the elements.</param>
+    /// <returns>An enumerable that incorporates each element's index into a tuple.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
+    /// <example>
+    /// <code>
+    /// var items = new[] { "a", "b", "c" };
+    /// foreach (var (index, item) in items.Index())
+    /// {
+    ///     Console.WriteLine($"{index}: {item}");
+    /// }
+    /// // Output:
+    /// // 0: a
+    /// // 1: b
+    /// // 2: c
+    /// </code>
+    /// </example>
+    public static IEnumerable<(int Index, TSource Item)> Index<TSource>(this IEnumerable<TSource> source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+
+        return IndexIterator(source);
+    }
+
+    private static IEnumerable<(int Index, TSource Item)> IndexIterator<TSource>(IEnumerable<TSource> source)
+    {
+        var index = 0;
+        foreach (var item in source)
+        {
+            yield return (index++, item);
+        }
     }
 #endif
 }

@@ -13,15 +13,12 @@ public static partial class StringExtensions
     public static byte[] ToMd5HashByte(this string input)
     {
         if (string.IsNullOrEmpty(input))
+        {
             return [];
+        }
 
         var inputBytes = Encoding.UTF8.GetBytes(input);
-#if NET5_0_OR_GREATER
         return MD5.HashData(inputBytes);
-#else
-        using var md5 = MD5.Create();
-        return md5.ComputeHash(inputBytes);
-#endif
     }
 
     /// <summary>
@@ -46,15 +43,12 @@ public static partial class StringExtensions
     public static byte[] ToSha256HashByte(this string input)
     {
         if (string.IsNullOrEmpty(input))
+        {
             return [];
+        }
 
         var inputBytes = Encoding.UTF8.GetBytes(input);
-#if NET5_0_OR_GREATER
         return SHA256.HashData(inputBytes);
-#else
-        using var sha256 = SHA256.Create();
-        return sha256.ComputeHash(inputBytes);
-#endif
     }
 
     /// <summary>
@@ -68,11 +62,7 @@ public static partial class StringExtensions
             return string.Empty;
 
         var hashBytes = input.ToSha256HashByte();
-#if NET9_0_OR_GREATER
         return Convert.ToHexStringLower(hashBytes);
-#else
-        return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
-#endif
     }
 
     /// <summary>
@@ -127,5 +117,117 @@ public static partial class StringExtensions
 
         var result = encoding.GetBytes(value);
         return Convert.ToBase64String(result);
+    }
+
+    /// <summary>
+    /// Converts the current string to its URL-safe Base64 string representation using UTF-8 encoding.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <returns>If the string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the URL-safe Base64 string representation.</returns>
+    /// <remarks>
+    /// URL-safe Base64 replaces '+' with '-' and '/' with '_', and removes padding '=' characters.
+    /// This makes the output safe for use in URLs without additional encoding.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// string value = "Hello World!";
+    /// string base64Url = value.ToBase64UrlString();
+    /// // base64Url is "SGVsbG8gV29ybGQh" (URL-safe)
+    /// </code>
+    /// </example>
+    public static string ToBase64UrlString(this string? value)
+    {
+        return value.ToBase64UrlString(Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// Converts the current string to its URL-safe Base64 string representation using the specified encoding.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="encoding">The encoding to use for the conversion.</param>
+    /// <returns>If the string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the URL-safe Base64 string representation.</returns>
+    /// <remarks>
+    /// URL-safe Base64 replaces '+' with '-' and '/' with '_', and removes padding '=' characters.
+    /// This makes the output safe for use in URLs without additional encoding.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// string value = "Hello World!";
+    /// string base64Url = value.ToBase64UrlString(Encoding.UTF8);
+    /// // base64Url is "SGVsbG8gV29ybGQh" (URL-safe)
+    /// </code>
+    /// </example>
+    public static string ToBase64UrlString(this string? value, Encoding encoding)
+    {
+        if (value.IsNullOrEmpty())
+        {
+            return string.Empty;
+        }
+
+        var bytes = encoding.GetBytes(value);
+        return bytes.ToBase64UrlString();
+    }
+
+    /// <summary>
+    /// Converts a URL-safe Base64 encoded string to its original string representation using UTF-8 encoding.
+    /// </summary>
+    /// <param name="value">The URL-safe Base64 encoded string to convert.</param>
+    /// <returns>If the Base64 string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the equivalent string.</returns>
+    /// <example>
+    /// <code>
+    /// string base64Url = "SGVsbG8gV29ybGQh";
+    /// string original = base64Url.FromBase64UrlToString();
+    /// // original is "Hello World!"
+    /// </code>
+    /// </example>
+    public static string FromBase64UrlToString(this string? value)
+    {
+        return value.FromBase64UrlToString(Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// Converts a URL-safe Base64 encoded string to its original string representation using the specified encoding.
+    /// </summary>
+    /// <param name="value">The URL-safe Base64 encoded string to convert.</param>
+    /// <param name="encoding">The encoding to use for the conversion.</param>
+    /// <returns>If the Base64 string is null or empty, returns <see cref="string.Empty"/>; otherwise, returns the equivalent string.</returns>
+    /// <example>
+    /// <code>
+    /// string base64Url = "SGVsbG8gV29ybGQh";
+    /// string original = base64Url.FromBase64UrlToString(Encoding.UTF8);
+    /// // original is "Hello World!"
+    /// </code>
+    /// </example>
+    public static string FromBase64UrlToString(this string? value, Encoding encoding)
+    {
+        if (value.IsNullOrEmpty())
+        {
+            return string.Empty;
+        }
+
+        var bytes = System.Buffers.Text.Base64Url.DecodeFromChars(value.AsSpan());
+        return encoding.GetString(bytes);
+    }
+
+    /// <summary>
+    /// Converts a URL-safe Base64 encoded string to a byte array.
+    /// </summary>
+    /// <param name="value">The URL-safe Base64 encoded string to convert.</param>
+    /// <returns>If the Base64 string is null or empty, returns an empty byte array; otherwise, returns the decoded byte array.</returns>
+    /// <example>
+    /// <code>
+    /// string base64Url = "AQIDBA";
+    /// byte[] bytes = base64Url.FromBase64UrlToBytes();
+    /// // bytes is { 1, 2, 3, 4 }
+    /// </code>
+    /// </example>
+    public static byte[] FromBase64UrlToBytes(this string? value)
+    {
+        if (value.IsNullOrEmpty())
+        {
+            return [];
+        }
+
+        return System.Buffers.Text.Base64Url.DecodeFromChars(value.AsSpan());
     }
 }

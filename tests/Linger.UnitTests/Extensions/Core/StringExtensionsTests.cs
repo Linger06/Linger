@@ -891,15 +891,79 @@ public partial class StringExtensionsTests
     [InlineData("127.0.0.1", true)]
     [InlineData("0.0.0.0", true)]
     [InlineData("255.255.255.255", true)]
-    [InlineData("256.0.0.1", false)]
-    [InlineData("192.168.1", false)]
-    [InlineData("192.168.1.1.1", false)]
+    [InlineData("10.0.0.1", true)]
+    [InlineData("172.16.0.1", true)]
+    [InlineData("1.2.3.4", true)]
+    [InlineData("256.0.0.1", false)]        // Value > 255
+    [InlineData("192.168.1", false)]        // Only 3 segments
+    [InlineData("192.168.1.1.1", false)]    // 5 segments
+    [InlineData("192.168.1.-1", false)]     // Negative value
+    [InlineData("192.168.1.1a", false)]     // Contains letter
+    [InlineData("192.168..1", false)]       // Empty segment
     [InlineData("", false)]
     [InlineData(null, false)]
+    [InlineData("::1", false)]              // IPv6 should be false
+    [InlineData("2001:db8::1", false)]      // IPv6 should be false
     public void IsIpv4_ShouldReturnExpectedResult(string? input, bool expected)
     {
         var result = input.IsIpv4();
         Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("192.168.1.1", true)]       // IPv4
+    [InlineData("127.0.0.1", true)]         // IPv4 loopback
+    [InlineData("::1", true)]               // IPv6 loopback
+    [InlineData("2001:db8::1", true)]       // IPv6
+    [InlineData("fe80::1", true)]           // IPv6 link-local
+    [InlineData("::ffff:192.168.1.1", true)]// IPv4-mapped IPv6
+    [InlineData("192.168.1", true)]         // Shortened IPv4 format (valid for IPAddress.TryParse)
+    [InlineData("10", true)]                // Single number format (valid for IPAddress.TryParse)
+    [InlineData("999.1.1.1", false)]        // Invalid IPv4
+    [InlineData("not-an-ip", false)]        // Invalid
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    [InlineData("   ", false)]              // Whitespace only
+    [InlineData("192.168.1.1:8080", false)] // With port
+    public void IsIpAddress_ShouldReturnExpectedResult(string? input, bool expected)
+    {
+        var result = input.IsIpAddress();
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("::1", true)]               // IPv6 loopback
+    [InlineData("2001:db8::1", true)]       // IPv6
+    [InlineData("fe80::1", true)]           // IPv6 link-local
+    [InlineData("::ffff:192.168.1.1", true)]// IPv4-mapped IPv6 (still IPv6 format)
+    [InlineData("2001:0db8:85a3:0000:0000:8a2e:0370:7334", true)] // Full IPv6
+    [InlineData("::", true)]                // All zeros IPv6
+    [InlineData("::ffff:0:0", true)]        // IPv6 with zeros
+    [InlineData("192.168.1.1", false)]      // IPv4
+    [InlineData("127.0.0.1", false)]        // IPv4 loopback
+    [InlineData("not-an-ip", false)]        // Invalid
+    [InlineData("", false)]
+    [InlineData(null, false)]
+    public void IsIpv6_ShouldReturnExpectedResult(string? input, bool expected)
+    {
+        var result = input.IsIpv6();
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void IsIpv6_WithScopeId_BehaviorDependsOnFramework()
+    {
+        // IPv6 with scope ID behavior differs across .NET versions
+        // .NET 8.0+: IPAddress.TryParse supports scope IDs (returns true)
+        // .NET Framework 4.x: IPAddress.TryParse does not support scope IDs (returns false)
+        const string ipWithScopeId = "2001:db8::1%eth0";
+        var result = ipWithScopeId.IsIpv6();
+
+#if NET8_0_OR_GREATER
+        Assert.True(result);
+#else
+        Assert.False(result);
+#endif
     }
 
     [Theory]
@@ -1336,5 +1400,77 @@ public partial class StringExtensionsTests
 
         // Act & Assert
         Assert.Throws<FormatException>(() => input.ToDecimalForScientificNotation());
+    }
+
+    // Base64Url Tests
+
+    [Theory]
+    [InlineData("Hello World", "SGVsbG8gV29ybGQ")]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    public void ToBase64UrlString_ShouldReturnExpectedResult(string? input, string expected)
+    {
+        var result = input.ToBase64UrlString();
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("SGVsbG8gV29ybGQ", "Hello World")]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    public void FromBase64UrlToString_ShouldReturnExpectedResult(string? input, string expected)
+    {
+        var result = input.FromBase64UrlToString();
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ToBase64UrlString_DoesNotContainUnsafeCharacters()
+    {
+        // Test with input that would produce + and / in standard Base64
+        var input = "<<??>>"; // Characters that may produce special Base64 characters
+        var result = input.ToBase64UrlString();
+
+        Assert.DoesNotContain("+", result);
+        Assert.DoesNotContain("/", result);
+        Assert.DoesNotContain("=", result);
+    }
+
+    [Fact]
+    public void ToBase64UrlString_AndFromBase64UrlToString_RoundTrip()
+    {
+        var original = "Hello, World! 你好，世界！ 🚀";
+        var encoded = original.ToBase64UrlString();
+        var decoded = encoded.FromBase64UrlToString();
+
+        Assert.Equal(original, decoded);
+    }
+
+    [Fact]
+    public void FromBase64UrlToBytes_ShouldReturnExpectedResult()
+    {
+        // "AQID" decodes to { 1, 2, 3 }
+        var input = "AQID";
+        var result = input.FromBase64UrlToBytes();
+
+        Assert.Equal(new byte[] { 1, 2, 3 }, result);
+    }
+
+    [Fact]
+    public void FromBase64UrlToBytes_NullOrEmpty_ReturnsEmptyArray()
+    {
+        Assert.Empty(((string?)null).FromBase64UrlToBytes());
+        Assert.Empty("".FromBase64UrlToBytes());
+    }
+
+    [Fact]
+    public void FromBase64UrlToBytes_WithUrlSafeCharacters_DecodesCorrectly()
+    {
+        // Standard Base64: ++// -> URL safe: --__
+        var urlSafeBase64 = "--__";
+        var result = urlSafeBase64.FromBase64UrlToBytes();
+
+        // Verify it decodes to bytes
+        Assert.NotEmpty(result);
     }
 }

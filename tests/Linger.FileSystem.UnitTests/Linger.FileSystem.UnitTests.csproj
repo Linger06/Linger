@@ -1,31 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <!-- 需要 net472 支持 -->
         <TargetFrameworks>net10.0;net9.0;net8.0;net472</TargetFrameworks>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <LangVersion>latest</LangVersion>
-        <IsPackable>false</IsPackable>
-        <IsTestProject>true</IsTestProject>
-        <Nullable>enable</Nullable>
-        <OutputType>Exe</OutputType>
-        <WarningLevel>0</WarningLevel>
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
-        <PackageReference Include="xunit.v3" Version="3.2.0" />
-        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
-        <PackageReference Include="coverlet.collector" Version="6.0.4">
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-            <PrivateAssets>all</PrivateAssets>
-        </PackageReference>
+        <ProjectReference Include="..\..\src\Linger.FileSystem\Linger.FileSystem.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\Linger.FileSystem\Linger.FileSystem.csproj" />
+      <PackageReference Update="xunit.v3" Version="3.2.2" />
     </ItemGroup>
 
 </Project>

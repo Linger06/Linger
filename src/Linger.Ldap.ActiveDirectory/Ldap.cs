@@ -47,7 +47,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <returns>Returns the PrincipalContext object</returns>
     private PrincipalContext GetPrincipalContext(LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
-        if (ldapCredentials == null)
+        if (ldapCredentials is null)
         {
             if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
             {
@@ -58,7 +58,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         // Use provided searchBase or fall back to config's SearchBase
         var effectiveSearchBase = searchBase ?? ldapConfig.SearchBase;
 
-        if (ldapCredentials == null)
+        if (ldapCredentials is null)
         {
             var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, effectiveSearchBase, ContextOptions.SimpleBind);
             return principalContext;
@@ -146,7 +146,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
 
     public SearchResultCollection SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
-        if (ldapCredentials == null)
+        if (ldapCredentials is null)
         {
             if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
             {
@@ -185,7 +185,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     private DirectoryEntry CreateDirectoryEntry(LdapCredentials? ldapCredentials, string? searchBase = null)
     {
         string? ldapPath;
-        if (ldapConfig == null)
+        if (ldapConfig is null)
         {
             ldapPath = $"LDAP://{GetDomainController()}";
             return new DirectoryEntry(ldapPath);
@@ -196,7 +196,7 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
             var effectiveSearchBase = searchBase ?? ldapConfig.SearchBase;
             ldapPath = $"LDAP://{ldapConfig.Url}/{effectiveSearchBase}";
 
-            if (ldapCredentials == null)
+            if (ldapCredentials is null)
             {
                 return new DirectoryEntry(ldapPath);
             }
@@ -216,5 +216,5 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user exists; otherwise, false</returns>
-    public async Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default) => await FindUserAsync(userName, searchBase: searchBase, cancellationToken: cancellationToken).ConfigureAwait(false) != null;
+    public async Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default) => await FindUserAsync(userName, searchBase: searchBase, cancellationToken: cancellationToken).ConfigureAwait(false) is not null;
 }

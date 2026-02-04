@@ -148,4 +148,167 @@ public class PropertyHelperTests
         // Assert
         Assert.Equal("Updated", model.NormalProperty);
     }
+
+    [Fact]
+    public void GetMemberExp_DeeplyNestedProperty_ShouldReturnCorrectExpression()
+    {
+        // Arrange
+        var paramExp = Expression.Parameter(typeof(TestModel), "x");
+        
+        // Act
+        var memberExp = paramExp.GetMemberExp("Child,GrandChild,Description");
+        
+        // Assert
+        Assert.NotNull(memberExp);
+        Assert.Equal(typeof(string), memberExp.Type);
+        Assert.Equal("x.Child.GrandChild.Description", memberExp.ToString());
+    }
+
+    [Fact]
+    public void GetPropertyName_NullExpression_ShouldReturnEmptyString()
+    {
+        // Arrange
+        Expression? expression = null;
+        
+        // Act
+        var result = expression!.GetPropertyName();
+        
+        // Assert
+        Assert.Equal(string.Empty, result);
+    }
+
+    [Fact]
+    public void GetPropertyName_SimpleMemberExpression_ShouldReturnPropertyName()
+    {
+        // Arrange
+        Expression<Func<TestModel, string>> expression = x => x.Name;
+        
+        // Act
+        var result = expression.GetPropertyName();
+        
+        // Assert
+        Assert.Equal("Name", result);
+    }
+
+    [Fact]
+    public void GetPropertyName_NestedMemberExpression_ShouldReturnFullPath()
+    {
+        // Arrange
+        Expression<Func<TestModel, string>> expression = x => x.Child.Name;
+        
+        // Act
+        var result = expression.GetPropertyName(getAll: true);
+        
+        // Assert
+        Assert.Equal("Child.Name", result);
+    }
+
+    [Fact]
+    public void GetPropertyName_NestedMemberExpression_WithGetAllFalse_ShouldReturnOnlyPropertyName()
+    {
+        // Arrange
+        Expression<Func<TestModel, string>> expression = x => x.Child.Name;
+        
+        // Act
+        var result = expression.GetPropertyName(getAll: false);
+        
+        // Assert
+        Assert.Equal("Name", result);
+    }
+
+    [Fact]
+    public void GetPropertyName_WithUnaryExpression_ShouldReturnPropertyName()
+    {
+        // Arrange - object 会导致 UnaryExpression 包装
+        Expression<Func<TestModel, object>> expression = x => x.Age;
+        
+        // Act
+        var result = expression.GetPropertyName();
+        
+        // Assert
+        Assert.Equal("Age", result);
+    }
+
+    [Fact]
+    public void GetPropertyInfo_WithUnaryExpression_ShouldReturnPropertyInfo()
+    {
+        // Arrange - object 会导致 UnaryExpression 包装
+        Expression<Func<TestModel, object>> expression = x => x.Age;
+        
+        // Act
+        var propertyInfo = expression.GetPropertyInfo();
+        
+        // Assert
+        Assert.NotNull(propertyInfo);
+        Assert.Equal("Age", propertyInfo.Name);
+        Assert.Equal(typeof(int), propertyInfo.PropertyType);
+    }
+
+    [Fact]
+    public void GetPropertyInfo_DirectMemberExpression_ShouldReturnPropertyInfo()
+    {
+        // Arrange
+        var paramExp = Expression.Parameter(typeof(TestModel), "x");
+        var memberExp = Expression.Property(paramExp, "Name");
+        
+        // Act
+        var propertyInfo = memberExp.GetPropertyInfo();
+        
+        // Assert
+        Assert.NotNull(propertyInfo);
+        Assert.Equal("Name", propertyInfo.Name);
+    }
+
+    [Fact]
+    public void TrySetProperty_WithNonMemberAccessExpression_ShouldNotThrow()
+    {
+        // Arrange
+        var model = new TestModel { Name = "Original" };
+        
+        // Act - 尝试用非属性访问表达式
+        PropertyHelper.TrySetProperty(model, x => x.ToString(), () => "Updated");
+        
+        // Assert - 不应抛出异常，属性应该保持不变
+        Assert.Equal("Original", model.Name);
+    }
+
+    [Fact]
+    public void TrySetProperty_WithMultipleIgnoredAttributes_ShouldRespectAll()
+    {
+        // Arrange
+        var model = new TestModelWithAttribute { IgnoredProperty = "Original" };
+        
+        // Act
+        PropertyHelper.TrySetProperty(model, x => x.IgnoredProperty, () => "Updated", typeof(TestAttribute));
+        
+        // Assert
+        Assert.Equal("Original", model.IgnoredProperty);
+    }
+
+    [Fact]
+    public void GetPropertyName_WithArrayIndexer_ShouldReturnPropertyName()
+    {
+        // Arrange
+        var index = 0;
+        Expression<Func<TestModel, string>> expression = x => x.Children[index].Name;
+        
+        // Act
+        var result = expression.GetPropertyName();
+        
+        // Assert - GetPropertyName 返回包含索引的路径
+        Assert.NotEmpty(result);
+    }
+
+    [Fact]
+    public void GetPropertyName_DeeplyNestedPath_ShouldReturnFullPath()
+    {
+        // Arrange
+        Expression<Func<TestModel, string>> expression = x => x.Child.GrandChild.Description;
+        
+        // Act
+        var result = expression.GetPropertyName(getAll: true);
+        
+        // Assert
+        Assert.Equal("Child.GrandChild.Description", result);
+    }
 }

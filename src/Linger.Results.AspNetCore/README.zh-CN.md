@@ -39,7 +39,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
     {
         var result = await _userService.CreateUserAsync(request);
-        return result.ToActionResult(successStatusCode: StatusCodes.Status201Created);
+        return result.ToActionResult(StatusCodes.Status201Created);
     }
     
     [HttpDelete("{id}")]
@@ -59,13 +59,13 @@ var app = WebApplication.Create();
 app.MapGet("/api/users/{id}", async (int id, IUserService userService) =>
 {
     var result = await userService.GetUserByIdAsync(id);
-    return result.ToResult(); // 自动状态码映射
+    return result.ToHttpResult(); // 自动状态码映射
 });
 
 app.MapPost("/api/users", async (CreateUserRequest request, IUserService userService) =>
 {
     var result = await userService.CreateUserAsync(request);
-    return result.ToResult(StatusCodes.Status201Created);
+    return result.ToHttpResult(StatusCodes.Status201Created);
 });
 
 app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
@@ -79,11 +79,14 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 
 | 场景 | 控制器API | Minimal API |
 |------|-----------|-------------|
-| 基本转换 | `result.ToActionResult()` | `result.ToResult()` |
-| 自定义状态码 | `result.ToActionResult(201, 400)` | `result.ToResult(201, 400)` |
+| 基本转换 | `result.ToActionResult()` | `result.ToHttpResult()` |
+| 自定义成功状态码 | `result.ToActionResult(201)` | `result.ToHttpResult(201)` |
+| 自定义两个状态码 | `result.ToActionResult(201, 400)` | `result.ToHttpResult(201, 400)` |
 | Created响应 | `result.ToActionResult(201)` | `result.ToCreatedResult("/api/users/123")` |
 | NoContent响应 | `result.ToActionResult(204)` | `result.ToNoContentResult()` |
-| 问题详情 | `result.ToProblemDetails()` | `result.ToResult()` (自动使用ProblemDetails) |
+| 问题详情 | `result.ToProblemDetails()` | `result.ToHttpResult()` (自动使用ProblemDetails) |
+
+> **说明**：使用仅指定 `successStatusCode` 的重载时，失败状态码会根据 `Result.Status` 自动确定（如 `NotFound` → 404，其他 → 400）。
 
 ## 返回格式示例
 
