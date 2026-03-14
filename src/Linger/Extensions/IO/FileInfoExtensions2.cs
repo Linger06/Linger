@@ -104,11 +104,7 @@ public static partial class FileInfoExtensions
     /// <param name="filePath">文件的绝对路径</param>
     public static string GetFileNameNoExtensionString(this string filePath)
     {
-        var fileNameNoExtension = filePath.Substring(filePath.LastIndexOf('\\') + 1,
-            filePath.LastIndexOf('.') - filePath.LastIndexOf('\\') -
-            1);
-
-        return fileNameNoExtension;
+        return Path.GetFileNameWithoutExtension(filePath);
     }
 
     /// <summary>
@@ -117,7 +113,7 @@ public static partial class FileInfoExtensions
     /// <param name="fileInfo">文件的绝对路径</param>
     public static string GetFileNameNoExtension(this FileInfo fileInfo)
     {
-        return fileInfo.Name.Replace(fileInfo.Extension, string.Empty);
+        return Path.GetFileNameWithoutExtension(fileInfo.Name);
     }
 
     /// <summary>
@@ -127,8 +123,7 @@ public static partial class FileInfoExtensions
     /// <returns></returns>
     public static string GetFileNameString(this string filePath)
     {
-        var fileName = filePath.Substring(filePath.LastIndexOf('\\') + 1, filePath.Length - 1 - filePath.LastIndexOf('\\'));
-        return fileName;
+        return Path.GetFileName(filePath);
     }
 
     /// <summary>
@@ -138,8 +133,7 @@ public static partial class FileInfoExtensions
     /// <returns></returns>
     public static string GetFilePathString(this string fileFullPath)
     {
-        var filePath = fileFullPath.Substring(0, fileFullPath.LastIndexOf('\\'));
-        return filePath;
+        return Path.GetDirectoryName(fileFullPath) ?? string.Empty;
     }
 
     /// <summary>

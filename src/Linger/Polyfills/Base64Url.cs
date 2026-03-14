@@ -95,6 +95,12 @@ public static class Base64Url
             return true;
         }
 
+        // Base64Url 编码长度不可能 mod 4 == 1
+        if (base64UrlText.Length % 4 == 1)
+        {
+            return false;
+        }
+
         foreach (var c in base64UrlText)
         {
             if (!IsValidBase64UrlChar(c))

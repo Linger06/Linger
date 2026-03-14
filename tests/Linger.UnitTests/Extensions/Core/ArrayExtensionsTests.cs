@@ -164,19 +164,17 @@ public partial class ArrayExtensionsTests
     }
 
     [Fact]
-    public void RemoveAt_InvalidIndex_ShouldReturnEmptyArray()
+    public void RemoveAt_InvalidIndex_ShouldThrowArgumentOutOfRangeException()
     {
         int[] numbers = { 1, 2, 3 };
-        var newNumbers = numbers.RemoveAt(3);
-        Assert.Empty(newNumbers);
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveAt(3));
     }
 
     [Fact]
-    public void RemoveAt_InvalidIndex_ShouldReturnEmptyArray2()
+    public void RemoveAt_InvalidIndex_ShouldThrowArgumentOutOfRangeException2()
     {
         int[] numbers = { 1, 2, 3 };
-        var newNumbers = numbers.RemoveAt(-1);
-        Assert.Empty(newNumbers);
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveAt(-1));
     }
 
     [Fact]

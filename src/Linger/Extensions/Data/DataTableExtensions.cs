@@ -324,7 +324,7 @@ public static class DataTableExtensions
                 if (includeLeftJoin)
                 {
                     var parentArray = parentRow.ItemArray;
-                    var joinArray = new object[parentArray.Length];
+                    var joinArray = new object[result.Columns.Count];
                     Array.Copy(parentArray, 0, joinArray, 0, parentArray.Length);
                     _ = result.LoadDataRow(joinArray, true);
                 }
@@ -542,9 +542,9 @@ public static class DataTableExtensions
         {
             return null;
         }
-        if (dt.Rows.Count == 0)
+        if (dt.Rows.Count == 0 || pageIndex <= 0 || pageSize <= 0)
         {
-            return dt;
+            return dt.Clone();
         }
         DataTable result = dt.Clone();
         IEnumerable<DataRow> rows = dt.AsEnumerable().Skip((pageIndex - 1) * pageSize).Take(pageSize);

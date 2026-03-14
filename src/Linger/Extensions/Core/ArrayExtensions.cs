@@ -139,7 +139,7 @@ public static class ArrayExtensions
     /// <code>
     /// int[] numbers = { 1, 2, 3, 2 };
     /// int[] newNumbers = numbers.Remove(2);
-    /// // newNumbers is { 1, 3, 2 }
+    /// // newNumbers is { 1, 3 }
     /// </code>
     /// </example>
     public static T[] Remove<T>(this T[] array, T value)
@@ -180,7 +180,7 @@ public static class ArrayExtensions
     {
         if (index < 0 || index > array.Length - 1)
         {
-            return [];
+            throw new ArgumentOutOfRangeException(nameof(index), index, "Index was out of range. Must be non-negative and less than the size of the array.");
         }
 
         var newArray = new T[array.Length - 1];

@@ -143,13 +143,16 @@ public sealed class ConnectionPool<T> : IAsyncDisposable where T : class
     {
         if (connection is null)
         {
+            _semaphore.Release();
+
             return;
         }
 
         if (_disposed)
         {
             // 池已释放，直接丢弃连接
-            _ = DisposeConnectionAsync(connection);
+            DisposeConnectionInBackground(connection);
+            _semaphore.Release();
 
             return;
         }
@@ -157,7 +160,7 @@ public sealed class ConnectionPool<T> : IAsyncDisposable where T : class
         // 健康检查后决定是否放回池中
         if (_healthCheck is not null && !_healthCheck(connection))
         {
-            _ = DisposeConnectionAsync(connection);
+            DisposeConnectionInBackground(connection);
         }
         else
         {
@@ -213,6 +216,24 @@ public sealed class ConnectionPool<T> : IAsyncDisposable where T : class
         {
             // 忽略释放时的异常
         }
+    }
+
+    /// <summary>
+    /// 在后台安全地释放连接，确保异常不会丢失为 UnobservedTaskException
+    /// </summary>
+    private void DisposeConnectionInBackground(T connection)
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await DisposeConnectionAsync(connection).ConfigureAwait(false);
+            }
+            catch
+            {
+                // 忽略后台释放时的异常
+            }
+        });
     }
 
     /// <summary>

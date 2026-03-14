@@ -480,6 +480,11 @@ public static class ExpressionHelper
     /// </example>  
     public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<string> orderColumn, List<string> orderDir)
     {
+        if (orderColumn.Count != orderDir.Count)
+        {
+            throw new ArgumentException($"{nameof(orderColumn)} and {nameof(orderDir)} must have the same number of elements.");
+        }
+
         var ascKey = "OrderBy";
         var descKey = "OrderByDescending";
 

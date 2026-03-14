@@ -39,7 +39,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
     {
         var result = await _userService.CreateUserAsync(request);
-        return result.ToActionResult(StatusCodes.Status201Created);
+        return result.ToActionResult(HttpStatusCode.Created);
     }
     
     [HttpDelete("{id}")]
@@ -65,7 +65,7 @@ app.MapGet("/api/users/{id}", async (int id, IUserService userService) =>
 app.MapPost("/api/users", async (CreateUserRequest request, IUserService userService) =>
 {
     var result = await userService.CreateUserAsync(request);
-    return result.ToHttpResult(StatusCodes.Status201Created);
+    return result.ToHttpResult(HttpStatusCode.Created);
 });
 
 app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
@@ -80,13 +80,13 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 | Scenario | Controller API | Minimal API |
 |----------|----------------|-------------|
 | Basic conversion | `result.ToActionResult()` | `result.ToHttpResult()` |
-| Custom success code | `result.ToActionResult(201)` | `result.ToHttpResult(201)` |
-| Custom both codes | `result.ToActionResult(201, 400)` | `result.ToHttpResult(201, 400)` |
-| Created response | `result.ToActionResult(201)` | `result.ToCreatedResult("/api/users/123")` |
-| No content response | `result.ToActionResult(204)` | `result.ToNoContentResult()` |
+| Custom success code | `result.ToActionResult(HttpStatusCode.Created)` | `result.ToHttpResult(HttpStatusCode.Created)` |
+| Custom both codes | `result.ToActionResult(HttpStatusCode.Created, HttpStatusCode.BadRequest)` | `result.ToHttpResult(HttpStatusCode.Created, HttpStatusCode.BadRequest)` |
+| Created response | `result.ToActionResult(HttpStatusCode.Created)` | `result.ToCreatedResult("/api/users/123")` |
+| No content response | `result.ToActionResult(HttpStatusCode.NoContent)` | `result.ToNoContentResult()` |
 | Problem details | `result.ToProblemDetails()` | `result.ToHttpResult()` (uses ProblemDetails automatically) |
 
-> **Note**: When using overloads with only `successStatusCode`, the failure status code is automatically determined based on `Result.Status` (e.g., `NotFound` → 404, others → 400).
+> Status code parameters use the `System.Net.HttpStatusCode` enum for type safety and IDE IntelliSense. When using overloads with only `successStatusCode`, the failure status code is automatically determined based on `Result.Status` (e.g., `NotFound` → 404, others → 400).
 
 ## Response Format Examples
 

@@ -12,7 +12,7 @@ public static class DecimalExtensions
     /// <returns><c>true</c> if the value is an integer; otherwise, <c>false</c>.</returns>
     public static bool IsInteger(this decimal value)
     {
-        return (int)value == value;
+        return value == Math.Truncate(value);
     }
 
     /// <summary>

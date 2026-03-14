@@ -135,7 +135,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Check file exists", ex, filePath);
-            return false;
+            return false; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -149,7 +149,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Check directory exists", ex, directoryPath);
-            return false;
+            return false; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -221,11 +221,21 @@ public class FtpFileSystem : RemoteFileSystemBase
                 await CreateDirectoryIfNotExistsAsync(remoteDirectory, cancellationToken).ConfigureAwait(false);
             }
 
+            // 检查文件是否已存在（overwrite=false 时明确报错）
+            if (!overwrite && await FileExistsAsync(destinationFilePath, cancellationToken).ConfigureAwait(false))
+            {
+                return FileOperationResult.CreateFailure($"远程文件已存在: {destinationFilePath}");
+            }
+
             // 执行上传
             var result = await RetryHelper.ExecuteAsync(
                 async () =>
                 {
-                    inputStream.Position = 0;
+                    if (inputStream.CanSeek)
+                    {
+                        inputStream.Position = 0;
+                    }
+
                     var status = await Client.UploadStream(
                         inputStream,
                         destinationFilePath,
@@ -251,7 +261,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Upload file", ex, $"Destination: {destinationFilePath}");
-            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -310,7 +320,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 "Upload file",
                 ex,
                 $"Local: {localFilePath}, FileName: {destinationFilePath}");
-            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -378,7 +388,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 "Upload file",
                 ex,
                 $"Local: {localFilePath}, Directory: {destinationDirectory}, FileName: {destinationFileName}");
-            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -418,7 +428,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Download to stream", ex, remoteFilePath);
-            return FileOperationResult.CreateFailure($"下载文件到流失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -480,7 +490,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Download file", ex, remoteFilePath);
-            return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -508,7 +518,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Delete file", ex, filePath);
-            return FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -529,7 +539,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Get last modified time", ex, filePath);
-            return DateTime.MinValue;
+            return DateTime.MinValue; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -541,7 +551,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         await EnsureConnectedAsync().ConfigureAwait(false);
         try
         {
-            FtpListItem[] items = directoryPath == null ?
+            FtpListItem[] items = directoryPath is null ?
                 await Client.GetListing(token: cancellationToken).ConfigureAwait(false) :
                 await Client.GetListing(directoryPath, token: cancellationToken).ConfigureAwait(false);
 
@@ -551,7 +561,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List directory", ex, directoryPath);
-            return [];
+            return []; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -964,7 +974,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List files", ex, directoryPath);
-            return [];
+            return []; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -987,7 +997,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List directories", ex, directoryPath);
-            return [];
+            return []; // 不会执行，HandleException 始终抛出异常
         }
     }
     #endregion

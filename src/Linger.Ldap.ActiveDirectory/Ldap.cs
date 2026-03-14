@@ -5,38 +5,95 @@ using System.DirectoryServices.ActiveDirectory;
 using System.Runtime.Versioning;
 #endif
 using Linger.Extensions.Core;
-using Linger.Helper;
 using Linger.Ldap.Contracts;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Linger.Ldap.ActiveDirectory;
 
 #if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
 #endif
-public class Ldap(LdapConfig ldapConfig) : ILdap
+public class Ldap : ILdap
 {
+    private readonly LdapConfig _ldapConfig;
+    private readonly ILogger<Ldap> _logger;
+    private readonly string _url;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Ldap"/> class.
+    /// If <see cref="LdapConfig.Url"/> is not configured, the domain controller will be automatically discovered.
+    /// </summary>
+    /// <param name="ldapConfig">The LDAP configuration.</param>
+    /// <param name="logger">Optional logger instance. If null, <see cref="NullLogger{T}"/> is used.</param>
+    /// <exception cref="ArgumentNullException">Thrown when ldapConfig is null.</exception>
+    public Ldap(LdapConfig ldapConfig, ILogger<Ldap>? logger = null)
+    {
+        ArgumentNullException.ThrowIfNull(ldapConfig);
+        _logger = logger ?? NullLogger<Ldap>.Instance;
+        _ldapConfig = ldapConfig;
+
+        // 如果 Url 为空，自动发现域控制器，只在构造时执行一次
+        if (ldapConfig.Url.IsNullOrEmpty())
+        {
+            _logger.LogInformation("LDAP Url not configured, attempting automatic domain controller discovery");
+            _url = GetDomainController();
+            _logger.LogInformation("Discovered domain controller: {DomainController}", _url);
+        }
+        else
+        {
+            _url = ldapConfig.Url;
+        }
+    }
+
     /// <summary>
     /// Gets a certain user on Active Directory
     /// </summary>
     /// <param name="userName">The username to get</param>
-    /// <param name="ldapCredentials"></param>
+    /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Returns the UserPrincipal Object</returns>
+    /// <returns>Returns the user information if found; otherwise, null</returns>
     public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        _logger.LogDebug("Finding user {UserName} in Active Directory", userName);
         using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials, searchBase);
-        var userPrincipal = UserPrincipal.FindByIdentity(principalContext, userName);
+        using var userPrincipal = UserPrincipal.FindByIdentity(principalContext, userName);
+        if (userPrincipal is null)
+        {
+            _logger.LogDebug("User {UserName} not found in Active Directory", userName);
+
+            return null;
+        }
+
         return await Task.Run(userPrincipal.ToAdUser, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Gets the DirectoryEntry for a user by username.
+    /// </summary>
+    /// <param name="username">The username to search for.</param>
+    /// <returns>The DirectoryEntry for the user.</returns>
+    /// <remarks>
+    /// The caller is responsible for disposing the returned <see cref="DirectoryEntry"/>.
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">Thrown when the user is not found.</exception>
     public DirectoryEntry GetEntryByUsername(string username)
     {
-        var ctx = new PrincipalContext(ContextType.Domain, ldapConfig.Url);
-        var user = UserPrincipal.FindByIdentity(ctx, username);
-        var entry = user.GetUnderlyingObject() as DirectoryEntry;
-        entry.EnsureIsNotNull();
-        return entry;
+        using var directoryEntry = CreateDirectoryEntry(ldapCredentials: null);
+        using var searcher = new DirectorySearcher(directoryEntry)
+        {
+            Filter = $"(&(objectCategory=person)(objectClass=user)(sAMAccountName={username}))",
+            SearchScope = SearchScope.Subtree
+        };
+
+        var result = searcher.FindOne();
+        if (result is null)
+        {
+            throw new InvalidOperationException($"User '{username}' not found in Active Directory.");
+        }
+
+        return result.GetDirectoryEntry();
     }
 
     /// <summary>
@@ -49,61 +106,37 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     {
         if (ldapCredentials is null)
         {
-            if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
+            if (_ldapConfig.Credentials.IsNotNull() && _ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && _ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
             {
-                ldapCredentials = ldapConfig.Credentials;
+                ldapCredentials = _ldapConfig.Credentials;
             }
         }
 
-        // Use provided searchBase or fall back to config's SearchBase
-        var effectiveSearchBase = searchBase ?? ldapConfig.SearchBase;
+        var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
 
         if (ldapCredentials is null)
         {
-            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, effectiveSearchBase, ContextOptions.SimpleBind);
-            return principalContext;
+            return new PrincipalContext(ContextType.Domain, _url, effectiveSearchBase, ContextOptions.SimpleBind);
         }
-        else
-        {
-            var domain = ldapConfig.Domain;
-            var userId = ldapCredentials.BindDn;
-            var password = ldapCredentials.BindCredentials;
-            var principalContext = new PrincipalContext(ContextType.Domain, ldapConfig.Url, effectiveSearchBase, ContextOptions.SimpleBind,
-            $@"{domain}\{userId}", password);
-            return principalContext;
-        }
+
+        return new PrincipalContext(ContextType.Domain, _url, effectiveSearchBase, ContextOptions.SimpleBind,
+            $@"{_ldapConfig.Domain}\{ldapCredentials.BindDn}", ldapCredentials.BindCredentials);
     }
 
+    /// <summary>
+    /// Gets all users matching the specified username pattern
+    /// </summary>
+    /// <param name="userName">Username pattern to search for</param>
+    /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Collection of matching users</returns>
     public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
-        var collection = SearchUsersByFilter($"(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)", ldapCredentials, searchBase);
+        using var collection = SearchUsersByFilter($"(samAccountName={userName}*)(userPrincipalName={userName}*)(mail={userName}*)(displayName={userName}*)", ldapCredentials, searchBase);
+
         return await Task.Run(collection.ToAdUsersInfo, cancellationToken).ConfigureAwait(false);
     }
-
-    //private IEnumerable<AdUserInfo> GetUsers2(string userName, LdapCredentials? ldapCredentials = null)
-    //{
-    //    PrincipalContext principalContext = GetPrincipalContext(ldapCredentials);
-    //    UserPrincipal userPrincipal = new UserPrincipal(principalContext);
-    //    //userPrincipal.SamAccountName = userName + "*";
-
-    //    PrincipalSearcher principalSearcher = new PrincipalSearcher(userPrincipal);
-
-    //    var adUserList = new List<AdUserInfo>();
-    //    var usersPrincipal = principalSearcher.FindAll().Cast<UserPrincipal>()
-    //        .Where(x => x.SamAccountName.ToUpperInvariant().StartsWith(userName.ToUpperInvariant())
-    //        || x.UserPrincipalName.ToUpperInvariant().StartsWith(userName.ToUpperInvariant())
-    //        || x.EmailAddress.Contains(userName, StringComparison.OrdinalIgnoreCase)
-    //        || x.DisplayName.Contains(userName, StringComparison.OrdinalIgnoreCase)
-    //        || x.DistinguishedName.ToUpperInvariant().StartsWith(userName.ToUpperInvariant())
-    //        );
-
-    //    foreach (UserPrincipal userSearchResult in usersPrincipal)
-    //    {
-    //        var adUserInfo = userSearchResult.ToAdUser();
-    //        adUserList.Add(adUserInfo!);
-    //    }
-    //    return adUserList;
-    //}
 
     /// <summary>
     /// Validates the username and password of a given user
@@ -115,42 +148,46 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
     /// <returns>Returns True of user is valid</returns>
     public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
     {
-        // Note: We don't pass credentials to GetPrincipalContext here because ValidateCredentials
-        // needs to use the default/config credentials to perform the validation against AD
+        _logger.LogDebug("Validating user {UserName} against Active Directory", userName);
         using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials: null, searchBase: searchBase);
         var result = principalContext.ValidateCredentials(userName, password);
         if (result)
         {
+            _logger.LogDebug("User {UserName} validated successfully", userName);
             var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
             var adUserInfo = await FindUserAsync(userName, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
             return (true, adUserInfo);
         }
+
+        _logger.LogDebug("User {UserName} validation failed", userName);
         return (false, null);
     }
 
     /// <summary>
-    /// 
+    /// Discovers the domain controller for the current domain.
     /// </summary>
-    /// <returns>xxx-DC.xxx.com</returns>
+    /// <returns>The domain controller hostname, e.g., "DC01.contoso.com"</returns>
     public static string GetDomainController()
     {
         var directoryContext = new DirectoryContext(DirectoryContextType.Domain);
-        string result;
-        {
-            var domainController = DomainController.FindOne(directoryContext);
-            result = domainController.ToString();
-        }
-
-        return result;
+        var domainController = DomainController.FindOne(directoryContext);
+        return domainController.ToString();
     }
 
+    /// <summary>
+    /// Searches for users matching the specified LDAP filter.
+    /// </summary>
+    /// <param name="filter">LDAP filter string for user search</param>
+    /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
+    /// <returns>Collection of search results matching the filter</returns>
     public SearchResultCollection SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
         if (ldapCredentials is null)
         {
-            if (ldapConfig.Credentials.IsNotNull() && ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
+            if (_ldapConfig.Credentials.IsNotNull() && _ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && _ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
             {
-                ldapCredentials = ldapConfig.Credentials;
+                ldapCredentials = _ldapConfig.Credentials;
             }
         }
 
@@ -159,10 +196,9 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
         directorySearcher.SearchScope = SearchScope.Subtree;
         directorySearcher.PageSize = 1000;
 
-        if (ldapConfig.Attributes.IsNotNull())
+        if (_ldapConfig.Attributes.IsNotNull())
         {
-            // 加载默认属性
-            foreach (var property in ldapConfig.Attributes)
+            foreach (var property in _ldapConfig.Attributes)
             {
                 directorySearcher.PropertiesToLoad.Add(property);
             }
@@ -184,29 +220,15 @@ public class Ldap(LdapConfig ldapConfig) : ILdap
 
     private DirectoryEntry CreateDirectoryEntry(LdapCredentials? ldapCredentials, string? searchBase = null)
     {
-        string? ldapPath;
-        if (ldapConfig is null)
+        var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
+        var ldapPath = $"LDAP://{_url}/{effectiveSearchBase}";
+
+        if (ldapCredentials is null)
         {
-            ldapPath = $"LDAP://{GetDomainController()}";
             return new DirectoryEntry(ldapPath);
         }
-        else
-        {
-            // Use provided searchBase or fall back to config's SearchBase
-            var effectiveSearchBase = searchBase ?? ldapConfig.SearchBase;
-            ldapPath = $"LDAP://{ldapConfig.Url}/{effectiveSearchBase}";
 
-            if (ldapCredentials is null)
-            {
-                return new DirectoryEntry(ldapPath);
-            }
-
-            var domain = ldapConfig.Domain;
-            var userId = ldapCredentials.BindDn;
-            var password = ldapCredentials.BindCredentials;
-
-            return new DirectoryEntry(ldapPath, $@"{domain}\{userId}", password);
-        }
+        return new DirectoryEntry(ldapPath, $@"{_ldapConfig.Domain}\{ldapCredentials.BindDn}", ldapCredentials.BindCredentials);
     }
 
     /// <summary>

@@ -182,11 +182,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                     using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
                     var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
 
+                    // 临时文件路径，用于先写入数据
+                    var tempPath = Path.Combine(Path.GetTempPath(), $"upload_{Guid.NewGuid():N}.tmp");
+
                     try
                     {
-                        // 临时文件路径，用于先写入数据
-                        var tempPath = Path.Combine(Path.GetTempPath(), $"upload_{Guid.NewGuid():N}.tmp");
-
                         var tempFileStream = File.Create(tempPath);
 #if NET8_0_OR_GREATER
                         await using (tempFileStream.ConfigureAwait(false))
@@ -238,6 +238,9 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                     finally
                     {
                         System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+
+                        // 确保临时文件在异常时被清理
+                        try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* 忽略清理失败 */ }
                     }
                     break;
                 }
@@ -681,15 +684,26 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// <summary>
     /// 得到 带有 RootDirectoryPath 的路径
     /// </summary>
-    /// <param name="filePath"></param>
-    /// <returns></returns>
+    /// <param name="filePath">相对或绝对文件路径</param>
+    /// <returns>带有根目录的完整路径</returns>
+    /// <exception cref="ArgumentException">当路径试图走出根目录时抛出</exception>
     public string GetRealPath(string filePath)
     {
         if (filePath.StartsWith(RootDirectoryPath))
         {
             return filePath;
         }
+
         filePath = Path.Combine(RootDirectoryPath, filePath);
+
+        // 防止路径穿越攻击（如 "../../etc/passwd"）
+        var fullPath = Path.GetFullPath(filePath);
+        var rootFull = Path.GetFullPath(RootDirectoryPath + Path.DirectorySeparatorChar);
+        if (!fullPath.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"Path traversal detected. The path '{filePath}' is outside the root directory.", nameof(filePath));
+        }
+
         return filePath;
     }
 
@@ -818,7 +832,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
             }
 
-            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
+            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
             return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)

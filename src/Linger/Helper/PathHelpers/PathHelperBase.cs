@@ -46,11 +46,25 @@ public abstract class PathHelperBase
         if (!hasConsecutiveSeparators)
             return path;
 
+        // 保留 Windows UNC 路径前缀（以两个反斜线开头）
+        var startIndex = 0;
+        if (path.Length >= 2 && path[0] == '\\' && path[1] == '\\')
+        {
+            startIndex = 2;
+        }
+
         StringBuilder result = new(path.Length);
+        if (startIndex == 2)
+        {
+            result.Append(path[0]);
+            result.Append(path[1]);
+        }
+
         var lastWasSeparator = false;
 
-        foreach (var c in path)
+        for (var i = startIndex; i < path.Length; i++)
         {
+            var c = path[i];
             var isSeparator = Array.IndexOf(PathSeparators, c) >= 0;
             if (!(isSeparator && lastWasSeparator))
                 result.Append(c);
