@@ -527,6 +527,9 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 异步将对象集合导出为Excel文件（推荐）
     /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method flows through reflection-based collection export. For AOT/trimming scenarios, use the explicit-column export overloads in ExcelExtensions.")]
+#endif
     public virtual async Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default) where T : class
     {
@@ -544,6 +547,9 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 创建Excel模板
     /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection-based collection export for template generation. For AOT/trimming scenarios, use ExcelExtensions.CreateExcelTemplate with explicit ExcelExportColumn definitions.")]
+#endif
     public virtual MemoryStream CreateExcelTemplate<T>() where T : class, new()
     {
         var type = typeof(T);

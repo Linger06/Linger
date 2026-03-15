@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using Linger.Excel.Contracts;
 using Linger.Excel.Contracts.Attributes;
+using Linger.Excel.Contracts.Utils;
 using Linger.Helper;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -227,6 +228,171 @@ namespace Linger.Excel.Tests
                 Logger.LogWarning(ex, "清理测试目录失败: {TestFilesDir}", TestFilesDir);
             }
         }
+
+        protected void AssertExcelToListWithMapper(IExcelService service, string filePrefix)
+        {
+            var sourceData = GenerateTestDataTable(5);
+            var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotMapper.xlsx");
+
+            service.DataTableToExcel(sourceData, filePath, "测试表", $"{filePrefix} AOT Mapper 导入测试");
+
+            var importedList = service.ExcelToList(
+                filePath,
+                row => new ImportedPerson
+                {
+                    Id = Convert.ToInt32(row["Id"]),
+                    Name = row["Name"]?.ToString() ?? string.Empty,
+                    Birthday = Convert.ToDateTime(row["Birthday"]),
+                    Salary = Convert.ToDecimal(row["Salary"]),
+                    IsActive = Convert.ToBoolean(row["IsActive"])
+                },
+                headerRowIndex: 1);
+
+            Assert.NotNull(importedList);
+            Assert.Equal(sourceData.Rows.Count, importedList.Count);
+
+            for (var i = 0; i < importedList.Count; i++)
+            {
+                var expectedRow = sourceData.Rows[i];
+                Assert.Equal(Convert.ToInt32(expectedRow["Id"]), importedList[i].Id);
+                Assert.Equal(expectedRow["Name"]?.ToString(), importedList[i].Name);
+                Assert.Equal(Convert.ToDateTime(expectedRow["Birthday"]).Date, importedList[i].Birthday.Date);
+                Assert.Equal(Convert.ToDecimal(expectedRow["Salary"]), importedList[i].Salary);
+                Assert.Equal(Convert.ToBoolean(expectedRow["IsActive"]), importedList[i].IsActive);
+            }
+        }
+
+        protected async Task AssertStreamToListAsyncWithFactoryAndColumnSetters(IExcelService service, string filePrefix)
+        {
+            var sourceData = GenerateTestDataTable(5);
+            var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotFactory.xlsx");
+
+            service.DataTableToExcel(sourceData, filePath, "测试表", $"{filePrefix} AOT Factory 导入测试");
+
+            var columnSetters = new Dictionary<string, Action<ImportedPersonWithSource, object?>>
+            {
+                ["Id"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<ImportedPersonWithSource, int>((person, value) => person.Id = value),
+                ["Name"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<ImportedPersonWithSource, string?>((person, value) => person.Name = value),
+                ["IsActive"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<ImportedPersonWithSource, bool>((person, value) => person.IsActive = value)
+            };
+
+            using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var importedList = await service.StreamToListAsync(
+                stream,
+                () => new ImportedPersonWithSource(filePrefix),
+                columnSetters,
+                sheetName: "测试表",
+                headerRowIndex: 1);
+
+            Assert.NotNull(importedList);
+            Assert.Equal(sourceData.Rows.Count, importedList.Count);
+
+            for (var i = 0; i < importedList.Count; i++)
+            {
+                var expectedRow = sourceData.Rows[i];
+                Assert.Equal(filePrefix, importedList[i].Source);
+                Assert.Equal(Convert.ToInt32(expectedRow["Id"]), importedList[i].Id);
+                Assert.Equal(expectedRow["Name"]?.ToString(), importedList[i].Name);
+                Assert.Equal(Convert.ToBoolean(expectedRow["IsActive"]), importedList[i].IsActive);
+            }
+        }
+
+        protected void AssertCollectionToExcelWithExplicitColumns(IExcelService service, string filePrefix)
+        {
+            var list = GenerateTestPersonList(5);
+            var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotExport.xlsx");
+
+            var result = service.CollectionToExcel(list, CreateExplicitExportColumns(), filePath, "员工信息");
+
+            Assert.Equal(filePath, result);
+            Assert.True(File.Exists(filePath));
+
+            var imported = service.ExcelToDataTable(filePath, "员工信息", headerRowIndex: 0);
+            AssertExplicitExportedData(imported, list);
+        }
+
+        protected async Task AssertCollectionToExcelAsyncWithExplicitColumns(IExcelService service, string filePrefix)
+        {
+            var list = GenerateTestPersonList(5);
+            var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotExportAsync.xlsx");
+
+            var result = await service.CollectionToExcelAsync(list, CreateExplicitExportColumns(), filePath, "员工信息");
+
+            Assert.Equal(filePath, result);
+            Assert.True(File.Exists(filePath));
+
+            var imported = service.ExcelToDataTable(filePath, "员工信息", headerRowIndex: 0);
+            AssertExplicitExportedData(imported, list);
+        }
+
+        protected void AssertCreateExcelTemplateWithExplicitColumns(IExcelService service, string filePrefix)
+        {
+            using var stream = service.CreateExcelTemplate(CreateExplicitExportColumns(), $"{filePrefix}模板");
+
+            Assert.NotNull(stream);
+            Assert.True(stream.Length > 0);
+
+            stream.Position = 0;
+            var imported = service.StreamToDataTable(stream, $"{filePrefix}模板", headerRowIndex: 0);
+
+            Assert.NotNull(imported);
+            Assert.Equal(0, imported.Rows.Count);
+            Assert.Equal(3, imported.Columns.Count);
+            Assert.Equal("姓名", imported.Columns[0].ColumnName);
+            Assert.Equal("部门", imported.Columns[1].ColumnName);
+            Assert.Equal("薪资", imported.Columns[2].ColumnName);
+        }
+
+        private static IReadOnlyList<ExcelExportColumn<TestPerson>> CreateExplicitExportColumns()
+        {
+            return
+            [
+                new ExcelExportColumn<TestPerson>(
+                    new ExcelColumnInfo
+                    {
+                        PropertyName = nameof(TestPerson.Name),
+                        DisplayName = "姓名",
+                        PropertyType = typeof(string),
+                        Order = 0
+                    },
+                    person => person.Name),
+                new ExcelExportColumn<TestPerson>(
+                    new ExcelColumnInfo
+                    {
+                        PropertyName = nameof(TestPerson.Department),
+                        DisplayName = "部门",
+                        PropertyType = typeof(string),
+                        Order = 1
+                    },
+                    person => person.Department),
+                new ExcelExportColumn<TestPerson>(
+                    new ExcelColumnInfo
+                    {
+                        PropertyName = nameof(TestPerson.Salary),
+                        DisplayName = "薪资",
+                        PropertyType = typeof(decimal),
+                        Order = 2
+                    },
+                    person => person.Salary)
+            ];
+        }
+
+        private static void AssertExplicitExportedData(DataTable? imported, IReadOnlyList<TestPerson> source)
+        {
+            Assert.NotNull(imported);
+            Assert.Equal(source.Count, imported.Rows.Count);
+            Assert.Equal(3, imported.Columns.Count);
+            Assert.Equal("姓名", imported.Columns[0].ColumnName);
+            Assert.Equal("部门", imported.Columns[1].ColumnName);
+            Assert.Equal("薪资", imported.Columns[2].ColumnName);
+
+            for (var i = 0; i < source.Count; i++)
+            {
+                Assert.Equal(source[i].Name, imported.Rows[i]["姓名"]?.ToString());
+                Assert.Equal(source[i].Department, imported.Rows[i]["部门"]?.ToString());
+                Assert.Equal(source[i].Salary, Convert.ToDecimal(imported.Rows[i]["薪资"]));
+            }
+        }
     }
 
     /// <summary>
@@ -252,5 +418,29 @@ namespace Linger.Excel.Tests
         public string Email { get; set; }
 
         public string Department { get; set; }
+    }
+
+    public class ImportedPerson
+    {
+        public int Id { get; set; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public DateTime Birthday { get; set; }
+
+        public decimal Salary { get; set; }
+
+        public bool IsActive { get; set; }
+    }
+
+    public class ImportedPersonWithSource(string source)
+    {
+        public string Source { get; } = source;
+
+        public int Id { get; set; }
+
+        public string? Name { get; set; }
+
+        public bool IsActive { get; set; }
     }
 }

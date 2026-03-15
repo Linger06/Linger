@@ -516,9 +516,20 @@ public static partial class FileHelper
 
         srcDirectory.EnsureDirectoryExists();
 
-        // Ensure the destination path ends with a directory separator
-        destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar)
+        // Normalize source and destination paths with a trailing separator.
+        srcDirectory = Path.GetFullPath(srcDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar);
+        destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            + Path.DirectorySeparatorChar);
+
+        // Prevent recursive self-copy (destination equals source or is under source).
+        var pathComparison = Path.DirectorySeparatorChar == '\\'
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (destDirectory.StartsWith(srcDirectory, pathComparison))
+        {
+            throw new ArgumentException("Destination directory cannot be the same as or a subdirectory of source directory.", nameof(destDirectory));
+        }
 
         // Create destination directory if it doesn't exist
         Directory.CreateDirectory(destDirectory);

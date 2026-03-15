@@ -123,6 +123,55 @@ public class ExcelReportService
 }
 ```
 
+### 4. AOT 友好导入
+
+当你希望在对象物化阶段避免反射时，可以使用这些导入扩展重载：
+
+```csharp
+using Linger.Excel.Contracts;
+using Linger.Extensions.Data;
+
+var users = excelService.ExcelToList(
+    filePath,
+    row => new User
+    {
+        Id = Convert.ToInt32(row["Id"]),
+        Name = row["Name"]?.ToString() ?? string.Empty
+    });
+
+var imported = await excelService.ExcelToListAsync(
+    filePath,
+    () => new ImportUser("excel"),
+    new Dictionary<string, Action<ImportUser, object?>>
+    {
+        ["Id"] = DataTableExtensions.CreateColumnSetter<ImportUser, int>((user, value) => user.Id = value),
+        ["Name"] = DataTableExtensions.CreateColumnSetter<ImportUser, string?>((user, value) => user.Name = value)
+    });
+```
+
+这些重载会先把 Excel 导入为 `DataTable`，再复用现有的 AOT 友好 `DataTable` 映射 API。
+
+### 5. AOT 友好导出
+
+当你希望在集合导出和模板生成阶段避免反射时，可以使用显式列定义：
+
+```csharp
+using Linger.Excel.Contracts;
+
+var columns = new[]
+{
+    new ExcelExportColumn<User>("用户编号", user => user.Id, typeof(int)),
+    new ExcelExportColumn<User>("姓名", user => user.Name, typeof(string)),
+    new ExcelExportColumn<User>("部门", user => user.Department, typeof(string))
+};
+
+await excelService.CollectionToExcelAsync(users, columns, filePath, "Users");
+
+using var template = excelService.CreateExcelTemplate(columns, "Users");
+```
+
+这些重载会先根据显式列定义构造 `DataTable`，再复用现有的 `DataTable` 导出管线，因此不需要属性反射。
+
 ## 📝 核心接口
 
 ### IExcelService - 基础接口

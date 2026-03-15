@@ -127,6 +127,24 @@ public class EPPlusExcelTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
+    public void CollectionToExcel_WithExplicitColumns_GeneratesValidExcelFile()
+    {
+        AssertCollectionToExcelWithExplicitColumns(GetExcelService(), "EPPlus");
+    }
+
+    [Fact]
+    public async Task CollectionToExcelAsync_WithExplicitColumns_GeneratesValidExcelFile()
+    {
+        await AssertCollectionToExcelAsyncWithExplicitColumns(GetExcelService(), "EPPlus");
+    }
+
+    [Fact]
+    public void CreateExcelTemplate_WithExplicitColumns_GeneratesValidTemplate()
+    {
+        AssertCreateExcelTemplateWithExplicitColumns(GetExcelService(), "EPPlus");
+    }
+
+    [Fact]
     public void CreateExcelTemplate_GeneratesValidTemplate()
     {
         // Arrange

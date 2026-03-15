@@ -123,6 +123,55 @@ public class ExcelReportService
 }
 ```
 
+### 4. AOT-Friendly Imports
+
+Use the import extension overloads when you want to avoid reflection during object materialization:
+
+```csharp
+using Linger.Excel.Contracts;
+using Linger.Extensions.Data;
+
+var users = excelService.ExcelToList(
+    filePath,
+    row => new User
+    {
+        Id = Convert.ToInt32(row["Id"]),
+        Name = row["Name"]?.ToString() ?? string.Empty
+    });
+
+var imported = await excelService.ExcelToListAsync(
+    filePath,
+    () => new ImportUser("excel"),
+    new Dictionary<string, Action<ImportUser, object?>>
+    {
+        ["Id"] = DataTableExtensions.CreateColumnSetter<ImportUser, int>((user, value) => user.Id = value),
+        ["Name"] = DataTableExtensions.CreateColumnSetter<ImportUser, string?>((user, value) => user.Name = value)
+    });
+```
+
+These overloads first import Excel into a `DataTable`, then reuse the existing AOT-friendly `DataTable` mapping APIs.
+
+### 5. AOT-Friendly Exports
+
+Use explicit columns when you want to avoid reflection during collection export and template generation:
+
+```csharp
+using Linger.Excel.Contracts;
+
+var columns = new[]
+{
+    new ExcelExportColumn<User>("User Id", user => user.Id, typeof(int)),
+    new ExcelExportColumn<User>("Name", user => user.Name, typeof(string)),
+    new ExcelExportColumn<User>("Department", user => user.Department, typeof(string))
+};
+
+await excelService.CollectionToExcelAsync(users, columns, filePath, "Users");
+
+using var template = excelService.CreateExcelTemplate(columns, "Users");
+```
+
+These overloads build a `DataTable` from explicit column definitions and then reuse the existing `DataTable` export pipeline, so no property reflection is required.
+
 ## 📝 Core Interfaces
 
 ### IExcelService - Basic Interface
