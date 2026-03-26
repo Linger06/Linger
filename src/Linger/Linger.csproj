@@ -29,17 +29,17 @@
     <ItemGroup Condition="'$(TargetFramework)'=='net472'">
         <Reference Include="System.Net.Http" />
         <Reference Include="System.Data.DataSetExtensions" />
-        <PackageReference Include="System.Text.Json" Version="10.0.2" />
+        <PackageReference Include="System.Text.Json" Version="10.0.5" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
         <PackageReference Include="System.Data.DataSetExtensions" Version="4.5.0" />
-        <PackageReference Include="System.Text.Json" Version="10.0.2" />
+        <PackageReference Include="System.Text.Json" Version="10.0.5" />
     </ItemGroup>
 
     <!-- Development and quality packages -->
     <ItemGroup>
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.102" PrivateAssets="All" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.201" PrivateAssets="All" />
     </ItemGroup>
 
     <ItemGroup>

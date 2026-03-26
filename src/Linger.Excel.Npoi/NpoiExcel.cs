@@ -399,7 +399,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             case CellType.Error:
                 return GetExcelCellValue(ErrorEval.GetText(cell.ErrorCellValue));
             case CellType.Blank:
-            case CellType.Unknown:
             default:
                 return DBNull.Value;
         }
