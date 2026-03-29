@@ -1,28 +1,16 @@
 # Linger.Ldap.Novell
 
-一个综合性的 .NET 库，使用 Novell.Directory.Ldap 提供程序实现与 LDAP 目录的无缝集成，支持跨平台。
+基于 Novell.Directory.Ldap 的跨平台 LDAP 客户端实现。
 
 ## 功能特点
 
-### 核心功能
-- 平台无关的 LDAP 操作
-- SSL/TLS 安全连接
-- 连接池管理
-- 全面的错误处理
-
-### 用户管理
-- 用户身份验证和验证
-- 详细用户信息检索
-- 高级搜索功能
-- 组成员资格查询
-
-### 信息类别
-- 基本标识（用户名、显示名称、UPN）
-- 个人信息（名字、姓氏、缩写）
-- 联系人详细信息（电子邮件、电话号码、地址）
-- 组织信息（部门、职位、员工 ID）
-- 系统属性（工作站、配置文件路径）
-- 安全设置（账户状态、密码信息）
+- 跨平台 LDAP 访问（Windows/Linux/macOS）
+- 异步用户认证与查询 API
+- 通过 `LdapConfig.Security` 启用 LDAPS
+- `FindUserAsync` 与 `GetUsersAsync` 使用可配置 `SearchFilter`
+- 通过 `ILdap.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
+- 支持 `Attributes` 属性投影，按需返回字段
+- 内置 LDAP 过滤值转义，降低过滤器拼接风险
 
 ## 支持的框架
 
@@ -36,169 +24,123 @@
 dotnet add package Linger.Ldap.Novell
 ```
 
-## 基本用法
-
-### 配置
+## 快速开始
 
 ```csharp
-// 在 Startup.cs 或 Program.cs 中
-services.AddLdapNovell(options => 
+using Linger.Ldap.Contracts;
+using Linger.Ldap.Novell;
+
+var config = new LdapConfig
 {
-    options.Server = "ldap.example.com";
-    options.Port = 389;
-    options.UseSsl = false;
-    options.BindDn = "cn=admin,dc=example,dc=com";
-    options.BindPassword = "password";
-    options.SearchBase = "dc=example,dc=com";
-    options.SearchFilter = "(&(objectClass=person)(uid={0}))";
-});
+    Url = "ldap.example.com",
+    Domain = "example",
+    SearchBase = "DC=example,DC=com",
+    SearchFilter = "(&(objectClass=person)(|(uid={0})(sAMAccountName={0})(mail={0})))",
+    Security = true,
+    Credentials = new LdapCredentials
+    {
+        BindDn = "serviceAccount",
+        BindCredentials = "SecurePassword123!"
+    },
+    Attributes =
+    [
+        "displayName",
+        "sAMAccountName",
+        "mail",
+        "department",
+        "memberOf"
+    ]
+};
+
+using var ldap = new Ldap(config);
 ```
 
-### 身份验证
+## 使用示例
+
+### 验证用户账号密码
 
 ```csharp
-public class AuthService
+var (isValid, userInfo) = await ldap.ValidateUserAsync("alice", "Password123!");
+
+if (isValid && userInfo is not null)
 {
-    private readonly ILdap _ldap;
-    
-    public AuthService(ILdap ldap)
-    {
-        _ldap = ldap;
-    }
-    
-    public async Task<bool> AuthenticateAsync(string username, string password)
-    {
-        var (isValid, userInfo) = await _ldap.ValidateUserAsync(username, password);
-        return isValid;
-    }
+    Console.WriteLine($"DisplayName: {userInfo.DisplayName}");
+    Console.WriteLine($"Email: {userInfo.Email}");
 }
 ```
 
-### 用户信息检索
+### 查询单个用户
 
 ```csharp
-public class UserService
+var user = await ldap.FindUserAsync("alice");
+
+if (user is not null)
 {
-    private readonly ILdap _ldap;
-    
-    public UserService(ILdap ldap)
-    {
-        _ldap = ldap;
-    }
-    
-    public async Task<UserViewModel?> GetUserInfoAsync(string username)
-    {
-        var ldapUser = await _ldap.FindUserAsync(username);
-        
-        if (ldapUser is null)
-            return null;
-            
-        return new UserViewModel
-        {
-            Username = ldapUser.Username,
-            DisplayName = ldapUser.DisplayName,
-            Email = ldapUser.Email,
-            Department = ldapUser.Department,
-            IsActive = !ldapUser.AccountDisabled
-        };
-    }
-    
-    public async Task<IEnumerable<UserViewModel>> SearchUsersAsync(string searchTerm)
-    {
-        var ldapUsers = await _ldap.GetUsersAsync(searchTerm);
-        
-        return ldapUsers.Select(u => new UserViewModel
-        {
-            Username = u.Username,
-            DisplayName = u.DisplayName,
-            Email = u.Email,
-            Department = u.Department
-        });
-    }
+    Console.WriteLine($"SamAccountName: {user.SamAccountName}");
+    Console.WriteLine($"DN: {user.Dn}");
 }
 ```
 
-### 自定义 LDAP 操作
+### 模糊搜索用户
 
 ```csharp
-public class AdvancedLdapService
+var users = await ldap.GetUsersAsync("alice");
+
+foreach (var item in users)
 {
-    private readonly LdapConfig _config;
-    
-    public AdvancedLdapService(IOptions<LdapConfig> options)
-    {
-        _config = options.Value;
-    }
-    
-    public async Task<bool> ChangeUserPasswordAsync(string username, string oldPassword, string newPassword)
-    {
-        // 使用 Novell.Directory.Ldap 库实现自定义 LDAP 操作
-        using var connection = new LdapConnection();
-        connection.SecureSocketLayer = _config.Security;
-        
-        try
-        {
-            await connection.ConnectAsync(_config.Server, _config.Port);
-            
-            // 先验证用户当前密码
-            var userDn = $"uid={username},{_config.SearchBase}";
-            await connection.BindAsync(userDn, oldPassword);
-            
-            // 修改密码
-            var modification = new LdapModification(
-                LdapModification.Replace,
-                new LdapAttribute("userPassword", newPassword)
-            );
-            
-            await connection.ModifyAsync(userDn, new[] { modification });
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
+    Console.WriteLine($"{item.DisplayName} ({item.Email})");
 }
 ```
 
-## 高级特性
-
-### 连接池管理
-
-该库内部使用连接池来优化性能。您可以配置连接池参数：
+### 指定 OU 与自定义凭据查询
 
 ```csharp
-services.AddLdapNovell(options => 
+var customCreds = new LdapCredentials
 {
-    // 基本配置
-    options.Server = "ldap.example.com";
-    
-    // 连接池配置
-    options.ConnectionPooling = true;
-    options.ConnectionPoolSize = 10;
-    options.ConnectionTimeout = TimeSpan.FromSeconds(30);
-});
+    BindDn = "readonly.user",
+    BindCredentials = "ReadonlyPassword123!"
+};
+
+var usersInOu = await ldap.GetUsersAsync(
+    "alice",
+    ldapCredentials: customCreds,
+    searchBase: "OU=Sales,DC=example,DC=com");
 ```
 
-### SSL/TLS 支持
+### 高级过滤查询（跨提供者统一）
 
 ```csharp
-services.AddLdapNovell(options => 
-{
-    options.Server = "ldaps.example.com";
-    options.Port = 636;
-    options.UseSsl = true;
-    options.IgnoreSslCertificateErrors = false; // 生产环境应设为 false
-});
+ILdap ldapContract = ldap;
+
+var users = await ldapContract.SearchUsersByFilterAsync(
+    "(&(objectClass=person)(department=IT)(mail=*))",
+    searchBase: "DC=example,DC=com");
 ```
+
+## 注意事项
+
+- Novell 实现中 `Url` 为必填项，不支持自动发现域控。
+- 当 `Security = true` 时，客户端启用 SSL 并使用默认 LDAPS 端口（`636`）。
+- `SearchFilter` 会用于 `FindUserAsync` 与 `GetUsersAsync`，建议使用 `{0}` 作为查询值占位符。
+- `SearchUsersByFilterAsync` 可用于跨提供者统一的原始过滤器高级查询。
+- 若 `SearchFilter` 格式错误，内部会回退到默认用户过滤模板。
+- 查询输入值会在构建 LDAP 过滤器前进行转义，降低格式破坏和注入风险。
+- 绑定用户名会先规范化：已是 `domain\\user`、UPN（`user@domain`）或完整 DN 时不会重复拼接域前缀。
+- `Attributes` 可用于减少返回字段，提升查询性能。
+
+## 常用用户属性（AdUserInfo）
+
+- `DisplayName`、`SamAccountName`、`Upn`、`Dn`
+- `Email`、`TelephoneNumber`、`Mobile`、`Department`、`Title`
+- `Company`、`Manager`、`WhenCreated`、`Status`、`PwdLastSet`
+- `MemberOf`、`ProfilePath`、`HomeDirectory`、`ExtensionAttribute1`
 
 ## 依赖项
 
-- Novell.Directory.Ldap.NETStandard (4.0.0+)
+- Novell.Directory.Ldap.NETStandard
 - Linger.Ldap.Contracts
-- Microsoft.Extensions.Options
 
 ## 相关包
 
-- [Linger.Ldap.Contracts](../Linger.Ldap.Contracts/)：核心 LDAP 接口和数据模型
-- [Linger.Ldap.ActiveDirectory](../Linger.Ldap.ActiveDirectory/)：专为 Active Directory 优化的实现
+- [Linger.Ldap.Contracts](../Linger.Ldap.Contracts/)：核心 LDAP 接口与数据模型
+- [Linger.Ldap.ActiveDirectory](../Linger.Ldap.ActiveDirectory/)：面向 Active Directory 的实现

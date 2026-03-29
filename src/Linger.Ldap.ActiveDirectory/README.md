@@ -1,218 +1,172 @@
 # Linger.Ldap.ActiveDirectory
 
-A comprehensive .NET library for Active Directory LDAP operations, providing simplified access to AD user information and authentication.
+An Active Directory focused LDAP client implementation based on System.DirectoryServices.
 
 ## Features
 
-### User Management
-- User authentication and validation
-- Detailed user information retrieval
-- User search capabilities
-- Group membership information
-
-### User Information Categories
-- Basic identification (username, display name, UPN)
-- Personal information (first name, last name, initials)
-- Contact details (email, phone numbers, addresses)
-- Organization info (department, title, employee ID)
-- System attributes (workstations, profile paths)
-- Security settings (account status, password info)
-
+- Active Directory user authentication and validation
+- Async user lookup and search APIs
+- OU-scoped search support via `searchBase`
+- Optional `Attributes` projection to limit returned fields
+- LDAPS support via `LdapConfig.Security`
+- Configurable `SearchFilter` for `FindUserAsync` and `GetUsersAsync`
+- Cross-provider advanced query via `ILdap.SearchUsersByFilterAsync`
+- Optional domain controller auto-discovery when `LdapConfig.Url` is empty
+- Convenience constructor overloads (`new Ldap()` / `new Ldap(logger)`) for auto-filling defaults (especially `SearchBase`)
 
 ## Supported Frameworks
 
 - .NET 10.0
 - .NET 9.0
 - .NET 8.0
-- .NET 6.0
 - .NET Standard 2.0
 
 ## Installation
 
-#### From Visual Studio
-
-1. Open the `Solution Explorer`.
-2. Right-click on a project within your solution.
-3. Click on `Manage NuGet Packages...`.
-4. Click on the `Browse` tab and search for "Linger.Ldap.ActiveDirectory".
-5. Click on the `Linger.Ldap.ActiveDirectory` package, select the appropriate version and click Install.
-
-#### Package Manager Console
-
-```
-PM> Install-Package Linger.Ldap.ActiveDirectory
+```shell
+dotnet add package Linger.Ldap.ActiveDirectory
 ```
 
-#### .NET CLI Console
+## Quick Start
 
-```
-> dotnet add package Linger.Ldap.ActiveDirectory
-```
-
-## Usage Examples
-
-### Basic Configuration
 ```csharp
-var config = new LdapConfig 
-{ 
-    Url = "ldap.company.com", 
-    Domain = "COMPANY", 
-    SearchBase = "DC=company,DC=com", 
-    Security = true, 
-    Credentials = new LdapCredentials { BindDn = "serviceAccount", BindCredentials = "password" } 
-};
-```
+using Linger.Ldap.ActiveDirectory;
+using Linger.Ldap.Contracts;
 
-### User Authentication
-```csharp
-using var ldap = new Ldap(config);
-
-// Authenticate with default SearchBase
-var (isValid, userInfo) = await ldap.ValidateUserAsync("username", "password");
-if (isValid && userInfo != null) 
+var config = new LdapConfig
 {
-    Console.WriteLine($"User authenticated: {userInfo.DisplayName}"); 
-    Console.WriteLine($"Email: {userInfo.Email}"); 
-    Console.WriteLine($"Department: {userInfo.Department}"); 
-}
-
-// Authenticate in specific OU
-var (isValid2, userInfo2) = await ldap.ValidateUserAsync(
-    "username", 
-    "password",
-    searchBase: "OU=Sales,DC=company,DC=com"
-);
-```
-
-### Finding Users
-```csharp
-using var ldap = new Ldap(config);
-
-// Find specific user in default SearchBase
-var user = await ldap.FindUserAsync("username"); 
-if (user != null) 
-{ 
-    Console.WriteLine($"Name: {user.DisplayName}"); 
-    Console.WriteLine($"Email: {user.Email}"); 
-    Console.WriteLine($"Title: {user.Title}"); 
-}
-
-// Find user in specific OU
-var salesUser = await ldap.FindUserAsync(
-    "username",
-    searchBase: "OU=Sales,DC=company,DC=com"
-);
-
-// Search users with pattern
-var users = await ldap.GetUsersAsync("john*"); 
-foreach (var foundUser in users) 
-{ 
-    Console.WriteLine($"Found: {foundUser.DisplayName}");
-    Console.WriteLine($"Groups: {string.Join(", ", foundUser.MemberOf ?? Array.Empty<string>())}"); 
-}
-
-// Search users in specific OU
-var itUsers = await ldap.GetUsersAsync(
-    "john*",
-    searchBase: "OU=IT,DC=company,DC=com"
-);
-```
-
-### Flexible OU Search (New in v1.0)
-```csharp
-// Search across multiple OUs
-string[] organizationalUnits = 
-{
-    "OU=Sales,DC=company,DC=com",
-    "OU=IT,DC=company,DC=com",
-    "OU=HR,DC=company,DC=com"
-};
-
-AdUserInfo? foundUser = null;
-foreach (var ou in organizationalUnits)
-{
-    foundUser = await ldap.FindUserAsync("john.doe", searchBase: ou);
-    if (foundUser != null)
+    Url = "example.com",
+    Domain = "example",
+    SearchBase = "DC=example,DC=com",
+    SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))",
+    Security = true,
+    Credentials = new LdapCredentials
     {
-        Console.WriteLine($"User found in: {ou}");
-        break;
-    }
-}
+        BindDn = "serviceAccount",
+        BindCredentials = "SecurePassword123!"
+    },
+    Attributes =
+    [
+        "displayName",
+        "sAMAccountName",
+        "mail",
+        "department",
+        "memberOf"
+    ]
+};
 
-// Check user existence in specific OU
-bool exists = await ldap.UserExistsAsync(
-    "username",
-    searchBase: "OU=Contractors,DC=company,DC=com"
-);
+var ldap = new Ldap(config);
 ```
 
-## Available User Properties
+### Convenience Creation with Auto Defaults
 
-### Identification
-- DisplayName
-- SamAccountName
-- UserPrincipalName (UPN)
-- DistinguishedName (DN)
+```csharp
+var ldap = new Ldap();
 
-### Personal Information
-- FirstName
-- LastName
-- Description
-- Initials
+// With custom logger
+var ldapWithLogger = new Ldap(logger);
+```
 
-### Contact Information
-- Email
-- TelephoneNumber
-- Mobile
-- HomePhone
-- Fax
-- IpPhone
-- WebPage
+When `SearchBase` is empty, the convenience constructor overloads infer it from `Domain` (for example, `example.com` -> `DC=example,DC=com`) and then fall back to the current domain distinguished name.
 
-### Organization Details
-- Company
-- Department
-- Title
-- Manager
-- EmployeeId
-- EmployeeNumber
+## Usage
 
-### Address Information
-- Street
-- City
-- State
-- PostalCode
-- Country
-- PostOfficeBox
+### Validate User Credentials
 
-### System Information
-- UserWorkstations
-- ProfilePath
-- HomeDrive
-- HomeDirectory
-- WhenCreated
+```csharp
+var (isValid, userInfo) = await ldap.ValidateUserAsync("alice", "Password123!");
 
-### Security Information
-- Status (Enabled/Disabled/Locked/Expired)
-- AccountExpires
-- PwdLastSet
-- PwdExpirationLeftDays
-- MemberOf (Group memberships)
+if (isValid && userInfo is not null)
+{
+    Console.WriteLine($"DisplayName: {userInfo.DisplayName}");
+    Console.WriteLine($"Email: {userInfo.Email}");
+}
+```
 
-## Requirements
+### Find a Single User
 
-- Windows operating system (uses System.DirectoryServices.AccountManagement)
-- Appropriate Active Directory permissions
+```csharp
+var user = await ldap.FindUserAsync("alice");
 
-## Contributing
+if (user is not null)
+{
+    Console.WriteLine($"SamAccountName: {user.SamAccountName}");
+    Console.WriteLine($"DN: {user.Dn}");
+}
+```
 
-Contributions are welcome! Please:
+### Search Users
 
-1. Fork the repository
-2. Create a feature branch
-3. Submit a Pull Request
+```csharp
+var users = await ldap.GetUsersAsync("alice");
 
-## License
+foreach (var item in users)
+{
+    Console.WriteLine($"{item.DisplayName} ({item.Email})");
+}
+```
 
-This project is licensed under the MIT License.
+### Search in a Specific OU with Custom Bind Credentials
+
+```csharp
+var customCreds = new LdapCredentials
+{
+    BindDn = "readonly.user",
+    BindCredentials = "ReadonlyPassword123!"
+};
+
+var usersInOu = await ldap.GetUsersAsync(
+    "alice",
+    ldapCredentials: customCreds,
+    searchBase: "OU=Sales,DC=example,DC=com");
+```
+
+### Advanced Filter Search (Cross-Provider)
+
+```csharp
+ILdap ldapContract = ldap;
+
+var users = await ldapContract.SearchUsersByFilterAsync(
+    "(&(objectClass=person)(department=IT)(mail=*))",
+    searchBase: "DC=example,DC=com");
+```
+
+### Active Directory Specific: Get DirectoryEntry
+
+```csharp
+using var entry = ldap.GetEntryByUsername("alice");
+var nativeObject = entry.NativeObject;
+var properties = entry.Properties;
+```
+
+## Notes
+
+- This implementation is intended for Windows environments using `System.DirectoryServices`.
+- In .NET 5+, the implementation is marked with `[SupportedOSPlatform("windows")]`.
+- When `Security = true`, the client uses LDAPS (`LDAPS://`) and secure bind options.
+- `SearchFilter` is used by both `FindUserAsync` and `GetUsersAsync`; using `{0}` placeholder is recommended.
+- `SearchUsersByFilterAsync` provides provider-agnostic advanced raw-filter queries.
+- If `SearchFilter` format is invalid, the implementation falls back to a default user filter.
+- Input value in user search is escaped before building LDAP filter to reduce malformed/injection risk.
+- Bind username normalization supports existing `domain\\user`, UPN (`user@domain`), and full DN forms.
+- If `LdapConfig.Url` is empty, Active Directory provider attempts domain controller auto-discovery.
+- Convenience constructor overloads can auto-fill missing `Domain` and `SearchBase` defaults.
+
+## Key User Properties (AdUserInfo)
+
+- `DisplayName`, `SamAccountName`, `Upn`, `Dn`
+- `Email`, `TelephoneNumber`, `Mobile`, `Department`, `Title`
+- `Company`, `Manager`, `WhenCreated`, `Status`, `PwdLastSet`
+- `MemberOf`, `ProfilePath`, `HomeDirectory`, `ExtensionAttribute1`
+
+## Dependencies
+
+- System.DirectoryServices
+- System.DirectoryServices.AccountManagement
+- Linger.Ldap.Contracts
+
+## Related Packages
+
+- [Linger.Ldap.Contracts](../Linger.Ldap.Contracts/): core LDAP interfaces and data models
+- [Linger.Ldap.Novell](../Linger.Ldap.Novell/): cross-platform LDAP implementation based on Novell library
 

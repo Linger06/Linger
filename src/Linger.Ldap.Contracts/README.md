@@ -1,48 +1,44 @@
 ﻿# Linger.Ldap.Contracts
 
-A C# LDAP contract library that provides standardized interfaces and models for integrating LDAP directory services across multiple .NET platforms.
+Core contracts and shared models for LDAP operations in .NET applications.
 
 ## Introduction
 
-Linger.Ldap.Contracts provides a set of standardized LDAP operation interfaces and models, making it easier to implement consistent LDAP functionality across different .NET applications.
+Linger.Ldap.Contracts defines provider-agnostic abstractions so application code can work with a single LDAP API while switching between concrete implementations.
 
-## Features
+## Supported Frameworks
 
-### Core Contracts
-- Standardized LDAP operation interfaces
-- Common LDAP attribute definitions
-- Cross-platform compatible models
-- Type-safe LDAP operations
+- .NET 10.0
+- .NET 9.0
+- .NET 8.0
+- .NET Standard 2.0
 
-### Model Support
-- Comprehensive user attribute mappings
-- Groups and organizational unit models
-- Search filter definitions
-- Connection parameter contracts
+## What This Package Contains
+
+- `ILdap` interface for core LDAP operations
+- `LdapConfig` and `LdapCredentials` configuration models
+- `AdUserInfo` unified user profile model
 
 ## ASP.NET Core Integration
 
-### Configuring Services
+### Configure Services
 
-In ASP.NET Core projects, you can utilize LDAP services through dependency injection:
+Register your LDAP configuration and one concrete provider implementation.
 
 ```csharp
-// Configure services in Program.cs or Startup.cs
+using Linger.Ldap.Contracts;
+
 public void ConfigureServices(IServiceCollection services)
 {
-    // Add LDAP configuration
     services.Configure<LdapConfig>(Configuration.GetSection("LdapConfig"));
-    
-    // Register LDAP service depending on the implementation
-    // For Active Directory
+
+    // Choose exactly one provider implementation
     services.AddScoped<ILdap, Linger.Ldap.ActiveDirectory.Ldap>();
-    
-    // Or for Novell LDAP
     // services.AddScoped<ILdap, Linger.Ldap.Novell.Ldap>();
 }
 ```
 
-### appsettings.json example
+### appsettings.json Example
 
 ```json
 {
@@ -57,135 +53,215 @@ public void ConfigureServices(IServiceCollection services)
       "BindCredentials": "password"
     },
     "Attributes": [
-      "displayName", "mail", "sAMAccountName", "userPrincipalName", 
-      "telephoneNumber", "department", "title", "givenName", "sn"
+      "displayName",
+      "mail",
+      "sAMAccountName",
+      "userPrincipalName",
+      "telephoneNumber",
+      "department"
     ]
   }
 }
 ```
 
-### Usage examples
+## Usage Examples
 
-#### User authentication
+### Validate User Credentials
 
 ```csharp
 public class AuthenticationService
 {
     private readonly ILdap _ldap;
-    
+
     public AuthenticationService(ILdap ldap)
     {
         _ldap = ldap;
     }
-    
+
     public async Task<bool> AuthenticateUserAsync(
-        string username, 
-        string password, 
+        string username,
+        string password,
         CancellationToken cancellationToken = default)
     {
         var (isValid, userInfo) = await _ldap.ValidateUserAsync(
-            username, 
-            password, 
-            cancellationToken);
-        
-        if (isValid && userInfo != null)
+            username,
+            password,
+            cancellationToken: cancellationToken);
+
+        if (isValid && userInfo is not null)
         {
-            // User authenticated successfully; you can use information from userInfo
-            Console.WriteLine($"User {userInfo.DisplayName} authenticated successfully");
+            Console.WriteLine($"User {userInfo.DisplayName} authenticated successfully.");
             return true;
         }
-        
+
         return false;
     }
 }
 ```
 
-#### Find user information
+### Find and Search Users
 
 ```csharp
 public class UserService
 {
     private readonly ILdap _ldap;
-    
+
     public UserService(ILdap ldap)
     {
         _ldap = ldap;
     }
-    
+
     public async Task<AdUserInfo?> GetUserInfoAsync(
-        string username, 
+        string username,
         CancellationToken cancellationToken = default)
     {
-        return await _ldap.FindUserAsync(username, cancellationToken);
+        return await _ldap.FindUserAsync(
+            username,
+            cancellationToken: cancellationToken);
     }
-    
+
     public async Task<IEnumerable<AdUserInfo>> SearchUsersAsync(
-        string searchTerm, 
+        string searchTerm,
         CancellationToken cancellationToken = default)
     {
-        return await _ldap.GetUsersAsync(searchTerm, cancellationToken);
+        return await _ldap.GetUsersAsync(
+            searchTerm,
+            cancellationToken: cancellationToken);
     }
-    
+
     public async Task<bool> CheckUserExistsAsync(
-        string username, 
+        string username,
         CancellationToken cancellationToken = default)
     {
-        return await _ldap.UserExistsAsync(username, cancellationToken);
+        return await _ldap.UserExistsAsync(
+            username,
+            cancellationToken: cancellationToken);
     }
 }
 ```
 
-### Cancellation support
-
-All asynchronous LDAP operations support `CancellationToken` for timeout control and request cancellation:
+### Search in a Specific OU with Custom Bind Credentials
 
 ```csharp
-public class LdapService
+var ldapCredentials = new LdapCredentials
 {
-    private readonly ILdap _ldap;
-    
-    public LdapService(ILdap ldap)
+    BindDn = "readonly.user",
+    BindCredentials = "ReadonlyPassword123!"
+};
+
+var users = await _ldap.GetUsersAsync(
+    "alice",
+    ldapCredentials: ldapCredentials,
+    searchBase: "OU=Sales,DC=example,DC=com",
+    cancellationToken: cancellationToken);
+```
+
+### Advanced Filter Search (Cross-Provider)
+
+```csharp
+var advancedFilter = "(&(objectClass=person)(department=IT)(mail=*))";
+
+var users = await _ldap.SearchUsersByFilterAsync(
+    advancedFilter,
+    searchBase: "DC=example,DC=com",
+    cancellationToken: cancellationToken);
+```
+
+## Cancellation Support
+
+All asynchronous LDAP operations support `CancellationToken` for timeout control and request cancellation.
+
+```csharp
+public async Task<bool> ValidateUserWithTimeoutAsync(
+    ILdap ldap,
+    string username,
+    string password,
+    int timeoutSeconds = 5)
+{
+    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+
+    try
     {
-        _ldap = ldap;
+        var (isValid, _) = await ldap.ValidateUserAsync(
+            username,
+            password,
+            cancellationToken: cts.Token);
+        return isValid;
     }
-    
-    // User validation with timeout
-    public async Task<bool> ValidateUserWithTimeoutAsync(
-        string username, 
-        string password, 
-        int timeoutSeconds = 5)
+    catch (OperationCanceledException)
     {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-        
-        try
-        {
-            var (isValid, _) = await _ldap.ValidateUserAsync(
-                username, 
-                password, 
-                cts.Token);
-            return isValid;
-        }
-        catch (OperationCanceledException)
-        {
-            Console.WriteLine("LDAP validation timed out");
-            return false;
-        }
-    }
-    
-    // Using request cancellation token in ASP.NET Core
-    public async Task<AdUserInfo?> GetUserForRequestAsync(
-        string username, 
-        CancellationToken requestCancellationToken)
-    {
-        // If the client disconnects, the operation will be automatically canceled
-        return await _ldap.FindUserAsync(username, requestCancellationToken);
+        Console.WriteLine("LDAP validation timed out.");
+        return false;
     }
 }
 ```
 
-## Supported implementations
+## Core Interface
 
-The library provides the following LDAP directory service implementations:
+```csharp
+public interface ILdap
+{
+    Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(
+        string userName,
+        string password,
+        string? searchBase = null,
+        CancellationToken cancellationToken = default);
 
-- **Linger.Ldap.ActiveDirectory** - Implementation for Microsoft Active Directory
-- **Linger.Ldap.Novell** - Cross-platform implementation using the Novell LDAP client library
+    Task<AdUserInfo?> FindUserAsync(
+        string userName,
+        LdapCredentials? ldapCredentials = null,
+        string? searchBase = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<AdUserInfo>> GetUsersAsync(
+        string userName,
+        LdapCredentials? ldapCredentials = null,
+        string? searchBase = null,
+        CancellationToken cancellationToken = default);
+
+    Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(
+        string filter,
+        LdapCredentials? ldapCredentials = null,
+        string? searchBase = null,
+        CancellationToken cancellationToken = default);
+
+    Task<bool> UserExistsAsync(
+        string userName,
+        string? searchBase = null,
+        CancellationToken cancellationToken = default);
+}
+```
+
+## Core Models
+
+### LdapConfig
+
+```csharp
+public class LdapConfig
+{
+    public string Url { get; set; } = null!;
+    public bool Security { get; set; }
+    public string Domain { get; set; } = null!;
+    public LdapCredentials? Credentials { get; set; }
+    public string SearchBase { get; set; } = null!;
+    public string SearchFilter { get; set; } = null!;
+    public string[]? Attributes { get; set; }
+}
+```
+
+### AdUserInfo (Commonly Used Fields)
+
+- `DisplayName`
+- `SamAccountName`
+- `Upn`
+- `Dn`
+- `Email`
+- `Department`
+- `Title`
+- `MemberOf`
+- `Status`
+
+## Supported Implementations
+
+- [Linger.Ldap.ActiveDirectory](../Linger.Ldap.ActiveDirectory/): implementation optimized for Microsoft Active Directory
+- [Linger.Ldap.Novell](../Linger.Ldap.Novell/): cross-platform implementation based on Novell.Directory.Ldap

@@ -1,23 +1,18 @@
 # Linger.Ldap.ActiveDirectory
 
-一个全面的 .NET 库，用于 Active Directory LDAP 操作，提供对 AD 用户信息和身份验证的简化访问。
+基于 System.DirectoryServices 的 Active Directory LDAP 客户端实现。
 
 ## 功能特点
 
-### 用户管理
-- 用户身份验证和验证
-- 详细用户信息检索
-- 用户搜索功能
-- 组成员资格信息
-
-### 用户信息类别
-- 基本标识（用户名、显示名称、UPN）
-- 个人信息（名字、姓氏、缩写）
-- 联系人详细信息（电子邮件、电话号码、地址）
-- 组织信息（部门、职位、员工 ID）
-- 系统属性（工作站、配置文件路径）
-- 安全设置（账户状态、密码信息）
-
+- Active Directory 用户身份验证与验证
+- 异步用户查询与搜索 API
+- 通过 `searchBase` 支持 OU 范围查询
+- 支持 `Attributes` 属性投影，按需返回字段
+- 通过 `LdapConfig.Security` 启用 LDAPS
+- `FindUserAsync` 与 `GetUsersAsync` 使用可配置 `SearchFilter`
+- 通过 `ILdap.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
+- 当 `LdapConfig.Url` 为空时可自动发现域控制器
+- 提供构造函数重载便捷入口（`new Ldap()` / `new Ldap(logger)`），可自动补齐默认值（尤其 `SearchBase`）
 
 ## 支持的框架
 
@@ -32,281 +27,145 @@
 dotnet add package Linger.Ldap.ActiveDirectory
 ```
 
-## 使用方法
-
-### 配置 LDAP 连接
+## 快速开始
 
 ```csharp
-// 在 Program.cs 或 Startup.cs 中
-services.AddLdapActiveDirectory(options => 
+using Linger.Ldap.ActiveDirectory;
+using Linger.Ldap.Contracts;
+
+var config = new LdapConfig
 {
-    options.Url = "example.com";
-    options.SearchBase = "DC=example,DC=com";
-    options.SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))";
-    options.Credentials = new LdapCredentials 
-    { 
-        BindDn = "CN=ServiceAccount,OU=ServiceAccounts,DC=example,DC=com",
+    Url = "example.com",
+    Domain = "example",
+    SearchBase = "DC=example,DC=com",
+    SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))",
+    Security = true,
+    Credentials = new LdapCredentials
+    {
+        BindDn = "serviceAccount",
         BindCredentials = "SecurePassword123!"
-    };
-});
+    },
+    Attributes =
+    [
+        "displayName",
+        "sAMAccountName",
+        "mail",
+        "department",
+        "memberOf"
+    ]
+};
+
+var ldap = new Ldap(config);
 ```
 
-### 用户身份验证
+### 便捷创建（自动补齐默认值）
 
 ```csharp
-public class AuthService
+var ldap = new Ldap();
+
+// 使用自定义 logger
+var ldapWithLogger = new Ldap(logger);
+```
+
+当 `SearchBase` 为空时，便捷构造函数重载会优先根据 `Domain` 推断（例如 `example.com` -> `DC=example,DC=com`），再回退到当前域的 `distinguishedName`。
+
+## 使用示例
+
+### 验证用户账号密码
+
+```csharp
+var (isValid, userInfo) = await ldap.ValidateUserAsync("alice", "Password123!");
+
+if (isValid && userInfo is not null)
 {
-    private readonly ILdap _ldap;
-
-    public AuthService(ILdap ldap)
-    {
-        _ldap = ldap;
-    }
-
-    public async Task<bool> AuthenticateUserAsync(string username, string password)
-    {
-        // 使用默认 SearchBase 进行身份验证
-        var (isValid, user) = await _ldap.ValidateUserAsync(username, password);
-        return isValid;
-    }
-
-    public async Task<bool> AuthenticateInSpecificOUAsync(string username, string password)
-    {
-        // 在特定 OU 中进行身份验证
-        var (isValid, user) = await _ldap.ValidateUserAsync(
-            username, 
-            password,
-            searchBase: "OU=Sales,DC=example,DC=com"
-        );
-        
-        if (isValid && user != null)
-        {
-            Console.WriteLine($"用户名: {user.Username}");
-            Console.WriteLine($"显示名称: {user.DisplayName}");
-            Console.WriteLine($"电子邮件: {user.Email}");
-            Console.WriteLine($"部门: {user.Department}");
-            Console.WriteLine($"职位: {user.Title}");
-            
-            return true;
-        }
-        
-        return false;
-    }
+    Console.WriteLine($"DisplayName: {userInfo.DisplayName}");
+    Console.WriteLine($"Email: {userInfo.Email}");
 }
 ```
 
-### 检索用户信息
+### 查询单个用户
 
 ```csharp
-public class UserService
+var user = await ldap.FindUserAsync("alice");
+
+if (user is not null)
 {
-    private readonly ILdap _ldap;
-    
-    public UserService(ILdap ldap)
-    {
-        _ldap = ldap;
-    }
-    
-    public async Task<UserViewModel?> GetUserInfoAsync(string username)
-    {
-        // 在默认 SearchBase 中查找特定用户
-        var adUser = await _ldap.FindUserAsync(username);
-        
-        if (adUser is null)
-            return null;
-            
-        return new UserViewModel
-        {
-            Username = adUser.Username,
-            DisplayName = adUser.DisplayName,
-            Email = adUser.Email,
-            Department = adUser.Department,
-            IsEnabled = !adUser.AccountDisabled,
-            Groups = adUser.MemberOf
-        };
-    }
-    
-    public async Task<UserViewModel?> GetUserInSpecificOUAsync(string username, string ou)
-    {
-        // 在特定 OU 中查找用户
-        var adUser = await _ldap.FindUserAsync(
-            username,
-            searchBase: ou
-        );
-        
-        if (adUser is null)
-            return null;
-            
-        return new UserViewModel
-        {
-            Username = adUser.Username,
-            DisplayName = adUser.DisplayName,
-            Email = adUser.Email,
-            Department = adUser.Department
-        };
-    }
-    
-    public async Task<List<UserViewModel>> SearchUsersAsync(string searchTerm)
-    {
-        // 按名称或其他属性搜索用户
-        var adUsers = await _ldap.GetUsersAsync(searchTerm);
-        
-        return adUsers.Select(u => new UserViewModel
-        {
-            Username = u.Username,
-            DisplayName = u.DisplayName,
-            Email = u.Email,
-            Department = u.Department
-        }).ToList();
-    }
-    
-    public async Task<List<UserViewModel>> SearchUsersInOUAsync(string searchTerm, string ou)
-    {
-        // 在特定 OU 中搜索用户
-        var adUsers = await _ldap.GetUsersAsync(
-            searchTerm,
-            searchBase: ou
-        );
-        
-        return adUsers.Select(u => new UserViewModel
-        {
-            Username = u.Username,
-            DisplayName = u.DisplayName,
-            Email = u.Email,
-            Department = u.Department
-        }).ToList();
-    }
+    Console.WriteLine($"SamAccountName: {user.SamAccountName}");
+    Console.WriteLine($"DN: {user.Dn}");
 }
 ```
 
-### 灵活的 OU 搜索 (v1.0 新功能)
+### 搜索用户
 
 ```csharp
-public class AdvancedUserService
-{
-    private readonly ILdap _ldap;
-    
-    public AdvancedUserService(ILdap ldap)
-    {
-        _ldap = ldap;
-    }
-    
-    // 跨多个 OU 搜索用户
-    public async Task<AdUserInfo?> FindUserAcrossOUsAsync(string username)
-    {
-        string[] organizationalUnits = 
-        {
-            "OU=Employees,DC=company,DC=com",
-            "OU=Contractors,DC=company,DC=com",
-            "OU=ServiceAccounts,DC=company,DC=com"
-        };
+var users = await ldap.GetUsersAsync("alice");
 
-        foreach (var ou in organizationalUnits)
-        {
-            var user = await _ldap.FindUserAsync(username, searchBase: ou);
-            if (user != null)
-            {
-                Console.WriteLine($"用户在 {ou} 中找到");
-                return user;
-            }
-        }
-        
-        return null;
-    }
-    
-    // 检查用户是否存在于特定 OU
-    public async Task<bool> CheckUserInOUAsync(string username, string ou)
-    {
-        return await _ldap.UserExistsAsync(
-            username,
-            searchBase: ou
-        );
-    }
-    
-    // 在多个部门 OU 中搜索
-    public async Task<Dictionary<string, List<AdUserInfo>>> SearchByDepartmentAsync(string searchTerm)
-    {
-        var departments = new Dictionary<string, string>
-        {
-            ["销售部"] = "OU=Sales,DC=company,DC=com",
-            ["IT部"] = "OU=IT,DC=company,DC=com",
-            ["人力资源部"] = "OU=HR,DC=company,DC=com"
-        };
-        
-        var results = new Dictionary<string, List<AdUserInfo>>();
-        
-        foreach (var dept in departments)
-        {
-            var users = await _ldap.GetUsersAsync(
-                searchTerm,
-                searchBase: dept.Value
-            );
-            results[dept.Key] = users.ToList();
-        }
-        
-        return results;
-    }
+foreach (var item in users)
+{
+    Console.WriteLine($"{item.DisplayName} ({item.Email})");
 }
 ```
 
-### 检查组成员资格
+### 指定 OU 与自定义凭据查询
 
 ```csharp
-public class PermissionService
+var customCreds = new LdapCredentials
 {
-    private readonly ILdap _ldap;
-    
-    public PermissionService(ILdap ldap)
-    {
-        _ldap = ldap;
-    }
-    
-    public async Task<bool> IsUserInGroupAsync(string username, string groupName)
-    {
-        var user = await _ldap.FindUserAsync(username);
-        
-        if (user?.MemberOf == null)
-            return false;
-            
-        foreach (var group in user.MemberOf)
-        {
-            if (group.Contains($"CN={groupName},"))
-                return true;
-        }
-        
-        return false;
-    }
-}
+    BindDn = "readonly.user",
+    BindCredentials = "ReadonlyPassword123!"
+};
+
+var usersInOu = await ldap.GetUsersAsync(
+    "alice",
+    ldapCredentials: customCreds,
+    searchBase: "OU=Sales,DC=example,DC=com");
 ```
 
-## 特定于 Active Directory 的功能
-
-此库利用 `System.DirectoryServices` 和 `System.DirectoryServices.AccountManagement` 提供对 Active Directory 特定功能的访问：
+### 高级过滤查询（跨提供者统一）
 
 ```csharp
-// 例如：访问底层 DirectoryEntry 对象
-var ldapService = new Ldap(ldapConfig);
-var directoryEntry = ldapService.GetEntryByUsername("username");
+ILdap ldapContract = ldap;
 
-// 可以访问 DirectoryEntry 的所有功能
-var nativeObject = directoryEntry.NativeObject;
-var properties = directoryEntry.Properties;
+var users = await ldapContract.SearchUsersByFilterAsync(
+    "(&(objectClass=person)(department=IT)(mail=*))",
+    searchBase: "DC=example,DC=com");
+```
+
+### Active Directory 专有：获取 DirectoryEntry
+
+```csharp
+using var entry = ldap.GetEntryByUsername("alice");
+var nativeObject = entry.NativeObject;
+var properties = entry.Properties;
 ```
 
 ## 注意事项
 
-1. 此库需要在 Windows 上运行，或者在支持 `System.DirectoryServices` 的环境中运行
-2. .NET 5+ 版本具有 `[SupportedOSPlatform("windows")]` 属性
-3. 对于跨平台 LDAP 解决方案，请查看 [Linger.Ldap.Novell](../Linger.Ldap.Novell/)
+- 该实现面向 Windows 环境，依赖 `System.DirectoryServices`。
+- 在 .NET 5+ 下实现带有 `[SupportedOSPlatform("windows")]` 标注。
+- 当 `Security = true` 时，客户端使用 LDAPS（`LDAPS://`）和安全绑定选项。
+- `SearchFilter` 会用于 `FindUserAsync` 与 `GetUsersAsync`，建议使用 `{0}` 占位符。
+- `SearchUsersByFilterAsync` 可用于跨提供者统一的原始过滤器高级查询。
+- 若 `SearchFilter` 格式错误，内部会回退到默认用户过滤模板。
+- 查询输入值会在构建 LDAP 过滤器前转义，降低格式破坏和注入风险。
+- 绑定用户名会先规范化：已是 `domain\\user`、UPN（`user@domain`）或完整 DN 时不会重复拼接域前缀。
+- 当 `LdapConfig.Url` 为空时，ActiveDirectory 实现会尝试自动发现域控制器。
+- 便捷构造函数重载可自动补齐缺失的 `Domain` 与 `SearchBase` 默认值。
+
+## 常用用户属性（AdUserInfo）
+
+- `DisplayName`、`SamAccountName`、`Upn`、`Dn`
+- `Email`、`TelephoneNumber`、`Mobile`、`Department`、`Title`
+- `Company`、`Manager`、`WhenCreated`、`Status`、`PwdLastSet`
+- `MemberOf`、`ProfilePath`、`HomeDirectory`、`ExtensionAttribute1`
 
 ## 依赖项
 
 - System.DirectoryServices
-- System.DirectoryServices.AccountManagement 
-- Microsoft.Extensions.Options
+- System.DirectoryServices.AccountManagement
 - Linger.Ldap.Contracts
 
 ## 相关包
 
-- [Linger.Ldap.Contracts](../Linger.Ldap.Contracts/) - LDAP 操作的核心接口和数据模型
-- [Linger.Ldap.Novell](../Linger.Ldap.Novell/) - 基于 Novell 库的跨平台 LDAP 实现
+- [Linger.Ldap.Contracts](../Linger.Ldap.Contracts/)：核心 LDAP 接口与数据模型
+- [Linger.Ldap.Novell](../Linger.Ldap.Novell/)：基于 Novell 库的跨平台 LDAP 实现

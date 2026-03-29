@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Linger.Extensions.Core;
 using Linger.Ldap.Contracts;
 using Microsoft.Extensions.Logging;
@@ -11,12 +12,14 @@ namespace Linger.Ldap.Novell;
 /// LDAP client implementation using Novell.Directory.Ldap provider.
 /// Provides cross-platform LDAP connectivity.
 /// </summary>
-public class Ldap : ILdap, IDisposable
+public sealed class Ldap : ILdap, IDisposable
 {
     private readonly LdapConfig _ldapConfig;
     private readonly LdapConnection _ldapConn;
     private readonly ILogger<Ldap> _logger;
     private bool _disposed;
+
+    private const string DefaultUserSearchFilterTemplate = "(&(objectClass=person)(|(uid={0})(sAMAccountName={0})(userPrincipalName={0})(mail={0})(cn={0})(displayName={0})))";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Ldap"/> class.
@@ -43,35 +46,39 @@ public class Ldap : ILdap, IDisposable
     {
         _logger.LogDebug("Finding user {UserName} in LDAP", userName);
 
-        if (!await ConnectAsync(ldapCredentials).ConfigureAwait(false))
+        var searchFilter = BuildUserSearchFilter(userName, exactMatch: true);
+        var users = await SearchUsersByFilterAsync(searchFilter, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
+
+        var user = users.FirstOrDefault();
+        if (user is null)
         {
-            _logger.LogWarning("Failed to connect to LDAP server when finding user {UserName}", userName);
-            return null;
+            _logger.LogDebug("User {UserName} not found in LDAP", userName);
         }
 
-        try
-        {
-            var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
-            var searchFilter = string.Format(CultureInfo.InvariantCulture, _ldapConfig.SearchFilter, userName);
-            ILdapSearchResults? result = await _ldapConn.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, searchFilter, null, false, cancellationToken).ConfigureAwait(false);
-
-            LdapEntry? user = await result.NextAsync(cancellationToken).ConfigureAwait(false);
-            if (user is null)
-            {
-                _logger.LogDebug("User {UserName} not found in LDAP", userName);
-            }
-
-            return user?.ToAdUser();
-        }
-        finally
-        {
-            Disconnect();
-        }
+        return user;
     }
 
     public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
-        if (!await ConnectAsync(ldapCredentials).ConfigureAwait(false)) return [];
+        var searchFilter = BuildUserSearchFilter(userName, exactMatch: false);
+        return await SearchUsersByFilterAsync(searchFilter, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Searches users by raw LDAP filter with provider-agnostic contract.
+    /// </summary>
+    /// <param name="filter">Raw LDAP filter expression</param>
+    /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Collection of matching users</returns>
+    public async Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    {
+        if (!await ConnectAsync(ldapCredentials).ConfigureAwait(false))
+        {
+            _logger.LogWarning("Failed to connect to LDAP server when searching users by filter");
+            return [];
+        }
 
         try
         {
@@ -79,8 +86,11 @@ public class Ldap : ILdap, IDisposable
 
             // Use provided searchBase or fall back to config's SearchBase
             var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
-            var searchFilter = string.Format(CultureInfo.InvariantCulture, _ldapConfig.SearchFilter, userName + "*");
-            ILdapSearchResults? lsc = await _ldapConn.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, searchFilter, null, false, cancellationToken).ConfigureAwait(false);
+            var effectiveFilter = filter.IsNullOrWhiteSpace()
+                ? BuildUserSearchFilter(string.Empty, exactMatch: false)
+                : filter;
+
+            ILdapSearchResults? lsc = await _ldapConn.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, effectiveFilter, _ldapConfig.Attributes, false, cancellationToken).ConfigureAwait(false);
             while (await lsc.HasMoreAsync(cancellationToken).ConfigureAwait(false))
             {
                 LdapEntry? nextEntry;
@@ -90,11 +100,12 @@ public class Ldap : ILdap, IDisposable
                 }
                 catch (LdapException ex)
                 {
-                    _logger.LogWarning(ex, "Error retrieving LDAP entry while searching for user {UserName}, skipping entry", userName);
+                    _logger.LogWarning(ex, "Error retrieving LDAP entry while searching users by filter {Filter}, skipping entry", effectiveFilter);
                     continue;
                 }
                 ldapEntries.Add(nextEntry);
             }
+
             return ldapEntries
                 .Select(entry => entry.ToAdUser())
                 .Where(user => user is not null)
@@ -173,18 +184,120 @@ public class Ldap : ILdap, IDisposable
 
     private async Task BindCredentialsAsync(LdapCredentials credentials)
     {
-        var domain = _ldapConfig.Domain;
         var userId = credentials.BindDn;
         var password = credentials.BindCredentials;
 
         if (userId.IsNotNullOrEmpty() && password.IsNotNullOrEmpty())
         {
-            await _ldapConn.BindAsync($@"{domain}\{userId}", password).ConfigureAwait(false);
+            var bindUserName = BuildBindUserName(userId);
+            await _ldapConn.BindAsync(bindUserName, password).ConfigureAwait(false);
         }
         else
         {
             await _ldapConn.BindAsync(null, null).ConfigureAwait(false);
         }
+    }
+
+    private string BuildUserSearchFilter(string userName, bool exactMatch)
+    {
+        var normalizedUserName = userName ?? string.Empty;
+
+        if (!exactMatch)
+        {
+            if (normalizedUserName.IsNullOrWhiteSpace())
+            {
+                normalizedUserName = "*";
+            }
+            else if (normalizedUserName.IndexOf('*') < 0)
+            {
+                normalizedUserName += "*";
+            }
+        }
+
+        var escapedUserName = EscapeLdapFilterValue(normalizedUserName, preserveAsterisk: !exactMatch);
+        return BuildConfiguredSearchFilter(escapedUserName);
+    }
+
+    private string BuildConfiguredSearchFilter(string escapedUserName)
+    {
+        if (_ldapConfig.SearchFilter.IsNullOrWhiteSpace())
+        {
+            return string.Format(CultureInfo.InvariantCulture, DefaultUserSearchFilterTemplate, escapedUserName);
+        }
+
+        try
+        {
+            if (_ldapConfig.SearchFilter.Contains("{0}", StringComparison.Ordinal))
+            {
+                return string.Format(CultureInfo.InvariantCulture, _ldapConfig.SearchFilter, escapedUserName);
+            }
+
+            return _ldapConfig.SearchFilter;
+        }
+        catch (FormatException ex)
+        {
+            _logger.LogWarning(ex,
+                "Invalid LDAP SearchFilter format: {SearchFilter}. Falling back to default filter.",
+                _ldapConfig.SearchFilter);
+            return string.Format(CultureInfo.InvariantCulture, DefaultUserSearchFilterTemplate, escapedUserName);
+        }
+    }
+
+    private string? BuildBindUserName(string? bindDn)
+    {
+        if (bindDn.IsNullOrWhiteSpace())
+        {
+            return bindDn;
+        }
+
+        if (bindDn.Contains('\\') || bindDn.Contains('@') || bindDn.Contains('='))
+        {
+            return bindDn;
+        }
+
+        if (_ldapConfig.Domain.IsNullOrWhiteSpace())
+        {
+            return bindDn;
+        }
+
+        return $@"{_ldapConfig.Domain}\{bindDn}";
+    }
+
+    private static string EscapeLdapFilterValue(string value, bool preserveAsterisk)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        var escapedValue = new StringBuilder(value.Length);
+
+        foreach (var character in value)
+        {
+            switch (character)
+            {
+                case '\\':
+                    escapedValue.Append("\\5c");
+                    break;
+                case '*':
+                    escapedValue.Append(preserveAsterisk ? "*" : "\\2a");
+                    break;
+                case '(':
+                    escapedValue.Append("\\28");
+                    break;
+                case ')':
+                    escapedValue.Append("\\29");
+                    break;
+                case '\0':
+                    escapedValue.Append("\\00");
+                    break;
+                default:
+                    escapedValue.Append(character);
+                    break;
+            }
+        }
+
+        return escapedValue.ToString();
     }
 
     /// <summary>
@@ -208,31 +321,18 @@ public class Ldap : ILdap, IDisposable
     public async Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default) => await FindUserAsync(userName, searchBase: searchBase, cancellationToken: cancellationToken).ConfigureAwait(false) is not null;
 
     /// <summary>
-    /// Releases the unmanaged resources used by the <see cref="Ldap"/> and optionally releases the managed resources.
+    /// Releases resources used by the <see cref="Ldap"/>.
     /// </summary>
     public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Releases the unmanaged resources used by the <see cref="Ldap"/> and optionally releases the managed resources.
-    /// </summary>
-    /// <param name="disposing">true to release both managed and unmanaged resources; false to release only unmanaged resources.</param>
-    protected virtual void Dispose(bool disposing)
     {
         if (_disposed)
         {
             return;
         }
 
-        if (disposing)
-        {
-            Disconnect();
-            _ldapConn.Dispose();
-        }
-
+        Disconnect();
+        _ldapConn.Dispose();
         _disposed = true;
+        GC.SuppressFinalize(this);
     }
 }
