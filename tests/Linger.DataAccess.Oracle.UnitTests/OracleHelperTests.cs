@@ -269,6 +269,77 @@ public class OracleHelperTests
     }
 
     [Fact]
+    public async Task QueryAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var helper = new OracleHelper(TestConnectionString);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exQuery = await Record.ExceptionAsync(() => helper.QueryAsync("SELECT 1 FROM DUAL", cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exQuery);
+    }
+
+    [Fact]
+    public async Task QueryTableAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var helper = new OracleHelper(TestConnectionString);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exQueryTable = await Record.ExceptionAsync(() =>
+            helper.QueryTableAsync("SELECT 1 FROM DUAL", cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exQueryTable);
+    }
+
+    [Fact]
+    public async Task PageAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var helper = new OracleHelper(TestConnectionString);
+        var parameters = new List<string> { "1" };
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exPage = await Record.ExceptionAsync(() =>
+            helper.QueryInBatchesAsync("SELECT * FROM users WHERE id IN ({0})", parameters, cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exPage);
+    }
+
+    [Fact]
+    public void QueryInBatchesRaw_WithEmptyValues_ShouldReturnEmptyDataTable()
+    {
+        // Arrange
+        var helper = new OracleHelper(TestConnectionString);
+
+        // Act
+        var result = helper.QueryInBatchesRaw("SELECT * FROM users WHERE id IN ({0})", new List<string>());
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.Rows.Count);
+    }
+
+    [Fact]
+    public async Task QueryInBatchesRawAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var helper = new OracleHelper(TestConnectionString);
+        var values = new List<string> { "1" };
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exRaw = await Record.ExceptionAsync(() =>
+            helper.QueryInBatchesRawAsync("SELECT * FROM users WHERE id IN ({0})", values, cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exRaw);
+    }
+
+    [Fact]
     public void OracleParameter_Construction_ShouldCreateValidParameters()
     {
         // Arrange & Act

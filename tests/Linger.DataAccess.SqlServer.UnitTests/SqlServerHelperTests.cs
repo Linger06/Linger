@@ -217,6 +217,92 @@ public class SqlServerHelperTests
     }
 
     [Fact]
+    public async Task QueryAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exQuery = await Record.ExceptionAsync(() =>
+            sqlHelper.QueryAsync("SELECT 1", cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exQuery);
+    }
+
+    [Fact]
+    public async Task QueryTableAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exQueryTable = await Record.ExceptionAsync(() =>
+            sqlHelper.QueryTableAsync("SELECT 1", cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exQueryTable);
+    }
+
+    [Fact]
+    public void QueryInBatches_WithEmptyParameters_ShouldReturnEmptyDataTable()
+    {
+        // Arrange
+        var sqlHelper = new SqlServerHelper(TestConnectionString);
+
+        // Act
+        var result = sqlHelper.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", new List<string>());
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.Rows.Count);
+    }
+
+    [Fact]
+    public async Task QueryInBatchesAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var parameters = new List<string> { "1" };
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exBatch = await Record.ExceptionAsync(() =>
+            sqlHelper.QueryInBatchesAsync("SELECT * FROM users WHERE id IN ({0})", parameters, cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exBatch);
+    }
+
+    [Fact]
+    public void QueryInBatchesRaw_WithEmptyValues_ShouldReturnEmptyDataTable()
+    {
+        // Arrange
+        var sqlHelper = new SqlServerHelper(TestConnectionString);
+
+        // Act
+        var result = sqlHelper.QueryInBatchesRaw("SELECT * FROM users WHERE id IN ({0})", new List<string>());
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.Rows.Count);
+    }
+
+    [Fact]
+    public async Task QueryInBatchesRawAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var values = new List<string> { "1" };
+        using var cts = new System.Threading.CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exRawBatch = await Record.ExceptionAsync(() =>
+            sqlHelper.QueryInBatchesRawAsync("SELECT * FROM users WHERE id IN ({0})", values, cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exRawBatch);
+    }
+
+    [Fact]
     public void BulkInsert_WithEmptyDataTable_ShouldReturnFalse()
     {
         // Arrange
@@ -238,6 +324,32 @@ public class SqlServerHelperTests
 
         // Act
         var result = sqlHelper.BulkInsert(null!);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void BulkInsert_WhenReferencedAsIDatabase_ShouldUseSqlServerOverride()
+    {
+        // Arrange
+        Linger.DataAccess.IDatabase database = new SqlServerHelper(TestConnectionString);
+
+        // Act
+        var result = database.BulkInsert(null!);
+
+        // Assert
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void BulkInsert_WhenReferencedAsDatabase_ShouldUseSqlServerOverride()
+    {
+        // Arrange
+        Linger.DataAccess.Database database = new SqlServerHelper(TestConnectionString);
+
+        // Act
+        var result = database.BulkInsert(null!);
 
         // Assert
         Assert.False(result);

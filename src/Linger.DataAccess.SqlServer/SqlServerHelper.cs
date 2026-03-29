@@ -232,8 +232,8 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// 使用 SQL Server 特有的 BulkCopy 进行批量插入
     /// </summary>
     /// <param name="dt">数据表</param>
-    /// <returns>始终返回 true，表示成功</returns>
-    public new bool BulkInsert(DataTable dt)
+    /// <returns>当存在可插入数据时返回 true，否则返回 false</returns>
+    public override bool BulkInsert(DataTable dt)
     {
         if (dt?.Rows.Count > 0)
         {

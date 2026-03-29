@@ -13,6 +13,9 @@ public interface IDatabase : IDisposable
     bool BulkInsert(DataTable dt);
 
     int ExecuteBySql(string sql);
+    int ExecuteBySql(string sql, DbParameter[] parameters);
+    int ExecuteBySql(string sql, DbTransaction transaction);
+    int ExecuteBySql(string sql, DbParameter[] parameters, DbTransaction transaction);
     int ExecuteBySql(StringBuilder sql);
     int ExecuteBySql(StringBuilder sql, DbTransaction transaction);
     int ExecuteBySql(StringBuilder sql, DbParameter[] parameters);
@@ -23,11 +26,17 @@ public interface IDatabase : IDisposable
     int ExecuteByProc(string procName, DbParameter[] parameters);
     int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction transaction);
 
+    DataSet Query(string sql, params DbParameter[] parameters);
+    DataTable QueryTable(string sql, params DbParameter[] parameters);
+    Task<DataSet> QueryAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
+    Task<DataTable> QueryTableAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
+
     List<T> FindListBySql<T>(string sql);
     List<T> FindListBySql<T>(string sql, DbParameter[] parameters);
 
     DataTable FindTableBySql(string sql);
     Task<DataTable> FindTableBySqlAsync(string sql);
+    Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters);
     DataTable FindTableBySql(string sql, DbParameter[] parameters);
     DataTable FindTableByProc(string procName);
     DataTable FindTableByProc(string procName, DbParameter[] parameters);
@@ -38,6 +47,11 @@ public interface IDatabase : IDisposable
     Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters);
     DataSet FindDataSetByProc(string procName);
     DataSet FindDataSetByProc(string procName, DbParameter[] parameters);
+
+    DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000);
+    Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, int batchSize = 1000, CancellationToken cancellationToken = default);
+    DataTable QueryInBatchesRaw(string sql, List<string> values, int batchSize = 1000, bool quote = true);
+    Task<DataTable> QueryInBatchesRawAsync(string sql, List<string> values, int batchSize = 1000, bool quote = true, CancellationToken cancellationToken = default);
 
     T FindEntityBySql<T>(string sql);
     T FindEntityBySql<T>(string sql, DbParameter[] parameters);
@@ -52,4 +66,6 @@ public interface IDatabase : IDisposable
 
     object? FindMaxBySql(string sql);
     object? FindMaxBySql(string sql, DbParameter[] parameters);
+    Task<object?> FindMaxBySqlAsync(string sql);
+    Task<object?> FindMaxBySqlAsync(string sql, DbParameter[] parameters);
 }

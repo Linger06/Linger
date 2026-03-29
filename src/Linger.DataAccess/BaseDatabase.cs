@@ -36,7 +36,7 @@ public class BaseDatabase : IBaseDatabase
     /// <summary>
     /// 是否已在事务之中
     /// </summary>
-    public bool InTransaction { get; set; }
+    public bool InTransaction { get; private set; }
     /// <summary>
     /// 事务开始
     /// </summary>
@@ -125,13 +125,8 @@ public class BaseDatabase : IBaseDatabase
     /// <returns></returns>
     public int ExecuteNonQuery(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
-        PrepareCommand(cmd, conn, null, cmdType, cmdText, parameters);
-        var num = cmd.ExecuteNonQuery();
-        cmd.Parameters.Clear();
-
-        return num;
+        return ExecuteNonQueryInternal(conn, null, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -149,13 +144,9 @@ public class BaseDatabase : IBaseDatabase
 
     public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
-        await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-
-        return num;
+        return await ExecuteNonQueryInternalAsync(conn, null, cmdType, cmdText, parameters, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -166,13 +157,8 @@ public class BaseDatabase : IBaseDatabase
     /// <returns></returns>
     public int ExecuteNonQuery(CommandType cmdType, string cmdText)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
-        PrepareCommand(cmd, conn, null, cmdType, cmdText, null);
-        var num = cmd.ExecuteNonQuery();
-        cmd.Parameters.Clear();
-
-        return num;
+        return ExecuteNonQueryInternal(conn, null, cmdType, cmdText, null);
     }
 
     /// <summary>
@@ -185,13 +171,9 @@ public class BaseDatabase : IBaseDatabase
     public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText,
         CancellationToken cancellationToken = default)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
-        await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-
-        return num;
+        return await ExecuteNonQueryInternalAsync(conn, null, cmdType, cmdText, null, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -205,12 +187,7 @@ public class BaseDatabase : IBaseDatabase
     public int ExecuteNonQuery(DbConnection connection, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        PrepareCommand(cmd, connection, null, cmdType, cmdText, parameters);
-        var num = cmd.ExecuteNonQuery();
-        cmd.Parameters.Clear();
-
-        return num;
+        return ExecuteNonQueryInternal(connection, null, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -229,12 +206,8 @@ public class BaseDatabase : IBaseDatabase
 
     public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-
-        return num;
+        return await ExecuteNonQueryInternalAsync(connection, null, cmdType, cmdText, parameters,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -246,12 +219,7 @@ public class BaseDatabase : IBaseDatabase
     /// <returns></returns>
     public int ExecuteNonQuery(DbConnection connection, CommandType cmdType, string cmdText)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        PrepareCommand(cmd, connection, null, cmdType, cmdText, null);
-        var num = cmd.ExecuteNonQuery();
-        cmd.Parameters.Clear();
-
-        return num;
+        return ExecuteNonQueryInternal(connection, null, cmdType, cmdText, null);
     }
 
     /// <summary>
@@ -264,12 +232,8 @@ public class BaseDatabase : IBaseDatabase
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-
-        return num;
+        return await ExecuteNonQueryInternalAsync(connection, null, cmdType, cmdText, null, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -279,27 +243,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
     /// <returns></returns>
     public int ExecuteNonQuery(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        int num;
-        DbCommand cmd = Provider.CreateCommand();
-        if (transaction.Connection == null)
-        {
-            using DbConnection conn = Provider.CreateConnection(ConnString);
-            PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
-            num = cmd.ExecuteNonQuery();
-        }
-        else
-        {
-            PrepareCommand(cmd, transaction.Connection, transaction, cmdType, cmdText, parameters);
-            num = cmd.ExecuteNonQuery();
-        }
-
-        cmd.Parameters.Clear();
-
-        return num;
+        DbConnection? conn = transaction.Connection;
+        conn.EnsureIsNotNull();
+        return ExecuteNonQueryInternal(conn, transaction, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -309,6 +260,7 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
     /// <returns></returns>
     // 便捷重载：支持 params，不传 CancellationToken
     public Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
@@ -318,24 +270,10 @@ public class BaseDatabase : IBaseDatabase
 
     public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        int num;
-        DbCommand cmd = Provider.CreateCommand();
-        if (transaction.Connection == null)
-        {
-            using DbConnection conn = Provider.CreateConnection(ConnString);
-            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
-            num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            await PrepareCommandAsync(cmd, transaction.Connection, transaction, cmdType, cmdText,
-                parameters).ConfigureAwait(false);
-            num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        }
-
-        cmd.Parameters.Clear();
-
-        return num;
+        DbConnection? conn = transaction.Connection;
+        conn.EnsureIsNotNull();
+        return await ExecuteNonQueryInternalAsync(conn, transaction, cmdType, cmdText, parameters,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -344,18 +282,13 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="transaction">事务对象</param>
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
     /// <returns></returns>
     public int ExecuteNonQuery(DbTransaction transaction, CommandType cmdType, string cmdText)
     {
-        DbCommand cmd = Provider.CreateCommand();
         DbConnection? conn = transaction.Connection;
         conn.EnsureIsNotNull();
-
-        PrepareCommand(cmd, conn, transaction, cmdType, cmdText, null);
-        var num = cmd.ExecuteNonQuery();
-        cmd.Parameters.Clear();
-
-        return num;
+        return ExecuteNonQueryInternal(conn, transaction, cmdType, cmdText, null);
     }
 
     /// <summary>
@@ -365,18 +298,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
     /// <param name="cancellationToken">取消令牌</param>
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
     /// <returns></returns>
     public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
-        DbCommand cmd = Provider.CreateCommand();
         DbConnection? conn = transaction.Connection;
         conn.EnsureIsNotNull();
-
-        await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, null).ConfigureAwait(false);
-        var num = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-
-        return num;
+        return await ExecuteNonQueryInternalAsync(conn, transaction, cmdType, cmdText, null, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -386,25 +315,14 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
     /// <returns>返回SqlDataReader对象</returns>
     public IDataReader ExecuteReader(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
-            IDataReader rdr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
-            cmd.Parameters.Clear();
-            return rdr;
-        }
-        catch (Exception)
-        {
-            conn.Close();
-            cmd.Dispose();
-            throw;
-        }
+        DbConnection? conn = transaction.Connection;
+        conn.EnsureIsNotNull();
+        return ExecuteReaderInternal(conn, transaction, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -414,6 +332,7 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
     /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
     /// <param name="parameters">执行命令所需的sql语句对应参数</param>
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
     /// <returns>返回SqlDataReader对象</returns>
     // 便捷重载：支持 params，不传 CancellationToken
     public Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
@@ -423,21 +342,10 @@ public class BaseDatabase : IBaseDatabase
 
     public async Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
-            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection, cancellationToken).ConfigureAwait(false);
-            cmd.Parameters.Clear();
-            return rdr;
-        }
-        catch (Exception)
-        {
-            await CloseConnectionAsync(conn).ConfigureAwait(false);
-            cmd.Dispose();
-            throw;
-        }
+        DbConnection? conn = transaction.Connection;
+        conn.EnsureIsNotNull();
+        return await ExecuteReaderInternalAsync(conn, transaction, cmdType, cmdText, parameters, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -449,21 +357,7 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回SqlDataReader对象</returns>
     public IDataReader ExecuteReader(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            PrepareCommand(cmd, conn, null, cmdType, cmdText, parameters);
-            IDataReader rdr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
-            cmd.Parameters.Clear();
-            return rdr;
-        }
-        catch (Exception)
-        {
-            conn.Close();
-            cmd.Dispose();
-            throw;
-        }
+        return ExecuteReaderInternal(null, null, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -481,21 +375,8 @@ public class BaseDatabase : IBaseDatabase
 
     public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection, cancellationToken).ConfigureAwait(false);
-            cmd.Parameters.Clear();
-            return rdr;
-        }
-        catch (Exception)
-        {
-            await CloseConnectionAsync(conn).ConfigureAwait(false);
-            cmd.Dispose();
-            throw;
-        }
+        return await ExecuteReaderInternalAsync(null, null, cmdType, cmdText, parameters, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -506,21 +387,7 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回SqlDataReader对象</returns>
     public IDataReader ExecuteReader(CommandType cmdType, string cmdText)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            PrepareCommand(cmd, conn, null, cmdType, cmdText, null);
-            IDataReader rdr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
-            cmd.Parameters.Clear();
-            return rdr;
-        }
-        catch (Exception)
-        {
-            conn.Close();
-            cmd.Dispose();
-            throw;
-        }
+        return ExecuteReaderInternal(null, null, cmdType, cmdText, null);
     }
 
     /// <summary>
@@ -532,18 +399,81 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回SqlDataReader对象</returns>
     public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
+        return await ExecuteReaderInternalAsync(null, null, cmdType, cmdText, null, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private int ExecuteNonQueryInternal(DbConnection connection, DbTransaction? transaction, CommandType cmdType,
+        string cmdText, DbParameter[]? parameters)
+    {
+        using DbCommand cmd = Provider.CreateCommand();
+        PrepareCommand(cmd, connection, transaction, cmdType, cmdText, parameters);
+        var affectedRows = cmd.ExecuteNonQuery();
+        cmd.Parameters.Clear();
+        return affectedRows;
+    }
+
+    private async Task<int> ExecuteNonQueryInternalAsync(DbConnection connection, DbTransaction? transaction,
+        CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
+    {
+        using DbCommand cmd = Provider.CreateCommand();
+        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+        var affectedRows = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        cmd.Parameters.Clear();
+        return affectedRows;
+    }
+
+    private IDataReader ExecuteReaderInternal(DbConnection? connection, DbTransaction? transaction,
+        CommandType cmdType, string cmdText, DbParameter[]? parameters)
+    {
+        // 当调用方未传连接时，由当前方法创建并通过 CloseConnection 交给 reader 生命周期释放。
+        var ownsConnection = connection is null;
         DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
+        DbConnection conn = connection ?? Provider.CreateConnection(ConnString);
         try
         {
-            await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, null).ConfigureAwait(false);
-            IDataReader rdr = await cmd.ExecuteReaderAsync(CommandBehavior.CloseConnection, cancellationToken).ConfigureAwait(false);
+            PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
+            var commandBehavior = ownsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
+            IDataReader reader = cmd.ExecuteReader(commandBehavior);
             cmd.Parameters.Clear();
-            return rdr;
+            return reader;
         }
         catch (Exception)
         {
-            await CloseConnectionAsync(conn).ConfigureAwait(false);
+            if (ownsConnection)
+            {
+                conn.Close();
+            }
+
+            cmd.Dispose();
+            throw;
+        }
+    }
+
+    private async Task<IDataReader> ExecuteReaderInternalAsync(DbConnection? connection,
+        DbTransaction? transaction, CommandType cmdType, string cmdText, DbParameter[]? parameters,
+        CancellationToken cancellationToken)
+    {
+        // 异步路径与同步一致：仅在内部创建连接时使用 CloseConnection 绑定 reader 生命周期。
+        var ownsConnection = connection is null;
+        DbCommand cmd = Provider.CreateCommand();
+        DbConnection conn = connection ?? Provider.CreateConnection(ConnString);
+        try
+        {
+            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+            var commandBehavior = ownsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
+            IDataReader reader = await cmd.ExecuteReaderAsync(commandBehavior, cancellationToken)
+                .ConfigureAwait(false);
+            cmd.Parameters.Clear();
+            return reader;
+        }
+        catch (Exception)
+        {
+            if (ownsConnection)
+            {
+                await CloseConnectionAsync(conn).ConfigureAwait(false);
+            }
+
             cmd.Dispose();
             throw;
         }
@@ -558,22 +488,7 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>数据集DataSet对象</returns>
     public DataSet GetDataSet(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        var ds = new DataSet();
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            PrepareCommand(cmd, conn, null, cmdType, cmdText, parameters);
-            var sda = Provider.CreateDataAdapter(cmd);
-            _ = sda.Fill(ds);
-            return ds;
-        }
-        catch (Exception)
-        {
-            conn.Close();
-            cmd.Dispose();
-            throw;
-        }
+        return FillDataSet(cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -586,27 +501,12 @@ public class BaseDatabase : IBaseDatabase
     // 便捷重载：支持 params，不传 CancellationToken
     public Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        return GetDataSetAsync(cmdType, cmdText, parameters, CancellationToken.None);
+        return FillDataSetAsync(cmdType, cmdText, parameters, CancellationToken.None);
     }
 
-    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
+    public Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        var ds = new DataSet();
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-            var sda = Provider.CreateDataAdapter(cmd);
-            _ = sda.Fill(ds);
-            return ds;
-        }
-        catch (Exception)
-        {
-            await CloseConnectionAsync(conn).ConfigureAwait(false);
-            cmd.Dispose();
-            throw;
-        }
+        return FillDataSetAsync(cmdType, cmdText, parameters, cancellationToken);
     }
 
     /// <summary>
@@ -617,22 +517,7 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>数据集DataSet对象</returns>
     public DataSet GetDataSet(CommandType cmdType, string cmdText)
     {
-        var ds = new DataSet();
-        DbCommand cmd = Provider.CreateCommand();
-        using DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            PrepareCommand(cmd, conn, null, cmdType, cmdText, null);
-            var sda = Provider.CreateDataAdapter(cmd);
-            _ = sda.Fill(ds);
-            return ds;
-        }
-        catch (Exception)
-        {
-            conn.Close();
-            cmd.Dispose();
-            throw;
-        }
+        return FillDataSet(cmdType, cmdText, null);
     }
 
     /// <summary>
@@ -642,24 +527,9 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="cmdText">命令文本</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>数据集DataSet对象</returns>
-    public async Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
+    public Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
-        var ds = new DataSet();
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = Provider.CreateConnection(ConnString);
-        try
-        {
-            await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, null).ConfigureAwait(false);
-            var sda = Provider.CreateDataAdapter(cmd);
-            _ = sda.Fill(ds);
-            return ds;
-        }
-        catch (Exception)
-        {
-            await CloseConnectionAsync(conn).ConfigureAwait(false);
-            cmd.Dispose();
-            throw;
-        }
+        return FillDataSetAsync(cmdType, cmdText, null, cancellationToken);
     }
 
     /// <summary>
@@ -672,12 +542,8 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
     public object? ExecuteScalar(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection connection = Provider.CreateConnection(ConnString);
-        PrepareCommand(cmd, connection, null, cmdType, cmdText, parameters);
-        var val = cmd.ExecuteScalar();
-        cmd.Parameters.Clear();
-        return val;
+        return ExecuteScalarInternal(connection, null, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -696,12 +562,8 @@ public class BaseDatabase : IBaseDatabase
 
     public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection connection = Provider.CreateConnection(ConnString);
-        await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return val;
+        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, parameters, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -713,12 +575,8 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
     public object? ExecuteScalar(CommandType cmdType, string cmdText)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection connection = Provider.CreateConnection(ConnString);
-        PrepareCommand(cmd, connection, null, cmdType, cmdText, null);
-        var val = cmd.ExecuteScalar();
-        cmd.Parameters.Clear();
-        return val;
+        return ExecuteScalarInternal(connection, null, cmdType, cmdText, null);
     }
 
     /// <summary>
@@ -731,12 +589,8 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
     public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
-        DbCommand cmd = Provider.CreateCommand();
         using DbConnection connection = Provider.CreateConnection(ConnString);
-        await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return val;
+        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, null, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -751,11 +605,7 @@ public class BaseDatabase : IBaseDatabase
     public object? ExecuteScalar(DbConnection connection, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        PrepareCommand(cmd, connection, null, cmdType, cmdText, parameters);
-        var val = cmd.ExecuteScalar();
-        cmd.Parameters.Clear();
-        return val;
+        return ExecuteScalarInternal(connection, null, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -776,11 +626,7 @@ public class BaseDatabase : IBaseDatabase
     // 数组 + CancellationToken (token 放在最后) — 实际实现
     public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return val;
+        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, parameters, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -793,11 +639,7 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
     public object? ExecuteScalar(DbConnection connection, CommandType cmdType, string cmdText)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        PrepareCommand(cmd, connection, null, cmdType, cmdText, null);
-        var val = cmd.ExecuteScalar();
-        cmd.Parameters.Clear();
-        return val;
+        return ExecuteScalarInternal(connection, null, cmdType, cmdText, null);
     }
 
     /// <summary>
@@ -811,11 +653,7 @@ public class BaseDatabase : IBaseDatabase
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
     public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, null, cmdType, cmdText, null).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return val;
+        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, null, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -823,18 +661,147 @@ public class BaseDatabase : IBaseDatabase
     ///     使用所提供参数，执行返回首行首列命令
     /// </summary>
     /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType"></param>
-    /// <param name="cmdText">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="parameters">存储过程名称或者T-SQL命令行</param>
+    /// <param name="transaction">事务对象</param>
+    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
+    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
     /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public object? ExecuteScalar(DbConnection connection, DbTransaction cmdType, CommandType cmdText,
-        string parameters)
+    public object? ExecuteScalar(DbConnection connection, DbTransaction transaction, CommandType cmdType,
+        string cmdText)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        PrepareCommand(cmd, connection, cmdType, cmdText, parameters, null);
-        var val = cmd.ExecuteScalar();
+        return ExecuteScalarInternal(connection, transaction, cmdType, cmdText, null);
+    }
+
+    private object? ExecuteScalarInternal(DbConnection connection, DbTransaction? transaction, CommandType cmdType,
+        string cmdText, DbParameter[]? parameters)
+    {
+        using DbCommand cmd = Provider.CreateCommand();
+        PrepareCommand(cmd, connection, transaction, cmdType, cmdText, parameters);
+        var value = cmd.ExecuteScalar();
         cmd.Parameters.Clear();
-        return val;
+        return value;
+    }
+
+    private async Task<object?> ExecuteScalarInternalAsync(DbConnection connection, DbTransaction? transaction,
+        CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
+    {
+        using DbCommand cmd = Provider.CreateCommand();
+        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+        var value = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+        cmd.Parameters.Clear();
+        return value;
+    }
+
+    private DataSet FillDataSet(CommandType cmdType, string cmdText, DbParameter[]? parameters)
+    {
+        using DbCommand cmd = Provider.CreateCommand();
+        using DbConnection conn = Provider.CreateConnection(ConnString);
+
+        PrepareCommand(cmd, conn, null, cmdType, cmdText, parameters);
+
+        using DbDataAdapter dataAdapter = Provider.CreateDataAdapter(cmd);
+        var dataSet = new DataSet();
+        _ = dataAdapter.Fill(dataSet);
+        return dataSet;
+    }
+
+    private async Task<DataSet> FillDataSetAsync(CommandType cmdType, string cmdText, DbParameter[]? parameters,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using DbCommand cmd = Provider.CreateCommand();
+        using DbConnection conn = Provider.CreateConnection(ConnString);
+
+        await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters).ConfigureAwait(false);
+        return await ReadDataSetAsync(cmd, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task<DataSet> ReadDataSetAsync(DbCommand cmd, CancellationToken cancellationToken)
+    {
+        using DbDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var dataSet = new DataSet();
+
+        do
+        {
+            if (reader.FieldCount <= 0)
+            {
+                continue;
+            }
+
+            var table = CreateDataTable(reader, dataSet.Tables.Count);
+            await PopulateTableRowsAsync(reader, table, cancellationToken).ConfigureAwait(false);
+            dataSet.Tables.Add(table);
+        } while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false));
+
+        return dataSet;
+    }
+
+    private static DataTable CreateDataTable(DbDataReader reader, int tableIndex)
+    {
+        var tableName = tableIndex == 0 ? "Table" : $"Table{tableIndex}";
+        var table = new DataTable(tableName);
+        var usedColumnNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var columnIndex = 0; columnIndex < reader.FieldCount; columnIndex++)
+        {
+            var baseColumnName = reader.GetName(columnIndex);
+            if (string.IsNullOrWhiteSpace(baseColumnName))
+            {
+                baseColumnName = $"Column{columnIndex + 1}";
+            }
+
+            var columnName = baseColumnName;
+            var duplicateSuffix = 2;
+            while (!usedColumnNames.Add(columnName))
+            {
+                columnName = $"{baseColumnName}_{duplicateSuffix}";
+                duplicateSuffix++;
+            }
+
+            Type columnType;
+            try
+            {
+                columnType = reader.GetFieldType(columnIndex);
+            }
+            catch
+            {
+                columnType = typeof(object);
+            }
+
+            if (columnType == typeof(DBNull) || columnType == typeof(void))
+            {
+                columnType = typeof(object);
+            }
+
+            if (Nullable.GetUnderlyingType(columnType) is Type underlyingType)
+            {
+                columnType = underlyingType;
+            }
+
+            table.Columns.Add(columnName, columnType);
+        }
+
+        return table;
+    }
+
+    private static async Task PopulateTableRowsAsync(DbDataReader reader, DataTable table,
+        CancellationToken cancellationToken)
+    {
+        var fieldCount = reader.FieldCount;
+        var values = new object[fieldCount];
+
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            _ = reader.GetValues(values);
+            var row = table.NewRow();
+
+            for (var columnIndex = 0; columnIndex < fieldCount; columnIndex++)
+            {
+                row[columnIndex] = values[columnIndex] ?? DBNull.Value;
+            }
+
+            table.Rows.Add(row);
+        }
     }
 
     /// <summary>
@@ -850,11 +817,8 @@ public class BaseDatabase : IBaseDatabase
     public async Task<object?> ExecuteScalarAsync(DbConnection conn, DbTransaction transaction,
         CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
     {
-        DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, null).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return val;
+        return await ExecuteScalarInternalAsync(conn, transaction, cmdType, cmdText, null, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>
@@ -869,15 +833,10 @@ public class BaseDatabase : IBaseDatabase
     public object? ExecuteScalar(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        DbCommand cmd = Provider.CreateCommand();
         DbConnection? conn = transaction.Connection;
 
         conn.EnsureIsNotNull();
-
-        PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
-        var val = cmd.ExecuteScalar();
-        cmd.Parameters.Clear();
-        return val;
+        return ExecuteScalarInternal(conn, transaction, cmdType, cmdText, parameters);
     }
 
     /// <summary>
@@ -898,14 +857,10 @@ public class BaseDatabase : IBaseDatabase
     public async Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType,
         string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
     {
-        DbCommand cmd = Provider.CreateCommand();
         DbConnection? conn = transaction.Connection;
         conn.EnsureIsNotNull();
-
-        await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
-        var val = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return val;
+        return await ExecuteScalarInternalAsync(conn, transaction, cmdType, cmdText, parameters, cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <summary>

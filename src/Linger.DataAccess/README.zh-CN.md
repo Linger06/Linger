@@ -15,9 +15,10 @@
 
 ## 支持的 .NET 版本
 
+- .NET 10.0
 - .NET 9.0
 - .NET 8.0
-- .NET Framework 4.6.2+
+- .NET Framework 4.7.2+
 
 ## 安装
 
@@ -37,39 +38,25 @@ dotnet add package Linger.DataAccess.Sqlite
 ## 核心接口
 
 ### IDatabase
-提供全面数据库操作的主要接口：
+高频接口分组（最常用）：
 
-```csharp
-// 执行操作
-int ExecuteBySql(string sql);
-int ExecuteByProc(string procName, DbParameter[] parameters);
+- 执行命令：`ExecuteBySql(...)`、`ExecuteByProc(...)`
+- 表/数据集查询：`Query(...)`、`QueryTable(...)`、`QueryAsync(...)`、`QueryTableAsync(...)`
+- 列表/实体映射：`FindListBySql<T>(...)`、`FindEntityBySql<T>(...)`
+- 标量助手：`FindCountBySql(...)`、`FindMaxBySql(...)`
+- 超大 `IN` 列表分批查询：`QueryInBatches(...)`、`QueryInBatchesAsync(...)`
 
-// 查询操作
-List<T> FindListBySql<T>(string sql);
-DataTable FindTableBySql(string sql, DbParameter[] parameters);
-DataSet FindDataSetBySql(string sql, DbParameter[] parameters);
+完整 API 以源码为准：
 
-// 分批查询操作
-DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000);
-Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, int batchSize = 1000, CancellationToken cancellationToken = default);
-DataTable QueryInBatchesRaw(string sql, List<string> values, int batchSize = 1000, bool quote = true);
-Task<DataTable> QueryInBatchesRawAsync(string sql, List<string> values, int batchSize = 1000, bool quote = true, CancellationToken cancellationToken = default);
-
-// 异步操作
-Task<DataTable> FindTableBySqlAsync(string sql);
-Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters);
-Task<int> FindCountBySqlAsync(string sql);
-
-// 实体操作
-T FindEntityBySql<T>(string sql, DbParameter[] parameters);
-Hashtable FindHashtableBySql(string sql, DbParameter[] parameters);
-
-// 批量操作
-bool BulkInsert(DataTable dt);
-```
+- `IDatabase`： [IDatabase.cs](IDatabase.cs)
+- `IBaseDatabase`： [IBaseDatabase.cs](IBaseDatabase.cs)
+- `Database` 实现： [Database.cs](Database.cs)
 
 ### IProvider
 不同数据库引擎的提供程序抽象。
+
+- 提供程序契约： [IProvider.cs](IProvider.cs)
+- 底层执行基类： [BaseDatabase.cs](BaseDatabase.cs)
 
 ## 基本用法
 
@@ -124,6 +111,25 @@ var resultRaw = database.QueryInBatchesRaw(
 
 返回值：
 - 所有分批方法合并为一个 DataTable，结构取首个非空批次的列模式。
+
+## 事务契约
+
+在调用 `BaseDatabase` / `IBaseDatabase` 的底层事务重载时：
+
+- `transaction.Connection` 必须已附着且非 null。
+- 对已分离/已释放连接的事务对象，会抛出 `ArgumentNullException`。
+- 事务重载实际执行所用连接始终来自 `transaction.Connection`。
+
+```csharp
+// 正确：transaction 绑定在同一个已打开连接上
+using var conn = provider.CreateConnection(connString);
+conn.Open();
+using var tx = conn.BeginTransaction();
+_ = baseDatabase.ExecuteNonQuery(tx, CommandType.Text, "UPDATE Users SET Active = 1 WHERE Id = @Id", param);
+
+// 错误：detached transaction 会抛 ArgumentNullException
+// _ = baseDatabase.ExecuteNonQuery(detachedTx, CommandType.Text, "UPDATE ...", param);
+```
 
 ## 架构
 

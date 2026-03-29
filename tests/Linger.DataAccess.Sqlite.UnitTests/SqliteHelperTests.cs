@@ -422,6 +422,55 @@ public class SqliteHelperTests : IDisposable
     }
 
     [Fact]
+    public async Task QueryAsync_WithDuplicateColumnNames_ShouldReturnUniqueColumnNames()
+    {
+        const string sql = "SELECT 1 AS value, 2 AS value";
+
+        var result = await _fileHelper.QueryAsync(sql);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.Tables.Count);
+
+        var table = result.Tables[0];
+        Assert.Equal(2, table.Columns.Count);
+        Assert.Equal("value", table.Columns[0].ColumnName);
+        Assert.Equal("value_2", table.Columns[1].ColumnName);
+        Assert.NotEqual(table.Columns[0].ColumnName, table.Columns[1].ColumnName);
+        Assert.Equal("1", table.Rows[0][0].ToString());
+        Assert.Equal("2", table.Rows[0][1].ToString());
+    }
+
+    [Fact]
+    public async Task QueryAsync_WithEmptyResultSet_ShouldPreserveSchema()
+    {
+        const string sql = "SELECT id, name FROM users WHERE 1 = 0";
+
+        var result = await _fileHelper.QueryAsync(sql);
+
+        Assert.NotNull(result);
+        Assert.Equal(1, result.Tables.Count);
+
+        var table = result.Tables[0];
+        Assert.Equal(2, table.Columns.Count);
+        Assert.Equal("id", table.Columns[0].ColumnName);
+        Assert.Equal("name", table.Columns[1].ColumnName);
+        Assert.Equal(0, table.Rows.Count);
+    }
+
+    [Fact]
+    public async Task QueryAsync_WithMultipleResultSets_ShouldReturnAllResultSets()
+    {
+        const string sql = "SELECT 1 AS one; SELECT 'two' AS two;";
+
+        var result = await _fileHelper.QueryAsync(sql);
+
+        Assert.NotNull(result);
+        Assert.True(result.Tables.Count >= 2);
+        Assert.Equal("1", result.Tables[0].Rows[0][0].ToString());
+        Assert.Equal("two", result.Tables[1].Rows[0][0].ToString());
+    }
+
+    [Fact]
     public async Task QueryAsync_WithCancellationToken_ShouldSupportCancellation()
     {
         // Arrange
@@ -432,6 +481,47 @@ public class SqliteHelperTests : IDisposable
         // Act & Assert
         var exQuery = await Record.ExceptionAsync(() => _fileHelper.QueryAsync(sql, cts.Token));
         Assert.IsAssignableFrom<OperationCanceledException>(exQuery);
+    }
+
+    [Fact]
+    public async Task QueryTableAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        const string sql = "SELECT * FROM users";
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exQueryTable = await Record.ExceptionAsync(() => _fileHelper.QueryTableAsync(sql, cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exQueryTable);
+    }
+
+    [Fact]
+    public void QueryInBatchesRaw_WithEmptyValues_ShouldReturnEmptyDataTable()
+    {
+        // Arrange
+        const string sql = "SELECT * FROM users WHERE id IN ({0})";
+
+        // Act
+        var result = _fileHelper.QueryInBatchesRaw(sql, new List<string>());
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.Rows.Count);
+    }
+
+    [Fact]
+    public async Task QueryInBatchesRawAsync_WithCancellationToken_ShouldSupportCancellation()
+    {
+        // Arrange
+        const string sql = "SELECT * FROM users WHERE id IN ({0})";
+        var values = new List<string> { "1" };
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act & Assert
+        var exRaw = await Record.ExceptionAsync(() => _fileHelper.QueryInBatchesRawAsync(sql, values, cancellationToken: cts.Token));
+        Assert.IsAssignableFrom<OperationCanceledException>(exRaw);
     }
 
     #endregion

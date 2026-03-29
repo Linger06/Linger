@@ -15,9 +15,10 @@ A core data access library that provides database abstraction and common databas
 
 ## Supported .NET Versions
 
+- .NET 10.0
 - .NET 9.0
 - .NET 8.0
-- .NET Framework 4.6.2+
+- .NET Framework 4.7.2+
 
 ## Installation
 
@@ -37,39 +38,25 @@ dotnet add package Linger.DataAccess.Sqlite
 ## Core Interfaces
 
 ### IDatabase
-The main interface providing comprehensive database operations:
+High-frequency interface groups (most commonly used):
 
-```csharp
-// Execute operations
-int ExecuteBySql(string sql);
-int ExecuteByProc(string procName, DbParameter[] parameters);
+- Execute commands: `ExecuteBySql(...)`, `ExecuteByProc(...)`
+- Query table/dataset: `Query(...)`, `QueryTable(...)`, `QueryAsync(...)`, `QueryTableAsync(...)`
+- List/entity mapping: `FindListBySql<T>(...)`, `FindEntityBySql<T>(...)`
+- Scalar helpers: `FindCountBySql(...)`, `FindMaxBySql(...)`
+- Batch query for huge `IN` lists: `QueryInBatches(...)`, `QueryInBatchesAsync(...)`
 
-// Query operations
-List<T> FindListBySql<T>(string sql);
-DataTable FindTableBySql(string sql, DbParameter[] parameters);
-DataSet FindDataSetBySql(string sql, DbParameter[] parameters);
+Complete API reference (source of truth):
 
-// Batch query operations
-DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000);
-Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, int batchSize = 1000, CancellationToken cancellationToken = default);
-DataTable QueryInBatchesRaw(string sql, List<string> values, int batchSize = 1000, bool quote = true);
-Task<DataTable> QueryInBatchesRawAsync(string sql, List<string> values, int batchSize = 1000, bool quote = true, CancellationToken cancellationToken = default);
-
-// Async operations
-Task<DataTable> FindTableBySqlAsync(string sql);
-Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters);
-Task<int> FindCountBySqlAsync(string sql);
-
-// Entity operations
-T FindEntityBySql<T>(string sql, DbParameter[] parameters);
-Hashtable FindHashtableBySql(string sql, DbParameter[] parameters);
-
-// Bulk operations
-bool BulkInsert(DataTable dt);
-```
+- `IDatabase`: [IDatabase.cs](IDatabase.cs)
+- `IBaseDatabase`: [IBaseDatabase.cs](IBaseDatabase.cs)
+- `Database` implementation: [Database.cs](Database.cs)
 
 ### IProvider
 Database provider abstraction for different database engines.
+
+- Provider contract: [IProvider.cs](IProvider.cs)
+- Low-level execution base: [BaseDatabase.cs](BaseDatabase.cs)
 
 ## Basic Usage
 
@@ -124,6 +111,25 @@ Guidelines:
 
 Return Type:
 - All batch methods merge rows into a single DataTable preserving schema of the first non-empty batch.
+
+## Transaction Contract
+
+When calling low-level transaction overloads in `BaseDatabase` / `IBaseDatabase`:
+
+- `transaction.Connection` must be attached and non-null.
+- Detached/disposed transactions are rejected with `ArgumentNullException`.
+- The connection used by transaction overloads comes from `transaction.Connection`.
+
+```csharp
+// Correct: transaction is attached to the same open connection
+using var conn = provider.CreateConnection(connString);
+conn.Open();
+using var tx = conn.BeginTransaction();
+_ = baseDatabase.ExecuteNonQuery(tx, CommandType.Text, "UPDATE Users SET Active = 1 WHERE Id = @Id", param);
+
+// Invalid: detached transaction -> throws ArgumentNullException
+// _ = baseDatabase.ExecuteNonQuery(detachedTx, CommandType.Text, "UPDATE ...", param);
+```
 
 ## Architecture
 
