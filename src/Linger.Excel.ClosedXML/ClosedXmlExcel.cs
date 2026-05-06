@@ -144,7 +144,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// 如果headerRowIndex为-1(无表头)，则返回空字典。
     /// 注意：虽然ClosedXML使用1-based列索引，但返回的字典键是0-based，以保持API一致性。
     /// </remarks>
-    protected override Dictionary<int, string> CreateHeaderMappings(IXLWorksheet worksheet, int headerRowIndex)
+    protected override Dictionary<int, string> ExtractRawHeaderMappings(IXLWorksheet worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, string>();
 

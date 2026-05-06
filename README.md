@@ -7,13 +7,13 @@
 [![NuGet](https://img.shields.io/nuget/v/Linger.Utils.svg)](https://www.nuget.org/packages/Linger.Utils/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](.github/workflows/dotnet.yml)
 
 ## Features
 
 - 🚀 **High Performance** - Zero-overhead type conversions
 - 🔒 **Type Safety** - Strict type safety principles
--- 🔮 **.NET 10 Compatible (Now Supported)** - Native support for .NET 10; Polyfills are retained to provide backward compatibility for older target frameworks
+- 🔮 **.NET 10 Supported** - Native support for .NET 10; Polyfills are retained to provide backward compatibility for older target frameworks
 - 📦 **Modular** - Install only what you need
 - 🌐 **Cross-platform** - Supports .NET 10.0, 9.0, 8.0, Standard 2.0, Framework 4.7.2
 
@@ -32,6 +32,18 @@ dotnet add package Linger.AspNetCore.Jwt
 # Data access
 dotnet add package Linger.DataAccess.SqlServer
 ```
+
+## Package Selection Guide
+
+- Build common utilities and extension methods: install `Linger.Utils`
+- Need explicit success/failure return models in service boundaries: install `Linger.Results`
+- Build ASP.NET Core token authentication: install `Linger.AspNetCore.Jwt`
+- Access relational databases with provider abstraction: install one of
+    `Linger.DataAccess.SqlServer`, `Linger.DataAccess.Oracle`, or `Linger.DataAccess.Sqlite`
+- Use EF Core with extra helpers: install `Linger.EFCore`
+- Work with files across local, FTP, or SFTP: install `Linger.FileSystem`
+- Export/import spreadsheets: install `Linger.Excel` plus a provider package as needed
+- Integrate LDAP authentication: install `Linger.Ldap.ActiveDirectory` or `Linger.Ldap.Novell`
 
 ## Basic Usage
 
@@ -78,6 +90,10 @@ public Result<User> GetUser(int id)
 - [Linger.EFCore Documentation](src/Linger.EFCore/README.md)
 - [Linger.FileSystem Documentation](src/Linger.FileSystem/README.md)
 - [Linger.Email Documentation](src/Linger.Email/README.md)
+- [Linger.Excel Documentation](src/Linger.Excel/README.md)
+- [Linger.Dapper Documentation](src/Linger.Dapper/README.md)
+- [Linger.Ldap.ActiveDirectory Documentation](src/Linger.Ldap.ActiveDirectory/README.md)
+- [Linger.Ldap.Novell Documentation](src/Linger.Ldap.Novell/README.md)
 
 ## Contributing
 

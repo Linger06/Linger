@@ -283,6 +283,14 @@ public static partial class StringExtensions
             }
         }
 
+        // 至少包含一个数字
+        if (integerDigits + decimalPlaces == 0)
+            return false;
+
+        // 存在小数点但不允许小数位，或小数点后无数字
+        if (foundDecimal && (scale == 0 || decimalPlaces == 0))
+            return false;
+
         // 检查整数位数和小数位数是否符合要求
         return integerDigits <= precision && decimalPlaces <= scale;
 #else
@@ -320,6 +328,14 @@ public static partial class StringExtensions
                 return false; // 无效字符
             }
         }
+
+        // 至少包含一个数字
+        if (integerDigits + decimalPlaces == 0)
+            return false;
+
+        // 存在小数点但不允许小数位，或小数点后无数字
+        if (foundDecimal && (scale == 0 || decimalPlaces == 0))
+            return false;
 
         // 检查整数位数和小数位数是否符合要求
         return integerDigits <= precision && decimalPlaces <= scale;

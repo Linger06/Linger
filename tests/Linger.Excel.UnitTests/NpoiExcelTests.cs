@@ -127,6 +127,36 @@ namespace Linger.Excel.Tests
         }
 
         [Fact]
+        public void ExcelToList_WithMapper_ReadsAndConvertsToObjects()
+        {
+            AssertExcelToListWithMapper(GetExcelService(), "Npoi");
+        }
+
+        [Fact]
+        public async Task StreamToListAsync_WithFactoryAndColumnSetters_ReadsAndConvertsToObjects()
+        {
+            await AssertStreamToListAsyncWithFactoryAndColumnSetters(GetExcelService(), "Npoi");
+        }
+
+        [Fact]
+        public void CollectionToExcel_WithExplicitColumns_GeneratesValidExcelFile()
+        {
+            AssertCollectionToExcelWithExplicitColumns(GetExcelService(), "Npoi");
+        }
+
+        [Fact]
+        public async Task CollectionToExcelAsync_WithExplicitColumns_GeneratesValidExcelFile()
+        {
+            await AssertCollectionToExcelAsyncWithExplicitColumns(GetExcelService(), "Npoi");
+        }
+
+        [Fact]
+        public void CreateExcelTemplate_WithExplicitColumns_GeneratesValidTemplate()
+        {
+            AssertCreateExcelTemplateWithExplicitColumns(GetExcelService(), "Npoi");
+        }
+
+        [Fact]
         public void CreateExcelTemplate_GeneratesValidTemplate()
         {
             // Arrange

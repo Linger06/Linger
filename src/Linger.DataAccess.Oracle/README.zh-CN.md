@@ -9,6 +9,19 @@
 - 完整异步支持 (CancellationToken)
 - 兼容多框架
 
+## 支持的 .NET 版本
+
+- .NET 10.0
+- .NET 9.0
+- .NET 8.0
+- .NET Framework 4.7.2+
+
+## 安装
+
+```powershell
+dotnet add package Linger.DataAccess.Oracle
+```
+
 ## 基本用法
 
 ```csharp

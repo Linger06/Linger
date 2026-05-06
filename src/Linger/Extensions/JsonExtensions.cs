@@ -258,23 +258,6 @@ public static class JsonExtensions
             case JsonValueKind.Array:
                 throw new NotSupportedException();
             case JsonValueKind.String:
-                if (jsonElement.TryGetGuid(out Guid guidValue))
-                {
-                    return guidValue;
-                }
-
-                if (jsonElement.TryGetDateTime(out DateTime datetime))
-                {
-                    // If an offset was provided, use DateTimeOffset.
-                    if (datetime.Kind == DateTimeKind.Local)
-                    {
-                        if (jsonElement.TryGetDateTimeOffset(out DateTimeOffset datetimeOffset))
-                        {
-                            return datetimeOffset;
-                        }
-                    }
-                    return datetime;
-                }
                 return jsonElement.ToString();
             case JsonValueKind.Number:
                 if (jsonElement.TryGetInt64(out var longValue))

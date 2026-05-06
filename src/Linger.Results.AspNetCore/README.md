@@ -39,14 +39,23 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
     {
         var result = await _userService.CreateUserAsync(request);
-        return result.ToActionResult(StatusCodes.Status201Created);
+        return result.ToActionResult(HttpStatusCode.Created);
     }
     
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteUser(int id)
     {
         var result = await _userService.DeleteUserAsync(id);
-        return result.ToProblemDetails(); // Use RFC 7807 format
+        return result.ToActionResult(HttpStatusCode.NoContent); // Success returns 204, failure returns error
+    }
+    
+    // Compatible with methods returning IActionResult type signature
+    // IActionResult interface is already implemented by ActionResult, no specialized conversion needed
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateUser(int id, UpdateUserRequest request)
+    {
+        var result = await _userService.UpdateUserAsync(id, request);
+        return result.ToActionResult(); // Directly return ActionResult as IActionResult type
     }
 }
 ```
@@ -65,7 +74,10 @@ app.MapGet("/api/users/{id}", async (int id, IUserService userService) =>
 app.MapPost("/api/users", async (CreateUserRequest request, IUserService userService) =>
 {
     var result = await userService.CreateUserAsync(request);
-    return result.ToHttpResult(StatusCodes.Status201Created);
+    // Check IsSuccess because accessing result.Value requires the result to be successful
+    return result.IsSuccess
+      ? result.ToCreatedResult($"/api/users/{result.Value.Id}")
+      : result.ToHttpResult(); // Failure returns ProblemDetails automatically
 });
 
 app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
@@ -79,15 +91,23 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 
 | Scenario | Controller API | Minimal API |
 |----------|----------------|-------------|
-| Basic conversion | `result.ToActionResult()` | `result.ToHttpResult()` |
-| Custom success code | `result.ToActionResult(201)` | `result.ToHttpResult(201)` |
-| Custom both codes | `result.ToActionResult(201, 400)` | `result.ToHttpResult(201, 400)` |
-| Created response | `result.ToActionResult(201)` | `result.ToCreatedResult("/api/users/123")` |
-| No content response | `result.ToActionResult(204)` | `result.ToNoContentResult()` |
+| Auto status codes | `result.ToActionResult()` | `result.ToHttpResult()` |
+| Custom success code | `result.ToActionResult(successStatusCode: HttpStatusCode.Created)` | `result.ToHttpResult(successStatusCode: HttpStatusCode.Created)` |
+| Custom both codes | `result.ToActionResult(HttpStatusCode.Created, HttpStatusCode.Conflict)` | `result.ToHttpResult(HttpStatusCode.Created, HttpStatusCode.Conflict)` |
+| Specific created response | `result.ToActionResult(HttpStatusCode.Created)` | `result.ToCreatedResult("/api/users/123")` |
+| No content response | `result.ToActionResult(HttpStatusCode.NoContent)` | `result.ToNoContentResult()` |
 | Problem details | `result.ToProblemDetails()` | `result.ToHttpResult()` (uses ProblemDetails automatically) |
 
-> **Note**: When using overloads with only `successStatusCode`, the failure status code is automatically determined based on `Result.Status` (e.g., `NotFound` → 404, others → 400).
+## When to use
 
+- Use `ToActionResult()` / `ToHttpResult()` for most standard CRUD operations (default auto-mapping handles status codes correctly)
+- Use `ToCreatedResult()` for POST endpoints to return 201 Created with location header
+- Use `ToNoContentResult()` for DELETE/PUT endpoints to return 204 No Content on success
+- Use `ToProblemDetails()` when you explicitly need RFC 7807 Problem Details format response
+
+> **Status Code Parameters:**
+> - `ToActionResult()` / `ToActionResult<T>()` / `ToHttpResult()` / `ToHttpResult<T>()`: Both `successStatusCode` and `failureStatusCode` are optional. When not specified, `successStatusCode` defaults to 200 OK; `failureStatusCode` is auto-determined by `Result.Status` (e.g., `NotFound` → 404, others → 400)
+> - `ToProblemDetails()` / `ToProblemDetails<T>()`: Only `failureStatusCode` is optional, same auto-determination applies
 ## Response Format Examples
 
 ### Success Responses
@@ -145,6 +165,19 @@ Note: `errors` is an RFC 7807 extension member. The server adds it via `ProblemD
 2. **Consistent API Responses**: Maintain unified error formats across the application
 3. **Use ProblemDetails**: Prefer RFC 7807 format for client-facing APIs
 4. **Choose Right API Style**: Use Controllers for complex scenarios, Minimal API for simple cases
+
+
+## Design Decision: Why No `IActionResult` Conversion Methods?
+
+`ActionResult` and `ActionResult<T>` are the recommended modern approach, and we intentionally do not provide `IActionResult` conversion methods for the following reasons:
+
+- **Type Safety**: `ActionResult<T>` is generic and preserves the complete type information of return values, facilitating framework features like OpenAPI/Swagger generation and type checking. `IActionResult` is a non-generic interface that loses generic type information, hindering tool chain support.
+
+- **Seamless Compatibility**: Both `ActionResult` and `ActionResult<T>` already implement the `IActionResult` interface. When your method signature needs to return `IActionResult`, you can directly return an instance of `ActionResult` or `ActionResult<T>` without needing additional conversion methods.
+
+- **Consistency**: We follow ASP.NET Core official best practices by prioritizing the use of generic `ActionResult<T>` over non-generic `IActionResult`.
+
+**Summary**: If your method return type is `IActionResult`, you can directly use `ToActionResult()` and assign it to that variable—no specialized conversion method is needed.
 
 ## Using with Linger.Results
 

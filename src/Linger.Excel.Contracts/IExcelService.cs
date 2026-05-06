@@ -155,6 +155,36 @@ public interface IExcelService
     /// </summary>
     Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 异步将Stream转换为DataTable
+    /// </summary>
+    Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步将Stream转换为对象列表
+    /// </summary>
+    Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
+
+    /// <summary>
+    /// 异步将Stream转换为DataSet(所有工作表)
+    /// </summary>
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步将Stream转换为DataSet(指定工作表)
+    /// </summary>
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 异步将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
+    /// </summary>
+    Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
     #endregion
 
     #region Export

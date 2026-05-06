@@ -8,8 +8,14 @@
 - 🔒 安全优先：参数化查询防止 SQL 注入
 - ⚡ SQLite 优化：VACUUM / ANALYZE 等特性
 - 🔄 异步支持：完整 async/await 支持
-- 🎯 多框架：支持 .NET 9.0 / 8.0 / .NET Framework 4.6.2
+- 🎯 多框架：支持 .NET 10.0 / 9.0 / 8.0 / .NET Framework 4.7.2+
 - ✅ 支持核心库提供的分批查询方法（详见 Linger.DataAccess README）
+
+## 安装
+
+```powershell
+dotnet add package Linger.DataAccess.Sqlite
+```
 
 ## 基本用法
 

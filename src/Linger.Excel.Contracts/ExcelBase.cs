@@ -164,6 +164,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 对象集合转 Excel 文件
     /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads in ExcelExtensions.")]
+#endif
     public override string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
     {
@@ -296,6 +299,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 将Stream转换为对象列表（新方法）
     /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. For AOT/trimming scenarios, use the mapper/factory import overloads in ExcelExtensions.")]
+#endif
     public override List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
         // 首先转换为DataTable
@@ -655,6 +661,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 对象集合转 Excel 内存流（新方法）
     /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads in ExcelExtensions.")]
+#endif
     public override MemoryStream CollectionToMemoryStream<T>(
         List<T> list,
         string sheetsName = "Sheet1",
@@ -936,19 +945,11 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
 
         // 获取表头映射
-        var headerMappings = CreateHeaderMappings(worksheet, headerRowIndex);
-
-        // 如果headerRowIndex=-1且没有映射，自动生成列名(Column1, Column2...)
-        if (headerMappings.Count == 0 && headerRowIndex < 0)
-        {
-            for (var i = 0; i < columnCount; i++)
-            {
-                headerMappings[i] = $"Column{i + 1}";
-            }
-        }
+        var headerMappings = ExtractRawHeaderMappings(worksheet, headerRowIndex);
+        var normalizedHeaderMappings = NormalizeHeaderMappings(headerMappings, columnCount, headerRowIndex);
 
         // 添加列
-        foreach (var mapping in headerMappings)
+        foreach (var mapping in normalizedHeaderMappings)
         {
             dataTable.Columns.Add(mapping.Value);
         }
@@ -969,7 +970,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                 continue; // 跳过空行
             }
 
-            foreach (var mapping in headerMappings)
+            foreach (var mapping in normalizedHeaderMappings)
             {
                 var colIndex = mapping.Key;
 
@@ -992,6 +993,70 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
 
         return dataTable;
+    }
+
+    /// <summary>
+    /// 归一化表头映射，统一不同提供者的列行为。
+    /// </summary>
+    /// <remarks>
+    /// 规则：
+    /// 1. 按列索引补齐缺失列；
+    /// 2. 空白列名回退为 ColumnN；
+    /// 3. 重复列名自动追加后缀，避免 DataTable 重名异常；
+    /// 4. headerRowIndex 小于 0 时总是使用 ColumnN。
+    /// </remarks>
+    private static IReadOnlyDictionary<int, string> NormalizeHeaderMappings(
+        IReadOnlyDictionary<int, string> headerMappings,
+        int estimatedColumnCount,
+        int headerRowIndex)
+    {
+        var normalizedMappings = new SortedDictionary<int, string>();
+
+        var maxMappedColumnIndex = -1;
+        foreach (var mappedColumnIndex in headerMappings.Keys)
+        {
+            if (mappedColumnIndex > maxMappedColumnIndex)
+            {
+                maxMappedColumnIndex = mappedColumnIndex;
+            }
+        }
+
+        var effectiveColumnCount = Math.Max(estimatedColumnCount, maxMappedColumnIndex + 1);
+        if (effectiveColumnCount <= 0)
+        {
+            return normalizedMappings;
+        }
+
+        var usedColumnNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var columnIndex = 0; columnIndex < effectiveColumnCount; columnIndex++)
+        {
+            var baseColumnName = headerRowIndex < 0
+                ? $"Column{columnIndex + 1}"
+                : GetHeaderNameOrDefault(headerMappings, columnIndex);
+
+            var uniqueColumnName = baseColumnName;
+            var duplicateSuffix = 2;
+            while (!usedColumnNames.Add(uniqueColumnName))
+            {
+                uniqueColumnName = $"{baseColumnName}_{duplicateSuffix}";
+                duplicateSuffix++;
+            }
+
+            normalizedMappings[columnIndex] = uniqueColumnName;
+        }
+
+        return normalizedMappings;
+
+        static string GetHeaderNameOrDefault(IReadOnlyDictionary<int, string> mappings, int index)
+        {
+            if (!mappings.TryGetValue(index, out var mappedName) || string.IsNullOrWhiteSpace(mappedName))
+            {
+                return $"Column{index + 1}";
+            }
+
+            return mappedName.Trim();
+        }
     }
 
     #endregion
@@ -1068,7 +1133,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 创建表头映射
     /// </summary>
-    protected abstract Dictionary<int, string> CreateHeaderMappings(TWorksheet worksheet, int headerRowIndex);
+    protected abstract Dictionary<int, string> ExtractRawHeaderMappings(TWorksheet worksheet, int headerRowIndex);
 
     /// <summary>
     /// 获取单元格值

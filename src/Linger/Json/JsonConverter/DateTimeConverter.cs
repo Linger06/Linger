@@ -32,7 +32,7 @@ public class DateTimeConverter : JsonConverter<DateTime>
     {
         if (reader.TokenType == JsonTokenType.String)
         {
-            if (DateTime.TryParse(reader.GetString(), out DateTime date))
+            if (DateTime.TryParse(reader.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
             {
                 return date;
             }

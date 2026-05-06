@@ -2,36 +2,35 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
-        <Version>1.1.0</Version>
+        <Version>1.4.0</Version>
         <Description>
             An Entity Framework Core extension library providing enhanced capabilities.
             Includes global query filters, property conversions for complex types, and pagination utilities.
             Simplifies working with JSON data, collections, and complex filtering scenarios.
         </Description>        
-        <PackageReadmeFile>README.md</PackageReadmeFile>
-    </PropertyGroup>
+</PropertyGroup>
 
     <ItemGroup>
-        <None Include="README.md">
-            <Pack>True</Pack>
-            <PackagePath>\</PackagePath>
-        </None>
-    </ItemGroup>
+</ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
   </ItemGroup>
   
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.15" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.19" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.26" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Linger\Linger.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.203" />
   </ItemGroup>
 
 </Project>

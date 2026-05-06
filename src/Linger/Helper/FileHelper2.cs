@@ -65,13 +65,13 @@ public static partial class FileHelper
     /// 获取一个文件的长度,单位为Byte
     /// </summary>
     /// <param name="filePath">文件的绝对路径</param>
-    public static int GetFileSize(string filePath)
+    public static long GetFileSize(string filePath)
     {
         //创建一个文件对象
         var fi = new FileInfo(filePath);
 
         //获取文件的大小
-        return (int)fi.Length;
+        return fi.Length;
     }
 
     /// <summary>

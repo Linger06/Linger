@@ -78,14 +78,20 @@ public static partial class StringExtensions
     {
         if (str is null) return null;
         if (string.IsNullOrEmpty(str) || string.IsNullOrEmpty(value)) return str;
-        var start = str.StartsWith(value, comparison);
-        var end = str.EndsWith(value, comparison);
-        if (!start && !end) return str;
-        var startIndex = start ? value.Length : 0;
-        var endLength = end ? str.Length - value.Length : str.Length;
-        if (startIndex == 0 && endLength == str.Length) return str; // defensive
-        var len = endLength - startIndex;
-        return len <= 0 ? string.Empty : str.Substring(startIndex, len);
+
+        var result = str;
+
+        if (result.StartsWith(value, comparison))
+        {
+            result = result.Substring(value.Length);
+        }
+
+        if (result.EndsWith(value, comparison))
+        {
+            result = result.Substring(0, result.Length - value.Length);
+        }
+
+        return result;
     }
 
     /// <summary>

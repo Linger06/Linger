@@ -52,6 +52,27 @@ public class IDataReaderExtensionsTests
     }
 
     [Fact]
+    public void ReaderToList_WithMapper_ReturnsMappedObjects()
+    {
+        var mockDataReader = new Mock<IDataReader>();
+        mockDataReader.SetupSequence(dr => dr.Read())
+            .Returns(true)
+            .Returns(false);
+        mockDataReader.Setup(dr => dr["Id"]).Returns(7);
+        mockDataReader.Setup(dr => dr["Name"]).Returns("Alice");
+
+        var result = mockDataReader.Object.ReaderToList(record => new TestClass
+        {
+            Id = Convert.ToInt32(record["Id"]),
+            Name = record["Name"]?.ToString()
+        });
+
+        Assert.Single(result);
+        Assert.Equal(7, result[0].Id);
+        Assert.Equal("Alice", result[0].Name);
+    }
+
+    [Fact]
     public void ReaderToModel_ReturnsSingleObject()
     {
         var mockDataReader = new Mock<IDataReader>();
@@ -68,6 +89,42 @@ public class IDataReaderExtensionsTests
 
         Assert.Equal(1, result.Id);
         Assert.Equal("John", result.Name);
+    }
+
+    [Fact]
+    public void ReaderToModel_WithMapper_ReturnsMappedObject()
+    {
+        var mockDataReader = new Mock<IDataReader>();
+        mockDataReader.SetupSequence(dr => dr.Read())
+            .Returns(true)
+            .Returns(false);
+        mockDataReader.Setup(dr => dr["Id"]).Returns(5);
+        mockDataReader.Setup(dr => dr["Name"]).Returns("Bob");
+
+        var result = mockDataReader.Object.ReaderToModel(record => new TestClass
+        {
+            Id = Convert.ToInt32(record["Id"]),
+            Name = record["Name"]?.ToString()
+        });
+
+        Assert.NotNull(result);
+        Assert.Equal(5, result.Id);
+        Assert.Equal("Bob", result.Name);
+    }
+
+    [Fact]
+    public void ReaderToModel_WithMapperAndNoRows_ReturnsDefault()
+    {
+        var mockDataReader = new Mock<IDataReader>();
+        mockDataReader.Setup(dr => dr.Read()).Returns(false);
+
+        var result = mockDataReader.Object.ReaderToModel(record => new TestClass
+        {
+            Id = Convert.ToInt32(record["Id"]),
+            Name = record["Name"]?.ToString()
+        });
+
+        Assert.Null(result);
     }
 
     [Fact]

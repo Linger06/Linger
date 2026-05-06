@@ -11,6 +11,19 @@ SQLite database access library with SQLite-specific optimizations and factory me
 - Database management: Backup, restore, and schema operations
 - Supports core batch query helpers from Linger.DataAccess (see core README)
 
+## Supported .NET Versions
+
+- .NET 10.0
+- .NET 9.0
+- .NET 8.0
+- .NET Framework 4.7.2+
+
+## Installation
+
+```powershell
+dotnet add package Linger.DataAccess.Sqlite
+```
+
 ## Basic Usage
 
 ```csharp

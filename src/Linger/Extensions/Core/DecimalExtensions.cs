@@ -12,7 +12,7 @@ public static class DecimalExtensions
     /// <returns><c>true</c> if the value is an integer; otherwise, <c>false</c>.</returns>
     public static bool IsInteger(this decimal value)
     {
-        return (int)value == value;
+        return value == Math.Truncate(value);
     }
 
     /// <summary>
@@ -23,12 +23,102 @@ public static class DecimalExtensions
     /// <exception cref="InvalidCastException">Thrown when the value cannot be converted to an integer.</exception>
     public static int ToInt(this decimal value)
     {
-        if (value.IsInteger())
+        if (value.IsInteger() && value is >= int.MinValue and <= int.MaxValue)
         {
             return (int)value;
         }
 
-        throw new InvalidCastException("The value cannot be converted to an integer.");
+        throw new InvalidCastException($"The value cannot be converted to an integer. value={value.ToString(CultureInfo.InvariantCulture)}");
+    }
+
+    /// <summary>
+    /// Converts the value to a nullable integer if it is an integer within range.
+    /// </summary>
+    /// <param name="value">The <see cref="decimal"/> to convert.</param>
+    /// <returns>The integer representation of the value, or null if conversion fails.</returns>
+    public static int? ToIntOrNull(this decimal value)
+    {
+        if (value.IsInteger() && value is >= int.MinValue and <= int.MaxValue)
+        {
+            return (int)value;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Converts the value to a nullable integer if it is an integer within range.
+    /// </summary>
+    /// <param name="value">The nullable <see cref="decimal"/> to convert.</param>
+    /// <returns>The integer representation of the value, or null if conversion fails.</returns>
+    public static int? ToIntOrNull(this decimal? value)
+    {
+        if (value is null)
+        {
+            return null;
+        }
+
+        return value.Value.ToIntOrNull();
+    }
+
+    /// <summary>
+    /// Converts the value to an integer or returns the default value if conversion fails.
+    /// </summary>
+    /// <param name="value">The <see cref="decimal"/> to convert.</param>
+    /// <param name="defaultValue">The default value to return if conversion fails.</param>
+    /// <returns>The integer representation of the value, or the default value if conversion fails.</returns>
+    public static int ToIntOrDefault(this decimal value, int defaultValue = 0)
+    {
+        return value.ToIntOrNull() ?? defaultValue;
+    }
+
+    /// <summary>
+    /// Converts the nullable value to an integer or returns the default value if conversion fails.
+    /// </summary>
+    /// <param name="value">The nullable <see cref="decimal"/> to convert.</param>
+    /// <param name="defaultValue">The default value to return if conversion fails.</param>
+    /// <returns>The integer representation of the value, or the default value if conversion fails.</returns>
+    public static int ToIntOrDefault(this decimal? value, int defaultValue = 0)
+    {
+        return value.ToIntOrNull() ?? defaultValue;
+    }
+
+    /// <summary>
+    /// Tries to convert the value to an integer if it is an integer within range.
+    /// </summary>
+    /// <param name="value">The <see cref="decimal"/> to convert.</param>
+    /// <param name="result">The converted integer value if successful, or 0 if failed.</param>
+    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
+    public static bool TryToInt(this decimal value, out int result)
+    {
+        var converted = value.ToIntOrNull();
+        if (converted.HasValue)
+        {
+            result = converted.Value;
+            return true;
+        }
+
+        result = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// Tries to convert the nullable value to an integer if it is an integer within range.
+    /// </summary>
+    /// <param name="value">The nullable <see cref="decimal"/> to convert.</param>
+    /// <param name="result">The converted integer value if successful, or 0 if failed.</param>
+    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
+    public static bool TryToInt(this decimal? value, out int result)
+    {
+        var converted = value.ToIntOrNull();
+        if (converted.HasValue)
+        {
+            result = converted.Value;
+            return true;
+        }
+
+        result = 0;
+        return false;
     }
 
     /// <summary>

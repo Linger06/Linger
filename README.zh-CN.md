@@ -7,13 +7,13 @@
 [![NuGet](https://img.shields.io/nuget/v/Linger.Utils.svg)](https://www.nuget.org/packages/Linger.Utils/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](.github/workflows/dotnet.yml)
 
 ## 特性
 
 - 🚀 **高性能** - 零开销类型转换
 - 🔒 **类型安全** - 严格的类型安全原则
-- 🔮 **.NET 10 前瞻** - 提前支持 .NET 10 新特性
+- 🔮 **.NET 10 已支持** - 原生支持 .NET 10；同时保留 Polyfills 以兼容旧目标框架
 - 📦 **模块化** - 按需引入
 - 🌐 **跨平台** - 支持 .NET 10.0、9.0、8.0、Standard 2.0、Framework 4.7.2
 
@@ -32,6 +32,18 @@ dotnet add package Linger.AspNetCore.Jwt
 # 数据访问
 dotnet add package Linger.DataAccess.SqlServer
 ```
+
+## 包选择指南
+
+- 构建通用工具与扩展方法：安装 `Linger.Utils`
+- 在服务边界需要明确成功/失败返回模型：安装 `Linger.Results`
+- 构建 ASP.NET Core Token 认证：安装 `Linger.AspNetCore.Jwt`
+- 使用统一抽象访问关系型数据库：按数据库选择其一
+    `Linger.DataAccess.SqlServer`、`Linger.DataAccess.Oracle`、`Linger.DataAccess.Sqlite`
+- 使用 EF Core 并需要增强能力：安装 `Linger.EFCore`
+- 处理本地/FTP/SFTP 文件系统：安装 `Linger.FileSystem`
+- 导入导出 Excel：安装 `Linger.Excel` 并按需选择具体 Provider 包
+- 集成 LDAP 认证：安装 `Linger.Ldap.ActiveDirectory` 或 `Linger.Ldap.Novell`
 
 ## 基础用法
 
@@ -78,6 +90,10 @@ public Result<User> GetUser(int id)
 - [Linger.EFCore 文档](src/Linger.EFCore/README.md)
 - [Linger.FileSystem 文档](src/Linger.FileSystem/README.md)
 - [Linger.Email 文档](src/Linger.Email/README.md)
+- [Linger.Excel 文档](src/Linger.Excel/README.md)
+- [Linger.Dapper 文档](src/Linger.Dapper/README.md)
+- [Linger.Ldap.ActiveDirectory 文档](src/Linger.Ldap.ActiveDirectory/README.zh-CN.md)
+- [Linger.Ldap.Novell 文档](src/Linger.Ldap.Novell/README.zh-CN.md)
 
 ## 贡献
 

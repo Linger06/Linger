@@ -24,11 +24,34 @@ dotnet add package Linger.HttpClient.Standard
 
 ### IHttpClient
 ```csharp
-public interface IHttpClient : IDisposable
+public interface IHttpClient
 {
-    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method = HttpMethodEnum.Get, 
-        object? data = null, Dictionary<string, string>? headers = null, 
-        Dictionary<string, object>? queryParams = null, CancellationToken cancellationToken = default);
+    Task<ApiResult<T>> CallApi<T>(
+        string url,
+        object? queryParams = null,
+        int? timeout = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult<T>> CallApi<T>(
+        string url,
+        HttpMethodEnum method,
+        object? requestBody = null,
+        object? queryParams = null,
+        int? timeout = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult<Stream>> DownloadStreamAsync(
+        string url,
+        int? timeout = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult> DownloadToFileAsync(
+        string url,
+        string destinationPath,
+        int? timeout = null,
+        int bufferSize = 8192,
+        IProgress<(long downloaded, long? total)>? progress = null,
+        CancellationToken cancellationToken = default);
 }
 ```
 
@@ -36,11 +59,11 @@ public interface IHttpClient : IDisposable
 ```csharp
 public class ApiResult<T>
 {
-    public bool IsSuccess { get; set; }
+    public bool IsSuccess { get; }
     public T Data { get; set; }
-    public string ErrorMsg { get; set; }
-    public HttpStatusCode StatusCode { get; set; }
-    public Error[] Errors { get; set; }
+    public string? ErrorMsg { get; set; }
+    public HttpStatusCode? StatusCode { get; set; }
+    public IEnumerable<Error> Errors { get; set; }
 }
 ```
 
@@ -73,11 +96,18 @@ public class UserService
 `ApiResult` seamlessly integrates with `Linger.Results`:
 
 ```csharp
-// Server using Linger.Results
+// Server using Linger.Results (generic Result: returns data)
 public async Task<Result<User>> GetUserAsync(int id)
 {
     var user = await _userRepository.GetUserAsync(id);
     return user is not null ? Result<User>.Success(user) : Result<User>.NotFound("User not found");
+}
+
+// Server using Linger.Results (non-generic Result: only indicates success/failure)
+public async Task<Result> UpdateUserAsync(UpdateUserRequest request)
+{
+    await _userRepository.UpdateUserAsync(request);
+    return Result.Success();
 }
 
 // Client receives structured errors
@@ -87,6 +117,18 @@ if (!apiResult.IsSuccess)
     // Automatically mapped error information
     foreach (var error in apiResult.Errors)
         Console.WriteLine($"Error: {error.Code} - {error.Message}");
+}
+
+// For non-generic Result, the response usually has no Data; check IsSuccess / StatusCode / Errors
+ApiResult commandResult = await _httpClient.DownloadToFileAsync("api/files/export", "export.zip");
+if (commandResult.IsSuccess)
+{
+    Console.WriteLine("Operation succeeded");
+}
+else
+{
+    Console.WriteLine($"HTTP Status: {commandResult.StatusCode}");
+    Console.WriteLine($"Error Message: {commandResult.ErrorMsg}");
 }
 ```
 

@@ -1,4 +1,6 @@
-﻿namespace Linger.UnitTests;
+﻿using LingerDataTableExtensions = Linger.Extensions.Data.DataTableExtensions;
+
+namespace Linger.UnitTests;
 
 public partial class DataTableExtensionsTests
 {
@@ -49,6 +51,265 @@ public partial class DataTableExtensionsTests
         Assert.Equal(2, result[1].Int);
         Assert.Equal(2, result[1].NullableInt);
         Assert.Equal("Jane", result[1].Name);
+    }
+
+    [Fact]
+    public async Task ToListAsync_WithMapper_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+
+        List<TestClass2> result = await table.ToListAsync(row => new TestClass2
+        {
+            Int = Convert.ToInt32(row["Int"]),
+            Name = row["Name"]?.ToString(),
+            NullableInt = row["NullableInt"] == DBNull.Value ? null : Convert.ToInt32(row["NullableInt"])
+        });
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Null(result[0].NullableInt);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+        Assert.Equal(2, result[1].NullableInt);
+    }
+
+    [Fact]
+    public void ToList_WithMapper_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+
+        List<TestClass2>? result = table.ToList(row => new TestClass2
+        {
+            Int = Convert.ToInt32(row["Int"]),
+            Name = row["Name"]?.ToString(),
+            NullableInt = row["NullableInt"] == DBNull.Value ? null : Convert.ToInt32(row["NullableInt"])
+        });
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Null(result[0].NullableInt);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+        Assert.Equal(2, result[1].NullableInt);
+    }
+
+    [Fact]
+    public void ToList_WithMapperAndNullDataTable_ReturnsNull()
+    {
+        DataTable? table = null;
+
+        List<TestClass2>? result = table.ToList(row => new TestClass2
+        {
+            Int = Convert.ToInt32(row["Int"]),
+            Name = row["Name"]?.ToString()
+        });
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ToList_WithMapperAndParameterizedConstructor_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+
+        List<TestClassWithConstructor>? result = table.ToList(row =>
+        {
+            return new TestClassWithConstructor(tenantId: 7, source: "mapper")
+            {
+                Int = Convert.ToInt32(row["Int"]),
+                Name = row["Name"]?.ToString()
+            };
+        });
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(7, result[0].TenantId);
+        Assert.Equal("mapper", result[0].Source);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+    }
+
+    [Fact]
+    public void ToList_WithMapperAndRequiredMemberParameterizedConstructor_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+
+        List<TestClassWithRequiredAndConstructor>? result = table.ToList(row =>
+        {
+            return new TestClassWithRequiredAndConstructor(tenantId: 13, source: "mapper-required")
+            {
+                Int = Convert.ToInt32(row["Int"]),
+                Name = row["Name"]?.ToString()
+            };
+        });
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(13, result[0].TenantId);
+        Assert.Equal("mapper-required", result[0].Source);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+    }
+
+    [Fact]
+    public void ToList_WithFactoryAndColumnSetters_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+        var setters = new Dictionary<string, Action<TestClass2, object?>>
+        {
+            ["Int"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int>((x, v) => x.Int = v),
+            ["Name"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, string?>((x, v) => x.Name = v),
+            ["NullableInt"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int?>((x, v) => x.NullableInt = v)
+        };
+
+        List<TestClass2>? result = table.ToList(() => new TestClass2(), setters);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Null(result[0].NullableInt);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+        Assert.Equal(2, result[1].NullableInt);
+    }
+
+    [Fact]
+    public async Task ToListAsync_WithFactoryAndColumnSetters_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+        var setters = new Dictionary<string, Action<TestClass2, object?>>
+        {
+            ["int"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int>((x, v) => x.Int = v),
+            ["name"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, string?>((x, v) => x.Name = v),
+            ["nullableint"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int?>((x, v) => x.NullableInt = v)
+        };
+
+        List<TestClass2> result = await table.ToListAsync(() => new TestClass2(), setters);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Null(result[0].NullableInt);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+        Assert.Equal(2, result[1].NullableInt);
+    }
+
+    [Fact]
+    public void ToList_WithFactoryAndColumnSettersAndParameterizedConstructor_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+        var setters = new Dictionary<string, Action<TestClassWithConstructor, object?>>
+        {
+            ["Int"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithConstructor, int>((x, v) => x.Int = v),
+            ["Name"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithConstructor, string?>((x, v) => x.Name = v)
+        };
+
+        List<TestClassWithConstructor>? result = table.ToList(() => new TestClassWithConstructor(tenantId: 9, source: "factory"), setters);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(9, result[0].TenantId);
+        Assert.Equal("factory", result[0].Source);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+    }
+
+    [Fact]
+    public void ToList_WithFactoryAndColumnSettersAndRequiredMemberParameterizedConstructor_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+        var setters = new Dictionary<string, Action<TestClassWithRequiredAndConstructor, object?>>
+        {
+            ["Int"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithRequiredAndConstructor, int>((x, v) => x.Int = v),
+            ["Name"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithRequiredAndConstructor, string?>((x, v) => x.Name = v)
+        };
+
+        List<TestClassWithRequiredAndConstructor>? result = table.ToList(() => new TestClassWithRequiredAndConstructor(tenantId: 17, source: "factory-required"), setters);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(17, result[0].TenantId);
+        Assert.Equal("factory-required", result[0].Source);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+    }
+
+    [Fact]
+    public async Task ToListAsync_WithFactoryAndColumnSettersAndParameterizedConstructor_ReturnsListOfObjects()
+    {
+        DataTable? table = CreateTestDataTable();
+        var setters = new Dictionary<string, Action<TestClassWithConstructor, object?>>
+        {
+            ["int"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithConstructor, int>((x, v) => x.Int = v),
+            ["name"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithConstructor, string?>((x, v) => x.Name = v)
+        };
+
+        List<TestClassWithConstructor> result = await table.ToListAsync(() => new TestClassWithConstructor(tenantId: 11, source: "factory-async"), setters);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(11, result[0].TenantId);
+        Assert.Equal("factory-async", result[0].Source);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+    }
+
+    [Fact]
+    public void ToList_WithFactoryAndColumnSettersAndNoMatchingColumns_ThrowsArgumentException()
+    {
+        DataTable? table = CreateTestDataTable();
+        var setters = new Dictionary<string, Action<TestClass2, object?>>
+        {
+            ["NotExists"] = (x, v) => x.Name = v?.ToString()
+        };
+
+        var exception = Assert.Throws<ArgumentException>(() => table.ToList(() => new TestClass2(), setters));
+        Assert.Equal("columnSetters", exception.ParamName);
+    }
+
+    [Fact]
+    public void CreateColumnSetter_CanReuseConversionLogicAcrossMappings()
+    {
+        DataTable? table = CreateTestDataTable();
+
+        var intSetter = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int>((x, v) => x.Int = v);
+        var nameSetter = LingerDataTableExtensions.CreateColumnSetter<TestClass2, string?>((x, v) => x.Name = v);
+        var nullableIntSetter = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int?>((x, v) => x.NullableInt = v);
+
+        var setters = new Dictionary<string, Action<TestClass2, object?>>
+        {
+            ["Int"] = intSetter,
+            ["Name"] = nameSetter,
+            ["NullableInt"] = nullableIntSetter
+        };
+
+        List<TestClass2>? result = table.ToList(() => new TestClass2(), setters);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal(1, result[0].Int);
+        Assert.Equal("John", result[0].Name);
+        Assert.Null(result[0].NullableInt);
+        Assert.Equal(2, result[1].Int);
+        Assert.Equal("Jane", result[1].Name);
+        Assert.Equal(2, result[1].NullableInt);
     }
 
     [Fact]
@@ -240,5 +501,30 @@ public partial class DataTableExtensionsTests
         public float? NullFloat { get; set; }
         public double? NullDouble { get; set; }
         public string NotIncludeInDataTable { get; set; }
+    }
+
+    private sealed class TestClassWithConstructor(int tenantId, string source)
+    {
+        public int TenantId { get; } = tenantId;
+        public string Source { get; } = source;
+
+        public int Int { get; set; }
+        public string? Name { get; set; }
+    }
+
+    private sealed class TestClassWithRequiredAndConstructor
+    {
+        public int TenantId { get; }
+        public required string Source { get; init; }
+
+        public int Int { get; set; }
+        public string? Name { get; set; }
+
+        [System.Diagnostics.CodeAnalysis.SetsRequiredMembers]
+        public TestClassWithRequiredAndConstructor(int tenantId, string source)
+        {
+            TenantId = tenantId;
+            Source = source;
+        }
     }
 }

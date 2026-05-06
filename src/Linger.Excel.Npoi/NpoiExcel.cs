@@ -160,7 +160,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// 如果headerRowIndex为-1(无表头)，则返回空字典。
     /// 否则读取表头行，并将列名映射到列索引。
     /// </remarks>
-    protected override Dictionary<int, string> CreateHeaderMappings(ISheet worksheet, int headerRowIndex)
+    protected override Dictionary<int, string> ExtractRawHeaderMappings(ISheet worksheet, int headerRowIndex)
     {
         var result = new Dictionary<int, string>();
 
@@ -399,7 +399,6 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             case CellType.Error:
                 return GetExcelCellValue(ErrorEval.GetText(cell.ErrorCellValue));
             case CellType.Blank:
-            case CellType.Unknown:
             default:
                 return DBNull.Value;
         }

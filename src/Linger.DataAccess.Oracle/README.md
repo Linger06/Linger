@@ -9,6 +9,13 @@ Oracle database access library with enhanced security and batch processing.
 - Async/await with CancellationToken
 - Comprehensive operations & provider-specific helpers
 
+## Supported .NET Versions
+
+- .NET 10.0
+- .NET 9.0
+- .NET 8.0
+- .NET Framework 4.7.2+
+
 ## Installation
 
 ```powershell

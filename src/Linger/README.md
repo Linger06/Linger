@@ -17,6 +17,8 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
   - [DateTime Extensions](#datetime-extensions)
   - [File Operations](#file-operations)
   - [Collection Extensions](#collection-extensions)
+    - [DataTable Extensions (AOT-Friendly)](#datatable-extensions-aot-friendly)
+        - [IDataReader Extensions (AOT-Friendly)](#idatareader-extensions-aot-friendly)
   - [Object Extensions](#object-extensions)
   - [JSON Extensions](#json-extensions)
   - [GUID Extensions](#guid-extensions)
@@ -39,6 +41,10 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **String Cryptography Extensions**: Secure AES encryption/decryption functionality for data protection
 - **DateTime Extensions**: Date and time manipulation, formatting, and calculations
 - **Numeric Extensions**: Type-safe numeric conversions with **strict type safety principles**, **complete support for all .NET basic numeric types**
+
+    Note: Decimal-to-int conversions were enhanced. `DecimalExtensions` now provides `ToIntOrNull`, `ToIntOrDefault` and `TryToInt` (including nullable overloads). These methods return a value only when the decimal has no fractional part (fractional == 0) and the numeric value fits in `Int32`. Example: `(decimal)1.0000m.ToIntOrDefault() => 1`.
+
+    Also, object/string conversion paths now accept strings like "1.00000" as integer-compatible and will convert them to `1` when appropriate.
 - **Enum Extensions**: Enhanced enum handling and conversion
 - **Object Extensions**: General object operations and validation, **enhanced with complete numeric type support**
 - **Array Extensions**: Array processing and manipulation utilities
@@ -263,6 +269,65 @@ var caseInsensitiveJoin = stringList1.LeftJoin(
 );
 
 // .NET 10+ Built-in Compatible: Method signatures match the standard, no code changes required when upgrading
+```
+
+### DataTable Extensions (AOT-Friendly)
+
+```csharp
+using Linger.Extensions.Data;
+
+// Reflection-free mapping for AOT/trim scenarios
+DataTable? table = GetDataTable();
+
+List<UserDto>? users = table.ToList(row => new UserDto
+{
+    Id = Convert.ToInt32(row["Id"]),
+    Name = row["Name"]?.ToString()
+});
+
+// Async variant (also reflection-free)
+List<UserDto> usersAsync = await table!.ToListAsync(row => new UserDto
+{
+    Id = Convert.ToInt32(row["Id"]),
+    Name = row["Name"]?.ToString()
+});
+
+// Property-mapping style (still reflection-free)
+List<UserDto>? usersBySetters = table.ToList(
+    () => new UserDto(),
+    new Dictionary<string, Action<UserDto, object?>>
+    {
+        ["Id"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<UserDto, int>((x, v) => x.Id = v),
+        ["Name"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<UserDto, string?>((x, v) => x.Name = v)
+    });
+
+// Reflection-based overloads are retained for compatibility but obsolete:
+// var legacy = table.ToList<UserDto>();
+```
+
+### IDataReader Extensions (AOT-Friendly)
+
+```csharp
+using Linger.Extensions.Data;
+
+// Reflection-free mapping for AOT/trim scenarios
+using IDataReader listReader = GetDataReader();
+List<UserDto> users = listReader.ReaderToList(record => new UserDto
+{
+    Id = Convert.ToInt32(record["Id"]),
+    Name = record["Name"]?.ToString()
+});
+
+using IDataReader modelReader = GetDataReader();
+UserDto? user = modelReader.ReaderToModel(record => new UserDto
+{
+    Id = Convert.ToInt32(record["Id"]),
+    Name = record["Name"]?.ToString()
+});
+
+// Reflection-based overloads are retained for compatibility but obsolete:
+// var legacyList = listReader.ReaderToList<UserDto>();
+// var legacyModel = modelReader.ReaderToModel<UserDto>();
 ```
 
 ### Object Extensions

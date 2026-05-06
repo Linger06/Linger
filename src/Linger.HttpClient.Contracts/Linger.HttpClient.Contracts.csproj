@@ -2,28 +2,27 @@
 
   <PropertyGroup>
     <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-    <Version>1.1.0</Version>
+    <Version>1.4.0</Version>
     <Description>
       Contracts and interfaces for Linger HTTP client implementations.
       Provides a unified API for making typed HTTP requests with standardized error handling.
       Supports various HTTP methods, file uploading, and automatic token handling.
     </Description>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-  </PropertyGroup>
+</PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='net472'">
     <Reference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-  </ItemGroup>
+</ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Linger\Linger.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.203" />
   </ItemGroup>
 
 </Project>

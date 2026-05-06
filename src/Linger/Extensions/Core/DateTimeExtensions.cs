@@ -713,7 +713,7 @@ public static class DateTimeExtensions
                 break;
 
             case CalendarWeekRule.FirstFourDayWeek:
-                if (dayOffset > 4)
+                if (dayOffset >= 4)
                 {
                     firstWeekStart = jan1;
                     firstWeekEnd = jan1.AddDays(dayOffset);

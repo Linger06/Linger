@@ -1,28 +1,16 @@
 ﻿# Linger.Ldap.Novell
 
-A comprehensive .NET library providing seamless integration with LDAP directories using the Novell.Directory.Ldap provider, with cross-platform support.
+A cross-platform LDAP client implementation based on Novell.Directory.Ldap.
 
 ## Features
 
-### Core Functionality
-- Platform-independent LDAP operations
-- SSL/TLS secure connections
-- Connection pooling and management
-- Comprehensive error handling
-
-### User Management
-- User authentication and validation
-- Detailed user information retrieval
-- Advanced search capabilities
-- Group membership querying
-
-### Information Categories
-- Basic identification (username, display name, UPN)
-- Personal information (first name, last name, initials)
-- Contact details (email, phone numbers, addresses)
-- Organization info (department, title, employee ID)
-- System attributes (workstations, profile paths)
-- Security settings (account status, password info)
+- Cross-platform LDAP access (Windows/Linux/macOS)
+- Async user authentication and lookup APIs
+- LDAPS support via `LdapConfig.Security`
+- Configurable `SearchFilter` for `FindUserAsync` and `GetUsersAsync`
+- Cross-provider advanced query via `ILdap.SearchUsersByFilterAsync`
+- Optional `Attributes` projection to limit returned fields
+- Built-in LDAP filter value escaping for safer search input
 
 ## Supported Frameworks
 
@@ -31,147 +19,128 @@ A comprehensive .NET library providing seamless integration with LDAP directorie
 - .NET 8.0
 
 ## Installation
-### From Visual Studio
 
-1. Open the `Solution Explorer`.
-2. Right-click on a project within your solution.
-3. Click on `Manage NuGet Packages...`.
-4. Click on the `Browse` tab and search for "Linger.Ldap.Novell".
-5. Click on the `Linger.Ldap.Novell` package, select the appropriate version and click Install.
-
-### Package Manager Console
-
-```
-PM> Install-Package Linger.Ldap.Novell
+```shell
+dotnet add package Linger.Ldap.Novell
 ```
 
-### .NET CLI Console
+## Quick Start
 
-```
-> dotnet add package Linger.Ldap.Novell
-```
-
-## Usage Examples
-
-### Basic Configuration
 ```csharp
-var config = new LdapConfig 
-{ 
-    Url = "ldap.company.com", 
-    Domain = "COMPANY", 
-    SearchBase = "DC=company,DC=com", 
-    Security = true, 
-    Credentials = new LdapCredentials { BindDn = "serviceAccount", BindCredentials = "password" } 
-};
-```
+using Linger.Ldap.Contracts;
+using Linger.Ldap.Novell;
 
-### User Authentication
-```csharp
-using var ldap = new Ldap(config); 
-if (ldap.ValidateUser("username", "password", out var userInfo)) 
+var config = new LdapConfig
 {
-    Console.WriteLine($"User authenticated: {userInfo.DisplayName}"); 
-    Console.WriteLine($"Email: {userInfo.Email}"); 
-    Console.WriteLine($"Department: {userInfo.Department}"); 
-}
-```
+    Url = "ldap.example.com",
+    Domain = "example",
+    SearchBase = "DC=example,DC=com",
+    SearchFilter = "(&(objectClass=person)(|(uid={0})(sAMAccountName={0})(mail={0})))",
+    Security = true,
+    Credentials = new LdapCredentials
+    {
+        BindDn = "serviceAccount",
+        BindCredentials = "SecurePassword123!"
+    },
+    Attributes =
+    [
+        "displayName",
+        "sAMAccountName",
+        "mail",
+        "department",
+        "memberOf"
+    ]
+};
 
-### Finding Users
-```csharp
 using var ldap = new Ldap(config);
+```
 
-// Find specific user 
-var user = ldap.FindUser("username"); 
-if (user != null) 
-{ 
-    Console.WriteLine($"Name: {user.DisplayName}"); 
-    Console.WriteLine($"Email: {user.Email}"); 
-    Console.WriteLine($"Title: {user.Title}"); 
-}
+## Usage
 
-// Search users with pattern
-var users = ldap.GetUsers("john*"); 
-foreach (var foundUser in users) 
-{ 
-    Console.WriteLine($"Found: {foundUser.DisplayName}");
-    Console.WriteLine($"Groups: {string.Join(", ", foundUser.MemberOf ?? Array.Empty())}"); 
+### Validate User Credentials
+
+```csharp
+var (isValid, userInfo) = await ldap.ValidateUserAsync("alice", "Password123!");
+
+if (isValid && userInfo is not null)
+{
+    Console.WriteLine($"DisplayName: {userInfo.DisplayName}");
+    Console.WriteLine($"Email: {userInfo.Email}");
 }
 ```
 
-## Available User Properties
+### Find a Single User
 
-### Identification
-- DisplayName
-- SamAccountName
-- UserPrincipalName (UPN)
-- DistinguishedName (DN)
+```csharp
+var user = await ldap.FindUserAsync("alice");
 
-### Personal Information
-- FirstName
-- LastName
-- Description
-- Initials
+if (user is not null)
+{
+    Console.WriteLine($"SamAccountName: {user.SamAccountName}");
+    Console.WriteLine($"DN: {user.Dn}");
+}
+```
 
-### Contact Information
-- Email
-- TelephoneNumber
-- Mobile
-- HomePhone
-- Fax
-- IpPhone
-- WebPage
+### Search Users
 
-### Organization Details
-- Company
-- Department
-- Title
-- Manager
-- EmployeeId
-- EmployeeNumber
+```csharp
+var users = await ldap.GetUsersAsync("alice");
 
-### Address Information
-- Street
-- City
-- State
-- PostalCode
-- Country
-- PostOfficeBox
+foreach (var item in users)
+{
+    Console.WriteLine($"{item.DisplayName} ({item.Email})");
+}
+```
 
-### System Information
-- UserWorkstations
-- ProfilePath
-- HomeDrive
-- HomeDirectory
-- WhenCreated
+### Search in a Specific OU with Custom Bind Credentials
 
-### Security Information
-- Status (Enabled/Disabled/Locked/Expired)
-- AccountExpires
-- PwdLastSet
-- PwdExpirationLeftDays
-- MemberOf (Group memberships)
+```csharp
+var customCreds = new LdapCredentials
+{
+    BindDn = "readonly.user",
+    BindCredentials = "ReadonlyPassword123!"
+};
 
-## Key Differences from Active Directory Version
+var usersInOu = await ldap.GetUsersAsync(
+    "alice",
+    ldapCredentials: customCreds,
+    searchBase: "OU=Sales,DC=example,DC=com");
+```
 
-- Cross-platform support (Windows, Linux, macOS)
-- Different connection handling mechanism
-- Platform-independent authentication
-- Native SSL/TLS support
-- More flexible LDAP server compatibility
+### Advanced Filter Search (Cross-Provider)
 
-## Requirements
+```csharp
+ILdap ldapContract = ldap;
 
-- LDAP/LDAPS server access
-- Appropriate LDAP permissions
+var users = await ldapContract.SearchUsersByFilterAsync(
+    "(&(objectClass=person)(department=IT)(mail=*))",
+    searchBase: "DC=example,DC=com");
+```
 
-## Contributing
+## Notes
 
-We welcome contributions! Please:
+- `Url` is required for Novell provider (no automatic domain controller discovery).
+- When `Security = true`, the client uses SSL and connects with default LDAPS port (`636`).
+- `SearchFilter` is used by both `FindUserAsync` and `GetUsersAsync`; using `{0}` placeholder is recommended.
+- `SearchUsersByFilterAsync` provides provider-agnostic advanced raw-filter queries.
+- If `SearchFilter` format is invalid, the implementation falls back to a default user filter.
+- Input value in user search is escaped before building LDAP filter to reduce malformed/injection risk.
+- Bind username normalization supports existing `domain\\user`, UPN (`user@domain`), and full DN forms.
+- `Attributes` can be used to reduce payload and improve query performance.
 
-1. Fork the repository
-2. Create a feature branch
-3. Submit a Pull Request
+## Key User Properties (AdUserInfo)
 
-## License
+- `DisplayName`, `SamAccountName`, `Upn`, `Dn`
+- `Email`, `TelephoneNumber`, `Mobile`, `Department`, `Title`
+- `Company`, `Manager`, `WhenCreated`, `Status`, `PwdLastSet`
+- `MemberOf`, `ProfilePath`, `HomeDirectory`, `ExtensionAttribute1`
 
-This project is licensed under the MIT License.
+## Dependencies
+
+- Novell.Directory.Ldap.NETStandard
+- Linger.Ldap.Contracts
+
+## Related Packages
+
+- [Linger.Ldap.Contracts](../Linger.Ldap.Contracts/): core LDAP interfaces and data models
+- [Linger.Ldap.ActiveDirectory](../Linger.Ldap.ActiveDirectory/): Active Directory optimized implementation

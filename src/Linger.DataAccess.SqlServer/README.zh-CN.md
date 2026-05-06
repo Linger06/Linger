@@ -11,9 +11,16 @@
 
 ## 支持的 .NET 版本
 
+- .NET 10.0
 - .NET 9.0
 - .NET 8.0  
-- .NET Framework 4.6.2+
+- .NET Framework 4.7.2+
+
+## 安装
+
+```powershell
+dotnet add package Linger.DataAccess.SqlServer
+```
 
 ## 基本用法
 

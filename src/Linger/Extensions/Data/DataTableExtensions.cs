@@ -29,10 +29,74 @@ public static class DataTableExtensions
     /// List&lt;MyClass&gt; list = await table.ToListAsync&lt;MyClass&gt;();
     /// </code>
     /// </example>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToListAsync<T>(DataTable, Func<DataRow, T>) for AOT/trimming scenarios.")]
+#endif
+    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ToListAsync<T>(DataTable, Func<DataRow, T>) or ToListAsync<T>(DataTable, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
     public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
         return Task.FromResult(dt.ToList<T>());
         //return await Task.Run(dt.ToList<T>).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using a caller-provided mapper.
+    /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
+    /// </summary>
+    /// <typeparam name="T">The type of elements to convert to.</typeparam>
+    /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
+    /// <param name="map">A mapper that converts each <see cref="DataRow"/> to <typeparamref name="T"/>.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <example>
+    /// <code>
+    /// DataTable table = GetDataTable();
+    /// List&lt;MyClass&gt; list = await table.ToListAsync(row =&gt; new MyClass
+    /// {
+    ///     Id = row["Id"].ToIntOrDefault(),
+    ///     Name = row["Name"]?.ToString()
+    /// });
+    /// </code>
+    /// </example>
+    public static Task<List<T>> ToListAsync<T>(this DataTable dt, Func<DataRow, T> map)
+    {
+        ArgumentNullException.ThrowIfNull(dt);
+        ArgumentNullException.ThrowIfNull(map);
+
+        return Task.FromResult(dt.ToList(map)!);
+    }
+
+    /// <summary>
+    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using
+    /// a caller-provided factory and column setter map.
+    /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
+    /// </summary>
+    /// <typeparam name="T">The type of elements to convert to.</typeparam>
+    /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
+    /// <param name="factory">Factory used to create each target item.</param>
+    /// <param name="columnSetters">Column name to setter delegate map. Column matching is case-insensitive.</param>
+    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <example>
+    /// <code>
+    /// DataTable table = GetDataTable();
+    /// var list = await table.ToListAsync(
+    ///     () =&gt; new MyClass(),
+    ///     new Dictionary&lt;string, Action&lt;MyClass, object?&gt;&gt;
+    ///     {
+    ///         ["Id"] = (x, v) =&gt; x.Id = Convert.ToInt32(v),
+    ///         ["Name"] = (x, v) =&gt; x.Name = v?.ToString()
+    ///     });
+    /// </code>
+    /// </example>
+    public static Task<List<T>> ToListAsync<T>(
+        this DataTable dt,
+        Func<T> factory,
+        IReadOnlyDictionary<string, Action<T, object?>> columnSetters)
+    {
+        ArgumentNullException.ThrowIfNull(dt);
+        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(columnSetters);
+
+        return Task.FromResult(dt.ToList(factory, columnSetters)!);
     }
 
 #endif
@@ -324,7 +388,7 @@ public static class DataTableExtensions
                 if (includeLeftJoin)
                 {
                     var parentArray = parentRow.ItemArray;
-                    var joinArray = new object[parentArray.Length];
+                    var joinArray = new object[result.Columns.Count];
                     Array.Copy(parentArray, 0, joinArray, 0, parentArray.Length);
                     _ = result.LoadDataRow(joinArray, true);
                 }
@@ -542,9 +606,9 @@ public static class DataTableExtensions
         {
             return null;
         }
-        if (dt.Rows.Count == 0)
+        if (dt.Rows.Count == 0 || pageIndex <= 0 || pageSize <= 0)
         {
-            return dt;
+            return dt.Clone();
         }
         DataTable result = dt.Clone();
         IEnumerable<DataRow> rows = dt.AsEnumerable().Skip((pageIndex - 1) * pageSize).Take(pageSize);
@@ -573,6 +637,178 @@ public static class DataTableExtensions
 #endif
 
     /// <summary>
+    /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using a caller-provided mapper.
+    /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
+    /// </summary>
+    /// <typeparam name="T">The type of elements to convert to.</typeparam>
+    /// <param name="dataTable">The current <see cref="DataTable"/>.</param>
+    /// <param name="map">A mapper that converts each <see cref="DataRow"/> to <typeparamref name="T"/>.</param>
+    /// <returns>A <see cref="List{T}"/> representing the rows.</returns>
+    /// <example>
+    /// <code>
+    /// DataTable table = GetDataTable();
+    /// List&lt;MyClass&gt; list = table.ToList(row =&gt; new MyClass
+    /// {
+    ///     Id = row["Id"].ToIntOrDefault(),
+    ///     Name = row["Name"]?.ToString()
+    /// });
+    /// </code>
+    /// </example>
+    public static List<T>? ToList<T>(this DataTable? dataTable, Func<DataRow, T> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+
+        if (dataTable?.Rows.Count == 0)
+        {
+            return [];
+        }
+
+        if (dataTable is null)
+        {
+            return null;
+        }
+
+        var result = new List<T>(dataTable.Rows.Count);
+        foreach (DataRow row in dataTable.Rows)
+        {
+            result.Add(map(row));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Creates a reusable column setter delegate with built-in type conversion.
+    /// This helper reduces duplicated conversion logic when building <c>columnSetters</c> maps.
+    /// </summary>
+    /// <typeparam name="T">The target object type.</typeparam>
+    /// <typeparam name="TValue">The target property value type.</typeparam>
+    /// <param name="assign">Strongly typed property assignment action.</param>
+    /// <param name="assignDefaultWhenNull">
+    /// If <c>true</c> and the converted value is null, assigns <c>default</c> for nullable/reference targets.
+    /// For non-nullable value targets, null input is ignored.
+    /// </param>
+    /// <returns>A reusable <see cref="Action{T1,T2}"/> that accepts raw column values.</returns>
+    /// <example>
+    /// <code>
+    /// var setters = new Dictionary&lt;string, Action&lt;MyDto, object?&gt;&gt;
+    /// {
+    ///     ["Id"] = DataTableExtensions.CreateColumnSetter&lt;MyDto, int&gt;((x, v) =&gt; x.Id = v),
+    ///     ["Name"] = DataTableExtensions.CreateColumnSetter&lt;MyDto, string?&gt;((x, v) =&gt; x.Name = v),
+    ///     ["Age"] = DataTableExtensions.CreateColumnSetter&lt;MyDto, int?&gt;((x, v) =&gt; x.Age = v)
+    /// };
+    /// </code>
+    /// </example>
+    public static Action<T, object?> CreateColumnSetter<T, TValue>(
+        Action<T, TValue> assign,
+        bool assignDefaultWhenNull = true)
+    {
+        ArgumentNullException.ThrowIfNull(assign);
+
+        return (target, rawValue) =>
+        {
+            if (!Helper.TypeConverter.TryConvertTo(rawValue, typeof(TValue), out var convertedValue))
+            {
+                return;
+            }
+
+            if (convertedValue is null)
+            {
+                if (assignDefaultWhenNull && IsNullableOrReferenceType(typeof(TValue)))
+                {
+                    assign(target, default!);
+                }
+
+                return;
+            }
+
+            assign(target, (TValue)convertedValue);
+        };
+    }
+
+    /// <summary>
+    /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using
+    /// a caller-provided factory and column setter map.
+    /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
+    /// </summary>
+    /// <typeparam name="T">The type of elements to convert to.</typeparam>
+    /// <param name="dataTable">The current <see cref="DataTable"/>.</param>
+    /// <param name="factory">Factory used to create each target item.</param>
+    /// <param name="columnSetters">Column name to setter delegate map. Column matching is case-insensitive.</param>
+    /// <returns>A <see cref="List{T}"/> representing the rows.</returns>
+    /// <example>
+    /// <code>
+    /// DataTable table = GetDataTable();
+    /// List&lt;MyClass&gt; list = table.ToList(
+    ///     () =&gt; new MyClass(),
+    ///     new Dictionary&lt;string, Action&lt;MyClass, object?&gt;&gt;
+    ///     {
+    ///         ["Id"] = (x, v) =&gt; x.Id = Convert.ToInt32(v),
+    ///         ["Name"] = (x, v) =&gt; x.Name = v?.ToString()
+    ///     });
+    /// </code>
+    /// </example>
+    public static List<T>? ToList<T>(
+        this DataTable? dataTable,
+        Func<T> factory,
+        IReadOnlyDictionary<string, Action<T, object?>> columnSetters)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        ArgumentNullException.ThrowIfNull(columnSetters);
+
+        if (dataTable?.Rows.Count == 0)
+        {
+            return [];
+        }
+
+        if (dataTable is null)
+        {
+            return null;
+        }
+
+        if (columnSetters.Count == 0)
+        {
+            throw new ArgumentException("At least one column setter is required.", nameof(columnSetters));
+        }
+
+        var setterLookup = new Dictionary<string, Action<T, object?>>(columnSetters.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var pair in columnSetters)
+        {
+            setterLookup[pair.Key] = pair.Value;
+        }
+
+        var columnMappings = new Dictionary<int, Action<T, object?>>();
+        for (var i = 0; i < dataTable.Columns.Count; i++)
+        {
+            var columnName = dataTable.Columns[i].ColumnName;
+            if (setterLookup.TryGetValue(columnName, out var setter))
+            {
+                columnMappings[i] = setter;
+            }
+        }
+
+        if (columnMappings.Count == 0)
+        {
+            throw new ArgumentException("No matching DataTable columns were found for the provided column setters.", nameof(columnSetters));
+        }
+
+        var result = new List<T>(dataTable.Rows.Count);
+        foreach (DataRow row in dataTable.Rows)
+        {
+            var item = factory();
+            foreach (var mapping in columnMappings)
+            {
+                var rawValue = row[mapping.Key];
+                mapping.Value(item, rawValue == DBNull.Value ? null : rawValue);
+            }
+
+            result.Add(item);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with advanced performance optimizations.
     /// Uses caching to minimize reflection overhead and supports parallel processing for large datasets.
     /// </summary>
@@ -586,6 +822,10 @@ public static class DataTableExtensions
     /// List&lt;MyClass&gt; list = table.ToList&lt;MyClass&gt;(500); // Enable parallel processing for 500+ rows
     /// </code>
     /// </example>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
+#endif
+    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ToList<T>(DataTable?, Func<DataRow, T>) or ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
     public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000) where T : class, new()
     {
         if (dataTable?.Rows.Count == 0)
@@ -698,6 +938,11 @@ public static class DataTableExtensions
     private static PropertyInfo[] GetCachedTypeProperties(Type type)
     {
         return s_typePropertiesCache.GetOrAdd(type, t => t.GetProperties());
+    }
+
+    private static bool IsNullableOrReferenceType(Type type)
+    {
+        return !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
     }
 
     /// <summary>

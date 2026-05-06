@@ -146,7 +146,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Check file exists", ex, filePath);
-            return false;
+            return false; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -160,7 +160,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Check directory exists", ex, directoryPath);
-            return false;
+            return false; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -286,7 +286,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Upload file", ex, $"Destination: {destinationFilePath}");
-            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -314,13 +314,13 @@ public class SftpFileSystem : RemoteFileSystemBase
 
         try
         {
-            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
+            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
             return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             HandleException("Upload file", ex, $"Local: {localFilePath}, Destination: {destinationFilePath}");
-            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -360,7 +360,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
         try
         {
-            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read);
+            using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
             return await UploadAsync(fileStream, remotePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -369,7 +369,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                 "Upload file",
                 ex,
                 $"Local: {localFilePath}, Directory: {destinationDirectory}, FileName: {destinationFileName}");
-            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -411,7 +411,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Download to stream", ex, remoteFilePath);
-            return FileOperationResult.CreateFailure($"下载文件到流失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -466,7 +466,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Download file", ex, remoteFilePath);
-            return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -484,7 +484,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Delete file", ex, filePath);
-            return FileOperationResult.CreateFailure($"删除文件失败: {ex.Message}", ex);
+            return default; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -509,7 +509,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("Get last modified time", ex, remotePath);
-            return DateTime.MinValue;
+            return DateTime.MinValue; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -537,7 +537,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List files", ex, directoryPath);
-            return [];
+            return []; // 不会执行，HandleException 始终抛出异常
         }
     }
 
@@ -565,7 +565,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         catch (Exception ex)
         {
             HandleException("List directories", ex, directoryPath);
-            return [];
+            return []; // 不会执行，HandleException 始终抛出异常
         }
     }
 

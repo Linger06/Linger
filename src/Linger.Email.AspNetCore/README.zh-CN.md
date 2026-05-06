@@ -2,7 +2,7 @@
 
 ## 概述
 
-Linger.Email.AspNetCore 是专为 ASP.NET Core 应用设计的邮件服务扩展包。它让您在 Web 应用中发送邮件变得轻松简单——通过依赖注入自动管理邮件客户端，从配置文件直接读取设置，还提供了许多开箱即用的便捷功能。
+Linger.Email.AspNetCore 是 Linger.Email 的 ASP.NET Core 集成包。它为 Web 应用和后台服务提供依赖注入、配置绑定、日志集成以及便捷邮件服务包装。
 
 ## 安装
 
@@ -12,13 +12,11 @@ dotnet add package Linger.Email.AspNetCore
 
 ## 功能亮点
 
-- **一键集成**：几行代码就能在项目中启用邮件功能
-- **配置简单**：直接从 appsettings.json 读取配置，无需手动设置
-- **依赖注入友好**：完美融入 ASP.NET Core 的服务容器
-- **便捷方法**：提供专门的快捷方法处理常见邮件场景
-- **自动日志记录**：邮件发送过程自动记录，便于调试和监控
-- **配置验证**：启动时自动检查配置，及早发现问题
-- **现代化支持**：兼容 .NET 9.0 和 .NET 8.0
+- **依赖注入集成**：简单的服务注册和配置
+- **配置绑定**：自动从 appsettings.json 读取配置
+- **日志集成**：内置邮件操作日志支持
+- **便捷服务 API**：常见邮件场景的辅助方法
+- **ASP.NET Core 友好**：适用于控制器、后台服务和应用启动代码
 
 ## 快速上手
 
@@ -64,7 +62,7 @@ builder.Services.AddEmailService(builder.Configuration);
 var app = builder.Build();
 ```
 
-> **注意**：旧的方法 `ConfigureEmail()` 和 `ConfigureMailKit()` 已被标记为过时，将在未来版本中移除。请使用 `AddEmailService()` 代替。
+> **注意**：旧的方法 `ConfigureEmail()` 和 `ConfigureMailKit()` 是迁移兼容别名。新代码请直接使用 `AddEmailService()`。
 
 ### 3. 在控制器中发送邮件
 

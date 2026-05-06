@@ -2,7 +2,7 @@
 
 ## Overview
 
-Linger.Email.AspNetCore provides seamless ASP.NET Core integration for the Linger.Email library. It simplifies email service configuration through dependency injection, configuration binding, and provides enhanced email service capabilities specifically designed for modern ASP.NET Core applications.
+Linger.Email.AspNetCore is the ASP.NET Core integration package for Linger.Email. It adds dependency injection, configuration binding, logging, and convenience service wrappers for web applications and hosted services.
 
 ## Installation
 
@@ -14,10 +14,9 @@ dotnet add package Linger.Email.AspNetCore
 
 - **Dependency Injection Integration**: Simple service registration and configuration
 - **Configuration Binding**: Automatic binding from appsettings.json
-- **Enhanced Email Service**: Additional convenience methods for common email scenarios
 - **Logging Integration**: Built-in logging support for email operations
-- **Configuration Validation**: Automatic validation of email configuration
-- **Cross-platform**: Supports .NET 9.0 and .NET 8.0
+- **Convenience Service API**: Helper methods for common email scenarios
+- **ASP.NET Core Friendly**: Designed for controllers, hosted services, and application startup code
 
 ## Quick Start
 
@@ -63,7 +62,7 @@ builder.Services.AddEmailService(builder.Configuration);
 var app = builder.Build();
 ```
 
-> **Note**: The older methods `ConfigureEmail()` and `ConfigureMailKit()` are now obsolete and will be removed in a future version. Please use `AddEmailService()` instead.
+> **Note**: The older methods `ConfigureEmail()` and `ConfigureMailKit()` are obsolete migration shims. Use `AddEmailService()` for new code.
 
 ### 3. Use Email Service in Controllers
 

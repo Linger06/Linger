@@ -26,14 +26,24 @@ public interface ILdap
     Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all users matching the specified filter
+    /// Gets users by keyword or identity.
     /// </summary>
-    /// <param name="userName">LDAP filter string</param>
+    /// <param name="userName">Keyword or identity to search (e.g., account, UPN, email, display name)</param>
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Collection of matching users; null if none found</returns>
+    /// <returns>Collection of matching users</returns>
     Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches users by a raw LDAP filter.
+    /// </summary>
+    /// <param name="filter">Raw LDAP filter expression</param>
+    /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Collection of matching users</returns>
+    Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Checks if user exists in LDAP directory

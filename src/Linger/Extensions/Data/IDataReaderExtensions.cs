@@ -47,6 +47,44 @@ public static class IDataReaderExtensions
     }
 
     /// <summary>
+    /// Converts the <see cref="IDataReader"/> to a list of objects using a caller-provided mapper.
+    /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
+    /// </summary>
+    /// <typeparam name="T">The target object type.</typeparam>
+    /// <param name="dr">The <see cref="IDataReader"/> to convert.</param>
+    /// <param name="map">A mapper that converts the current record to <typeparamref name="T"/>.</param>
+    /// <returns>A list of mapped objects.</returns>
+    /// <example>
+    /// <code>
+    /// using (IDataReader reader = GetDataReader())
+    /// {
+    ///     var list = reader.ReaderToList(record => new Person
+    ///     {
+    ///         Id = Convert.ToInt32(record["Id"]),
+    ///         Name = record["Name"]?.ToString()
+    ///     });
+    /// }
+    /// </code>
+    /// </example>
+    public static List<T> ReaderToList<T>(this IDataReader dr, Func<IDataRecord, T> map)
+    {
+        ArgumentNullException.ThrowIfNull(dr);
+        ArgumentNullException.ThrowIfNull(map);
+
+        using (dr)
+        {
+            var list = new List<T>();
+            while (dr.Read())
+            {
+                list.Add(map(dr));
+            }
+
+            dr.Close();
+            return list;
+        }
+    }
+
+    /// <summary>
     /// Converts the <see cref="IDataReader"/> to a list of objects.
     /// </summary>
     /// <typeparam name="T">The type of objects to convert to.</typeparam>
@@ -60,6 +98,10 @@ public static class IDataReaderExtensions
     /// }
     /// </code>
     /// </example>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ReaderToList<T>(IDataReader, Func<IDataRecord, T>) for AOT/trimming scenarios.")]
+#endif
+    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ReaderToList<T>(IDataReader, Func<IDataRecord, T>) instead.")]
     public static List<T> ReaderToList<T>(this IDataReader dr)
     {
         using (dr)
@@ -95,6 +137,45 @@ public static class IDataReaderExtensions
     }
 
     /// <summary>
+    /// Converts the first row of <see cref="IDataReader"/> to an object using a caller-provided mapper.
+    /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
+    /// </summary>
+    /// <typeparam name="T">The target object type.</typeparam>
+    /// <param name="dr">The <see cref="IDataReader"/> to convert.</param>
+    /// <param name="map">A mapper that converts the current record to <typeparamref name="T"/>.</param>
+    /// <returns>The mapped object for the first row, or <see langword="default"/> when no rows exist.</returns>
+    /// <example>
+    /// <code>
+    /// using (IDataReader reader = GetDataReader())
+    /// {
+    ///     var model = reader.ReaderToModel(record => new Person
+    ///     {
+    ///         Id = Convert.ToInt32(record["Id"]),
+    ///         Name = record["Name"]?.ToString()
+    ///     });
+    /// }
+    /// </code>
+    /// </example>
+    public static T? ReaderToModel<T>(this IDataReader dr, Func<IDataRecord, T> map)
+    {
+        ArgumentNullException.ThrowIfNull(dr);
+        ArgumentNullException.ThrowIfNull(map);
+
+        using (dr)
+        {
+            if (!dr.Read())
+            {
+                dr.Close();
+                return default;
+            }
+
+            var model = map(dr);
+            dr.Close();
+            return model;
+        }
+    }
+
+    /// <summary>
     /// Converts the <see cref="IDataReader"/> to a single object.
     /// </summary>
     /// <typeparam name="T">The type of object to convert to.</typeparam>
@@ -108,17 +189,28 @@ public static class IDataReaderExtensions
     /// }
     /// </code>
     /// </example>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ReaderToModel<T>(IDataReader, Func<IDataRecord, T>) for AOT/trimming scenarios.")]
+#endif
+    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ReaderToModel<T>(IDataReader, Func<IDataRecord, T>) instead.")]
     public static T ReaderToModel<T>(this IDataReader dr)
     {
         using (dr)
         {
             T model = Activator.CreateInstance<T>();
+
+            var field = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (var i = 0; i < dr.FieldCount; i++)
+            {
+                field.Add(dr.GetName(i));
+            }
+
             while (dr.Read())
             {
                 foreach (PropertyInfo pi in model!.GetType()
                              .GetProperties(BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.Instance))
                 {
-                    if (!dr[pi.Name].IsNullOrDbNull())
+                    if (field.Contains(pi.Name) && !dr[pi.Name].IsNullOrDbNull())
                     {
                         pi.SetValue(model, ConvertToType(dr[pi.Name], pi.PropertyType), null);
                     }
