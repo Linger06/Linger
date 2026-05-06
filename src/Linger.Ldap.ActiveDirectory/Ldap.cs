@@ -23,7 +23,7 @@ public class Ldap : ILdap
     private readonly string _url;
 
     private const string DefaultUserSearchFilterTemplate = "(&(objectCategory=person)(objectClass=user)(|(samAccountName={0})(userPrincipalName={0})(mail={0})(displayName={0})))";
-    private const string DefaultDirectorySearcherFilter = "(&(objectCategory=person)(objectClass=user))";
+    private const string DefaultUserDirectorySearcherFilter = "(&(objectCategory=person)(objectClass=user))";
     private const string LdapSchemePrefix = "LDAP://";
     private const string LdapsSchemePrefix = "LDAPS://";
 
@@ -162,9 +162,9 @@ public class Ldap : ILdap
     }
 
     /// <summary>
-    /// Gets all users matching the specified username pattern
+    /// Gets users by keyword or identity.
     /// </summary>
-    /// <param name="userName">Username pattern to search for</param>
+    /// <param name="userName">Keyword or identity to search (e.g., account, UPN, email, display name)</param>
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -181,12 +181,24 @@ public class Ldap : ILdap
     /// <param name="filter">Raw LDAP filter expression</param>
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
+    /// <returns>Collection of matching users</returns>
+    public IEnumerable<AdUserInfo> SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
+    {
+        using var collection = SearchUserEntriesByFilterCore(filter, ldapCredentials, searchBase);
+        return collection.ToAdUsersInfo();
+    }
+
+    /// <summary>
+    /// Searches users by raw LDAP filter with provider-agnostic contract.
+    /// </summary>
+    /// <param name="filter">Raw LDAP filter expression</param>
+    /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
+    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
     public async Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
-        using var collection = SearchUsersByFilter(filter, ldapCredentials, searchBase);
-        return await Task.Run(collection.ToAdUsersInfo, cancellationToken).ConfigureAwait(false);
+        return await Task.Run(() => SearchUsersByFilter(filter, ldapCredentials, searchBase), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -225,14 +237,7 @@ public class Ldap : ILdap
         return domainController.ToString();
     }
 
-    /// <summary>
-    /// Searches for users matching the specified LDAP filter.
-    /// </summary>
-    /// <param name="filter">LDAP filter string for user search</param>
-    /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
-    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
-    /// <returns>Collection of search results matching the filter</returns>
-    public SearchResultCollection SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
+    private SearchResultCollection SearchUserEntriesByFilterCore(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
         if (ldapCredentials is null)
         {
@@ -257,7 +262,7 @@ public class Ldap : ILdap
 
         // 构建搜索过滤器
         directorySearcher.Filter = filter.IsNullOrWhiteSpace()
-            ? DefaultDirectorySearcherFilter
+            ? DefaultUserDirectorySearcherFilter
             : filter;
 
         var userCollection = directorySearcher.FindAll();

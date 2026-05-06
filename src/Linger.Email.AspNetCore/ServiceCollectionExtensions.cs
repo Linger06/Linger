@@ -6,7 +6,7 @@ namespace Linger.Email.AspNetCore;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers and configures email services
+    /// Registers and configures the ASP.NET Core email service integration.
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="configuration">The configuration containing email settings</param>
@@ -19,7 +19,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers and configures email services
+    /// Registers and configures the ASP.NET Core email service integration.
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="configuration">The configuration containing email settings</param>
@@ -30,7 +30,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers and configures email services
+    /// Registers and configures the ASP.NET Core email service integration.
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="configuration">The configuration containing email settings</param>

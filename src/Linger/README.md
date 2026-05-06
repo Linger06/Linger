@@ -41,6 +41,10 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **String Cryptography Extensions**: Secure AES encryption/decryption functionality for data protection
 - **DateTime Extensions**: Date and time manipulation, formatting, and calculations
 - **Numeric Extensions**: Type-safe numeric conversions with **strict type safety principles**, **complete support for all .NET basic numeric types**
+
+    Note: Decimal-to-int conversions were enhanced. `DecimalExtensions` now provides `ToIntOrNull`, `ToIntOrDefault` and `TryToInt` (including nullable overloads). These methods return a value only when the decimal has no fractional part (fractional == 0) and the numeric value fits in `Int32`. Example: `(decimal)1.0000m.ToIntOrDefault() => 1`.
+
+    Also, object/string conversion paths now accept strings like "1.00000" as integer-compatible and will convert them to `1` when appropriate.
 - **Enum Extensions**: Enhanced enum handling and conversion
 - **Object Extensions**: General object operations and validation, **enhanced with complete numeric type support**
 - **Array Extensions**: Array processing and manipulation utilities

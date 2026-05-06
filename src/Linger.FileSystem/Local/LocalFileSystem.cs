@@ -224,15 +224,35 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                         // 确保目录存在
                         FileHelper.EnsureDirectoryExists(relativeFilePath);
 
+                        // 对于 MD5 命名，目标文件名是确定的：不允许覆盖时直接按重复文件处理
+                        if (!overwrite && File.Exists(relativeFilePath))
+                        {
+                            throw new DuplicateFileException();
+                        }
+
                         // 将临时文件移动到最终位置
 #if NET5_0_OR_GREATER
-                        File.Move(tempPath, relativeFilePath, overwrite);
+                        try
+                        {
+                            File.Move(tempPath, relativeFilePath, overwrite);
+                        }
+                        catch (IOException) when (!overwrite && File.Exists(relativeFilePath))
+                        {
+                            throw new DuplicateFileException();
+                        }
 #else
                         if (overwrite && File.Exists(relativeFilePath))
                         {
                             File.Delete(relativeFilePath);
                         }
-                        File.Move(tempPath, relativeFilePath);
+                        try
+                        {
+                            File.Move(tempPath, relativeFilePath);
+                        }
+                        catch (IOException) when (!overwrite && File.Exists(relativeFilePath))
+                        {
+                            throw new DuplicateFileException();
+                        }
 #endif
                     }
                     finally

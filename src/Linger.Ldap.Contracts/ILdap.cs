@@ -26,13 +26,13 @@ public interface ILdap
     Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets all users matching the specified filter
+    /// Gets users by keyword or identity.
     /// </summary>
-    /// <param name="userName">Username keyword to search</param>
+    /// <param name="userName">Keyword or identity to search (e.g., account, UPN, email, display name)</param>
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Collection of matching users; null if none found</returns>
+    /// <returns>Collection of matching users</returns>
     Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Linger.Email is a comprehensive C# email helper library that provides simplified email operations with modern .NET development in mind. Built on top of the robust MailKit library, it offers secure SMTP support, HTML and plain text emails, attachment handling, and asynchronous sending capabilities across multiple .NET frameworks.
+Linger.Email is the framework-agnostic core package for sending email with MailKit. It provides SMTP transport, message composition, attachment handling, and asynchronous sending across multiple .NET frameworks.
 
 ## Installation
 
@@ -12,14 +12,13 @@ dotnet add package Linger.Email
 
 ## Features
 
-- **Multi-format Email Support**: Send both HTML and plain text emails
-- **Attachment Handling**: Support for file attachments with multiple formats
-- **Secure SMTP**: SSL/TLS encryption support for secure email transmission
+- **SMTP Sending**: Send email directly through MailKit
+- **Message Composition**: Build text and HTML messages with multiple recipients
+- **Attachment Handling**: Support file-path and stream-based attachments
+- **Secure Transport**: SSL/TLS support for secure email transmission
 - **Asynchronous Operations**: Modern async/await pattern for non-blocking email operations
-- **Flexible Configuration**: Easy-to-use configuration system
-- **Multiple Recipients**: Support for To, CC, and BCC recipients
 - **Priority Levels**: Configure email priority (High, Normal, Low)
-- **Cross-platform**: Supports multiple .NET frameworks (net9.0, net8.0, netstandard2.0)
+- **Cross-platform**: Supports multiple .NET frameworks (net10.0, net9.0, net8.0, netstandard2.0)
 
 ## Quick Start
 
@@ -135,6 +134,10 @@ var message = new EmailMessage
 
 await email.SendAsync(message);
 ```
+
+## ASP.NET Core Integration
+
+If you are building an ASP.NET Core application, use [Linger.Email.AspNetCore](../Linger.Email.AspNetCore/README.md) for dependency injection, configuration binding, and logging integration.
 
 ## Advanced Features
 
