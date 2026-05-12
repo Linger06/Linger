@@ -306,13 +306,34 @@ public static class TypeConverter
                 result = dt;
                 return true;
             }
-
-            if (DateTime.TryParse(value.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateResult))
+            string strValue = value.ToString()?.Trim() ?? string.Empty;
+            // 策略 1：使用固定区域性解析（兼容 en-US、标准 ISO、以及无歧义格式）
+            if (DateTime.TryParse(strValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateResult))
             {
                 result = dateResult;
                 return true;
             }
-
+            // 策略 2：【针对 zh-CN 生产环境修复】尝试用当前线程 Culture 解析（兼容带有"上午/下午"、"年/月/日"等本地格式）
+            if (DateTime.TryParse(strValue, CultureInfo.CurrentCulture, DateTimeStyles.None, out dateResult))
+            {
+                result = dateResult;
+                return true;
+            }
+            // 策略 3：常见工业格式多模版精确匹配兜底
+            string[] extraFormats = new[]
+            {
+                "M/d/yyyy h:mm:ss tt",
+                "yyyy/M/d H:mm:ss",
+                "yyyy/M/d h:mm:ss tt",
+                "yyyy-MM-dd HH:mm:ss",
+                "yyyy/MM/dd HH:mm:ss"
+            };
+            if (DateTime.TryParseExact(strValue, extraFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out dateResult))
+            {
+                result = dateResult;
+                return true;
+            }
+            // 彻底失败：不要改变 result，直接返回 false，交给外层决定是阻断还是记录
             result = null;
             return false;
         }
