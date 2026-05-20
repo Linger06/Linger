@@ -112,6 +112,18 @@ public partial class DataTableExtensionsTests
     }
 
     [Fact]
+    public void ToList_WithInvalidDateTimeValue_ThrowsInvalidCastException()
+    {
+        var table = new DataTable();
+        table.Columns.Add("DateTime", typeof(string));
+        table.Rows.Add("not a date");
+
+        var exception = Assert.Throws<InvalidCastException>(() => table.ToList<TestClass2>());
+
+        Assert.Contains("DateTime", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ToList_WithMapperAndParameterizedConstructor_ReturnsListOfObjects()
     {
         DataTable? table = CreateTestDataTable();

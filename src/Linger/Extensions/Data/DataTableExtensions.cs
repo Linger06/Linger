@@ -881,7 +881,7 @@ public static class DataTableExtensions
 
                     if (value != DBNull.Value)
                     {
-                        SetPropertySafely(item, property, value);
+                        SetProperty(item, property, value);
                     }
                 }
 
@@ -904,7 +904,7 @@ public static class DataTableExtensions
 
                     if (value != DBNull.Value)
                     {
-                        SetPropertySafely(item, property, value);
+                        SetProperty(item, property, value);
                     }
                 }
 
@@ -946,28 +946,43 @@ public static class DataTableExtensions
     }
 
     /// <summary>
-    /// Safely sets a property value with type conversion and error handling.
+    /// 动态为属性赋值。类型不兼容、格式不匹配、只读属性或向不可空值类型赋 null 时，直接抛出异常。
     /// </summary>
-    /// <typeparam name="T">The target object type.</typeparam>
-    /// <param name="obj">The target object.</param>
-    /// <param name="property">The property to set.</param>
-    /// <param name="value">The value to set.</param>
-    private static void SetPropertySafely<T>(T obj, PropertyInfo property, object? value) where T : class
+    /// <exception cref="ArgumentNullException">当 property 为 null 时抛出</exception>
+    /// <exception cref="InvalidOperationException">当属性不可写时抛出</exception>
+    /// <exception cref="InvalidCastException">当类型转换或赋值失败时抛出</exception>
+    private static void SetProperty<T>(this T obj, PropertyInfo property, object? value) where T : class
     {
-        if (!property.CanWrite || value == DBNull.Value)
-            return;
+        ArgumentNullException.ThrowIfNull(property);
 
-        try
+        if (!property.CanWrite)
         {
-            if (Helper.TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue))
+            throw new InvalidOperationException($"属性 {property.Name} 是只读的，无法赋值。");
+        }
+
+        if (value is null || value is DBNull)
+        {
+            if (property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) is null)
             {
-                property.SetValue(obj, convertedValue);
+                throw new InvalidCastException($"无法将 null 赋值给不可空的值类型属性: '{property.DeclaringType?.Name}.{property.Name}'。");
             }
+
+            property.SetValue(obj, null);
+            return;
         }
-        catch
+
+        if (!Helper.TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue))
         {
-            // Silent fail for incompatible conversions to maintain compatibility
-            // In production, you might want to log this or use a different strategy
+            throw new InvalidCastException(
+                $"[核心转换失败] 无法将输入值 '{value}' (类型: {value.GetType().Name}) 转换为属性 '{property.Name}' 所需的目标类型 {property.PropertyType.Name}。 " +
+                $"当前系统的运行时 Culture 是: '{CultureInfo.CurrentCulture.Name}'。");
         }
+
+        if (convertedValue is null && property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) is null)
+        {
+            throw new InvalidCastException($"转换器发生异常：无法将转换后的 null 赋值给不可空值类型 '{property.Name}'。");
+        }
+
+        property.SetValue(obj, convertedValue);
     }
 }
