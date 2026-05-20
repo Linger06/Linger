@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472;</TargetFrameworks>
-    <Version>1.4.1-preview</Version>
+    <Version>1.4.2</Version>
     <Description>
       A modern functional-style operation result handling library for .NET applications.
       Provides a more elegant alternative to exception handling with strongly-typed Results
@@ -14,7 +14,7 @@
 </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.203" />
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.300" />
   </ItemGroup>
 
 </Project>

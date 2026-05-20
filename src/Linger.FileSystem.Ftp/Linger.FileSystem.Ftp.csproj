@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0</TargetFrameworks>
-        <Version>1.4.1-preview</Version>
+        <Version>1.4.2</Version>
         <Description>
             An FTP implementation of the Linger FileSystem abstraction.
             Provides a robust and retry-capable FTP client for file operations using FluentFTP.
@@ -22,7 +22,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.203" />
+      <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.300" />
     </ItemGroup>
 
 </Project>

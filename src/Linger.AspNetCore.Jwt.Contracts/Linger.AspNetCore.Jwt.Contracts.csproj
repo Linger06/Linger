@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
-        <Version>1.4.1-preview</Version>
+        <Version>1.4.2</Version>
 <Description>
             Core JWT (JSON Web Token) contracts and interfaces for ASP.NET Core applications.
             Provides abstractions for token generation, validation, and refresh operations
@@ -18,7 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.203" />
+      <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.300" />
     </ItemGroup>
 
 </Project>
