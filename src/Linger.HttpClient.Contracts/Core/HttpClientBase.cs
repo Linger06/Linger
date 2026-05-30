@@ -249,7 +249,7 @@ public abstract class HttpClientBase : IHttpClient
         }
 
         // 处理空或空白响应
-        if (string.IsNullOrWhiteSpace(responseText))
+        if (responseText.IsNullOrWhiteSpace())
         {
             return default!;
         }
@@ -298,7 +298,7 @@ public abstract class HttpClientBase : IHttpClient
             var responseTxt = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             // 如果响应内容为空，返回通用错误消息
-            if (string.IsNullOrWhiteSpace(responseTxt))
+            if (responseTxt.IsNullOrWhiteSpace())
             {
                 return (GetStatusCodeMessage(res.StatusCode) ?? $"HTTP {(int)res.StatusCode}: {res.ReasonPhrase}", []);
             }
@@ -315,16 +315,15 @@ public abstract class HttpClientBase : IHttpClient
                         var errors = problemDetails.Errors.Select(kvp => new Error(kvp.Key, kvp.Value)).ToList();
                         // 将所有字段错误消息合并为全局错误消息；若 key 非空，包含在消息中："key: value"
                         var mergedMsg = string.Join("\n", problemDetails.Errors
-                            .Where(kvp => !string.IsNullOrWhiteSpace(kvp.Value))
-                            .Select(kvp => string.IsNullOrWhiteSpace(kvp.Key) ? kvp.Value : $"{kvp.Key}: {kvp.Value}"));
-                        var errorMsg = !string.IsNullOrWhiteSpace(mergedMsg)
-                            ? mergedMsg
-                            : (!string.IsNullOrWhiteSpace(problemDetails.Title) ? problemDetails.Title : "An unknown error occurred");
+                            .Where(kvp => kvp.Value.IsNotNullOrWhiteSpace())
+                            .Select(kvp => kvp.Key.IsNullOrWhiteSpace() ? kvp.Value : $"{kvp.Key}: {kvp.Value}"));
+                        var errorMsg = mergedMsg.IsNotNullOrWhiteSpace() ? mergedMsg
+                            : (problemDetails.Title.IsNotNullOrWhiteSpace() ? problemDetails.Title : "An unknown error occurred");
                         return (errorMsg, errors);
                     }
 
                     // 如果没有 Errors 但有 Title,使用 Title
-                    if (!string.IsNullOrWhiteSpace(problemDetails.Title))
+                    if (problemDetails.Title.IsNotNullOrWhiteSpace())
                     {
                         return (problemDetails.Title, Array.Empty<Error>());
                     }
@@ -343,9 +342,9 @@ public abstract class HttpClientBase : IHttpClient
                 {
                     // 合并所有错误项的消息为全局错误消息；若 Code 非空，包含在消息中："Code: Message"
                     var mergedMsg = string.Join("\n", errorList
-                        .Where(e => !string.IsNullOrWhiteSpace(e?.Message))
-                        .Select(e => string.IsNullOrWhiteSpace(e!.Code) ? e!.Message : $"{e.Code}: {e.Message}"));
-                    var errorMsg = !string.IsNullOrWhiteSpace(mergedMsg) ? mergedMsg : "An unknown error occurred";
+                        .Where(e => e is not null && (e.Message.IsNotNullOrWhiteSpace() || e.Code.IsNotNullOrWhiteSpace()))
+                        .Select(e => e.ToString()));
+                    var errorMsg = mergedMsg.IsNotNullOrWhiteSpace() ? mergedMsg : "An unknown error occurred";
                     return (errorMsg, errorList);
                 }
             }
