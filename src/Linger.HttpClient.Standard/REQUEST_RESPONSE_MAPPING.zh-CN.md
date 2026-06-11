@@ -2,10 +2,53 @@
 
 本章详细说明：WebAPI 如何返回响应、HttpClient.CallApi 如何调用，以及 ApiResult<T> 的各字段如何填充。
 
+## 约定总则（建议）
+
+- 服务端统一返回 `Result<T>` / `Result`，控制器用 `ToActionResult()` / `ToHttpResult()` 做响应映射。
+- 错误优先采用 `ProblemDetails`（含 `errors`），便于客户端映射到 `ApiResult.Errors`。
+- 成功响应尽量保持结构稳定：有数据用 `ActionResult<T>`，无数据用 `ActionResult` + 204。
+- 客户端调用：有数据用 `CallApi<T>`；无数据用 `CallApi` 或 `CallApi<object>`，只关心 `IsSuccess` / `StatusCode`。
+
 补充要点：
 - `IsSuccess` 以 HTTP 2xx 为成功标准。
 - 成功但响应体为空时，`CallApi<T>` 返回默认值；`CallApi<object>` 返回 `null`。
-- 失败时 `ErrorMsg` 由 `Errors` 合并；解析结构化错误体失败则回退为原始响应文本或状态码默认消息。
+
+## 错误字段格式（重要）
+
+服务端应尽量采用 RFC 7807 的 `ProblemDetails` 或框架默认的字段验证格式，且 `errors` 的值为字符串数组（`string[]`），以兼容客户端对同一字段的多条提示。
+
+说明：服务端在实现时推荐使用 `Dictionary<string, string[]>`（或框架默认的 ModelState 验证结构），以保证与 `ProblemDetailsWithErrors`/`CreateProblemDetails` 的序列化兼容。
+
+示例（ProblemDetails，含字段错误数组）：
+
+```json
+HTTP/1.1 422 Unprocessable Entity
+Content-Type: application/problem+json
+{
+    "title": "One or more validation errors occurred.",
+    "status": 422,
+    "detail": "The request contains invalid data.",
+    "errors": {
+        "Email": ["Invalid email format"],
+        "Age": ["Age must be greater than 18"]
+    }
+}
+```
+
+客户端映射要点：
+
+- `HttpClient` 将 `errors` 展开为 `ApiResult.Errors`（一个 `Error` 列表），每个 `Error` 的 `Code` 对应字段名，`Message` 对应数组中的单条信息。
+- `ApiResult.ErrorMsg` 的生成规则：优先使用 `ProblemDetails.Detail`；若无则使用 `errors` 中的首条消息。客户端不会自动把多条错误合并为一个长文本（需要时可自行合并显示）。
+
+注意：客户端为防御性读取响应体，HttpClient 在解析错误体时会对流长度做保护（例如只读取前 50KB），因此在返回非常大的非结构化响应时，客户端可能只获取到响应的前部内容用于展示或作为 `ErrorMsg` 的兜底文本。
+
+示例：服务端返回上述 ProblemDetails，客户端获得的 `ApiResult`：
+
+- `IsSuccess` = false
+- `StatusCode` = 422
+- `ErrorMsg` = "Invalid email format"（优先使用 `ProblemDetails.detail`；若无，则使用 `errors` 数组的首条消息）
+- `Errors` = [ Error{ Code="Email", Message="Invalid email format" }, Error{ Code="Age", Message="Age must be greater than 18"} ]
+失败时 `ErrorMsg` 优先使用 `ProblemDetails.Detail` 或 `Errors` 中的首条消息；解析结构化错误体失败则回退为原始响应文本或状态码默认消息。
 - `ToActionResult` / `ToProblemDetails` / `ToHttpResult` 默认失败状态码为 400 或 404（按 ResultStatus 映射）；需要 422/409 等状态码时可显式传入 `failureStatusCode`。
 
 ### 场景 1：成功情况
@@ -143,8 +186,8 @@ Content-Type: application/problem+json
     "title": "One or more validation errors occurred.",
     "status": 422,
     "errors": {
-        "Email": "邮箱格式不正确",
-        "Age": "年龄必须大于 18"
+        "Email": ["邮箱格式不正确"],
+        "Age": ["年龄必须大于 18"]
     }
 }
 ```
@@ -164,7 +207,7 @@ var result = await _httpClient.CallApi<User>(
 // result.IsSuccess       = false
 // result.Data            = null（因为 IsSuccess=false）
 // result.StatusCode      = 422
-// result.ErrorMsg        = "Email: 邮箱格式不正确\nAge: 年龄必须大于 18" （自动合并）
+// result.ErrorMsg        = "邮箱格式不正确"（优先使用 `ProblemDetails.detail`；若无，则使用 `errors` 的首条字段错误消息）
 // result.Errors          = [
 //     Error { Code = "Email", Message = "邮箱格式不正确" },
 //     Error { Code = "Age", Message = "年龄必须大于 18" }
@@ -239,7 +282,7 @@ var result = await _httpClient.CallApi<Order>(
 // result.IsSuccess       = false
 // result.Data            = null（因为 IsSuccess=false）
 // result.StatusCode      = 409
-// result.ErrorMsg        = "InsufficientStock: 库存不足，需求 10 件但仅剩 5 件\nPaymentGatewayDown: 支付网关暂时不可用，请稍后重试" （自动合并）
+// result.ErrorMsg        = "InsufficientStock: 库存不足，需求 10 件但仅剩 5 件"（优先使用首条业务错误消息；`Errors` 列表包含所有业务错误项）
 // result.Errors          = [
 //     Error { Code = "InsufficientStock", Message = "库存不足，需求 10 件但仅剩 5 件" },
 //     Error { Code = "PaymentGatewayDown", Message = "支付网关暂时不可用，请稍后重试" }
@@ -247,7 +290,7 @@ var result = await _httpClient.CallApi<Order>(
 
 if (!result.IsSuccess)
 {
-    // 全局错误消息会自动合并所有业务错误
+    // 全局错误信息使用首条业务错误消息；具体业务错误项请从 `Errors` 列表逐一处理
     Console.WriteLine($"订单提交失败: {result.ErrorMsg}");
 
     // 逐项访问具体错误编码以进行不同处理
@@ -405,7 +448,7 @@ services.AddHttpClient<IHttpClient, CustomHttpClient>();
 | `IsSuccess` | `bool` | `true` | `false` | 标识本次调用是否成功 |
 | `Data` | `T` | 反序列化后的对象 | `null` | 只在 IsSuccess=true 时有意义 |
 | `StatusCode` | `HttpStatusCode?` | `200` 等 2xx | `400` / `401` / `404` / `422` / `500` 等 | HTTP 状态码 |
-| `ErrorMsg` | `string?` | `null` | 合并后的错误信息 | 自动合并 Errors 列表；若无法结构化解析则为原始响应文本 |
+| `ErrorMsg` | `string?` | `null` | 全局错误信息（优先使用 `detail` 或首条 `Errors` 消息） | 由 `detail` 或首条 `Errors` 消息生成；`Errors` 列表仍保留所有项；解析失败则为原始响应文本 |
 | `Errors` | `IEnumerable<Error>` | 空集合 | 错误详情列表 | Code 和 Message 字段的含义取决于错误类型（字段/业务错误/自定义） |
 
 ### 调用方法快速参考

@@ -7,6 +7,8 @@ Production-ready HTTP client implementation based on System.Net.Http.HttpClient.
 - **Zero Dependencies**: Built on standard .NET libraries
 - **HttpClientFactory Integration**: Proper socket management and connection pooling
 - **Proper Resource Management**: Automatic disposal tracking with ownership pattern to prevent resource leaks
+- **Streaming Download Support**: `DownloadStreamAsync` and `DownloadToFileAsync` for large-file scenarios
+- **Optional Response Mode**: `Buffered` / `Streamed` response reading modes
 - **Comprehensive Logging**: Built-in performance monitoring
 - **Linger.Results Integration**: Seamless error mapping from server to client
 - **ProblemDetails Support**: Native RFC 7807 support
@@ -17,9 +19,63 @@ Production-ready HTTP client implementation based on System.Net.Http.HttpClient.
 dotnet add package Linger.HttpClient.Standard
 ```
 
+## Quick Start
+
+```csharp
+// Program.cs / Startup.cs
+services.AddHttpClient<IHttpClient, StandardHttpClient>();
+
+// In any business service
+public sealed class UserQueryService
+{
+    private readonly IHttpClient _httpClient;
+
+    public UserQueryService(IHttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
+    public async Task<User?> GetAsync(int id, CancellationToken cancellationToken = default)
+    {
+        var result = await _httpClient.CallApi<User>($"api/users/{id}", cancellationToken: cancellationToken);
+
+        if (result.IsSuccess && result.Data is not null)
+        {
+            return result.Data;
+        }
+
+        Console.WriteLine($"Request failed: {(int)result.StatusCode} - {result.ErrorMsg}");
+
+        foreach (var error in result.Errors)
+        {
+            Console.WriteLine($"Error item: {error.Code} - {error.Message}");
+        }
+
+        return null;
+    }
+}
+
+// Called from a controller or page
+var user = await userQueryService.GetAsync(123);
+
+if (user is not null)
+{
+    Console.WriteLine($"User: {user.Name}");
+}
+else
+{
+    Console.WriteLine("No user returned. Check the error output above.");
+}
+```
+
+Key points:
+- Prefer HttpClientFactory in production.
+- Check `ErrorMsg` and `Errors` first when a call fails; do not rely on the status code alone.
+- Prefer `DownloadStreamAsync` / `DownloadToFileAsync` for large files.
+
 ## Basic Usage
 
-### ✅ Recommended: Using HttpClientFactory (Best Practice)
+### Recommended: Using HttpClientFactory
 
 ```csharp
 // Register in DI container
@@ -43,7 +99,7 @@ public class UserService
 }
 ```
 
-### ⚠️ Using Existing HttpClient Instance
+### Using Existing HttpClient Instance
 
 If you already have an `HttpClient` instance (e.g., from HttpClientFactory), you can wrap it:
 
@@ -55,7 +111,7 @@ using var standardClient = new StandardHttpClient(httpClient, logger);
 var result = await standardClient.CallApi<User>("api/users/123");
 ```
 
-### ⚠️ Direct Instantiation (Not Recommended for Production)
+### Direct Instantiation (Not Recommended for Production)
 
 Only use this approach for testing or simple scenarios:
 
@@ -68,14 +124,14 @@ var result = await client.CallApi<User>("api/users/123");
 ```
 
 **Why HttpClientFactory is Recommended:**
-- ✅ Proper connection pooling
-- ✅ Automatic DNS refresh handling
-- ✅ Prevents socket exhaustion
-- ✅ Built-in lifetime management
+- Proper connection pooling
+- Automatic DNS refresh handling
+- Prevents socket exhaustion
+- Built-in lifetime management
 
 ## Linger.Results Integration
 
-Seamless integration with Linger.Results framework for unified error handling:
+Integrates with Linger.Results for unified error handling:
 
 ```csharp
 // Server using Linger.Results
@@ -96,226 +152,22 @@ if (!apiResult.IsSuccess)
 ```
 
 ## ProblemDetails Support
+See the full request/response mapping and error contract in
+[REQUEST_RESPONSE_MAPPING.zh-CN.md](REQUEST_RESPONSE_MAPPING.zh-CN.md).
 
-Native support for RFC 7807 ProblemDetails format:
+Short summary: the client prefers `ProblemDetails.detail` as the global message;
+if absent it uses the first message from `errors` (each `errors` value is an array).
+The `Errors` list preserves all individual error items for fine-grained handling.
 
-```csharp
-// Automatically parse ProblemDetails responses
-var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
-if (!result.IsSuccess)
-{
-    Console.WriteLine($"Error: {result.ErrorMsg}");
-    foreach (var error in result.Errors)
-    {
-        Console.WriteLine($"Field: {error.Code}, Error: {error.Message}");
-    }
-}
-```
+## Call Flow and Response Mapping
 
-## Request-Response Contract Mapping
+See [REQUEST_RESPONSE_MAPPING.zh-CN.md](REQUEST_RESPONSE_MAPPING.zh-CN.md) for controller / minimal API examples and status-code mapping.
 
-This section details: What does the WebAPI return? → How to call HttpClient.CallApi? → What does the result ApiResult<T> contain?
+## Custom Error Handling
 
-### Scenario 1: Success Case
+`StandardHttpClient` can be inherited. If a server returns neither Linger.Results nor RFC 7807 ProblemDetails, override the error parsing logic to adapt custom formats.
 
-**WebAPI returns 200 OK with valid JSON data**
-
-```
-WebAPI Response:
-HTTP/1.1 200 OK
-Content-Type: application/json
-{
-    "id": 123,
-    "name": "John Doe",
-    "email": "john@example.com"
-}
-```
-
-**Client call and return value mapping:**
-
-```csharp
-// Client call
-var result = await _httpClient.CallApi<User>("api/users/123", cancellationToken: ct);
-
-// Return value field mapping:
-// result.IsSuccess       = true
-// result.Data            = User { Id = 123, Name = "John Doe", Email = "john@example.com" }
-// result.StatusCode      = 200
-// result.ErrorMsg        = null
-// result.Errors          = Empty array
-
-if (result.IsSuccess && result.Data is not null)
-{
-    var user = result.Data; // Use the deserialized object directly
-    Console.WriteLine($"User: {user.Name}");
-}
-```
-
-### Scenario 2: Validation Error (ProblemDetails)
-
-**WebAPI returns 422 with validation errors**
-
-```
-WebAPI Response:
-HTTP/1.1 422 Unprocessable Entity
-Content-Type: application/problem+json
-{
-    "title": "One or more validation errors occurred.",
-    "status": 422,
-    "errors": {
-        "Email": "Invalid email format",
-        "Age": "Age must be greater than 18"
-    }
-}
-```
-
-**Client call and return value mapping:**
-
-```csharp
-// Client sends POST request with invalid data
-var invalidUser = new User { Email = "invalid-email", Age = 10 };
-var result = await _httpClient.CallApi<User>(
-    "api/users",
-    HttpMethodEnum.Post,
-    requestBody: invalidUser
-);
-
-// Return value field mapping:
-// result.IsSuccess       = false
-// result.Data            = null (because IsSuccess=false)
-// result.StatusCode      = 422
-// result.ErrorMsg        = "Email: Invalid email format\nAge: Age must be greater than 18" (auto-merged)
-// result.Errors          = [
-//     Error { Code = "Email", Message = "Invalid email format" },
-//     Error { Code = "Age", Message = "Age must be greater than 18" }
-// ]
-
-if (!result.IsSuccess)
-{
-    // Display global error message
-    Console.WriteLine($"Validation failed: {result.ErrorMsg}");
-    
-    // Or iterate for form inline hints
-    foreach (var error in result.Errors)
-    {
-        Console.WriteLine($"Field {error.Code}: {error.Message}");
-    }
-}
-```
-
-### Scenario 3: Business Error (Linger.Results Format)
-
-**WebAPI returns 409 Conflict with business error array**
-
-```
-WebAPI Response:
-HTTP/1.1 409 Conflict
-Content-Type: application/json
-[
-    {
-        "code": "InsufficientStock",
-        "message": "Insufficient stock: need 10 but only 5 available"
-    },
-    {
-        "code": "PaymentGatewayDown",
-        "message": "Payment gateway is temporarily unavailable"
-    }
-]
-```
-
-**Client call and return value mapping:**
-
-```csharp
-// Client sends POST request to submit order
-var order = new OrderSubmitRequest { /* ... */ };
-var result = await _httpClient.CallApi<Order>(
-    "api/orders/submit",
-    HttpMethodEnum.Post,
-    requestBody: order
-);
-
-// Return value field mapping:
-// result.IsSuccess       = false
-// result.Data            = null (because IsSuccess=false)
-// result.StatusCode      = 409
-// result.ErrorMsg        = "InsufficientStock: Insufficient stock: need 10 but only 5 available\n
-//                           PaymentGatewayDown: Payment gateway is temporarily unavailable" (auto-merged)
-// result.Errors          = [
-//     Error { Code = "InsufficientStock", Message = "Insufficient stock: need 10 but only 5 available" },
-//     Error { Code = "PaymentGatewayDown", Message = "Payment gateway is temporarily unavailable" }
-// ]
-
-if (!result.IsSuccess)
-{
-    // Global error message with all business errors auto-merged
-    Console.WriteLine($"Order submission failed: {result.ErrorMsg}");
-    
-    // Iterate specific error codes for different handling
-    foreach (var error in result.Errors)
-    {
-        switch (error.Code)
-        {
-            case "InsufficientStock":
-                Console.WriteLine("Please adjust your cart quantity");
-                break;
-            case "PaymentGatewayDown":
-                Console.WriteLine("Please try again later or use alternative payment method");
-                break;
-        }
-    }
-}
-```
-
-### Scenario 4: HTTP Error (4xx / 5xx with No Structured Error Body)
-
-**WebAPI returns 500 with unstructured error body (or plain text)**
-
-```
-WebAPI Response:
-HTTP/1.1 500 Internal Server Error
-Content-Type: text/plain
-Internal server error occurred
-```
-
-**Client call and return value mapping:**
-
-```csharp
-// Client call
-var result = await _httpClient.CallApi<ReportData>("api/reports/generate");
-
-// Return value field mapping:
-// result.IsSuccess       = false
-// result.Data            = null
-// result.StatusCode      = 500
-// result.ErrorMsg        = "Internal server error occurred" (raw response text)
-// result.Errors          = Empty array (no structured error info)
-
-if (!result.IsSuccess)
-{
-    if (result.StatusCode == HttpStatusCode.InternalServerError)
-    {
-        Console.WriteLine($"Server error: {result.ErrorMsg}");
-        Console.WriteLine("Please try again later or contact support");
-    }
-}
-```
-
-### Scenario 5: Custom Error Format
-
-**WebAPI returns custom format error (neither ProblemDetails nor Linger.Results array)**
-
-```
-WebAPI Response:
-HTTP/1.1 400 Bad Request
-Content-Type: application/json
-{
-    "error_code": "CUSTOM_ERROR",
-    "error_message": "Custom error message",
-    "details": "This is a custom format error"
-}
-```
-
-**Client needs to inherit StandardHttpClient to handle custom format:**
+The most common extension point is `GetErrorMessageAsync` in `HttpClientBase`, which converts the custom error body into `ErrorMsg` and `Errors`.
 
 ```csharp
 public class CustomHttpClient : StandardHttpClient
@@ -328,101 +180,32 @@ public class CustomHttpClient : StandardHttpClient
     protected override async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage response)
     {
         var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        
-        try
-        {
-            // Parse custom error format
-            var customError = JsonSerializer.Deserialize<CustomErrorFormat>(responseText);
-            if (customError is not null)
-            {
-                var errorMsg = $"{customError.ErrorCode}: {customError.ErrorMessage}";
-                var errors = new[] { new Error(customError.ErrorCode, customError.Details) };
-                return (errorMsg, errors);
-            }
-        }
-        catch
-        {
-            // Parse failed, fallback to default handling
-        }
-        
-        // Fallback to default ProblemDetails / Linger.Results handling
+
+        // Parse your custom error format here
+        // Example: {"code":"BusinessRule","message":"Out of stock"}
+
         return await base.GetErrorMessageAsync(response).ConfigureAwait(false);
     }
-
-    private record CustomErrorFormat(string ErrorCode, string ErrorMessage, string Details);
 }
-
-// Register custom client
-services.AddHttpClient<IHttpClient, CustomHttpClient>();
-
-// Return value field mapping remains the same:
-// result.IsSuccess       = false
-// result.StatusCode      = 400
-// result.ErrorMsg        = "CUSTOM_ERROR: Custom error message"
-// result.Errors          = [
-//     Error { Code = "CUSTOM_ERROR", Message = "This is a custom format error" }
-// ]
 ```
 
-### ApiResult<T> Field Reference Table
+## Server Conventions
 
-| Field | Type | On Success | On Failure | Description |
-|-------|------|-----------|-----------|------------|
-| `IsSuccess` | `bool` | `true` | `false` | Indicates if the call succeeded |
-| `Data` | `T` | Deserialized object | `null` | Only meaningful when IsSuccess=true |
-| `StatusCode` | `HttpStatusCode?` | `200` etc (2xx) | `400` / `401` / `404` / `422` / `500` etc | HTTP status code |
-| `ErrorMsg` | `string?` | `null` | Merged error message | Auto-merges Errors list; raw response text if unstructured |
-| `Errors` | `IEnumerable<Error>` | Empty collection | Error details list | Code and Message meaning depends on error type (field/business/custom) |
+Follow these conventions for more stable error mapping:
 
-### CallApi Method Quick Reference
+1. Response content type
+- Use `application/problem+json` for validation errors (RFC 7807).
+- Use an error array (`IEnumerable<Error>`) for business errors.
 
-```csharp
-// 1. Simple GET request
-var result = await _httpClient.CallApi<User>("api/users/123");
+2. Error payload structure
+- ProblemDetails: include `title`, `status`, and `errors`.
+- Error array: each item should include `code` and `message`.
 
-// 2. GET request with query parameters
-var result = await _httpClient.CallApi<IEnumerable<User>>(
-    "api/users",
-    queryParams: new { page = 1, pageSize = 10 }
-);
-
-// 3. POST request with request body
-var result = await _httpClient.CallApi<User>(
-    "api/users",
-    HttpMethodEnum.Post,
-    requestBody: new { name = "John Doe", email = "john@example.com" }
-);
-
-// 4. PUT request with request body
-var result = await _httpClient.CallApi<User>(
-    "api/users/123",
-    HttpMethodEnum.Put,
-    requestBody: new { name = "Jane Doe", email = "jane@example.com" }
-);
-
-// 5. DELETE request
-var result = await _httpClient.CallApi<object>(
-    "api/users/123",
-    HttpMethodEnum.Delete
-);
-
-// 6. With timeout and cancellation token
-var result = await _httpClient.CallApi<User>(
-    "api/users/123",
-    timeout: 5000,
-    cancellationToken: ct
-);
-
-// 7. Full parameters
-var result = await _httpClient.CallApi<User>(
-    "api/users/123",
-    HttpMethodEnum.Get,
-    requestBody: null,
-    queryParams: new { includeDetails = true },
-    timeout: 5000,
-    cancellationToken: ct
-);
-```
+3. Status code conventions
+- Parameter or validation failure: 400 / 422
+- Unauthorized or authentication failure: 401 / 403
+- Resource not found: 404
+- Business conflict: 409
 
 ## Core Methods
 
@@ -436,6 +219,12 @@ public async Task<ApiResult<T>> CallApi<T>(
     int? timeout = null,
     CancellationToken cancellationToken = default)
 ```
+
+Supported HTTP methods:
+- GET: Retrieve data
+- POST: Create resource
+- PUT: Update resource
+- DELETE: Delete resource
 
 ### Streaming Download
 
@@ -488,11 +277,27 @@ if (result.IsSuccess)
 | `DownloadStreamAsync` | ~8KB | Only buffer memory usage |
 | `DownloadToFileAsync` | ~8KB | Customizable buffer size |
 
-Supported HTTP methods:
-- GET: Retrieve data
-- POST: Create resource
-- PUT: Update resource
-- DELETE: Delete resource
+#### HttpResponseMode (`Buffered` / `Streamed`)
+
+Choose the response reading mode based on the scenario:
+
+- `Buffered`: Suitable for small responses or cases where the full content must be read at once
+- `Streamed`: Suitable for large responses or download scenarios, processing data incrementally with lower memory usage
+
+| Scenario | Recommended Mode | Reason |
+|------|----------|------|
+| Regular JSON APIs (small to medium responses) | `Buffered` | Simple and easy to deserialize directly |
+| File download / export | `Streamed` | Avoids loading the whole payload into memory and reduces peak memory usage |
+| Potentially huge responses (logs, reports, binary data) | `Streamed` | More stable and reduces OOM risk |
+| Need full content before unified processing | `Buffered` | Business logic is simpler |
+
+**Performance comparison (downloading a 500 MB file):**
+
+| Method | Memory Usage | Notes |
+|------|---------|------|
+| `CallApi<byte[]>` | ~500 MB | Loads the entire file into memory |
+| `DownloadStreamAsync` | ~8 KB | Buffer-only memory usage |
+| `DownloadToFileAsync` | ~8 KB | Customizable buffer size |
 
 ## Error Handling
 
@@ -515,7 +320,7 @@ else
             Console.WriteLine("Authentication required");
             break;
     }
-    
+
     // Access detailed errors
     foreach (var error in result.Errors)
     {
@@ -523,6 +328,14 @@ else
     }
 }
 ```
+
+## Common Pitfalls
+
+- Do not use `CallApi<byte[]>` to download large files: it loads the entire response into memory.
+- Dispose the stream promptly after `DownloadStreamAsync`; `using` is recommended.
+- Pass a cancellation token to download tasks so timeouts or user cancellation can stop quickly.
+- Do not manage the lifecycle of an external `HttpClient` twice when wrapping an instance created by a factory.
+- Handle structured errors consistently and prefer the `Errors` list over status-code-only checks.
 
 ## Best Practices
 

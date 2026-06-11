@@ -326,29 +326,49 @@ public static class ResultExtensions
     private static ProblemDetails CreateProblemDetails(IEnumerable<Error> errors, int statusCode)
     {
         var errorList = errors as IList<Error> ?? errors.ToList();
-
+        // 1. 根据状态码决定通用的 Title 与 Detail 默认说明
+        var title = statusCode switch
+        {
+            StatusCodes.Status400BadRequest => "One or more validation errors occurred",
+            StatusCodes.Status401Unauthorized => "Unauthorized access",
+            StatusCodes.Status403Forbidden => "Access forbidden",
+            StatusCodes.Status404NotFound => "The requested resource was not found",
+            StatusCodes.Status409Conflict => "A conflict occurred",
+            StatusCodes.Status500InternalServerError => "Internal Server Error",
+            _ => "An error occurred"
+        };
+        // 2. 优化 Detail 的逻辑。如果是 500 错误，展示安全提示并附带追踪 ID
+        string detail;
+        if (statusCode == StatusCodes.Status500InternalServerError)
+        {
+            // 生产环境安全提示，TraceIdentifier 会帮助开发人员在日志系统中瞬间定位堆栈
+            detail = $"An unexpected server error occurred. Please contact the administrator.";
+        }
+        else
+        {
+            // 4xx 业务错误时：如果只有一个错误，直接用它作为 Detail；如果有多个，用一句话概括，具体细节留给 errors 字典
+            detail = errorList.Count == 1
+                ? errorList[0].Message
+                : "Please refer to the errors property for additional details.";
+        }
         var problemDetails = new ProblemDetails
         {
             Status = statusCode,
-            Title = statusCode switch
-            {
-                StatusCodes.Status400BadRequest => "One or more validation errors occurred",
-                StatusCodes.Status401Unauthorized => "Unauthorized access",
-                StatusCodes.Status403Forbidden => "Access forbidden",
-                StatusCodes.Status404NotFound => "The requested resource was not found",
-                StatusCodes.Status409Conflict => "A conflict occurred",
-                _ => "An error occurred"
-            },
-            Detail = string.Join("; ", errorList.Select(e => e.Message))
+            Title = title,
+            Detail = detail
         };
-
-        // 说明：ProblemDetails.Extensions 使用 JsonExtensionData，序列化时会将键值对展开为顶层属性。
-        // 因此设置 Extensions["errors"] 会在 JSON 顶层得到 "errors": {...} 而非嵌套在 "extensions" 下。
-        if (errorList.Count > 0)
+        // 3. 核心改进：通过 GroupBy 将错误按 Code（字段名）分组，值转为 string[]
+        // 这不仅解决了 Key 重复引发的崩溃，还完美匹配了客户端的 Dictionary<string, string[]> 数据类型
+        if (errorList.Count > 0 && statusCode != StatusCodes.Status500InternalServerError)
         {
-            problemDetails.Extensions["errors"] = errorList.ToDictionary(e => e.Code, e => e.Message);
+            problemDetails.Extensions["errors"] = errorList
+                .Where(e => !string.IsNullOrWhiteSpace(e.Code))
+                .GroupBy(e => e.Code)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(e => e.Message).ToArray()
+                );
         }
-
         return problemDetails;
     }
 

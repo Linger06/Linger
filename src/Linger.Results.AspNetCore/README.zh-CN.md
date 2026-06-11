@@ -34,28 +34,28 @@ public class UsersController : ControllerBase
         var result = await _userService.GetUserByIdAsync(id);
         return result.ToActionResult(); // 成功返回UserDto，失败返回错误数组
     }
-    
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
     {
         var result = await _userService.CreateUserAsync(request);
         return result.ToActionResult(HttpStatusCode.Created);
     }
-    
+
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteUser(int id)
     {
         var result = await _userService.DeleteUserAsync(id);
         return result.ToActionResult(HttpStatusCode.NoContent); // 成功返回204，失败返回错误
     }
-    
+
     // 兼容返回类型为 IActionResult 的方法签名
-    // IActionResult 接口已由 ActionResult 实现，无需专门转换
+    // 仅适用于非泛型 Result；Result<T> 应使用 ActionResult<T> 返回类型
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUser(int id, UpdateUserRequest request)
     {
         var result = await _userService.UpdateUserAsync(id, request);
-        return result.ToActionResult(); // 直接返回 ActionResult 给 IActionResult 类型
+      return result.ToActionResult(); // 非泛型 Result 可直接返回给 IActionResult
     }
 }
 ```
@@ -148,18 +148,23 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
   "status": 400,
   "detail": "邮箱格式不正确; 密码强度不足",
   "errors": {
-    "User.InvalidEmail": "邮箱格式不正确",
-    "User.WeakPassword": "密码强度不足"
+    "User.InvalidEmail": ["邮箱格式不正确"],
+    "User.WeakPassword": ["密码强度不足"]
   }
 }
 ```
 
-说明：`errors` 为 RFC 7807 的扩展成员，服务端通过在 `ProblemDetails.Extensions["errors"]` 中添加键值对实现。ASP.NET Core 在序列化时会将 `Extensions` 中的条目作为顶层属性输出，因此你会看到顶层的 `errors` 字段。这种做法符合 RFC 7807 对扩展成员的规范。
+说明：`errors` 为 RFC 7807 的扩展成员，建议其值采用字符串数组（如 `{"字段": ["提示1", "提示2"]}`），以便单个字段能包含多条验证提示。服务端通过在 `ProblemDetails.Extensions["errors"]` 中添加键值对来实现；ASP.NET Core 在序列化时会将 `Extensions` 中的条目作为顶层属性输出，因此你会看到顶层的 `errors` 字段。
+
+详见权威错误映射文档：
+[REQUEST_RESPONSE_MAPPING.zh-CN.md](../Linger.HttpClient.Standard/REQUEST_RESPONSE_MAPPING.zh-CN.md)。
+
+简要说明：`errors` 的值为每个字段的字符串数组；`CreateProblemDetails` 会把 `Error` 按 `Code` 分组为 `string[]` 写入 `errors`，客户端优先使用 `detail` 作为全局消息，若无则使用 `errors` 的首条消息。
 
 ## 状态码映射
 
 - `Result.Success()` → 200 OK
-- `Result.NotFound()` → 404 Not Found  
+- `Result.NotFound()` → 404 Not Found
 - `Result.Failure()` → 400 Bad Request
 
 ## 最佳实践
@@ -176,11 +181,11 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 
 - **类型安全性**：`ActionResult<T>` 是泛型的，能完整保留返回值的类型信息，便于框架进行OpenAPI/Swagger生成、类型检查等。而 `IActionResult` 是非泛型接口，会丢失泛型类型，不利于工具链支持。
 
-- **无缝兼容**：`ActionResult` 和 `ActionResult<T>` 都已实现 `IActionResult` 接口。当你的方法签名需要返回 `IActionResult` 时，可以直接返回 `ActionResult` 或 `ActionResult<T>` 的实例，无需额外转换方法。
+- **无缝兼容**：非泛型 `Result` 可直接转换为 `ActionResult`，因此当方法签名需要返回 `IActionResult` 时可以直接返回 `ToActionResult()` 的结果；`Result<T>` 则应使用 `ActionResult<T>` 作为返回类型。
 
 - **一致性**：我们遵循 ASP.NET Core 官方的最佳实践推荐，优先使用泛型的 `ActionResult<T>` 而非非泛型的 `IActionResult`。
 
-**总结**：如果你的方法返回类型是 `IActionResult`，可以直接使用 `ToActionResult()` 赋给该变量——不需要专门的转换方法。
+**总结**：如果你的方法返回类型是 `IActionResult`，可以直接使用非泛型 `Result` 的 `ToActionResult()`；如果返回的是 `Result<T>`，请改用 `ActionResult<T>` 作为方法签名。
 
 ## 与Linger.Results配合使用
 

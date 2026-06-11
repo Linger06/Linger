@@ -87,7 +87,7 @@ public class Comment : CreationAuditEntity<Guid>
 {
     public string Text { get; set; } = null!;
     public Guid ProductId { get; set; }
-    
+
     // 继承的属性:
     // public string? CreatorId { get; set; }
     // public DateTimeOffset CreationTime { get; set; }
@@ -104,18 +104,18 @@ public class User : FullAuditEntity<Guid>
 {
     public string Username { get; set; } = null!;
     public string Email { get; set; } = null!;
-    
+
     // 继承的属性:
     // 创建
     // public string? CreatorId { get; set; }
     // public DateTimeOffset CreationTime { get; set; }
-    
+
     // 修改
     // public string? LastModifierId { get; set; }
     // public DateTimeOffset? LastModificationTime { get; set; }
-    
+
     // 删除
-    // public bool IsDeleted { get; set; }
+    // public bool? IsDeleted { get; set; }
     // public string? DeleterId { get; set; }
     // public DateTimeOffset? DeletionTime { get; set; }
 }
@@ -133,13 +133,13 @@ public class ProductService : IProductService
 {
     private readonly IRepository<Product, Guid> _productRepository;
     private readonly IAuditUserProvider _auditUserProvider;
-    
+
     public ProductService(IRepository<Product, Guid> productRepository, IAuditUserProvider auditUserProvider)
     {
         _productRepository = productRepository;
         _auditUserProvider = auditUserProvider;
     }
-    
+
     public async Task<Product> CreateProductAsync(string name, decimal price)
     {
         var product = new Product
@@ -148,10 +148,10 @@ public class ProductService : IProductService
             Price = price,
             // ID, CreatorId 和 CreationTime 将在保存时自动设置
         };
-        
+
         await _productRepository.AddAsync(product);
         await _productRepository.SaveChangesAsync();
-        
+
         return product;
     }
 }
@@ -166,27 +166,27 @@ public class ProductService : IProductService
 public class AppDbContext : DbContext
 {
     private readonly IAuditUserProvider _auditUserProvider;
-    
-    public AppDbContext(DbContextOptions options, IAuditUserProvider auditUserProvider) 
+
+    public AppDbContext(DbContextOptions options, IAuditUserProvider auditUserProvider)
         : base(options)
     {
         _auditUserProvider = auditUserProvider;
     }
-    
+
     public DbSet<Product> Products { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
-    
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
         UpdateAuditFields();
         return base.SaveChangesAsync(cancellationToken);
     }
-    
+
     private void UpdateAuditFields()
     {
         var userId = _auditUserProvider.GetUser();
         var now = DateTimeOffset.UtcNow;
-        
+
         foreach (var entry in ChangeTracker.Entries<IEntity>())
         {
             if (entry.State == EntityState.Added)
@@ -210,12 +210,8 @@ public class AppDbContext : DbContext
                 // 转换为软删除
                 entry.State = EntityState.Modified;
                 softDeleteEntity.IsDeleted = true;
-                
-                if (entry.Entity is IDeletionAuditEntity deletionAuditEntity)
-                {
-                    deletionAuditEntity.DeletionTime = now;
-                    deletionAuditEntity.DeleterId = userId;
-                }
+                softDeleteEntity.DeletionTime = now;
+                softDeleteEntity.DeleterId = userId;
             }
         }
     }
@@ -268,11 +264,11 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<User>
             .HasColumnType("datetime")
             .HasConversion(
                 // 保存到数据库时：DateTimeOffset -> DateTime
-                v => v.ToDateTime(), 
+                v => v.ToDateTime(),
                 // 从数据库读取时：DateTime -> DateTimeOffset
                 v => new DateTimeOffset(v)
             );
-        
+
         // 配置 LastModificationTime 字段（可空类型）
         entity.Property(e => e.LastModificationTime)
             .HasColumnType("datetime")
@@ -282,7 +278,7 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<User>
                 // 从数据库读取时：DateTime? -> DateTimeOffset?
                 v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
             );
-        
+
         // 配置 DeletionTime 字段（如果使用 FullAuditEntity）
         entity.Property(e => e.DeletionTime)
             .HasColumnType("datetime")
@@ -290,23 +286,23 @@ public class UserEntityConfiguration : IEntityTypeConfiguration<User>
                 v => v.HasValue ? v.Value.ToDateTime() : (DateTime?)null,
                 v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
             );
-        
+
         // 配置审计用户字段
         entity.Property(e => e.CreatorId)
             .HasMaxLength(30)
             .IsUnicode(false);
-        
+
         entity.Property(e => e.LastModifierId)
             .HasMaxLength(30)
             .IsUnicode(false);
-        
+
         entity.Property(e => e.DeleterId)
             .HasMaxLength(30)
             .IsUnicode(false);
 
         OnConfigurePartial(entity);
     }
-    
+
     partial void OnConfigurePartial(EntityTypeBuilder<User> entity);
 }
 ```
@@ -354,7 +350,7 @@ public interface IEntity<T> : IEntity
 ```csharp
 public interface ISoftDelete
 {
-    bool IsDeleted { get; set; }
+    bool? IsDeleted { get; set; }
 }
 ```
 
@@ -398,9 +394,9 @@ public abstract class AuditEntity : CreationAuditEntity, IModificationAuditEntit
 跟踪创建、修改和删除信息的基类：
 
 ```csharp
-public abstract class FullAuditEntity : AuditEntity, IDeletionAuditEntity, ISoftDelete
+public abstract class FullAuditEntity : AuditEntity, ISoftDelete
 {
-    public bool IsDeleted { get; set; }
+    public bool? IsDeleted { get; set; }
     public string? DeleterId { get; set; }
     public DateTimeOffset? DeletionTime { get; set; }
 }

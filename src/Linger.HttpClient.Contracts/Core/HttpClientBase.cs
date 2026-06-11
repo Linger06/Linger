@@ -295,78 +295,109 @@ public abstract class HttpClientBase : IHttpClient
     {
         try
         {
-            var responseTxt = await res.Content.ReadAsStringAsync().ConfigureAwait(false);
+            // 防御性限流读取，最多只读取前 50KB 的内容，防止大数据恶意撑爆客户端内存
+            // 50KB 足以容纳任何合法的 ProblemDetails 或错误列表
+            const int maxReadBytes = 50 * 1024;
+            string responseTxt;
 
-            // 如果响应内容为空，返回通用错误消息
-            if (responseTxt.IsNullOrWhiteSpace())
+            using (var stream = await res.Content.ReadAsStreamAsync().ConfigureAwait(false))
+            using (var reader = new StreamReader(stream))
+            {
+                var buffer = new char[maxReadBytes / 2]; // 粗略估算 char 长度
+                int readCount = await reader.ReadBlockAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+                responseTxt = new string(buffer, 0, readCount);
+            }
+            if (string.IsNullOrWhiteSpace(responseTxt))
             {
                 return (GetStatusCodeMessage(res.StatusCode) ?? $"HTTP {(int)res.StatusCode}: {res.ReasonPhrase}", []);
             }
 
-            // 尝试解析 ProblemDetails 格式
+            // --- 1. 尝试解析 ProblemDetails 格式 (RFC 7807) ---
             try
             {
                 var problemDetails = responseTxt.Deserialize<ProblemDetailsWithErrors>(GetResponseJsonOptions());
                 if (problemDetails is not null)
                 {
-                    // 如果有 Errors 字段,提取错误信息
-                    if (problemDetails.Errors.Count > 0)
-                    {
-                        var errors = problemDetails.Errors.Select(kvp => new Error(kvp.Key, kvp.Value)).ToList();
-                        // 将所有字段错误消息合并为全局错误消息；若 key 非空，包含在消息中："key: value"
-                        var mergedMsg = string.Join("\n", problemDetails.Errors
-                            .Where(kvp => kvp.Value.IsNotNullOrWhiteSpace())
-                            .Select(kvp => kvp.Key.IsNullOrWhiteSpace() ? kvp.Value : $"{kvp.Key}: {kvp.Value}"));
-                        var errorMsg = mergedMsg.IsNotNullOrWhiteSpace() ? mergedMsg
-                            : (problemDetails.Title.IsNotNullOrWhiteSpace() ? problemDetails.Title : "An unknown error occurred");
-                        return (errorMsg, errors);
-                    }
+                    var errors = new List<Error>();
 
-                    // 如果没有 Errors 但有 Title,使用 Title
-                    if (problemDetails.Title.IsNotNullOrWhiteSpace())
+                    if (problemDetails.Errors is { Count: > 0 })
                     {
-                        return (problemDetails.Title, Array.Empty<Error>());
+                        foreach (var kvp in problemDetails.Errors)
+                        {
+                            if (kvp.Value is not { Length: > 0 }) continue;
+                            foreach (var subMessage in kvp.Value)
+                            {
+                                if (!string.IsNullOrWhiteSpace(subMessage))
+                                {
+                                    errors.Add(new Error(kvp.Key, subMessage));
+                                }
+                            }
+                        }
                     }
+                    // 任何时候只要 Detail 有值，绝对优先使用 Detail
+                    string errorMsg;
+                    if (!string.IsNullOrWhiteSpace(problemDetails.Detail))
+                    {
+                        errorMsg = problemDetails.Detail; // 无论是系统500崩溃信息还是业务详情，优先展示
+                    }
+                    else if (errors.Count > 0)
+                    {
+                        errorMsg = errors.First().Message;
+                    }
+                    else
+                    {
+                        errorMsg = !string.IsNullOrWhiteSpace(problemDetails.Title) ? problemDetails.Title : "系统执行遇到未指明的业务异常";
+                    }
+                    return (errorMsg, errors);
                 }
             }
             catch (JsonException)
             {
-                // ProblemDetails 解析失败，继续尝试其他格式
+                // 失败则继续
             }
 
-            // 尝试解析直接的错误集合格式
+            // --- 2. 尝试解析通用的错误集合格式 (IEnumerable<Error>) ---
             try
             {
                 var errorList = responseTxt.Deserialize<IEnumerable<Error>>(GetResponseJsonOptions());
-                if (errorList is not null && errorList.Any())
+                var materializedList = errorList?.Where(e => e is not null).ToList();
+                if (materializedList is { Count: > 0 })
                 {
-                    // 合并所有错误项的消息为全局错误消息；若 Code 非空，包含在消息中："Code: Message"
-                    var mergedMsg = string.Join("\n", errorList
-                        .Where(e => e is not null && (e.Message.IsNotNullOrWhiteSpace() || e.Code.IsNotNullOrWhiteSpace()))
-                        .Select(e => e.ToString()));
-                    var errorMsg = mergedMsg.IsNotNullOrWhiteSpace() ? mergedMsg : "An unknown error occurred";
-                    return (errorMsg, errorList);
+                    var firstError = materializedList.First();
+                    string errorMsg;
+                    if (!string.IsNullOrWhiteSpace(firstError.Message))
+                    {
+                        errorMsg = firstError.Message;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(firstError.Code))
+                    {
+                        errorMsg = $"Business Error: {firstError.Code}";
+                    }
+                    else
+                    {
+                        errorMsg = "The operation could not be completed because of an unspecified error";
+                    }
+                    return (errorMsg, materializedList);
                 }
             }
             catch (JsonException)
             {
-                // Error 集合解析失败，继续使用其他方式
+                // 失败则继续
             }
 
-            // 如果无法解析为结构化错误,尝试返回状态码对应的消息,并将原始响应文本加入Errors
+            // --- 3. 状态码与非结构化文本兜底 ---
             var statusMessage = GetStatusCodeMessage(res.StatusCode);
             if (statusMessage is not null)
             {
                 return (statusMessage, [new Error(string.Empty, responseTxt)]);
             }
-
-            // 最后返回原始响应文本
-            return (responseTxt, []);
+            // 由于上面已经做了 50KB 的流截断读取，这里直接截取前 200 字符即可，100% 安全
+            string finalFallbackMsg = responseTxt.Length > 200 ? responseTxt.Substring(0, 200) + "..." : responseTxt;
+            return (finalFallbackMsg, []);
         }
         catch (Exception ex)
         {
-            // 读取响应内容失败
-            return ($"HTTP {(int)res.StatusCode}: {res.ReasonPhrase} (Failed to read response: {ex.Message})", []);
+            return ($"HTTP {(int)res.StatusCode}: {res.ReasonPhrase} (Failed to read network stream: {ex.Message})", []);
         }
     }
 

@@ -154,8 +154,8 @@ var result = await client.CallApi<User>("api/users/123");
 var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
 if (!result.IsSuccess)
 {
-    // 全局消息会合并字段错误：
-    // Name: 不能为空\nAge: 必须 >= 18
+    // 全局消息优先使用 ProblemDetails.detail；若无则使用首条字段错误消息（例如 "Name: 不能为空"）。
+    // Errors 列表仍保留每个字段的所有提示以便表单内联展示。
     Console.WriteLine(result.ErrorMsg);
 
     // Errors 列表用于表单内联提示（Code=字段名, Message=错误提示）
@@ -183,8 +183,7 @@ if (!result.IsSuccess)
 var apiResult = await _httpClient.CallApi<object>("api/orders/submit", HttpMethodEnum.Post, orderPayload);
 if (!apiResult.IsSuccess)
 {
-    // 全局消息会合并每项错误：
-    // BusinessRule: 库存不足\nPaymentFailed: 支付网关超时
+    // 全局消息优先使用首条业务错误消息；Errors 列表包含所有业务错误项供逐一处理。
     Console.WriteLine(apiResult.ErrorMsg);
 
     // Errors 列表保留每项（Code/Message）
@@ -214,38 +213,10 @@ if (!apiResult.IsSuccess)
 ```
 
 > 说明：与 ProblemDetails 的关系
->
-> - 客户端基于 RFC 7807 解析 ProblemDetails，不强依赖 Linger.Results。
-> - 服务端采用 Linger.Results 时，常见输出为 ProblemDetails（验证错误）或 `IEnumerable<Error>`（业务错误）。
-> - 客户端会自动汇总结构化错误到全局消息，并保留 `Errors` 列表用于细粒度展示。
-> - Controller 端如需 ProblemDetails 可用 `ToProblemDetails()`；Minimal API 使用 `ToHttpResult()` 默认返回 ProblemDetails。
+See the detailed request/response mapping and error contract in
+[REQUEST_RESPONSE_MAPPING.zh-CN.md](REQUEST_RESPONSE_MAPPING.zh-CN.md).
 
-## ProblemDetails 支持
-
-原生支持 RFC 7807 ProblemDetails（只要返回 `application/problem+json` 即可解析）。
-
-```json
-{
-    "title": "Invalid input.",
-    "status": 400,
-    "errors": {
-        "Email": "格式不正确",
-        "Password": "长度至少 8 位"
-    }
-}
-```
-
-客户端解析示例：
-
-```csharp
-var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
-if (!result.IsSuccess)
-{
-    // 全局错误会合并为：
-    // Email: 格式不正确\nPassword: 长度至少 8 位
-    Console.WriteLine(result.ErrorMsg);
-
-    // Errors 列表：Code=键(字段), Message=提示
+简要说明：客户端优先使用 `ProblemDetails.detail` 作为全局错误消息；若无则使用 `errors` 数组中的首条消息。`Errors` 列表保留所有错误项以便逐项处理。
     foreach (var error in result.Errors)
     {
         Console.WriteLine($"字段: {error.Code}, 错误: {error.Message}");
@@ -406,7 +377,7 @@ else
             Console.WriteLine("需要身份验证");
             break;
     }
-    
+
     // 访问详细错误
     foreach (var error in result.Errors)
     {
