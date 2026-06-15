@@ -1,6 +1,5 @@
-using Linger.Helper.PathHelpers;
-using System.Text;
 using System.Collections.Concurrent;
+using System.Text;
 
 namespace Linger.FileSystem.Local;
 
@@ -57,7 +56,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// </summary>
     public bool Exists()
     {
-        return StandardPathHelper.Exists(RootDirectoryPath, false);
+        return PathExtensions.Exists(RootDirectoryPath, false);
     }
 
     /// <summary>
@@ -73,7 +72,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// </summary>
     public void CreateIfNotExists()
     {
-        if (!StandardPathHelper.Exists(RootDirectoryPath, false))
+        if (!PathExtensions.Exists(RootDirectoryPath, false))
         {
             Directory.CreateDirectory(RootDirectoryPath);
         }
@@ -91,14 +90,14 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(filePath);
-        return Task.FromResult(StandardPathHelper.Exists(realPath, true));
+        return Task.FromResult(PathExtensions.Exists(realPath, true));
     }
 
     public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(directoryPath);
-        return Task.FromResult(StandardPathHelper.Exists(realPath, false));
+        return Task.FromResult(PathExtensions.Exists(realPath, false));
     }
 
     public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
@@ -796,7 +795,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(directoryPath);
-        return Task.FromResult(StandardPathHelper.Exists(realPath, false));
+        return Task.FromResult(PathExtensions.Exists(realPath, false));
     }
 
     public override Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)

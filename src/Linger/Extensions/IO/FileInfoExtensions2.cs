@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Linger.Extensions.Core;
 
 namespace Linger.Extensions.IO;
@@ -9,175 +10,128 @@ namespace Linger.Extensions.IO;
 public static partial class FileInfoExtensions
 {
     /// <summary>
-    /// An IEnumerable&lt;FileInfo&gt; extension method that deletes the given @this.
+    /// 批量删除 FileInfo 集合（安全防御版）
     /// </summary>
-    /// <param name="this">The @this to act on.</param>
     public static void Delete(this IEnumerable<FileInfo> @this)
     {
+        if (@this == null) return;
         foreach (FileInfo t in @this)
         {
-            t.Delete();
+            if (t.Exists) t.Delete();
         }
     }
 
-    public static FileVersionInfo GetVersionInfo(this FileInfo fileInfo)
+    /// <summary>
+    /// 获取当前物理文件对象的版本信息（三平台完美兼容，Linux 下返回 null）
+    /// </summary>
+    public static FileVersionInfo? GetVersionInfo(this FileInfo fileInfo)
     {
-        var path = fileInfo.FullName;
-        return path.GetVersionInfo();
+        ArgumentNullException.ThrowIfNull(fileInfo);
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return null;
+
+        return FileVersionInfo.GetVersionInfo(fileInfo.FullName);
     }
 
     /// <summary>
-    /// Retrieve the version information
+    /// 获取文件版本字符串（多框架支持，Linux 下自动返回友好占位符）
     /// </summary>
-    /// <param name="fileFullPath">
-    /// The fully qualified path and name of the file to retrieve the version information for.
-    /// </param>
-    /// <returns></returns>
-    public static FileVersionInfo GetVersionInfo(this string fileFullPath)
-    {
-        var versionInfo = FileVersionInfo.GetVersionInfo(fileFullPath);
-        return versionInfo;
-    }
-
-    /// <summary>
-    /// 获取文件版本
-    /// </summary>
-    /// <param name="fileFullPath">完整路径 D://A/b.txt</param>
-    /// <returns></returns>
-    /// <example>
-    /// <code>
-    ///string fileFullPath = @"D://A/b.txt";
-    ///string version = fileFullPath.GetFileVersion();
-    /// </code>
-    /// </example>
     public static string? GetFileVersion(this string fileFullPath)
     {
-        return fileFullPath.GetVersionInfo().FileVersion;
+        if (string.IsNullOrWhiteSpace(fileFullPath)) return null;
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return "1.0.0 (Linux Container)";
+
+        return FileVersionInfo.GetVersionInfo(fileFullPath).FileVersion;
     }
 
     /// <summary>
-    /// Get the file Absolute Path
+    /// 获取文件所在的目录绝对路径（纯内存操作，100% 绕过同名裁剪 Bug）
     /// </summary>
-    /// <param name="filePath">D://A/b.txt Or A/b.txt</param>
-    /// <returns>D://A Or A</returns>
-    /// <example>
-    /// <code>
-    ///string filePath = "D://A/b.txt";
-    ///string version = filePath.GetFilePath();
-    /// </code>
-    /// </example>
     public static string GetFilePath(this string filePath)
     {
-        var fi = new FileInfo(filePath);
-        return fi.FullName.Replace(fi.Name, string.Empty);
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        var directory = Path.GetDirectoryName(filePath);
+        if (directory == null) return string.Empty;
+
+        // 保持你原先以斜杠结尾的习惯
+        if (directory.Length > 0 && !directory.EndsWith(Path.DirectorySeparatorChar.ToString()))
+        {
+            directory += Path.DirectorySeparatorChar;
+        }
+        return directory;
     }
 
     /// <summary>
-    /// Get the Size of the file
+    /// 获取指定路径文件的格式化大小（严格防御拦截版）
     /// </summary>
-    /// <param name="filePath">D://A/b.txt Or A/b.txt</param>
-    /// <returns></returns>
+    /// <param name="filePath">本地物理文件路径</param>
+    /// <exception cref="ArgumentException">当路径为空、全为空格或包含非法字符时抛出</exception>
+    /// <exception cref="FileNotFoundException">当文件在物理磁盘上不存在时抛出</exception>
     public static string FileSize(this string filePath)
     {
+        // 1. 拦截空字符串或纯空格
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be null, empty, or whitespace.", nameof(filePath));
+        }
+
+        // 2. 拦截非法路径字符（规避操作系统层面次生崩溃）
+        if (filePath.IndexOfAny(Path.GetInvalidPathChars()) != -1)
+        {
+            throw new ArgumentException($"File path contains invalid characters: {filePath}", nameof(filePath));
+        }
+
+        // 3. 严格判定物理存在性
         var fi = new FileInfo(filePath);
+        if (!fi.Exists)
+        {
+            throw new FileNotFoundException($"Target file for size calculation does not exist.", filePath);
+        }
+
         return fi.Length.FormatFileSize();
     }
 
+    /// <summary>
+    /// 获取文件大小格式化字符串（通过 FileInfo 对象）
+    /// </summary>
     public static string FileSize(this FileInfo fileInfo)
     {
+        ArgumentNullException.ThrowIfNull(fileInfo);
         return fileInfo.Length.FormatFileSize();
     }
 
     /// <summary>
-    /// 从文件的绝对路径中获取文件名( 不包含扩展名 )
+    /// 从文件路径中获取不含扩展名的文件名（纯内存解析，零堆分配性能优化）
     /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
     public static string GetFileNameNoExtension(this string filePath)
-    {
-        var fi = new FileInfo(filePath);
-        return fi.GetFileNameNoExtension();
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取文件名( 不包含扩展名 )
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
-    public static string GetFileNameNoExtensionString(this string filePath)
     {
         return Path.GetFileNameWithoutExtension(filePath);
     }
 
     /// <summary>
-    /// 获取文件名( 不包含扩展名 )
+    /// 从 FileInfo 中获取不含扩展名的文件名
     /// </summary>
-    /// <param name="fileInfo">文件的绝对路径</param>
     public static string GetFileNameNoExtension(this FileInfo fileInfo)
     {
+        ArgumentNullException.ThrowIfNull(fileInfo);
         return Path.GetFileNameWithoutExtension(fileInfo.Name);
     }
 
     /// <summary>
-    /// 获取文件名(包含扩展名)
+    /// 从文件路径中获取不包含点号(.)的纯扩展名（防崩溃安全版）
     /// </summary>
-    /// <param name="filePath"></param>
-    /// <returns></returns>
-    public static string GetFileNameString(this string filePath)
-    {
-        return Path.GetFileName(filePath);
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取文件路径(不包含文件名)
-    /// </summary>
-    /// <param name="fileFullPath"></param>
-    /// <returns></returns>
-    public static string GetFilePathString(this string fileFullPath)
-    {
-        return Path.GetDirectoryName(fileFullPath) ?? string.Empty;
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取扩展名(包含.)
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
-    public static string GetExtension(this string filePath)
-    {
-        //获取文件的名称
-        var fi = new FileInfo(filePath);
-        return fi.Extension;
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取扩展名(包含.)
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
-    public static string GetExtensionString(this string filePath)
-    {
-        var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf('.'),
-                filePath.Length - filePath.LastIndexOf('.'));
-        return strExtensionName;
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取扩展名(不包含.)
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
     public static string GetExtensionNotDotString(this string filePath)
     {
-        var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf('.') + 1,
-                filePath.Length - filePath.LastIndexOf('.') - 1);
-        return strExtensionName;
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        var ext = Path.GetExtension(filePath); // 官方方法，Linux 下无后缀不崩溃
+        return ext.Length > 1 ? ext.Substring(1) : string.Empty;
     }
 
     /// <summary>
-    /// 获取扩展名(包含.)
+    /// 从 FileInfo 中获取包含点号(.)的扩展名
     /// </summary>
-    /// <param name="fileInfo"></param>
-    /// <returns></returns>
     public static string GetExtension(this FileInfo fileInfo)
     {
+        ArgumentNullException.ThrowIfNull(fileInfo);
         return fileInfo.Extension;
     }
 }

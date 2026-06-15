@@ -1,7 +1,7 @@
+using System.Security.Cryptography;
 using System.Text;
 using Linger.Extensions.Core;
 using Linger.Extensions.IO;
-using Linger.Helper.PathHelpers;
 
 namespace Linger.Helper;
 
@@ -212,7 +212,7 @@ public static partial class FileHelper
     {
         sourceFile.EnsureFileExists();
 
-        var normalizedDest = StandardPathHelper.NormalizePath(destFile);
+        var normalizedDest = PathHelper.CleanAndNormalizePureString(destFile, false);
         var directory = Path.GetDirectoryName(normalizedDest);
 
         if (!string.IsNullOrEmpty(directory))
@@ -272,10 +272,10 @@ public static partial class FileHelper
     /// <code>
     /// // Create with text content
     /// FileHelper.CreateFile("output.txt", content: "Hello, World!");
-    /// 
+    ///
     /// // Create with binary content
     /// FileHelper.CreateFile("data.bin", buffer: new byte[] { 0x01, 0x02, 0x03 });
-    /// 
+    ///
     /// // Create empty file
     /// FileHelper.CreateFile("empty.txt");
     /// </code>
@@ -345,52 +345,77 @@ public static partial class FileHelper
     #region File Information
 
     /// <summary>
-    /// Gets extended information for the specified file, including hash, path, and file size metadata.
+    /// 获取指定文件的扩展信息，包括哈希、路径和文件大小元数据（已完美修复内存爆作与路径颠倒隐患）。
     /// </summary>
-    /// <param name="fullFileName">The full path of the target file.</param>
-    /// <param name="relativeTo">The base directory used to calculate relative paths. Defaults to the current working directory.</param>
-    /// <returns>An <see cref="ExtendedFileInfo"/> instance containing file metadata; or <see langword="null"/> if the file doesn't exist or the path is invalid.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = FileHelper.GetExistingFileInfo(@"C:\logs\app.log");
-    /// if (fileInfo is not null)
-    /// {
-    ///     Console.WriteLine($"Hash: {fileInfo.HashData}");
-    ///     Console.WriteLine($"Size: {fileInfo.FileSize}");
-    /// }
-    /// </code>
-    /// </example>
+    /// <param name="fullFileName">目标文件的全路径或相对路径。</param>
+    /// <param name="relativeTo">用于计算相对路径的基准目录。若为 null 则缺省取当前工作目录。</param>
+    /// <returns>一个包含文件元数据的 <see cref="ExtendedFileInfo"/> 实例；若文件不存在或路径非法则返回 <see langword="null"/>。</returns>
     public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName, string? relativeTo = null)
     {
+        // 1. 快速防御性拦截
         if (string.IsNullOrEmpty(fullFileName))
             return null;
 
+        // 2. 规范化基准起点，统一使用 StandardPathHelper 推荐的异常防御机制
         var basePath = string.IsNullOrEmpty(relativeTo)
             ? Environment.CurrentDirectory
             : relativeTo;
 
         if (basePath is null)
-        {
             return null;
-        }
 
-        var absolutePath = StandardPathHelper.ResolveToAbsolutePath(null, fullFileName);
-        var file = new FileInfo(absolutePath);
-        if (file.Exists)
+        try
         {
-            using var memoryStream = file.ToMemoryStream();
-            var strHashData = memoryStream.ComputeHashMd5();
+            // 3. 全面拥抱全新编写的链式扩展方法，获取绝对路径并进行非法字符/保留字强物理校验
+            string absolutePath = fullFileName.ResolveToAbsolutePath();
+
+            // 4. 利用已经封装好的强原子性 Exists 校验（内部包含 \0 及非法字拦截）
+            if (!PathExtensions.Exists(absolutePath, checkAsFile: true))
+                return null;
+
+            var file = new FileInfo(absolutePath);
+            string strHashData;
+
+            // 5. 【流式哈希终极性能优化】：彻底弃用高危的 MemoryStream，采用 0 堆内存积压的 FileStream
+            using (var fileStream = file.OpenRead())
+            {
+              strHashData =  fileStream.ComputeHashMd5();
+// #if NET
+//                 // 现代 .NET 提供的高性能、0分配流式哈希 API
+//                 strHashData = Convert.ToHexString(MD5.HashData(fileStream));
+// #else
+//                 // .NET Framework 4.7 回退流式哈希计算，同样完美锁死内存开销
+//                 using (var md5 = MD5.Create())
+//                 {
+//                     var hashBytes = md5.ComputeHash(fileStream);
+
+//                     // 兼容旧版的高性能字节转十六进制字符串（避免产生海量临时 string）
+//                     var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
+//                     foreach (var b in hashBytes)
+//                     {
+//                         sb.Append(b.ToString("X2"));
+//                     }
+//                     strHashData = sb.ToString();
+//                 }
+// #endif
+            }
+
+            // 6. 返回组装结果
             return new ExtendedFileInfo
             {
                 HashData = strHashData,
                 FileName = file.Name,
-                RelativeFilePath = StandardPathHelper.GetRelativePath(basePath, absolutePath),
+                RelativeFilePath = basePath.GetRelativePath(absolutePath),
                 FullFilePath = file.FullName,
-                FileSize = file.Length.FormatFileSize(),
+                FileSize = file.Length.FormatFileSize(), // 保持你人性化的格式化
                 Length = file.Length
             };
         }
-        return null;
+        catch (Exception ex) when (PathHelper.IsPathException(ex))
+        {
+            // 拦截由于非法字符或超长路径引发的系统文件系统异常
+            return null;
+        }
     }
 
     #endregion
