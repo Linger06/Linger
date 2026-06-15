@@ -1,4 +1,5 @@
 using System.IO;
+using Linger.Extensions;
 using Linger.Helper;
 using Xunit.v3;
 

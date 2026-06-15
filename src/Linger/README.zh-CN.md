@@ -1,4 +1,4 @@
-﻿# Linger.Utils
+# Linger.Utils
 
 一个功能丰富的 .NET 工具库，包含大量实用的扩展方法和帮助类，让您的日常开发工作更加轻松高效。
 
@@ -23,7 +23,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
   - [JSON 扩展](#json-扩展)
   - [GUID 扩展](#guid-扩展)
   - [数组扩展](#数组扩展)
-  - [枚举扩展](#枚举扩展)  
+  - [枚举扩展](#枚举扩展)
   - [参数验证](#参数验证)
 - [高级功能](#高级功能)
   - [重试助手](#重试助手)
@@ -186,15 +186,6 @@ FileHelper.EnsureDirectoryExists("logs/2026"); // 目录不存在则创建
 FileHelper.ClearDirectory("temp"); // 清空目录中的所有文件和子目录
 ```
 
-> **⚠️ 已弃用的方法**: 以下方法已标记为弃用，将在未来版本中移除：
-> - `IsExistFile()` → 请直接使用 `File.Exists()`
-> - `IsExistDirectory()` → 请直接使用 `Directory.Exists()`
-> - `ReadTxt()` → 请使用 `ReadText()` 或 `TryReadText()`
-> - `WriteTxt()` → 请使用 `WriteText()`
-> - `Copy()` → 请使用 `CopyFile()`
-> - `CopyFolder()` → 请使用 `CopyDir()`
-> - `GetFileName()` → 请直接使用 `Path.GetFileName()`
-
 ### 集合扩展
 
 ```csharp
@@ -221,7 +212,7 @@ var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 // ⚠️ 注意：在较旧目标框架上使用 Polyfill；在 .NET 10+ 目标上自动使用框架原生实现
 
 // Left Join（左外连接）- 保留所有左侧记录
-var employees = new List<Employee> 
+var employees = new List<Employee>
 {
     new Employee { Id = 1, Name = "张三", DeptId = 1 },
     new Employee { Id = 2, Name = "李四", DeptId = 2 },
@@ -238,9 +229,9 @@ var leftJoinResult = employees.LeftJoin(
     departments,
     emp => emp.DeptId,           // 外部键选择器
     dept => dept.Id,             // 内部键选择器
-    (emp, dept) => new { 
-        Employee = emp.Name, 
-        Department = dept?.Name ?? "无部门" 
+    (emp, dept) => new {
+        Employee = emp.Name,
+        Department = dept?.Name ?? "无部门"
     }
 );
 // 输出: 张三-开发部, 李四-测试部, 王五-无部门
@@ -386,7 +377,7 @@ var folder = "logs".EnsureEndsWith("/");     // => "logs/"
 
 // 数值范围验证（使用 Guard 扩展）
 int value = 5;
-try 
+try
 {
     // 使用 EnsureIsInRange 进行范围验证（推荐方式）
     int validatedValue = value.EnsureIsInRange(1, 10); // 验证值在 1-10 范围内
@@ -438,7 +429,7 @@ var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP 请求
 
 // 在 WebAPI 中应用配置
 builder.Services.AddControllers()
-    .AddJsonOptions(options => 
+    .AddJsonOptions(options =>
         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
 // 💡 详细配置说明请参考: Json/JsonDefaults.README.zh-CN.md
@@ -534,7 +525,7 @@ public void ProcessData(string data, IEnumerable<int> numbers)
     ArgumentException.ThrowIfNullOrEmpty(data);                 // 确保不为 null 或空字符串
     ArgumentException.ThrowIfNullOrWhiteSpace(data);            // 确保不为 null、空或纯空白字符
     ArgumentNullException.ThrowIfNull(numbers);                 // 确保集合不为 null
-    
+
     // 框架支持：.NET 6+ 使用内置实现，.NET 5 及以下使用 Linger Polyfill
     // 升级到 .NET 8+ 时，只需移除 using Linger; 即可，其他代码无需修改
 }
@@ -548,7 +539,7 @@ public void ProcessData(string data, IEnumerable<int> numbers)
 using Linger.Helper;
 
 // 自定义重试策略
-var options = new RetryOptions 
+var options = new RetryOptions
 {
     MaxRetryAttempts = 3,           // 最多重试 3 次
     DelayMilliseconds = 1000,       // 基础延迟时间 1 秒
@@ -597,44 +588,38 @@ Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(
 ### 路径操作
 
 ```csharp
-using Linger.Helper.PathHelpers;
 
 // 路径标准化 - 处理相对路径、重复分隔符等
 string messyPath = @"C:\temp\..\folder\.\file.txt";
-string normalized = StandardPathHelper.NormalizePath(messyPath);
+string normalized = PathHelper.CleanAndNormalizePureString(messyPath);
 // 结果: "C:\folder\file.txt" (Windows) 或 "/folder/file.txt" (Unix)
-
-// 路径比较 - 跨平台安全的路径相等性检查
-string path1 = @"C:\Users\Documents\file.txt";
-string path2 = @"c:\users\documents\FILE.TXT"; // 大小写不同
-bool pathEquals = StandardPathHelper.PathEquals(path1, path2); // Windows: true, Linux: false
 
 // 获取相对路径 - 从基础路径到目标路径的相对路径
 string basePath = @"C:\Projects\MyApp";
 string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string relative = StandardPathHelper.GetRelativePath(basePath, targetPath);
+string relative = PathExtensions.GetRelativePath(basePath, targetPath);
 // 结果: "src\Components\Button.cs" (Windows) 或 "src/Components/Button.cs" (Unix)
 
 // 解析绝对路径 - 将相对路径转换为绝对路径
 string workingDir = @"C:\Projects";
 string relativePath = @"MyApp\src\file.txt";
-string absolutePath = StandardPathHelper.ResolveToAbsolutePath(workingDir, relativePath);
+string absolutePath = PathExtensions.ResolveToAbsolutePath(relativePath, workingDir);
 // 结果: "C:\Projects\MyApp\src\file.txt"
 
 // 检查路径中的非法字符
 string suspiciousPath = "file<name>.txt"; // 包含非法字符 '<'
-bool hasInvalidChars = StandardPathHelper.ContainsInvalidPathChars(suspiciousPath); // true
+bool hasInvalidChars = PathHelper.ContainsInvalidPathChars(suspiciousPath); // true
 
 // 检查文件或目录是否存在
 string filePath = @"C:\temp\data.txt";
-bool fileExists = StandardPathHelper.Exists(filePath, checkAsFile: true); // 检查文件
-bool dirExists = StandardPathHelper.Exists(filePath, checkAsFile: false); // 检查目录
+bool fileExists = PathExtensions.Exists(filePath, checkAsFile: true); // 检查文件
+bool dirExists = PathExtensions.Exists(filePath, checkAsFile: false); // 检查目录
 
 // 获取父目录路径
 string deepPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string parentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 1);
+string parentDir = PathExtensions.GetParentDirectory(deepPath, levels: 1);
 // 结果: "C:\Projects\MyApp\src\Components"
-string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 2);
+string grandParentDir = PathExtensions.GetParentDirectory(deepPath, levels: 2);
 // 结果: "C:\Projects\MyApp\src"
 ```
 

@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
-        <Version>1.4.2</Version>
+        <Version>1.4.3-preview</Version>
         <Description>
             An Entity Framework Core extension library providing enhanced capabilities.
             Includes global query filters, property conversions for complex types, and pagination utilities.
@@ -14,15 +14,15 @@
 </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
   </ItemGroup>
   
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.15" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.17" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.26" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.28" />
   </ItemGroup>
 
   <ItemGroup>

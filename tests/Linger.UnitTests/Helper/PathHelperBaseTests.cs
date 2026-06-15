@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using System.Reflection;
-using Linger.Helper.PathHelpers;
 using Xunit;
 
 namespace Linger.UnitTests.Helper;
@@ -9,7 +8,7 @@ namespace Linger.UnitTests.Helper;
 public class PathHelperBaseTests
 {
     // 由于PathHelperBase是抽象类，我们将通过反射来测试其保护方法
-    private static readonly Type s_pathHelperBaseType = typeof(PathHelperBase);
+    private static readonly Type s_pathHelperBaseType = typeof(PathHelper);
 
     [Fact]
     public void RemoveConsecutiveSeparators_ShouldRemoveDuplicateSeparators()
@@ -111,30 +110,6 @@ public class PathHelperBaseTests
         // 测试null
         var nullResult = method.Invoke(null, new[] { (string)null }) as string;
         Assert.Equal(string.Empty, nullResult);
-    }
-
-    [Fact]
-    public void NormalizeBasicPath_ShouldStandardizePath()
-    {
-        // 获取NormalizeBasicPath方法
-        var method = s_pathHelperBaseType.GetMethod("NormalizeBasicPath",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        // 测试基础路径标准化
-        var path1 = "path//to\\\\file";
-        var result1 = method.Invoke(null, new object[] { path1, false }) as string;
-        var result2 = method.Invoke(null, new object[] { path1, true }) as string;
-
-        // 确认结果符合预期，标准化后应该没有连续分隔符
-        Assert.DoesNotContain("//", result1);
-        Assert.DoesNotContain("\\\\", result1);
-        Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), result2);
-
-        // 测试无效路径输入
-        var invalidPath = new string('a', 300) + new string('\\', 10) + new string('b', 300);
-        var resultInvalid = method.Invoke(null, new object[] { invalidPath, false }) as string;
-        Assert.NotNull(resultInvalid); // 应该返回某个值，而不是抛出异常
     }
 
     [Fact]

@@ -6,7 +6,7 @@
 </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Magicodes.IE.EPPlus" Version="2.8.2" />
+        <PackageReference Include="Magicodes.IE.EPPlus" Version="2.8.4" />
         <PackageReference Include="NPOI" Version="2.8.0" />
     </ItemGroup>
 

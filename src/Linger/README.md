@@ -23,7 +23,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
   - [JSON Extensions](#json-extensions)
   - [GUID Extensions](#guid-extensions)
   - [Array Extensions](#array-extensions)
-  - [Enum Extensions](#enum-extensions)  
+  - [Enum Extensions](#enum-extensions)
   - [Parameter Validation](#parameter-validation)
 - [Advanced Features](#advanced-features)
   - [Retry Helper](#retry-helper)
@@ -221,7 +221,7 @@ var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 // Note: Polyfill implementations are used on older target frameworks; on .NET 10+ targets the framework native implementations will be used
 
 // Left Join (Left Outer Join) - Keep all left-side records
-var employees = new List<Employee> 
+var employees = new List<Employee>
 {
     new Employee { Id = 1, Name = "John", DeptId = 1 },
     new Employee { Id = 2, Name = "Jane", DeptId = 2 },
@@ -238,9 +238,9 @@ var leftJoinResult = employees.LeftJoin(
     departments,
     emp => emp.DeptId,           // Outer key selector
     dept => dept.Id,             // Inner key selector
-    (emp, dept) => new { 
-        Employee = emp.Name, 
-        Department = dept?.Name ?? "No Department" 
+    (emp, dept) => new {
+        Employee = emp.Name,
+        Department = dept?.Name ?? "No Department"
     }
 );
 // Output: John-Development, Jane-Testing, Bob-No Department
@@ -419,7 +419,7 @@ var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP requests
 
 // Apply configuration in WebAPI
 builder.Services.AddControllers()
-    .AddJsonOptions(options => 
+    .AddJsonOptions(options =>
         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
 // For detailed configuration documentation, see: Json/JsonDefaults.README.md
@@ -515,7 +515,7 @@ public void ProcessData(string data, IEnumerable<int> numbers)
     ArgumentException.ThrowIfNullOrEmpty(data);                 // Ensure not null or empty string
     ArgumentException.ThrowIfNullOrWhiteSpace(data);            // Ensure not null, empty or whitespace
     ArgumentNullException.ThrowIfNull(numbers);                 // Ensure collection is not null
-    
+
     // Framework support: .NET 6+ uses built-in implementation, .NET 5 and below uses Linger Polyfill
     // When upgrading to .NET 8+, just remove "using Linger;", no other code changes required
 }
@@ -529,7 +529,7 @@ public void ProcessData(string data, IEnumerable<int> numbers)
 using Linger.Helper;
 
 // Retry operation with configurable policy
-var options = new RetryOptions 
+var options = new RetryOptions
 {
     MaxRetryAttempts = 3,
     DelayMilliseconds = 1000, // 1 second
@@ -589,40 +589,40 @@ using Linger.Helper.PathHelpers;
 
 // Path normalization - handles relative paths, duplicate separators, etc.
 string messyPath = @"C:\temp\..\folder\.\file.txt";
-string normalized = StandardPathHelper.NormalizePath(messyPath);
+string normalized = PathHelper.CleanAndNormalizePureString(messyPath);
 // Result: "C:\folder\file.txt" (Windows) or "/folder/file.txt" (Unix)
 
 // Path comparison - cross-platform safe path equality check
 string path1 = @"C:\Users\Documents\file.txt";
 string path2 = @"c:\users\documents\FILE.TXT"; // Different case
-bool pathEquals = StandardPathHelper.PathEquals(path1, path2); // Windows: true, Linux: false
+bool pathEquals = PathExtensions.PathEquals(path1, path2); // Windows: true, Linux: false
 
 // Get relative path - from base path to target path
 string basePath = @"C:\Projects\MyApp";
 string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string relative = StandardPathHelper.GetRelativePath(basePath, targetPath);
+string relative = PathExtensions.GetRelativePath(basePath, targetPath);
 // Result: "src\Components\Button.cs" (Windows) or "src/Components/Button.cs" (Unix)
 
 // Resolve absolute path - convert relative path to absolute
 string workingDir = @"C:\Projects";
 string relativePath = @"MyApp\src\file.txt";
-string absolutePath = StandardPathHelper.ResolveToAbsolutePath(workingDir, relativePath);
+string absolutePath = PathExtensions.ResolveToAbsolutePath(relativePath, workingDir);
 // Result: "C:\Projects\MyApp\src\file.txt"
 
 // Check for invalid path characters
 string suspiciousPath = "file<name>.txt"; // Contains invalid character '<'
-bool hasInvalidChars = StandardPathHelper.ContainsInvalidPathChars(suspiciousPath); // true
+bool hasInvalidChars = PathExtensions.ContainsInvalidPathChars(suspiciousPath); // true
 
 // Check if file or directory exists
 string filePath = @"C:\temp\data.txt";
-bool fileExists = StandardPathHelper.Exists(filePath, checkAsFile: true); // Check as file
-bool dirExists = StandardPathHelper.Exists(filePath, checkAsFile: false); // Check as directory
+bool fileExists = PathExtensions.Exists(filePath, checkAsFile: true); // Check as file
+bool dirExists = PathExtensions.Exists(filePath, checkAsFile: false); // Check as directory
 
 // Get parent directory path
 string deepPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string parentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 1);
+string parentDir = PathExtensions.GetParentDirectory(deepPath, levels: 1);
 // Result: "C:\Projects\MyApp\src\Components"
-string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 2);
+string grandParentDir = PathExtensions.GetParentDirectory(deepPath, levels: 2);
 // Result: "C:\Projects\MyApp\src"
 ```
 
