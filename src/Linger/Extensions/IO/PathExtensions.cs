@@ -103,7 +103,7 @@ public static partial class PathExtensions
     /// <summary>
     /// 解析并生成本地绝对路径（自动处理本地磁盘、上级目录跳转及长路径）
     /// </summary>
-    public static string ResolveToAbsolutePath(this string? relativePath, string? basePath = null, bool preserveEndingSeparator = false)
+    public static string ToFullPath(this string? relativePath, string? basePath = null, bool preserveEndingSeparator = false)
     {
         if (string.IsNullOrWhiteSpace(relativePath))
         {
@@ -175,7 +175,7 @@ public static partial class PathExtensions
         try
         {
             // 利用上面刚改造好的扩展方法进行内部调用
-            string currentPath = path.ResolveToAbsolutePath();
+            string currentPath = path.ToFullPath();
             string rootPath = Path.GetPathRoot(currentPath) ?? string.Empty;
 
             for (var i = 0; i < levels; i++)
@@ -227,8 +227,8 @@ public static partial class PathExtensions
         if (string.IsNullOrWhiteSpace(path))
             return path ?? string.Empty;
 
-        relativeTo = relativeTo.ResolveToAbsolutePath();
-        path = path.ResolveToAbsolutePath();
+        relativeTo = relativeTo.ToFullPath();
+        path = path.ToFullPath();
 
         if (string.Equals(path, relativeTo, PathHelper.PathComparison))
             return ".";

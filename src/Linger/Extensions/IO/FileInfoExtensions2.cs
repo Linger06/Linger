@@ -52,7 +52,7 @@ public static partial class FileInfoExtensions
         var directory = Path.GetDirectoryName(filePath);
         if (directory == null) return string.Empty;
 
-        // 保持你原先以斜杠结尾的习惯
+        // 以斜杠结尾
         if (directory.Length > 0 && !directory.EndsWith(Path.DirectorySeparatorChar.ToString()))
         {
             directory += Path.DirectorySeparatorChar;
@@ -124,14 +124,5 @@ public static partial class FileInfoExtensions
         if (string.IsNullOrEmpty(filePath)) return string.Empty;
         var ext = Path.GetExtension(filePath); // 官方方法，Linux 下无后缀不崩溃
         return ext.Length > 1 ? ext.Substring(1) : string.Empty;
-    }
-
-    /// <summary>
-    /// 从 FileInfo 中获取包含点号(.)的扩展名
-    /// </summary>
-    public static string GetExtension(this FileInfo fileInfo)
-    {
-        ArgumentNullException.ThrowIfNull(fileInfo);
-        return fileInfo.Extension;
     }
 }

@@ -367,7 +367,7 @@ public static partial class FileHelper
         try
         {
             // 3. 全面拥抱全新编写的链式扩展方法，获取绝对路径并进行非法字符/保留字强物理校验
-            string absolutePath = fullFileName.ResolveToAbsolutePath();
+            string absolutePath = fullFileName.ToFullPath();
 
             // 4. 利用已经封装好的强原子性 Exists 校验（内部包含 \0 及非法字拦截）
             if (!PathExtensions.Exists(absolutePath, checkAsFile: true))

@@ -181,28 +181,28 @@ public class PathExtensionsTests
     }
 
     [Fact]
-    public void ResolveToAbsolutePath_ShouldResolveRelativePaths()
+    public void ToFullPath_ShouldResolveRelativePaths()
     {
         // 测试基础路径和相对路径
         string baseDir = Directory.GetCurrentDirectory();
         string relativePath = "subdir/file.txt";
 
-        var result = PathExtensions.ResolveToAbsolutePath(relativePath,baseDir);
+        var result = PathExtensions.ToFullPath(relativePath,baseDir);
         var expected = Path.GetFullPath(Path.Combine(baseDir, relativePath));
 
         Assert.Equal(expected, result);
 
         // 测试绝对路径
         string absolutePath = Path.GetFullPath("file.txt");
-        var absoluteResult = PathExtensions.ResolveToAbsolutePath(absolutePath,baseDir);
+        var absoluteResult = PathExtensions.ToFullPath(absolutePath,baseDir);
         Assert.Equal(absolutePath, absoluteResult);
 
         // 测试边缘情况
-        Assert.Equal(string.Empty, PathExtensions.ResolveToAbsolutePath("",baseDir));
-        Assert.Equal(string.Empty, PathExtensions.ResolveToAbsolutePath(null,baseDir));
+        Assert.Equal(string.Empty, PathExtensions.ToFullPath("",baseDir));
+        Assert.Equal(string.Empty, PathExtensions.ToFullPath(null,baseDir));
 
         // 测试保留末尾分隔符
-        var withSeparator = PathExtensions.ResolveToAbsolutePath("subdir/", baseDir, true);
+        var withSeparator = PathExtensions.ToFullPath("subdir/", baseDir, true);
         Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), withSeparator);
     }
 

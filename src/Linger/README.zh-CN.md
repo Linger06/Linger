@@ -469,8 +469,6 @@ DateTimeOffset timestamp = v7Guid.GetTimestamp(); // 从 V7 GUID 提取时间戳
 #endif
 ```
 
-> **⚠️ 已弃用**: `GuidCode.NewGuid()` → 请直接使用 `Guid.NewGuid()`
-
 ### 数组扩展
 
 ```csharp
@@ -603,7 +601,7 @@ string relative = PathExtensions.GetRelativePath(basePath, targetPath);
 // 解析绝对路径 - 将相对路径转换为绝对路径
 string workingDir = @"C:\Projects";
 string relativePath = @"MyApp\src\file.txt";
-string absolutePath = PathExtensions.ResolveToAbsolutePath(relativePath, workingDir);
+string absolutePath = PathExtensions.ToFullPath(relativePath, workingDir);
 // 结果: "C:\Projects\MyApp\src\file.txt"
 
 // 检查路径中的非法字符
