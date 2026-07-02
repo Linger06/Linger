@@ -397,7 +397,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.True(((ushort)65535).IsAnyUnsignedInteger());
             Assert.True(((uint)4294967295).IsAnyUnsignedInteger());
             Assert.True(((ulong)18446744073709551615).IsAnyUnsignedInteger());
-            
+
             // Should return false for signed integers
             Assert.False(((sbyte)-100).IsAnyUnsignedInteger());
             Assert.False(((short)-100).IsAnyUnsignedInteger());
@@ -480,7 +480,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+
         public static TheoryData<object, long?> ToLongOrNullData()
         {
             return new TheoryData<object, long?>
@@ -500,7 +500,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+
         public static TheoryData<object, decimal?> ToDecimalOrNullData()
         {
             return new TheoryData<object, decimal?>
@@ -520,7 +520,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+
         // New ToIntOrDefault tests for ObjectExtensions
         public static TheoryData<object, int, int> ToIntOrDefaultData()
         {
@@ -561,7 +561,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+
         public static TheoryData<object, double?> ToDoubleOrNullData()
         {
             return new TheoryData<object, double?>
@@ -581,7 +581,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+
         public static TheoryData<object, float?> ToFloatOrNullData()
         {
             return new TheoryData<object, float?>
@@ -601,7 +601,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+
         // New ToDateTimeOrDefault tests for ObjectExtensions
         public static TheoryData<object, DateTime, DateTime> ToDateTimeOrDefaultData()
         {
@@ -639,7 +639,201 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+        [Theory]
+        [InlineData((short)123, (short)123)]
+        [InlineData(123, (short)123)]
+        [InlineData("123", (short)123)]
+        public void ToShort_ShouldReturnExpectedResult(object input, short expected)
+        {
+            var result = input.ToShort();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("invalid", typeof(FormatException))]
+        [InlineData("32768", typeof(OverflowException))]
+        public void ToShort_ShouldThrowExpectedException(object input, Type expectedExceptionType)
+        {
+            var exception = Assert.Throws(expectedExceptionType, () => input.ToShort());
+            Assert.NotNull(exception);
+        }
+
+        [Fact]
+        public void ToShort_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToShort());
+        }
+
+        [Theory]
+        [InlineData((long)123, 123L)]
+        [InlineData(123, 123L)]
+        [InlineData("123", 123L)]
+        public void ToLong_ShouldReturnExpectedResult(object input, long expected)
+        {
+            var result = input.ToLong();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("invalid", typeof(FormatException))]
+        [InlineData("9223372036854775808", typeof(OverflowException))]
+        public void ToLong_ShouldThrowExpectedException(object input, Type expectedExceptionType)
+        {
+            var exception = Assert.Throws(expectedExceptionType, () => input.ToLong());
+            Assert.NotNull(exception);
+        }
+
+        [Fact]
+        public void ToLong_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToLong());
+        }
+
+        [Theory]
+        [InlineData(123, 123)]
+        [InlineData("123", 123)]
+        [InlineData((short)123, 123)]
+        [InlineData((object)123, 123)]
+        public void ToInt_ShouldReturnExpectedResult(object input, int expected)
+        {
+            var result = input.ToInt();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("invalid", typeof(FormatException))]
+        [InlineData("2147483648", typeof(OverflowException))]
+        public void ToInt_ShouldThrowExpectedException(object input, Type expectedExceptionType)
+        {
+            var exception = Assert.Throws(expectedExceptionType, () => input.ToInt());
+            Assert.NotNull(exception);
+        }
+
+        [Fact]
+        public void ToInt_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToInt());
+        }
+
+        public static TheoryData<object, decimal> ToDecimalShouldReturnExpectedData()
+        {
+            return new TheoryData<object, decimal>
+                {
+                    { 123.45m, 123.45m },
+                    { "123.45", 123.45m },
+                    { 123, 123m }
+                };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToDecimalShouldReturnExpectedData))]
+        public void ToDecimal_ShouldReturnExpectedResult(object input, decimal expected)
+        {
+            var result = input.ToDecimal();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("invalid", typeof(FormatException))]
+        [InlineData("79228162514264337593543950336", typeof(OverflowException))]
+        public void ToDecimal_ShouldThrowExpectedException(object input, Type expectedExceptionType)
+        {
+            var exception = Assert.Throws(expectedExceptionType, () => input.ToDecimal());
+            Assert.NotNull(exception);
+        }
+
+        [Fact]
+        public void ToDecimal_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToDecimal());
+        }
+
+        [Theory]
+        [InlineData(123.45, 123.45)]
+        [InlineData("123.45", 123.45)]
+        [InlineData(123, 123.0)]
+        public void ToDouble_ShouldReturnExpectedResult(object input, double expected)
+        {
+            var result = input.ToDouble();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("invalid", typeof(FormatException))]
+        [InlineData("1e5000", typeof(OverflowException))]
+        public void ToDouble_ShouldThrowExpectedException(object input, Type expectedExceptionType)
+        {
+            var exception = Assert.Throws(expectedExceptionType, () => input.ToDouble());
+            Assert.NotNull(exception);
+        }
+
+        [Fact]
+        public void ToDouble_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToDouble());
+        }
+
+        [Theory]
+        [InlineData(123.45f, 123.45f)]
+        [InlineData("123.45", 123.45f)]
+        [InlineData(123, 123f)]
+        public void ToFloat_ShouldReturnExpectedResult(object input, float expected)
+        {
+            var result = input.ToFloat();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("invalid", typeof(FormatException))]
+        [InlineData("1e50", typeof(OverflowException))]
+        public void ToFloat_ShouldThrowExpectedException(object input, Type expectedExceptionType)
+        {
+            var exception = Assert.Throws(expectedExceptionType, () => input.ToFloat());
+            Assert.NotNull(exception);
+        }
+
+        [Fact]
+        public void ToFloat_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToFloat());
+        }
+
+        [Theory]
+        [InlineData("2023-01-01")]
+        public void ToDateTime_ShouldReturnExpectedResult(object input)
+        {
+            var result = input.ToDateTime();
+            Assert.Equal(new DateTime(2023, 1, 1), result);
+        }
+
+        [Theory]
+        [InlineData("invalid")]
+        public void ToDateTime_ShouldThrowFormatException_WhenInputIsInvalid(string input)
+        {
+            Assert.Throws<FormatException>(() => input.ToDateTime());
+        }
+
+        [Fact]
+        public void ToDateTime_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToDateTime());
+        }
+
+
         public static TheoryData<object, bool?> ToBoolOrNullData()
         {
             return new TheoryData<object, bool?>
@@ -659,7 +853,7 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        
+
         public static TheoryData<object, Guid?> ToGuidOrNullData()
         {
             var guid = Guid.NewGuid();

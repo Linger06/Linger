@@ -413,6 +413,28 @@ public static class ObjectExtensions
     }
 
     /// <summary>
+    /// Converts the input object to a short and throws if conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <returns>A short representation of the input object.</returns>
+    public static short ToShort(this object? input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        return input switch
+        {
+            short value => value,
+            int value => checked((short)value),
+            long value => checked((short)value),
+            decimal value => ConvertDecimalToInt16(value),
+            double value => ConvertDoubleToInt16(value),
+            float value => ConvertDoubleToInt16(value),
+            string value => short.Parse(value, CultureInfo.InvariantCulture),
+            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(short).Name}. input={input}"),
+        };
+    }
+
+    /// <summary>
     /// Converts the input object to a long. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -466,6 +488,28 @@ public static class ObjectExtensions
         }
         value = 0;
         return false;
+    }
+
+    /// <summary>
+    /// Converts the input object to a long and throws if conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <returns>A long representation of the input object.</returns>
+    public static long ToLong(this object? input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        return input switch
+        {
+            long value => value,
+            int value => value,
+            short value => value,
+            decimal value => ConvertDecimalToInt64(value),
+            double value => ConvertDoubleToInt64(value),
+            float value => ConvertDoubleToInt64(value),
+            string value => long.Parse(value, CultureInfo.InvariantCulture),
+            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(long).Name}. input={input}"),
+        };
     }
 
     /// <summary>
@@ -542,6 +586,31 @@ public static class ObjectExtensions
     }
 
     /// <summary>
+    /// Converts the input object to a decimal and throws if conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A decimal representation of the input object.</returns>
+    public static decimal ToDecimal(this object? input, int? digits = null)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        decimal value = input switch
+        {
+            decimal decimalValue => decimalValue,
+            int intValue => intValue,
+            long longValue => longValue,
+            short shortValue => shortValue,
+            double doubleValue => Convert.ToDecimal(doubleValue),
+            float floatValue => Convert.ToDecimal(floatValue),
+            string stringValue => decimal.Parse(stringValue, CultureInfo.InvariantCulture),
+            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(decimal).Name}. input={input}"),
+        };
+
+        return digits.HasValue ? Math.Round(value, digits.Value) : value;
+    }
+
+    /// <summary>
     /// Converts the input object to an integer. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -598,6 +667,28 @@ public static class ObjectExtensions
     }
 
     /// <summary>
+    /// Converts the input object to an integer and throws if conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <returns>An integer representation of the input object.</returns>
+    public static int ToInt(this object? input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        return input switch
+        {
+            int value => value,
+            long value => checked((int)value),
+            short value => value,
+            decimal value => ConvertDecimalToInt32(value),
+            double value => ConvertDoubleToInt32(value),
+            float value => ConvertDoubleToInt32(value),
+            string value => int.Parse(value, CultureInfo.InvariantCulture),
+            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(int).Name}. input={input}"),
+        };
+    }
+
+    /// <summary>
     /// Converts the input object to a double. Returns the specified default value if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -626,6 +717,31 @@ public static class ObjectExtensions
 
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToDoubleOrNull(defaultValue, digits);
+    }
+
+    /// <summary>
+    /// Converts the input object to a double and throws if conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A double representation of the input object.</returns>
+    public static double ToDouble(this object? input, int? digits = null)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var value = input switch
+        {
+            double doubleValue => doubleValue,
+            float floatValue => floatValue,
+            decimal decimalValue => (double)decimalValue,
+            int intValue => intValue,
+            long longValue => longValue,
+            short shortValue => shortValue,
+            string stringValue => ParseDouble(stringValue),
+            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(double).Name}. input={input}"),
+        };
+
+        return digits.HasValue ? Math.Round(value, digits.Value) : value;
     }
 
     /// <summary>
@@ -680,6 +796,31 @@ public static class ObjectExtensions
     }
 
     /// <summary>
+    /// Converts the input object to a float and throws if conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <param name="digits">The number of decimal places to round to.</param>
+    /// <returns>A float representation of the input object.</returns>
+    public static float ToFloat(this object? input, int? digits = null)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var value = input switch
+        {
+            float floatValue => floatValue,
+            double doubleValue => (float)doubleValue,
+            decimal decimalValue => (float)decimalValue,
+            int intValue => intValue,
+            long longValue => longValue,
+            short shortValue => shortValue,
+            string stringValue => ParseFloat(stringValue),
+            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(float).Name}. input={input}"),
+        };
+
+        return digits.HasValue ? (float)Math.Round(value, digits.Value) : value;
+    }
+
+    /// <summary>
     /// Converts the input object to a nullable DateTime. Returns null if the conversion fails.
     /// </summary>
     /// <param name="input">The input object.</param>
@@ -694,6 +835,23 @@ public static class ObjectExtensions
 
         // Fall back to string conversion for other types
         return input.ToStringOrNull().ToDateTimeOrNull();
+    }
+
+    /// <summary>
+    /// Converts the input object to a DateTime and throws if conversion fails.
+    /// </summary>
+    /// <param name="input">The input object.</param>
+    /// <returns>A DateTime representation of the input object.</returns>
+    public static DateTime ToDateTime(this object? input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        return input switch
+        {
+            DateTime dateTimeValue => dateTimeValue,
+            string stringValue => DateTime.Parse(stringValue, CultureInfo.InvariantCulture),
+            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(DateTime).Name}. input={input}"),
+        };
     }
 
     /// <summary>
@@ -901,6 +1059,120 @@ public static class ObjectExtensions
         }
         value = 0.0f;
         return false;
+    }
+
+    private static short ConvertDecimalToInt16(decimal value)
+    {
+        if (value != decimal.Truncate(value))
+        {
+            throw new InvalidCastException($"The value cannot be converted to {typeof(short).Name}. value={value}");
+        }
+
+        if (value < short.MinValue || value > short.MaxValue)
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(short).Name}. value={value}");
+        }
+
+        return (short)value;
+    }
+
+    private static short ConvertDoubleToInt16(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value != Math.Truncate(value))
+        {
+            throw new InvalidCastException($"The value cannot be converted to {typeof(short).Name}. value={value}");
+        }
+
+        if (value < short.MinValue || value > short.MaxValue)
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(short).Name}. value={value}");
+        }
+
+        return (short)value;
+    }
+
+    private static int ConvertDecimalToInt32(decimal value)
+    {
+        if (value != decimal.Truncate(value))
+        {
+            throw new InvalidCastException($"The value cannot be converted to {typeof(int).Name}. value={value}");
+        }
+
+        if (value < int.MinValue || value > int.MaxValue)
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(int).Name}. value={value}");
+        }
+
+        return (int)value;
+    }
+
+    private static int ConvertDoubleToInt32(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value != Math.Truncate(value))
+        {
+            throw new InvalidCastException($"The value cannot be converted to {typeof(int).Name}. value={value}");
+        }
+
+        if (value < int.MinValue || value > int.MaxValue)
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(int).Name}. value={value}");
+        }
+
+        return (int)value;
+    }
+
+    private static long ConvertDecimalToInt64(decimal value)
+    {
+        if (value != decimal.Truncate(value))
+        {
+            throw new InvalidCastException($"The value cannot be converted to {typeof(long).Name}. value={value}");
+        }
+
+        if (value < long.MinValue || value > long.MaxValue)
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(long).Name}. value={value}");
+        }
+
+        return (long)value;
+    }
+
+    private static long ConvertDoubleToInt64(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value != Math.Truncate(value))
+        {
+            throw new InvalidCastException($"The value cannot be converted to {typeof(long).Name}. value={value}");
+        }
+
+        if (value < long.MinValue || value > long.MaxValue)
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(long).Name}. value={value}");
+        }
+
+        return (long)value;
+    }
+
+    private static double ParseDouble(string value)
+    {
+        var parsed = double.Parse(value, CultureInfo.InvariantCulture);
+
+        if (double.IsInfinity(parsed))
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(double).Name}. value={value}");
+        }
+
+        return parsed;
+    }
+
+    private static float ParseFloat(string value)
+    {
+        var parsed = float.Parse(value, CultureInfo.InvariantCulture);
+
+        if (float.IsInfinity(parsed))
+        {
+            throw new OverflowException($"The value is outside the range of {typeof(float).Name}. value={value}");
+        }
+
+        return parsed;
     }
 
     #region Byte Extensions
