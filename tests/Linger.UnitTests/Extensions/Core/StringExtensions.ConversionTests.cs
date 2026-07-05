@@ -30,352 +30,6 @@ namespace Linger.UnitTests.Extensions.Core
                 };
         }
 
-        [Theory]
-        [MemberData(nameof(TryToCharData))]
-        public void TryToChar_ShouldReturnExpectedResult(string? value, bool expectedSuccess, char? expectedResult)
-        {
-            var success = value.TryToChar(out var result);
-            Assert.Equal(expectedSuccess, success);
-            Assert.Equal(expectedResult, result);
-        }
-
-        public static TheoryData<string?, char?, char?> ToCharOrNullData()
-        {
-            return new TheoryData<string?, char?, char?>
-                {
-                    { null, null, null },
-                    { " ", null, null },
-                    { "a", null, 'a' }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToCharOrNullData))]
-        public void ToCharOrNull_ShouldReturnExpectedResult(string? value, char? defaultValue, char? expected)
-        {
-            var result = value.ToCharOrNull(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, char, char> ToCharData()
-        {
-            return new TheoryData<string?, char, char>
-                {
-                    { null, 'a', 'a' },
-                    { " ", 'a', 'a' },
-                    { "b", 'a', 'b' }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToCharData))]
-        public void ToChar_ShouldReturnExpectedResult(string? value, char defaultValue, char expected)
-        {
-            var result = value.ToChar(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, Func<char>?, char> ToCharData2()
-        {
-            return new TheoryData<string?, Func<char>?, char>
-                {
-                    { null, ()=>'a', 'a' },
-                    { " ", ()=>'a', 'a' },
-                    { "b", ()=>'a', 'b' },
-                    { null, null, '\0' }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToCharData2))]
-        public void ToChar_ShouldReturnExpectedResult2(string? value, Func<char>? defaultValueFunc, char expected)
-        {
-            var result = value.ToChar(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, bool, sbyte?> TryToSByteData()
-        {
-            return new TheoryData<string?, bool, sbyte?>
-                {
-                    { null, false, null },
-                    { " ", false, null },
-                    { "123", true, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(TryToSByteData))]
-        public void TryToSByte_ShouldReturnExpectedResult(string? value, bool expectedSuccess, sbyte? expectedResult)
-        {
-            var success = value.TryToSByte(out var result);
-            Assert.Equal(expectedSuccess, success);
-            Assert.Equal(expectedResult, result);
-        }
-
-        public static TheoryData<string?, sbyte?, sbyte?> ToSByteOrNullData()
-        {
-            return new TheoryData<string?, sbyte?, sbyte?>
-                {
-                    { null, null, null },
-                    { " ", null, null },
-                    { "123", null, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToSByteOrNullData))]
-        public void ToSByteOrNull_ShouldReturnExpectedResult(string? value, sbyte? defaultValue, sbyte? expected)
-        {
-            var result = value.ToSByteOrNull(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-
-        public static TheoryData<string?, Func<sbyte?>?, sbyte?> ToSByteOrNullData2()
-        {
-            return new TheoryData<string?, Func<sbyte?>?, sbyte?>
-                {
-                    { null, null, null },
-                    { " ", null, null },
-                    { "123", null, 123 },
-                    {null,()=>0,0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToSByteOrNullData2))]
-        public void ToSByteOrNull_ShouldReturnExpectedResult2(string? value, Func<sbyte?>? defaultValueFunc, sbyte? expected)
-        {
-            var result = value.ToSByteOrNull(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, sbyte, sbyte> ToSByteData()
-        {
-            return new TheoryData<string?, sbyte, sbyte>
-                {
-                    { null, 1, 1 },
-                    { " ", 1, 1 },
-                    { "123", 1, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToSByteData))]
-        public void ToSByte_ShouldReturnExpectedResult(string? value, sbyte defaultValue, sbyte expected)
-        {
-            var result = value.ToSByte(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, Func<sbyte>?, sbyte> ToSByteData2()
-        {
-            return new TheoryData<string?, Func<sbyte>?, sbyte>
-                {
-                    { null, () =>1, 1 },
-                    { " ", () =>1, 1 },
-                    { "123", () =>1, 123 },
-                    { null, null, 0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToSByteData2))]
-        public void ToSByte_ShouldReturnExpectedResult2(string? value, Func<sbyte>? defaultValueFunc, sbyte expected)
-        {
-            var result = value.ToSByte(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, bool, byte?> TryToByteData()
-        {
-            return new TheoryData<string?, bool, byte?>
-                {
-                    { null, false, null },
-                    { " ", false, null },
-                    { "123", true, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(TryToByteData))]
-        public void TryToByte_ShouldReturnExpectedResult(string? value, bool expectedSuccess, byte? expectedResult)
-        {
-            var success = value.TryToByte(out var result);
-            Assert.Equal(expectedSuccess, success);
-            Assert.Equal(expectedResult, result);
-        }
-
-        public static TheoryData<string?, byte?, byte?> ToByteOrNullData()
-        {
-            return new TheoryData<string?, byte?, byte?>
-                {
-                    { null, null, null },
-                    { " ", null, null },
-                    { "123", null, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToByteOrNullData))]
-        public void ToByteOrNull_ShouldReturnExpectedResult(string? value, byte? defaultValue, byte? expected)
-        {
-            var result = value.ToByteOrNull(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, Func<byte?>?, byte?> ToByteOrNullData2()
-        {
-            return new TheoryData<string?, Func<byte?>?, byte?>
-                {
-                    { null, null, null },
-                    { " ", null, null },
-                    { "123", null, 123 },
-                    {null,()=>0,0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToByteOrNullData2))]
-        public void ToByteOrNull_ShouldReturnExpectedResult2(string? value, Func<byte?>? defaultValueFunc, byte? expected)
-        {
-            var result = value.ToByteOrNull(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, byte, byte> ToByteData()
-        {
-            return new TheoryData<string?, byte, byte>
-                {
-                    { null, 1, 1 },
-                    { " ", 1, 1 },
-                    { "123", 1, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToByteData))]
-        public void ToByte_ShouldReturnExpectedResult(string? value, byte defaultValue, byte expected)
-        {
-            var result = value.ToByte(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-
-        public static TheoryData<string?, Func<byte>?, byte> ToByteData2()
-        {
-            return new TheoryData<string?, Func<byte>?, byte>
-                {
-                    { null, () =>1, 1 },
-                    { " ", () =>1, 1 },
-                    { "123", () =>1, 123 },
-                    { null, null, 0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToByteData2))]
-        public void ToByte_ShouldReturnExpectedResult2(string? value, Func<byte>? defaultValueFunc, byte expected)
-        {
-            var result = value.ToByte(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, bool, ushort?> TryToUShortData()
-        {
-            return new TheoryData<string?, bool, ushort?>
-                {
-                    { null, false, null },
-                    { " ", false, null },
-                    { "123", true, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(TryToUShortData))]
-        public void TryToUShort_ShouldReturnExpectedResult(string? value, bool expectedSuccess, ushort? expectedResult)
-        {
-            var success = value.TryToUShort(out var result);
-            Assert.Equal(expectedSuccess, success);
-            Assert.Equal(expectedResult, result);
-        }
-
-        public static TheoryData<string?, ushort?, ushort?> ToUShortOrNullData()
-        {
-            return new TheoryData<string?, ushort?, ushort?>
-                {
-                    { null, null, null },
-                    { " ", null, null },
-                    { "123", null, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToUShortOrNullData))]
-        public void ToUShortOrNull_ShouldReturnExpectedResult(string? value, ushort? defaultValue, ushort? expected)
-        {
-            var result = value.ToUShortOrNull(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, Func<ushort?>?, ushort?> ToUShortOrNullData2()
-        {
-            return new TheoryData<string?, Func<ushort?>?, ushort?>
-                {
-                    { null, null, null },
-                    { " ", null, null },
-                    { "123", null, 123 },
-                    {null,()=>0,0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToUShortOrNullData2))]
-        public void ToUShortOrNull_ShouldReturnExpectedResult2(string? value, Func<ushort?>? defaultValueFunc, ushort? expected)
-        {
-            var result = value.ToUShortOrNull(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, ushort, ushort> ToUShortData()
-        {
-            return new TheoryData<string?, ushort, ushort>
-                {
-                    { null, 1, 1 },
-                    { " ", 1, 1 },
-                    { "123", 1, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToUShortData))]
-        public void ToUShort_ShouldReturnExpectedResult(string? value, ushort defaultValue, ushort expected)
-        {
-            var result = value.ToUShort(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, Func<ushort>?, ushort> ToUShortData2()
-        {
-            return new TheoryData<string?, Func<ushort>?, ushort>
-                {
-                    { null, () => 1, 1 },
-                    { " ", () => 1, 1 },
-                    { "123", () => 1, 123 },
-                    {null,null,0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToUShortData2))]
-        public void ToUShort_ShouldReturnExpectedResult2(string? value, Func<ushort>? defaultValueFunc, ushort expected)
-        {
-            var result = value.ToUShort(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-
         public static TheoryData<string?, bool, short?> TryToShortData()
         {
             return new TheoryData<string?, bool, short?>
@@ -409,7 +63,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToShortOrNullData))]
         public void ToShortOrNull_ShouldReturnExpectedResult(string? value, short? defaultValue, short? expected)
         {
-            var result = value.ToShortOrNull(defaultValue);
+            var result = value.ToShortOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -428,7 +82,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToShortOrNullData2))]
         public void ToShortOrNull_ShouldReturnExpectedResult2(string? value, Func<short?>? defaultValueFunc, short? expected)
         {
-            var result = value.ToShortOrNull(defaultValueFunc);
+            var result = value.ToShortOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -446,7 +100,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToShortData))]
         public void ToShort_ShouldReturnExpectedResult(string? value, short defaultValue, short expected)
         {
-            var result = value.ToShort(defaultValue);
+            var result = value.ToShort();
             Assert.Equal(expected, result);
         }
 
@@ -465,7 +119,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToShortData2))]
         public void ToShort_ShouldReturnExpectedResult2(string? value, Func<short>? defaultValue, short expected)
         {
-            var result = value.ToShort(defaultValue);
+            var result = value.ToShort();
             Assert.Equal(expected, result);
         }
 
@@ -520,7 +174,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToBytesData))]
         public void ToBytes_ShouldReturnExpectedResult(string? value, byte[] defaultValue, byte[] expected)
         {
-            var result = value.ToBytes(defaultValue, Encoding.UTF8);
+            var result = value.ToBytes(Encoding.UTF8);
             Assert.Equal(expected, result);
         }
 
@@ -557,7 +211,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToBytesData2))]
         public void ToBytes_ShouldReturnExpectedResult2(string? value, Func<byte[]>? defaultValueFunc, byte[] expected)
         {
-            var result = value.ToBytes(defaultValueFunc, Encoding.UTF8);
+            var result = value.ToBytes(Encoding.UTF8);
             Assert.Equal(expected, result);
         }
 
@@ -612,7 +266,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToGuidOrNullData))]
         public void ToGuidOrNull_ShouldReturnExpectedResult(string? value, Guid? defaultValue, Guid? expected)
         {
-            var result = value.ToGuidOrNull(defaultValue);
+            var result = value.ToGuidOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -630,7 +284,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToGuidData))]
         public void ToGuid_ShouldReturnExpectedResult(string? value, Guid defaultValue, Guid expected)
         {
-            var result = value.ToGuid(defaultValue);
+            var result = value.ToGuid();
             Assert.Equal(expected, result);
         }
 
@@ -648,7 +302,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToGuidOrNullData2))]
         public void ToGuidOrNull_ShouldReturnExpectedResult2(string? value, Func<Guid?>? defaultValueFunc, Guid? expected)
         {
-            var result = value.ToGuidOrNull(defaultValueFunc);
+            var result = value.ToGuidOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -667,7 +321,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToGuidData2))]
         public void ToGuid_ShouldReturnExpectedResult2(string? value, Func<Guid>? defaultValueFunc, Guid expected)
         {
-            var result = value.ToGuid(defaultValueFunc);
+            var result = value.ToGuid();
             Assert.Equal(expected, result);
         }
 
@@ -757,7 +411,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToIntOrNullData))]
         public void ToIntOrNull_ShouldReturnExpectedResult(string? value, int? defaultValue, int? expected)
         {
-            var result = value.ToIntOrNull(defaultValue);
+            var result = value.ToIntOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -793,26 +447,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToIntOrNullData2))]
         public void ToIntOrNull_ShouldReturnExpectedResult2(string? value, Func<int?>? defaultValueFunc, int? expected)
         {
-            var result = value.ToIntOrNull(defaultValueFunc);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, Func<int>?, int> ToIntData2()
-        {
-            return new TheoryData<string?, Func<int>?, int>
-                {
-                    { null, ()=>0, 0 },
-                    { " ", ()=>0, 0 },
-                    { "123",()=> 0, 123 },
-                    { null,null, 0 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToIntData2))]
-        public void ToInt_ShouldReturnExpectedResult2(string? value, Func<int>? defaultValueFunc, int expected)
-        {
-            var result = value.ToIntOrDefault(defaultValueFunc);
+            var result = value.ToIntOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -834,26 +469,6 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToIntOrDefault_ShouldReturnExpectedResult(string? value, int defaultValue, int expected)
         {
             var result = value.ToIntOrDefault(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, Func<int>?, int> ToIntOrDefaultFuncData()
-        {
-            return new TheoryData<string?, Func<int>?, int>
-                {
-                    { null, null, 0 },
-                    { " ", null, 0 },
-                    { "123", null, 123 },
-                    { "abc", () => 42, 42 },
-                    { "123", () => 999, 123 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToIntOrDefaultFuncData))]
-        public void ToIntOrDefault_WithFunction_ShouldReturnExpectedResult(string? value, Func<int>? defaultValueFunc, int expected)
-        {
-            var result = value.ToIntOrDefault(defaultValueFunc);
             Assert.Equal(expected, result);
         }
 
@@ -901,7 +516,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToLongOrNullData))]
         public void ToLongOrNull_ShouldReturnExpectedResult(string? value, long? defaultValue, long? expected)
         {
-            var result = value.ToLongOrNull(defaultValue);
+            var result = value.ToLongOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -973,189 +588,6 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expectedResult, result);
         }
 
-        public static TheoryData<string?, decimal?, int?, decimal?> ToDecimalOrNullData()
-        {
-            return new TheoryData<string?, decimal?, int?, decimal?>
-                {
-                    { null, null, null, null },
-                    { " ", null, null, null },
-                    { "123.45", null, null, 123.45m },
-                    { "123.456", null, 2, 123.46m }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDecimalOrNullData))]
-        public void ToDecimalOrNull_ShouldReturnExpectedResult(string? value, decimal? defaultValue, int? digits, decimal? expected)
-        {
-            var result = value.ToDecimalOrNull(defaultValue, digits);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, decimal, int?, decimal> ToDecimalData()
-        {
-            return new TheoryData<string?, decimal, int?, decimal>
-                {
-                    { null, 0m, null, 0m },
-                    { " ", 0m, null, 0m },
-                    { "123.45", 0m, null, 123.45m },
-                    { "123.456", 0m, 2, 123.46m }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDecimalData))]
-        public void ToDecimal_ShouldReturnExpectedResult(string? value, decimal defaultValue, int? digits, decimal expected)
-        {
-            var result = value.ToDecimalOrDefault(defaultValue, digits);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, bool, float?> TryToFloatData()
-        {
-            return new TheoryData<string?, bool, float?>
-                {
-                    { null, false, null },
-                    { " ", false, null },
-                    { "123.45", true, 123.45f }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(TryToFloatData))]
-        public void TryToFloat_ShouldReturnExpectedResult(string? value, bool expectedSuccess, float? expectedResult)
-        {
-            var success = value.TryToFloat(out var result);
-            Assert.Equal(expectedSuccess, success);
-            Assert.Equal(expectedResult, result);
-        }
-
-        public static TheoryData<string?, float?, int?, float?> ToFloatOrNullData()
-        {
-            return new TheoryData<string?, float?, int?, float?>
-                {
-                    { null, null, null, null },
-                    { " ", null, null, null },
-                    { "123.45", null, null, 123.45f },
-                    { "123.456", null, 2, 123.46f }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToFloatOrNullData))]
-        public void ToFloatOrNull_ShouldReturnExpectedResult(string? value, float? defaultValue, int? digits, float? expected)
-        {
-            var result = value.ToFloatOrNull(defaultValue, digits);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, float, int?, float> ToFloatData()
-        {
-            return new TheoryData<string?, float, int?, float>
-                {
-                    { null, 0f, null, 0f },
-                    { " ", 0f, null, 0f },
-                    { "123.45", 0f, null, 123.45f },
-                    { "123.456", 0f, 2, 123.46f }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToFloatData))]
-        public void ToFloat_ShouldReturnExpectedResult(string? value, float defaultValue, int? digits, float expected)
-        {
-            var result = value.ToFloatOrDefault(defaultValue, digits);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, bool, double?> TryToDoubleData()
-        {
-            return new TheoryData<string?, bool, double?>
-                {
-                    { null, false, null },
-                    { " ", false, null },
-                    { "123.45", true, 123.45 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(TryToDoubleData))]
-        public void TryToDouble_ShouldReturnExpectedResult(string? value, bool expectedSuccess, double? expectedResult)
-        {
-            var success = value.TryToDouble(out var result);
-            Assert.Equal(expectedSuccess, success);
-            Assert.Equal(expectedResult, result);
-        }
-
-        public static TheoryData<string?, double?, int?, double?> ToDoubleOrNullData()
-        {
-            return new TheoryData<string?, double?, int?, double?>
-                {
-                    { null, null, null, null },
-                    { " ", null, null, null },
-                    { "123.45", null, null, 123.45 },
-                    { "123.456", null, 2, 123.46 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDoubleOrNullData))]
-        public void ToDoubleOrNull_ShouldReturnExpectedResult(string? value, double? defaultValue, int? digits, double? expected)
-        {
-            var result = value.ToDoubleOrNull(defaultValue, digits);
-            Assert.Equal(expected, result);
-        }
-
-        public static TheoryData<string?, double, int?, double> ToDoubleData()
-        {
-            return new TheoryData<string?, double, int?, double>
-                {
-                    { null, 0.0, null, 0.0 },
-                    { " ", 0.0, null, 0.0 },
-                    { "123.45", 0.0, null, 123.45 },
-                    { "123.456", 0.0, 2, 123.46 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDoubleData))]
-        public void ToDouble_ShouldReturnExpectedResult(string? value, double defaultValue, int? digits, double expected)
-        {
-            var result = value.ToDoubleOrDefault(defaultValue, digits);
-            Assert.Equal(expected, result);
-        }
-
-        // New ToDoubleOrDefault tests
-        public static TheoryData<string?, double, int?, double> ToDoubleOrDefaultData()
-        {
-            return new TheoryData<string?, double, int?, double>
-                {
-                    { null, 0.0, null, 0.0 },
-                    { " ", 0.0, null, 0.0 },
-                    { "123.456", 0.0, null, 123.456 },
-                    { "123.456", 0.0, 2, 123.46 },
-                    { "abc", 42.5, null, 42.5 }
-                };
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDoubleOrDefaultData))]
-        public void ToDoubleOrDefault_ShouldReturnExpectedResult(string? value, double defaultValue, int? digits, double expected)
-        {
-            var result = value.ToDoubleOrDefault(defaultValue, digits);
-            Assert.Equal(expected, result);
-        }
-
-        [Theory]
-        [MemberData(nameof(ToDoubleOrDefaultData))]
-        public void ToDouble_BackwardCompatibility_ShouldReturnExpectedResult(string? value, double defaultValue, int? digits, double expected)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToDoubleOrDefault(defaultValue, digits);
-#pragma warning restore CS0618 // Type or member is obsolete
-            Assert.Equal(expected, result);
-        }
-
         public static TheoryData<string?, bool, DateTime?> TryToDateTimeData()
         {
             return new TheoryData<string?, bool, DateTime?>
@@ -1189,7 +621,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToDateTimeOrNullData))]
         public void ToDateTimeOrNull_ShouldReturnExpectedResult(string? value, DateTime? defaultValue, DateTime? expected)
         {
-            var result = value.ToDateTimeOrNull(defaultValue);
+            var result = value.ToDateTimeOrNull();
             Assert.Equal(expected, result);
         }
 
@@ -1267,7 +699,7 @@ namespace Linger.UnitTests.Extensions.Core
         [MemberData(nameof(ToBoolOrNullData))]
         public void ToBoolOrNull_ShouldReturnExpectedResult(string? value, bool? defaultValue, bool? expected)
         {
-            var result = value.ToBoolOrNull(defaultValue);
+            var result = value.ToBoolOrNull();
             Assert.Equal(expected, result);
         }
 

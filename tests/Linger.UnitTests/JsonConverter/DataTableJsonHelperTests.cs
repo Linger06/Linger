@@ -60,8 +60,8 @@ public class DataTableJsonHelperTests
         Assert.Equal((short)2, result.Rows[0]["Int16"].ToShortOrDefault());
         Assert.Equal(3L, result.Rows[0]["Int64"].ToLongOrDefault());
         Assert.Equal(4.5m, result.Rows[0]["Decimal"].ToDecimalOrDefault());
-        Assert.Equal(5.6f, result.Rows[0]["Single"].ToFloatOrDefault());
-        Assert.Equal(7.8, result.Rows[0]["Double"].ToDoubleOrDefault());
+        Assert.Equal(5.6f, result.Rows[0]["Single"].ToTargetOrDefault<float>());
+        Assert.Equal(7.8, result.Rows[0]["Double"].ToTargetOrDefault<double>());
     }
 
     [Fact]

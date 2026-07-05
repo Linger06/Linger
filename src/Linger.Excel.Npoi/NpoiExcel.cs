@@ -331,7 +331,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             // 浮点类型 - 使用统一的小数格式
             try
             {
-                var doubleValue = value.ToDoubleOrDefault();
+                var doubleValue = value.ToTarget<double>();
                 cell.SetCellValue(doubleValue);
 
                 // 应用浮点数样式

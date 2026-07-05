@@ -1,10 +1,10 @@
-﻿namespace Linger.UnitTests.Extensions.Core;
+namespace Linger.UnitTests.Extensions.Core;
 
 using Xunit;
 
 public class DecimalExtensionsTests
 {
-    
+
 
     [Theory]
     [InlineData(1.1)]
@@ -73,7 +73,7 @@ public class DecimalExtensionsTests
         Assert.False(result);
     }
 
-        public static TheoryData<decimal, int> ToIntData()
+    public static TheoryData<decimal, int> ToIntData()
     {
         return new TheoryData<decimal, int>
         {
@@ -136,7 +136,7 @@ public class DecimalExtensionsTests
     [MemberData(nameof(ToIntOutOfRangeBoundaryData))]
     public void ToInt_ThrowsForOutOfRangeBoundaryValues(decimal value)
     {
-        Assert.Throws<InvalidCastException>(() => value.ToInt());
+        Assert.Throws<OverflowException>(() => value.ToInt());
     }
 
     [Fact]

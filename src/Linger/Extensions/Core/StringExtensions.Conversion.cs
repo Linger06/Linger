@@ -1,1058 +1,481 @@
 using System.Text;
-using Linger.Extensions.Core.Internal;
 
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
 {
     /// <summary>
-    /// Converts the string to a safe string, returning a default value if the string is null.
+    /// 当字符串为 null 时，返回指定的默认字符串（最高效的直接赋值）。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null.</param>
-    /// <returns>The original string if not null, otherwise the default value.</returns>
-    /// <example>
-    /// <code>
-    /// string? nullString = null;
-    /// string result = nullString.ToStringOrDefault("default"); // Returns "default"
-    /// string result2 = "hello".ToStringOrDefault("default");   // Returns "hello"
-    /// </code>
-    /// </example>
-    public static string ToStringOrDefault(this string? value, string defaultValue = "") => value ?? defaultValue;
+    public static string ToStringOrDefault(this string? value, string defaultValue = "")
+    {
+        return value ?? defaultValue;
+    }
 
     /// <summary>
-    /// Converts the string to a safe string, using a function to provide the default value if the string is null.
+    /// 当字符串为 null 时，通过延迟加载函数返回默认字符串（适用于高开销的默认值生成）。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null.</param>
-    /// <returns>The original string if not null, otherwise the result of the default function.</returns>
-    /// <example>
-    /// <code>
-    /// string? nullString = null;
-    /// string result = nullString.ToStringOrDefault(() => DateTime.Now.ToString()); // Returns current time as string
-    /// </code>
-    /// </example>
     public static string ToStringOrDefault(this string? value, Func<string> defaultValueFunc)
     {
         ArgumentNullException.ThrowIfNull(defaultValueFunc);
-        return value ?? defaultValueFunc.Invoke();
+        return value ?? defaultValueFunc();
     }
 
-    #region char    
     /// <summary>
-    /// Tries to convert the string to a char.
+    /// 针对“空字符串”或“空白字符”的更严格清洗工具。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting char if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToChar(this string? value, [NotNullWhen(true)] out char? result)
+    public static string ToSafeString(this string? value, string defaultValue = "", bool allowEmpty = false)
     {
-        if (value.IsNullOrWhiteSpace())
+        if (allowEmpty)
         {
-            result = null;
-            return false;
+            return value ?? defaultValue;
         }
+
+        // 使用 .IsNullOrWhiteSpace 处理 null、"" 和 "   "
+        return string.IsNullOrWhiteSpace(value) ? defaultValue : value;
+    }
+
+    #region  string? -> short
+
+    public static short ToShort(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (short.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        return decimal.Parse(value, NumberStyles.Any, CultureInfo.InvariantCulture).ToShort();
+    }
+
+    public static short? ToShortOrNull(this string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        if (short.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var decResult))
+            return decResult.ToShortOrNull();
+
+        return null;
+    }
+
+    public static short ToShortOrDefault(this string? value, short defaultValue = 0)
+        => value.ToShortOrNull() ?? defaultValue;
+
+    public static bool TryToShort(this string? value, out short result)
+    {
+        var r = value.ToShortOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+    #endregion
+
+    #region string? -> Guid
+
+    /// <summary>
+    /// 【严格转换派】将字符串严格解析为 Guid。
+    /// 失败（格式错误、长度不对、null）时严格且立刻抛出底层的 FormatException。
+    /// </summary>
+    public static Guid ToGuid(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value.ToGuidOrNull() ?? throw new FormatException($"The string '{value}' is not a valid Guid format.");
+    }
+
+    /// <summary>
+    /// 【可空宽容派】智能兼容各类标准 Guid 格式（带/不带连字符、大括号等）。
+    /// 全网绝对不抛出任何异常，转不了优雅返回 null。
+    /// </summary>
+    public static Guid? ToGuidOrNull(this string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+
+        // 依靠原生强大的内置解析器，自动识别 N/D/B/P/X 五种标准文本表现形式
+        if (Guid.TryParse(trimmed, out var result))
+        {
+            return result;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 【固定默认值派】单行漏斗。
+    /// </summary>
+    public static Guid ToGuidOrDefault(this string? value, Guid defaultValue = default)
+        => value.ToGuidOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【标准布尔控流派】完美对齐 .NET 原生 TryParse 语法（out Guid 强类型输出）。
+    /// </summary>
+    public static bool TryToGuid(this string? value, out Guid result)
+    {
+        var r = value.ToGuidOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+
+    #endregion
+
+    #region  string? -> int
+
+    /// <summary>
+    /// 【严格转换派】将字符串严格转换为整数。
+    /// 格式错误、含非预期小数、数值越界、或传入 null 时严格且立刻抛出精准的底层异常。
+    /// </summary>
+    public static int ToInt(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        // 1. 极速纯整型路径（无符号、无千分位、无小数点的标准整型文本）
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        // 2. 失败时流向财务线 decimal：支持类似 "42.0" 的特殊文本，并借助您之前漂亮的 decimal.ToInt() 执行严格小数/越界校验
+        return decimal.Parse(value, NumberStyles.Any, CultureInfo.InvariantCulture).ToInt();
+    }
+
+    /// <summary>
+    /// 【可空宽容派】纯净。能转就转，转不了（含溢出或非预期小数）直接返回 null，全网绝不抛错。
+    /// </summary>
+    public static int? ToIntOrNull(this string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        // 智能兼容：处理像 "42.0" 或带财务千分位的整数，并交由您硬核的 decimal.ToIntOrNull() 质检
+        if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var decResult))
+            return decResult.ToIntOrNull();
+
+        return null;
+    }
+
+    /// <summary>
+    /// 【固定默认值派】单行漏斗：失败直接返回指定的固定默认值。
+    /// </summary>
+    public static int ToIntOrDefault(this string? value, int defaultValue = 0)
+        => value.ToIntOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【标准布尔控流派】单行漏斗：完美对齐 .NET 标准常规控流语法（out int 强类型输出）。
+    /// </summary>
+    public static bool TryToInt(this string? value, out int result)
+    {
+        var r = value.ToIntOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+    #endregion
+
+    #region  string? -> long
+
+    public static long ToLong(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        return decimal.Parse(value, NumberStyles.Any, CultureInfo.InvariantCulture).ToLong();
+    }
+
+    public static long? ToLongOrNull(this string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var decResult))
+            return decResult.ToLongOrNull();
+
+        return null;
+    }
+
+    public static long ToLongOrDefault(this string? value, long defaultValue = 0L)
+        => value.ToLongOrNull() ?? defaultValue;
+
+    public static bool TryToLong(this string? value, out long result)
+    {
+        var r = value.ToLongOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+    #endregion
+
+    #region string? -> decimal
+
+    /// <summary>
+    /// 【严格转换派】将字符串严格转换为 decimal。失败时抛出最精准的 FormatException 或 OverflowException。
+    /// </summary>
+    public static decimal ToDecimal(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        // 锁死 NumberStyles.Any（天然支持千分位逗号 "1,234.56" 和科学计数法）以及不区分文化的独立标准
+        return decimal.Parse(value, NumberStyles.Any, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// 【可空宽容派】财务高精度文本解析终点。全网绝对不抛出任何异常。
+    /// </summary>
+    public static decimal? ToDecimalOrNull(this string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out var result))
+            return result;
+
+        return null;
+    }
+
+    /// <summary>
+    /// 【固定默认值派】单行漏斗。
+    /// </summary>
+    public static decimal ToDecimalOrDefault(this string? value, decimal defaultValue = default)
+        => value.ToDecimalOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【标准布尔控流派】完美对齐 .NET 标准的 TryParse 语法（out decimal 强类型输出）。
+    /// </summary>
+    public static bool TryToDecimal(this string? value, out decimal result)
+    {
+        var r = value.ToDecimalOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+
+    #endregion
+
+    #region string? -> DateTime
+
+    /// <summary>
+    /// 【严格转换派】将字符串严格解析为 DateTime。
+    /// 锁死 InvariantCulture 与 RoundtripKind，失败时严格抛出底层的 FormatException。
+    /// </summary>
+    public static DateTime ToDateTime(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value.ToDateTimeOrNull() ?? throw new FormatException($"The string '{value}' is not a valid Invariant Culture or ISO 8601 DateTime format.");
+    }
+
+    /// <summary>
+    /// 【可空宽容派】时区安全解析大漏斗终点。
+    /// 全网绝对不抛出任何异常，转不了优雅返回 null。
+    /// </summary>
+    public static DateTime? ToDateTimeOrNull(this string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+
+        // 策略 A：优先尝试 ISO 8601 往返格式（含 Z、时区偏移等），并锁死不区分文化的独立标准
+        if (DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var result))
+        {
+            return result;
+        }
+
+        // 策略 B：次级尝试允许带前导/后导空格的常规不区分文化解析（如 "2026/07/03 12:00:00"）
+        if (DateTime.TryParse(trimmed, CultureInfo.InvariantCulture, DateTimeStyles.AllowWhiteSpaces, out result))
+        {
+            return result;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 【固定默认值派】单行漏斗。
+    /// </summary>
+    public static DateTime ToDateTimeOrDefault(this string? value, DateTime defaultValue = default)
+        => value.ToDateTimeOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【标准布尔控流派】完美对齐 .NET 原生 TryParse 语法（out DateTime 强类型输出）。
+    /// </summary>
+    public static bool TryToDateTime(this string? value, out DateTime result)
+    {
+        var r = value.ToDateTimeOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+
+    #endregion
+
+    #region string? -> bool
+
+    private static readonly Dictionary<string, bool> s_boolMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        { "0", false }, { "false", false }, { "no", false }, { "n", false }, { "fail", false }, { "lose", false }, { "off", false },
+        { "1", true }, { "true", true }, { "yes", true }, { "y", true }, { "success", true }, { "ok", true }, { "on", true }
+    };
 
 #if NET6_0_OR_GREATER
-        // For modern .NET, directly check the span length to avoid TryParse overhead for single characters
-        var span = value.AsSpan().Trim();
-        if (span.Length == 1)
-        {
-            result = span[0];
-            return true;
-        }
-
-        if (char.TryParse(span.ToString(), out var charResult))
-        {
-            result = charResult;
-            return true;
-        }
-#else
+    private static bool TryParseBoolExtended(ReadOnlySpan<char> value, out bool result)
+    {
         var trimmed = value.Trim();
-        if (trimmed.Length == 1)
-        {
-            result = trimmed[0];
-            return true;
-        }
-
-        if (char.TryParse(trimmed, out var charResult))
-        {
-            result = charResult;
-            return true;
-        }
+        // 兼容原生的 bool.TryParse 高性能解析
+        if (bool.TryParse(trimmed, out result)) return true;
+        // 匹配自定义智能字典
+        return s_boolMap.TryGetValue(trimmed.ToString(), out result);
+    }
+#else
+    private static bool TryParseBoolExtended(string value, out bool result)
+    {
+        var trimmed = value.Trim();
+        if (bool.TryParse(trimmed, out result)) return true;
+        return s_boolMap.TryGetValue(trimmed, out result);
+    }
 #endif
 
-        result = null;
-        return false;
-    }
-
     /// <summary>
-    /// Converts the string to a char or null, returning a default value if the string is null or invalid.
+    /// 【严格转换派】将字符串严格转换为布尔值。失败时抛出最精准的 InvalidCastException。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting char if the conversion is successful, otherwise the default value.</returns>
-    public static char? ToCharOrNull(this string? value, char? defaultValue = null)
-        => value.ToCharOrNull(() => defaultValue);
-
-    /// <summary>
-    /// Converts the string to a char or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting char if the conversion is successful, otherwise the result of the default function.</returns>
-    public static char? ToCharOrNull(this string? value, Func<char?> defaultValueFunc)
+    public static bool ToBool(this string? value)
     {
-        ArgumentNullException.ThrowIfNull(defaultValueFunc);
-        return value.TryToChar(out var result) ? result.Value : defaultValueFunc.Invoke();
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value.ToBoolOrNull() ?? throw new InvalidCastException($"The value '{value}' cannot be converted to Boolean.");
     }
 
     /// <summary>
-    /// Converts the string to a char, returning a default value if the string is null or invalid.
+    /// 【可空宽容派】智能识别文本核心链。全网绝对不抛出任何异常。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting char if the conversion is successful, otherwise the default value.</returns>
-    public static char ToChar(this string? value, char defaultValue = '\0')
-        => value.ToChar(() => defaultValue);
-
-    /// <summary>
-    /// Converts the string to a char, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting char if the conversion is successful, otherwise the result of the default function.</returns>
-    public static char ToChar(this string? value, Func<char>? defaultValueFunc)
+    public static bool? ToBoolOrNull(this string? value)
     {
-        if (value.TryToChar(out var result))
-        {
-            return result.Value;
-        }
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
 
-        return defaultValueFunc?.Invoke() ?? '\0';
+#if NET6_0_OR_GREATER
+        if (TryParseBoolExtended(value.AsSpan(), out var result))
+            return result;
+#else
+        if (TryParseBoolExtended(value, out var result))
+            return result;
+#endif
+
+        return null;
+    }
+
+    /// <summary>
+    /// 【固定默认值派】单行漏斗。
+    /// </summary>
+    public static bool ToBoolOrDefault(this string? value, bool defaultValue = default)
+        => value.ToBoolOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【固定默认值派 - 委托重载】单行漏斗。
+    /// </summary>
+    public static bool ToBoolOrDefault(this string? value, Func<bool>? defaultValueFunc)
+        => value.ToBoolOrNull() ?? defaultValueFunc?.Invoke() ?? default;
+
+    /// <summary>
+    /// 【标准布尔控流派】完美对齐 .NET 原生 TryParse 语法（out bool 强类型输出）。
+    /// </summary>
+    public static bool TryToBool(this string? value, out bool result)
+    {
+        var r = value.ToBoolOrNull();
+        result = r ?? default;
+        return r.HasValue;
     }
 
     #endregion
 
-    #region sbyte    
-    /// <summary>
-    /// Tries to convert the string to an sbyte.
+    #region Bytes
+
+   /// <summary>
+    /// 尝试将字符串转换为字节数组（UTF-8 编码）。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting sbyte if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToSByte(this string? value, [NotNullWhen(true)] out sbyte? result)
-        => value.TryConvert(sbyte.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to an sbyte or null, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting sbyte if the conversion is successful, otherwise the default value.</returns>
-    public static sbyte? ToSByteOrNull(this string? value, sbyte? defaultValue = null)
-        => value.ToNullable(sbyte.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to an sbyte or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting sbyte if the conversion is successful, otherwise the result of the default function.</returns>
-    public static sbyte? ToSByteOrNull(this string? value, Func<sbyte?>? defaultValueFunc)
-        => value.ToNullable(sbyte.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to an sbyte, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting sbyte if the conversion is successful, otherwise the default value.</returns>
-    public static sbyte ToSByte(this string? value, sbyte defaultValue = 0)
-        => value.ToValue(sbyte.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to an sbyte, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting sbyte if the conversion is successful, otherwise the result of the default function.</returns>
-    public static sbyte ToSByte(this string? value, Func<sbyte>? defaultValueFunc)
-        => value.ToValue(sbyte.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region byte    
-    /// <summary>
-    /// Tries to convert the string to a byte.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting byte if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToByte(this string? value, [NotNullWhen(true)] out byte? result)
-        => value.TryConvert(byte.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a byte or null, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting byte if the conversion is successful, otherwise the default value.</returns>
-    public static byte? ToByteOrNull(this string? value, byte? defaultValue = null)
-        => value.ToNullable(byte.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a byte or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting byte if the conversion is successful, otherwise the result of the default function.</returns>
-    public static byte? ToByteOrNull(this string? value, Func<byte?>? defaultValueFunc)
-        => value.ToNullable(byte.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to a byte, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting byte if the conversion is successful, otherwise the default value.</returns>
-    public static byte ToByte(this string? value, byte defaultValue = 0)
-        => value.ToValue(byte.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a byte, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting byte if the conversion is successful, otherwise the result of the default function.</returns>
-    public static byte ToByte(this string? value, Func<byte>? defaultValueFunc)
-        => value.ToValue(byte.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region ushort    
-    /// <summary>
-    /// Tries to convert the string to a ushort.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting ushort if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToUShort(this string? value, [NotNullWhen(true)] out ushort? result)
-        => value.TryConvert(ushort.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a ushort or null, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting ushort if the conversion is successful, otherwise the default value.</returns>
-    public static ushort? ToUShortOrNull(this string? value, ushort? defaultValue = null)
-        => value.ToNullable(ushort.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a ushort or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting ushort if the conversion is successful, otherwise the result of the default function.</returns>
-    public static ushort? ToUShortOrNull(this string? value, Func<ushort?>? defaultValueFunc)
-        => value.ToNullable(ushort.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to a ushort, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting ushort if the conversion is successful, otherwise the default value.</returns>
-    public static ushort ToUShort(this string? value, ushort defaultValue = 0)
-        => value.ToValue(ushort.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a ushort, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting ushort if the conversion is successful, otherwise the result of the default function.</returns>
-    public static ushort ToUShort(this string? value, Func<ushort>? defaultValueFunc)
-        => value.ToValue(ushort.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region uint    
-    /// <summary>
-    /// Tries to convert the string to a uint.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting uint if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToUInt(this string? value, [NotNullWhen(true)] out uint? result)
-        => value.TryConvert(uint.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a uint or null, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting uint if the conversion is successful, otherwise the default value.</returns>
-    public static uint? ToUIntOrNull(this string? value, uint? defaultValue = null)
-        => value.ToNullable(uint.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a uint or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting uint if the conversion is successful, otherwise the result of the default function.</returns>
-    public static uint? ToUIntOrNull(this string? value, Func<uint?>? defaultValueFunc)
-        => value.ToNullable(uint.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to a uint, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting uint if the conversion is successful, otherwise the default value.</returns>
-    public static uint ToUInt(this string? value, uint defaultValue = 0)
-        => value.ToValue(uint.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a uint, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting uint if the conversion is successful, otherwise the result of the default function.</returns>
-    public static uint ToUInt(this string? value, Func<uint>? defaultValueFunc)
-        => value.ToValue(uint.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region short    
-    /// <summary>
-    /// Tries to convert the string to a short.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting short if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToShort(this string? value, [NotNullWhen(true)] out short? result)
-        => value.TryConvert(short.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a short or null, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting short if the conversion is successful, otherwise the default value.</returns>
-    public static short? ToShortOrNull(this string? value, short? defaultValue = null)
-        => value.ToNullable(short.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a short or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting short if the conversion is successful, otherwise the result of the default function.</returns>
-    public static short? ToShortOrNull(this string? value, Func<short?>? defaultValueFunc)
-        => value.ToNullable(short.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to a short, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting short if the conversion is successful, otherwise the default value.</returns>
-    public static short ToShort(this string? value, short defaultValue = 0)
-        => value.ToValue(short.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a short, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>    /// <returns>The resulting short if the conversion is successful, otherwise the result of the default function.</returns>
-    public static short ToShort(this string? value, Func<short>? defaultValueFunc)
-        => value.ToValue(short.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region bytes
-
-    /// <summary>
-    /// Tries to convert the string to a byte array using UTF-8 encoding.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting byte array if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
     public static bool TryToBytes(this string? value, [NotNullWhen(true)] out byte[]? result)
-        => value.TryToBytes(Encoding.UTF8, out result);    /// <summary>
-                                                           /// Tries to convert the string to a byte array using the specified encoding.
-                                                           /// </summary>
-                                                           /// <param name="value">The string to convert.</param>
-                                                           /// <param name="encoding">The encoding to use for the conversion.</param>
-                                                           /// <param name="result">The resulting byte array if the conversion is successful.</param>
-                                                           /// <returns>True if the conversion is successful, otherwise false.</returns>
+        => value.TryToBytes(Encoding.UTF8, out result);
+
+    /// <summary>
+    /// 尝试将字符串转换为字节数组（指定编码）。
+    /// </summary>
     public static bool TryToBytes(this string? value, Encoding encoding, [NotNullWhen(true)] out byte[]? result)
     {
-        if (value.IsNullOrWhiteSpace())
+        ArgumentNullException.ThrowIfNull(encoding);
+
+        if (string.IsNullOrEmpty(value)) // 放行空格字符，仅拦截真正的 null 和 ""
         {
             result = null;
             return false;
         }
 
-#if NET6_0_OR_GREATER
-        // For modern .NET, use span-based encoding for better performance
-        var span = value.AsSpan();
-        var byteCount = encoding.GetByteCount(span);
-        result = new byte[byteCount];
-        encoding.GetBytes(span, result);
-#else
         result = encoding.GetBytes(value);
-#endif
         return true;
     }
 
     /// <summary>
-    /// Converts the string to a byte array or null, returning a default value if the string is null or invalid.
+    /// 将字符串转换为字节数组。若失败或输入无效，返回指定的直接默认值（默认值为 null）。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting byte array if the conversion is successful, otherwise the default value.</returns>
-    public static byte[]? ToBytesOrNull(this string? value, byte[]? defaultValue)
-        => value.ToBytesOrNull(defaultValue, Encoding.UTF8);
+    /// <param name="value">要转换的字符串。</param>
+    /// <param name="defaultValue">转换失败时返回的直接字节数组，默认为 null。</param>
+    /// <param name="encoding">字符编码，默认为 UTF-8。</param>
+    public static byte[]? ToBytesOrNull(this string? value, byte[]? defaultValue = null, Encoding? encoding = null)
+    {
+        return value.TryToBytes(encoding ?? Encoding.UTF8, out var result) ? result : defaultValue;
+    }
 
     /// <summary>
-    /// Converts the string to a byte array or null, using the specified encoding and returning a default value if the string is null or invalid.
+    /// 将字符串转换为字节数组。仅当默认值计算逻辑非常沉重时，才走这个延迟加载委托版本。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <param name="encoding">The encoding to use for the conversion.</param>
-    /// <returns>The resulting byte array if the conversion is successful, otherwise the default value.</returns>
-    public static byte[]? ToBytesOrNull(this string? value, byte[]? defaultValue, Encoding encoding)
-        => value.ToBytesOrNull(() => defaultValue, encoding);
+    /// <param name="value">要转换的字符串。</param>
+    /// <param name="defaultValueFunc">用于生成默认值的延迟加载函数。</param>
+    /// <param name="encoding">字符编码，默认为 UTF-8。</param>
+    public static byte[]? ToBytesOrNull(this string? value, Func<byte[]?> defaultValueFunc, Encoding? encoding = null)
+    {
+        ArgumentNullException.ThrowIfNull(defaultValueFunc);
+        return value.TryToBytes(encoding ?? Encoding.UTF8, out var result) ? result : defaultValueFunc();
+    }
 
     /// <summary>
-    /// Converts the string to a byte array or null, using a function to provide the default value if the string is null or invalid.
+    /// 将字符串转换为字节数组。若字符串为 null 或空，返回空数组 []（C# 12+ 集合表达式最快语法）。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <param name="encoding">The encoding to use for the conversion.</param>
-    /// <returns>The resulting byte array if the conversion is successful, otherwise the result of the default function.</returns>
-    public static byte[]? ToBytesOrNull(this string? value, Func<byte[]?>? defaultValueFunc, Encoding encoding)
-        => value.TryToBytes(encoding, out var result) ? result : defaultValueFunc?.Invoke();
-
-    /// <summary>
-    /// Converts the string to a byte array using UTF-8 encoding.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <returns>The resulting byte array.</returns>
-    public static byte[] ToBytes(this string? value)
-        => value.ToBytes(Encoding.UTF8);
-
-    /// <summary>
-    /// Converts the string to a byte array using the specified encoding.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="encoding">The encoding to use for the conversion.</param>
-    /// <returns>The resulting byte array.</returns>
-    public static byte[] ToBytes(this string? value, Encoding encoding)
-        => value.ToBytes(() => [], encoding);
-
-    /// <summary>
-    /// Converts the string to a byte array using the specified encoding, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <param name="encoding">The encoding to use for the conversion.</param>
-    /// <returns>The resulting byte array if the conversion is successful, otherwise the default value.</returns>
-    public static byte[] ToBytes(this string? value, byte[] defaultValue, Encoding encoding)
-        => value.ToBytes(() => defaultValue, encoding);
-
-    /// <summary>
-    /// Converts the string to a byte array using the specified encoding, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <param name="encoding">The encoding to use for the conversion.</param>
-    /// <returns>The resulting byte array if the conversion is successful, otherwise the result of the default function.</returns>
-    public static byte[] ToBytes(this string? value, Func<byte[]>? defaultValueFunc, Encoding encoding)
-        => value.TryToBytes(encoding, out var result) ? result : defaultValueFunc?.Invoke() ?? [];
-
-    #endregion
-
-    #region Guid      
-    /// <summary>
-    /// Tries to convert the string to a Guid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting Guid if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToGuid(this string? value, [NotNullWhen(true)] out Guid? result)
-        => value.TryConvert(Guid.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a Guid or null, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting Guid if the conversion is successful, otherwise the default value.</returns>
-    public static Guid? ToGuidOrNull(this string? value, Guid? defaultValue = null)
-        => value.ToGuidOrNull(() => defaultValue);
-
-    /// <summary>
-    /// Converts the string to a Guid or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting Guid if the conversion is successful, otherwise the result of the default function.</returns>
-    public static Guid? ToGuidOrNull(this string? value, Func<Guid?>? defaultValueFunc)
-        => value.TryToGuid(out var result) ? result.Value : defaultValueFunc?.Invoke();
-
-    /// <summary>
-    /// Converts the string to a Guid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <returns>The resulting Guid.</returns>
-    public static Guid ToGuid(this string? value)
-        => value.ToGuid(() => Guid.Empty);
-
-    /// <summary>
-    /// Converts the string to a Guid, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting Guid if the conversion is successful, otherwise the default value.</returns>
-    public static Guid ToGuid(this string? value, Guid defaultValue)
-        => value.ToGuid(() => defaultValue);
-
-    /// <summary>
-    /// Converts the string to a Guid, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting Guid if the conversion is successful, otherwise the result of the default function.</returns>
-    public static Guid ToGuid(this string? value, Func<Guid>? defaultValueFunc)
-        => value.TryToGuid(out var result) ? result.Value : defaultValueFunc?.Invoke() ?? Guid.Empty;
+    /// <param name="value">要转换的字符串。</param>
+    /// <param name="encoding">字符编码，默认为 UTF-8。</param>
+    public static byte[] ToBytes(this string? value, Encoding? encoding = null)
+    {
+        return value.TryToBytes(encoding ?? Encoding.UTF8, out var result) ? result : [];
+    }
 
     #endregion
 
     #region Stream
 
-    /// <summary>
-    /// Converts the string to a Stream.
+  /// <summary>
+    /// 将字符串转换为内存流。如果字符串为空，返回不可写的 Stream.Null。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <returns>The resulting Stream.</returns>
-    public static Stream ToStream(this string value)
-        => value.ToStreamOrNull() ?? Stream.Null;
+    /// <param name="value">要转换的字符串。</param>
+    /// <param name="encoding">字符编码，默认为 UTF-8。</param>
+    public static Stream ToStream(this string? value, Encoding? encoding = null)
+        => value.ToStreamOrNull(encoding) ?? Stream.Null;
 
     /// <summary>
-    /// Converts the string to a Stream or null.
+    /// 将字符串转换为只读内存流视图（带可选编码支持）。
     /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <returns>The resulting Stream if the conversion is successful, otherwise null.</returns>
-    public static Stream? ToStreamOrNull(this string? value)
+    /// <param name="value">要转换的字符串。</param>
+    /// <param name="encoding">字符编码，默认为 UTF-8。</param>
+    public static Stream? ToStreamOrNull(this string? value, Encoding? encoding = null)
     {
-        if (value.IsNullOrWhiteSpace())
-            return null;
+        // 保持对空格字符的放行（符合数据流逻辑），仅拦截真正的 null 和 ""
+        if (string.IsNullOrEmpty(value)) return null;
 
-        var bytes = value.ToBytes();
-        return new MemoryStream(bytes);
+        // 复用精简后的 ToBytes
+        var bytes = value.ToBytes(encoding ?? Encoding.UTF8);
+
+        // 指定 writable: false，从底层锁死只读，防止外部错误写入导致流缓冲区扩容
+        return new MemoryStream(bytes, writable: false);
     }
-
-    #endregion
-
-    #region int      
-    /// <summary>
-    /// Tries to convert the string to an integer.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting integer if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToInt(this string? value, [NotNullWhen(true)] out int? result)
-        => value.TryConvert(int.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to an integer or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted integer or the default value.</returns>
-    public static int? ToIntOrNull(this string? value, int? defaultValue = null)
-        => value.ToNullable(int.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to an integer or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted integer or the result of the default value function.</returns>
-    public static int? ToIntOrNull(this string? value, Func<int?>? defaultValueFunc)
-        => value.ToNullable(int.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to an integer or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted integer or the default value.</returns>
-    public static int ToIntOrDefault(this string? value, int defaultValue = 0)
-        => value.ToValue(int.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to an integer or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted integer or the result of the default value function.</returns>
-    public static int ToIntOrDefault(this string? value, Func<int>? defaultValueFunc)
-        => value.ToValue(int.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region long    
-    /// <summary>
-    /// Tries to convert the string to a long integer.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting long integer if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToLong(this string? value, [NotNullWhen(true)] out long? result)
-        => value.TryConvert(long.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a long integer or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted long integer or the default value.</returns>
-    public static long? ToLongOrNull(this string? value, long? defaultValue = null)
-        => value.ToNullable(long.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a long integer or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted long integer or the result of the default value function.</returns>
-    public static long? ToLongOrNull(this string? value, Func<long?>? defaultValueFunc)
-        => value.ToNullable(long.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to a long integer or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted long integer or the default value.</returns>
-    public static long ToLongOrDefault(this string? value, long defaultValue = 0)
-        => value.ToValue(long.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a long integer or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted long integer or the result of the default value function.</returns>
-    public static long ToLongOrDefault(this string? value, Func<long>? defaultValueFunc)
-        => value.ToValue(long.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region ulong    
-    /// <summary>
-    /// Tries to convert the string to a ulong.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting ulong if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToULong(this string? value, [NotNullWhen(true)] out ulong? result)
-        => value.TryConvert(ulong.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a ulong or null, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting ulong if the conversion is successful, otherwise the default value.</returns>
-    public static ulong? ToULongOrNull(this string? value, ulong? defaultValue = null)
-        => value.ToNullable(ulong.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a ulong or null, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting ulong if the conversion is successful, otherwise the result of the default function.</returns>
-    public static ulong? ToULongOrNull(this string? value, Func<ulong?>? defaultValueFunc)
-        => value.ToNullable(ulong.TryParse, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to a ulong, returning a default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the string is null or invalid.</param>
-    /// <returns>The resulting ulong if the conversion is successful, otherwise the default value.</returns>
-    public static ulong ToULong(this string? value, ulong defaultValue = 0)
-        => value.ToValue(ulong.TryParse, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a ulong, using a function to provide the default value if the string is null or invalid.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the string is null or invalid.</param>
-    /// <returns>The resulting ulong if the conversion is successful, otherwise the result of the default function.</returns>
-    public static ulong ToULong(this string? value, Func<ulong>? defaultValueFunc)
-        => value.ToValue(ulong.TryParse, defaultValueFunc);
-
-    #endregion
-
-    #region decimal
-
-    /// <summary>
-    /// Tries to convert the string to a decimal.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting decimal if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToDecimal(this string? value, [NotNullWhen(true)] out decimal? result)
-        => value.TryConvert(decimal.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a decimal or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted decimal or the default value.</returns>
-    public static decimal? ToDecimalOrNull(this string? value, decimal? defaultValue = null, int? digits = null)
-        => value.ToDecimalOrNull(() => defaultValue, digits);
-
-    /// <summary>
-    /// Converts the string to a decimal or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted decimal or the result of the default value function.</returns>
-    public static decimal? ToDecimalOrNull(this string? value, Func<decimal?>? defaultValueFunc, int? digits = null)
-    {
-        if (value.TryToDecimal(out var result))
-        {
-            if (digits == null)
-            {
-                return result.Value;
-            }
-            return Math.Round(result.Value, digits.Value);
-        }
-
-        return defaultValueFunc?.Invoke();
-    }
-
-    /// <summary>
-    /// Converts the string to a decimal or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted decimal or the default value.</returns>
-    public static decimal ToDecimalOrDefault(this string? value, decimal defaultValue = 0, int? digits = null)
-        => value.ToDecimalOrDefault(() => defaultValue, digits);
-
-    /// <summary>
-    /// Converts the string to a decimal or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted decimal or the result of the default value function.</returns>
-    public static decimal ToDecimalOrDefault(this string? value, Func<decimal>? defaultValueFunc, int? digits = null)
-    {
-        if (value.TryToDecimal(out var result))
-        {
-            if (digits == null)
-            {
-                return result.Value;
-            }
-            return Math.Round(result.Value, digits.Value);
-        }
-
-        return defaultValueFunc?.Invoke() ?? 0;
-    }
-
-    #endregion
-
-    #region float      
-    /// <summary>
-    /// Tries to convert the string to a float.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting float if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToFloat(this string? value, [NotNullWhen(true)] out float? result)
-        => value.TryConvert(float.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a float or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted float or the default value.</returns>
-    public static float? ToFloatOrNull(this string? value, float? defaultValue = null, int? digits = null)
-        => value.ToFloatOrNull(() => defaultValue, digits);
-
-    /// <summary>
-    /// Converts the string to a float or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted float or the result of the default value function.</returns>
-    public static float? ToFloatOrNull(this string? value, Func<float?>? defaultValueFunc, int? digits = null)
-    {
-        if (value.TryToFloat(out var result))
-        {
-            if (digits == null)
-            {
-                return result.Value;
-            }
-            return (float)Math.Round(result.Value, digits.Value);
-        }
-
-        return defaultValueFunc?.Invoke();
-    }
-
-    /// <summary>
-    /// Converts the string to a float or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted float or the default value.</returns>
-    public static float ToFloatOrDefault(this string? value, float defaultValue = 0f, int? digits = null)
-        => value.ToFloatOrDefault(() => defaultValue, digits);
-
-    /// <summary>
-    /// Converts the string to a float or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted float or the result of the default value function.</returns>
-    public static float ToFloatOrDefault(this string? value, Func<float>? defaultValueFunc, int? digits = null)
-    {
-        if (value.TryToFloat(out var result))
-        {
-            if (digits == null)
-            {
-                return result.Value;
-            }
-            return (float)Math.Round(result.Value, digits.Value);
-        }
-
-        return defaultValueFunc?.Invoke() ?? 0f;
-    }
-
-    #endregion
-
-    #region double      
-    /// <summary>
-    /// Tries to convert the string to a double.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting double if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToDouble(this string? value, [NotNullWhen(true)] out double? result)
-        => value.TryConvert(double.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a double or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted double or the default value.</returns>
-    public static double? ToDoubleOrNull(this string? value, double? defaultValue = null, int? digits = null)
-        => value.ToDoubleOrNull(() => defaultValue, digits);
-
-    /// <summary>
-    /// Converts the string to a double or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted double or the result of the default value function.</returns>
-    public static double? ToDoubleOrNull(this string? value, Func<double?>? defaultValueFunc, int? digits = null)
-    {
-        if (value.TryToDouble(out var result))
-        {
-            if (digits == null)
-            {
-                return result.Value;
-            }
-            return Math.Round(result.Value, digits.Value);
-        }
-
-        return defaultValueFunc?.Invoke();
-    }
-
-    /// <summary>
-    /// Converts the string to a double or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted double or the default value.</returns>
-    public static double ToDoubleOrDefault(this string? value, double defaultValue = 0d, int? digits = null)
-        => value.ToDoubleOrDefault(() => defaultValue, digits);
-
-    /// <summary>
-    /// Converts the string to a double or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>The converted double or the result of the default value function.</returns>
-    public static double ToDoubleOrDefault(this string? value, Func<double>? defaultValueFunc, int? digits = null)
-    {
-        if (value.TryToDouble(out var result))
-        {
-            if (digits == null)
-            {
-                return result.Value;
-            }
-            return Math.Round(result.Value, digits.Value);
-        }
-
-        return defaultValueFunc?.Invoke() ?? 0d;
-    }
-
-    #endregion
-
-    #region datetime      
-    /// <summary>
-    /// Tries to convert the string to a DateTime.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting DateTime if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToDateTime(this string? value, [NotNullWhen(true)] out DateTime? result)
-        => value.TryConvert(DateTime.TryParse, out result);
-
-    /// <summary>
-    /// Converts the string to a DateTime or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted DateTime or the default value.</returns>
-    public static DateTime? ToDateTimeOrNull(this string? value, DateTime? defaultValue = null)
-        => value.ToDateTimeOrNull(() => defaultValue);
-
-    /// <summary>
-    /// Converts the string to a DateTime or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted DateTime or the result of the default value function.</returns>
-    public static DateTime? ToDateTimeOrNull(this string? value, Func<DateTime?>? defaultValueFunc)
-        => value.TryToDateTime(out var result) ? result.Value : defaultValueFunc?.Invoke();
-
-    /// <summary>
-    /// Converts the string to a DateTime or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted DateTime or the default value.</returns>
-    public static DateTime ToDateTimeOrDefault(this string? value, DateTime? defaultValue = null)
-        => value.ToDateTimeOrDefault(() => defaultValue ?? DateTime.MinValue);
-
-    /// <summary>
-    /// Converts the string to a DateTime or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted DateTime or the result of the default value function.</returns>
-    public static DateTime ToDateTimeOrDefault(this string? value, Func<DateTime>? defaultValueFunc)
-        => value.TryToDateTime(out var result) ? result.Value : defaultValueFunc?.Invoke() ?? DateTime.MinValue;
-
-    #endregion
-
-    #region bool
-
-    private static readonly Dictionary<string, bool> s_boolMap = new(StringComparer.OrdinalIgnoreCase)
-    {
-        { "0", false },
-        { "false", false },
-        { "no", false },
-        { "fail", false },
-        { "lose", false },
-        { "true", true },
-        { "1", true },
-        { "ok", true },
-        { "yes", true },
-        { "success", true }
-    };
-
-#if NET6_0_OR_GREATER
-    /// <summary>
-    /// Custom TryParse method for bool with extended mappings (Span version)
-    /// </summary>
-    private static bool TryParseBoolExtended(ReadOnlySpan<char> value, out bool result)
-    {
-        var trimmed = value.Trim();
-        return s_boolMap.TryGetValue(trimmed.ToString(), out result) || bool.TryParse(trimmed, out result);
-    }
-#else
-    /// <summary>
-    /// Custom TryParse method for bool with extended mappings (String version)
-    /// </summary>
-    private static bool TryParseBoolExtended(string value, out bool result)
-    {
-        return s_boolMap.TryGetValue(value, out result) || bool.TryParse(value, out result);
-    }
-#endif
-
-    /// <summary>
-    /// Tries to convert the string to a boolean.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="result">The resulting boolean if the conversion is successful.</param>
-    /// <returns>True if the conversion is successful, otherwise false.</returns>
-    public static bool TryToBool(this string? value, [NotNullWhen(true)] out bool? result)
-        => value.TryConvert(TryParseBoolExtended, out result);
-
-    /// <summary>
-    /// Converts the string to a boolean or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted boolean or the default value.</returns>
-    public static bool? ToBoolOrNull(this string? value, bool? defaultValue = null)
-        => value.ToNullable(TryParseBoolExtended, defaultValue);
-
-    /// <summary>
-    /// Converts the string to a boolean or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted boolean or the result of the default value function.</returns>
-    public static bool? ToBoolOrNull(this string? value, Func<bool?>? defaultValueFunc)
-        => value.ToNullable(TryParseBoolExtended, defaultValueFunc);
-
-    /// <summary>
-    /// Converts the string to a boolean or returns the default value if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>The converted boolean or the default value.</returns>
-    public static bool ToBoolOrDefault(this string? value, bool defaultValue = false)
-        => value.ToValue(TryParseBoolExtended, () => defaultValue);
-
-    /// <summary>
-    /// Converts the string to a boolean or returns the result of the default value function if the conversion fails.
-    /// </summary>
-    /// <param name="value">The string to convert.</param>
-    /// <param name="defaultValueFunc">The function to provide the default value if the conversion fails.</param>
-    /// <returns>The converted boolean or the result of the default value function.</returns>
-    public static bool ToBoolOrDefault(this string? value, Func<bool>? defaultValueFunc)
-        => value.ToValue(TryParseBoolExtended, defaultValueFunc);
-
     #endregion
 }

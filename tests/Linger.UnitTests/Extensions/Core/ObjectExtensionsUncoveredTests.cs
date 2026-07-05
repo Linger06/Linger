@@ -7,52 +7,6 @@ namespace Linger.UnitTests.Extensions.Core;
 /// </summary>
 public class ObjectExtensionsUncoveredTests
 {
-    #region IsAnySignedInteger Tests
-
-    [Fact]
-    public void IsAnySignedInteger_ShouldReturnTrue_WhenObjectIsShort()
-    {
-        object value = (short)123;
-        Assert.True(value.IsAnySignedInteger());
-    }
-
-    [Fact]
-    public void IsAnySignedInteger_ShouldReturnTrue_WhenObjectIsInt()
-    {
-        object value = 123;
-        Assert.True(value.IsAnySignedInteger());
-    }
-
-    [Fact]
-    public void IsAnySignedInteger_ShouldReturnTrue_WhenObjectIsLong()
-    {
-        object value = 123L;
-        Assert.True(value.IsAnySignedInteger());
-    }
-
-    [Fact]
-    public void IsAnySignedInteger_ShouldReturnFalse_WhenObjectIsUnsignedInteger()
-    {
-        object value = 123u;
-        Assert.False(value.IsAnySignedInteger());
-    }
-
-    [Fact]
-    public void IsAnySignedInteger_ShouldReturnFalse_WhenObjectIsString()
-    {
-        object value = "123";
-        Assert.False(value.IsAnySignedInteger());
-    }
-
-    [Fact]
-    public void IsAnySignedInteger_ShouldReturnFalse_WhenObjectIsNull()
-    {
-        object? value = null;
-        Assert.False(value.IsAnySignedInteger());
-    }
-
-    #endregion
-
     #region ToTrimmedString Tests
 
     [Fact]
@@ -182,7 +136,7 @@ public class ObjectExtensionsUncoveredTests
     {
         var success = input.TryToDateTime(out var value);
         Assert.Equal(expectedSuccess, success);
-        
+
         if (expectedSuccess)
         {
             Assert.NotEqual(DateTime.MinValue, value);
@@ -252,7 +206,7 @@ public class ObjectExtensionsUncoveredTests
     {
         var success = input.TryToGuid(out var value);
         Assert.Equal(expectedSuccess, success);
-        
+
         if (expectedSuccess)
         {
             Assert.NotEqual(Guid.Empty, value);
@@ -286,7 +240,7 @@ public class ObjectExtensionsUncoveredTests
     [InlineData(null, false, 0.0)]
     public void TryToDouble_ShouldReturnExpectedResult(object? input, bool expectedSuccess, double expectedValue)
     {
-        var success = input.TryToDouble(out var value);
+        var success = input.TryToTarget<double>(out var value);
         Assert.Equal(expectedSuccess, success);
         Assert.Equal(expectedValue, value, 5); // 5 decimal places precision
     }
@@ -295,7 +249,7 @@ public class ObjectExtensionsUncoveredTests
     public void TryToDouble_ShouldReturnTrue_WhenInputIsDouble()
     {
         object input = 456.789;
-        var success = input.TryToDouble(out var value);
+        var success = input.TryToTarget<double>(out var value);
         Assert.True(success);
         Assert.Equal(456.789, value, 5);
     }
@@ -305,12 +259,12 @@ public class ObjectExtensionsUncoveredTests
     {
         // Test with large but parseable values instead of extreme values
         object input = "1.7976931348623157E+308"; // Close to double.MaxValue but parseable
-        var success = input.TryToDouble(out var value);
+        var success = input.TryToTarget<double>(out var value);
         Assert.True(success);
         Assert.True(value > 1E+300);
 
         input = "-1.7976931348623157E+308"; // Close to double.MinValue but parseable
-        success = input.TryToDouble(out value);
+        success = input.TryToTarget<double>(out value);
         Assert.True(success);
         Assert.True(value < -1E+300);
     }
@@ -328,7 +282,7 @@ public class ObjectExtensionsUncoveredTests
     [InlineData(null, false, 0.0f)]
     public void TryToFloat_ShouldReturnExpectedResult(object? input, bool expectedSuccess, float expectedValue)
     {
-        var success = input.TryToFloat(out var value);
+        var success = input.TryToTarget<float>(out var value);
         Assert.Equal(expectedSuccess, success);
         Assert.Equal(expectedValue, value, 5); // 5 decimal places precision
     }
@@ -337,7 +291,7 @@ public class ObjectExtensionsUncoveredTests
     public void TryToFloat_ShouldReturnTrue_WhenInputIsFloat()
     {
         object input = 456.789f;
-        var success = input.TryToFloat(out var value);
+        var success = input.TryToTarget<float>(out var value);
         Assert.True(success);
         Assert.Equal(456.789f, value, 5);
     }
@@ -347,12 +301,12 @@ public class ObjectExtensionsUncoveredTests
     {
         // Test with large but parseable values instead of extreme values
         object input = "3.40282E+38"; // Close to float.MaxValue but parseable
-        var success = input.TryToFloat(out var value);
+        var success = input.TryToTarget<float>(out var value);
         Assert.True(success);
         Assert.True(value > 1E+30f);
 
         input = "-3.40282E+38"; // Close to float.MinValue but parseable  
-        success = input.TryToFloat(out value);
+        success = input.TryToTarget<float>(out value);
         Assert.True(success);
         Assert.True(value < -1E+30f);
     }
@@ -371,22 +325,19 @@ public class ObjectExtensionsUncoveredTests
         Assert.False(nullInput.TryToDateTime(out _));
         Assert.False(nullInput.TryToBool(out _));
         Assert.False(nullInput.TryToGuid(out _));
-        Assert.False(nullInput.TryToDouble(out _));
-        Assert.False(nullInput.TryToFloat(out _));
+        Assert.False(nullInput.TryToTarget<double>(out _));
+        Assert.False(nullInput.TryToTarget<float>(out _));
 
         // String conversion methods should handle null gracefully
         Assert.Equal(string.Empty, nullInput.ToTrimmedString());
         Assert.Null(nullInput.ToNormalizedString());
-
-        // Type checking should return false for null
-        Assert.False(nullInput.IsAnySignedInteger());
     }
 
     [Fact]
     public void UncoveredMethods_ShouldWorkWithComplexObjects()
     {
         var complexObject = new { Name = "Test", Value = 123 };
-        
+
         // Should convert to string representation
         var normalizedString = complexObject.ToNormalizedString(trim: true);
         Assert.NotNull(normalizedString);

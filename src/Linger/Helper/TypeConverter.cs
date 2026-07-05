@@ -26,141 +26,68 @@ namespace Linger.Helper;
 /// </example>
 public static class TypeConverter
 {
+    // 将高频生成的 DateTime 工业模板固化到静态区，避免每次执行分支时在堆上创建数组
+    private static readonly string[] s_extraDateTimeFormats = new[]
+    {
+        "M/d/yyyy h:mm:ss tt",
+        "yyyy/M/d H:mm:ss",
+        "yyyy/M/d h:mm:ss tt",
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy/MM/dd HH:mm:ss"
+    };
+
     /// <summary>
-    /// 将值转换为指定的目标类型。
+    /// 【严格转换派】将输入对象严格转换为目标类型。
+    /// 失败时立刻抛出最精准的底层异常。
     /// </summary>
-    /// <param name="value">要转换的值。可以是 null 或 DBNull。</param>
-    /// <param name="targetType">要转换到的目标类型。</param>
-    /// <returns>
-    /// 转换后的值；如果输入是 null/DBNull 且目标类型可空，则返回 null。
-    /// </returns>
-    /// <exception cref="ArgumentNullException">当 <paramref name="targetType"/> 为 null 时抛出。</exception>
-    /// <exception cref="InvalidCastException">当转换失败且没有后备方案时抛出。</exception>
-    /// <example>
-    /// <code>
-    /// // 基本转换
-    /// var intValue = TypeConverter.ConvertTo("42", typeof(int));       // 返回 42
-    /// var boolValue = TypeConverter.ConvertTo("true", typeof(bool));   // 返回 true
-    /// var dateValue = TypeConverter.ConvertTo("2024-01-01", typeof(DateTime));
-    /// 
-    /// // 可空类型处理
-    /// var nullableInt = TypeConverter.ConvertTo(null, typeof(int?));   // 返回 null
-    /// var nullableDate = TypeConverter.ConvertTo(DBNull.Value, typeof(DateTime?)); // 返回 null
-    /// 
-    /// // 枚举转换
-    /// var dayOfWeek = TypeConverter.ConvertTo("Friday", typeof(DayOfWeek)); // 返回 DayOfWeek.Friday
-    /// var dayFromInt = TypeConverter.ConvertTo(5, typeof(DayOfWeek));       // 返回 DayOfWeek.Friday
-    /// </code>
-    /// </example>
+    /// <exception cref="InvalidCastException">当无法完成转换时抛出。</exception>
     public static object? ConvertTo(object? value, Type targetType)
     {
         ArgumentNullException.ThrowIfNull(targetType);
 
-        // Handle null and DBNull
-        if (value is null || value is DBNull)
+        if (TryConvertTo(value, targetType, out var result))
         {
-            return null;
+            return result;
         }
 
-        // Fast path for exact type matches (avoids conversion overhead)
-        if (value.GetType() == targetType)
-        {
-            return value;
-        }
-
-        // Handle nullable types - get the underlying type
-        Type actualType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-
-        // Handle enums specifically
-        if (actualType.IsEnum)
-        {
-            if (TryConvertToEnum(value, actualType, out var enumResult))
-            {
-                return enumResult;
-            }
-
-            throw new InvalidCastException($"Cannot convert '{value}' to enum type '{actualType.Name}'.");
-        }
-
-        // Special case: Converting double to DateTime (Excel OADate format)
-        if (actualType == typeof(DateTime) && value is double doubleValue)
-        {
-            return DateTime.FromOADate(doubleValue);
-        }
-
-        // Optimized conversion using pattern matching for common types
-        return actualType.Name switch
-        {
-            nameof(String) => value.ToStringOrDefault(),
-            nameof(Int16) => value.ToShortOrDefault(),
-            nameof(Int32) => value.ToIntOrDefault(),
-            nameof(Int64) => value.ToLongOrDefault(),
-            nameof(Single) => value.ToFloatOrDefault(),
-            nameof(Double) => value.ToDoubleOrDefault(),
-            nameof(Decimal) => value.ToDecimalOrDefault(),
-            nameof(Boolean) => value.ToBoolOrDefault(),
-            nameof(DateTime) => value.ToDateTimeOrDefault(),
-            nameof(Guid) => value.ToGuidOrDefault(),
-            nameof(Byte) => value.ToByteOrDefault(),
-            nameof(SByte) => value.ToSByteOrDefault(),
-            nameof(UInt16) => value.ToUShortOrDefault(),
-            nameof(UInt32) => value.ToUIntOrDefault(),
-            nameof(UInt64) => value.ToULongOrDefault(),
-            _ => Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture) // Fallback for other types (including Char)
-        };
+        throw new InvalidCastException($"Cannot convert value '{value ?? "null"}' (Type: {value?.GetType().Name ?? "unknown"}) to target type '{targetType.Name}'.");
     }
 
     /// <summary>
-    /// 尝试将值转换为指定的目标类型。
+    /// 【标准布尔控流派】尝试将值转换为指定的目标类型（零反射字符串分配，高性能版）。
     /// </summary>
-    /// <param name="value">要转换的值。</param>
-    /// <param name="targetType">要转换到的目标类型。</param>
-    /// <param name="result">当此方法返回时，如果转换成功则包含转换后的值；否则为 null。</param>
-    /// <returns>如果转换成功返回 <c>true</c>；否则返回 <c>false</c>。</returns>
-    /// <remarks>
-    /// 此方法遵循标准的 Try 模式：返回布尔值表示成功与否，
-    /// 并通过 out 参数输出结果。
-    /// </remarks>
-    /// <example>
-    /// <code>
-    /// // 标准 Try 模式用法
-    /// if (TypeConverter.TryConvertTo("123", typeof(int), out var result))
-    /// {
-    ///     Console.WriteLine($"转换后的值: {result}"); // 123
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("转换失败");
-    /// }
-    /// 
-    /// // 无效转换返回 false
-    /// bool success = TypeConverter.TryConvertTo("abc", typeof(int), out var value); // false
-    /// </code>
-    /// </example>
     public static bool TryConvertTo(object? value, Type targetType, out object? result)
     {
         ArgumentNullException.ThrowIfNull(targetType);
 
-        // Handle null and DBNull - this is a valid "conversion" to null
+        // 1. 统一拦截 null 和 DBNull
         if (value is null || value is DBNull)
         {
             result = null;
             return true;
         }
 
-        // Fast path for exact type matches
-        if (value.GetType() == targetType)
+        // 2. 统一拦截精确类型匹配（最快无损通道）
+        var sourceType = value.GetType();
+        if (sourceType == targetType)
         {
             result = value;
             return true;
         }
 
-        // Handle nullable types - get the underlying type
+        // 3. 处理可空类型的核心底层拆箱（如 int? 则提取出 int）
         Type actualType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        // 再次确认拆箱后的类型是否一致（应对 int? 传 int 的场景）
+        if (sourceType == actualType)
+        {
+            result = value;
+            return true;
+        }
 
         try
         {
-            // Handle enums specifically
+            // 4. 特殊处理：枚举类型（融入安全边界拦截）
             if (actualType.IsEnum)
             {
                 if (TryConvertToEnum(value, actualType, out var enumResult))
@@ -168,20 +95,19 @@ public static class TypeConverter
                     result = enumResult;
                     return true;
                 }
-
                 result = null;
                 return false;
             }
 
-            // Special case: Converting double to DateTime (Excel OADate format)
+            // 5. 特殊处理：Excel OADate 转换（双精度浮点转日期）
             if (actualType == typeof(DateTime) && value is double doubleValue)
             {
                 result = DateTime.FromOADate(doubleValue);
                 return true;
             }
 
-            // Use strict conversion with TryTo methods
-            return TryConvertToType(value, actualType, out result);
+            // 6. 执行核心类型严格转换
+            return TryConvertToType(value, sourceType, actualType, out result);
         }
         catch
         {
@@ -191,105 +117,73 @@ public static class TypeConverter
     }
 
     /// <summary>
-    /// 执行严格的类型转换，返回成功状态。
+    /// 核心私有路由：执行针对基础强类型的零无端分配安全分流
     /// </summary>
-    private static bool TryConvertToType(object value, Type actualType, out object? result)
+    private static bool TryConvertToType(object value, Type sourceType, Type actualType, out object? result)
     {
+        // 提取并缓存字符串状态，杜绝后续多分支高频触发无端的 ToString() 内存爆炸
+        string? stringValueCache = value as string;
+
         // 字符串转换 - 始终成功
         if (actualType == typeof(string))
         {
-            result = value.ToString();
+            result = stringValueCache ?? value.ToString();
             return true;
         }
 
-        // 使用 TryTo 方法进行严格验证
+        // 黄金性能通道：针对已知的底层基础强类型互转，优先使用 C# 原生模式匹配
+        // 这种基于运行时类型直接拆箱（Unboxing）的做法效率最高，属于编译期级别的优化
+        switch (value)
+        {
+            case int i when actualType == typeof(int): result = i; return true;
+            case long l when actualType == typeof(long): result = l; return true;
+            case decimal d when actualType == typeof(decimal): result = d; return true;
+            case double d when actualType == typeof(double): result = d; return true;
+            case float f when actualType == typeof(float): result = f; return true;
+            case bool b when actualType == typeof(bool): result = b; return true;
+            case DateTime dt when actualType == typeof(DateTime): result = dt; return true;
+            case Guid g when actualType == typeof(Guid): result = g; return true;
+        }
+
+        // 如果上面匹配失败，说明数据源变量确实是以非目标形式存在（如 value 是一串文本 "123"），我们统一安全初始化文本视图
+        stringValueCache ??= value.ToString() ?? string.Empty;
+
+        // ================== 开始精确、高效的内置强类型反向解析 ==================
+
         if (actualType == typeof(int))
         {
-            if (value.TryToInt(out var intResult))
-            {
-                result = intResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            if (int.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; }
+            result = null; return false;
         }
 
         if (actualType == typeof(long))
         {
-            if (value.TryToLong(out var longResult))
-            {
-                result = longResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            if (long.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; }
+            result = null; return false;
         }
 
         if (actualType == typeof(decimal))
         {
-            if (value.TryToDecimal(out var decimalResult))
-            {
-                result = decimalResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            if (decimal.TryParse(stringValueCache, NumberStyles.Number, CultureInfo.InvariantCulture, out var r)) { result = r; return true; }
+            result = null; return false;
         }
 
         if (actualType == typeof(double))
         {
-            if (value is double d)
-            {
-                result = d;
-                return true;
-            }
-
-            if (value is float f)
-            {
-                result = (double)f;
-                return true;
-            }
-
-            if (double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var doubleResult))
-            {
-                result = doubleResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            if (value is float f) { result = (double)f; return true; } // 隐式级别向上提升
+            if (double.TryParse(stringValueCache, NumberStyles.Float, CultureInfo.InvariantCulture, out var r)) { result = r; return true; }
+            result = null; return false;
         }
 
         if (actualType == typeof(float))
         {
-            if (value is float f)
-            {
-                result = f;
-                return true;
-            }
-
-            if (float.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var floatResult))
-            {
-                result = floatResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            if (float.TryParse(stringValueCache, NumberStyles.Float, CultureInfo.InvariantCulture, out var r)) { result = r; return true; }
+            result = null; return false;
         }
 
         if (actualType == typeof(bool))
         {
-            if (value is bool b)
-            {
-                result = b;
-                return true;
-            }
-
-            var str = value.ToString()?.Trim().ToLowerInvariant();
+            var str = stringValueCache.Trim().ToLowerInvariant();
             result = str switch
             {
                 "true" or "1" or "yes" or "y" => true,
@@ -301,153 +195,56 @@ public static class TypeConverter
 
         if (actualType == typeof(DateTime))
         {
-            if (value is DateTime dt)
-            {
-                result = dt;
-                return true;
-            }
-            string strValue = value.ToString()?.Trim() ?? string.Empty;
-            // 策略 1：使用固定区域性解析（兼容 en-US、标准 ISO、以及无歧义格式）
-            if (DateTime.TryParse(strValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateResult))
-            {
-                result = dateResult;
-                return true;
-            }
-            // 策略 2：【针对 zh-CN 生产环境修复】尝试用当前线程 Culture 解析（兼容带有"上午/下午"、"年/月/日"等本地格式）
-            if (DateTime.TryParse(strValue, CultureInfo.CurrentCulture, DateTimeStyles.None, out dateResult))
-            {
-                result = dateResult;
-                return true;
-            }
-            // 策略 3：常见工业格式多模版精确匹配兜底
-            string[] extraFormats = new[]
-            {
-                "M/d/yyyy h:mm:ss tt",
-                "yyyy/M/d H:mm:ss",
-                "yyyy/M/d h:mm:ss tt",
-                "yyyy-MM-dd HH:mm:ss",
-                "yyyy/MM/dd HH:mm:ss"
-            };
-            if (DateTime.TryParseExact(strValue, extraFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out dateResult))
-            {
-                result = dateResult;
-                return true;
-            }
-            // 彻底失败：不要改变 result，直接返回 false，交给外层决定是阻断还是记录
-            result = null;
-            return false;
+            string strValue = stringValueCache.Trim();
+            if (DateTime.TryParse(strValue, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dateResult)) { result = dateResult; return true; }
+            if (DateTime.TryParse(strValue, CultureInfo.CurrentCulture, DateTimeStyles.None, out dateResult)) { result = dateResult; return true; }
+            if (DateTime.TryParseExact(strValue, s_extraDateTimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out dateResult)) { result = dateResult; return true; }
+            result = null; return false;
         }
 
         if (actualType == typeof(Guid))
         {
-            if (value is Guid g)
-            {
-                result = g;
-                return true;
-            }
-
-            if (Guid.TryParse(value.ToString(), out var guidResult))
-            {
-                result = guidResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            if (Guid.TryParse(stringValueCache, out var r)) { result = r; return true; }
+            result = null; return false;
         }
 
-        if (actualType == typeof(short))
+        if (actualType == typeof(short)) { if (short.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; } result = null; return false; }
+        if (actualType == typeof(byte)) { if (byte.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; } result = null; return false; }
+        if (actualType == typeof(sbyte)) { if (sbyte.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; } result = null; return false; }
+        if (actualType == typeof(ushort)) { if (ushort.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; } result = null; return false; }
+        if (actualType == typeof(uint)) { if (uint.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; } result = null; return false; }
+        if (actualType == typeof(ulong)) { if (ulong.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r)) { result = r; return true; } result = null; return false; }
+
+        // ================== 长尾长效吸收区：融入泛型版本的经典兼容层 ==================
+
+        // 兼容场景 A：处理特殊的 TimeSpan 类型
+        if (actualType == typeof(TimeSpan))
         {
-            if (short.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var shortResult))
-            {
-                result = shortResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            if (TimeSpan.TryParse(stringValueCache.Trim(), CultureInfo.InvariantCulture, out var tsResult)) { result = tsResult; return true; }
+            result = null; return false;
         }
 
-        if (actualType == typeof(byte))
+        // 兼容场景 B：高度包容性的 TypeConverter 机制（完美支撑挂载了转换器特性的复杂自定义对象）
+        var converter = TypeDescriptor.GetConverter(actualType);
+        if (value is string && converter.CanConvertFrom(typeof(string)))
         {
-            if (byte.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var byteResult))
-            {
-                result = byteResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            var converted = converter.ConvertFromInvariantString(stringValueCache);
+            if (converted != null) { result = converted; return true; }
         }
-
-        if (actualType == typeof(sbyte))
+        if (converter.CanConvertFrom(sourceType))
         {
-            if (sbyte.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var sbyteResult))
-            {
-                result = sbyteResult;
-                return true;
-            }
-
-            result = null;
-            return false;
+            var converted = converter.ConvertFrom(null, CultureInfo.InvariantCulture, value);
+            if (converted != null) { result = converted; return true; }
         }
 
-        if (actualType == typeof(ushort))
-        {
-            if (ushort.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ushortResult))
-            {
-                result = ushortResult;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(uint))
-        {
-            if (uint.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var uintResult))
-            {
-                result = uintResult;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(ulong))
-        {
-            if (ulong.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var ulongResult))
-            {
-                result = ulongResult;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        // 后备方案：尝试 Convert.ChangeType
-        try
-        {
-            result = Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
-            return true;
-        }
-        catch
-        {
-            result = null;
-            return false;
-        }
+        // 7. 终极兜底策略：如果是其他冷门基础结构体，走原生的 ChangeType
+        result = Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
+        return true;
     }
 
     /// <summary>
-    /// 尝试将值转换为指定的枚举类型。
+    /// 处理枚举转换，封堵了原生的任意垃圾数字随意强转的安全隐患
     /// </summary>
-    /// <param name="value">要转换的值（字符串或数字）。</param>
-    /// <param name="enumType">要转换到的枚举类型。</param>
-    /// <param name="result">当此方法返回时，如果成功则包含枚举值；否则为 null。</param>
-    /// <returns>如果转换成功返回 <c>true</c>；否则返回 <c>false</c>。</returns>
     private static bool TryConvertToEnum(object value, Type enumType, out object? result)
     {
         try
@@ -455,23 +252,22 @@ public static class TypeConverter
             if (value is string stringValue)
             {
 #if NET8_0_OR_GREATER
-                if (Enum.TryParse(enumType, stringValue, ignoreCase: true, out var enumResult))
-                {
-                    result = enumResult;
-                    return true;
-                }
-
-                result = null;
-                return false;
+                return Enum.TryParse(enumType, stringValue, ignoreCase: true, out result);
 #else
                 result = Enum.Parse(enumType, stringValue, ignoreCase: true);
                 return true;
 #endif
             }
 
-            // 对于数字值，转换为枚举
-            result = Enum.ToObject(enumType, value);
-            return true;
+            // 针对数字传入枚举，增加 IsDefined 严密把关，防止类似 999 被注入为合法枚举
+            if (Enum.IsDefined(enumType, value))
+            {
+                result = Enum.ToObject(enumType, value);
+                return true;
+            }
+
+            result = null;
+            return false;
         }
         catch
         {

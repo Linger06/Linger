@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using Linger.Helper;
 
 namespace Linger.Extensions.Core;
 
@@ -8,1539 +10,552 @@ namespace Linger.Extensions.Core;
 /// </summary>
 public static class ObjectExtensions
 {
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_propertyCache = new();
-    private static readonly ConcurrentDictionary<Type, IReadOnlyDictionary<string, PropertyInfo>> s_propertyMapCache = new();
+    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> s_propertyCache = new();
 
     /// <summary>
-    /// Indicates whether the specified <see cref="object"/> is not null.
+    /// 获取指定属性名称的 PropertyInfo（带高效线程安全缓存）。
     /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>
-    /// <returns>true if the object is not null; otherwise, false.</returns>
-    public static bool IsNotNull([NotNullWhen(true)] this object? value) => value is not null;
-
-    /// <summary>
-    /// Indicates whether the specified <see cref="object"/> is null.
-    /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>
-    /// <returns>true if the object is null; otherwise, false.</returns>
-    public static bool IsNull([NotNullWhen(false)] this object? value) => value is null;
-
-    /// <summary>
-    /// Indicates whether the specified <see cref="object"/> is not null and its string representation is not empty.
-    /// </summary>
-    public static bool IsNotNullOrEmpty([NotNullWhen(true)] this object? value) => value is not null && !string.IsNullOrEmpty(value.ToString());
-
-    /// <summary>
-    /// Indicates whether the specified <see cref="object"/> is null or its string representation is empty.
-    /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>
-    /// <returns>true if the object is null or its string representation is empty; otherwise, false.</returns>
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value)
-    {
-        return value is null || string.IsNullOrEmpty(value.ToString());
-    }
-
-    /// <summary>
-    /// Indicates whether the specified <see cref="object"/> is null or <see cref="DBNull"/>.
-    /// </summary>
-    /// <param name="value">The specified <see cref="object"/>.</param>
-    /// <returns>true if the object is null or DBNull; otherwise, false.</returns>
-    public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value)
-    {
-        return value is DBNull or null;
-    }
-
-    /// <summary>
-    /// Executes a specified action on each property of the current object.
-    /// </summary>
-    /// <typeparam name="T">The type of the object to perform the action on.</typeparam>
-    /// <param name="value">The object to perform the action on.</param>
-    /// <param name="action">The <see cref="Action{T1, T2}"/> delegate to perform on each property of the current object.</param>
-    /// <example>
-    /// <code>
-    /// var obj = new { Name = "John", Age = 30 };
-    /// obj.ForIn((name, val) => Console.WriteLine($"{name}: {val}"));
-    /// // Output:
-    /// // Name: John
-    /// // Age: 30
-    /// </code>
-    /// </example>
-    public static void ForIn<T>(this T? value, Action<string, object?> action)
-        where T : class
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        if (value is null)
-        {
-            return;
-        }
-        // Use the runtime type instead of the generic parameter type to ensure
-        // that derived or anonymous types referenced through a base/interface
-        // still expose their concrete public instance properties. This avoids
-        // missing properties when the generic method is invoked via a base reference.
-        // Cached by Type to retain performance characteristics.
-        var runtimeType = value.GetType();
-        var properties = s_propertyCache.GetOrAdd(runtimeType, static type => type.GetProperties(BindingFlags.Public | BindingFlags.Instance));
-
-        foreach (PropertyInfo property in properties)
-        {
-            if (property.CanRead)
-            {
-                var val = property.GetValue(value, null);
-                action(property.Name, val);
-            }
-        }
-    }
-    /// <summary>
-    /// Gets the <see cref="PropertyInfo"/> of a specified property name with caching for performance.
-    /// </summary>
-    /// <param name="obj">The object to get the property info from.</param>
-    /// <param name="propertyName">The name of the property.</param>
-    /// <returns>The <see cref="PropertyInfo"/> of the specified property.</returns>
-    /// <exception cref="InvalidOperationException">Thrown when the property name does not exist.</exception>
-    /// <example>
-    /// <code>
-    /// var obj = new { Name = "John" };
-    /// var propertyInfo = obj.GetPropertyInfo("Name");
-    /// Console.WriteLine(propertyInfo.Name); // Output: Name
-    /// </code>
-    /// </example>
-    public static PropertyInfo GetPropertyInfo(this object obj, string propertyName)
+    public static PropertyInfo? GetPropertyInfo(this object obj, string propertyName)
     {
         ArgumentNullException.ThrowIfNull(obj);
         ArgumentNullException.ThrowIfNull(propertyName);
+
         var type = obj.GetType();
-        var map = s_propertyMapCache.GetOrAdd(type, static t =>
-        {
-            var props = s_propertyCache.GetOrAdd(t, static inner => inner.GetProperties(BindingFlags.Public | BindingFlags.Instance));
-            var dict = new Dictionary<string, PropertyInfo>(props.Length, StringComparer.Ordinal);
-            foreach (var p in props)
-            {
-                dict[p.Name] = p;
-            }
-            return dict;
-        });
-        if (map.TryGetValue(propertyName, out var pi))
-        {
-            return pi;
-        }
-        throw new InvalidOperationException($"Property '{propertyName}' does not exist on type '{type.Name}'");
+
+        // 优化点 1：将复杂的字典构建逻辑抽离成独立的静态方法，避免多层 lambda 套娃和高并发重复执行隐患
+        var map = s_propertyCache.GetOrAdd(type, CreatePropertyMap);
+
+        return map.TryGetValue(propertyName, out var pi) ? pi : null;
     }
 
     /// <summary>
-    /// Gets the value of a specified property.
+    /// 获取指定属性的值。如果属性不存在，返回 null（更安全的工程实践）。
     /// </summary>
-    /// <param name="obj">The object to get the property value from.</param>
-    /// /// <param name="propertyName">The name of the property.</param>
-    /// <returns>The value of the specified property.</returns>
-    /// <example>
-    /// <code>
-    /// var obj = new { Name = "John" };
-    /// var value = obj.GetPropertyValue("Name");
-    /// Console.WriteLine(value); // Output: John
-    /// </code>
-    /// </example>
     public static object? GetPropertyValue(this object obj, string propertyName)
     {
-        return obj.GetPropertyInfo(propertyName).GetValue(obj, null);
+        var pi = obj.GetPropertyInfo(propertyName);
+
+        // 优化点 2：优雅降级，属性不存在时返回 null，而不是粗暴地抛出 InvalidOperationException 导致进程崩溃
+        return pi?.GetValue(obj, null);
     }
 
-    #region Type checking methods
-    /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="string"/> type.
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="string"/> type; otherwise, false.</returns>
-    public static bool IsString(this object? value) => value is string;
+    // 核心优化 3：独立的字典工厂，确保反射操作在最外层一步到位完成
+    private static Dictionary<string, PropertyInfo> CreatePropertyMap(Type type)
+    {
+        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var dict = new Dictionary<string, PropertyInfo>(props.Length, StringComparer.Ordinal);
+
+        foreach (var p in props)
+        {
+            // 考虑重名覆盖问题（虽然标准属性没有，但继承链上可能有 new 关键字修饰的属性）
+            dict[p.Name] = p;
+        }
+
+        return dict;
+    }
 
     /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="short"/> type.
+    /// 指示指定的对象是否为 null。
     /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="short"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsInt16(this object? value) => value is short;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsNull([NotNullWhen(false)] this object? value) => value is null;
 
     /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="int"/> type.
+    /// 指示指定的对象是否不为 null。
     /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="int"/> type; otherwise, false.</returns>
-    public static bool IsInt(this object? value) => value is int;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsNotNull([NotNullWhen(true)] this object? value) => value is not null;
 
     /// <summary>
-    /// 判断对象是否为任一有符号整数 (short / int / long)。
+    /// 指示指定的对象是否为 null，或者其字符串表示形式/内容是否为空。
     /// </summary>
-    public static bool IsAnySignedInteger(this object? value) => value is short or int or long;
+    public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value)
+    {
+        if (value is null) return true;
+        if (value is string str) return string.IsNullOrEmpty(str); // ⚡ 核心优化1：如果是字符串，走最高效的原生通道
+
+        // ⚡ 核心优化2：处理那些重度依赖重写 ToString 的特殊对象
+        var objectStr = value.ToString();
+        return string.IsNullOrEmpty(objectStr);
+    }
 
     /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="long"/> type.
+    /// 指示指定的对象是否不为 null，且其字符串表示形式/内容不为空。
     /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="long"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsInt64(this object? value) => value is long;
+    public static bool IsNotNullOrEmpty([NotNullWhen(true)] this object? value)
+    {
+        if (value is null) return false;
+        if (value is string str) return !string.IsNullOrEmpty(str); // ⚡ 同上：避免字符串类型被二次装箱和无端调用 ToString()
+
+        var objectStr = value.ToString();
+        return !string.IsNullOrEmpty(objectStr);
+    }
 
     /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="decimal"/> type.
+    /// 指示指定的对象是 null 还是 <see cref="DBNull"/>。
     /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="decimal"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsDecimal(this object? value) => value is decimal;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value) => value is DBNull or null;
 
     /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="float"/> type.
+    /// 判断对象是否为任一数值类型（包含所有内置整型、浮点型和 decimal）。
     /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="float"/> type; otherwise, false.</returns>
-    public static bool IsFloat(this object? value) => value is float;
+    public static bool IsNumeric(this object? value) =>
+        value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 
     /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="double"/> type.
+    /// 将对象转换为标准化字符串，支持裁剪和空值/空白字符的统归。
     /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="double"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsDouble(this object? value) => value is double;
-
-    /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="DateTime"/> type.
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="DateTime"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsDateTime(this object? value) => value is DateTime;
-
-    /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="bool"/> type.
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="bool"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsBoolean(this object? value) => value is bool;
-
-    /// <summary>
-    /// Determines whether the specified <see cref="object"/> is of an equivalent <see cref="Guid"/> type.
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is of an equivalent <see cref="Guid"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsGuid(this object? value) => value is Guid;
-
-    /// <summary>
-    /// Determines whether the specified <see cref="object"/> is a numeric type (byte, short, int, long, float, double, decimal).
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is a numeric type; otherwise, false.</returns>
-    public static bool IsNumeric(this object? value) => value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
-
-    /// <summary>
-    /// 判断对象是否为任一无符号整数 (byte / ushort / uint / ulong)。
-    /// </summary>
-    public static bool IsAnyUnsignedInteger(this object? value) => value is byte or ushort or uint or ulong;
-
-    /// <summary>
-    /// 判断对象是否为 <see cref="byte"/> 类型。
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is a byte; otherwise, false.</returns>
-    public static bool IsByte(this object? value) => value is byte;
-
-    /// <summary>
-    /// 判断对象是否为 <see cref="sbyte"/> 类型。
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is a signed byte; otherwise, false.</returns>
-    public static bool IsSByte(this object? value) => value is sbyte;
-
-    /// <summary>
-    /// 判断对象是否为 <see cref="ushort"/> 类型。
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is an unsigned short; otherwise, false.</returns>
-    public static bool IsUShort(this object? value) => value is ushort;
-
-    /// <summary>
-    /// 判断对象是否为 <see cref="uint"/> 类型。
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is an unsigned int; otherwise, false.</returns>
-    public static bool IsUInt(this object? value) => value is uint;
-
-    /// <summary>
-    /// 判断对象是否为 <see cref="ulong"/> 类型。
-    /// </summary>
-    /// <param name="value">The <see cref="object"/> to check.</param>
-    /// <returns>True if the value is an unsigned long; otherwise, false.</returns>
-    public static bool IsULong(this object? value) => value is ulong;
-
-    #endregion
-    /// <summary>
-    /// Converts the input object to a trimmed string. Returns an empty string if the input is null.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A trimmed string representation of the input object, or an empty string if the input is null.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "  Hello World  ";
-    /// string result = obj.ToTrimmedString();
-    /// Console.WriteLine(result); // Output: "Hello World"
-    /// </code>
-    /// </example>
-    public static string ToTrimmedString(this object? input) => input?.ToString()?.Trim() ?? string.Empty;
-
-    /// <summary>
-    /// Converts the input object to a string. Returns the specified default value if the input is null.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the input is null.</param>
-    /// <returns>A string representation of the input object, or the specified default value if the input is null.</returns>
-    /// <example>
-    /// <code>
-    /// object? obj = null;
-    /// string result = obj.ToStringOrDefault("Default");
-    /// Console.WriteLine(result); // Output: "Default"
-    /// </code>
-    /// </example>
-    public static string ToStringOrDefault(this object? input, string defaultValue = "") => input?.ToString() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a string. Returns null if the input is null.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A string representation of the input object, or null if the input is null.</returns>
-    /// <example>
-    /// <code>
-    /// object? obj = null;
-    /// string? result = obj.ToStringOrNull();
-    /// Console.WriteLine(result ?? "Was null"); // Output: "Was null"
-    /// </code>
-    /// </example>
-    public static string? ToStringOrNull(this object? input) => input?.ToString();
-
-    /// <summary>
-    /// Converts the input object to a normalized string with optional trimming and null handling.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="trim">Whether to trim whitespace from the result.</param>
-    /// <param name="treatEmptyAsNull">Whether to treat empty strings as null.</param>
-    /// <returns>A normalized string representation of the input object.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "  Hello World  ";
-    /// string? result = obj.ToNormalizedString(trim: true, treatEmptyAsNull: true);
-    /// Console.WriteLine(result); // Output: "Hello World"
-    /// </code>
-    /// </example>
     public static string? ToNormalizedString(this object? input, bool trim = false, bool treatEmptyAsNull = false)
     {
-        var result = input?.ToString();
+        if (input == null) return null;
+
+        var result = input.ToString();
 
         if (trim)
         {
             result = result?.Trim();
         }
 
-        if (treatEmptyAsNull && string.IsNullOrEmpty(result))
+        // 优化点：既然支持 treatEmptyAsNull，如果用户进行了 trim，这里建议升级为 IsNullOrWhiteSpace，防范全面
+        if (treatEmptyAsNull && string.IsNullOrWhiteSpace(result))
         {
             return null;
         }
 
-        return result;
+        return string.IsNullOrEmpty(result) && treatEmptyAsNull ? null : result;
     }
 
     /// <summary>
-    /// Converts the input object to a short. Returns the specified default value if the conversion fails.
+    /// 将输入对象转换为已裁切前后空格的字符串。如果输入为 null，则返回空字符串。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A short representation of the input object, or the specified default value if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// short result = obj.ToShortOrDefault();
-    /// Console.WriteLine(result); // Output: 123
-    /// </code>
-    /// </example>
-    public static short ToShortOrDefault(this object? input, short defaultValue = 0) => input.ToShortOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable short. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable short representation of the input object, or null if the conversion fails.</returns>
-    public static short? ToShortOrNull(this object? input)
+    public static string ToTrimmedString(this object? input)
     {
-        // Performance optimization: check direct type match first
-        if (input is short shortValue)
-        {
-            return shortValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToShortOrNull();
+        // 复用底层核心逻辑，避免逻辑散落
+        return input.ToNormalizedString(trim: true) ?? string.Empty;
     }
 
     /// <summary>
-    /// 尝试转换为 <see cref="short"/>。成功返回 true 并输出值；失败返回 false，输出 0。
+    /// 将输入对象转换为字符串。如果输入为 null，返回指定的默认值。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted short value if successful, or 0 if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// if (obj.TryToShort(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToShort(this object? input, out short value)
+    public static string ToStringOrDefault(this object? input, string defaultValue = "")
     {
-        var r = input.ToShortOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
+        return input?.ToString() ?? defaultValue; // 保持原本的高效指针判空，不经过复杂清洗
     }
 
-    /// <summary>
-    /// Converts the input object to a short and throws if conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A short representation of the input object.</returns>
-    public static short ToShort(this object? input)
-    {
-        ArgumentNullException.ThrowIfNull(input);
+    #region object? -> short
 
-        return input switch
+    public static short ToShort(this object? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value switch
         {
-            short value => value,
-            int value => checked((short)value),
-            long value => checked((short)value),
-            decimal value => ConvertDecimalToInt16(value),
-            double value => ConvertDoubleToInt16(value),
-            float value => ConvertDoubleToInt16(value),
-            string value => short.Parse(value, CultureInfo.InvariantCulture),
-            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(short).Name}. input={input}"),
+            short s => s,
+            int i => checked((short)i),                 // 拦截 int 转 short 溢出
+            long l => checked((short)l),                 // 拦截 long 转 short 溢出
+            decimal dec => dec.ToShort(),               // 直达您手写的 decimal.ToShort() 质检员
+            string str => str.ToShort(),
+            double d => ((decimal)d).ToShort(),
+            float f => ((decimal)f).ToShort(),
+            _ => value.ToString().ToShort()
+        };
+    }
+
+    public static short? ToShortOrNull(this object? value)
+    {
+        if (value is null || value is DBNull) return null;
+
+        return value switch
+        {
+            short s => s,
+            int i => (i >= short.MinValue && i <= short.MaxValue) ? (short)i : null, // 内存快速范围拦截
+            long l => (l >= short.MinValue && l <= short.MaxValue) ? (short)l : null,
+            decimal dec => dec.ToShortOrNull(),         // 直达您手写的 decimal.ToShortOrNull() 质检员
+            string str => str.ToShortOrNull(),
+            double d => decimal.TryParse(d.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec.ToShortOrNull() : null,
+            float f => decimal.TryParse(f.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec.ToShortOrNull() : null,
+            _ => value.ToString().ToShortOrNull()
+        };
+    }
+
+    public static short ToShortOrDefault(this object? value, short defaultValue = 0) => value.ToShortOrNull() ?? defaultValue;
+    public static bool TryToShort(this object? value, out short result)
+    {
+        var r = value.ToShortOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+    #endregion
+
+    #region object? -> long
+
+    public static long ToLong(this object? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value switch
+        {
+            long l => l,
+            int i => i,
+            short s => s,
+            decimal dec => dec.ToLong(),               // 直达您手写的 decimal.ToLong() 质检员
+            string str => str.ToLong(),
+            double d => ((decimal)d).ToLong(),
+            float f => ((decimal)f).ToLong(),
+            _ => value.ToString().ToLong()
+        };
+    }
+
+    public static long? ToLongOrNull(this object? value)
+    {
+        if (value is null || value is DBNull) return null;
+
+        return value switch
+        {
+            long l => l,
+            int i => i,
+            short s => s,
+            decimal dec => dec.ToLongOrNull(),         // 直达您手写的 decimal.ToLongOrNull() 质检员
+            string str => str.ToLongOrNull(),
+            double d => decimal.TryParse(d.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec.ToLongOrNull() : null,
+            float f => decimal.TryParse(f.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec.ToLongOrNull() : null,
+            _ => value.ToString().ToLongOrNull()
+        };
+    }
+
+    public static long ToLongOrDefault(this object? value, long defaultValue = 0L)
+        => value.ToLongOrNull() ?? defaultValue;
+
+    public static bool TryToLong(this object? value, out long result)
+    {
+        var r = value.ToLongOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+
+    #endregion
+
+    #region object? -> decimal
+
+    /// <summary>
+    /// 【严格转换派】利用模式匹配（Pattern Matching）对高频数值对象执行零分配、绝对无损的强拆箱。
+    /// </summary>
+    public static decimal ToDecimal(this object? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value switch
+        {
+            decimal dec => dec,                                // 原生就是高精度，原地直接放行
+            string str => str.ToDecimal(),                     // 文本状态，转发给文本财务严格链（支持千分位）
+            int i => i,                                        // 以下整数转型至 decimal 绝对无损，安全升级
+            long l => l,
+            short s => s,
+            double d => (decimal)d,                            // 浮点数强转（若超出 decimal 范围原生会爆 OverflowException）
+            float f => (decimal)f,
+            _ => value.ToString().ToDecimal()                  // 其余未知对象（如某些自定义金额包装类），走文本严格兜底
         };
     }
 
     /// <summary>
-    /// Converts the input object to a long. Returns the specified default value if the conversion fails.
+    /// 【可空宽容派】object? 金融分流大漏斗，完美兼容数据库中的 DBNull 财务空字段。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A long representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static long ToLongOrDefault(this object? input, long defaultValue = 0) => input.ToLongOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable long. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable long representation of the input object, or null if the conversion fails.</returns>
-    public static long? ToLongOrNull(this object? input)
+    public static decimal? ToDecimalOrNull(this object? value)
     {
-        // Performance optimization: check direct type match first
-        if (input is long longValue)
+        if (value is null || value is DBNull)
+            return null;
+
+        return value switch
         {
-            return longValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToLongOrNull();
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="long"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted long value if successful, or 0 if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// if (obj.TryToLong(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToLong(this object? input, out long value)
-    {
-        var r = input.ToLongOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
-    }
-
-    /// <summary>
-    /// Converts the input object to a long and throws if conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A long representation of the input object.</returns>
-    public static long ToLong(this object? input)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        return input switch
-        {
-            long value => value,
-            int value => value,
-            short value => value,
-            decimal value => ConvertDecimalToInt64(value),
-            double value => ConvertDoubleToInt64(value),
-            float value => ConvertDoubleToInt64(value),
-            string value => long.Parse(value, CultureInfo.InvariantCulture),
-            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(long).Name}. input={input}"),
+            decimal dec => dec,
+            string str => str.ToDecimalOrNull(),               // 分流给文本财务宽容链
+            int i => i,
+            long l => l,
+            short s => s,
+            double d => (d >= (double)decimal.MinValue && d <= (double)decimal.MaxValue) ? (decimal)d : null, // 跨边界安全质检
+            float f => (f >= (float)decimal.MinValue && f <= (float)decimal.MaxValue) ? (decimal)f : null,
+            _ => value.ToString().ToDecimalOrNull()            // 最后的文本化宽容尝试
         };
     }
 
     /// <summary>
-    /// Converts the input object to a decimal. Returns the specified default value if the conversion fails.
+    /// 【固定默认值派】单行漏斗。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A decimal representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static decimal ToDecimalOrDefault(this object? input, int? digits = null)
-    {
-        return ToDecimalOrDefault(input, 0, digits);
-    }
+    public static decimal ToDecimalOrDefault(this object? value, decimal defaultValue = default)
+        => value.ToDecimalOrNull() ?? defaultValue;
 
     /// <summary>
-    /// Converts the input object to a decimal. Returns the specified default value if the conversion fails.
+    /// 【标准布尔控流派】单行漏斗（out decimal 强类型输出）。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A decimal representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static decimal ToDecimalOrDefault(this object? input, decimal defaultValue, int? digits = null)
+    public static bool TryToDecimal(this object? value, out decimal result)
     {
-        return input.ToStringOrNull().ToDecimalOrDefault(defaultValue, digits);
+        var r = value.ToDecimalOrNull();
+        result = r ?? default;
+        return r.HasValue;
     }
 
+    #endregion
+
+    #region object? -> int
+
     /// <summary>
-    /// Converts the input object to a nullable decimal. Returns null if the conversion fails.
+    /// 【严格转换派】针对 object? 顶层的原生模式匹配，零垃圾（Zero-GC）极速流转分流。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A nullable decimal representation of the input object, or null if the conversion fails.</returns>
-    public static decimal? ToDecimalOrNull(this object? input, decimal? defaultValue = null, int? digits = null)
+    public static int ToInt(this object? value)
     {
-        // Performance optimization: check direct type match first
-        if (input is decimal decimalValue)
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value switch
         {
-            return digits.HasValue ? Math.Round(decimalValue, digits.Value) : decimalValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToDecimalOrNull(defaultValue, digits);
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="decimal"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted decimal value if successful, or 0 if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123.45";
-    /// if (obj.TryToDecimal(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToDecimal(this object? input, out decimal value)
-    {
-        var r = input.ToDecimalOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0m;
-        return false;
-    }
-
-    /// <summary>
-    /// Converts the input object to a decimal and throws if conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A decimal representation of the input object.</returns>
-    public static decimal ToDecimal(this object? input, int? digits = null)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        decimal value = input switch
-        {
-            decimal decimalValue => decimalValue,
-            int intValue => intValue,
-            long longValue => longValue,
-            short shortValue => shortValue,
-            double doubleValue => Convert.ToDecimal(doubleValue),
-            float floatValue => Convert.ToDecimal(floatValue),
-            string stringValue => decimal.Parse(stringValue, CultureInfo.InvariantCulture),
-            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(decimal).Name}. input={input}"),
-        };
-
-        return digits.HasValue ? Math.Round(value, digits.Value) : value;
-    }
-
-    /// <summary>
-    /// Converts the input object to an integer. Returns the specified default value if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>An integer representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static int ToIntOrDefault(this object? input, int defaultValue = 0) => input.ToIntOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable integer. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable integer representation of the input object, or null if the conversion fails.</returns>
-    public static int? ToIntOrNull(this object? input)
-    {
-        // Performance optimization: check direct type match first
-        if (input is int intValue)
-        {
-            return intValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToIntOrNull();
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="int"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted int value if successful, or 0 if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "42";
-    /// if (obj.TryToInt(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToInt(this object? input, out int value)
-    {
-        var r = input.ToIntOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
-    }
-
-    /// <summary>
-    /// Converts the input object to an integer and throws if conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>An integer representation of the input object.</returns>
-    public static int ToInt(this object? input)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        return input switch
-        {
-            int value => value,
-            long value => checked((int)value),
-            short value => value,
-            decimal value => ConvertDecimalToInt32(value),
-            double value => ConvertDoubleToInt32(value),
-            float value => ConvertDoubleToInt32(value),
-            string value => int.Parse(value, CultureInfo.InvariantCulture),
-            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(int).Name}. input={input}"),
+            int i => i,
+            decimal dec => dec.ToInt(),               // 直达您手写的 decimal 严格质检员（严控小数与值域）
+            string str => str.ToInt(),                 // 转发给文本严格链
+            long l => checked((int)l),                 // 极速拆箱，超限时通过 checked 强力炸出 OverflowException
+            short s => s,                              // 安全升级
+            double d => ((decimal)d).ToInt(),         // 借助 decimal 大漏斗进行严格小数与边界审查
+            float f => ((decimal)f).ToInt(),
+            _ => value.ToString().ToInt()             // 最后的文本化严格兜底
         };
     }
 
     /// <summary>
-    /// Converts the input object to a double. Returns the specified default value if the conversion fails.
+    /// 【可空宽容派】object? 大漏斗分流枢纽，全面兼容数据库 DBNull。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A double representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static double ToDoubleOrDefault(this object? input, double defaultValue = 0, int? digits = null)
+    public static int? ToIntOrNull(this object? value)
     {
-        return input.ToStringOrNull().ToDoubleOrDefault(defaultValue, digits);
-    }
+        if (value is null || value is DBNull) return null;
 
-    /// <summary>
-    /// Converts the input object to a nullable double. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A nullable double representation of the input object, or null if the conversion fails.</returns>
-    public static double? ToDoubleOrNull(this object? input, double? defaultValue = null, int? digits = null)
-    {
-        // Performance optimization: check direct type match first
-        if (input is double doubleValue)
+        return value switch
         {
-            return digits.HasValue ? Math.Round(doubleValue, digits.Value) : doubleValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToDoubleOrNull(defaultValue, digits);
-    }
-
-    /// <summary>
-    /// Converts the input object to a double and throws if conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A double representation of the input object.</returns>
-    public static double ToDouble(this object? input, int? digits = null)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        var value = input switch
-        {
-            double doubleValue => doubleValue,
-            float floatValue => floatValue,
-            decimal decimalValue => (double)decimalValue,
-            int intValue => intValue,
-            long longValue => longValue,
-            short shortValue => shortValue,
-            string stringValue => ParseDouble(stringValue),
-            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(double).Name}. input={input}"),
-        };
-
-        return digits.HasValue ? Math.Round(value, digits.Value) : value;
-    }
-
-    /// <summary>
-    /// Converts the input object to a float. Returns the specified default value if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A float representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static float ToFloatOrDefault(this object? input, int? digits = null)
-    {
-        return ToFloatOrDefault(input, 0, digits);
-    }
-
-    /// <summary>
-    /// Converts the input object to a float. Returns the specified default value if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A float representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static float ToFloatOrDefault(this object? input, float defaultValue, int? digits = null)
-    {
-        return input.ToStringOrNull().ToFloatOrDefault(defaultValue, digits);
-    }
-
-    /// <summary>
-    /// Converts the input object to a nullable float. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A nullable float representation of the input object, or null if the conversion fails.</returns>
-    public static float? ToFloatOrNull(this object? input, float? defaultValue = null, int? digits = null)
-    {
-        // Performance optimization: check direct type match first
-        if (input is float floatValue)
-        {
-            return digits.HasValue ? (float)Math.Round(floatValue, digits.Value) : floatValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToFloatOrNull(defaultValue, digits);
-    }    /// <summary>
-         /// Converts the input object to a DateTime. Returns the specified default value if the conversion fails.
-         /// </summary>
-         /// <param name="input">The input object.</param>
-         /// <param name="defaultValue">The default value to return if the conversion fails. Defaults to DateTime.MinValue.</param>
-         /// <returns>A DateTime representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static DateTime ToDateTimeOrDefault(this object? input, DateTime? defaultValue = null)
-    {
-        return ToDateTimeOrNull(input) ?? defaultValue ?? DateTime.MinValue;
-    }
-
-    /// <summary>
-    /// Converts the input object to a float and throws if conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="digits">The number of decimal places to round to.</param>
-    /// <returns>A float representation of the input object.</returns>
-    public static float ToFloat(this object? input, int? digits = null)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        var value = input switch
-        {
-            float floatValue => floatValue,
-            double doubleValue => (float)doubleValue,
-            decimal decimalValue => (float)decimalValue,
-            int intValue => intValue,
-            long longValue => longValue,
-            short shortValue => shortValue,
-            string stringValue => ParseFloat(stringValue),
-            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(float).Name}. input={input}"),
-        };
-
-        return digits.HasValue ? (float)Math.Round(value, digits.Value) : value;
-    }
-
-    /// <summary>
-    /// Converts the input object to a nullable DateTime. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable DateTime representation of the input object, or null if the conversion fails.</returns>
-    public static DateTime? ToDateTimeOrNull(this object? input)
-    {
-        // Performance optimization: check direct type match first
-        if (input is DateTime dateTimeValue)
-        {
-            return dateTimeValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToDateTimeOrNull();
-    }
-
-    /// <summary>
-    /// Converts the input object to a DateTime and throws if conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A DateTime representation of the input object.</returns>
-    public static DateTime ToDateTime(this object? input)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        return input switch
-        {
-            DateTime dateTimeValue => dateTimeValue,
-            string stringValue => DateTime.Parse(stringValue, CultureInfo.InvariantCulture),
-            _ => throw new InvalidCastException($"The input value cannot be converted to {typeof(DateTime).Name}. input={input}"),
+            int i => i,
+            decimal dec => dec.ToIntOrNull(),         // 直达您手写的 decimal 宽容质检员
+            string str => str.ToIntOrNull(),           // 转发给文本宽容链
+            long l => (l >= int.MinValue && l <= int.MaxValue) ? (int)l : null, // 内存中做安全值域硬核拦截
+            short s => s,
+            double d => decimal.TryParse(d.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec.ToIntOrNull() : null,
+            float f => decimal.TryParse(f.ToString(CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) ? dec.ToIntOrNull() : null,
+            _ => value.ToString().ToIntOrNull()        // 最后的文本化宽容尝试
         };
     }
 
     /// <summary>
-    /// 尝试转换为 <see cref="DateTime"/>。成功返回 true 并输出值；失败返回 false，输出 DateTime.MinValue。
+    /// 【固定默认值派】单行漏斗。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted DateTime value if successful, or DateTime.MinValue if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "2023-12-25";
-    /// if (obj.TryToDateTime(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToDateTime(this object? input, out DateTime value)
+    public static int ToIntOrDefault(this object? value, int defaultValue = 0)
+        => value.ToIntOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【标准布尔控流派】单行漏斗（out int 强类型输出）。
+    /// </summary>
+    public static bool TryToInt(this object? value, out int result)
     {
-        var r = input.ToDateTimeOrNull();
-        if (r.HasValue)
+        var r = value.ToIntOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+
+    #endregion
+
+    #region object? -> DateTime
+
+    /// <summary>
+    /// 【严格转换派】利用模式匹配（Pattern Matching）对高频时间对象执行零分配强拆箱。
+    /// </summary>
+    public static DateTime ToDateTime(this object? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value switch
         {
-            value = r.Value;
-            return true;
-        }
-        value = DateTime.MinValue;
-        return false;
+            DateTime dt => dt,                                          // 已经是 DateTime，直接返回
+            DateTimeOffset dto => dto.DateTime,                         // 高级时间结构，安全提取 DateTime 部分
+            string str => str.ToDateTime(),                             // 文本状态，转发给文本严格链
+
+#if NET6_0_OR_GREATER
+            DateOnly dOnly => dOnly.ToDateTime(TimeOnly.MinValue),      // .NET 6+ 高效兼容：纯日期转为当日凌晨
+#endif
+
+            _ => value.ToString().ToDateTime()                          // 最后的严格兜底
+        };
     }
 
     /// <summary>
-    /// Converts the input object to a boolean. Returns the specified default value if the conversion fails.
+    /// 【可空宽容派】object? 大漏斗分流枢纽，全面兼容数据库 DBNull。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A boolean representation of the input object, or the specified default value if the conversion fails.</returns>
-    public static bool ToBoolOrDefault(this object? input, bool defaultValue = false) => input.ToBoolOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable boolean. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable boolean representation of the input object, or null if the conversion fails.</returns>
-    public static bool? ToBoolOrNull(this object? input)
+    public static DateTime? ToDateTimeOrNull(this object? value)
     {
-        // Performance optimization: check direct type match first
-        if (input is bool boolValue)
+        if (value is null || value is DBNull)
+            return null;
+
+        return value switch
         {
-            return boolValue;
-        }
+            DateTime dt => dt,
+            DateTimeOffset dto => dto.DateTime,
+            string str => str.ToDateTimeOrNull(),                       // 分流给文本宽容链
 
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToBoolOrNull();
+#if NET6_0_OR_GREATER
+            DateOnly dOnly => dOnly.ToDateTime(TimeOnly.MinValue),
+#endif
+
+            _ => value.ToString().ToDateTimeOrNull()                    // 最后的文本化宽容尝试
+        };
     }
 
     /// <summary>
-    /// 尝试转换为 <see cref="bool"/>。成功返回 true 并输出值；失败返回 false，输出 false。
+    /// 【固定默认值派】单行漏斗。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted bool value if successful, or false if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "true";
-    /// if (obj.TryToBool(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToBool(this object? input, out bool value)
+    public static DateTime ToDateTimeOrDefault(this object? value, DateTime defaultValue = default)
+        => value.ToDateTimeOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【标准布尔控流派】单行漏斗（out DateTime 强类型输出）。
+    /// </summary>
+    public static bool TryToDateTime(this object? value, out DateTime result)
     {
-        var r = input.ToBoolOrNull();
-        if (r.HasValue)
+        var r = value.ToDateTimeOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+
+    #endregion
+
+    #region object? -> bool
+
+    /// <summary>
+    /// 【严格转换派】针对 object? 顶层的原生极速拆箱与路由转发。
+    /// </summary>
+    public static bool ToBool(this object? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value switch
         {
-            value = r.Value;
-            return true;
-        }
-        value = false;
-        return false;
+            bool b => b,                                  // 原生布尔，直接解包返回
+            string str => str.ToBool(),                   // 文本状态，转发给文本严格链
+            int i => i switch                             // 常见的整数标志位，严格校验 1 和 0
+            {
+                1 => true,
+                0 => false,
+                _ => throw new InvalidCastException($"The integer value '{i}' is invalid for Boolean conversion. Only 1 and 0 are allowed.")
+            },
+            decimal dec => dec switch                     // 兼容可能从复杂数据源解析出来的 decimal 标志位
+            {
+                1m => true,
+                0m => false,
+                _ => throw new InvalidCastException($"The decimal value '{dec}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.")
+            },
+            long l => l switch
+            {
+                1L => true,
+                0L => false,
+                _ => throw new InvalidCastException($"The long value '{l}' is invalid for Boolean conversion.")
+            },
+            _ => value.ToString().ToBool()                // 其余未知对象，走文本严格兜底
+        };
     }
 
     /// <summary>
-    /// Converts the input object to a Guid. Returns Guid.Empty if the conversion fails.
+    /// 【可空宽容派】object? 大漏斗分流枢纽，支持数据库 DBNull。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A Guid representation of the input object, or Guid.Empty if the conversion fails.</returns>
-    public static Guid ToGuidOrDefault(this object? input)
+    public static bool? ToBoolOrNull(this object? value)
     {
-        return ToGuidOrNull(input) ?? Guid.Empty;
+        if (value is null || value is DBNull)
+            return null;
+
+        return value switch
+        {
+            bool b => b,
+            string str => str.ToBoolOrNull(),             // 分流给文本宽容链
+            int i => i switch
+            {
+                1 => true,
+                0 => false,
+                _ => null
+            },
+            decimal dec => dec switch
+            {
+                1m => true,
+                0m => false,
+                _ => null
+            },
+            long l => l switch
+            {
+                1L => true,
+                0L => false,
+                _ => null
+            },
+            _ => value.ToString().ToBoolOrNull()          // 最后的文本化宽容尝试
+        };
     }
 
     /// <summary>
-    /// Converts the input object to a nullable Guid. Returns null if the conversion fails.
+    /// 【固定默认值派】单行漏斗。
     /// </summary>
-    /// <param name="value">The input object.</param>
-    /// <returns>A nullable Guid representation of the input object, or null if the conversion fails.</returns>
+    public static bool ToBoolOrDefault(this object? value, bool defaultValue = default)
+        => value.ToBoolOrNull() ?? defaultValue;
+
+    /// <summary>
+    /// 【标准布尔控流派】单行漏斗（out bool 强类型输出）。
+    /// </summary>
+    public static bool TryToBool(this object? value, out bool result)
+    {
+        var r = value.ToBoolOrNull();
+        result = r ?? default;
+        return r.HasValue;
+    }
+
+    #endregion
+
+    #region object? -> Guid
+
+    /// <summary>
+    /// 【严格转换派】针对 object? 顶层的原生极速拆箱与二进制转换路由。
+    /// </summary>
+    public static Guid ToGuid(this object? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+
+        return value switch
+        {
+            Guid guid => guid,                                  // 原生就是 Guid，原地直通车放行
+            string str => str.ToGuid(),                         // 文本状态，转发给文本严格链
+            byte[] bytes when bytes.Length == 16 => new Guid(bytes), // 完美支持 16 字节底层数据库二进制行版本转换
+            _ => value.ToString().ToGuid()                      // 其余未知类型，走文本严格兜底
+        };
+    }
+
+    /// <summary>
+    /// 【可空宽容派】object? 大漏斗分流枢纽，全面兼容数据库 DBNull。
+    /// </summary>
     public static Guid? ToGuidOrNull(this object? value)
     {
-        // Performance optimization: check direct type match first
-        if (value is Guid guidValue)
-        {
-            return guidValue;
-        }
+        if (value is null || value is DBNull)
+            return null;
 
-        // Fall back to string conversion for other types
-        return value.ToStringOrNull().ToGuidOrNull();
+        return value switch
+        {
+            Guid guid => guid,
+            string str => str.ToGuidOrNull(),                   // 分流给文本宽容链
+            byte[] bytes when bytes.Length == 16 => new Guid(bytes), // 内存无感强转
+            _ => value.ToString().ToGuidOrNull()                // 最后的文本化宽容尝试
+        };
     }
 
     /// <summary>
-    /// 尝试转换为 <see cref="Guid"/>。成功返回 true 并输出值；失败返回 false，输出 Guid.Empty。
+    /// 【固定默认值派】单行漏斗。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted Guid value if successful, or Guid.Empty if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "550e8400-e29b-41d4-a716-446655440000";
-    /// if (obj.TryToGuid(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToGuid(this object? input, out Guid value)
-    {
-        var r = input.ToGuidOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = Guid.Empty;
-        return false;
-    }
+    public static Guid ToGuidOrDefault(this object? value, Guid defaultValue = default)
+        => value.ToGuidOrNull() ?? defaultValue;
 
     /// <summary>
-    /// 尝试转换为 <see cref="double"/>。成功返回 true 并输出值；失败返回 false，输出 0.0。
+    /// 【标准布尔控流派】单行漏斗（out Guid 强类型输出）。
     /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted double value if successful, or 0.0 if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123.456";
-    /// if (obj.TryToDouble(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToDouble(this object? input, out double value)
+    public static bool TryToGuid(this object? value, out Guid result)
     {
-        var r = input.ToDoubleOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0.0;
-        return false;
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="float"/>。成功返回 true 并输出值；失败返回 false，输出 0.0f。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted float value if successful, or 0.0f if failed.</param>
-    /// <returns>true if the conversion succeeded; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "12.34";
-    /// if (obj.TryToFloat(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}");
-    /// }
-    /// else
-    /// {
-    ///     Console.WriteLine("Conversion failed");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToFloat(this object? input, out float value)
-    {
-        var r = input.ToFloatOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0.0f;
-        return false;
-    }
-
-    private static short ConvertDecimalToInt16(decimal value)
-    {
-        if (value != decimal.Truncate(value))
-        {
-            throw new InvalidCastException($"The value cannot be converted to {typeof(short).Name}. value={value}");
-        }
-
-        if (value < short.MinValue || value > short.MaxValue)
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(short).Name}. value={value}");
-        }
-
-        return (short)value;
-    }
-
-    private static short ConvertDoubleToInt16(double value)
-    {
-        if (double.IsNaN(value) || double.IsInfinity(value) || value != Math.Truncate(value))
-        {
-            throw new InvalidCastException($"The value cannot be converted to {typeof(short).Name}. value={value}");
-        }
-
-        if (value < short.MinValue || value > short.MaxValue)
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(short).Name}. value={value}");
-        }
-
-        return (short)value;
-    }
-
-    private static int ConvertDecimalToInt32(decimal value)
-    {
-        if (value != decimal.Truncate(value))
-        {
-            throw new InvalidCastException($"The value cannot be converted to {typeof(int).Name}. value={value}");
-        }
-
-        if (value < int.MinValue || value > int.MaxValue)
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(int).Name}. value={value}");
-        }
-
-        return (int)value;
-    }
-
-    private static int ConvertDoubleToInt32(double value)
-    {
-        if (double.IsNaN(value) || double.IsInfinity(value) || value != Math.Truncate(value))
-        {
-            throw new InvalidCastException($"The value cannot be converted to {typeof(int).Name}. value={value}");
-        }
-
-        if (value < int.MinValue || value > int.MaxValue)
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(int).Name}. value={value}");
-        }
-
-        return (int)value;
-    }
-
-    private static long ConvertDecimalToInt64(decimal value)
-    {
-        if (value != decimal.Truncate(value))
-        {
-            throw new InvalidCastException($"The value cannot be converted to {typeof(long).Name}. value={value}");
-        }
-
-        if (value < long.MinValue || value > long.MaxValue)
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(long).Name}. value={value}");
-        }
-
-        return (long)value;
-    }
-
-    private static long ConvertDoubleToInt64(double value)
-    {
-        if (double.IsNaN(value) || double.IsInfinity(value) || value != Math.Truncate(value))
-        {
-            throw new InvalidCastException($"The value cannot be converted to {typeof(long).Name}. value={value}");
-        }
-
-        if (value < long.MinValue || value > long.MaxValue)
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(long).Name}. value={value}");
-        }
-
-        return (long)value;
-    }
-
-    private static double ParseDouble(string value)
-    {
-        var parsed = double.Parse(value, CultureInfo.InvariantCulture);
-
-        if (double.IsInfinity(parsed))
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(double).Name}. value={value}");
-        }
-
-        return parsed;
-    }
-
-    private static float ParseFloat(string value)
-    {
-        var parsed = float.Parse(value, CultureInfo.InvariantCulture);
-
-        if (float.IsInfinity(parsed))
-        {
-            throw new OverflowException($"The value is outside the range of {typeof(float).Name}. value={value}");
-        }
-
-        return parsed;
-    }
-
-    #region Byte Extensions
-
-    /// <summary>
-    /// Converts the input object to byte with a default value.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A byte representation of the input object, or the default value if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// byte result = obj.ToByteOrDefault(0); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// byte result2 = invalid.ToByteOrDefault(0); // result2 is 0
-    /// </code>
-    /// </example>
-    public static byte ToByteOrDefault(this object? input, byte defaultValue = 0) => input.ToByteOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable byte. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable byte representation of the input object, or null if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// byte? result = obj.ToByteOrNull(); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// byte? result2 = invalid.ToByteOrNull(); // result2 is null
-    /// </code>
-    /// </example>
-    public static byte? ToByteOrNull(this object? input)
-    {
-        // Performance optimization: check direct type match first
-        if (input is byte byteValue)
-        {
-            return byteValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToByteOrNull();
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="byte"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted byte value if successful, or 0 if failed.</param>
-    /// <returns>True if the conversion succeeded, false otherwise.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// if (obj.TryToByte(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}"); // Output: Converted: 123
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToByte(this object? input, out byte value)
-    {
-        var r = input.ToByteOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
-    }
-
-    #endregion
-
-    #region SByte Extensions
-
-    /// <summary>
-    /// Converts the input object to sbyte with a default value.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A sbyte representation of the input object, or the default value if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// sbyte result = obj.ToSByteOrDefault(0); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// sbyte result2 = invalid.ToSByteOrDefault(0); // result2 is 0
-    /// </code>
-    /// </example>
-    public static sbyte ToSByteOrDefault(this object? input, sbyte defaultValue = 0) => input.ToSByteOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable sbyte. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable sbyte representation of the input object, or null if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// sbyte? result = obj.ToSByteOrNull(); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// sbyte? result2 = invalid.ToSByteOrNull(); // result2 is null
-    /// </code>
-    /// </example>
-    public static sbyte? ToSByteOrNull(this object? input)
-    {
-        // Performance optimization: check direct type match first
-        if (input is sbyte sbyteValue)
-        {
-            return sbyteValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToSByteOrNull();
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="sbyte"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted sbyte value if successful, or 0 if failed.</param>
-    /// <returns>True if the conversion succeeded, false otherwise.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// if (obj.TryToSByte(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}"); // Output: Converted: 123
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToSByte(this object? input, out sbyte value)
-    {
-        var r = input.ToSByteOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
-    }
-
-    #endregion
-
-    #region UInt Extensions
-
-    /// <summary>
-    /// Converts the input object to uint with a default value.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A uint representation of the input object, or the default value if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// uint result = obj.ToUIntOrDefault(0); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// uint result2 = invalid.ToUIntOrDefault(0); // result2 is 0
-    /// </code>
-    /// </example>
-    public static uint ToUIntOrDefault(this object? input, uint defaultValue = 0) => input.ToUIntOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable uint. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable uint representation of the input object, or null if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// uint? result = obj.ToUIntOrNull(); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// uint? result2 = invalid.ToUIntOrNull(); // result2 is null
-    /// </code>
-    /// </example>
-    public static uint? ToUIntOrNull(this object? input)
-    {
-        // Performance optimization: check direct type match first
-        if (input is uint uintValue)
-        {
-            return uintValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToUIntOrNull();
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="uint"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted uint value if successful, or 0 if failed.</param>
-    /// <returns>True if the conversion succeeded, false otherwise.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// if (obj.TryToUInt(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}"); // Output: Converted: 123
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToUInt(this object? input, out uint value)
-    {
-        var r = input.ToUIntOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
-    }
-
-    #endregion
-
-    #region ULong Extensions
-
-    /// <summary>
-    /// Converts the input object to ulong with a default value.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A ulong representation of the input object, or the default value if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// ulong result = obj.ToULongOrDefault(0); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// ulong result2 = invalid.ToULongOrDefault(0); // result2 is 0
-    /// </code>
-    /// </example>
-    public static ulong ToULongOrDefault(this object? input, ulong defaultValue = 0) => input.ToULongOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable ulong. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable ulong representation of the input object, or null if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// ulong? result = obj.ToULongOrNull(); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// ulong? result2 = invalid.ToULongOrNull(); // result2 is null
-    /// </code>
-    /// </example>
-    public static ulong? ToULongOrNull(this object? input)
-    {
-        // Performance optimization: check direct type match first
-        if (input is ulong ulongValue)
-        {
-            return ulongValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToULongOrNull();
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="ulong"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted ulong value if successful, or 0 if failed.</param>
-    /// <returns>True if the conversion succeeded, false otherwise.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// if (obj.TryToULong(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}"); // Output: Converted: 123
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToULong(this object? input, out ulong value)
-    {
-        var r = input.ToULongOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
-    }
-
-    #endregion
-
-    #region UShort Extensions
-
-    /// <summary>
-    /// Converts the input object to ushort with a default value.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="defaultValue">The default value to return if the conversion fails.</param>
-    /// <returns>A ushort representation of the input object, or the default value if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// ushort result = obj.ToUShortOrDefault(0); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// ushort result2 = invalid.ToUShortOrDefault(0); // result2 is 0
-    /// </code>
-    /// </example>
-    public static ushort ToUShortOrDefault(this object? input, ushort defaultValue = 0) => input.ToUShortOrNull() ?? defaultValue;
-
-    /// <summary>
-    /// Converts the input object to a nullable ushort. Returns null if the conversion fails.
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <returns>A nullable ushort representation of the input object, or null if the conversion fails.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// ushort? result = obj.ToUShortOrNull(); // result is 123
-    ///
-    /// object invalid = "abc";
-    /// ushort? result2 = invalid.ToUShortOrNull(); // result2 is null
-    /// </code>
-    /// </example>
-    public static ushort? ToUShortOrNull(this object? input)
-    {
-        // Performance optimization: check direct type match first
-        if (input is ushort ushortValue)
-        {
-            return ushortValue;
-        }
-
-        // Fall back to string conversion for other types
-        return input.ToStringOrNull().ToUShortOrNull();
-    }
-
-    /// <summary>
-    /// 尝试转换为 <see cref="ushort"/>。成功返回 true 并输出值；失败返回 false，输出 0。
-    /// </summary>
-    /// <param name="input">The input object.</param>
-    /// <param name="value">The converted ushort value if successful, or 0 if failed.</param>
-    /// <returns>True if the conversion succeeded, false otherwise.</returns>
-    /// <example>
-    /// <code>
-    /// object obj = "123";
-    /// if (obj.TryToUShort(out var result))
-    /// {
-    ///     Console.WriteLine($"Converted: {result}"); // Output: Converted: 123
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryToUShort(this object? input, out ushort value)
-    {
-        var r = input.ToUShortOrNull();
-        if (r.HasValue)
-        {
-            value = r.Value;
-            return true;
-        }
-        value = 0;
-        return false;
+        var r = value.ToGuidOrNull();
+        result = r ?? default;
+        return r.HasValue;
     }
 
     #endregion
@@ -1568,4 +583,84 @@ public static class ObjectExtensions
     {
         return obj.In(values) == false;
     }
+
+    #region 泛型
+
+    /// <summary>
+    /// 【严格转换派】将输入对象严格转换为目标泛型类型。
+    /// 失败时立刻抛出最精准的底层异常。
+    /// </summary>
+    public static T ToTarget<T>(this object? value)
+    {
+        // 1. 统一拦截 null 状态，针对非可空值类型提供强防御
+        if (value is null || value is DBNull)
+        {
+            if (default(T) is null) return default!; // 目标是引用类型或 int? 等可空值类型，安全返回 null
+            throw new ArgumentNullException(nameof(value), $"Cannot convert null to non-nullable type '{typeof(T).Name}'.");
+        }
+
+        // 2. 完美复用我们之前高度优化的强类型 TypeConverter 核心转换通道
+        if (TypeConverter.TryConvertTo(value, typeof(T), out var result))
+        {
+            return (T)result!;
+        }
+
+        // 3. 彻底失败时，执行有损转换以引发最精准的原生转换异常，不悄悄吞掉系统级错误
+        var actualType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+        return (T)Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// 【可空宽容派】全网长尾类型的终极消化胃囊。
+    /// 绝不抛出任何异常，转不了直接返回默认值（如果是值类型，返回的是 T 的 default）。
+    /// </summary>
+    public static T? ToTargetOrNull<T>(this object? value)
+    {
+        // 复用底层核心，彻底解决之前针对值类型返回 0 被误判为非 null 的致命逻辑缺陷
+        return TypeConverter.TryConvertTo(value, typeof(T), out var result) ? (T?)result : default;
+    }
+
+    /// <summary>
+    /// 【固定默认值派】单行漏斗：成功返回值，失败返回用户指定的固定默认值。
+    /// </summary>
+    public static T ToTargetOrDefault<T>(this object? value, T defaultValue = default!)
+    {
+        // 核心修正：不能使用 ?? 判断，必须使用布尔 Try 状态作为流控依据，确保数值 0 不会截断默认值逻辑
+        return TypeConverter.TryConvertTo(value, typeof(T), out var result) ? (T)result! : defaultValue;
+    }
+
+    /// <summary>
+    /// 【标准布尔控流派】单行漏斗：成功返回 true 且 out 输出正确值，失败返回 false 且 out 输出 default。
+    /// </summary>
+    public static bool TryToTarget<T>(this object? value, [NotNullWhen(true)] out T? result)
+    {
+        // 1. 核心路由：先让底层去尝试解包
+        if (TypeConverter.TryConvertTo(value, typeof(T), out var rawResult))
+        {
+            // 2. 核心精细控流：如果底层解包出来是一个 null（对应输入 null 或 ""）
+            if (rawResult is null)
+            {
+                // 检查当前的 T 到底能不能容纳 null 
+                // 如果 default(T) 是 null（说明 T 是引用类型 string 或可空值类型 double?），这属于完全合法的空转换，返回 true
+                if (default(T) is null)
+                {
+                    result = default;
+                    return true;
+                }
+
+                // 💥 如果 default(T) 不是 null（说明 T 是普通的 double/int 等不可空值类型），
+                // 此时外层明确拒绝放行，完美触发熔断，安全返回 false！
+                result = default;
+                return false;
+            }
+
+            result = (T?)rawResult;
+            return true;
+        }
+
+        result = default;
+        return false;
+    }
+
+    #endregion
 }

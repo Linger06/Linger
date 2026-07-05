@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Text;
 using Linger.Extensions.Core;
 using Linger.Extensions.IO;
@@ -10,53 +9,19 @@ public static partial class FileHelper
     #region File Read Operations
 
     /// <summary>
-    /// Reads all text content from the specified file.
+    /// 尝试读取指定文件的所有文本。若文件不存在或被锁死，安全返回 false，不抛异常。
     /// </summary>
-    /// <param name="filename">The path to the file to read.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <returns>A string containing all text from the file.</returns>
-    /// <exception cref="FileNotFoundException">Thrown when the specified file does not exist.</exception>
-    /// <example>
-    /// <code>
-    /// string content = FileHelper.ReadText("C:\\data\\config.txt");
-    /// </code>
-    /// </example>
-    public static string ReadText(string filename, Encoding? encoding = null)
+    public static bool TryReadText(string filename, [NotNullWhen(true)] out string? content, Encoding? encoding = null)
     {
-        filename.EnsureFileExists();
-
-        encoding ??= Encoding.UTF8;
-
-        using var sr = new StreamReader(filename, encoding);
-        return sr.ReadToEnd();
-    }
-
-    /// <summary>
-    /// Attempts to read all text content from the specified file without throwing exceptions.
-    /// </summary>
-    /// <param name="filename">The path to the file to read.</param>
-    /// <param name="content">When this method returns, contains the file content if successful; otherwise, an empty string.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <returns><c>true</c> if the file was read successfully; otherwise, <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if (FileHelper.TryReadText("config.txt", out string content))
-    /// {
-    ///     Console.WriteLine(content);
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryReadText(string filename, out string content, Encoding? encoding = null)
-    {
-        content = string.Empty;
-        if (!File.Exists(filename))
+        content = null;
+        if (string.IsNullOrWhiteSpace(filename) || !File.Exists(filename))
         {
             return false;
         }
 
         try
         {
-            content = ReadText(filename, encoding);
+            content = File.ReadAllText(filename, encoding ?? Encoding.UTF8);
             return true;
         }
         catch
@@ -65,111 +30,28 @@ public static partial class FileHelper
         }
     }
 
-    #endregion
+    [Obsolete("此方法属于过度封装。请直接使用 .NET 原生的 'File.ReadAllText' 或推荐的异步版本 'File.ReadAllTextAsync'。")]
+    public static string ReadText(string filename, Encoding? encoding = null)
+    {
+        return File.ReadAllText(filename, encoding ?? Encoding.UTF8);
+    }
 
-    #region File Write Operations
-
-    /// <summary>
-    /// Writes the specified text content to a file. Creates the directory structure if it doesn't exist.
-    /// </summary>
-    /// <param name="filePath">The path to the file to write.</param>
-    /// <param name="text">The text content to write.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
-    /// <example>
-    /// <code>
-    /// FileHelper.WriteText("C:\\data\\output.txt", "Hello, World!");
-    /// </code>
-    /// </example>
+    [Obsolete("此方法属于过度封装。请直接使用 .NET 原生的 'File.WriteAllText' 或推荐的异步版本 'File.WriteAllTextAsync'。自动创建目录职责请交由具体业务处理。")]
     public static void WriteText(string filePath, string text, Encoding? encoding = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-        encoding ??= Encoding.UTF8;
-
         var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-        File.WriteAllText(filePath, text, encoding);
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+        File.WriteAllText(filePath, text, encoding ?? Encoding.UTF8);
     }
 
-    /// <summary>
-    /// Appends the specified text content to a file. Creates the directory structure if it doesn't exist.
-    /// </summary>
-    /// <param name="filePath">The path to the file to append to.</param>
-    /// <param name="content">The text content to append.</param>
-    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
-    /// <example>
-    /// <code>
-    /// FileHelper.AppendText("C:\\logs\\app.log", "New log entry\n");
-    /// </code>
-    /// </example>
+    [Obsolete("此方法属于过度封装。请直接使用 .NET 原生的 'File.AppendAllText' 或推荐的异步版本 'File.AppendAllTextAsync'。")]
     public static void AppendText(string filePath, string content)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-
         var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
         File.AppendAllText(filePath, content);
-    }
-
-    /// <summary>
-    /// Attempts to write the specified text content to a file without throwing exceptions.
-    /// </summary>
-    /// <param name="filePath">The path to the file to write.</param>
-    /// <param name="text">The text content to write.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <returns><c>true</c> if the file was written successfully; otherwise, <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if (FileHelper.TryWriteText("output.txt", "Hello"))
-    /// {
-    ///     Console.WriteLine("File saved successfully.");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryWriteText(string filePath, string text, Encoding? encoding = null)
-    {
-        try
-        {
-            WriteText(filePath, text, encoding);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Attempts to append the specified text content to a file without throwing exceptions.
-    /// </summary>
-    /// <param name="filePath">The path to the file to append to.</param>
-    /// <param name="content">The text content to append.</param>
-    /// <returns><c>true</c> if the content was appended successfully; otherwise, <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if (FileHelper.TryAppendText("log.txt", "New entry"))
-    /// {
-    ///     Console.WriteLine("Log entry added.");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryAppendText(string filePath, string content)
-    {
-        try
-        {
-            AppendText(filePath, content);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     #endregion
@@ -379,25 +261,25 @@ public static partial class FileHelper
             // 5. 【流式哈希终极性能优化】：彻底弃用高危的 MemoryStream，采用 0 堆内存积压的 FileStream
             using (var fileStream = file.OpenRead())
             {
-              strHashData =  fileStream.ComputeHashMd5();
-// #if NET
-//                 // 现代 .NET 提供的高性能、0分配流式哈希 API
-//                 strHashData = Convert.ToHexString(MD5.HashData(fileStream));
-// #else
-//                 // .NET Framework 4.7 回退流式哈希计算，同样完美锁死内存开销
-//                 using (var md5 = MD5.Create())
-//                 {
-//                     var hashBytes = md5.ComputeHash(fileStream);
+                strHashData = fileStream.ComputeHashMd5();
+                // #if NET
+                //                 // 现代 .NET 提供的高性能、0分配流式哈希 API
+                //                 strHashData = Convert.ToHexString(MD5.HashData(fileStream));
+                // #else
+                //                 // .NET Framework 4.7 回退流式哈希计算，同样完美锁死内存开销
+                //                 using (var md5 = MD5.Create())
+                //                 {
+                //                     var hashBytes = md5.ComputeHash(fileStream);
 
-//                     // 兼容旧版的高性能字节转十六进制字符串（避免产生海量临时 string）
-//                     var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
-//                     foreach (var b in hashBytes)
-//                     {
-//                         sb.Append(b.ToString("X2"));
-//                     }
-//                     strHashData = sb.ToString();
-//                 }
-// #endif
+                //                     // 兼容旧版的高性能字节转十六进制字符串（避免产生海量临时 string）
+                //                     var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
+                //                     foreach (var b in hashBytes)
+                //                     {
+                //                         sb.Append(b.ToString("X2"));
+                //                     }
+                //                     strHashData = sb.ToString();
+                //                 }
+                // #endif
             }
 
             // 6. 返回组装结果

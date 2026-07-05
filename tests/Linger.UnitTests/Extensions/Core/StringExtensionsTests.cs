@@ -629,19 +629,6 @@ public partial class StringExtensionsTests
         Assert.True(result);
     }
 
-    [Fact]
-    public void IsDateTime_InvalidDateTimeString_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsDateTime();
-
-        // Assert
-        Assert.False(result);
-    }
-
     [Theory]
     [InlineData("2023-04-15", "yyyy-MM-dd", true)]
     [InlineData("15/04/2023", "dd/MM/yyyy", true)]
@@ -729,19 +716,6 @@ public partial class StringExtensionsTests
 
         // Act
         var result = dateStr.IsDateTime(formats);
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsDateTime_DefaultOverload_InvalidDateString_ReturnsFalse()
-    {
-        // Arrange
-        var input = "not-a-date";
-
-        // Act
-        var result = input.IsDateTime();
 
         // Assert
         Assert.False(result);
@@ -1089,9 +1063,9 @@ public partial class StringExtensionsTests
         var result = input.ToMd5HashCode();
 
         // Assert
-    Assert.NotNull(result);
-    Assert.Equal(32, result.Length); // MD5 hash string is always 32 characters (16 bytes * 2 hex digits)
-    Assert.True(result.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))); // Only lower-case hex characters
+        Assert.NotNull(result);
+        Assert.Equal(32, result.Length); // MD5 hash string is always 32 characters (16 bytes * 2 hex digits)
+        Assert.True(result.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))); // Only lower-case hex characters
     }
 
     [Fact]

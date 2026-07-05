@@ -16,7 +16,7 @@ public static class DataTableExtensions
     // Cache for type property arrays to reduce reflection overhead
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
 
-#if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
+#if NET451_OR_GREATER || NETSTANDARD || NET5_0_OR_GREATER
     /// <summary>
     /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with performance optimizations.
     /// </summary>
@@ -216,14 +216,9 @@ public static class DataTableExtensions
     /// </example>
     public static double Sum(this DataTable sourceTable, string columnName)
     {
-        double sum = 0;
-
-        foreach (DataRow dr in sourceTable.Rows)
-        {
-            sum += dr[columnName].ToDoubleOrDefault();
-        }
-
-        return sum;
+        ArgumentNullException.ThrowIfNull(sourceTable);
+        ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
+        return sourceTable.AsEnumerable().Sum(dr => dr[columnName].ToTargetOrDefault<double>());
     }
 
     /// <summary>
