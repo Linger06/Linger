@@ -32,16 +32,18 @@ public static partial class PathExtensions
         if (string.IsNullOrEmpty(path))
             return false;
 
-        if (path.IndexOfAny(Path.GetInvalidPathChars()) != -1)
+        string nonNullPath = path!;
+
+        if (nonNullPath.IndexOfAny(Path.GetInvalidPathChars()) != -1)
             return true;
 
         if (Path.DirectorySeparatorChar == '\\')
         {
 #if NET8_0_OR_GREATER
-            if (path.AsSpan().ContainsAny(s_windowsInvalidChars))
+            if (nonNullPath.AsSpan().ContainsAny(s_windowsInvalidChars))
                 return true;
 
-            ReadOnlySpan<char> pathSpan = path.AsSpan();
+            ReadOnlySpan<char> pathSpan = nonNullPath.AsSpan();
             while (!pathSpan.IsEmpty)
             {
                 int separatorIndex = pathSpan.IndexOfAny('/', '\\');
@@ -55,9 +57,7 @@ public static partial class PathExtensions
 
                     if (nameToCheck.Length >= 3 && nameToCheck.Length <= 4)
                     {
-                        Span<char> upperName = stackalloc char[nameToCheck.Length];
-                        nameToCheck.ToUpperInvariant(upperName);
-                        if (s_windowsReservedNames.Contains(upperName.ToString()))
+                        if (s_windowsReservedNames.Contains(nameToCheck.ToString()))
                             return true;
                     }
                 }
@@ -66,18 +66,18 @@ public static partial class PathExtensions
                 pathSpan = pathSpan.Slice(separatorIndex + 1);
             }
 #else
-            if (path.IndexOfAny(s_windowsInvalidChars) != -1)
+            if (nonNullPath.IndexOfAny(s_windowsInvalidChars) != -1)
                 return true;
 
             int lastIdx = 0;
-            while (lastIdx < path.Length)
+            while (lastIdx < nonNullPath.Length)
             {
-                int nextSep = path.IndexOfAny(PathHelper.PathSeparators, lastIdx);
-                int len = (nextSep == -1 ? path.Length : nextSep) - lastIdx;
+                int nextSep = nonNullPath.IndexOfAny(PathHelper.PathSeparators, lastIdx);
+                int len = (nextSep == -1 ? nonNullPath.Length : nextSep) - lastIdx;
 
                 if (len > 0)
                 {
-                    string segment = path.Substring(lastIdx, len);
+                    string segment = nonNullPath.Substring(lastIdx, len);
                     int firstDot = segment.IndexOf('.');
                     string nameToCheck = firstDot != -1 ? segment.Substring(0, firstDot) : segment;
                     nameToCheck = nameToCheck.TrimEnd(' ');
@@ -93,7 +93,7 @@ public static partial class PathExtensions
         }
         else
         {
-            if (path.IndexOf('\0') != -1)
+            if (nonNullPath.Contains('\0'))
                 return true;
         }
 
@@ -110,11 +110,13 @@ public static partial class PathExtensions
             return relativePath ?? string.Empty;
         }
 
+        string pathToResolve = relativePath!;
+
         try
         {
-            if (PathHelper.ContainsInvalidPathChars(relativePath))
+            if (PathHelper.ContainsInvalidPathChars(pathToResolve))
             {
-                throw new IOException($"Invalid local path characters found: {relativePath}");
+                throw new IOException($"Invalid local path characters found: {pathToResolve}");
             }
 
             string resolvedPath;
@@ -122,29 +124,29 @@ public static partial class PathExtensions
 #if NETCOREAPP2_1_OR_GREATER || NET5_0_OR_GREATER || NET
             // 现代 .NET：原生驱动极其强大，已经天然处理了跨平台与高性能路由
             basePath ??= Environment.CurrentDirectory;
-            resolvedPath = Path.GetFullPath(relativePath, basePath);
+            resolvedPath = Path.GetFullPath(pathToResolve, basePath);
 #else
             // 【旧版本 .NET 4.7 完美修复路由】：
             // 重新启用你的 IsStrictAbsolutePath 扩展方法！
             // 只有真正的本地物理路径（如 C:\ 或 /）才直接获取全路径，100% 绕过了 Windows UNC 网络路径引发的 I/O 阻塞隐患
-            if (relativePath.IsStrictAbsolutePath())
+            if (pathToResolve.IsStrictAbsolutePath())
             {
-                resolvedPath = Path.GetFullPath(relativePath);
+                resolvedPath = Path.GetFullPath(pathToResolve);
             }
             else
             {
                 basePath ??= Environment.CurrentDirectory;
 
                 // 修复本地相对路径以单斜杠开头时（如 \Windows），Path.Combine 疏漏盘符退化的经典 Bug
-                if (relativePath.Length > 0 && (relativePath[0] == '\\' || relativePath[0] == '/'))
+                if (pathToResolve.Length > 0 && (pathToResolve[0] == '\\' || pathToResolve[0] == '/'))
                 {
                     var baseRoot = Path.GetPathRoot(basePath) ?? string.Empty;
-                    var trimmedPath = relativePath.Substring(1);
+                    var trimmedPath = pathToResolve.Substring(1);
                     resolvedPath = Path.GetFullPath(Path.Combine(baseRoot, trimmedPath));
                 }
                 else
                 {
-                    resolvedPath = Path.GetFullPath(Path.Combine(basePath, relativePath));
+                    resolvedPath = Path.GetFullPath(Path.Combine(basePath, pathToResolve));
                 }
             }
 #endif
@@ -285,7 +287,7 @@ public static partial class PathExtensions
             if (string.IsNullOrWhiteSpace(path))
                 return false;
 
-            if (path.IndexOf('\0') != -1)
+            if (path.Contains('\0'))
                 return false;
 
             var fullPath = Path.GetFullPath(path);

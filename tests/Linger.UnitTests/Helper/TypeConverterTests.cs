@@ -1,4 +1,5 @@
 using System.Globalization;
+using Linger.Extensions.Core;
 
 namespace Linger.UnitTests.Helper;
 
@@ -75,6 +76,8 @@ public class TypeConverterTests
     {
         Assert.Equal(true, TypeConverter.ConvertTo("true", typeof(bool)));
         Assert.Equal(false, TypeConverter.ConvertTo("false", typeof(bool)));
+        Assert.Equal(true, TypeConverter.ConvertTo("on", typeof(bool)));
+        Assert.Equal(false, TypeConverter.ConvertTo("off", typeof(bool)));
     }
 
     [Fact]
@@ -155,10 +158,10 @@ public class TypeConverterTests
     }
 
     [Fact]
-    public void TryConvertTo_WithNullValue_ReturnsTrueWithNull()
+    public void TryConvertTo_WithNullValue_ReturnsFalseWithNull()
     {
         var success = TypeConverter.TryConvertTo(null, typeof(int), out var result);
-        Assert.True(success);
+        Assert.False(success);
         Assert.Null(result);
     }
 
@@ -203,10 +206,10 @@ public class TypeConverterTests
     #region TryConvertTo Additional Tests
 
     [Fact]
-    public void TryConvertTo_WithDBNullValue_ReturnsTrueWithNull()
+    public void TryConvertTo_WithDBNullValue_ReturnsFalseWithNull()
     {
         var success = TypeConverter.TryConvertTo(DBNull.Value, typeof(int), out var result);
-        Assert.True(success);
+        Assert.False(success);
         Assert.Null(result);
     }
 
@@ -357,6 +360,8 @@ public class TypeConverterTests
         Assert.True(TypeConverter.TryConvertTo("no", typeof(bool), out var r6) && (bool)r6! == false);
         Assert.True(TypeConverter.TryConvertTo("y", typeof(bool), out var r7) && (bool)r7! == true);
         Assert.True(TypeConverter.TryConvertTo("n", typeof(bool), out var r8) && (bool)r8! == false);
+        Assert.True(TypeConverter.TryConvertTo("on", typeof(bool), out var r9) && (bool)r9! == true);
+        Assert.True(TypeConverter.TryConvertTo("off", typeof(bool), out var r10) && (bool)r10! == false);
     }
 
     [Fact]
@@ -384,7 +389,23 @@ public class TypeConverterTests
     }
 
     [Fact]
-    public void TryConvertTo_StringToDateTime_WithZhCnCulture_ReturnsTrueAndValue()
+    public void TryConvertTo_StringToUtcDateTime_UsesSameStrategyAsStringExtensions()
+    {
+        const string input = "2019-01-30T12:01:02Z";
+
+        var convertSuccess = TypeConverter.TryConvertTo(input, typeof(DateTime), out var converted);
+        var stringSuccess = input.TryToDateTime(out var parsed);
+
+        Assert.True(convertSuccess);
+        Assert.True(stringSuccess);
+
+        var convertedDateTime = Assert.IsType<DateTime>(converted);
+        Assert.Equal(parsed, convertedDateTime);
+        Assert.Equal(DateTimeKind.Utc, convertedDateTime.Kind);
+    }
+
+    [Fact]
+    public void TryConvertTo_StringToDateTime_WithZhCnCulture_ReturnsFalse()
     {
         var originalCulture = CultureInfo.CurrentCulture;
 
@@ -394,8 +415,8 @@ public class TypeConverterTests
 
             var success = TypeConverter.TryConvertTo("2024/1/15 下午 3:04:05", typeof(DateTime), out var result);
 
-            Assert.True(success);
-            Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), result);
+            Assert.False(success);
+            Assert.Null(result);
         }
         finally
         {
@@ -442,6 +463,14 @@ public class TypeConverterTests
     public void TryConvertTo_InvalidStringToGuid_ReturnsFalse()
     {
         var success = TypeConverter.TryConvertTo("not a guid", typeof(Guid), out var result);
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryConvertTo_NumericStringToEnumWithoutDefinedValue_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvertTo("999", typeof(DayOfWeek), out var result);
         Assert.False(success);
         Assert.Null(result);
     }
@@ -607,30 +636,4 @@ public class TypeConverterTests
 
     #endregion
 
-#pragma warning disable CS0618 // Type or member is obsolete
-    #region ConvertToType (Obsolete) Tests
-
-    [Fact]
-    public void ConvertToType_StringToInt_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertToType("123", typeof(int));
-        Assert.Equal(123, result);
-    }
-
-    [Fact]
-    public void ConvertToType_NullToNullableInt_ReturnsNull()
-    {
-        var result = TypeConverter.ConvertToType(null, typeof(int?));
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void ConvertToType_StringToNullableInt_ReturnsValue()
-    {
-        var result = TypeConverter.ConvertToType("456", typeof(int?));
-        Assert.Equal(456, result);
-    }
-
-    #endregion
-#pragma warning restore CS0618 // Type or member is obsolete
 }

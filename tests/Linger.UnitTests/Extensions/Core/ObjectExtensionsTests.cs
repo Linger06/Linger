@@ -108,11 +108,11 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void GetPropertyInfo_ShouldThrowArgumentException_WhenPropertyDoesNotExist()
+        public void GetPropertyInfo_ShouldReturnNull_WhenPropertyDoesNotExist()
         {
             var obj = new { Name = "John" };
 
-            Assert.Throws<InvalidOperationException>(() => obj.GetPropertyInfo("Age"));
+            Assert.Null(obj.GetPropertyInfo("Age"));
         }
 
         [Fact]
@@ -125,11 +125,11 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void GetPropertyValue_ShouldThrowArgumentException_WhenPropertyDoesNotExist()
+        public void GetPropertyValue_ShouldReturnNull_WhenPropertyDoesNotExist()
         {
             var obj = new { Name = "John" };
 
-            Assert.Throws<InvalidOperationException>(() => obj.GetPropertyValue("Age"));
+            Assert.Null(obj.GetPropertyValue("Age"));
         }
 
         [Fact]
@@ -378,6 +378,21 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
+        [InlineData(42.5)]
+        [InlineData(42.5f)]
+        public void ToShort_ShouldThrowInvalidCastException_WhenFractionalNumericInputIsProvided(object input)
+        {
+            Assert.Throws<InvalidCastException>(() => input.ToShort());
+        }
+
+        [Fact]
+        public void ToShort_ShouldThrowInvalidCastException_WhenFractionalDecimalInputIsProvided()
+        {
+            object input = 42.5m;
+            Assert.Throws<InvalidCastException>(() => input.ToShort());
+        }
+
+        [Theory]
         [InlineData((long)123, 123L)]
         [InlineData(123, 123L)]
         [InlineData("123", 123L)]
@@ -405,10 +420,24 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
+        [InlineData(42.5)]
+        [InlineData(42.5f)]
+        public void ToLong_ShouldThrowInvalidCastException_WhenFractionalNumericInputIsProvided(object input)
+        {
+            Assert.Throws<InvalidCastException>(() => input.ToLong());
+        }
+
+        [Fact]
+        public void ToLong_ShouldThrowInvalidCastException_WhenFractionalDecimalInputIsProvided()
+        {
+            object input = 42.5m;
+            Assert.Throws<InvalidCastException>(() => input.ToLong());
+        }
+
+        [Theory]
         [InlineData(123, 123)]
         [InlineData("123", 123)]
         [InlineData((short)123, 123)]
-        [InlineData((object)123, 123)]
         public void ToInt_ShouldReturnExpectedResult(object input, int expected)
         {
             var result = input.ToInt();
@@ -430,6 +459,21 @@ namespace Linger.UnitTests.Extensions.Core
             object? input = null;
 
             Assert.Throws<ArgumentNullException>(() => input.ToInt());
+        }
+
+        [Theory]
+        [InlineData(42.5)]
+        [InlineData(42.5f)]
+        public void ToInt_ShouldThrowInvalidCastException_WhenFractionalNumericInputIsProvided(object input)
+        {
+            Assert.Throws<InvalidCastException>(() => input.ToInt());
+        }
+
+        [Fact]
+        public void ToInt_ShouldThrowInvalidCastException_WhenFractionalDecimalInputIsProvided()
+        {
+            object input = 42.5m;
+            Assert.Throws<InvalidCastException>(() => input.ToInt());
         }
 
         public static TheoryData<object, decimal> ToDecimalShouldReturnExpectedData()

@@ -1,6 +1,7 @@
 #if !NETFRAMEWORK || NET462_OR_GREATER
 
 using System.Text.Json.Serialization;
+using Linger.Helper;
 
 namespace Linger.Json.JsonConverter;
 
@@ -32,7 +33,7 @@ public class DateTimeConverter : JsonConverter<DateTime>
     {
         if (reader.TokenType == JsonTokenType.String)
         {
-            if (DateTime.TryParse(reader.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            if (DateTimeConversionHelper.TryConvertStringToDateTime(reader.GetString(), out DateTime date))
             {
                 return date;
             }
@@ -95,7 +96,7 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
                 return null;
             }
 
-            if (DateTime.TryParse(dateTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            if (DateTimeConversionHelper.TryConvertStringToDateTime(dateTime, out DateTime date))
             {
                 return date;
             }

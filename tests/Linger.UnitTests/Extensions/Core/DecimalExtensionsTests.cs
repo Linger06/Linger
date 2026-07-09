@@ -28,26 +28,6 @@ public class DecimalExtensionsTests
         Assert.True(result);
     }
 
-    public static IEnumerable<object[]> FileData = new List<object[]>
-    {
-        new object[] { 0.03, 2, 0.03 },
-        new object[] { 1.23, 2, 1.23 },
-        new object[] { 1.45, 0, 1 },
-        new object[] { 1.45, 1, 1.5 },
-        new object[] { 1.45, 2, 1.45 },
-        new object[] { 1.45, 3, 1.450 },
-        new object[] { 1.456, 3, 1.456 }
-    };
-
-    [Theory]
-    [MemberData(nameof(FileData))]
-    public void ToRounding(decimal num1, int num2, decimal num3)
-    {
-        var result = num1.ToRounding(num2);
-        Assert.Equal(result, num3);
-    }
-
-
     [Theory]
     [InlineData(0.2000001, 0.2000001)]
     [InlineData(0.2000000, 0.2)]
@@ -97,13 +77,6 @@ public class DecimalExtensionsTests
             { 123.45m },
             { (decimal)int.MaxValue + 1m }
         };
-    }
-
-    [Theory]
-    [MemberData(nameof(ToIntThrowsData))]
-    public void ToInt_ThrowsExceptionForInvalidValue(decimal value)
-    {
-        Assert.Throws<InvalidCastException>(() => value.ToInt());
     }
 
     public static TheoryData<decimal, int> ToIntBoundaryData()
@@ -336,16 +309,6 @@ public class DecimalExtensionsTests
             Assert.True(nullableResult.HasValue);
             Assert.Equal(tryResult, nullableResult.Value);
         }
-    }
-
-
-
-    [Fact]
-    public void ToRounding_RoundsValueToSpecifiedDecimalPlaces()
-    {
-        var value = 123.4567m;
-        var result = value.ToRounding(2);
-        Assert.Equal(123.46m, result);
     }
 
     [Fact]

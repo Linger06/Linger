@@ -1,58 +1,7 @@
-using Linger.Extensions.Core.Internal;
-
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
 {
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="short"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="short"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsInt16(this string? value) => value.IsType<short>(short.TryParse);
-
-    /// <summary>
-    /// Check if the specified string is equivalent to an <see cref="int"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to an <see cref="int"/> type; otherwise, false.</returns>
-    public static bool IsInt(this string? value) => value.IsType<int>(int.TryParse);
-
-    /// <summary>
-    /// 判断字符串是否可以解析为任一有符号整型（short/int/long）。
-    /// </summary>
-    public static bool IsAnySignedInteger(this string? value) => value.IsInt16() || value.IsInt() || value.IsInt64();
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="long"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="long"/> type; otherwise, false.</returns>
-    [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Advanced)]
-    public static bool IsInt64(this string? value) => value.IsType<long>(long.TryParse);
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="decimal"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="decimal"/> type; otherwise, false.</returns>
-    public static bool IsDecimal(this string? value) => value.IsType<decimal>(decimal.TryParse);
-
-    /// <summary>
-    /// 判断字符串是否可以解析为 <see cref="float"/>。首选此方法，替代早期的 <c>IsSingle</c>。
-    /// </summary>
-    /// <param name="value">待检测字符串</param>
-    /// <returns><c>true</c> 表示可以解析；否则 <c>false</c></returns>
-    public static bool IsFloat(this string? value) => value.IsType<float>(float.TryParse);
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="double"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="double"/> type; otherwise, false.</returns>
-    public static bool IsDouble(this string? value) => value.IsType<double>(double.TryParse);
-
     /// <summary>
     /// Determines whether the specified date string is a datetime.
     /// </summary>

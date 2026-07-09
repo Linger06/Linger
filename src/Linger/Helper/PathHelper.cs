@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using System.Text;
 
 #if NET
@@ -47,7 +45,7 @@ public static class PathHelper
             return string.Empty;
 
         // 性能优化：若路径中不包含备用分隔符，则直接返回原引用，避免触发内存分配
-        if (path.IndexOf(AltPlatformSeparator) == -1)
+        if (!path.Contains(AltPlatformSeparator))
         {
             return path;
         }

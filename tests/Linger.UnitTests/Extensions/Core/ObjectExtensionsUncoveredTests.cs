@@ -313,6 +313,90 @@ public class ObjectExtensionsUncoveredTests
 
     #endregion
 
+    #region Generic Long Tail Tests
+
+    [Fact]
+    public void TryToTarget_GuidFromString_ShouldReturnTrueAndParsedValue()
+    {
+        object input = "12345678-1234-1234-1234-123456789abc";
+        var success = input.TryToTarget<Guid>(out var value);
+
+        Assert.True(success);
+        Assert.Equal(Guid.Parse("12345678-1234-1234-1234-123456789abc"), value);
+    }
+
+    [Fact]
+    public void TryToTarget_TimeSpanFromString_ShouldReturnTrueAndParsedValue()
+    {
+        object input = "01:02:03";
+        var success = input.TryToTarget<TimeSpan>(out var value);
+
+        Assert.True(success);
+        Assert.Equal(new TimeSpan(1, 2, 3), value);
+    }
+
+    [Fact]
+    public void TryToTarget_EnumFromName_ShouldReturnTrueAndParsedValue()
+    {
+        object input = "Friday";
+        var success = input.TryToTarget<DayOfWeek>(out var value);
+
+        Assert.True(success);
+        Assert.Equal(DayOfWeek.Friday, value);
+    }
+
+    [Fact]
+    public void TryToTarget_EnumFromUndefinedNumericString_ShouldReturnFalse()
+    {
+        object input = "999";
+        var success = input.TryToTarget<DayOfWeek>(out var value);
+
+        Assert.False(success);
+        Assert.Equal(default, value);
+    }
+
+    [Fact]
+    public void TryToTarget_NullableEnumFromName_ShouldReturnTrueAndParsedValue()
+    {
+        object input = "Friday";
+        var success = input.TryToTarget<DayOfWeek?>(out var value);
+
+        Assert.True(success);
+        Assert.Equal(DayOfWeek.Friday, value);
+    }
+
+    [Fact]
+    public void TryToTarget_BoolFromOnOffText_ShouldReuseSharedBoolRules()
+    {
+        object onInput = "on";
+        var onSuccess = onInput.TryToTarget<bool>(out var onValue);
+        Assert.True(onSuccess);
+        Assert.True(onValue);
+
+        object offInput = "off";
+        var offSuccess = offInput.TryToTarget<bool>(out var offValue);
+        Assert.True(offSuccess);
+        Assert.False(offValue);
+    }
+
+    [Fact]
+    public void ToTarget_ShouldThrowArgumentNullException_WhenInputIsNull()
+    {
+        object? input = null;
+
+        Assert.Throws<ArgumentNullException>(() => input.ToTarget<string>());
+    }
+
+    [Fact]
+    public void ToTarget_ShouldThrowInvalidCastException_WhenConversionFails()
+    {
+        object input = "not-a-number";
+
+        Assert.Throws<InvalidCastException>(() => input.ToTarget<int>());
+    }
+
+    #endregion
+
     #region Edge Cases and Integration Tests
 
     [Fact]

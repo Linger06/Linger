@@ -106,7 +106,7 @@ public class FileHelperTests : IDisposable
     }
 
     [Fact]
-    public void TryReadText_WithNonExistentFile_ReturnsFalseAndEmptyString()
+    public void TryReadText_WithNonExistentFile_ReturnsFalseAndNull()
     {
         // Arrange
         var nonExistentPath = Path.Combine(_testDirectory, "nonexistent.txt");
@@ -116,7 +116,7 @@ public class FileHelperTests : IDisposable
 
         // Assert
         Assert.False(success);
-        Assert.Equal(string.Empty, result);
+        Assert.Null(result);
     }
 
     [Fact]

@@ -9,7 +9,7 @@ public static partial class FileHelper
     #region File Read Operations
 
     /// <summary>
-    /// 尝试读取指定文件的所有文本。若文件不存在或被锁死，安全返回 false，不抛异常。
+    /// Tries to read all text from the specified file without throwing on missing files.
     /// </summary>
     public static bool TryReadText(string filename, [NotNullWhen(true)] out string? content, Encoding? encoding = null)
     {
@@ -30,13 +30,13 @@ public static partial class FileHelper
         }
     }
 
-    [Obsolete("此方法属于过度封装。请直接使用 .NET 原生的 'File.ReadAllText' 或推荐的异步版本 'File.ReadAllTextAsync'。")]
+    [Obsolete("This wrapper is obsolete. Please use File.ReadAllText or File.ReadAllTextAsync directly.")]
     public static string ReadText(string filename, Encoding? encoding = null)
     {
         return File.ReadAllText(filename, encoding ?? Encoding.UTF8);
     }
 
-    [Obsolete("此方法属于过度封装。请直接使用 .NET 原生的 'File.WriteAllText' 或推荐的异步版本 'File.WriteAllTextAsync'。自动创建目录职责请交由具体业务处理。")]
+    [Obsolete("This wrapper is obsolete. Please use File.WriteAllText or File.WriteAllTextAsync directly.")]
     public static void WriteText(string filePath, string text, Encoding? encoding = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -45,7 +45,7 @@ public static partial class FileHelper
         File.WriteAllText(filePath, text, encoding ?? Encoding.UTF8);
     }
 
-    [Obsolete("此方法属于过度封装。请直接使用 .NET 原生的 'File.AppendAllText' 或推荐的异步版本 'File.AppendAllTextAsync'。")]
+    [Obsolete("This wrapper is obsolete. Please use File.AppendAllText or File.AppendAllTextAsync directly.")]
     public static void AppendText(string filePath, string content)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -227,18 +227,18 @@ public static partial class FileHelper
     #region File Information
 
     /// <summary>
-    /// 获取指定文件的扩展信息，包括哈希、路径和文件大小元数据（已完美修复内存爆作与路径颠倒隐患）。
+    /// Gets extended metadata for an existing file, including hash, paths, and size information.
     /// </summary>
-    /// <param name="fullFileName">目标文件的全路径或相对路径。</param>
-    /// <param name="relativeTo">用于计算相对路径的基准目录。若为 null 则缺省取当前工作目录。</param>
-    /// <returns>一个包含文件元数据的 <see cref="ExtendedFileInfo"/> 实例；若文件不存在或路径非法则返回 <see langword="null"/>。</returns>
+    /// <param name="fullFileName">The target file path, absolute or relative.</param>
+    /// <param name="relativeTo">The base directory used to compute the relative path. Defaults to the current working directory.</param>
+    /// <returns>
+    /// An <see cref="ExtendedFileInfo"/> instance when the file exists and the path is valid; otherwise <see langword="null"/>.
+    /// </returns>
     public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName, string? relativeTo = null)
     {
-        // 1. 快速防御性拦截
         if (string.IsNullOrEmpty(fullFileName))
             return null;
 
-        // 2. 规范化基准起点，统一使用 StandardPathHelper 推荐的异常防御机制
         var basePath = string.IsNullOrEmpty(relativeTo)
             ? Environment.CurrentDirectory
             : relativeTo;
@@ -248,54 +248,31 @@ public static partial class FileHelper
 
         try
         {
-            // 3. 全面拥抱全新编写的链式扩展方法，获取绝对路径并进行非法字符/保留字强物理校验
             string absolutePath = fullFileName.ToFullPath();
 
-            // 4. 利用已经封装好的强原子性 Exists 校验（内部包含 \0 及非法字拦截）
             if (!PathExtensions.Exists(absolutePath, checkAsFile: true))
                 return null;
 
             var file = new FileInfo(absolutePath);
             string strHashData;
 
-            // 5. 【流式哈希终极性能优化】：彻底弃用高危的 MemoryStream，采用 0 堆内存积压的 FileStream
             using (var fileStream = file.OpenRead())
             {
                 strHashData = fileStream.ComputeHashMd5();
-                // #if NET
-                //                 // 现代 .NET 提供的高性能、0分配流式哈希 API
-                //                 strHashData = Convert.ToHexString(MD5.HashData(fileStream));
-                // #else
-                //                 // .NET Framework 4.7 回退流式哈希计算，同样完美锁死内存开销
-                //                 using (var md5 = MD5.Create())
-                //                 {
-                //                     var hashBytes = md5.ComputeHash(fileStream);
-
-                //                     // 兼容旧版的高性能字节转十六进制字符串（避免产生海量临时 string）
-                //                     var sb = new System.Text.StringBuilder(hashBytes.Length * 2);
-                //                     foreach (var b in hashBytes)
-                //                     {
-                //                         sb.Append(b.ToString("X2"));
-                //                     }
-                //                     strHashData = sb.ToString();
-                //                 }
-                // #endif
             }
 
-            // 6. 返回组装结果
             return new ExtendedFileInfo
             {
                 HashData = strHashData,
                 FileName = file.Name,
                 RelativeFilePath = basePath.GetRelativePath(absolutePath),
                 FullFilePath = file.FullName,
-                FileSize = file.Length.FormatFileSize(), // 保持你人性化的格式化
+                FileSize = file.Length.FormatFileSize(),
                 Length = file.Length
             };
         }
         catch (Exception ex) when (PathHelper.IsPathException(ex))
         {
-            // 拦截由于非法字符或超长路径引发的系统文件系统异常
             return null;
         }
     }
@@ -383,10 +360,10 @@ public static partial class FileHelper
     }
 
     /// <summary>
-    /// Determines whether the specified directory is empty (contains no files or subdirectories).
+    /// Determines whether the specified directory is empty.
     /// </summary>
     /// <param name="directory">The directory path to check.</param>
-    /// <returns><c>true</c> if the directory is empty; otherwise, <c>false</c>.</returns>
+    /// <returns><c>true</c> if the directory contains no files or subdirectories; otherwise, <c>false</c>.</returns>
     /// <exception cref="DirectoryNotFoundException">Thrown when the directory does not exist.</exception>
     /// <example>
     /// <code>
@@ -423,13 +400,11 @@ public static partial class FileHelper
 
         srcDirectory.EnsureDirectoryExists();
 
-        // Normalize source and destination paths with a trailing separator.
         srcDirectory = Path.GetFullPath(srcDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar);
         destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar);
 
-        // Prevent recursive self-copy (destination equals source or is under source).
         var pathComparison = Path.DirectorySeparatorChar == '\\'
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
@@ -438,10 +413,8 @@ public static partial class FileHelper
             throw new ArgumentException("Destination directory cannot be the same as or a subdirectory of source directory.", nameof(destDirectory));
         }
 
-        // Create destination directory if it doesn't exist
         Directory.CreateDirectory(destDirectory);
 
-        // Get all entries (files and directories)
         var fileList = Directory.GetFileSystemEntries(srcDirectory);
 
         foreach (var file in fileList)
@@ -495,9 +468,9 @@ public static partial class FileHelper
     }
 
     /// <summary>
-    /// 确保目录存在
+    /// Ensures that the directory for the specified file path exists.
     /// </summary>
-    /// <param name="filePath">文件路径</param>
+    /// <param name="filePath">The file path whose parent directory should exist.</param>
     public static void EnsureDirectoryExists(string filePath)
     {
         var directory = Path.GetDirectoryName(filePath);

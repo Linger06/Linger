@@ -73,6 +73,16 @@ public class DateTimeConverterTests
         // Assert
         Assert.Equal(new DateTime(2025, 4, 11, 14, 30, 45), result);
     }
+
+    [Fact]
+    public void DateTimeConverter_Read_WithUtcRoundtripFormat_PreservesUtcKind()
+    {
+        var json = "\"2019-01-30T12:01:02Z\"";
+
+        var result = JsonSerializer.Deserialize<DateTime>(json, _options);
+
+        Assert.Equal(new DateTime(2019, 1, 30, 12, 1, 2, DateTimeKind.Utc), result);
+    }
     
     [Fact]
     public void DateTimeNullConverter_Write_WithNull_WritesNull()
@@ -164,5 +174,15 @@ public class DateTimeConverterTests
         
         // Assert
         Assert.Equal(new DateTime(2025, 4, 11), result);
+    }
+
+    [Fact]
+    public void DateTimeNullConverter_Read_WithUtcRoundtripFormat_PreservesUtcKind()
+    {
+        var json = "\"2019-01-30T12:01:02Z\"";
+
+        var result = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+
+        Assert.Equal(new DateTime(2019, 1, 30, 12, 1, 2, DateTimeKind.Utc), result);
     }
 }
