@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 using System.ComponentModel;
 using System.Globalization;
+using Linger.Extensions.Core;
 
 namespace Linger.Helper;
 
@@ -22,13 +23,40 @@ public static class TypeConverter
                 $"Cannot convert null-like value to non-nullable target type '{targetType.Name}'.");
         }
 
-        if (TryConvertTo(value, targetType, out var result))
+        var sourceType = value.GetType();
+        if (sourceType == targetType)
         {
-            return result;
+            return value;
         }
 
-        throw new InvalidCastException(
-            $"Cannot convert value '{value ?? "null"}' (Type: {value?.GetType().Name ?? "unknown"}) to target type '{targetType.Name}'.");
+        var actualType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+        if (sourceType == actualType)
+        {
+            return value;
+        }
+
+        if (actualType.IsEnum)
+        {
+            if (EnumConversionHelper.TryConvertToEnum(value, actualType, out var enumResult))
+            {
+                return enumResult;
+            }
+
+            throw new InvalidCastException(
+                $"Cannot convert value '{value}' (Type: {sourceType.Name}) to enum type '{actualType.Name}'.");
+        }
+
+        if (actualType == typeof(DateTime) && value is double oaDateValue)
+        {
+            return DateTime.FromOADate(oaDateValue);
+        }
+
+        if (IsKnownType(actualType))
+        {
+            return ConvertKnownType(value, actualType);
+        }
+
+        return ConvertUsingFallback(value, sourceType, actualType);
     }
 
     public static bool TryConvertTo(object? value, Type targetType, out object? result)
@@ -55,80 +83,57 @@ public static class TypeConverter
             return true;
         }
 
-        try
+        if (actualType.IsEnum)
         {
-            if (actualType.IsEnum)
+            if (EnumConversionHelper.TryConvertToEnum(value, actualType, out var enumResult))
             {
-                if (EnumConversionHelper.TryConvertToEnum(value, actualType, out var enumResult))
-                {
-                    result = enumResult;
-                    return true;
-                }
-
-                result = null;
-                return false;
-            }
-
-            if (actualType == typeof(DateTime) && value is double oaDateValue)
-            {
-                result = DateTime.FromOADate(oaDateValue);
+                result = enumResult;
                 return true;
             }
 
-            return TryConvertToType(value, sourceType, actualType, out result);
-        }
-        catch
-        {
             result = null;
             return false;
         }
-    }
 
-    private static bool TryConvertToType(object value, Type sourceType, Type actualType, out object? result)
-    {
-        var stringValueCache = value as string;
-
-        if (actualType == typeof(string))
+        if (actualType == typeof(DateTime) && value is double oaDateValue)
         {
-            result = stringValueCache ?? value.ToString();
+            result = DateTime.FromOADate(oaDateValue);
             return true;
         }
 
-        switch (value)
+        if (TryConvertKnownType(value, actualType, out result))
         {
-            case int i when actualType == typeof(int):
-                result = i;
-                return true;
-            case long l when actualType == typeof(long):
-                result = l;
-                return true;
-            case decimal d when actualType == typeof(decimal):
-                result = d;
-                return true;
-            case double d when actualType == typeof(double):
-                result = d;
-                return true;
-            case float f when actualType == typeof(float):
-                result = f;
-                return true;
-            case bool b when actualType == typeof(bool):
-                result = b;
-                return true;
-            case DateTime dt when actualType == typeof(DateTime):
-                result = dt;
-                return true;
-            case Guid g when actualType == typeof(Guid):
-                result = g;
-                return true;
+            return true;
         }
 
-        stringValueCache ??= value.ToString() ?? string.Empty;
+        return TryConvertUsingFallback(value, sourceType, actualType, out result);
+    }
+
+    private static bool TryConvertKnownType(object value, Type actualType, out object? result)
+    {
+        if (actualType == typeof(string))
+        {
+            result = value as string ?? value.ToString();
+            return true;
+        }
+
+        if (actualType == typeof(short))
+        {
+            if (value.TryToShort(out var converted))
+            {
+                result = converted;
+                return true;
+            }
+
+            result = null;
+            return false;
+        }
 
         if (actualType == typeof(int))
         {
-            if (int.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
+            if (value.TryToInt(out var converted))
             {
-                result = r;
+                result = converted;
                 return true;
             }
 
@@ -138,9 +143,9 @@ public static class TypeConverter
 
         if (actualType == typeof(long))
         {
-            if (long.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
+            if (value.TryToLong(out var converted))
             {
-                result = r;
+                result = converted;
                 return true;
             }
 
@@ -150,9 +155,9 @@ public static class TypeConverter
 
         if (actualType == typeof(decimal))
         {
-            if (decimal.TryParse(stringValueCache, NumberStyles.Number, CultureInfo.InvariantCulture, out var r))
+            if (value.TryToDecimal(out var converted))
             {
-                result = r;
+                result = converted;
                 return true;
             }
 
@@ -168,7 +173,15 @@ public static class TypeConverter
                 return true;
             }
 
-            if (double.TryParse(stringValueCache, NumberStyles.Float, CultureInfo.InvariantCulture, out var r))
+            if (value is double d)
+            {
+                result = d;
+                return true;
+            }
+
+            if (value is string stringValue &&
+                double.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+                    CultureInfo.InvariantCulture, out var r))
             {
                 result = r;
                 return true;
@@ -180,7 +193,15 @@ public static class TypeConverter
 
         if (actualType == typeof(float))
         {
-            if (float.TryParse(stringValueCache, NumberStyles.Float, CultureInfo.InvariantCulture, out var r))
+            if (value is float f)
+            {
+                result = f;
+                return true;
+            }
+
+            if (value is string stringValue &&
+                float.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+                    CultureInfo.InvariantCulture, out var r))
             {
                 result = r;
                 return true;
@@ -192,9 +213,9 @@ public static class TypeConverter
 
         if (actualType == typeof(bool))
         {
-            if (BoolConversionHelper.TryConvertStringToBool(stringValueCache, out var boolResult))
+            if (value.TryToBool(out var converted))
             {
-                result = boolResult;
+                result = converted;
                 return true;
             }
 
@@ -204,9 +225,9 @@ public static class TypeConverter
 
         if (actualType == typeof(DateTime))
         {
-            if (DateTimeConversionHelper.TryConvertStringToDateTime(stringValueCache, out var dateResult))
+            if (value.TryToDateTime(out var converted))
             {
-                result = dateResult;
+                result = converted;
                 return true;
             }
 
@@ -216,81 +237,9 @@ public static class TypeConverter
 
         if (actualType == typeof(Guid))
         {
-            if (Guid.TryParse(stringValueCache, out var r))
+            if (value.TryToGuid(out var converted))
             {
-                result = r;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(short))
-        {
-            if (short.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(byte))
-        {
-            if (byte.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(sbyte))
-        {
-            if (sbyte.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(ushort))
-        {
-            if (ushort.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(uint))
-        {
-            if (uint.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(ulong))
-        {
-            if (ulong.TryParse(stringValueCache, NumberStyles.Integer, CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
+                result = converted;
                 return true;
             }
 
@@ -300,9 +249,9 @@ public static class TypeConverter
 
         if (actualType == typeof(TimeSpan))
         {
-            if (TimeSpan.TryParse(stringValueCache.Trim(), CultureInfo.InvariantCulture, out var tsResult))
+            if (TryConvertToTimeSpan(value, out var converted))
             {
-                result = tsResult;
+                result = converted;
                 return true;
             }
 
@@ -310,29 +259,181 @@ public static class TypeConverter
             return false;
         }
 
-        var converter = TypeDescriptor.GetConverter(actualType);
-        if (value is string && converter.CanConvertFrom(typeof(string)))
+        result = null;
+        return false;
+    }
+
+    private static bool IsKnownType(Type actualType)
+        => actualType == typeof(string) ||
+           actualType == typeof(short) ||
+           actualType == typeof(int) ||
+           actualType == typeof(long) ||
+           actualType == typeof(decimal) ||
+           actualType == typeof(double) ||
+           actualType == typeof(float) ||
+           actualType == typeof(bool) ||
+           actualType == typeof(DateTime) ||
+           actualType == typeof(Guid) ||
+           actualType == typeof(TimeSpan);
+
+    private static object ConvertKnownType(object value, Type actualType)
+    {
+        if (actualType == typeof(string))
         {
-            var converted = converter.ConvertFromInvariantString(stringValueCache);
+            return value as string ?? value.ToString() ?? string.Empty;
+        }
+
+        if (actualType == typeof(short))
+        {
+            return value.ToShort();
+        }
+
+        if (actualType == typeof(int))
+        {
+            return value.ToInt();
+        }
+
+        if (actualType == typeof(long))
+        {
+            return value.ToLong();
+        }
+
+        if (actualType == typeof(decimal))
+        {
+            return value.ToDecimal();
+        }
+
+        if (actualType == typeof(double))
+        {
+            return ConvertToDouble(value);
+        }
+
+        if (actualType == typeof(float))
+        {
+            return ConvertToSingle(value);
+        }
+
+        if (actualType == typeof(bool))
+        {
+            return value.ToBool();
+        }
+
+        if (actualType == typeof(DateTime))
+        {
+            return value.ToDateTime();
+        }
+
+        if (actualType == typeof(Guid))
+        {
+            return value.ToGuid();
+        }
+
+        if (actualType == typeof(TimeSpan))
+        {
+            return ConvertToTimeSpan(value);
+        }
+
+        throw new InvalidCastException(
+            $"Cannot convert value '{value}' (Type: {value.GetType().Name}) to target type '{actualType.Name}'.");
+    }
+
+    private static bool TryConvertUsingFallback(object value, Type sourceType, Type actualType, out object? result)
+    {
+        try
+        {
+            var converted = ConvertUsingFallback(value, sourceType, actualType);
             if (converted is not null)
             {
                 result = converted;
                 return true;
             }
+
+            result = null;
+            return false;
+        }
+        catch
+        {
+            result = null;
+            return false;
+        }
+    }
+
+    private static object ConvertUsingFallback(object value, Type sourceType, Type actualType)
+    {
+        var converter = TypeDescriptor.GetConverter(actualType);
+        if (value is string stringValue && converter.CanConvertFrom(typeof(string)))
+        {
+            return converter.ConvertFromInvariantString(stringValue)!;
         }
 
         if (converter.CanConvertFrom(sourceType))
         {
-            var converted = converter.ConvertFrom(null, CultureInfo.InvariantCulture, value);
-            if (converted is not null)
-            {
-                result = converted;
-                return true;
-            }
+            return converter.ConvertFrom(null, CultureInfo.InvariantCulture, value)!;
         }
 
-        result = Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
-        return true;
+        return Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
+    }
+
+    private static double ConvertToDouble(object value)
+    {
+        if (value is float f)
+        {
+            return f;
+        }
+
+        if (value is double d)
+        {
+            return d;
+        }
+
+        if (value is string stringValue)
+        {
+            return double.Parse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture);
+        }
+
+        return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+    }
+
+    private static float ConvertToSingle(object value)
+    {
+        if (value is float f)
+        {
+            return f;
+        }
+
+        if (value is string stringValue)
+        {
+            return float.Parse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture);
+        }
+
+        return Convert.ToSingle(value, CultureInfo.InvariantCulture);
+    }
+
+    private static TimeSpan ConvertToTimeSpan(object value)
+    {
+        if (TryConvertToTimeSpan(value, out var result))
+        {
+            return result;
+        }
+
+        throw new FormatException($"String '{value}' was not recognized as a valid TimeSpan.");
+    }
+
+    private static bool TryConvertToTimeSpan(object value, out TimeSpan result)
+    {
+        result = default;
+
+        if (value is TimeSpan timeSpan)
+        {
+            result = timeSpan;
+            return true;
+        }
+
+        var stringValue = value as string ?? value.ToString();
+        return stringValue is not null &&
+               TimeSpan.TryParse(stringValue.Trim(), CultureInfo.InvariantCulture, out result);
     }
 
 }

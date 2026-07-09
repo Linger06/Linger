@@ -337,7 +337,7 @@ public static class ObjectExtensions
         switch (value)
         {
             case DateTimeOffset dto:
-                result = dto.DateTime;
+                result = dto.UtcDateTime;
                 return true;
             case string str:
                 return str.TryToDateTime(out result);
@@ -356,6 +356,19 @@ public static class ObjectExtensions
     {
         if (value is null || value is DBNull)
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
+
+        switch (value)
+        {
+            case DateTimeOffset dto:
+                return dto.UtcDateTime;
+            case string str:
+                return str.ToDateTime();
+#if NETCOREAPP
+            case DateOnly dOnly:
+                return dOnly.ToDateTime(TimeOnly.MinValue);
+#endif
+        }
+
         if (value.TryToDateTime(out var result)) return result;
 
         return Convert.ToDateTime(value, CultureInfo.InvariantCulture);

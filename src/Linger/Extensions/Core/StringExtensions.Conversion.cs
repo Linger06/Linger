@@ -38,20 +38,12 @@ public static partial class StringExtensions
         if (short.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
             return true;
 
-        return decimal.TryParse(trimmed, NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) &&
+        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
+        return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToShort(out result);
     }
 
-    public static short ToShort(this string? value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        if (value.TryToShort(out var result)) return result;
-
-        const NumberStyles strictStyles = NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                                          NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint |
-                                          NumberStyles.AllowThousands;
-        return decimal.Parse(value, strictStyles, CultureInfo.InvariantCulture).ToShort();
-    }
+    public static short ToShort(this string? value) => ((object?)value).ToShort();
 
     public static short? ToShortOrNull(this string? value) => value.TryToShort(out var r) ? r : null;
     public static short ToShortOrDefault(this string? value, short defaultValue = 0) => value.TryToShort(out var r) ? r : defaultValue;
@@ -91,20 +83,12 @@ public static partial class StringExtensions
         if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
             return true;
 
-        return decimal.TryParse(trimmed, NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) &&
+        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
+        return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToInt(out result);
     }
 
-    public static int ToInt(this string? value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        if (value.TryToInt(out var result)) return result;
-
-        const NumberStyles strictStyles = NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                                          NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint |
-                                          NumberStyles.AllowThousands;
-        return decimal.Parse(value, strictStyles, CultureInfo.InvariantCulture).ToInt();
-    }
+    public static int ToInt(this string? value) => ((object?)value).ToInt();
 
     public static int? ToIntOrNull(this string? value) => value.TryToInt(out var r) ? r : null;
     public static int ToIntOrDefault(this string? value, int defaultValue = 0) => value.TryToInt(out var r) ? r : defaultValue;
@@ -122,20 +106,12 @@ public static partial class StringExtensions
         if (long.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
             return true;
 
-        return decimal.TryParse(trimmed, NumberStyles.Any, CultureInfo.InvariantCulture, out var dec) &&
+        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
+        return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToLong(out result);
     }
 
-    public static long ToLong(this string? value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        if (value.TryToLong(out var result)) return result;
-
-        const NumberStyles strictStyles = NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite |
-                                          NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint |
-                                          NumberStyles.AllowThousands;
-        return decimal.Parse(value, strictStyles, CultureInfo.InvariantCulture).ToLong();
-    }
+    public static long ToLong(this string? value) => ((object?)value).ToLong();
 
     public static long? ToLongOrNull(this string? value) => value.TryToLong(out var r) ? r : null;
     public static long ToLongOrDefault(this string? value, long defaultValue = 0L) => value.TryToLong(out var r) ? r : defaultValue;

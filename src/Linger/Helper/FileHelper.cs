@@ -30,30 +30,6 @@ public static partial class FileHelper
         }
     }
 
-    [Obsolete("This wrapper is obsolete. Please use File.ReadAllText or File.ReadAllTextAsync directly.")]
-    public static string ReadText(string filename, Encoding? encoding = null)
-    {
-        return File.ReadAllText(filename, encoding ?? Encoding.UTF8);
-    }
-
-    [Obsolete("This wrapper is obsolete. Please use File.WriteAllText or File.WriteAllTextAsync directly.")]
-    public static void WriteText(string filePath, string text, Encoding? encoding = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-        File.WriteAllText(filePath, text, encoding ?? Encoding.UTF8);
-    }
-
-    [Obsolete("This wrapper is obsolete. Please use File.AppendAllText or File.AppendAllTextAsync directly.")]
-    public static void AppendText(string filePath, string content)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-        File.AppendAllText(filePath, content);
-    }
-
     #endregion
 
     #region File Operations

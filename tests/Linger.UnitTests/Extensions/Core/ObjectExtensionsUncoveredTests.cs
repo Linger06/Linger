@@ -157,6 +157,18 @@ public class ObjectExtensionsUncoveredTests
         Assert.Equal(inputDate, value);
     }
 
+    [Fact]
+    public void TryToDateTime_ShouldNormalizeDateTimeOffsetToUtc()
+    {
+        object input = new DateTimeOffset(2024, 1, 15, 12, 30, 45, TimeSpan.FromHours(8));
+
+        var success = input.TryToDateTime(out var value);
+
+        Assert.True(success);
+        Assert.Equal(((DateTimeOffset)input).UtcDateTime, value);
+        Assert.Equal(DateTimeKind.Utc, value.Kind);
+    }
+
     #endregion
 
     #region TryToBool Tests
@@ -388,11 +400,11 @@ public class ObjectExtensionsUncoveredTests
     }
 
     [Fact]
-    public void ToTarget_ShouldThrowInvalidCastException_WhenConversionFails()
+    public void ToTarget_ShouldThrowFormatException_WhenStringConversionFails()
     {
         object input = "not-a-number";
 
-        Assert.Throws<InvalidCastException>(() => input.ToTarget<int>());
+        Assert.Throws<FormatException>(() => input.ToTarget<int>());
     }
 
     #endregion

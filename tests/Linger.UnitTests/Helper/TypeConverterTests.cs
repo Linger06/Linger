@@ -99,6 +99,17 @@ public class TypeConverterTests
     }
 
     [Fact]
+    public void ConvertTo_DateTimeOffsetToDateTime_NormalizesToUtc()
+    {
+        var input = new DateTimeOffset(2024, 1, 15, 12, 30, 45, TimeSpan.FromHours(8));
+
+        var result = Assert.IsType<DateTime>(TypeConverter.ConvertTo(input, typeof(DateTime)));
+
+        Assert.Equal(input.UtcDateTime, result);
+        Assert.Equal(DateTimeKind.Utc, result.Kind);
+    }
+
+    [Fact]
     public void ConvertTo_StringToGuid_ReturnsConvertedValue()
     {
         var guidString = "12345678-1234-1234-1234-123456789abc";
@@ -190,6 +201,26 @@ public class TypeConverterTests
     }
 
     [Fact]
+    public void ConvertTo_StringWholeNumberTextToInt_ReturnsConvertedValue()
+    {
+        var result = TypeConverter.ConvertTo("42.0", typeof(int));
+        Assert.Equal(42, result);
+    }
+
+    [Fact]
+    public void ConvertTo_StringScientificWholeNumberTextToInt_ReturnsConvertedValue()
+    {
+        var result = TypeConverter.ConvertTo("1e2", typeof(int));
+        Assert.Equal(100, result);
+    }
+
+    [Fact]
+    public void ConvertTo_StringFractionalTextToInt_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => TypeConverter.ConvertTo("42.5", typeof(int)));
+    }
+
+    [Fact]
     public void ConvertTo_UnsignedTypes_ReturnsCorrectValue()
     {
         Assert.Equal((ushort)100, TypeConverter.ConvertTo(100, typeof(ushort)));
@@ -267,6 +298,22 @@ public class TypeConverterTests
         var success = TypeConverter.TryConvertTo("9876543210", typeof(long), out var result);
         Assert.True(success);
         Assert.Equal(9876543210L, result);
+    }
+
+    [Fact]
+    public void TryConvertTo_StringWholeNumberTextToInt_ReturnsTrueAndValue()
+    {
+        var success = TypeConverter.TryConvertTo("42.0", typeof(int), out var result);
+        Assert.True(success);
+        Assert.Equal(42, result);
+    }
+
+    [Fact]
+    public void TryConvertTo_StringScientificWholeNumberTextToInt_ReturnsTrueAndValue()
+    {
+        var success = TypeConverter.TryConvertTo("1e2", typeof(int), out var result);
+        Assert.True(success);
+        Assert.Equal(100, result);
     }
 
     [Fact]
@@ -402,6 +449,19 @@ public class TypeConverterTests
         var convertedDateTime = Assert.IsType<DateTime>(converted);
         Assert.Equal(parsed, convertedDateTime);
         Assert.Equal(DateTimeKind.Utc, convertedDateTime.Kind);
+    }
+
+    [Fact]
+    public void TryConvertTo_DateTimeOffsetToDateTime_NormalizesToUtc()
+    {
+        var input = new DateTimeOffset(2024, 1, 15, 12, 30, 45, TimeSpan.FromHours(8));
+
+        var success = TypeConverter.TryConvertTo(input, typeof(DateTime), out var result);
+
+        Assert.True(success);
+        var converted = Assert.IsType<DateTime>(result);
+        Assert.Equal(input.UtcDateTime, converted);
+        Assert.Equal(DateTimeKind.Utc, converted.Kind);
     }
 
     [Fact]

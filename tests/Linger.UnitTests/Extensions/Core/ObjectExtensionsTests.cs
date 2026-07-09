@@ -354,6 +354,8 @@ namespace Linger.UnitTests.Extensions.Core
         [InlineData((short)123, (short)123)]
         [InlineData(123, (short)123)]
         [InlineData("123", (short)123)]
+        [InlineData("42.0", (short)42)]
+        [InlineData("1e2", (short)100)]
         public void ToShort_ShouldReturnExpectedResult(object input, short expected)
         {
             var result = input.ToShort();
@@ -396,6 +398,8 @@ namespace Linger.UnitTests.Extensions.Core
         [InlineData((long)123, 123L)]
         [InlineData(123, 123L)]
         [InlineData("123", 123L)]
+        [InlineData("42.0", 42L)]
+        [InlineData("1e2", 100L)]
         public void ToLong_ShouldReturnExpectedResult(object input, long expected)
         {
             var result = input.ToLong();
@@ -438,6 +442,8 @@ namespace Linger.UnitTests.Extensions.Core
         [InlineData(123, 123)]
         [InlineData("123", 123)]
         [InlineData((short)123, 123)]
+        [InlineData("42.0", 42)]
+        [InlineData("1e2", 100)]
         public void ToInt_ShouldReturnExpectedResult(object input, int expected)
         {
             var result = input.ToInt();
@@ -519,6 +525,17 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(new DateTime(2023, 1, 1), result);
         }
 
+        [Fact]
+        public void ToDateTime_ShouldNormalizeDateTimeOffsetToUtc()
+        {
+            object input = new DateTimeOffset(2024, 1, 15, 12, 30, 45, TimeSpan.FromHours(8));
+
+            var result = input.ToDateTime();
+
+            Assert.Equal(((DateTimeOffset)input).UtcDateTime, result);
+            Assert.Equal(DateTimeKind.Utc, result.Kind);
+        }
+
         [Theory]
         [InlineData("invalid")]
         public void ToDateTime_ShouldThrowFormatException_WhenInputIsInvalid(string input)
@@ -576,6 +593,8 @@ namespace Linger.UnitTests.Extensions.Core
 
         [Theory]
         [InlineData("123", true, 123)]
+        [InlineData("42.0", true, 42)]
+        [InlineData("1e2", true, 100)]
         [InlineData("invalid", false, 0)]
         [InlineData(null, false, 0)]
         public void TryToInt_ShouldReturnExpected(object? input, bool expectedSuccess, int expectedValue)
@@ -587,6 +606,8 @@ namespace Linger.UnitTests.Extensions.Core
 
         [Theory]
         [InlineData("922337203685", true, 922337203685L)]
+        [InlineData("42.0", true, 42L)]
+        [InlineData("1e2", true, 100L)]
         [InlineData("invalid", false, 0L)]
         [InlineData(null, false, 0L)]
         public void TryToLong_ShouldReturnExpected(object? input, bool expectedSuccess, long expectedValue)

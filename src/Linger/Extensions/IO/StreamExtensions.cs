@@ -9,8 +9,8 @@ namespace Linger.Extensions.IO;
 public static class StreamExtensions
 {
     /// <summary>
-    /// 计算流的 MD5 哈希并返回小写十六进制字符串。
-    /// 修复了网络流、请求流下的 Seek 崩溃 Bug（高工程价值，继续保留）。
+    /// Computes the MD5 hash of the stream and returns a lowercase hex string.
+    /// Resets the position for seekable streams before hashing.
     /// </summary>
     public static string ComputeHashMd5(this Stream inputStream)
     {
@@ -44,7 +44,7 @@ public static class StreamExtensions
     }
 #endif
 
-    [Obsolete("此方法属于过度封装。建议直接在业务层使用原生的 'stream.CopyTo' 写入文件流，以便更加灵活地控制 FileShare 隔离级别和缓冲区大小。")]
+    [Obsolete("This wrapper is obsolete. Prefer stream.CopyTo with an explicitly configured FileStream.")]
     public static void ToFile(this Stream stream, string filePath)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -59,7 +59,7 @@ public static class StreamExtensions
         stream.CopyTo(fs);
     }
 
-    [Obsolete("此方法属于过度封装。建议直接在业务层使用原生的 'await stream.CopyToAsync' 写入文件流，避免锁死底层文件共享状态。")]
+    [Obsolete("This wrapper is obsolete. Prefer stream.CopyToAsync with an explicitly configured FileStream.")]
     public static async Task ToFileAsync(this Stream stream, string filePath)
     {
         ArgumentNullException.ThrowIfNull(stream);

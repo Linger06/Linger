@@ -86,9 +86,9 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void ToShort_ShouldThrowInvalidCastException_WhenFractionalTextIsProvided()
+        public void ToShort_ShouldThrowFormatException_WhenFractionalTextIsProvided()
         {
-            Assert.Throws<InvalidCastException>(() => "42.5".ToShort());
+            Assert.Throws<FormatException>(() => "42.5".ToShort());
         }
 
         public static TheoryData<string?, bool, Guid> TryToGuidData()
@@ -265,9 +265,21 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void ToInt_ShouldThrowInvalidCastException_WhenFractionalTextIsProvided()
+        public void ToInt_ShouldThrowFormatException_WhenFractionalTextIsProvided()
         {
-            Assert.Throws<InvalidCastException>(() => "42.5".ToInt());
+            Assert.Throws<FormatException>(() => "42.5".ToInt());
+        }
+
+        [Fact]
+        public void ToInt_ShouldConvertWholeNumberDecimalText()
+        {
+            Assert.Equal(42, "42.0".ToInt());
+        }
+
+        [Fact]
+        public void ToInt_ShouldConvertScientificWholeNumberText()
+        {
+            Assert.Equal(100, "1e2".ToInt());
         }
 
         public static TheoryData<string?, Func<int?>?, int?> ToIntOrNullData2()
@@ -376,9 +388,21 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void ToLong_ShouldThrowInvalidCastException_WhenFractionalTextIsProvided()
+        public void ToLong_ShouldThrowFormatException_WhenFractionalTextIsProvided()
         {
-            Assert.Throws<InvalidCastException>(() => "42.5".ToLong());
+            Assert.Throws<FormatException>(() => "42.5".ToLong());
+        }
+
+        [Fact]
+        public void ToLong_ShouldConvertWholeNumberDecimalText()
+        {
+            Assert.Equal(42L, "42.0".ToLong());
+        }
+
+        [Fact]
+        public void ToLong_ShouldConvertScientificWholeNumberText()
+        {
+            Assert.Equal(100L, "1e2".ToLong());
         }
 
         // New ToLongOrDefault tests
@@ -429,6 +453,12 @@ namespace Linger.UnitTests.Extensions.Core
             var success = value.TryToDecimal(out var result);
             Assert.Equal(expectedSuccess, success);
             Assert.Equal(expectedResult, result);
+        }
+
+        [Fact]
+        public void ToDecimal_ShouldConvertScientificNotation()
+        {
+            Assert.Equal(100m, "1e2".ToDecimal());
         }
 
         public static TheoryData<string?, bool, DateTime> TryToDateTimeData()

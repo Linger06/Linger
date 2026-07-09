@@ -7,7 +7,7 @@ using System.Buffers;
 namespace Linger.Extensions.IO;
 
 /// <summary>
-/// 供外部直接调用的本地（文件系统）路径公共服务扩展工具类
+/// Public path helpers built on top of the local file-system rules.
 /// </summary>
 public static partial class PathExtensions
 {
@@ -25,7 +25,7 @@ public static partial class PathExtensions
     };
 
     /// <summary>
-    /// 【扩展方法】全面验证路径中是否包含当前本地物理文件系统不支持的非法字符或内核级安全保留字（如 CON, PRN）
+    /// Checks whether the path contains invalid characters or reserved Windows device names.
     /// </summary>
     public static bool ContainsInvalidPathChars(this string? path)
     {
@@ -101,7 +101,7 @@ public static partial class PathExtensions
     }
 
     /// <summary>
-    /// 解析并生成本地绝对路径（自动处理本地磁盘、上级目录跳转及长路径）
+    /// Resolves a path to an absolute local path and normalizes trailing separators.
     /// </summary>
     public static string ToFullPath(this string? relativePath, string? basePath = null, bool preserveEndingSeparator = false)
     {
@@ -122,13 +122,10 @@ public static partial class PathExtensions
             string resolvedPath;
 
 #if NETCOREAPP2_1_OR_GREATER || NET5_0_OR_GREATER || NET
-            // 现代 .NET：原生驱动极其强大，已经天然处理了跨平台与高性能路由
             basePath ??= Environment.CurrentDirectory;
             resolvedPath = Path.GetFullPath(pathToResolve, basePath);
 #else
-            // 【旧版本 .NET 4.7 完美修复路由】：
-            // 重新启用你的 IsStrictAbsolutePath 扩展方法！
-            // 只有真正的本地物理路径（如 C:\ 或 /）才直接获取全路径，100% 绕过了 Windows UNC 网络路径引发的 I/O 阻塞隐患
+            // Older targets need a little extra logic to avoid odd rooted-path behavior.
             if (pathToResolve.IsStrictAbsolutePath())
             {
                 resolvedPath = Path.GetFullPath(pathToResolve);
@@ -137,7 +134,7 @@ public static partial class PathExtensions
             {
                 basePath ??= Environment.CurrentDirectory;
 
-                // 修复本地相对路径以单斜杠开头时（如 \Windows），Path.Combine 疏漏盘符退化的经典 Bug
+                // Preserve the drive root when the relative path starts with a single slash.
                 if (pathToResolve.Length > 0 && (pathToResolve[0] == '\\' || pathToResolve[0] == '/'))
                 {
                     var baseRoot = Path.GetPathRoot(basePath) ?? string.Empty;
@@ -151,7 +148,6 @@ public static partial class PathExtensions
             }
 #endif
 
-            // 调用底层的统一管道控制尾部斜杠并转换格式，保证整体行为的一致性
             return PathHelper.HandleEndingSeparator(resolvedPath, preserveEndingSeparator);
         }
         catch (Exception ex) when (PathHelper.IsPathException(ex))
@@ -164,7 +160,7 @@ public static partial class PathExtensions
     }
 
     /// <summary>
-    /// 【扩展方法】基于本地文件系统逻辑结构获取父级目录（100% 内存计算，不触发磁盘 I/O）
+    /// Walks up the directory tree without performing file-system discovery.
     /// </summary>
     public static string GetParentDirectory(this string path, int levels)
     {
@@ -176,7 +172,6 @@ public static partial class PathExtensions
 
         try
         {
-            // 利用上面刚改造好的扩展方法进行内部调用
             string currentPath = path.ToFullPath();
             string rootPath = Path.GetPathRoot(currentPath) ?? string.Empty;
 
@@ -201,26 +196,12 @@ public static partial class PathExtensions
     }
 
     /// <summary>
-    /// 获取当前基准路径到指定目标路径的相对路径（支持跨平台与 .NET Framework 降级兼容）。
+    /// Computes a relative path from one local path to another.
     /// </summary>
-    /// <param name="relativeTo">当前的基准目录路径（作为计算的参照物起点）。</param>
-    /// <param name="path">要到达的目标物理路径（终点）。</param>
-    /// <returns>
-    /// 返回计算后的相对路径（例如 "..\logs" 或 "sub/file.txt"）。<br/>
-    /// 如果两个路径完全相同，则返回 "."；<br/>
-    /// 如果目标路径为空，则原样返回目标路径或 <see cref="string.Empty"/>。
-    /// </returns>
-    /// <exception cref="ArgumentException">
-    /// 当基准路径 <paramref name="relativeTo"/> 为空、全是空格，或者由于跨盘符/无效字符导致无法计算相对路径时抛出。
-    /// </exception>
-    /// <remarks>
-    /// <para>【安全与漏洞修复】</para>
-    /// 内部在计算前会强制将两个路径链式解析为绝对路径（<c>ResolveToAbsolutePath</c>），<br/>
-    /// 能够有效阻断恶意利用相对路径符号（如 <c>../../</c>）越界爬行的路径穿越漏洞（Path Traversal）。
-    /// <para>【跨平台与多框架适配】</para>
-    /// - 在 Modern .NET 环境下，直接托管给系统级高性能官方 API，无内存分配负担。<br/>
-    /// - 在 .NET Framework 环境下，降级采用基于 <see cref="Uri"/> 的解算方案，并统一进行路径分隔符的规范化。
-    /// </remarks>
+    /// <param name="relativeTo">Base path used as the origin.</param>
+    /// <param name="path">Target path.</param>
+    /// <returns>The relative path, "." for identical paths, or an empty string when the target input is blank.</returns>
+    /// <exception cref="ArgumentException">Thrown when the base path is blank or path normalization fails.</exception>
     public static string GetRelativePath(this string relativeTo, string path)
     {
         if (string.IsNullOrWhiteSpace(relativeTo))
@@ -240,34 +221,33 @@ public static partial class PathExtensions
 #if NETCOREAPP2_1_OR_GREATER || NET5_0_OR_GREATER || NET
             return Path.GetRelativePath(relativeTo, path);
 #else
-            // -----------------------------------------------------------------
-            // 【Windows 专属修复分支】：.NET Framework 4.7.2
-            // -----------------------------------------------------------------
             const string sep = "\\";
-            // 【前置净化】：既然 Windows 允许正斜杠，在进入 Uri 复杂计算前，
-            // 纯内存无 I/O 地将所有正斜杠统一转换为标准反斜杠，确保后续补齐与裁剪算法 100% 稳健。
+
+            // Normalize both paths before using Uri-based relative path calculation.
             string cleanFrom = relativeTo.Replace('/', '\\');
             string cleanTo = path.Replace('/', '\\');
-            // 1. 强制补齐基准路径的末尾反斜杠，明确其为目录上下文
+
             if (!cleanFrom.EndsWith(sep)) cleanFrom += sep;
-            // 2. 核心修复：基于纯字面（零磁盘 I/O）判定目标路径是否为目录
+
             bool isToDirectory = cleanTo.EndsWith(sep) || !Path.HasExtension(cleanTo);
             if (isToDirectory && !cleanTo.EndsWith(sep))
             {
                 cleanTo += sep;
             }
+
             var fromUri = new Uri(cleanFrom);
             var toUri = new Uri(cleanTo);
             if (fromUri.Scheme != toUri.Scheme) return path;
+
             Uri relativeUri = fromUri.MakeRelativeUri(toUri);
             string relativePath = Uri.UnescapeDataString(relativeUri.ToString());
-            // 3. 将 Uri 吐出的标准正斜杠 '/' 统一转换回 Windows 的反斜杠 '\'
+
             string result = relativePath.Replace('/', '\\');
-            // 4. 还原状态：把我们此前为了欺骗 Uri 引擎而强补的尾巴切掉
             if (result.Length > 1 && result.EndsWith(sep))
             {
                 result = result.TrimEnd('\\');
             }
+
             return string.IsNullOrEmpty(result) ? "." : result;
 #endif
         }
@@ -278,7 +258,7 @@ public static partial class PathExtensions
     }
 
     /// <summary>
-    /// 【坚守静态方法】检查文件或目录是否存在（具备强安全原子性保护，不改为扩展方法）
+    /// Returns true when the local file or directory exists and the path is valid.
     /// </summary>
     public static bool Exists(string path, bool checkAsFile = true)
     {
@@ -291,8 +271,6 @@ public static partial class PathExtensions
                 return false;
 
             var fullPath = Path.GetFullPath(path);
-
-            // 内部调用刚改造好的扩展方法
             if (fullPath.ContainsInvalidPathChars())
                 return false;
 
@@ -305,7 +283,7 @@ public static partial class PathExtensions
     }
 
     /// <summary>
-    /// 辅助方法：用于旧版 .NET 判断【严格的本地物理绝对路径】（排除了网络 UNC 路径）
+    /// Determines whether the path is a strict local absolute path, excluding classic UNC shares.
     /// </summary>
     public static bool IsStrictAbsolutePath(this string path)
     {
@@ -314,22 +292,18 @@ public static partial class PathExtensions
         var root = Path.GetPathRoot(path);
         if (string.IsNullOrEmpty(root)) return false;
 
-        // 1. Linux/macOS 平台：只要以 '/' 开头且不是双斜杠（双斜杠是网络或特殊的网络根），就是严格本地路径
+        // On Unix-like systems, a single leading slash is a local absolute path.
         if (Path.DirectorySeparatorChar == '/')
         {
             return path.Length > 0 && path[0] == '/' && (path.Length == 1 || path[1] != '/');
         }
 
-        // 2. Windows 平台：必须是本地物理盘符或本地长路径
-        // 排除传统的网络 UNC 路径（如 \\server\share），因为它们已经去到 NetworkPathHelper 了
-
-        // 检查标准本地盘符 (如 "C:\")
+        // On Windows, accept drive-rooted and device-prefixed local paths only.
         if (root.Length >= 2 && char.IsLetter(root[0]) && root[1] == ':')
         {
             return root.Length == 2 || root[2] == '\\' || root[2] == '/';
         }
 
-        // 检查 Windows 本地高级路径前缀（如 "\\?\" 长路径 或 "\\.\" 本地设备路径）
         if (root.StartsWith(@"\\?\", StringComparison.Ordinal) || root.StartsWith(@"\\.\", StringComparison.Ordinal))
         {
             return true;

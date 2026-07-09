@@ -70,7 +70,7 @@ public class FileHelperTests : IDisposable
         var filePath = CreateTestFile("test.txt", content);
 
         // Act
-        var result = FileHelper.ReadText(filePath);
+        var result = File.ReadAllText(filePath, Encoding.UTF8);
 
         // Assert
         Assert.Equal(content, result);
@@ -84,7 +84,7 @@ public class FileHelperTests : IDisposable
         var filePath = CreateTestFile("test.txt", content);
 
         // Act
-        var result = FileHelper.ReadText(filePath, Encoding.UTF8);
+        var result = File.ReadAllText(filePath, Encoding.UTF8);
 
         // Assert
         Assert.Equal(content, result);
@@ -128,7 +128,7 @@ public class FileHelperTests : IDisposable
         _createdFiles.Add(filePath);
 
         // Act
-        FileHelper.WriteText(filePath, content, Encoding.UTF8);
+        File.WriteAllText(filePath, content, Encoding.UTF8);
 
         // Assert
         Assert.True(File.Exists(filePath));
@@ -146,7 +146,8 @@ public class FileHelperTests : IDisposable
         _createdDirectories.Add(subDir);
 
         // Act
-        FileHelper.WriteText(filePath, content, Encoding.UTF8);
+        Directory.CreateDirectory(subDir);
+        File.WriteAllText(filePath, content, Encoding.UTF8);
 
         // Assert
         Assert.True(Directory.Exists(subDir));
@@ -163,7 +164,7 @@ public class FileHelperTests : IDisposable
         var filePath = CreateTestFile("appendTest.txt", initialContent);
 
         // Act
-        FileHelper.AppendText(filePath, contentToAppend);
+        File.AppendAllText(filePath, contentToAppend);
 
         // Assert
         Assert.Equal(initialContent + contentToAppend, File.ReadAllText(filePath));
@@ -178,7 +179,7 @@ public class FileHelperTests : IDisposable
         _createdFiles.Add(filePath);
 
         // Act
-        FileHelper.AppendText(filePath, content);
+        File.AppendAllText(filePath, content);
 
         // Assert
         Assert.True(File.Exists(filePath));
@@ -617,14 +618,14 @@ public class FileHelperTests : IDisposable
         var nonExistentPath = Path.Combine(_testDirectory, "nonExistent.txt");
 
         // Act & Assert
-        Assert.Throws<FileNotFoundException>(() => FileHelper.ReadText(nonExistentPath));
+        Assert.Throws<FileNotFoundException>(() => File.ReadAllText(nonExistentPath, Encoding.UTF8));
     }
 
     [Fact]
     public void WriteText_WithNullPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => FileHelper.WriteText(null, "content", Encoding.UTF8));
+        Assert.Throws<System.ArgumentNullException>(() => File.WriteAllText(null!, "content", Encoding.UTF8));
     }
 
     [Fact]
@@ -635,7 +636,7 @@ public class FileHelperTests : IDisposable
         _createdFiles.Add(filePath);
 
         // Act: 现在传入 null 编码时应使用默认编码写入而非抛出
-        FileHelper.WriteText(filePath, "content", null);
+        FileHelper.CreateFile(filePath, content: "content", encoding: null);
 
         // Assert
         Assert.True(File.Exists(filePath));
@@ -646,7 +647,7 @@ public class FileHelperTests : IDisposable
     public void AppendText_WithNullPath_ThrowsArgumentNullException()
     {
         // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => FileHelper.AppendText(null, "content"));
+        Assert.Throws<System.ArgumentNullException>(() => File.AppendAllText(null!, "content"));
     }
 
     [Fact]
