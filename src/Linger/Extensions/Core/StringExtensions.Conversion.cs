@@ -43,7 +43,13 @@ public static partial class StringExtensions
                dec.TryToShort(out result);
     }
 
-    public static short ToShort(this string? value) => ((object?)value).ToShort();
+    public static short ToShort(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.TryToShort(out var result)) return result;
+
+        return ParseStrictWholeNumberText(value, short.MinValue, short.MaxValue, static dec => (short)dec, "Int16");
+    }
 
     public static short? ToShortOrNull(this string? value) => value.TryToShort(out var r) ? r : null;
     public static short ToShortOrDefault(this string? value, short defaultValue = 0) => value.TryToShort(out var r) ? r : defaultValue;
@@ -88,7 +94,13 @@ public static partial class StringExtensions
                dec.TryToInt(out result);
     }
 
-    public static int ToInt(this string? value) => ((object?)value).ToInt();
+    public static int ToInt(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.TryToInt(out var result)) return result;
+
+        return ParseStrictWholeNumberText(value, int.MinValue, int.MaxValue, static dec => (int)dec, "Int32");
+    }
 
     public static int? ToIntOrNull(this string? value) => value.TryToInt(out var r) ? r : null;
     public static int ToIntOrDefault(this string? value, int defaultValue = 0) => value.TryToInt(out var r) ? r : defaultValue;
@@ -111,7 +123,13 @@ public static partial class StringExtensions
                dec.TryToLong(out result);
     }
 
-    public static long ToLong(this string? value) => ((object?)value).ToLong();
+    public static long ToLong(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value.TryToLong(out var result)) return result;
+
+        return ParseStrictWholeNumberText(value, long.MinValue, long.MaxValue, static dec => (long)dec, "Int64");
+    }
 
     public static long? ToLongOrNull(this string? value) => value.TryToLong(out var r) ? r : null;
     public static long ToLongOrDefault(this string? value, long defaultValue = 0L) => value.TryToLong(out var r) ? r : defaultValue;
@@ -243,4 +261,36 @@ public static partial class StringExtensions
     }
 
     #endregion
+
+    private static T ParseStrictWholeNumberText<T>(
+        string value,
+        decimal minValue,
+        decimal maxValue,
+        Func<decimal, T> converter,
+        string targetTypeName)
+    {
+        var trimmed = value.Trim();
+        if (trimmed.Length == 0)
+            throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
+
+        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
+
+        decimal parsed;
+        try
+        {
+            parsed = decimal.Parse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture);
+        }
+        catch (FormatException)
+        {
+            throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
+        }
+
+        if (parsed % 1 != 0)
+            throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
+
+        if (parsed < minValue || parsed > maxValue)
+            throw new OverflowException($"Value was either too large or too small for {targetTypeName}.");
+
+        return converter(parsed);
+    }
 }

@@ -22,6 +22,27 @@ public class TypeConverterTests
     }
 
     [Fact]
+    public void ConvertTo_WithNullValueAndNonNullableTarget_ThrowsArgumentNullException()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => TypeConverter.ConvertTo(null, typeof(int)));
+        Assert.Equal("value", exception.ParamName);
+    }
+
+    [Fact]
+    public void ConvertTo_WithDBNullValueAndNonNullableTarget_ThrowsArgumentNullException()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => TypeConverter.ConvertTo(DBNull.Value, typeof(int)));
+        Assert.Equal("value", exception.ParamName);
+    }
+
+    [Fact]
+    public void ConvertTo_WithDBNullValueAndNullableTarget_ReturnsNull()
+    {
+        var result = TypeConverter.ConvertTo(DBNull.Value, typeof(int?));
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void ConvertTo_WithExactTypeMatch_ReturnsSameValue()
     {
         var original = 42;

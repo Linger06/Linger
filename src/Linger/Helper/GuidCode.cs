@@ -22,8 +22,10 @@ public static class GuidCode
     }
 
     /// <summary>
-    /// Gets a new unique identifier based on the current date and a GUID.
+    /// Gets a compact identifier based on the current date and part of a GUID.
     /// </summary>
+    /// <remarks>This 10-character value is not guaranteed to be unique. Use a full GUID when uniqueness is required.</remarks>
+    [Obsolete("This compact value is not guaranteed to be unique. Use Guid.NewGuid() or CreateVersion7() instead.")]
     public static string NewDateGuid
     {
         get
@@ -47,9 +49,10 @@ public static class GuidCode
 #endif
 
     /// <summary>
-    /// Gets a new unique 64-bit integer based on a GUID.
+    /// Gets a 64-bit code based on part of a GUID.
     /// </summary>
-    /// <returns>A new unique 64-bit integer.</returns>
+    /// <returns>A 64-bit integer that is not guaranteed to be unique.</returns>
+    [Obsolete("This 64-bit value is not guaranteed to be unique. Use a full Guid instead.")]
     public static long GetInt64UniqueCode()
     {
         var value = Guid.NewGuid();
@@ -57,9 +60,10 @@ public static class GuidCode
     }
 
     /// <summary>
-    /// Gets a new unique 32-bit integer based on a GUID.
+    /// Gets a 32-bit code based on part of a GUID.
     /// </summary>
-    /// <returns>A new unique 32-bit integer.</returns>
+    /// <returns>A 32-bit integer that is not guaranteed to be unique.</returns>
+    [Obsolete("This 32-bit value is not guaranteed to be unique. Use a full Guid instead.")]
     public static int GetInt32UniqueCode()
     {
         var value = Guid.NewGuid();

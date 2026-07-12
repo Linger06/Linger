@@ -19,8 +19,9 @@ public static class TypeConverter
                 return null;
             }
 
-            throw new InvalidCastException(
-                $"Cannot convert null-like value to non-nullable target type '{targetType.Name}'.");
+            throw new ArgumentNullException(
+                nameof(value),
+                $"Strict conversion requires a non-null input for target type '{targetType.Name}'.");
         }
 
         var sourceType = value.GetType();
@@ -167,23 +168,9 @@ public static class TypeConverter
 
         if (actualType == typeof(double))
         {
-            if (value is float f)
+            if (TryConvertToDouble(value, out var converted))
             {
-                result = (double)f;
-                return true;
-            }
-
-            if (value is double d)
-            {
-                result = d;
-                return true;
-            }
-
-            if (value is string stringValue &&
-                double.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-                    CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
+                result = converted;
                 return true;
             }
 
@@ -193,17 +180,9 @@ public static class TypeConverter
 
         if (actualType == typeof(float))
         {
-            if (value is float f)
+            if (TryConvertToSingle(value, out var converted))
             {
-                result = f;
-                return true;
-            }
-
-            if (value is string stringValue &&
-                float.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-                    CultureInfo.InvariantCulture, out var r))
-            {
-                result = r;
+                result = converted;
                 return true;
             }
 
@@ -376,14 +355,9 @@ public static class TypeConverter
 
     private static double ConvertToDouble(object value)
     {
-        if (value is float f)
+        if (TryConvertToDouble(value, out var result))
         {
-            return f;
-        }
-
-        if (value is double d)
-        {
-            return d;
+            return result;
         }
 
         if (value is string stringValue)
@@ -397,9 +371,9 @@ public static class TypeConverter
 
     private static float ConvertToSingle(object value)
     {
-        if (value is float f)
+        if (TryConvertToSingle(value, out var result))
         {
-            return f;
+            return result;
         }
 
         if (value is string stringValue)
@@ -409,6 +383,52 @@ public static class TypeConverter
         }
 
         return Convert.ToSingle(value, CultureInfo.InvariantCulture);
+    }
+
+    private static bool TryConvertToDouble(object value, out double result)
+    {
+        if (value is float f)
+        {
+            result = f;
+            return true;
+        }
+
+        if (value is double d)
+        {
+            result = d;
+            return true;
+        }
+
+        if (value is string stringValue &&
+            double.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out var parsed))
+        {
+            result = parsed;
+            return true;
+        }
+
+        result = default;
+        return false;
+    }
+
+    private static bool TryConvertToSingle(object value, out float result)
+    {
+        if (value is float f)
+        {
+            result = f;
+            return true;
+        }
+
+        if (value is string stringValue &&
+            float.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out var parsed))
+        {
+            result = parsed;
+            return true;
+        }
+
+        result = default;
+        return false;
     }
 
     private static TimeSpan ConvertToTimeSpan(object value)

@@ -78,6 +78,21 @@ public partial class StringExtensionsTests
         Assert.Equal(expected, result);
     }
 
+    [Fact]
+    public void AppendQuery_Dictionary_ShouldEncodeSpecialCharacters()
+    {
+        var url = "http://example.com";
+        var data = new SortedDictionary<string, string>
+        {
+            ["user name"] = "hello world",
+            ["filter"] = "a&b"
+        };
+
+        var result = url.AppendQuery(data);
+
+        Assert.Equal("http://example.com?filter=a%26b&user%20name=hello%20world", result);
+    }
+
     [Theory]
     [InlineData("http://example.com", "param1=value1&param2=value2&", "http://example.com?param1=value1&param2=value2")]
     [InlineData("http://example.com?existing=param", "param1=value1&param2=value2&", "http://example.com?existing=param&param1=value1&param2=value2")]
@@ -97,5 +112,20 @@ public partial class StringExtensionsTests
 
         // Assert
         Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void AppendQuery_List_ShouldEncodeSpecialCharacters()
+    {
+        var url = "http://example.com";
+        var data = new List<KeyValuePair<string, string>>
+        {
+            new("user name", "hello world"),
+            new("filter", "a&b")
+        };
+
+        var result = url.AppendQuery(data);
+
+        Assert.Equal("http://example.com?user%20name=hello%20world&filter=a%26b", result);
     }
 }

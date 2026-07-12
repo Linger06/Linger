@@ -1,6 +1,8 @@
 ﻿using Linger.Helper;
 using Xunit.v3;
 
+#pragma warning disable CS0618 // Tests document the retained compatibility APIs.
+
 namespace Linger.UnitTests.Helper;
 
 public class GuidCodeTests

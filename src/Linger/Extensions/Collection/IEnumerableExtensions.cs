@@ -330,7 +330,11 @@ public static partial class IEnumerableExtensions
         if (pageSize <= 0)
             return Array.Empty<T>();
 
-        return source.Skip((pageIndex - 1) * pageSize).Take(pageSize);
+        long offset = ((long)pageIndex - 1) * pageSize;
+        if (offset > int.MaxValue)
+            return Array.Empty<T>();
+
+        return source.Skip((int)offset).Take(pageSize);
     }
 
     /// <summary>

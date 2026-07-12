@@ -164,14 +164,13 @@ DateTime endOfMonth = date.EndOfMonth(); // End of the month
 ```csharp
 using Linger.Helper;
 
-// File operations
-FileHelper.WriteText("data.txt", "Hello World");
-string content = FileHelper.ReadText("data.txt");
+// Create and write a text file
+FileHelper.CreateFile("data.txt", content: "Hello World");
 
 // Try-style file reading (won't throw if file doesn't exist)
-if (FileHelper.TryReadText("config.txt", out string configContent))
+if (FileHelper.TryReadText("data.txt", out string content))
 {
-    Console.WriteLine(configContent);
+    Console.WriteLine(content);
 }
 
 // File copy with directory creation
@@ -182,18 +181,9 @@ FileHelper.DeleteFileIfExists("temp.txt");
 
 // Directory operations
 FileHelper.CopyDir("sourceFolder", "backupFolder"); // Recursive copy
-FileHelper.EnsureDirectoryExists("logs/2026");
+FileHelper.EnsureDirectoryExists("logs/2026/app.log");
 FileHelper.ClearDirectory("temp"); // Clear all files and subdirectories
 ```
-
-> **⚠️ Deprecated Methods**: The following methods are deprecated and will be removed in a future version:
-> - `IsExistFile()` → Use `File.Exists()` directly
-> - `IsExistDirectory()` → Use `Directory.Exists()` directly
-> - `ReadTxt()` → Use `ReadText()` or `TryReadText()`
-> - `WriteTxt()` → Use `WriteText()`
-> - `Copy()` → Use `CopyFile()`
-> - `CopyFolder()` → Use `CopyDir()`
-> - `GetFileName()` → Use `Path.GetFileName()` directly
 
 ### Collection Extensions
 
@@ -339,49 +329,51 @@ using Linger.Extensions.Core;
 object stringObj = "123";
 int intValue = stringObj.ToIntOrDefault(0);           // Success: 123
 long longValue = stringObj.ToLongOrDefault(0L);       // Success: 123
-double doubleValue = stringObj.ToDoubleOrDefault(0.0); // Success: 123.0
+decimal decimalValue = stringObj.ToDecimalOrDefault(0m); // Success: 123
 
-// Strict type safety: Non-string objects return default values
-object numberObj = 123.45;
-int invalidInt = numberObj.ToIntOrDefault(0);         // Returns 0 (default value)
+// Common numeric objects also go through safe conversion paths
+object numberObj = 123.00m;
+int convertedInt = numberObj.ToIntOrDefault(0);       // Success: 123
+
+// Default values are returned only when the value cannot be converted losslessly
+object fractionalNumberObj = 123.45;
+int invalidInt = fractionalNumberObj.ToIntOrDefault(0); // Returns 0 because the value is not a whole number
 ```
 
-**Supported Numeric Type Conversions**
+**Built-in Common Conversion Methods**
 
-| Method | Range | Method | Range |
-|--------|-------|--------|-------|
-| `ToSByteOrDefault` | -128 to 127 | `ToByteOrDefault` | 0 to 255 |
-| `ToShortOrDefault` | -32,768 to 32,767 | `ToUShortOrDefault` | 0 to 65,535 |
-| `ToIntOrDefault` | ±2.1×10⁹ | `ToUIntOrDefault` | 0 to 4.3×10⁹ |
-| `ToLongOrDefault` | ±9.2×10¹⁸ | `ToULongOrDefault` | 0 to 1.8×10¹⁹ |
-| `ToFloatOrDefault` | Single precision | `ToDoubleOrDefault` | Double precision |
-| `ToDecimalOrDefault` | High precision | - | - |
+| Method | Target Type | Notes |
+|--------|-------------|-------|
+| `ToShortOrDefault` | `short` | Supports strings, common numeric objects, and whole-number `decimal/double/float` values |
+| `ToIntOrDefault` | `int` | Supports strings, common numeric objects, and whole-number `decimal/double/float` values |
+| `ToLongOrDefault` | `long` | Supports strings, common numeric objects, and whole-number `decimal/double/float` values |
+| `ToDecimalOrDefault` | `decimal` | Supports strings and common numeric objects |
+| `ToDateTimeOrDefault` | `DateTime` | Supports strings, `DateTime`, and `DateTimeOffset` |
+| `ToBoolOrDefault` | `bool` | Supports strings and `0/1` numeric semantics |
+| `ToGuidOrDefault` | `Guid` | Supports strings, `Guid`, and 16-byte arrays |
 
 ```csharp
 // Other type conversions
-DateTime dateValue = stringObj.ToDateTimeOrDefault(DateTime.MinValue);
-Guid guidValue = "550e8400-e29b-41d4-a716-446655440000".ToGuidOrDefault();
-bool boolValue = stringObj.ToBoolOrDefault(false);
+object dateObj = "2025-01-01";
+DateTime dateValue = dateObj.ToDateTimeOrDefault(DateTime.MinValue);
+
+object guidObj = "550e8400-e29b-41d4-a716-446655440000";
+Guid guidValue = guidObj.ToGuidOrDefault();
+
+object boolObj = "true";
+bool boolValue = boolObj.ToBoolOrDefault(false);
 
 // Null-safe operations
 object obj = GetSomeObject();
 string result = obj.ToStringOrDefault("default"); // Returns default when null
 
-// Type checking methods (supports all numeric types)
+// Type checking method
 object testObj = (byte)255;
-bool isByte = testObj.IsByte();                      // Check if byte type
 bool isNumeric = testObj.IsNumeric();                // Check if any numeric type
-bool isUnsigned = testObj.IsAnyUnsignedInteger();    // Check if unsigned integer type
 
 // Performance-optimized Try-style conversion - avoid default value masking failure
 if ("123".TryToInt(out var parsedInt)) { /* parsedInt = 123 */ }
 if (!"bad data".TryToDecimal(out var decVal)) { /* decVal = 0, conversion failed */ }
-
-// Try-style numeric conversions (to avoid masking failures with defaults)
-if ("123".TryToInt(out var parsedInt)) { /* parsedInt = 123 */ }
-if (!"bad data".TryToDecimal(out var decVal)) { /* decVal = 0, conversion failed */ }
-
-> Naming convention: All Try-style methods use `TryToXxx(out T)` and return `bool`. For string extensions the `out` parameter is a nullable value type (e.g., `out int?`), while for object extensions it is non-nullable (e.g., `out int`).
 
 // Ensure prefix/suffix (idempotent, won't duplicate)
 var apiUrl = "api/v1".EnsureStartsWith("/"); // => "/api/v1"
@@ -506,18 +498,18 @@ string description = status.GetDescription(); // Get description text
 ### Parameter Validation
 
 ```csharp
-using Linger;
-
 public void ProcessData(string data, IEnumerable<int> numbers)
 {
-    // Parameter validation polyfill for pre-.NET 8 versions
+    // Newer frameworks use the built-in BCL APIs directly
+    // Older target frameworks get compatible polyfills from Linger automatically
     ArgumentNullException.ThrowIfNull(data);                    // Ensure not null
     ArgumentException.ThrowIfNullOrEmpty(data);                 // Ensure not null or empty string
     ArgumentException.ThrowIfNullOrWhiteSpace(data);            // Ensure not null, empty or whitespace
     ArgumentNullException.ThrowIfNull(numbers);                 // Ensure collection is not null
 
-    // Framework support: .NET 6+ uses built-in implementation, .NET 5 and below uses Linger Polyfill
-    // When upgrading to .NET 8+, just remove "using Linger;", no other code changes required
+    // Framework support:
+    // - ThrowIfNull: built-in on .NET 6+, polyfilled by Linger on .NET 5 and below
+    // - ThrowIfNullOrEmpty / ThrowIfNullOrWhiteSpace: built-in on .NET 8+, polyfilled by Linger on .NET 7 and below
 }
 ```
 
@@ -552,15 +544,12 @@ var result2 = await defaultRetryHelper.ExecuteAsync(
 
 // Synchronous variant
 defaultRetryHelper.Execute(() => DoSomething());
-
-// Try-style file writing
-FileHelper.TryWriteText("logs/app.log", "hello world");
-FileHelper.TryAppendText("logs/app.log", "\nnext line");
 ```
 
 ### Expression Helper
 
 ```csharp
+using System.Linq.Expressions;
 using Linger.Helper;
 using Linger.Enums;
 
@@ -585,17 +574,13 @@ Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(
 ### Path Operations
 
 ```csharp
-using Linger.Helper.PathHelpers;
+using Linger.Extensions.IO;
+using Linger.Helper;
 
-// Path normalization - handles relative paths, duplicate separators, etc.
-string messyPath = @"C:\temp\..\folder\.\file.txt";
-string normalized = PathHelper.CleanAndNormalizePureString(messyPath);
-// Result: "C:\folder\file.txt" (Windows) or "/folder/file.txt" (Unix)
-
-// Path comparison - cross-platform safe path equality check
-string path1 = @"C:\Users\Documents\file.txt";
-string path2 = @"c:\users\documents\FILE.TXT"; // Different case
-bool pathEquals = PathExtensions.PathEquals(path1, path2); // Windows: true, Linux: false
+// Path normalization - handles duplicate separators and trailing separator policy
+string messyPath = @"temp\\folder//file.txt\";
+string normalized = PathHelper.CleanAndNormalizePureString(messyPath, preserveEndingSeparator: false);
+// Result: duplicate separators are removed and trailing separators follow the selected policy
 
 // Get relative path - from base path to target path
 string basePath = @"C:\Projects\MyApp";
@@ -603,15 +588,15 @@ string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
 string relative = PathExtensions.GetRelativePath(basePath, targetPath);
 // Result: "src\Components\Button.cs" (Windows) or "src/Components/Button.cs" (Unix)
 
-// Resolve absolute path - convert relative path to absolute
+// Resolve absolute path - convert a relative path to an absolute one
 string workingDir = @"C:\Projects";
 string relativePath = @"MyApp\src\file.txt";
-string absolutePath = PathExtensions.ResolveToAbsolutePath(relativePath, workingDir);
+string absolutePath = PathExtensions.ToFullPath(relativePath, workingDir);
 // Result: "C:\Projects\MyApp\src\file.txt"
 
 // Check for invalid path characters
 string suspiciousPath = "file<name>.txt"; // Contains invalid character '<'
-bool hasInvalidChars = PathExtensions.ContainsInvalidPathChars(suspiciousPath); // true
+bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // true
 
 // Check if file or directory exists
 string filePath = @"C:\temp\data.txt";
@@ -634,29 +619,30 @@ Methods like `LeftJoin`, `RightJoin`, `FullJoin` are fully compatible with .NET 
 
 ### Strict Type Safety Principles
 
-**Conversion Strategy** (Performance Optimized):
-1. First checks direct type matching (zero overhead)
-2. Then attempts `ToString()` to string parsing
+**Conversion Strategy** (Conservative and optimized for common paths):
+1. Prefer direct type matches and common numeric branches to avoid unnecessary string parsing
+2. For integer targets, accept only lossless numeric conversions
+3. Fall back to `ToString()` parsing only when the earlier paths do not apply
 
 ```csharp
 object intObj = 123;
-int result = intObj.ToIntOrDefault(0);     // Direct match, zero overhead
+int result = intObj.ToIntOrDefault(0);     // Direct match, no string parsing needed
 object doubleObj = 123.45;
-int failed = doubleObj.ToIntOrDefault(0);  // Returns 0 (conversion fails)
+int failed = doubleObj.ToIntOrDefault(0);  // Returns 0 because the value is not a whole number
 ```
 
-**Complete Numeric Type Support**: byte, sbyte, short, ushort, int, uint, long, ulong, float, double, decimal
+**Current Core Numeric Conversion Support**: `short`, `int`, `long`, and `decimal`, plus common object/string conversions for `DateTime`, `bool`, and `Guid`
 
 ### Performance Benefits
 
-- Zero-overhead same-type conversion
-- Avoids exceptions, returns default values for better performance
-- Smart fallback strategy, string conversion only when needed
+- Fast paths for same-type and common numeric conversions without unnecessary string parsing
+- `TryToXxx()` / `ToXxxOrDefault()` avoid using exceptions for routine conversion failures
+- Smart fallback strategy, with string conversion only when needed
 - Unified API naming pattern
 
 ## Best Practices
 
-1. **Type Conversion**: Use `ToXxxOrDefault()` to avoid exception overhead; use `TryToXxx()` methods when you need to explicitly check if conversion succeeds
+1. **Type Conversion**: Use `ToXxx()` when the input must be valid and failures should surface immediately; use `ToXxxOrNull()` when an empty result is acceptable; use `ToXxxOrDefault()` when you want a fallback value; use `TryToXxx()` when you need an explicit success/failure check
 2. **Null Checking**: Leverage `IsNullOrEmpty()`, `EnsureIsNotNull()` and other extension methods
 3. **Async Operations**: Use async versions for I/O-intensive tasks (file, network)
 4. **Exception Handling**: Use `RetryHelper` for unstable operations, handle exceptions properly with user feedback

@@ -544,6 +544,10 @@ public partial class StringExtensionsTests
     [Theory]
     [InlineData("true", true)]
     [InlineData("false", true)]
+    [InlineData("1", false)]
+    [InlineData("0", false)]
+    [InlineData("yes", false)]
+    [InlineData("off", false)]
     [InlineData("abc", false)]
     public void IsBoolean_ShouldReturnExpectedResult(string value, bool expected)
     {
@@ -809,7 +813,7 @@ public partial class StringExtensionsTests
     [InlineData("hello", 10, null, "hello")]
     [InlineData("hello world", 5, null, "he...")]
     [InlineData("hello world", 5, "***", "he***")]
-    [InlineData("hello world", 2, "***", "***")]
+    [InlineData("hello world", 2, "***", "**")]
     [InlineData("hello", 0, null, "")]
     [InlineData("", 5, null, "")]
     [InlineData(null, 5, null, "")]
@@ -1024,6 +1028,22 @@ public partial class StringExtensionsTests
     }
 
     [Fact]
+    public void AppendQuery_DictionaryOverload_ShouldUrlEncodeKeysAndValues()
+    {
+        var url = "http://example.com";
+        var data = new Dictionary<string, string>
+        {
+            ["user name"] = "hello world",
+            ["filter"] = "a&b"
+        };
+
+        var result = url.AppendQuery(data);
+
+        Assert.Contains("user%20name=hello%20world", result);
+        Assert.Contains("filter=a%26b", result);
+    }
+
+    [Fact]
     public void AppendQuery_KeyValuePairListOverload_ShouldAppendQueryParameters()
     {
         // Arrange
@@ -1041,6 +1061,22 @@ public partial class StringExtensionsTests
         Assert.Contains("?id=123", result);
         Assert.Contains("name=test", result);
         Assert.StartsWith("http://example.com?", result);
+    }
+
+    [Fact]
+    public void AppendQuery_KeyValuePairListOverload_ShouldUrlEncodeKeysAndValues()
+    {
+        var url = "http://example.com";
+        var data = new List<KeyValuePair<string, string>>
+        {
+            new("user name", "hello world"),
+            new("filter", "a&b")
+        };
+
+        var result = url.AppendQuery(data);
+
+        Assert.Contains("user%20name=hello%20world", result);
+        Assert.Contains("filter=a%26b", result);
     }
 
     [Theory]

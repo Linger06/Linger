@@ -6,6 +6,8 @@ using Microsoft.CSharp.RuntimeBinder;
 using Linger.Extensions;
 using Xunit.v3;
 
+#pragma warning disable CS0618 // Compatibility overload coverage.
+
 namespace Linger.UnitTests.Extensions;
 
 public class JsonExtensionsTests
@@ -350,6 +352,22 @@ public class JsonExtensionsTests
     }
 
     [Fact]
+    public void JsonExtensions_SerializeJson_WithUnicodeEncoding_PreservesNonAsciiText()
+    {
+        // Arrange
+        var person = new TestPerson { Name = "中文", Age = 25 };
+
+        // Act
+        var jsonUtf8 = person.SerializeJson(Encoding.UTF8);
+        var jsonUnicode = person.SerializeJson(Encoding.Unicode);
+
+        // Assert
+        Assert.Contains("中文", jsonUtf8);
+        Assert.Contains("中文", jsonUnicode);
+        Assert.Equal(jsonUtf8, jsonUnicode);
+    }
+
+    [Fact]
     public void JsonExtensions_DeserializeJson_WithDifferentEncodings_ProducesSameResult()
     {
         // Arrange
@@ -384,6 +402,46 @@ public class JsonExtensionsTests
         Assert.Equal("text", dataTable.Rows[0]["StringVal"]);
         Assert.Equal(42L, dataTable.Rows[0]["NumVal"]);
         Assert.Equal(true, dataTable.Rows[0]["BoolVal"]);
+    }
+
+    [Fact]
+    public void JsonElementToDataTable_WithFirstRowNullValue_CreatesColumnAndPreservesLaterTypedValue()
+    {
+        // Arrange
+        var json = "[{\"Value\":null},{\"Value\":42}]";
+        var jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+
+        // Act
+        var dataTable = jsonElement.JsonElementToDataTable();
+
+        // Assert
+        Assert.Equal(2, dataTable.Rows.Count);
+        Assert.Single(dataTable.Columns);
+        Assert.Equal("Value", dataTable.Columns[0].ColumnName);
+        Assert.Equal(typeof(long), dataTable.Columns["Value"].DataType);
+        Assert.Equal(DBNull.Value, dataTable.Rows[0]["Value"]);
+        Assert.Equal(42L, dataTable.Rows[1]["Value"]);
+    }
+
+    [Fact]
+    public void JsonElementToDataTable_WithLaterRowAddingColumn_AddsColumnAndUsesDBNullForMissingValues()
+    {
+        // Arrange
+        var json = "[{\"A\":1},{\"A\":2,\"B\":3}]";
+        var jsonElement = JsonSerializer.Deserialize<JsonElement>(json);
+
+        // Act
+        var dataTable = jsonElement.JsonElementToDataTable();
+
+        // Assert
+        Assert.Equal(2, dataTable.Rows.Count);
+        Assert.Equal(2, dataTable.Columns.Count);
+        Assert.Equal(typeof(long), dataTable.Columns["A"].DataType);
+        Assert.Equal(typeof(long), dataTable.Columns["B"].DataType);
+        Assert.Equal(1L, dataTable.Rows[0]["A"]);
+        Assert.Equal(DBNull.Value, dataTable.Rows[0]["B"]);
+        Assert.Equal(2L, dataTable.Rows[1]["A"]);
+        Assert.Equal(3L, dataTable.Rows[1]["B"]);
     }
 
     #region JsonTextAccessor Tests

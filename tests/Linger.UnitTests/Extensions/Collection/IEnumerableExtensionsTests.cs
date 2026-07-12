@@ -419,6 +419,16 @@ public class IEnumerableExtensionsTests
         Assert.Empty(enumerable.Paging(1, -2));
     }
 
+    [Fact]
+    public void Paging_ReturnsEmpty_WhenOffsetExceedsSupportedRange()
+    {
+        var enumerable = new[] { 1, 2, 3 };
+
+        var result = enumerable.Paging(int.MaxValue, 2);
+
+        Assert.Empty(result);
+    }
+
     [Sample]
     private class SampleClass
     {

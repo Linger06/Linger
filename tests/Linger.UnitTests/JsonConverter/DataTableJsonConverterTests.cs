@@ -124,9 +124,22 @@ public class DataTableJsonConverterTests
     }
 
     [Fact]
-    public void Read_InvalidJson_ThrowsJsonException()
+    public void Read_NullOnlyColumn_RetainsLaterTypedValue()
     {
-        var json = "[{\"NullableInt\":null}]";
+        var json = "[{\"NullableInt\":null},{\"NullableInt\":42}]";
+        DataTable? result = JsonSerializer.Deserialize<DataTable>(json, _options);
+
+        Assert.NotNull(result);
+        Assert.Single(result.Columns);
+        Assert.Equal(typeof(long), result.Columns["NullableInt"].DataType);
+        Assert.Equal(DBNull.Value, result.Rows[0]["NullableInt"]);
+        Assert.Equal(42L, result.Rows[1]["NullableInt"]);
+    }
+
+    [Fact]
+    public void Read_NestedObject_ThrowsNotSupportedException()
+    {
+        var json = "[{\"Nested\":{\"Value\":1}}]";
 
         Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<DataTable>(json, _options));
     }

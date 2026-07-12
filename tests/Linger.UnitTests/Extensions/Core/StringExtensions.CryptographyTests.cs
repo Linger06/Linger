@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using Linger.Extensions.Core;
 
 namespace Linger.UnitTests.Extensions.Core;
@@ -139,10 +140,10 @@ public class StringExtensionsCryptographyTests
         string correctKey = "CorrectKey123";
         string wrongKey = "WrongKey456";
 
-        string encrypted = data.AesEncrypt(correctKey);
+        string encrypted = data.AesEncryptAuthenticated(correctKey);
 
         // Act & Assert
-        Assert.Throws<CryptographicException>(() => encrypted.AesDecrypt(wrongKey));
+        Assert.Throws<CryptographicException>(() => encrypted.AesDecryptAuthenticated(wrongKey));
     }
 
     [Fact]
@@ -154,6 +155,43 @@ public class StringExtensionsCryptographyTests
 
         // Act & Assert
         Assert.Throws<CryptographicException>(() => shortData.AesDecrypt(key));
+    }
+
+    [Fact]
+    public void AesDecrypt_TamperedAuthenticatedData_ThrowsCryptographicException()
+    {
+        string encrypted = "Sensitive data".AesEncryptAuthenticated("TestKey123");
+        byte[] payload = Convert.FromBase64String(encrypted);
+        payload[40] ^= 1;
+
+        string tampered = Convert.ToBase64String(payload);
+
+        Assert.Throws<CryptographicException>(() => tampered.AesDecryptAuthenticated("TestKey123"));
+    }
+
+    [Fact]
+    public void AesAuthenticatedEncryptDecrypt_ReturnsOriginalString()
+    {
+        const string original = "Authenticated encrypted value";
+        const string key = "AuthenticatedKey123";
+
+        string encrypted = original.AesEncryptAuthenticated(key);
+        string decrypted = encrypted.AesDecryptAuthenticated(key);
+
+        Assert.Equal(original, decrypted);
+        Assert.Equal(new byte[] { 0x4C, 0x4E, 0x47, 0x32 }, Convert.FromBase64String(encrypted).Take(4).ToArray());
+    }
+
+    [Fact]
+    public void AesDecrypt_LegacyPayload_ReturnsOriginalString()
+    {
+        const string original = "Legacy encrypted value";
+        const string key = "LegacyKey123";
+        string legacyPayload = CreateLegacyPayload(original, key);
+
+        string decrypted = legacyPayload.AesDecrypt(key);
+
+        Assert.Equal(original, decrypted);
     }
 
     #endregion
@@ -331,4 +369,21 @@ public class StringExtensionsCryptographyTests
     }
 
     #endregion
+
+    private static string CreateLegacyPayload(string input, string key)
+    {
+        using var aes = Aes.Create();
+        aes.Key = key.ToSha256HashByte();
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.PKCS7;
+        aes.GenerateIV();
+
+        using var encryptor = aes.CreateEncryptor();
+        byte[] inputBytes = Encoding.UTF8.GetBytes(input);
+        byte[] encrypted = encryptor.TransformFinalBlock(inputBytes, 0, inputBytes.Length);
+        byte[] payload = new byte[aes.IV.Length + encrypted.Length];
+        Buffer.BlockCopy(aes.IV, 0, payload, 0, aes.IV.Length);
+        Buffer.BlockCopy(encrypted, 0, payload, aes.IV.Length, encrypted.Length);
+        return Convert.ToBase64String(payload);
+    }
 }

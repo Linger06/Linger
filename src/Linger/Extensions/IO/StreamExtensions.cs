@@ -44,7 +44,6 @@ public static class StreamExtensions
     }
 #endif
 
-    [Obsolete("This wrapper is obsolete. Prefer stream.CopyTo with an explicitly configured FileStream.")]
     public static void ToFile(this Stream stream, string filePath)
     {
         ArgumentNullException.ThrowIfNull(stream);
@@ -59,7 +58,6 @@ public static class StreamExtensions
         stream.CopyTo(fs);
     }
 
-    [Obsolete("This wrapper is obsolete. Prefer stream.CopyToAsync with an explicitly configured FileStream.")]
     public static async Task ToFileAsync(this Stream stream, string filePath)
     {
         ArgumentNullException.ThrowIfNull(stream);

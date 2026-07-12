@@ -106,12 +106,21 @@ public static partial class StringExtensions
         if (string.IsNullOrEmpty(input) || maxLength <= 0)
             return string.Empty;
 
+        suffix ??= string.Empty;
+
         if (input.Length <= maxLength)
             return input;
 
+        if (suffix.Length >= maxLength)
+        {
+#if NET6_0_OR_GREATER
+            return suffix.AsSpan(0, maxLength).ToString();
+#else
+            return suffix.Substring(0, maxLength);
+#endif
+        }
+
         var actualMaxLength = maxLength - suffix.Length;
-        if (actualMaxLength <= 0)
-            return suffix;
 
 #if NET6_0_OR_GREATER
         var totalLength = actualMaxLength + suffix.Length;

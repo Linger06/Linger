@@ -67,15 +67,15 @@ public static class JsonExtensions
     /// </example>
     public static string SerializeJson<T>(this T value)
     {
-        return value.SerializeJson(Encoding.UTF8);
+        return SerializeJsonCore(value);
     }
 
     /// <summary>
-    /// Serializes an object to a JSON string using the specified encoding.
+    /// Serializes an object to a JSON string. The encoding parameter is retained for compatibility.
     /// </summary>
     /// <typeparam name="T">The type of the object.</typeparam>
     /// <param name="value">The object to serialize.</param>
-    /// <param name="encoding">The encoding to use.</param>
+    /// <param name="encoding">Retained for compatibility. JSON strings are decoded from the serializer's UTF-8 output.</param>
     /// <returns>A JSON string representation of the object.</returns>
     /// <example>
     /// <code>
@@ -84,7 +84,14 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
+    [Obsolete("The Encoding parameter does not apply to a string result. Use SerializeJson(value) instead.")]
     public static string SerializeJson<T>(this T value, Encoding encoding)
+    {
+        ArgumentNullException.ThrowIfNull(encoding);
+        return SerializeJsonCore(value);
+    }
+
+    private static string SerializeJsonCore<T>(T value)
     {
         if (value == null)
         {
@@ -94,7 +101,7 @@ public static class JsonExtensions
         var serializer = new DataContractJsonSerializer(typeof(T));
         using var memoryStream = new MemoryStream();
         serializer.WriteObject(memoryStream, value);
-        return encoding.GetString(memoryStream.ToArray());
+        return Encoding.UTF8.GetString(memoryStream.ToArray());
     }
 
     /// <summary>
@@ -199,55 +206,107 @@ public static class JsonExtensions
     public static DataTable JsonElementToDataTable(this JsonElement dataRoot)
     {
         var dataTable = new DataTable();
-        var firstPass = true;
+
+        var elements = new List<JsonElement>();
+        var columnTypes = new Dictionary<string, Type>(StringComparer.Ordinal);
+
         foreach (JsonElement element in dataRoot.EnumerateArray())
         {
-            DataRow row = dataTable.NewRow();
-            dataTable.Rows.Add(row);
+            elements.Add(element);
+
             foreach (JsonProperty col in element.EnumerateObject())
             {
-                if (firstPass)
+                var inferredType = InferColumnType(col.Value);
+                if (columnTypes.TryGetValue(col.Name, out var existingType))
                 {
-                    JsonElement colValue = col.Value;
-                    dataTable.Columns.Add(new DataColumn(col.Name, colValue.ValueKind.ValueKindToType(colValue.ToString())));
+                    columnTypes[col.Name] = MergeColumnType(existingType, inferredType);
                 }
-                row[col.Name] = col.Value.JsonElementToTypedValue();
+                else
+                {
+                    columnTypes[col.Name] = inferredType;
+                }
             }
-            firstPass = false;
+        }
+
+        foreach (var columnType in columnTypes)
+        {
+            var dataColumn = new DataColumn(columnType.Key, columnType.Value)
+            {
+                AllowDBNull = true
+            };
+            dataTable.Columns.Add(dataColumn);
+        }
+
+        foreach (JsonElement element in elements)
+        {
+            DataRow row = dataTable.NewRow();
+            foreach (DataColumn column in dataTable.Columns)
+            {
+                row[column] = DBNull.Value;
+            }
+
+            foreach (JsonProperty col in element.EnumerateObject())
+            {
+                row[col.Name] = col.Value.JsonElementToTypedValue() ?? DBNull.Value;
+            }
+
+            dataTable.Rows.Add(row);
         }
 
         return dataTable;
     }
 
-    private static Type ValueKindToType(this JsonValueKind valueKind, string value)
+    private static Type InferColumnType(this JsonElement jsonElement)
     {
-        switch (valueKind)
+        switch (jsonElement.ValueKind)
         {
             case JsonValueKind.String:
                 return typeof(string);
             case JsonValueKind.Number:
-                if (long.TryParse(value, out _))
+                if (jsonElement.TryGetInt64(out _))
                 {
                     return typeof(long);
                 }
-                else
-                {
-                    return typeof(double);
-                }
+
+                return typeof(double);
             case JsonValueKind.True:
             case JsonValueKind.False:
                 return typeof(bool);
-            case JsonValueKind.Undefined:
-                throw new NotSupportedException();
-            case JsonValueKind.Object:
-                return typeof(object);
-            case JsonValueKind.Array:
-                return typeof(Array);
             case JsonValueKind.Null:
+            case JsonValueKind.Undefined:
+                return typeof(object);
+            case JsonValueKind.Object:
+            case JsonValueKind.Array:
                 throw new NotSupportedException();
             default:
                 return typeof(object);
         }
+    }
+
+    private static Type MergeColumnType(Type currentType, Type candidateType)
+    {
+        if (currentType == candidateType)
+        {
+            return currentType;
+        }
+
+        if (currentType == typeof(object))
+        {
+            return candidateType;
+        }
+
+        if (candidateType == typeof(object))
+        {
+            return currentType;
+        }
+
+        if ((currentType == typeof(long) && candidateType == typeof(double)) ||
+            (currentType == typeof(double) && candidateType == typeof(long)))
+        {
+            return typeof(double);
+        }
+
+        return typeof(object);
     }
 
     private static object? JsonElementToTypedValue(this JsonElement jsonElement)

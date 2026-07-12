@@ -197,23 +197,25 @@ public static class IDataReaderExtensions
     {
         using (dr)
         {
-            T model = Activator.CreateInstance<T>();
-
             var field = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             for (var i = 0; i < dr.FieldCount; i++)
             {
                 field.Add(dr.GetName(i));
             }
 
-            while (dr.Read())
+            if (!dr.Read())
             {
-                foreach (PropertyInfo pi in model!.GetType()
-                             .GetProperties(BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.Instance))
+                dr.Close();
+                return default!;
+            }
+
+            T model = Activator.CreateInstance<T>();
+            foreach (PropertyInfo pi in model!.GetType()
+                         .GetProperties(BindingFlags.GetProperty | BindingFlags.Public | BindingFlags.Instance))
+            {
+                if (field.Contains(pi.Name) && !dr[pi.Name].IsNullOrDbNull())
                 {
-                    if (field.Contains(pi.Name) && !dr[pi.Name].IsNullOrDbNull())
-                    {
-                        pi.SetValue(model, ConvertToType(dr[pi.Name], pi.PropertyType), null);
-                    }
+                    pi.SetValue(model, ConvertToType(dr[pi.Name], pi.PropertyType), null);
                 }
             }
 

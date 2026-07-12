@@ -92,6 +92,36 @@ public class IDataReaderExtensionsTests
     }
 
     [Fact]
+    public void ReaderToModel_WithMultipleRows_ReturnsFirstObject()
+    {
+        var mockDataReader = new Mock<IDataReader>();
+        var rowIndex = -1;
+        mockDataReader.Setup(dr => dr.FieldCount).Returns(2);
+        mockDataReader.Setup(dr => dr.GetName(0)).Returns("Id");
+        mockDataReader.Setup(dr => dr.GetName(1)).Returns("Name");
+        mockDataReader.Setup(dr => dr.Read()).Returns(() => ++rowIndex < 2);
+        mockDataReader.Setup(dr => dr["Id"]).Returns(() => rowIndex + 1);
+        mockDataReader.Setup(dr => dr["Name"]).Returns(() => rowIndex == 0 ? "First" : "Second");
+
+        var result = mockDataReader.Object.ReaderToModel<TestClass>();
+
+        Assert.Equal(1, result.Id);
+        Assert.Equal("First", result.Name);
+    }
+
+    [Fact]
+    public void ReaderToModel_WithNoRows_ReturnsDefault()
+    {
+        var mockDataReader = new Mock<IDataReader>();
+        mockDataReader.Setup(dr => dr.FieldCount).Returns(0);
+        mockDataReader.Setup(dr => dr.Read()).Returns(false);
+
+        var result = mockDataReader.Object.ReaderToModel<TestClass>();
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void ReaderToModel_WithMapper_ReturnsMappedObject()
     {
         var mockDataReader = new Mock<IDataReader>();

@@ -91,6 +91,24 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Throws<FormatException>(() => "42.5".ToShort());
         }
 
+        [Fact]
+        public void ToShort_ShouldThrowArgumentNullException_WhenValueIsNull()
+        {
+            Assert.Throws<ArgumentNullException>(() => ((string?)null).ToShort());
+        }
+
+        [Fact]
+        public void ToShort_ShouldThrowFormatException_WhenValueIsWhitespace()
+        {
+            Assert.Throws<FormatException>(() => " ".ToShort());
+        }
+
+        [Fact]
+        public void ToShort_ShouldThrowOverflowException_WhenValueIsOutOfRange()
+        {
+            Assert.Throws<OverflowException>(() => "32768".ToShort());
+        }
+
         public static TheoryData<string?, bool, Guid> TryToGuidData()
         {
             return new TheoryData<string?, bool, Guid>
@@ -271,6 +289,24 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
+        public void ToInt_ShouldThrowArgumentNullException_WhenValueIsNull()
+        {
+            Assert.Throws<ArgumentNullException>(() => ((string?)null).ToInt());
+        }
+
+        [Fact]
+        public void ToInt_ShouldThrowFormatException_WhenValueIsWhitespace()
+        {
+            Assert.Throws<FormatException>(() => " ".ToInt());
+        }
+
+        [Fact]
+        public void ToInt_ShouldThrowOverflowException_WhenValueIsOutOfRange()
+        {
+            Assert.Throws<OverflowException>(() => "2147483648".ToInt());
+        }
+
+        [Fact]
         public void ToInt_ShouldConvertWholeNumberDecimalText()
         {
             Assert.Equal(42, "42.0".ToInt());
@@ -391,6 +427,24 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToLong_ShouldThrowFormatException_WhenFractionalTextIsProvided()
         {
             Assert.Throws<FormatException>(() => "42.5".ToLong());
+        }
+
+        [Fact]
+        public void ToLong_ShouldThrowArgumentNullException_WhenValueIsNull()
+        {
+            Assert.Throws<ArgumentNullException>(() => ((string?)null).ToLong());
+        }
+
+        [Fact]
+        public void ToLong_ShouldThrowFormatException_WhenValueIsWhitespace()
+        {
+            Assert.Throws<FormatException>(() => " ".ToLong());
+        }
+
+        [Fact]
+        public void ToLong_ShouldThrowOverflowException_WhenValueIsOutOfRange()
+        {
+            Assert.Throws<OverflowException>(() => "9223372036854775808".ToLong());
         }
 
         [Fact]

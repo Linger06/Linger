@@ -6,8 +6,11 @@ using Linger.Extensions;
 namespace Linger.Json.JsonConverter;
 
 /// <summary>
-/// A custom JSON converter for <see cref="DataSet"/> objects.
+/// Converts the row data of a <see cref="DataSet"/> to and from JSON arrays.
 /// </summary>
+/// <remarks>
+/// This compact representation does not preserve table names, empty-table columns, keys, relations, or other schema metadata.
+/// </remarks>
 public class DataSetConverter : JsonConverter<DataSet>
 {
     /// <summary>

@@ -143,6 +143,8 @@ public static class ObjectExtensions
 
         switch (value)
         {
+            case string str:
+                return str.ToShort();
             case decimal dec:
                 return dec.ToShort();
             case double db:
@@ -200,6 +202,8 @@ public static class ObjectExtensions
 
         switch (value)
         {
+            case string str:
+                return str.ToLong();
             case decimal dec:
                 return dec.ToLong();
             case double db:
@@ -241,10 +245,12 @@ public static class ObjectExtensions
                 result = b;
                 return true;
             case double db:
+                if (double.IsNaN(db) || double.IsInfinity(db)) return false;
                 if (db < (double)decimal.MinValue || db > (double)decimal.MaxValue) return false;
                 result = (decimal)db;
                 return true;
             case float fl:
+                if (float.IsNaN(fl) || float.IsInfinity(fl)) return false;
                 if (fl < (float)decimal.MinValue || fl > (float)decimal.MaxValue) return false;
                 result = (decimal)fl;
                 return true;
@@ -310,6 +316,8 @@ public static class ObjectExtensions
 
         switch (value)
         {
+            case string str:
+                return str.ToInt();
             case decimal dec:
                 return dec.ToInt();
             case double db:
@@ -411,6 +419,10 @@ public static class ObjectExtensions
                 if (db == 1.0) { result = true; return true; }
                 if (db == 0.0) { result = false; return true; }
                 return false;
+            case float fl:
+                if (fl == 1f) { result = true; return true; }
+                if (fl == 0f) { result = false; return true; }
+                return false;
         }
 
         var fallbackStr = value.ToString();
@@ -426,15 +438,17 @@ public static class ObjectExtensions
         switch (value)
         {
             case int i:
-                throw new InvalidCastException($"The integer value '{i}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
+                throw new InvalidCastException($"The integer value '{FormatInvariant(i)}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
             case decimal dec:
-                throw new InvalidCastException($"The decimal value '{dec}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
+                throw new InvalidCastException($"The decimal value '{FormatInvariant(dec)}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
             case long l:
-                throw new InvalidCastException($"The long value '{l}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
+                throw new InvalidCastException($"The long value '{FormatInvariant(l)}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
             case short s:
-                throw new InvalidCastException($"The short value '{s}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
+                throw new InvalidCastException($"The short value '{FormatInvariant(s)}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
             case double db:
-                throw new InvalidCastException($"The double value '{db}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
+                throw new InvalidCastException($"The double value '{FormatInvariant(db)}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
+            case float fl:
+                throw new InvalidCastException($"The float value '{FormatInvariant(fl)}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
         }
 
         return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
@@ -515,7 +529,7 @@ public static class ObjectExtensions
         var converted = TypeConverter.ConvertTo(value, targetType);
         if (converted is null)
             throw new InvalidCastException(
-                $"Cannot convert value '{value}' (Type: {value.GetType().Name}) to target type '{targetType.Name}'.");
+                $"Cannot convert value '{FormatInvariant(value)}' (Type: {value.GetType().Name}) to target type '{targetType.Name}'.");
         if (converted is T typedValue)
             return typedValue;
         return CastToTarget<T>(converted, targetType, underlyingType);
@@ -616,9 +630,9 @@ public static class ObjectExtensions
         Func<double, TResult> converter)
     {
         if (double.IsNaN(value) || double.IsInfinity(value) || value % 1 != 0)
-            throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{value}' cannot be converted to {targetTypeName} because it contains a fractional part.");
+            throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' cannot be converted to {targetTypeName} because it contains a fractional part.");
         if (value < minValue || value > maxValue)
-            throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{value}' is outside the range of {targetTypeName}.");
+            throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
         return converter(value);
     }
 
@@ -631,9 +645,9 @@ public static class ObjectExtensions
         Func<float, TResult> converter)
     {
         if (float.IsNaN(value) || float.IsInfinity(value) || value % 1 != 0)
-            throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{value}' cannot be converted to {targetTypeName} because it contains a fractional part.");
+            throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' cannot be converted to {targetTypeName} because it contains a fractional part.");
         if (value < minValue || value > maxValue)
-            throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{value}' is outside the range of {targetTypeName}.");
+            throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
         return converter(value);
     }
 
@@ -642,6 +656,15 @@ public static class ObjectExtensions
 
     private static bool IsWholeNumberInRange(float value, float minValue, float maxValue)
         => !float.IsNaN(value) && !float.IsInfinity(value) && value % 1 == 0 && value >= minValue && value <= maxValue;
+
+    private static string FormatInvariant(object value)
+    {
+        return value switch
+        {
+            IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+            _ => value.ToString() ?? string.Empty
+        };
+    }
 
     private static bool TryConvertToTimeSpan(object value, out TimeSpan result)
     {

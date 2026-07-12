@@ -9,7 +9,7 @@ public class PathExtensionsTests
     [Fact]
     public void CleanAndNormalizePureString_ShouldStandardizePaths()
     {
-        // 基本路径测试
+        // Basic path normalization cases.
         string path1 = "path/to/file";
         string path2 = "path\\to\\file";
         string path3 = "path//to\\\\file";
@@ -25,7 +25,7 @@ public class PathExtensionsTests
         Assert.Equal(expected, result2);
         Assert.Equal(expected, result3);
 
-        // 边界条件测试
+        // Blank inputs should normalize to empty strings.
         Assert.Equal("", PathHelper.CleanAndNormalizePureString(null, false));
         Assert.Equal(string.Empty, PathHelper.CleanAndNormalizePureString(string.Empty, false));
         Assert.Equal(string.Empty, PathHelper.CleanAndNormalizePureString("   ", false));
@@ -34,7 +34,7 @@ public class PathExtensionsTests
     [Fact]
     public void CleanAndNormalizePureString_WithEndingSeparator_ShouldPreserveEnding()
     {
-        // 测试保留末尾分隔符
+        // Trailing separators should be preserved when requested.
         string path1 = "path/to/folder";
         string path2 = "path/to/folder/";
 
@@ -47,63 +47,91 @@ public class PathExtensionsTests
         Assert.Equal($"path{expectedSeparator}to{expectedSeparator}folder{expectedSeparator}", result2);
     }
 
-        [Fact]
+    [Fact]
     public void GetRelativePath_ShouldCalculateRelativePaths_SchemeA()
     {
-        // 1. 准备数据
+        // Arrange
         string baseDir = OSPlatformHelper.IsWindows ? "C:\\base\\path" : "/base/path";
         string targetSameLevel = OSPlatformHelper.IsWindows ? "C:\\base\\other" : "/base/other";
         string targetSubDir = OSPlatformHelper.IsWindows ? "C:\\base\\path\\subdir" : "/base/path/subdir";
         string targetParentDir = OSPlatformHelper.IsWindows ? "C:\\base" : "/base";
 
-        // 2. 期望结果
+        // Expected results
         string expectedSameLevel = OSPlatformHelper.IsWindows ? "..\\other" : "../other";
         string expectedSubDir = "subdir";
         string expectedParent = "..";
 
-        // 3. 执行核心逻辑测试：扩展方法写法是 base.GetRelativePath(target)
+        // Act
         var relSameLevel = baseDir.GetRelativePath(targetSameLevel);
         var relSubDir = baseDir.GetRelativePath(targetSubDir);
         var relParent = baseDir.GetRelativePath(targetParentDir);
 
-        // 4. 断言结果
+        // Assert
         Assert.Equal(expectedSameLevel, relSameLevel);
         Assert.Equal(expectedSubDir, relSubDir);
         Assert.Equal(expectedParent, relParent);
 
-        // 5. 相同路径边界
+        // Same path should resolve to "."
         Assert.Equal(".", baseDir.GetRelativePath(baseDir));
 
-        // 6. 异常边界测试：当基准路径（主体）为空或空格时，应该抛出 ArgumentException
+        // Blank base paths are rejected.
         Assert.Throws<ArgumentException>(() => "".GetRelativePath(targetSubDir));
         Assert.Throws<ArgumentException>(() => "   ".GetRelativePath(targetSubDir));
 
-        // 7. 空路径返回值测试：当目标路径（参数）为空时，应该返回 string.Empty
+        // Null and empty target paths map back to empty strings.
         Assert.Equal(string.Empty, baseDir.GetRelativePath(""));
         Assert.Equal(string.Empty, baseDir.GetRelativePath(null!));
+        Assert.Throws<ArgumentException>(() => baseDir.GetRelativePath("   "));
+    }
+
+    [Fact]
+    public void GetRelativePath_ShouldRespectUnixCaseSensitivity()
+    {
+        if (OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        const string baseDir = "/tmp/LingerCaseBase";
+        const string targetDir = "/tmp/lingercasebase";
+
+        string relativePath = baseDir.GetRelativePath(targetDir);
+
+        Assert.Equal("../lingercasebase", relativePath);
+        Assert.NotEqual(".", relativePath);
+    }
+
+    [Fact]
+    public void GetRelativePath_ShouldWrapTargetNormalizationErrors()
+    {
+        string baseDir = Directory.GetCurrentDirectory();
+        var ex = Assert.Throws<ArgumentException>(() => baseDir.GetRelativePath("bad\0path"));
+
+        Assert.Equal("path", ex.ParamName);
+        Assert.Contains("Invalid local path for relative calculation.", ex.Message);
     }
 
     [Fact]
     public void ContainsInvalidPathChars_ShouldDetectInvalidCharacters()
     {
-        // 创建包含Windows非法字符的路径
+        // Windows-only invalid path characters.
         string invalidWinChars = OSPlatformHelper.IsWindows ? "path*to?file" : null;
 
-        // 创建包含系统非法字符的路径
+        // Invalid character provided by the current runtime.
         string invalidPath = $"path{Path.GetInvalidPathChars()[0]}file";
         string validPath = "path/to/file";
 
-        // 测试非法字符检测
+        // Basic validation checks.
         Assert.True(PathExtensions.ContainsInvalidPathChars(invalidPath));
         Assert.False(PathExtensions.ContainsInvalidPathChars(validPath));
 
-        // Windows特定测试
+        // Windows-specific invalid character checks.
         if (OSPlatformHelper.IsWindows && invalidWinChars != null)
         {
             Assert.True(PathExtensions.ContainsInvalidPathChars(invalidWinChars));
         }
 
-        // 检查Windows保留名
+        // Windows reserved device names should be rejected.
         if (OSPlatformHelper.IsWindows)
         {
             Assert.True(PathExtensions.ContainsInvalidPathChars("C:\\CON\\file.txt"));
@@ -111,68 +139,86 @@ public class PathExtensionsTests
             Assert.True(PathExtensions.ContainsInvalidPathChars("LPT1.txt"));
         }
 
-        // null和空字符串测试
+        // Null and empty strings are treated as not-invalid.
         Assert.False(PathExtensions.ContainsInvalidPathChars(null));
         Assert.False(PathExtensions.ContainsInvalidPathChars(string.Empty));
     }
 
     [Fact]
+    public void ContainsInvalidPathChars_ShouldAllowWindowsDevicePathPrefixes()
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        Assert.False(PathExtensions.ContainsInvalidPathChars(@"\\?\C:\temp\file.txt"));
+        Assert.False(PathExtensions.ContainsInvalidPathChars(@"\\.\C:\temp\file.txt"));
+        Assert.True(PathExtensions.ContainsInvalidPathChars(@"\\?\C:\temp\file?.txt"));
+    }
+
+    [Fact]
     public void GetParentDirectory_ShouldReturnCorrectParentPath()
     {
-        // 创建测试路径
+        // Build a nested path for parent directory checks.
         string testPath = Path.Combine("dir1", "dir2", "dir3");
         var fullPath = Path.GetFullPath(testPath);
 
-        // 获取一级父目录
+        // One level up.
         var parentDir = PathExtensions.GetParentDirectory(fullPath, 1);
         var expectedParent = Directory.GetParent(fullPath).FullName;
         Assert.Equal(expectedParent, parentDir);
 
-        // 获取两级父目录
+        // Two levels up.
         var parentOfParent = PathExtensions.GetParentDirectory(fullPath, 2);
         var expectedGrandParent = Directory.GetParent(Directory.GetParent(fullPath).FullName).FullName;
         Assert.Equal(expectedGrandParent, parentOfParent);
 
-        // 边缘情况测试
+        // Zero levels should leave the path unchanged.
         var noChange = PathExtensions.GetParentDirectory(fullPath, 0);
         Assert.Equal(fullPath, noChange);
 
-        // 测试负值级别（应该取绝对值）
-        var negativeLevel = PathExtensions.GetParentDirectory(fullPath, -1);
-        Assert.Equal(expectedParent, negativeLevel);
+        // Negative levels are invalid input.
+        Assert.Throws<ArgumentOutOfRangeException>(() => PathExtensions.GetParentDirectory(fullPath, -1));
+    }
+
+    [Fact]
+    public void GetParentDirectory_ZeroLevels_ShouldReturnNormalizedAbsolutePath()
+    {
+        string relativePath = Path.Combine("dir1", "dir2");
+
+        string result = PathExtensions.GetParentDirectory(relativePath, 0);
+
+        Assert.Equal(Path.GetFullPath(relativePath), result);
     }
 
     [Fact]
     public void Exists_ShouldDetectFileAndDirectoryExistence()
     {
-        // 获取当前目录（肯定存在的目录）
+        // Use the current working directory as a known-good directory path.
         string currentDir = Directory.GetCurrentDirectory();
 
-        // 测试目录存在检查
+        // Existing directory should be detected.
         Assert.True(PathExtensions.Exists(currentDir, false));
 
-        // 创建一个临时文件用于测试
+        // Create a temporary file to verify file existence checks.
         string tempFile = Path.GetTempFileName();
         try
         {
-            // 测试文件存在检查
             Assert.True(PathExtensions.Exists(tempFile, true));
 
-            // 测试不存在的路径
+            // Random paths under temp should not exist.
             Assert.False(PathExtensions.Exists(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()), true));
             Assert.False(PathExtensions.Exists(Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString()), false));
 
-            // 测试无效路径
+            // Invalid and blank inputs should fail closed.
             Assert.False(PathExtensions.Exists("||invalid||path||"));
-
-            // 测试空路径
             Assert.False(PathExtensions.Exists(null));
             Assert.False(PathExtensions.Exists(""));
             Assert.False(PathExtensions.Exists("   "));
         }
         finally
         {
-            // 清理临时文件
             if (File.Exists(tempFile))
             {
                 File.Delete(tempFile);
@@ -183,49 +229,73 @@ public class PathExtensionsTests
     [Fact]
     public void ToFullPath_ShouldResolveRelativePaths()
     {
-        // 测试基础路径和相对路径
+        // Relative path resolution should use the provided base directory.
         string baseDir = Directory.GetCurrentDirectory();
         string relativePath = "subdir/file.txt";
 
-        var result = PathExtensions.ToFullPath(relativePath,baseDir);
+        var result = PathExtensions.ToFullPath(relativePath, baseDir);
         var expected = Path.GetFullPath(Path.Combine(baseDir, relativePath));
 
         Assert.Equal(expected, result);
 
-        // 测试绝对路径
+        // Absolute paths should pass through unchanged.
         string absolutePath = Path.GetFullPath("file.txt");
-        var absoluteResult = PathExtensions.ToFullPath(absolutePath,baseDir);
+        var absoluteResult = PathExtensions.ToFullPath(absolutePath, baseDir);
         Assert.Equal(absolutePath, absoluteResult);
 
-        // 测试边缘情况
-        Assert.Equal(string.Empty, PathExtensions.ToFullPath("",baseDir));
-        Assert.Equal(string.Empty, PathExtensions.ToFullPath(null,baseDir));
+        // Null and empty inputs normalize to empty strings.
+        Assert.Equal(string.Empty, PathExtensions.ToFullPath("", baseDir));
+        Assert.Equal(string.Empty, PathExtensions.ToFullPath(null, baseDir));
 
-        // 测试保留末尾分隔符
+        // Whitespace-only input should match Path.GetFullPath and fail eagerly.
+        Assert.Throws<ArgumentException>(() => PathExtensions.ToFullPath("   ", baseDir));
+
+        // Requesting a trailing separator should preserve it.
         var withSeparator = PathExtensions.ToFullPath("subdir/", baseDir, true);
         Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), withSeparator);
     }
 
     [Fact]
+    public void ToFullPath_ShouldRejectWindowsReservedNames()
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        string baseDir = Directory.GetCurrentDirectory();
+
+        Assert.Throws<ArgumentException>(() => PathExtensions.ToFullPath(@"con\file.txt", baseDir));
+        Assert.Throws<ArgumentException>(() => PathExtensions.ToFullPath("LPT1.txt", baseDir));
+    }
+
+    [Fact]
+    public void ToFullPath_ShouldAcceptWindowsDevicePaths()
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        const string devicePath = @"\\?\C:\temp\file.txt";
+
+        Assert.Equal(devicePath, PathExtensions.ToFullPath(devicePath));
+    }
+
+    [Fact]
     public void ContainsInvalidPathChars_ShouldCheckNonWindowsPlatforms()
     {
-        // 这个测试主要是为了覆盖非Windows平台的代码路径
-        // 在Windows上这个测试可能不会执行到Unix分支，但仍然有助于理解代码逻辑
-
-        // 测试包含null字符的路径（Unix系统中的非法字符）
+        // Embedded null characters should be rejected on every platform.
         string pathWithNull = "path\0with\0null";
 
-        // 在所有平台上，包含null字符的路径都应该被认为是非法的
         var result = PathExtensions.ContainsInvalidPathChars(pathWithNull);
-
-        // 注意：在Windows上这会通过系统非法字符检查捕获，在Unix上通过null字符检查捕获
         Assert.True(result);
     }
 
     [Fact]
     public void GetParentDirectory_ShouldHandleRootPath()
     {
-        // 测试根目录情况，Directory.GetParent可能返回null
+        // Root paths may not have a parent, but the helper should still return a value.
         string rootPath;
         if (OSPlatformHelper.IsWindows)
         {
@@ -236,17 +306,22 @@ public class PathExtensionsTests
             rootPath = "/";
         }
 
-        // 尝试获取根目录的父目录
         var result = PathExtensions.GetParentDirectory(rootPath, 1);
-
-        // 如果无法获取父目录，应该返回原路径
         Assert.NotNull(result);
+    }
+
+    [Fact]
+    public void GetParentDirectory_WithInvalidPath_ShouldThrowArgumentException()
+    {
+        const string invalidPath = "bad\0path";
+
+        Assert.Throws<ArgumentException>(() => PathExtensions.GetParentDirectory(invalidPath, 1));
     }
 
     [Fact]
     public void CleanAndNormalizePureString_ShouldHandleNullAndWhitespace()
     {
-        // 详细测试各种空值情况
+        // Additional empty input coverage.
         Assert.Equal(string.Empty, PathHelper.CleanAndNormalizePureString("", false));
         Assert.Equal(string.Empty, PathHelper.CleanAndNormalizePureString("   ", false));
         Assert.Equal(string.Empty, PathHelper.CleanAndNormalizePureString("\t\n", false));
@@ -256,14 +331,11 @@ public class PathExtensionsTests
     [Fact]
     public void Exists_ShouldHandleExceptions()
     {
-        // 测试非常长的路径，可能导致PathTooLongException
+        // Overly long and invalid paths should fail closed instead of throwing.
         var veryLongPath = new string('a', 500);
-
-        // 应该优雅处理异常，返回false而不是抛出异常
         var result = PathExtensions.Exists(veryLongPath);
         Assert.False(result);
 
-        // 测试包含非法字符的路径
         var invalidPath = "path\0with\0null";
         var invalidResult = PathExtensions.Exists(invalidPath);
         Assert.False(invalidResult);

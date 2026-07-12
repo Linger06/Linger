@@ -33,17 +33,26 @@ public static partial class PathExtensions
             return false;
 
         string nonNullPath = path!;
+        string pathToValidate = nonNullPath;
 
-        if (nonNullPath.IndexOfAny(Path.GetInvalidPathChars()) != -1)
+        if (Path.DirectorySeparatorChar == '\\' &&
+            (nonNullPath.StartsWith(@"\\?\", StringComparison.Ordinal) ||
+             nonNullPath.StartsWith(@"\\.\", StringComparison.Ordinal)))
+        {
+            // The question mark or dot is part of the Windows device-path prefix.
+            pathToValidate = nonNullPath.Substring(4);
+        }
+
+        if (pathToValidate.IndexOfAny(Path.GetInvalidPathChars()) != -1)
             return true;
 
         if (Path.DirectorySeparatorChar == '\\')
         {
 #if NET8_0_OR_GREATER
-            if (nonNullPath.AsSpan().ContainsAny(s_windowsInvalidChars))
+            if (pathToValidate.AsSpan().ContainsAny(s_windowsInvalidChars))
                 return true;
 
-            ReadOnlySpan<char> pathSpan = nonNullPath.AsSpan();
+            ReadOnlySpan<char> pathSpan = pathToValidate.AsSpan();
             while (!pathSpan.IsEmpty)
             {
                 int separatorIndex = pathSpan.IndexOfAny('/', '\\');
@@ -66,18 +75,18 @@ public static partial class PathExtensions
                 pathSpan = pathSpan.Slice(separatorIndex + 1);
             }
 #else
-            if (nonNullPath.IndexOfAny(s_windowsInvalidChars) != -1)
+            if (pathToValidate.IndexOfAny(s_windowsInvalidChars) != -1)
                 return true;
 
             int lastIdx = 0;
-            while (lastIdx < nonNullPath.Length)
+            while (lastIdx < pathToValidate.Length)
             {
-                int nextSep = nonNullPath.IndexOfAny(PathHelper.PathSeparators, lastIdx);
-                int len = (nextSep == -1 ? nonNullPath.Length : nextSep) - lastIdx;
+                int nextSep = pathToValidate.IndexOfAny(PathHelper.PathSeparators, lastIdx);
+                int len = (nextSep == -1 ? pathToValidate.Length : nextSep) - lastIdx;
 
                 if (len > 0)
                 {
-                    string segment = nonNullPath.Substring(lastIdx, len);
+                    string segment = pathToValidate.Substring(lastIdx, len);
                     int firstDot = segment.IndexOf('.');
                     string nameToCheck = firstDot != -1 ? segment.Substring(0, firstDot) : segment;
                     nameToCheck = nameToCheck.TrimEnd(' ');
@@ -105,16 +114,21 @@ public static partial class PathExtensions
     /// </summary>
     public static string ToFullPath(this string? relativePath, string? basePath = null, bool preserveEndingSeparator = false)
     {
+        if (relativePath is null || relativePath.Length == 0)
+        {
+            return string.Empty;
+        }
+
         if (string.IsNullOrWhiteSpace(relativePath))
         {
-            return relativePath ?? string.Empty;
+            throw new ArgumentException("Path cannot be whitespace only.", nameof(relativePath));
         }
 
         string pathToResolve = relativePath!;
 
         try
         {
-            if (PathHelper.ContainsInvalidPathChars(pathToResolve))
+            if (pathToResolve.ContainsInvalidPathChars())
             {
                 throw new IOException($"Invalid local path characters found: {pathToResolve}");
             }
@@ -160,39 +174,35 @@ public static partial class PathExtensions
     }
 
     /// <summary>
-    /// Walks up the directory tree without performing file-system discovery.
+    /// Resolves the path to an absolute path and walks up the directory tree without file-system discovery.
     /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="levels"/> is negative.</exception>
     public static string GetParentDirectory(this string path, int levels)
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path cannot be null or empty.", nameof(path));
 
-        levels = Math.Abs(levels);
-        if (levels == 0) return path;
+        if (levels < 0)
+            throw new ArgumentOutOfRangeException(nameof(levels), levels, "Levels cannot be negative.");
 
-        try
+        string currentPath = path.ToFullPath();
+        if (levels == 0) return currentPath;
+
+        string rootPath = Path.GetPathRoot(currentPath) ?? string.Empty;
+
+        for (var i = 0; i < levels; i++)
         {
-            string currentPath = path.ToFullPath();
-            string rootPath = Path.GetPathRoot(currentPath) ?? string.Empty;
+            if (string.Equals(currentPath, rootPath, PathHelper.PathComparison))
+                break;
 
-            for (var i = 0; i < levels; i++)
-            {
-                if (string.Equals(currentPath, rootPath, PathHelper.PathComparison))
-                    break;
+            var parent = Path.GetDirectoryName(currentPath);
+            if (parent == null)
+                break;
 
-                var parent = Path.GetDirectoryName(currentPath);
-                if (parent == null)
-                    break;
-
-                currentPath = parent;
-            }
-
-            return currentPath;
+            currentPath = parent;
         }
-        catch (Exception ex) when (PathHelper.IsPathException(ex))
-        {
-            return path;
-        }
+
+        return currentPath;
     }
 
     /// <summary>
@@ -207,17 +217,35 @@ public static partial class PathExtensions
         if (string.IsNullOrWhiteSpace(relativeTo))
             throw new ArgumentException("Local base path cannot be null or empty", nameof(relativeTo));
 
+        if (path is null || path.Length == 0)
+            return string.Empty;
+
         if (string.IsNullOrWhiteSpace(path))
-            return path ?? string.Empty;
-
-        relativeTo = relativeTo.ToFullPath();
-        path = path.ToFullPath();
-
-        if (string.Equals(path, relativeTo, PathHelper.PathComparison))
-            return ".";
+            throw new ArgumentException("Target path cannot be whitespace only.", nameof(path));
 
         try
         {
+            relativeTo = relativeTo.ToFullPath();
+        }
+        catch (Exception ex) when (PathHelper.IsPathException(ex))
+        {
+            throw new ArgumentException($"Invalid local path for relative calculation. Base: {relativeTo}, Target: {path}", nameof(relativeTo), ex);
+        }
+
+        try
+        {
+            path = path.ToFullPath();
+        }
+        catch (Exception ex) when (PathHelper.IsPathException(ex))
+        {
+            throw new ArgumentException($"Invalid local path for relative calculation. Base: {relativeTo}, Target: {path}", nameof(path), ex);
+        }
+
+        try
+        {
+            if (string.Equals(path, relativeTo, PathHelper.PathComparison))
+                return ".";
+
 #if NETCOREAPP2_1_OR_GREATER || NET5_0_OR_GREATER || NET
             return Path.GetRelativePath(relativeTo, path);
 #else
@@ -258,8 +286,10 @@ public static partial class PathExtensions
     }
 
     /// <summary>
-    /// Returns true when the local file or directory exists and the path is valid.
+    /// Returns true when the requested local file-system entry exists and the path is valid.
     /// </summary>
+    /// <param name="path">The local path to check.</param>
+    /// <param name="checkAsFile">True to check for a file; false to check for a directory.</param>
     public static bool Exists(string path, bool checkAsFile = true)
     {
         try

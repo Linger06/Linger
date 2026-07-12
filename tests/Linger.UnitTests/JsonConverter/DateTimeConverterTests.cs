@@ -47,6 +47,18 @@ public class DateTimeConverterTests
         // Assert
         Assert.Equal("\"2025-04-11 14:30:45\"", json);
     }
+
+    [Fact]
+    public void DateTimeConverter_ReadWrite_PreservesUtcKindAndFractionalSeconds()
+    {
+        var value = new DateTime(2025, 4, 11, 0, 0, 0, 500, DateTimeKind.Utc);
+
+        var json = JsonSerializer.Serialize(value, _options);
+        var result = JsonSerializer.Deserialize<DateTime>(json, _options);
+
+        Assert.Equal(value, result);
+        Assert.Equal(DateTimeKind.Utc, result.Kind);
+    }
     
     [Fact]
     public void DateTimeConverter_Read_WithDateFormat_ReturnsDateTime()
@@ -135,6 +147,17 @@ public class DateTimeConverterTests
         
         // Assert
         Assert.Equal("\"2025-04-11 14:30:45\"", json);
+    }
+
+    [Fact]
+    public void DateTimeNullConverter_ReadWrite_PreservesFractionalSeconds()
+    {
+        DateTime? value = new DateTime(2025, 4, 11, 14, 30, 45, 123, DateTimeKind.Unspecified);
+
+        var json = JsonSerializer.Serialize(value, _nullableOptions);
+        var result = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+
+        Assert.Equal(value, result);
     }
     
     [Fact]

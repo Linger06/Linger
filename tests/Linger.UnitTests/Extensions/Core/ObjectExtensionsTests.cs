@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using Linger.Extensions.Core;
 using Xunit;
 
@@ -363,6 +364,7 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
+        [InlineData(" ", typeof(FormatException))]
         [InlineData("invalid", typeof(FormatException))]
         [InlineData("32768", typeof(OverflowException))]
         public void ToShort_ShouldThrowExpectedException(object input, Type expectedExceptionType)
@@ -407,6 +409,7 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
+        [InlineData(" ", typeof(FormatException))]
         [InlineData("invalid", typeof(FormatException))]
         [InlineData("9223372036854775808", typeof(OverflowException))]
         public void ToLong_ShouldThrowExpectedException(object input, Type expectedExceptionType)
@@ -451,6 +454,7 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
+        [InlineData(" ", typeof(FormatException))]
         [InlineData("invalid", typeof(FormatException))]
         [InlineData("2147483648", typeof(OverflowException))]
         public void ToInt_ShouldThrowExpectedException(object input, Type expectedExceptionType)
@@ -480,6 +484,30 @@ namespace Linger.UnitTests.Extensions.Core
         {
             object input = 42.5m;
             Assert.Throws<InvalidCastException>(() => input.ToInt());
+        }
+
+        [Fact]
+        public void ToInt_ShouldUseInvariantCultureInExceptionMessage_ForFractionalDouble()
+        {
+            var originalCulture = CultureInfo.CurrentCulture;
+            var originalUiCulture = CultureInfo.CurrentUICulture;
+
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+                CultureInfo.CurrentUICulture = new CultureInfo("fr-FR");
+
+                object input = 42.5d;
+                var exception = Assert.Throws<InvalidCastException>(() => input.ToInt());
+
+                Assert.Contains("42.5", exception.Message);
+                Assert.DoesNotContain("42,5", exception.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+                CultureInfo.CurrentUICulture = originalUiCulture;
+            }
         }
 
         public static TheoryData<object, decimal> ToDecimalShouldReturnExpectedData()
@@ -518,6 +546,34 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
+        [InlineData(double.NaN)]
+        [InlineData(double.PositiveInfinity)]
+        [InlineData(double.NegativeInfinity)]
+        public void TryToDecimal_ShouldReturnFalse_ForNonFiniteDouble(double input)
+        {
+            object value = input;
+
+            var success = value.TryToDecimal(out var result);
+
+            Assert.False(success);
+            Assert.Equal(0m, result);
+        }
+
+        [Theory]
+        [InlineData(float.NaN)]
+        [InlineData(float.PositiveInfinity)]
+        [InlineData(float.NegativeInfinity)]
+        public void TryToDecimal_ShouldReturnFalse_ForNonFiniteFloat(float input)
+        {
+            object value = input;
+
+            var success = value.TryToDecimal(out var result);
+
+            Assert.False(success);
+            Assert.Equal(0m, result);
+        }
+
+        [Theory]
         [InlineData("2023-01-01")]
         public void ToDateTime_ShouldReturnExpectedResult(object input)
         {
@@ -551,12 +607,59 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Throws<ArgumentNullException>(() => input.ToDateTime());
         }
 
+        [Fact]
+        public void ToBool_ShouldUseInvariantCultureInExceptionMessage_ForDecimalInput()
+        {
+            var originalCulture = CultureInfo.CurrentCulture;
+            var originalUiCulture = CultureInfo.CurrentUICulture;
+
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+                CultureInfo.CurrentUICulture = new CultureInfo("fr-FR");
+
+                object input = 2.5m;
+                var exception = Assert.Throws<InvalidCastException>(() => input.ToBool());
+
+                Assert.Contains("2.5", exception.Message);
+                Assert.DoesNotContain("2,5", exception.Message);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+                CultureInfo.CurrentUICulture = originalUiCulture;
+            }
+        }
+
+        [Theory]
+        [InlineData(1f, true)]
+        [InlineData(0f, false)]
+        public void ToBool_ShouldSupportFloatZeroAndOne(float input, bool expected)
+        {
+            object value = input;
+
+            var result = value.ToBool();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void ToBool_ShouldThrowInvalidCastException_ForFractionalFloatInput()
+        {
+            object input = 1.5f;
+
+            Assert.Throws<InvalidCastException>(() => input.ToBool());
+        }
+
 
         public static TheoryData<object, bool?> ToBoolOrNullData()
         {
             return new TheoryData<object, bool?>
                 {
                     { "true", true },
+                    { 1f, true },
+                    { 0f, false },
+                    { 1.5f, null },
                     { null, null },
                     { "invalid", null },
                     { "false", false }

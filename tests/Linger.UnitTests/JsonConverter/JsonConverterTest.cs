@@ -323,8 +323,8 @@ public class JsonConverterTest
 
             var json3 = JsonSerializer.Serialize(jsonObject, options);
 
-            var jsonString3 = """{"Int":1,"NullableInt":null,"String":"123","Guid":"00000000-0000-0000-0000-000000000000","NullableGuid":null,"DateTime":"2019-01-30 12:01:02","NullableDateTime":null,"Binary":null,"Boolean":true,"Int16":2,"Int64":3,"Decimal":1.1,"Single":4,"Double":5}""";
-            Assert.Equal(json3, jsonString3);
+            var jsonString3 = """{"Int":1,"NullableInt":null,"String":"123","Guid":"00000000-0000-0000-0000-000000000000","NullableGuid":null,"DateTime":"2019-01-30T12:01:02.0000000Z","NullableDateTime":null,"Binary":null,"Boolean":true,"Int16":2,"Int64":3,"Decimal":1.1,"Single":4,"Double":5}""";
+            Assert.Equal(jsonString3, json3);
 
             obj = JsonSerializer.Deserialize<JsonClass>(json3, options);
             Assert.NotNull(obj);

@@ -20,8 +20,9 @@ public static class PathHelper
     // Shared separator set used by framework-specific fallback code.
     internal static readonly char[] PathSeparators = new[] { '/', '\\' };
 
-    // Paths are compared case-insensitively to match Windows behavior.
-    internal const StringComparison PathComparison = StringComparison.OrdinalIgnoreCase;
+    // Match the host file system's case-sensitivity rules.
+    internal static readonly StringComparison PathComparison =
+        PlatformSeparator == '\\' ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
     // Cached string form of the native separator.
     internal static readonly string SingleSeparator = PlatformSeparator.ToString();
@@ -177,6 +178,16 @@ public static class PathHelper
             return string.Empty;
 
         var trimmedPath = path.TrimEnd('/', '\\');
+        var pathRoot = Path.GetPathRoot(path);
+
+        if (!string.IsNullOrEmpty(pathRoot))
+        {
+            var trimmedRoot = pathRoot.TrimEnd('/', '\\');
+            if (string.Equals(trimmedPath, trimmedRoot, PathComparison))
+            {
+                return pathRoot;
+            }
+        }
 
         if (preserveEndingSeparator)
         {
@@ -232,11 +243,4 @@ public static class PathHelper
         return HandleEndingSeparator(standardPath, preserveEndingSeparator);
     }
 
-    /// <summary>
-    /// Checks whether a path contains OS-defined invalid characters.
-    /// </summary>
-    internal static bool ContainsInvalidPathChars(string path)
-    {
-        return !string.IsNullOrEmpty(path) && path.IndexOfAny(Path.GetInvalidPathChars()) != -1;
-    }
 }

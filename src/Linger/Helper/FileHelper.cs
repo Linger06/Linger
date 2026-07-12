@@ -192,7 +192,7 @@ public static partial class FileHelper
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException
                                  || ex is DirectoryNotFoundException
-                                 || ex is PathTooLongException)
+                                 || PathHelper.IsPathException(ex))
         {
             return false;
         }

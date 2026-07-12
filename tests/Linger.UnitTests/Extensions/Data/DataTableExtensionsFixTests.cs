@@ -215,4 +215,49 @@ public class DataTableExtensionsFixTests
         Assert.Equal(100.50m, Convert.ToDecimal(result.Rows[0]["Electronics"]));
         Assert.Equal(50.25m, Convert.ToDecimal(result.Rows[0]["Books"]));
     }
+
+    [Fact]
+    public void TableRowTurnToColumn_WithNumericStringValues_ShouldConvertToDecimal()
+    {
+        // Arrange
+        var sourceTable = new DataTable();
+        sourceTable.Columns.Add("GroupId", typeof(int));
+        sourceTable.Columns.Add("Category", typeof(string));
+        sourceTable.Columns.Add("Amount", typeof(string));
+
+        sourceTable.Rows.Add(1, "Electronics", "100.50");
+        sourceTable.Rows.Add(1, "Books", "50");
+
+        var groupColumns = new[] { sourceTable.Columns["GroupId"] };
+        var captionColumns = new[] { sourceTable.Columns["Category"] };
+        var valueColumn = sourceTable.Columns["Amount"];
+
+        // Act
+        var result = sourceTable.TableRowTurnToColumn(groupColumns, captionColumns, valueColumn);
+
+        // Assert
+        Assert.Single(result.Rows);
+        Assert.Equal(100.50m, Convert.ToDecimal(result.Rows[0]["Electronics"]));
+        Assert.Equal(50m, Convert.ToDecimal(result.Rows[0]["Books"]));
+    }
+
+    [Fact]
+    public void TableRowTurnToColumn_WithInvalidNumericText_ShouldThrowFormatException()
+    {
+        // Arrange
+        var sourceTable = new DataTable();
+        sourceTable.Columns.Add("GroupId", typeof(int));
+        sourceTable.Columns.Add("Category", typeof(string));
+        sourceTable.Columns.Add("Amount", typeof(string));
+
+        sourceTable.Rows.Add(1, "Electronics", "invalid");
+
+        var groupColumns = new[] { sourceTable.Columns["GroupId"] };
+        var captionColumns = new[] { sourceTable.Columns["Category"] };
+        var valueColumn = sourceTable.Columns["Amount"];
+
+        // Act & Assert
+        Assert.Throws<FormatException>(() =>
+            sourceTable.TableRowTurnToColumn(groupColumns, captionColumns, valueColumn));
+    }
 }

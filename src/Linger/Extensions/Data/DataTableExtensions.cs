@@ -502,34 +502,21 @@ public static class DataTableExtensions
 
             // 获取列标题和值
             var captionValue = FormatCaptionValue(sourceRow, captionColumns);
-
             if (resultTable.Columns.Contains(captionValue))
             {
-                try
+                var cellValue = sourceRow[valueColumn.ColumnName];
+                if (cellValue != DBNull.Value)
                 {
-                    // 获取值并设置到对应单元格
-                    var cellValue = sourceRow[valueColumn.ColumnName];
-                    if (cellValue != DBNull.Value)
+                    decimal currentValue = 0;
+
+                    if (resultRow[captionValue] != DBNull.Value)
                     {
-                        decimal currentValue = 0;
-
-                        // 如果单元格已有值，则获取现有值
-                        if (resultRow[captionValue] != DBNull.Value)
-                        {
-                            var value = resultRow[captionValue];
-                            currentValue = value.ToDecimalOrDefault();
-                        }
-
-                        // 将新值添加到现有值
-                        decimal newValue = cellValue.ToDecimalOrDefault();
-
-                        resultRow[captionValue] = currentValue + newValue;
+                        var value = resultRow[captionValue];
+                        currentValue = value.ToDecimal();
                     }
-                }
-                catch (Exception ex)
-                {
-                    // 记录异常但继续处理其他行
-                    Console.WriteLine($"处理值时出错: {ex.Message}");
+
+                    decimal newValue = cellValue.ToDecimal();
+                    resultRow[captionValue] = currentValue + newValue;
                 }
             }
         }

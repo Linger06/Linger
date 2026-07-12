@@ -23,7 +23,6 @@ public class PathExtensionsTests : IDisposable
         }
         catch
         {
-            // 忽略清理错误
         }
     }
 }
