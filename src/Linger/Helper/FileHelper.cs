@@ -24,7 +24,7 @@ public static partial class FileHelper
             content = File.ReadAllText(filename, encoding ?? Encoding.UTF8);
             return true;
         }
-        catch
+        catch (Exception ex) when (ex is UnauthorizedAccessException || PathHelper.IsPathException(ex))
         {
             return false;
         }
@@ -440,19 +440,6 @@ public static partial class FileHelper
         if (Directory.Exists(directoryPath))
         {
             Directory.Delete(directoryPath, true);
-        }
-    }
-
-    /// <summary>
-    /// Ensures that the directory for the specified file path exists.
-    /// </summary>
-    /// <param name="filePath">The file path whose parent directory should exist.</param>
-    public static void EnsureDirectoryExists(string filePath)
-    {
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
         }
     }
 

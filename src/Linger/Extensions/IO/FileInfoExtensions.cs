@@ -74,32 +74,15 @@ public static partial class FileInfoExtensions
     /// </param>
     public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions = true)
     {
-        var exceptions = new List<Exception>();
-        foreach (FileInfo file in files)
-        {
-            try
+        _ = ExecuteFileBatch(
+            files,
+            static file =>
             {
                 file.Delete();
-            }
-            catch (Exception e)
-            {
-                if (consolidateExceptions)
-                {
-                    exceptions.Add(e);
-                }
-                else
-                {
-                    throw;
-                }
-            }
-        }
-
-        if (exceptions is { Count: > 0 })
-        {
-            throw new AggregateException(
-                "Error while deleting one or several files, see InnerExceptions array for details.",
-                exceptions);
-        }
+                return file;
+            },
+            consolidateExceptions,
+            "Error while deleting one or several files, see InnerExceptions array for details.");
     }
 
     /// <summary>
@@ -124,38 +107,12 @@ public static partial class FileInfoExtensions
     /// <returns>The newly created file copies.</returns>
     public static FileInfo[] CopyTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
-        var copiedFiles = new List<FileInfo>();
-        List<Exception>? exceptions = null;
-
-        foreach (FileInfo file in files)
-        {
-            try
-            {
-                var fileName = Path.Combine(targetPath, file.Name);
-                copiedFiles.Add(file.CopyTo(fileName));
-            }
-            catch (Exception e)
-            {
-                if (consolidateExceptions)
-                {
-                    exceptions ??= [];
-                    exceptions.Add(e);
-                }
-                else
-                {
-                    throw;
-                }
-            }
-        }
-
-        if (exceptions is { Count: > 0 })
-        {
-            throw new AggregateException(
-                "Error while copying one or several files, see InnerExceptions array for details.",
-                exceptions);
-        }
-
-        return copiedFiles.ToArray();
+        return ExecuteFileBatch(
+                files,
+                file => file.CopyTo(Path.Combine(targetPath, file.Name)),
+                consolidateExceptions,
+                "Error while copying one or several files, see InnerExceptions array for details.")
+            .ToArray();
     }
 
     /// <summary>
@@ -180,37 +137,50 @@ public static partial class FileInfoExtensions
     /// <returns>The moved files.</returns>
     public static FileInfo[] MoveTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
+        return ExecuteFileBatch(
+                files,
+                file =>
+                {
+                    file.MoveTo(Path.Combine(targetPath, file.Name));
+                    return file;
+                },
+                consolidateExceptions,
+                "Error while moving one or several files, see InnerExceptions array for details.")
+            .ToArray();
+    }
+
+    private static List<TResult> ExecuteFileBatch<TResult>(
+        IEnumerable<FileInfo> files,
+        Func<FileInfo, TResult> operation,
+        bool consolidateExceptions,
+        string aggregateMessage)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        var results = new List<TResult>();
         List<Exception>? exceptions = null;
 
         foreach (FileInfo file in files)
         {
             try
             {
-                var fileName = Path.Combine(targetPath, file.Name);
-                file.MoveTo(fileName);
+                results.Add(operation(file));
             }
-            catch (Exception e)
+            catch (Exception ex) when (ex is UnauthorizedAccessException || PathHelper.IsPathException(ex))
             {
-                if (consolidateExceptions)
-                {
-                    exceptions ??= [];
-                    exceptions.Add(e);
-                }
-                else
-                {
+                if (!consolidateExceptions)
                     throw;
-                }
+
+                exceptions ??= [];
+                exceptions.Add(ex);
             }
         }
 
         if (exceptions is { Count: > 0 })
-        {
-            throw new AggregateException(
-                "Error while moving one or several files, see InnerExceptions array for details.",
-                exceptions);
-        }
+            throw new AggregateException(aggregateMessage, exceptions);
 
-        return files;
+        return results;
     }
 
     /// <summary>
@@ -224,6 +194,7 @@ public static partial class FileInfoExtensions
     /// string formattedSize = size.ToFileSizeBytesString();
     /// </code>
     /// </example>
+    [Obsolete("Use FormatFileSize() for a consistent unit format.")]
     public static string ToFileSizeBytesString(this int bytes)
     {
         return bytes switch

@@ -1,7 +1,7 @@
-using System.Collections;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
+using System.Reflection;
 using System.Text;
 using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
@@ -224,14 +224,44 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     #region 查询数据列表、返回List
 
     /// <summary>
-    ///     查询数据列表、返回List
+    ///     查询数据列表、按同名属性映射并返回List
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <returns></returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
     public List<T> FindListBySql<T>(string sql)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql);
-        return dr.ReaderToList<T>();
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql);
+        return ReadList(reader, CreateReflectionMapper<T>(reader));
+    }
+
+    /// <summary>
+    ///     查询数据列表、返回List
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="map">数据记录映射函数</param>
+    /// <returns></returns>
+    public List<T> FindListBySql<T>(string sql, Func<IDataRecord, T> map)
+    {
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql);
+        return ReadList(reader, map);
+    }
+
+    /// <summary>
+    ///     查询数据列表、按同名属性映射并返回List
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <returns></returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
+    public List<T> FindListBySql<T>(string sql, DbParameter[] parameters)
+    {
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
+        return ReadList(reader, CreateReflectionMapper<T>(reader));
     }
 
     /// <summary>
@@ -239,11 +269,12 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
+    /// <param name="map">数据记录映射函数</param>
     /// <returns></returns>
-    public List<T> FindListBySql<T>(string sql, DbParameter[] parameters)
+    public List<T> FindListBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
-        return dr.ReaderToList<T>();
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
+        return ReadList(reader, map);
     }
 
     #endregion
@@ -257,8 +288,8 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public DataTable FindTableBySql(string sql)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql);
-        return dr.ReaderToDataTable();
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql);
+        return ReadDataTable(reader);
     }
 
     /// <summary>
@@ -268,8 +299,8 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql)
     {
-        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql).ConfigureAwait(false);
-        return dr.ReaderToDataTable();
+        using IDataReader reader = await ExecuteReaderAsync(CommandType.Text, sql).ConfigureAwait(false);
+        return ReadDataTable(reader);
     }
 
     /// <summary>
@@ -280,8 +311,8 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = await ExecuteReaderAsync(CommandType.Text, sql, parameters, CancellationToken.None).ConfigureAwait(false);
-        return dr.ReaderToDataTable();
+        using IDataReader reader = await ExecuteReaderAsync(CommandType.Text, sql, parameters, CancellationToken.None).ConfigureAwait(false);
+        return ReadDataTable(reader);
     }
 
     /// <summary>
@@ -292,8 +323,8 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public DataTable FindTableBySql(string sql, DbParameter[] parameters)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
-        return dr.ReaderToDataTable();
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
+        return ReadDataTable(reader);
     }
 
     /// <summary>
@@ -303,8 +334,8 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public DataTable FindTableByProc(string procName)
     {
-        IDataReader dr = ExecuteReader(CommandType.StoredProcedure, procName);
-        return dr.ReaderToDataTable();
+        using IDataReader reader = ExecuteReader(CommandType.StoredProcedure, procName);
+        return ReadDataTable(reader);
     }
 
     /// <summary>
@@ -315,8 +346,76 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public DataTable FindTableByProc(string procName, DbParameter[] parameters)
     {
-        IDataReader dr = ExecuteReader(CommandType.StoredProcedure, procName, parameters);
-        return dr.ReaderToDataTable();
+        using IDataReader reader = ExecuteReader(CommandType.StoredProcedure, procName, parameters);
+        return ReadDataTable(reader);
+    }
+
+    private static DataTable ReadDataTable(IDataReader reader)
+    {
+        var table = new DataTable();
+        table.Load(reader);
+        return table;
+    }
+
+    private static List<T> ReadList<T>(IDataReader reader, Func<IDataRecord, T> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+
+        var result = new List<T>();
+        while (reader.Read())
+        {
+            result.Add(map(reader));
+        }
+
+        return result;
+    }
+
+    private static T? ReadFirstOrDefault<T>(IDataReader reader, Func<IDataRecord, T> map)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        return reader.Read() ? map(reader) : default;
+    }
+
+    private static Func<IDataRecord, T> CreateReflectionMapper<T>(IDataRecord schema)
+    {
+        var ordinals = new Dictionary<string, int>(schema.FieldCount, StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < schema.FieldCount; i++)
+        {
+            ordinals[schema.GetName(i)] = i;
+        }
+
+        var bindings = ReflectionMapperCache<T>.WritableProperties
+            .Where(property => ordinals.ContainsKey(property.Name))
+            .Select(property => new KeyValuePair<PropertyInfo, int>(property, ordinals[property.Name]))
+            .ToArray();
+
+        return record =>
+        {
+            object instance = Activator.CreateInstance(typeof(T))
+                ?? throw new InvalidOperationException($"Unable to create an instance of '{typeof(T).FullName}'.");
+
+            foreach (KeyValuePair<PropertyInfo, int> binding in bindings)
+            {
+                object? value = record.GetValue(binding.Value);
+                if (value is null or DBNull)
+                    continue;
+
+                object? convertedValue = Linger.Helper.TypeConverter.ConvertTo(value, binding.Key.PropertyType);
+                binding.Key.SetValue(instance, convertedValue, null);
+            }
+
+            return (T)instance;
+        };
+    }
+
+    private static class ReflectionMapperCache<T>
+    {
+        internal static readonly PropertyInfo[] WritableProperties = typeof(T)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property => property.CanWrite &&
+                               property.SetMethod?.IsPublic == true &&
+                               property.GetIndexParameters().Length == 0)
+            .ToArray();
     }
 
     #endregion
@@ -391,14 +490,44 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     #region 查询对象、返回实体
 
     /// <summary>
-    ///     查询对象、返回实体
+    ///     查询对象、按同名属性映射并返回实体
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <returns></returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
     public T FindEntityBySql<T>(string sql)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql);
-        return dr.ReaderToModel<T>();
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql);
+        return ReadFirstOrDefault(reader, CreateReflectionMapper<T>(reader))!;
+    }
+
+    /// <summary>
+    ///     查询对象、返回实体
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="map">数据记录映射函数</param>
+    /// <returns></returns>
+    public T? FindEntityBySql<T>(string sql, Func<IDataRecord, T> map)
+    {
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql);
+        return ReadFirstOrDefault(reader, map);
+    }
+
+    /// <summary>
+    ///     查询对象、按同名属性映射并返回实体
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <returns></returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
+    public T FindEntityBySql<T>(string sql, DbParameter[] parameters)
+    {
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
+        return ReadFirstOrDefault(reader, CreateReflectionMapper<T>(reader))!;
     }
 
     /// <summary>
@@ -406,38 +535,12 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// </summary>
     /// <param name="sql">Sql语句</param>
     /// <param name="parameters">sql语句对应参数</param>
+    /// <param name="map">数据记录映射函数</param>
     /// <returns></returns>
-    public T FindEntityBySql<T>(string sql, DbParameter[] parameters)
+    public T? FindEntityBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map)
     {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
-        return dr.ReaderToModel<T>();
-    }
-
-    #endregion
-
-    #region 查询对象、返回哈希表
-
-    /// <summary>
-    ///     查询对象、返回哈希表
-    /// </summary>
-    /// <param name="sql">Sql语句</param>
-    /// <returns></returns>
-    public Hashtable FindHashtableBySql(string sql)
-    {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql);
-        return dr.ReaderToHashtable();
-    }
-
-    /// <summary>
-    ///     查询对象、返回哈希表
-    /// </summary>
-    /// <param name="sql">Sql语句</param>
-    /// <param name="parameters">sql语句对应参数</param>
-    /// <returns></returns>
-    public Hashtable FindHashtableBySql(string sql, DbParameter[] parameters)
-    {
-        IDataReader dr = ExecuteReader(CommandType.Text, sql, parameters);
-        return dr.ReaderToHashtable();
+        using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
+        return ReadFirstOrDefault(reader, map);
     }
 
     #endregion

@@ -1,5 +1,3 @@
-using Linger.Extensions.Core;
-
 namespace Linger.Extensions.Collection;
 
 /// <summary>
@@ -52,7 +50,8 @@ public static class ListExtensions
         string Format(string item)
         {
             var quote = singleQuoted ? "'" : string.Empty;
-            var newItem = notSpace ? item.Replace(" ", string.Empty) : item;
+            string value = item ?? string.Empty;
+            var newItem = notSpace ? value.Replace(" ", string.Empty) : value;
             return $"{quote}{newItem}{quote}";
         }
     }
@@ -76,35 +75,45 @@ public static class ListExtensions
     /// </example>
     public static List<T> ToTree<T>(this List<T> list, Func<T, T, bool> rootWhere, Func<T, T, bool> childsWhere, Action<T, IEnumerable<T>> addChilds, T entity = default!)
     {
-        var treeList = new List<T>();
-        if (list.Count == 0)
-        {
-            return treeList;
-        }
-        if (!list.Any(e => rootWhere(entity, e)))
-        {
-            return treeList;
-        }
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(rootWhere);
+        ArgumentNullException.ThrowIfNull(childsWhere);
+        ArgumentNullException.ThrowIfNull(addChilds);
 
-        if (list.Any(e => rootWhere(entity, e)))
+        List<T> roots = list.Where(item => rootWhere(entity, item)).ToList();
+        foreach (T root in roots)
         {
-            treeList.AddRange(list.Where(e => rootWhere(entity, e)));
-        }
-
-        foreach (T item in treeList)
-        {
-            if (list.Any(e => childsWhere(item, e)))
+            List<T> children = BuildChildren(root, new HashSet<T>());
+            if (children.Count != 0)
             {
-                var nodeData = list.Where(e => childsWhere(item, e)).ToList();
-                foreach (T child in nodeData)
-                {
-                    List<T> data = list.ToTree(childsWhere, childsWhere, addChilds, child);
-                    addChilds(child, data);
-                }
-                addChilds(item, nodeData);
+                addChilds(root, children);
             }
         }
 
-        return treeList;
+        return roots;
+
+        List<T> BuildChildren(T parent, HashSet<T> path)
+        {
+            if (!path.Add(parent))
+            {
+                throw new InvalidOperationException("A cycle was detected while building the tree.");
+            }
+
+            try
+            {
+                List<T> children = list.Where(item => childsWhere(parent, item)).ToList();
+                foreach (T child in children)
+                {
+                    List<T> descendants = BuildChildren(child, path);
+                    addChilds(child, descendants);
+                }
+
+                return children;
+            }
+            finally
+            {
+                path.Remove(parent);
+            }
+        }
     }
 }

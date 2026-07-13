@@ -74,6 +74,17 @@ public class IOrderQueryableExtensionsTests
     }
 
     [Fact]
+    public void ThenBy_WithNullPropertyArray_ThrowsArgumentNullException()
+    {
+        IOrderedQueryable<SampleClass> query = Array.Empty<SampleClass>()
+            .AsQueryable()
+            .OrderBy(item => item.Id);
+        KeyValuePair<string, bool>[]? properties = null;
+
+        Assert.Throws<ArgumentNullException>(() => query.ThenBy(properties!));
+    }
+
+    [Fact]
     public void ThenBy_ThrowsArgumentExceptionForInvalidPropertyName()
     {
         IOrderedQueryable<SampleClass>? list = new List<SampleClass>

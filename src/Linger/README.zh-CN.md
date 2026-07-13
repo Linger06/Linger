@@ -181,7 +181,6 @@ FileHelper.DeleteFileIfExists("temp.txt"); // 文件存在才删除，不会报�
 
 // 目录操作
 FileHelper.CopyDir("sourceFolder", "backupFolder"); // 递归复制目录
-FileHelper.EnsureDirectoryExists("logs/2026/app.log"); // 确保父目录 logs/2026 存在
 FileHelper.ClearDirectory("temp"); // 清空目录中的所有文件和子目录
 ```
 

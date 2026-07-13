@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using Linger.Attributes;
+using Linger.Helper;
 
 namespace Linger.Extensions.Core;
 
@@ -13,13 +14,6 @@ public static class TypeExtensions
     /// Thread-safe property cache for improved performance.
     /// </summary>
     /// <value>The property cache.</value>
-    private static readonly ConcurrentDictionary<string, PropertyInfo[]> s_propertyCache = new();
-
-    /// <summary>
-    /// Cache for type properties to minimize reflection overhead.
-    /// </summary>
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertyCache = new();
-
     /// <summary>
     /// Cache for column information to minimize reflection overhead.
     /// </summary>
@@ -104,9 +98,7 @@ public static class TypeExtensions
     /// </example>
     public static PropertyInfo? GetSingleProperty(this Type self, string name)
     {
-        var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
-
-        var properties = s_propertyCache.GetOrAdd(fullName, _ => self.GetProperties());
+        var properties = PropertyMetadataCache.GetProperties(self);
         return properties.FirstOrDefault(x => x.Name == name);
     }
 
@@ -184,7 +176,7 @@ public static class TypeExtensions
     /// </example>
     public static IEnumerable<PropertyInfo> Props(this Type type)
     {
-        return s_typePropertyCache.GetOrAdd(type, t => t.GetProperties());
+        return PropertyMetadataCache.GetProperties(type);
     }
 
     /// <summary>
@@ -417,7 +409,7 @@ public static class TypeExtensions
         ArgumentNullException.ThrowIfNull(name);
 
         // Use cached properties for better performance
-        var properties = s_typePropertyCache.GetOrAdd(objType, t => t.GetProperties());
+        var properties = PropertyMetadataCache.GetProperties(objType);
         PropertyInfo? matchedProperty = properties.FirstOrDefault(p => p.Name == name);
         return matchedProperty ?? throw new InvalidOperationException($"Property '{name}' not found on type '{objType.FullName}'.");
     }
@@ -443,7 +435,7 @@ public static class TypeExtensions
             var counter = 0;
 
             // 使用缓存的属性信息以提高性能
-            var properties = s_typePropertyCache.GetOrAdd(t, pt => pt.GetProperties());
+            var properties = PropertyMetadataCache.GetProperties(t);
 
             foreach (var propertyInfo in properties)
             {

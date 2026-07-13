@@ -441,18 +441,6 @@ public class FileHelperTests : IDisposable
     }
 
     [Fact]
-    public void EnsureDirectoryExists_WithNonExistentDirectory_CreatesDirectory()
-    {
-        var subDir = Path.Combine(_testDirectory, "newSubDir");
-        var filePath = Path.Combine(subDir, "file.txt");
-        _createdDirectories.Add(subDir);
-
-        FileHelper.EnsureDirectoryExists(filePath);
-
-        Assert.True(Directory.Exists(subDir));
-    }
-
-    [Fact]
     public void GetExistingFileInfo_WithExistingFile_ReturnsFileInfo()
     {
         var content = "test content for hash";
@@ -717,15 +705,4 @@ public class FileHelperTests : IDisposable
         FileHelper.ClearDirectory(nonExistentDir);
     }
 
-    [Fact]
-    public void EnsureDirectoryExists_WithExistingDirectory_DoesNotCreateNewDirectory()
-    {
-        var dir = CreateTestDirectory("existingDir");
-        var filePath = Path.Combine(dir, "file.txt");
-        var directoryCount = Directory.GetDirectories(_testDirectory).Length;
-
-        FileHelper.EnsureDirectoryExists(filePath);
-
-        Assert.Equal(directoryCount, Directory.GetDirectories(_testDirectory).Length);
-    }
 }

@@ -1,10 +1,4 @@
-﻿#if NET5_0_OR_GREATER
-
-using System.Linq.Expressions;
-
-#endif
-
-namespace Linger.Extensions.Collection;
+﻿namespace Linger.Extensions.Collection;
 
 /// <summary>
 /// Provides extension methods for adding secondary sorting criteria to IOrderedQueryable.
@@ -28,25 +22,16 @@ public static class IOrderedQueryableExtensions
     /// </code>
     /// </example>
     public static IOrderedQueryable<T> ThenBy<T>(this IOrderedQueryable<T> orderedQueryable,
-        params KeyValuePair<string, bool>[] orderByPropertyList) where T : class
+        params KeyValuePair<string, bool>[] orderByPropertyList)
     {
+        ArgumentNullException.ThrowIfNull(orderedQueryable);
+        ArgumentNullException.ThrowIfNull(orderByPropertyList);
+
         if (orderByPropertyList.Length != 0)
         {
-            Type type = typeof(T);
-            ParameterExpression param = Expression.Parameter(type, type.Name);
-
-            Expression<Func<T, object>> KeySelectorFunc(string propertyName)
-            {
-                MemberExpression property = Expression.Property(param, propertyName);
-                UnaryExpression converted = Expression.Convert(property, typeof(object));
-                return Expression.Lambda<Func<T, object>>(converted, param);
-            }
-
             foreach (KeyValuePair<string, bool> t in orderByPropertyList)
             {
-                orderedQueryable = t.Value
-                    ? orderedQueryable.ThenBy(KeySelectorFunc(t.Key))
-                    : orderedQueryable.ThenByDescending(KeySelectorFunc(t.Key));
+                orderedQueryable = DynamicOrderBuilder.Apply(orderedQueryable, t.Key, t.Value, thenBy: true);
             }
 
             return orderedQueryable;
@@ -70,16 +55,9 @@ public static class IOrderedQueryableExtensions
     /// </code>
     /// </example>
     public static IOrderedQueryable<T> ThenBy<T>(this IOrderedQueryable<T> orderedQueryable, string orderByPropertyName,
-        bool isOrderByAsc = true) where T : class
+        bool isOrderByAsc = true)
     {
-        Type type = typeof(T);
-        ParameterExpression param = Expression.Parameter(type, type.Name);
-        MemberExpression body = Expression.Property(param, orderByPropertyName);
-        var keySelector = Expression.Lambda<Func<T, object>>(Expression.Convert(body, typeof(object)), param);
-
-        return isOrderByAsc
-            ? orderedQueryable.ThenBy(keySelector)
-            : orderedQueryable.ThenByDescending(keySelector);
+        return DynamicOrderBuilder.Apply(orderedQueryable, orderByPropertyName, isOrderByAsc, thenBy: true);
     }
 
 #endif

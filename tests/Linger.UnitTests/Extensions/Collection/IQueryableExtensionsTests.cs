@@ -73,6 +73,21 @@ public class IQueryableExtensionsTests
     }
 
     [Fact]
+    public void OrderByIf_WithIQueryableOverload_ShouldOrderWithoutConcreteTypeCast()
+    {
+        IQueryable<TestEntity> data = new List<TestEntity>
+        {
+            new TestEntity { Id = 2 },
+            new TestEntity { Id = 1 }
+        }.AsQueryable();
+
+        var result = data.OrderByIf(true, "Id").ToList();
+
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal(2, result[1].Id);
+    }
+
+    [Fact]
     public void OrderByIf_ShouldNotOrderBy_WhenConditionIsFalse()
     {
         // Arrange
@@ -201,8 +216,21 @@ public class IQueryableExtensionsTests
 
         KeyValuePair<string, bool>[]? orderByPropertyList = Array.Empty<KeyValuePair<string, bool>>();
 
+        // Act
+        var result = data.CreateOrderBy(orderByPropertyList).ToList();
+
         // Assert
-        Assert.Throws<System.ArgumentException>(() => data.CreateOrderBy(orderByPropertyList));
+        Assert.Equal(2, result[0].Id);
+        Assert.Equal(1, result[1].Id);
+    }
+
+    [Fact]
+    public void CreateOrderBy_WithNullPropertyArray_ThrowsArgumentNullException()
+    {
+        IQueryable<TestEntity> data = Array.Empty<TestEntity>().AsQueryable();
+        KeyValuePair<string, bool>[]? properties = null;
+
+        Assert.Throws<ArgumentNullException>(() => data.CreateOrderBy(properties!));
     }
 
 #endif

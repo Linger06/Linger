@@ -11,7 +11,6 @@ namespace Linger.Helper;
 public static class PropertyHelper
 {
     private static readonly ConcurrentDictionary<string, PropertyInfo?> s_cachedObjectProperties = new();
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
 
     /// <summary>
     /// Gets the member expression for the specified member name.
@@ -157,7 +156,7 @@ public static class PropertyHelper
             if (declaringType != null)
             {
                 // Use cached properties for better performance
-                var properties = s_typePropertiesCache.GetOrAdd(declaringType, t => t.GetProperties());
+                var properties = PropertyMetadataCache.GetProperties(declaringType);
                 rv = properties.FirstOrDefault(x => x.Name == me.Member.Name);
             }
         }
@@ -244,7 +243,7 @@ public static class PropertyHelper
             if (objType == null) return null;
 
             // Use cached properties for better performance
-            var properties = s_typePropertiesCache.GetOrAdd(objType, t => t.GetProperties());
+            var properties = PropertyMetadataCache.GetProperties(objType);
             PropertyInfo? propertyInfo = properties.FirstOrDefault(x =>
                 x.Name == memberExpression.Member.Name &&
                 x.GetSetMethod(true) != null);

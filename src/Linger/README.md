@@ -181,7 +181,6 @@ FileHelper.DeleteFileIfExists("temp.txt");
 
 // Directory operations
 FileHelper.CopyDir("sourceFolder", "backupFolder"); // Recursive copy
-FileHelper.EnsureDirectoryExists("logs/2026/app.log");
 FileHelper.ClearDirectory("temp"); // Clear all files and subdirectories
 ```
 

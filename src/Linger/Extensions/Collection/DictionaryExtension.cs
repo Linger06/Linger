@@ -3,6 +3,7 @@
 /// <summary>
 /// Provides extension methods for <see cref="IDictionary{TKey, TValue}"/>.
 /// </summary>
+/// <remarks>These operations are not atomic and do not make a dictionary thread-safe.</remarks>
 public static class DictionaryExtension
 {
     /// <summary>
@@ -26,6 +27,9 @@ public static class DictionaryExtension
         TKey key,
         Func<TKey, TValue> factory)
     {
+        ArgumentNullException.ThrowIfNull(dictionary);
+        ArgumentNullException.ThrowIfNull(factory);
+
         if (dictionary.TryGetValue(key, out TValue? obj))
         {
             return obj;
@@ -55,6 +59,9 @@ public static class DictionaryExtension
         TKey key,
         Func<TValue> factory)
     {
+        ArgumentNullException.ThrowIfNull(dictionary);
+        ArgumentNullException.ThrowIfNull(factory);
+
         return dictionary.GetOrAdd(key, _ => factory());
     }
 
@@ -83,6 +90,10 @@ public static class DictionaryExtension
         Func<TKey, TValue> addFactory,
         Func<TKey, TValue, TValue> updateFactory)
     {
+        ArgumentNullException.ThrowIfNull(dictionary);
+        ArgumentNullException.ThrowIfNull(addFactory);
+        ArgumentNullException.ThrowIfNull(updateFactory);
+
         if (dictionary.TryGetValue(key, out TValue? obj))
         {
             obj = updateFactory(key, obj);
@@ -121,6 +132,10 @@ public static class DictionaryExtension
         Func<TValue> addFactory,
         Func<TValue, TValue> updateFactory)
     {
+        ArgumentNullException.ThrowIfNull(dictionary);
+        ArgumentNullException.ThrowIfNull(addFactory);
+        ArgumentNullException.ThrowIfNull(updateFactory);
+
         return dictionary.AddOrUpdate(key, _ => addFactory(), (_, v) => updateFactory(v));
     }
 }

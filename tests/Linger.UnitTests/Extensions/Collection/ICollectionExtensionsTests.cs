@@ -57,4 +57,20 @@ public class ICollectionExtensionsTests
         // Assert
         Assert.Empty(list);
     }
+
+    [Fact]
+    public void RemoveAll_WithNullCollection_ThrowsArgumentNullException()
+    {
+        ICollection<int>? collection = null;
+
+        Assert.Throws<ArgumentNullException>(() => collection!.RemoveAll(_ => true));
+    }
+
+    [Fact]
+    public void RemoveAll_WithNullPredicate_ThrowsArgumentNullException()
+    {
+        ICollection<int> collection = new List<int>();
+
+        Assert.Throws<ArgumentNullException>(() => collection.RemoveAll(null!));
+    }
 }

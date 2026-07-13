@@ -15,8 +15,19 @@ public static partial class IEnumerableExtensions
         if (source == null) throw new ArgumentNullException(nameof(source));
         if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-        var hash = new HashSet<TKey>();
-        return source.Where(p => hash.Add(keySelector(p)));
+        return Iterator();
+
+        IEnumerable<TSource> Iterator()
+        {
+            var seenKeys = new HashSet<TKey>();
+            foreach (TSource item in source)
+            {
+                if (seenKeys.Add(keySelector(item)))
+                {
+                    yield return item;
+                }
+            }
+        }
     }
 #endif
 
@@ -90,6 +101,12 @@ public static partial class IEnumerableExtensions
             Func<TOuter?, TInner, TResult> resultSelector
         )
     {
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+        ArgumentNullException.ThrowIfNull(resultSelector);
+
         return RightJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, null);
     }
 
@@ -105,6 +122,12 @@ public static partial class IEnumerableExtensions
             IEqualityComparer<TKey>? comparer
         )
     {
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+        ArgumentNullException.ThrowIfNull(resultSelector);
+
         return LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i), comparer);
     }
 #endif

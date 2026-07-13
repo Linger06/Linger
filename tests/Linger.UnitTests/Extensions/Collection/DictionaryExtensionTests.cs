@@ -71,4 +71,23 @@ public class DictionaryExtensionTests
         Assert.Equal("one", result);
         Assert.Equal("one", dictionary[1]);
     }
+
+    [Fact]
+    public void GetOrAdd_WithNullFactory_ThrowsArgumentNullExceptionEvenWhenKeyExists()
+    {
+        IDictionary<int, string> dictionary = new Dictionary<int, string> { [1] = "one" };
+
+        Assert.Throws<ArgumentNullException>(() => dictionary.GetOrAdd(1, (Func<int, string>)null!));
+    }
+
+    [Fact]
+    public void AddOrUpdate_WithNullUpdateFactory_ThrowsArgumentNullException()
+    {
+        IDictionary<int, string> dictionary = new Dictionary<int, string>();
+
+        Assert.Throws<ArgumentNullException>(() => dictionary.AddOrUpdate(
+            1,
+            _ => "one",
+            (Func<int, string, string>)null!));
+    }
 }

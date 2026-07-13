@@ -827,5 +827,59 @@ public class SqliteHelperTests : IDisposable
         Assert.Equal(DBNull.Value, nullParam.Value);
     }
 
+    [Fact]
+    public void FindListBySql_WithoutMapper_MapsWritableProperties()
+    {
+        const string sql = "SELECT id, name, age FROM users ORDER BY id";
+
+        List<UserRecord> result = _fileHelper.FindListBySql<UserRecord>(sql);
+
+        Assert.Equal(5, result.Count);
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal("Alice", result[0].Name);
+        Assert.Equal(25, result[0].Age);
+    }
+
+    [Fact]
+    public void FindEntityBySql_WithoutMapperAndWithParameters_MapsRecord()
+    {
+        const string sql = "SELECT id, name, age FROM users WHERE name = @name";
+        SQLiteParameter[] parameters = [new SQLiteParameter("@name", "Bob")];
+
+        UserRecord result = _fileHelper.FindEntityBySql<UserRecord>(sql, parameters);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.Id);
+        Assert.Equal("Bob", result.Name);
+        Assert.Equal(30, result.Age);
+    }
+
+    [Fact]
+    public void FindListBySql_WithMapper_UsesExplicitMapping()
+    {
+        const string sql = "SELECT name FROM users ORDER BY id";
+
+        List<string> result = _fileHelper.FindListBySql(sql, record => record["name"].ToString()!);
+
+        Assert.Equal(["Alice", "Bob", "Charlie", "David", "Eve"], result);
+    }
+
+    [Fact]
+    public void FindEntityBySql_WithoutMapperAndNoRows_ReturnsDefault()
+    {
+        const string sql = "SELECT id, name, age FROM users WHERE 1 = 0";
+
+        UserRecord? result = _fileHelper.FindEntityBySql<UserRecord>(sql);
+
+        Assert.Null(result);
+    }
+
     #endregion
+
+    private sealed class UserRecord
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public int? Age { get; set; }
+    }
 }

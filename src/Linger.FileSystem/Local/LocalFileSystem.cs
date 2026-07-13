@@ -221,7 +221,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                         relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
 
                         // 确保目录存在
-                        FileHelper.EnsureDirectoryExists(relativeFilePath);
+                        CreateParentDirectory(relativeFilePath);
 
                         // 对于 MD5 命名，目标文件名是确定的：不允许覆盖时直接按重复文件处理
                         if (!overwrite && File.Exists(relativeFilePath))
@@ -283,7 +283,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                     relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
 
                     // 确保目录存在
-                    FileHelper.EnsureDirectoryExists(relativeFilePath);
+                    CreateParentDirectory(relativeFilePath);
 
                     using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
                     var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
@@ -480,6 +480,15 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// // 如果document.pdf存在，抛出 DuplicateFileException
     /// </code>
     /// </example>
+    private static void CreateParentDirectory(string filePath)
+    {
+        string? directoryPath = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+    }
+
     private static string GetDestFilePath(string destPath, string destFileName, bool overwrite, bool useSequencedName, string destRootPath = "")
     {
         // 如果允许覆盖，直接返回目标路径
@@ -755,7 +764,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(filePath);
-        FileHelper.EnsureDirectoryExists(realPath);
+        CreateParentDirectory(realPath);
 
         if (!overwrite && File.Exists(realPath))
         {

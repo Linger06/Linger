@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Data;
 using System.Data.Common;
 using System.Text;
@@ -31,8 +30,16 @@ public interface IDatabase : IDisposable
     Task<DataSet> QueryAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
     Task<DataTable> QueryTableAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
 
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
     List<T> FindListBySql<T>(string sql);
+    List<T> FindListBySql<T>(string sql, Func<IDataRecord, T> map);
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
     List<T> FindListBySql<T>(string sql, DbParameter[] parameters);
+    List<T> FindListBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map);
 
     DataTable FindTableBySql(string sql);
     Task<DataTable> FindTableBySqlAsync(string sql);
@@ -53,11 +60,16 @@ public interface IDatabase : IDisposable
     DataTable QueryInBatchesRaw(string sql, List<string> values, int batchSize = 1000, bool quote = true);
     Task<DataTable> QueryInBatchesRawAsync(string sql, List<string> values, int batchSize = 1000, bool quote = true, CancellationToken cancellationToken = default);
 
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
     T FindEntityBySql<T>(string sql);
+    T? FindEntityBySql<T>(string sql, Func<IDataRecord, T> map);
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
     T FindEntityBySql<T>(string sql, DbParameter[] parameters);
-
-    Hashtable FindHashtableBySql(string sql);
-    Hashtable FindHashtableBySql(string sql, DbParameter[] parameters);
+    T? FindEntityBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map);
 
     int FindCountBySql(string sql);
     Task<int> FindCountBySqlAsync(string sql, CancellationToken cancellationToken = default);

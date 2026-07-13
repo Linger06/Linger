@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Reflection;
@@ -9,15 +8,13 @@ namespace Linger.Extensions.Core;
 
 public static class ObjectExtensions
 {
-    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> s_propertyCache = new();
-
     public static PropertyInfo? GetPropertyInfo(this object obj, string propertyName)
     {
         ArgumentNullException.ThrowIfNull(obj);
         ArgumentNullException.ThrowIfNull(propertyName);
 
         var type = obj.GetType();
-        var map = s_propertyCache.GetOrAdd(type, CreatePropertyMap);
+        var map = PropertyMetadataCache.GetPropertyMap(type);
         return map.TryGetValue(propertyName, out var pi) ? pi : null;
     }
 
@@ -25,19 +22,6 @@ public static class ObjectExtensions
     {
         var pi = obj.GetPropertyInfo(propertyName);
         return pi?.GetValue(obj, null);
-    }
-
-    private static Dictionary<string, PropertyInfo> CreatePropertyMap(Type type)
-    {
-        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        var dict = new Dictionary<string, PropertyInfo>(props.Length, StringComparer.Ordinal);
-
-        foreach (var p in props)
-        {
-            dict[p.Name] = p;
-        }
-
-        return dict;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -1,6 +1,6 @@
-using System.Collections.Concurrent;
 using System.Reflection;
 using Linger.Extensions.Core;
+using Linger.Helper;
 using Linger.Json.JsonConverter;
 
 namespace Linger.Extensions.Data;
@@ -10,12 +10,6 @@ namespace Linger.Extensions.Data;
 /// </summary>
 public static class DataTableExtensions
 {
-    // Performance optimization: Cache property mappings to avoid repeated reflection calls
-    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> s_propertyMappingCache = new();
-
-    // Cache for type property arrays to reduce reflection overhead
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
-
 #if NET451_OR_GREATER || NETSTANDARD || NET5_0_OR_GREATER
     /// <summary>
     /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with performance optimizations.
@@ -32,7 +26,7 @@ public static class DataTableExtensions
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToListAsync<T>(DataTable, Func<DataRow, T>) for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ToListAsync<T>(DataTable, Func<DataRow, T>) or ToListAsync<T>(DataTable, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>() instead.")]
     public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
         return Task.FromResult(dt.ToList<T>());
@@ -57,6 +51,7 @@ public static class DataTableExtensions
     /// });
     /// </code>
     /// </example>
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>() instead.")]
     public static Task<List<T>> ToListAsync<T>(this DataTable dt, Func<DataRow, T> map)
     {
         ArgumentNullException.ThrowIfNull(dt);
@@ -87,6 +82,7 @@ public static class DataTableExtensions
     ///     });
     /// </code>
     /// </example>
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>() instead.")]
     public static Task<List<T>> ToListAsync<T>(
         this DataTable dt,
         Func<T> factory,
@@ -901,25 +897,9 @@ public static class DataTableExtensions
          /// </summary>
          /// <typeparam name="T">The type to get property mapping for.</typeparam>
          /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
-    private static Dictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
+    private static IReadOnlyDictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
     {
-        return s_propertyMappingCache.GetOrAdd(typeof(T), type =>
-        {
-            var properties = GetCachedTypeProperties(type);
-            // Only include properties with public setters
-            var writableProperties = properties.Where(p => p.CanWrite && p.SetMethod?.IsPublic == true);
-            return writableProperties.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
-        });
-    }
-
-    /// <summary>
-    /// Gets cached type properties to minimize reflection overhead.
-    /// </summary>
-    /// <param name="type">The type to get properties for.</param>
-    /// <returns>An array of PropertyInfo objects.</returns>
-    private static PropertyInfo[] GetCachedTypeProperties(Type type)
-    {
-        return s_typePropertiesCache.GetOrAdd(type, t => t.GetProperties());
+        return PropertyMetadataCache.GetPropertyMap(typeof(T), ignoreCase: true, writableOnly: true);
     }
 
     private static bool IsNullableOrReferenceType(Type type)

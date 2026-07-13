@@ -51,6 +51,16 @@ public class IEnumerableExtensionsPolyfillsTests
     }
 
     [Fact]
+    public void DistinctBy_CanBeEnumeratedMoreThanOnce()
+    {
+        var source = new[] { "a", "a", "b" };
+        IEnumerable<string> result = source.DistinctBy(item => item);
+
+        Assert.Equal(["a", "b"], result);
+        Assert.Equal(["a", "b"], result);
+    }
+
+    [Fact]
     public void DistinctBy_ThrowsArgumentNullException_WhenSourceIsNull()
     {
         // Arrange
@@ -186,6 +196,18 @@ public class IEnumerableExtensionsPolyfillsTests
         Assert.Equal("Mouse", result[1].Product);
         Assert.Equal("Jane", result[2].Person);
         Assert.Equal("Keyboard", result[2].Product);
+    }
+
+    [Fact]
+    public void RightJoin_WithNullResultSelector_ThrowsArgumentNullException()
+    {
+        Func<Person?, Order, object> resultSelector = null!;
+
+        Assert.Throws<ArgumentNullException>(() => _people.RightJoin(
+            _orders,
+            person => person.Id,
+            order => order.PersonId,
+            resultSelector));
     }
 
     [Fact]

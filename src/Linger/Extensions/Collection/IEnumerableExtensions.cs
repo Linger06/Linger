@@ -99,6 +99,9 @@ public static partial class IEnumerableExtensions
     /// // Output: DataTable with columns "Id" and "Name" and rows [{1, "John"}, {2, "Jane"}]
     /// </code>
     /// </example>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to discover properties. Use an explicit DataTable projection for AOT/trimming scenarios.")]
+#endif
     public static DataTable ToDataTable<T>(this IEnumerable<T> recordList, Action<DataColumn, ColumnInfo>? actionColumn = null, Action<DataRow, ColumnInfo, T>? actionRow = null) // where T : new()
     {
         ArgumentNullException.ThrowIfNull(recordList);
@@ -253,7 +256,7 @@ public static partial class IEnumerableExtensions
     /// <param name="resultSelector">A function to create a result element from two matching elements.</param>
     /// <returns>An <see cref="IEnumerable{T}"/> that contains elements of type <typeparamref name="TResult"/> that are obtained by performing a full outer join on two sequences.</returns>
     /// <remarks>
-    /// The result contains rows for keys that appear in either sequence. Where no match exists, the corresponding side is <c>null</c>.
+    /// The result contains rows for keys that appear in either sequence. Where no match exists, the corresponding side is its default value.
     /// Duplicate keys produce multiple rows.
     /// </remarks>
     /// <example>
@@ -276,22 +279,46 @@ public static partial class IEnumerableExtensions
             Func<TInner, TKey> innerKeySelector,
             Func<TOuter?, TInner?, TResult> resultSelector)
     {
-        //IEnumerable<TResult>? leftResult = LeftOuterJoin(left, right, leftKey, rightKey, result);
-        //IEnumerable<TResult>? rightResult = RightOuterJoin(left, right, leftKey, rightKey, result);
-        //return leftResult.Union(rightResult);
+        return FullJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, null);
+    }
 
-        var outerLookup = outer.ToLookup(outerKeySelector);
-        var innerLookup = inner.ToLookup(innerKeySelector);
+    /// <summary>
+    /// Performs a full outer join using a specified equality comparer.
+    /// </summary>
+    public static IEnumerable<TResult> FullJoin<TOuter, TInner, TKey, TResult>(
+        this IEnumerable<TOuter> outer,
+        IEnumerable<TInner> inner,
+        Func<TOuter, TKey> outerKeySelector,
+        Func<TInner, TKey> innerKeySelector,
+        Func<TOuter?, TInner?, TResult> resultSelector,
+        IEqualityComparer<TKey>? comparer)
+    {
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+        ArgumentNullException.ThrowIfNull(resultSelector);
 
-        var keys = new HashSet<TKey>(outerLookup.Select(p => p.Key));
-        keys.UnionWith(innerLookup.Select(p => p.Key));
+        return Iterator();
 
-        IEnumerable<TResult> result = from key in keys
-                                      from xOuter in outerLookup[key].DefaultIfEmpty()
-                                      from xInner in innerLookup[key].DefaultIfEmpty()
-                                      select resultSelector(xOuter, xInner);
+        IEnumerable<TResult> Iterator()
+        {
+            ILookup<TKey, TOuter> outerLookup = outer.ToLookup(outerKeySelector, comparer);
+            ILookup<TKey, TInner> innerLookup = inner.ToLookup(innerKeySelector, comparer);
+            var keys = new HashSet<TKey>(outerLookup.Select(group => group.Key), comparer);
+            keys.UnionWith(innerLookup.Select(group => group.Key));
 
-        return result;
+            foreach (TKey key in keys)
+            {
+                foreach (TOuter? outerItem in outerLookup[key].DefaultIfEmpty())
+                {
+                    foreach (TInner? innerItem in innerLookup[key].DefaultIfEmpty())
+                    {
+                        yield return resultSelector(outerItem, innerItem);
+                    }
+                }
+            }
+        }
     }
 
     /// <summary>
