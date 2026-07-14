@@ -43,7 +43,9 @@ public interface IDatabase : IDisposable
 
     DataTable FindTableBySql(string sql);
     Task<DataTable> FindTableBySqlAsync(string sql);
+    Task<DataTable> FindTableBySqlAsync(string sql, CancellationToken cancellationToken);
     Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters);
+    Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken);
     DataTable FindTableBySql(string sql, DbParameter[] parameters);
     DataTable FindTableByProc(string procName);
     DataTable FindTableByProc(string procName, DbParameter[] parameters);
@@ -63,12 +65,12 @@ public interface IDatabase : IDisposable
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
 #endif
-    T FindEntityBySql<T>(string sql);
+    T? FindEntityBySql<T>(string sql);
     T? FindEntityBySql<T>(string sql, Func<IDataRecord, T> map);
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
 #endif
-    T FindEntityBySql<T>(string sql, DbParameter[] parameters);
+    T? FindEntityBySql<T>(string sql, DbParameter[] parameters);
     T? FindEntityBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map);
 
     int FindCountBySql(string sql);

@@ -846,7 +846,7 @@ public class SqliteHelperTests : IDisposable
         const string sql = "SELECT id, name, age FROM users WHERE name = @name";
         SQLiteParameter[] parameters = [new SQLiteParameter("@name", "Bob")];
 
-        UserRecord result = _fileHelper.FindEntityBySql<UserRecord>(sql, parameters);
+        UserRecord? result = _fileHelper.FindEntityBySql<UserRecord>(sql, parameters);
 
         Assert.NotNull(result);
         Assert.Equal(2, result.Id);
@@ -862,6 +862,25 @@ public class SqliteHelperTests : IDisposable
         List<string> result = _fileHelper.FindListBySql(sql, record => record["name"].ToString()!);
 
         Assert.Equal(["Alice", "Bob", "Charlie", "David", "Eve"], result);
+    }
+
+    [Fact]
+    public void FindListBySql_WithNullMapper_ValidatesBeforeExecutingSql()
+    {
+        Func<IDataRecord, UserRecord> map = null!;
+
+        Assert.Throws<ArgumentNullException>(() =>
+            _fileHelper.FindListBySql("not valid sql", map));
+    }
+
+    [Fact]
+    public async Task FindTableBySqlAsync_WhenCanceled_ThrowsOperationCanceledException()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            _fileHelper.FindTableBySqlAsync("SELECT * FROM users", cancellation.Token));
     }
 
     [Fact]

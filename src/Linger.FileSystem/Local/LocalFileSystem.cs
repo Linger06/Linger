@@ -845,6 +845,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 uploadedInfo.Length,
                 uploadedInfo.HashData);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
@@ -863,6 +867,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
             return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
@@ -875,6 +883,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         {
             await DownloadToStreamInternalAsync(remoteFilePath, outputStream, cancellationToken).ConfigureAwait(false);
             return FileOperationResult.CreateSuccess();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -889,6 +901,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
             localDestinationPath = await DownloadAsync(remoteFilePath, localDestinationPath, overwrite, false, cancellationToken).ConfigureAwait(false);
             var fileInfo = new FileInfo(localDestinationPath);
             return FileOperationResult.CreateSuccess(remoteFilePath, localDestinationPath, fileInfo.Length);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -907,6 +923,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 File.Delete(realPath);
             }
             return Task.FromResult(FileOperationResult.CreateSuccess(filePath));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

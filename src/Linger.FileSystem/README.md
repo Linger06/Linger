@@ -33,7 +33,6 @@ dotnet add package Linger.FileSystem.Sftp
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
 - **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing, supporting files of any size
 - **Batch Operation Progress**: Real-time progress tracking via `IProgress<BatchProgress>` for batch upload, download, and delete operations
-- **Connection Pool Idle Timeout**: Automatic cleanup of idle connections in the pool with configurable timeout via `ConnectionPoolIdleTimeout`
 - **Batch Operation Retry**: Per-file retry support for batch operations with configurable `BatchRetryOptions` settings
 
 ## Supported .NET Versions
@@ -337,10 +336,6 @@ var remoteSetting = new RemoteSystemSetting
     ConnectionTimeout = 30000,                 // Connection timeout (milliseconds)
     OperationTimeout = 60000,                  // Operation timeout (milliseconds)
     MaxDegreeOfParallelism = 4,                // Batch operation concurrency
-    
-    // Connection pool idle timeout (connections idle longer than this will be recreated)
-    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
-    
     // Batch operation retry settings
     BatchRetryOptions = new RetryOptions
     {

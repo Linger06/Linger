@@ -644,7 +644,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                         failed.Add(new BatchOperationFailure(localPath, "上传失败"));
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     failed.Add(new BatchOperationFailure(localPath, ex.Message, ex));
                 }
@@ -655,19 +655,16 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
         else
         {
-            await using var pool = CreateConnectionPool(degree);
-            var tasks = filePaths.Select(async localPath =>
-            {
-                AsyncFtpClient? client = null;
-                try
+            await ExecuteInParallelAsync(
+                filePaths,
+                degree,
+                async (client, localPath) =>
                 {
                     if (!File.Exists(localPath))
                     {
                         failed.Add(new BatchOperationFailure(localPath, "本地文件不存在"));
                         return;
                     }
-
-                    client = await pool.RentAsync(cancellationToken).ConfigureAwait(false);
 
                     var fileName = Path.GetFileName(localPath);
                     var remotePath = $"{remoteDirectory.TrimEnd(FtpPathSeparator)}{FtpPathSeparator}{fileName}";
@@ -691,24 +688,14 @@ public class FtpFileSystem : RemoteFileSystemBase
                     {
                         failed.Add(new BatchOperationFailure(localPath, "上传失败"));
                     }
-                }
-                catch (Exception ex)
+                },
+                (localPath, ex) => failed.Add(new BatchOperationFailure(localPath, ex.Message, ex)),
+                localPath =>
                 {
-                    failed.Add(new BatchOperationFailure(localPath, ex.Message, ex));
-                }
-                finally
-                {
-                    if (client is not null)
-                    {
-                        pool.Return(client);
-                    }
-
                     var currentCompleted = Interlocked.Increment(ref completed);
                     progress?.Report(new BatchProgress(currentCompleted, total, localPath, succeeded.Count, failed.Count));
-                }
-            }).ToArray();
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
         }
 
         // 最终进度报告
@@ -782,7 +769,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                         failed.Add(new BatchOperationFailure(remotePath, "下载失败"));
                     }
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     failed.Add(new BatchOperationFailure(remotePath, ex.Message, ex));
                 }
@@ -793,14 +780,11 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
         else
         {
-            await using var pool = CreateConnectionPool(degree);
-            var tasks = filePaths.Select(async remotePath =>
-            {
-                AsyncFtpClient? client = null;
-                try
+            await ExecuteInParallelAsync(
+                filePaths,
+                degree,
+                async (client, remotePath) =>
                 {
-                    client = await pool.RentAsync(cancellationToken).ConfigureAwait(false);
-
                     var fileName = Path.GetFileName(remotePath);
                     var localPath = Path.Combine(localDirectory, fileName);
 
@@ -822,24 +806,14 @@ public class FtpFileSystem : RemoteFileSystemBase
                     {
                         failed.Add(new BatchOperationFailure(remotePath, "下载失败"));
                     }
-                }
-                catch (Exception ex)
+                },
+                (remotePath, ex) => failed.Add(new BatchOperationFailure(remotePath, ex.Message, ex)),
+                remotePath =>
                 {
-                    failed.Add(new BatchOperationFailure(remotePath, ex.Message, ex));
-                }
-                finally
-                {
-                    if (client is not null)
-                    {
-                        pool.Return(client);
-                    }
-
                     var currentCompleted = Interlocked.Increment(ref completed);
                     progress?.Report(new BatchProgress(currentCompleted, total, remotePath, succeeded.Count, failed.Count));
-                }
-            }).ToArray();
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
         }
 
         progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
@@ -894,7 +868,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                     }, cancellationToken).ConfigureAwait(false);
                     succeeded.Add(filePath);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     failed.Add(new BatchOperationFailure(filePath, ex.Message, ex));
                 }
@@ -905,14 +879,11 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
         else
         {
-            await using var pool = CreateConnectionPool(degree);
-            var tasks = paths.Select(async filePath =>
-            {
-                AsyncFtpClient? client = null;
-                try
+            await ExecuteInParallelAsync(
+                paths,
+                degree,
+                async (client, filePath) =>
                 {
-                    client = await pool.RentAsync(cancellationToken).ConfigureAwait(false);
-
                     await ExecuteWithBatchRetryAsync(async () =>
                     {
                         if (await client.FileExists(filePath, cancellationToken).ConfigureAwait(false))
@@ -921,24 +892,14 @@ public class FtpFileSystem : RemoteFileSystemBase
                         }
                     }, cancellationToken).ConfigureAwait(false);
                     succeeded.Add(filePath);
-                }
-                catch (Exception ex)
+                },
+                (filePath, ex) => failed.Add(new BatchOperationFailure(filePath, ex.Message, ex)),
+                filePath =>
                 {
-                    failed.Add(new BatchOperationFailure(filePath, ex.Message, ex));
-                }
-                finally
-                {
-                    if (client is not null)
-                    {
-                        pool.Return(client);
-                    }
-
                     var currentCompleted = Interlocked.Increment(ref completed);
                     progress?.Report(new BatchProgress(currentCompleted, total, filePath, succeeded.Count, failed.Count));
-                }
-            }).ToArray();
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(false);
         }
 
         progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
@@ -1004,37 +965,76 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     #region 辅助方法
 
-    /// <summary>
-    /// 创建 FTP 连接池，用于批量操作中复用连接
-    /// </summary>
-    /// <param name="poolSize">池大小，通常与 MaxDegreeOfParallelism 一致</param>
-    /// <returns>FTP 连接池</returns>
-    private ConnectionPool<AsyncFtpClient> CreateConnectionPool(int poolSize)
+    private async Task ExecuteInParallelAsync(
+        IReadOnlyCollection<string> filePaths,
+        int degree,
+        Func<AsyncFtpClient, string, Task> operation,
+        Action<string, Exception> onError,
+        Action<string> onCompleted,
+        CancellationToken cancellationToken)
     {
-        return new ConnectionPool<AsyncFtpClient>(
-            poolSize,
-            factory: async ct =>
+        var queue = new ConcurrentQueue<string>(filePaths);
+        var workerCount = Math.Min(degree, filePaths.Count);
+        var workers = Enumerable.Range(0, workerCount).Select(async _ =>
+        {
+            var client = CreateClient();
+            try
             {
-                var client = CreateClient();
-                await client.AutoConnect(ct).ConfigureAwait(false);
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!queue.TryDequeue(out var filePath))
+                    {
+                        break;
+                    }
 
-                return client;
-            },
-            healthCheck: c => c.IsConnected,
-            disposeAsync: async c =>
+                    var shouldReportCompletion = true;
+                    try
+                    {
+                        if (!client.IsConnected)
+                        {
+                            await client.AutoConnect(cancellationToken).ConfigureAwait(false);
+                        }
+
+                        await operation(client, filePath).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        shouldReportCompletion = false;
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        onError(filePath, ex);
+                    }
+                    finally
+                    {
+                        if (shouldReportCompletion)
+                        {
+                            onCompleted(filePath);
+                        }
+                    }
+                }
+            }
+            finally
             {
-                try
+                if (client.IsConnected)
                 {
-                    await c.Disconnect().ConfigureAwait(false);
-                }
-                catch
-                {
-                    // ignored
+                    try
+                    {
+                        await client.Disconnect().ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // Cleanup must not hide the operation result.
+                    }
                 }
 
-                c.Dispose();
-            },
-            maxIdleTime: Setting.ConnectionPoolIdleTimeout);
+                client.Dispose();
+            }
+        });
+
+        await Task.WhenAll(workers).ConfigureAwait(false);
     }
 
     /// <summary>

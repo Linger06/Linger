@@ -245,6 +245,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public List<T> FindListBySql<T>(string sql, Func<IDataRecord, T> map)
     {
+        ArgumentNullException.ThrowIfNull(map);
         using IDataReader reader = ExecuteReader(CommandType.Text, sql);
         return ReadList(reader, map);
     }
@@ -273,6 +274,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public List<T> FindListBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map)
     {
+        ArgumentNullException.ThrowIfNull(map);
         using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
         return ReadList(reader, map);
     }
@@ -299,8 +301,18 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql)
     {
-        using IDataReader reader = await ExecuteReaderAsync(CommandType.Text, sql).ConfigureAwait(false);
-        return ReadDataTable(reader);
+        return await FindTableBySqlAsync(sql, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     查询数据列表、异步返回DataTable
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns></returns>
+    public Task<DataTable> FindTableBySqlAsync(string sql, CancellationToken cancellationToken)
+    {
+        return QueryTableAsync(sql, cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -311,8 +323,19 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters)
     {
-        using IDataReader reader = await ExecuteReaderAsync(CommandType.Text, sql, parameters, CancellationToken.None).ConfigureAwait(false);
-        return ReadDataTable(reader);
+        return await FindTableBySqlAsync(sql, parameters, CancellationToken.None).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    ///     查询数据列表、异步返回DataTable
+    /// </summary>
+    /// <param name="sql">Sql语句</param>
+    /// <param name="parameters">sql语句对应参数</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns></returns>
+    public Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken)
+    {
+        return QueryTableAsync(sql, parameters, cancellationToken);
     }
 
     /// <summary>
@@ -497,10 +520,10 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
 #endif
-    public T FindEntityBySql<T>(string sql)
+    public T? FindEntityBySql<T>(string sql)
     {
         using IDataReader reader = ExecuteReader(CommandType.Text, sql);
-        return ReadFirstOrDefault(reader, CreateReflectionMapper<T>(reader))!;
+        return ReadFirstOrDefault(reader, CreateReflectionMapper<T>(reader));
     }
 
     /// <summary>
@@ -511,6 +534,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public T? FindEntityBySql<T>(string sql, Func<IDataRecord, T> map)
     {
+        ArgumentNullException.ThrowIfNull(map);
         using IDataReader reader = ExecuteReader(CommandType.Text, sql);
         return ReadFirstOrDefault(reader, map);
     }
@@ -524,10 +548,10 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
 #endif
-    public T FindEntityBySql<T>(string sql, DbParameter[] parameters)
+    public T? FindEntityBySql<T>(string sql, DbParameter[] parameters)
     {
         using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
-        return ReadFirstOrDefault(reader, CreateReflectionMapper<T>(reader))!;
+        return ReadFirstOrDefault(reader, CreateReflectionMapper<T>(reader));
     }
 
     /// <summary>
@@ -539,6 +563,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public T? FindEntityBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map)
     {
+        ArgumentNullException.ThrowIfNull(map);
         using IDataReader reader = ExecuteReader(CommandType.Text, sql, parameters);
         return ReadFirstOrDefault(reader, map);
     }
@@ -672,7 +697,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
             if (pageNumber == 1) dataTable = currentPageData.Clone();
-            dataTable = dataTable.Combine(currentPageData);
+            AppendRows(dataTable, currentPageData);
             pageNumber++;
         } while (count == batchSize);
 
@@ -708,11 +733,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, string.Join(",", parameterNames));
             var dbParams = currentBatch.Select((value, index) => CreateParameter(GetParameterName(index), (object?)value ?? DBNull.Value)).ToArray();
 
-            var resultDataSet = await FindDataSetBySqlAsync(formattedSql, dbParams).ConfigureAwait(false);
+            var resultDataSet = await QueryAsync(formattedSql, dbParams, cancellationToken).ConfigureAwait(false);
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
             if (pageNumber == 1) dataTable = currentPageData.Clone();
-            dataTable = dataTable.Combine(currentPageData);
+            AppendRows(dataTable, currentPageData);
             pageNumber++;
         } while (count == batchSize);
 
@@ -749,7 +774,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
             if (pageNumber == 1) dataTable = currentPageData.Clone();
-            dataTable = dataTable.Combine(currentPageData);
+            AppendRows(dataTable, currentPageData);
             pageNumber++;
         } while (count == batchSize);
 
@@ -783,11 +808,11 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
 
             var joined = string.Join(",", currentBatch.Select(v => FormatRawValue(v, quote)));
             var formattedSql = string.Format(CultureInfo.InvariantCulture, sql, joined);
-            var resultDataSet = await FindDataSetBySqlAsync(formattedSql).ConfigureAwait(false);
+            var resultDataSet = await QueryAsync(formattedSql, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (resultDataSet.Tables.Count == 0) break;
             var currentPageData = resultDataSet.Tables[0];
             if (pageNumber == 1) dataTable = currentPageData.Clone();
-            dataTable = dataTable.Combine(currentPageData);
+            AppendRows(dataTable, currentPageData);
             pageNumber++;
         } while (count == batchSize);
 
@@ -802,6 +827,14 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
         if (value == null) return "NULL";
         if (!quote) return value;
         return "'" + value.Replace("'", "''") + "'";
+    }
+
+    private static void AppendRows(DataTable target, DataTable source)
+    {
+        foreach (DataRow row in source.Rows)
+        {
+            target.ImportRow(row);
+        }
     }
 
     /// <summary>

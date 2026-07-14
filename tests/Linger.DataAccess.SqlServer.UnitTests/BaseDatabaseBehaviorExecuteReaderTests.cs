@@ -59,18 +59,21 @@ public class BaseDatabaseBehaviorExecuteReaderTests
         var database = new TestableBaseDatabase(provider.Object, "Fallback-Conn");
         var attachedTransaction = BaseDatabaseBehaviorTestSupport.CreateAttachedTransaction(attachedConnection);
 
+        using var cancellation = new CancellationTokenSource();
+        CancellationToken cancellationToken = cancellation.Token;
         using var reader = await database.ExecuteReaderAsync(
             attachedTransaction,
             CommandType.Text,
             "SELECT 1",
             Array.Empty<DbParameter>(),
-            CancellationToken.None);
+            cancellationToken);
 
         Assert.NotNull(reader);
         Assert.NotNull(createdCommand);
         Assert.Equal(1, attachedConnection.OpenCallCount);
         Assert.Equal(1, createdCommand!.ExecuteReaderCallCount);
         Assert.Equal(CommandBehavior.Default, createdCommand.LastReaderBehavior);
+        Assert.Equal(cancellationToken, attachedConnection.LastOpenCancellationToken);
         provider.Verify(x => x.CreateConnection("Fallback-Conn"), Times.Never);
         provider.Verify(x => x.CreateCommand(), Times.Once);
         provider.VerifyNoOtherCalls();

@@ -278,11 +278,6 @@ var settings = new RemoteSystemSetting
     
     // 批量操作并发度
     MaxDegreeOfParallelism = 4,
-    
-    // 连接池空闲超时（可选）
-    // 空闲超过此时间的连接将被丢弃并重新创建
-    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
-    
     // 批量操作重试设置
     BatchRetryOptions = new RetryOptions
     {

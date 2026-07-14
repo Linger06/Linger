@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace Linger.FileSystem.Remote;
@@ -123,8 +124,14 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// <summary>
     /// 处理异常并抛出文件系统异常
     /// </summary>
+    [DoesNotReturn]
     protected override void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
+        if (ex is OperationCanceledException)
+        {
+            base.HandleException(operation, ex, path, callerMethod);
+        }
+
         throw CreateException(operation, ex, path, callerMethod);
     }
 

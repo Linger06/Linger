@@ -33,7 +33,6 @@ dotnet add package Linger.FileSystem.Sftp
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
 - **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理，支持任意大小文件
 - **批量操作进度报告**: 通过 `IProgress<BatchProgress>` 实时跟踪批量上传、下载和删除操作的进度
-- **连接池空闲超时**: 通过 `ConnectionPoolIdleTimeout` 配置自动清理连接池中的空闲连接
 - **批量操作重试**: 通过 `BatchRetryOptions` 配置为批量操作中的单个文件提供重试支持
 
 ## 支持的.NET版本
@@ -337,10 +336,6 @@ var remoteSetting = new RemoteSystemSetting
     ConnectionTimeout = 30000,                 // 连接超时(毫秒)
     OperationTimeout = 60000,                  // 操作超时(毫秒)
     MaxDegreeOfParallelism = 4,                // 批量操作并发度
-    
-    // 连接池空闲超时（空闲超过此时间的连接将被重新创建）
-    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
-    
     // 批量操作重试设置
     BatchRetryOptions = new RetryOptions
     {

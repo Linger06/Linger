@@ -43,6 +43,8 @@ internal sealed class RecordingDbConnection : DbConnection
 
     public int OpenCallCount { get; private set; }
 
+    public CancellationToken LastOpenCancellationToken { get; private set; }
+
     public override string ConnectionString { get; set; }
 
     public override string Database => "RecordingDb";
@@ -70,6 +72,7 @@ internal sealed class RecordingDbConnection : DbConnection
 
     public override Task OpenAsync(CancellationToken cancellationToken)
     {
+        LastOpenCancellationToken = cancellationToken;
         cancellationToken.ThrowIfCancellationRequested();
         Open();
         return Task.CompletedTask;

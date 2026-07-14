@@ -169,7 +169,7 @@ var deleteResult = await ftp.DeleteFilesAsync(new[] { "/remote/old.txt" }, progr
 
 **说明**: 进度报告在每个文件操作*完成后*发送，确保 `Completed` 始终反映准确的计数。
 
-### 连接池与重试配置
+### 并发与重试配置
 
 ```csharp
 var settings = new RemoteSystemSetting
@@ -179,11 +179,6 @@ var settings = new RemoteSystemSetting
     UserName = "username",
     Password = "password",
     MaxDegreeOfParallelism = 4,
-    
-    // 连接池空闲超时（可选）
-    // 空闲超过此时间的连接将被丢弃并重新创建
-    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
-    
     // 批量操作重试设置
     BatchRetryOptions = new RetryOptions
     {

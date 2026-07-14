@@ -76,16 +76,6 @@ public class RemoteSystemSetting
     public int MaxDegreeOfParallelism { get; set; } = 1;
 
     /// <summary>
-    /// 连接池中连接的最大空闲时间（可选）。
-    /// </summary>
-    /// <remarks>
-    /// <para>超过此时间未使用的连接会在下次租借时被丢弃并重新创建。</para>
-    /// <para>设置为 <c>null</c> 表示不限制空闲时间（默认）。</para>
-    /// <para>建议设置为 1-5 分钟，以平衡连接复用和资源释放。</para>
-    /// </remarks>
-    public TimeSpan? ConnectionPoolIdleTimeout { get; set; }
-
-    /// <summary>
     /// 批量操作的重试选项（可选）。
     /// </summary>
     /// <remarks>
