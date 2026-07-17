@@ -54,6 +54,70 @@ public static class ObjectExtensions
     public static bool IsNumeric(this object? value) =>
         value is byte or sbyte or short or ushort or int or uint or long or ulong or float or double or decimal;
 
+    /// <summary>
+    /// Determines whether the specified value equals any value in the supplied collection.
+    /// </summary>
+    /// <typeparam name="T">The type of values to compare.</typeparam>
+    /// <param name="obj">The value to compare.</param>
+    /// <param name="values">The values to compare against.</param>
+    /// <returns><see langword="true"/> when <paramref name="obj"/> equals any supplied value; otherwise, <see langword="false"/>.</returns>
+    public static bool In<T>(this T obj, params T[] values)
+    {
+        ArgumentNullException.ThrowIfNull(values);
+        return Array.IndexOf(values, obj) >= 0;
+    }
+
+    /// <summary>
+    /// Determines whether the specified value equals none of the supplied values.
+    /// </summary>
+    /// <typeparam name="T">The type of values to compare.</typeparam>
+    /// <param name="obj">The value to compare.</param>
+    /// <param name="values">The values to compare against.</param>
+    /// <returns><see langword="true"/> when <paramref name="obj"/> does not equal any supplied value; otherwise, <see langword="false"/>.</returns>
+    public static bool NotIn<T>(this T obj, params T[] values)
+    {
+        return !obj.In(values);
+    }
+
+    /// <summary>
+    /// Executes an action for each readable, non-indexed public property of the specified object.
+    /// </summary>
+    /// <param name="value">The object whose properties are enumerated.</param>
+    /// <param name="action">The action to execute with each property name and value.</param>
+    /// <remarks>Exceptions thrown by a property getter or <paramref name="action"/> propagate to the caller.</remarks>
+    public static void ForEachProperty(this object? value, Action<string, object?> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        if (value is null)
+        {
+            return;
+        }
+
+        foreach (var property in PropertyMetadataCache.GetProperties(value.GetType()))
+        {
+            if (property.GetMethod?.IsPublic != true || property.GetIndexParameters().Length != 0)
+            {
+                continue;
+            }
+
+            action(property.Name, property.GetValue(value));
+        }
+    }
+
+    /// <summary>
+    /// Executes an action for each readable, non-indexed public property of the specified object.
+    /// </summary>
+    /// <typeparam name="T">The type of the object.</typeparam>
+    /// <param name="value">The object whose properties are enumerated.</param>
+    /// <param name="action">The action to execute with each property name and value.</param>
+    /// <remarks>Use <see cref="ForEachProperty"/> instead.</remarks>
+    [Obsolete]
+    public static void ForIn<T>(this T? value, Action<string, object?> action)
+        where T : class
+    {
+        value.ForEachProperty(action);
+    }
+
     public static string? ToNormalizedString(this object? input, bool trim = false, bool treatEmptyAsNull = false)
     {
         if (input == null) return null;
@@ -255,6 +319,179 @@ public static class ObjectExtensions
 
     public static decimal? ToDecimalOrNull(this object? value) => value.TryToDecimal(out var r) ? r : null;
     public static decimal ToDecimalOrDefault(this object? value, decimal defaultValue = default) => value.TryToDecimal(out var r) ? r : defaultValue;
+
+    /// <summary>
+    /// Attempts to convert the specified value to a <see cref="double"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <param name="result">The converted value when the conversion succeeds; otherwise, zero.</param>
+    /// <returns><see langword="true"/> when the value can be converted; otherwise, <see langword="false"/>.</returns>
+    public static bool TryToDouble(this object? value, out double result)
+    {
+        result = 0d;
+        if (value is null || value is DBNull) return false;
+        if (value is double db)
+        {
+            result = db;
+            return true;
+        }
+
+        switch (value)
+        {
+            case string str:
+                return str.TryToDouble(out result);
+            case float fl:
+                result = fl;
+                return true;
+            case decimal dec:
+                result = (double)dec;
+                return true;
+            case byte b:
+                result = b;
+                return true;
+            case sbyte sb:
+                result = sb;
+                return true;
+            case short s:
+                result = s;
+                return true;
+            case ushort us:
+                result = us;
+                return true;
+            case int i:
+                result = i;
+                return true;
+            case uint ui:
+                result = ui;
+                return true;
+            case long l:
+                result = l;
+                return true;
+            case ulong ul:
+                result = ul;
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Converts the specified value to a <see cref="double"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/> or <see cref="DBNull"/>.</exception>
+    public static double ToDouble(this object? value)
+    {
+        if (value is null || value is DBNull)
+            throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
+        if (value.TryToDouble(out var result)) return result;
+
+        return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Converts the specified value to a nullable <see cref="double"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value, or <see langword="null"/> when conversion fails.</returns>
+    public static double? ToDoubleOrNull(this object? value) => value.TryToDouble(out var r) ? r : null;
+
+    /// <summary>
+    /// Converts the specified value to a <see cref="double"/> using the invariant culture, or returns a default value when conversion fails.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <param name="defaultValue">The value returned when conversion fails.</param>
+    /// <returns>The converted value or <paramref name="defaultValue"/>.</returns>
+    public static double ToDoubleOrDefault(this object? value, double defaultValue = default) => value.TryToDouble(out var r) ? r : defaultValue;
+
+    /// <summary>
+    /// Attempts to convert the specified value to a <see cref="float"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <param name="result">The converted value when the conversion succeeds; otherwise, zero.</param>
+    /// <returns><see langword="true"/> when the value can be converted; otherwise, <see langword="false"/>.</returns>
+    public static bool TryToFloat(this object? value, out float result)
+    {
+        result = 0f;
+        if (value is null || value is DBNull) return false;
+        if (value is float fl)
+        {
+            result = fl;
+            return true;
+        }
+
+        switch (value)
+        {
+            case string str:
+                return str.TryToFloat(out result);
+            case double db when double.IsNaN(db) || double.IsInfinity(db):
+                result = (float)db;
+                return true;
+            case double db when db >= -float.MaxValue && db <= float.MaxValue:
+                result = (float)db;
+                return true;
+            case decimal dec:
+                result = (float)dec;
+                return true;
+            case byte b:
+                result = b;
+                return true;
+            case sbyte sb:
+                result = sb;
+                return true;
+            case short s:
+                result = s;
+                return true;
+            case ushort us:
+                result = us;
+                return true;
+            case int i:
+                result = i;
+                return true;
+            case uint ui:
+                result = ui;
+                return true;
+            case long l:
+                result = l;
+                return true;
+            case ulong ul:
+                result = ul;
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Converts the specified value to a <see cref="float"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="value"/> is <see langword="null"/> or <see cref="DBNull"/>.</exception>
+    public static float ToFloat(this object? value)
+    {
+        if (value is null || value is DBNull)
+            throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
+        if (value.TryToFloat(out var result)) return result;
+
+        return Convert.ToSingle(value, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Converts the specified value to a nullable <see cref="float"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>The converted value, or <see langword="null"/> when conversion fails.</returns>
+    public static float? ToFloatOrNull(this object? value) => value.TryToFloat(out var r) ? r : null;
+
+    /// <summary>
+    /// Converts the specified value to a <see cref="float"/> using the invariant culture, or returns a default value when conversion fails.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <param name="defaultValue">The value returned when conversion fails.</param>
+    /// <returns>The converted value or <paramref name="defaultValue"/>.</returns>
+    public static float ToFloatOrDefault(this object? value, float defaultValue = default) => value.TryToFloat(out var r) ? r : defaultValue;
 
     public static bool TryToInt(this object? value, out int result)
     {

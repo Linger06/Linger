@@ -117,7 +117,13 @@ string part = text.Truncate(20, ""); // 安全截取，超长不会报错
 bool isEmpty = text.IsNullOrEmpty(); // 检查是否为空
 bool isNumber = number.IsNumber(); // 检查是否为数字
 bool isInt = number.IsInteger(); // 检查是否为整数
+
+// 字面量分隔符
+string[] columns = "id,name,email".SplitToArray(',');
+IEnumerable<string> lines = "第一行\r\n第二行".SplitToList("\r\n");
 ```
+
+字面量分隔符请使用 `SplitToArray` / `SplitToList`。旧的字符版本 `ToSplitArray`、`ToSplitList` 和 `ToSplitArrayByCrlf` 已标记为过时。`ToSplitList(string)` 仅为正则表达式分隔符保留，并设置了一秒匹配超时。
 
 ### 字符串加密扩展
 

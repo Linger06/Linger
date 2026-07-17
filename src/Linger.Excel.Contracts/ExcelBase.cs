@@ -23,16 +23,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             return null;
         }
 
-        try
-        {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return StreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel文件读取失败: {FilePath}", filePath);
-            return null;
-        }
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        return StreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
     }
 
     /// <summary>
@@ -46,16 +39,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             return null;
         }
 
-        try
-        {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return StreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel文件读取并转换为对象列表失败: {FilePath}", filePath);
-            return null;
-        }
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        return StreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
     }
 
     /// <summary>
@@ -69,16 +55,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             return null;
         }
 
-        try
-        {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return StreamToDataSet(fileStream, headerRowIndex, addEmptyRow);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
-            return null;
-        }
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        return StreamToDataSet(fileStream, headerRowIndex, addEmptyRow);
     }
 
     /// <summary>
@@ -92,16 +71,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             return null;
         }
 
-        try
-        {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return StreamToDataSet(fileStream, sheetNames, headerRowIndex, addEmptyRow);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
-            return null;
-        }
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        return StreamToDataSet(fileStream, sheetNames, headerRowIndex, addEmptyRow);
     }
 
     /// <summary>
@@ -115,16 +87,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             return null;
         }
 
-        try
-        {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return StreamToDataSet(fileStream, headerRowIndexSelector, addEmptyRow);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
-            return null;
-        }
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        return StreamToDataSet(fileStream, headerRowIndexSelector, addEmptyRow);
     }
 
     /// <summary>
@@ -138,16 +103,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             return null;
         }
 
-        try
-        {
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-            return StreamToDataSet(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel文件读取并转换为DataSet失败: {FilePath}", filePath);
-            return null;
-        }
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
+
+        return StreamToDataSet(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow);
     }
 
     /// <summary>

@@ -18,6 +18,8 @@ namespace Linger.Extensions.Core;
 /// </summary>
 public static partial class StringExtensions
 {
+    private static readonly TimeSpan s_regexSplitTimeout = TimeSpan.FromSeconds(1);
+
     // All methods are implemented in separate files based on functionality.
     // This main file serves as documentation for the class structure.
 
@@ -39,7 +41,8 @@ public static partial class StringExtensions
     public static string DeleteBrackets(this string value)
     {
         var str = value.Replace("（", "(").Replace("）", ")");
-        return Regex.Replace(str.Replace("（", "(").Replace("）", ")"), @"\([^\(]*\)", "");
+
+        return Regex.Replace(str, @"\([^\(]*\)", "");
     }
 
     /// <summary>
@@ -62,7 +65,7 @@ public static partial class StringExtensions
             return Enumerable.Empty<string>().ToList();
         }
 
-        return Regex.Split(value, symbol, RegexOptions.IgnoreCase).ToList();
+        return Regex.Split(value, symbol, RegexOptions.IgnoreCase, s_regexSplitTimeout).ToList();
     }
 
     /// <summary>
@@ -78,10 +81,10 @@ public static partial class StringExtensions
     /// // fruits: ["apple", "banana", "cherry"]
     /// </code>
     /// </example>
+    [Obsolete("Use SplitToList(value, symbol) instead.")]
     public static IEnumerable<string> ToSplitList(this string value, char symbol = ',')
     {
-        var value2 = value.ToSplitArray(symbol);
-        return value2.ToEnumerable();
+        return value.SplitToList(symbol);
     }
 
     /// <summary>
@@ -96,14 +99,10 @@ public static partial class StringExtensions
     /// // lines: ["line1", "line2", "line3"]
     /// </code>
     /// </example>
+    [Obsolete("Use SplitToArray(value, Environment.NewLine) instead.")]
     public static string[] ToSplitArrayByCrlf(this string value)
     {
-        if (value.IsNullOrEmpty())
-        {
-            return [];
-        }
-
-        return Regex.Split(value, Environment.NewLine, RegexOptions.IgnoreCase);
+        return value.SplitToArray(Environment.NewLine);
     }
 
     /// <summary>
@@ -119,14 +118,10 @@ public static partial class StringExtensions
     /// // fruits: ["apple", "banana", "cherry"]
     /// </code>
     /// </example>
+    [Obsolete("Use SplitToArray(value, symbol) instead.")]
     public static string[] ToSplitArray(this string value, char symbol = ',')
     {
-        if (value.IsNullOrEmpty())
-        {
-            return [];
-        }
-
-        return value.Split(symbol);
+        return value.SplitToArray(symbol);
     }
 
 }

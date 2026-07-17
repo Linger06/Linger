@@ -184,7 +184,7 @@ public static class ExcelExtensions
 
     /// <summary>
     /// 异步将Excel流转换为对象列表，并使用调用方提供的映射委托完成对象构造。
-    /// 默认实现会使用 <see cref="Task.Run(System.Action, CancellationToken)"/> 包裹同步导入过程。
+    /// The synchronous parser runs on a thread-pool thread and observes cancellation before it begins.
     /// </summary>
     /// <typeparam name="T">目标对象类型。</typeparam>
     /// <param name="excelService">Excel 服务实例。</param>
@@ -211,13 +211,14 @@ public static class ExcelExtensions
         {
             cancellationToken.ThrowIfCancellationRequested();
             var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+
             return dataTable?.ToList(map);
         }, cancellationToken);
     }
 
     /// <summary>
     /// 异步将Excel流转换为对象列表，并使用调用方提供的工厂与列 setter 映射完成对象构造。
-    /// 默认实现会使用 <see cref="Task.Run(System.Action, CancellationToken)"/> 包裹同步导入过程。
+    /// The synchronous parser runs on a thread-pool thread and observes cancellation before it begins.
     /// </summary>
     /// <typeparam name="T">目标对象类型。</typeparam>
     /// <param name="excelService">Excel 服务实例。</param>
@@ -247,6 +248,7 @@ public static class ExcelExtensions
         {
             cancellationToken.ThrowIfCancellationRequested();
             var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+
             return dataTable?.ToList(factory, columnSetters);
         }, cancellationToken);
     }

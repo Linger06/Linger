@@ -810,6 +810,17 @@ public partial class StringExtensionsTests
     }
 
     [Theory]
+    [InlineData(-1, null)]
+    [InlineData(null, -1)]
+    [InlineData(3, 2)]
+    public void IsCombinationOfEnglishNumber_WithInvalidLengthBounds_ReturnsFalse(int? minLength, int? maxLength)
+    {
+        var result = "abc123".IsCombinationOfEnglishNumber(minLength, maxLength);
+
+        Assert.False(result);
+    }
+
+    [Theory]
     [InlineData("hello", 10, null, "hello")]
     [InlineData("hello world", 5, null, "he...")]
     [InlineData("hello world", 5, "***", "he***")]
@@ -1196,6 +1207,60 @@ public partial class StringExtensionsTests
     {
         var result = input.IsPositiveInteger();
         Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("32767", true)]
+    [InlineData("32768", false)]
+    [InlineData(null, false)]
+    public void IsShort_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsShort());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("2147483648", false)]
+    [InlineData(null, false)]
+    public void IsInt_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsInt());
+    }
+
+    [Theory]
+    [InlineData("9223372036854775807", true)]
+    [InlineData("9223372036854775808", false)]
+    [InlineData(null, false)]
+    public void IsLong_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsLong());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("invalid", false)]
+    [InlineData(null, false)]
+    public void IsDecimal_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsDecimal());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("invalid", false)]
+    [InlineData(null, false)]
+    public void IsFloat_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsFloat());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("invalid", false)]
+    [InlineData(null, false)]
+    public void IsDouble_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsDouble());
     }
 
     [Theory]

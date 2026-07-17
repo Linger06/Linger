@@ -735,7 +735,7 @@ public class Excel : IExcel
         var sheetNames = new List<string>();
         if (sheetsName != null)
         {
-            sheetNames = sheetsName.ToSplitArray().ToList();
+            sheetNames = sheetsName.SplitToArray().ToList();
         }
 
         var file = new FileInfo(fullFileName);
@@ -775,7 +775,7 @@ public class Excel : IExcel
         var sheetNames = new List<string>();
         if (sheetsName != null)
         {
-            sheetNames = sheetsName.ToSplitArray().ToList();
+            sheetNames = sheetsName.SplitToArray().ToList();
         }
 
         var memoryStream = new MemoryStream();

@@ -55,6 +55,13 @@ public interface IHttpClient
 }
 ```
 
+### 响应所有权与文件下载
+
+- `CallApi<HttpResponseMessage>` 返回原始响应，调用方拥有该实例并负责释放。
+- `DownloadStreamAsync` 返回仍处于活动状态的响应流，调用方必须释放该流。
+- `DownloadToFileAsync` 先写入目标目录中的临时文件，仅在下载和刷新全部成功后替换目标文件。
+- 取消操作会抛出 `OperationCanceledException`、删除临时文件并保留已有目标文件；文件系统和流 I/O 异常会继续向调用方传播。
+
 ### ApiResult<T>
 ```csharp
 public class ApiResult<T>

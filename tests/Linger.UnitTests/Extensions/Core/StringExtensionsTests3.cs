@@ -2,6 +2,14 @@ namespace Linger.UnitTests.Extensions.Core;
 
 public partial class StringExtensionsTests
 {
+    [Fact]
+    public void ToSplitList_WithRegexPattern_ReturnsExpectedResult()
+    {
+        var result = "part1part2part3".ToSplitList(@"\d");
+
+        Assert.Equal(["part", "part", "part", string.Empty], result);
+    }
+
     [Theory]
     [InlineData("line1\r\nline2", "\r\n", new[] { "line1", "line2" })]
     [InlineData("line1,line2", ",", new[] { "line1", "line2" })]

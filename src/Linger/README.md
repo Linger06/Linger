@@ -117,7 +117,13 @@ string part = text.Truncate(20); // Won't throw if length exceeds
 bool isEmpty = text.IsNullOrEmpty();
 bool isNumber = number.IsNumber(); // Check if it's a number
 bool isInt = number.IsInteger(); // Check if it's an integer
+
+// Literal delimiters
+string[] columns = "id,name,email".SplitToArray(',');
+IEnumerable<string> lines = "first\r\nsecond".SplitToList("\r\n");
 ```
+
+Use `SplitToArray` / `SplitToList` for literal delimiters. The older character-based `ToSplitArray`, `ToSplitList`, and `ToSplitArrayByCrlf` APIs are obsolete. `ToSplitList(string)` is retained only for regular-expression delimiters and enforces a one-second match timeout.
 
 ### String Cryptography Extensions
 

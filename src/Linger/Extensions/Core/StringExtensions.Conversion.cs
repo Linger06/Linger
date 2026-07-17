@@ -161,6 +161,104 @@ public static partial class StringExtensions
 
     #endregion
 
+    #region string? -> double
+
+    /// <summary>
+    /// Attempts to convert the specified string to a <see cref="double"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="result">The converted value when the conversion succeeds; otherwise, zero.</param>
+    /// <returns><see langword="true"/> when the value can be converted; otherwise, <see langword="false"/>.</returns>
+    public static bool TryToDouble(this string? value, out double result)
+    {
+        result = 0d;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        var trimmed = value ?? string.Empty;
+        return double.TryParse(trimmed.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+            CultureInfo.InvariantCulture, out result);
+    }
+
+    /// <summary>
+    /// Converts the specified string to a <see cref="double"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <returns>The converted value.</returns>
+    public static double ToDouble(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var nonNullValue = value;
+        if (nonNullValue.TryToDouble(out var result)) return result;
+
+        return double.Parse(nonNullValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Converts the specified string to a nullable <see cref="double"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <returns>The converted value, or <see langword="null"/> when conversion fails.</returns>
+    public static double? ToDoubleOrNull(this string? value) => value.TryToDouble(out var r) ? r : null;
+
+    /// <summary>
+    /// Converts the specified string to a <see cref="double"/> using the invariant culture, or returns a default value when conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The value returned when conversion fails.</param>
+    /// <returns>The converted value or <paramref name="defaultValue"/>.</returns>
+    public static double ToDoubleOrDefault(this string? value, double defaultValue = default) => value.TryToDouble(out var r) ? r : defaultValue;
+
+    #endregion
+
+    #region string? -> float
+
+    /// <summary>
+    /// Attempts to convert the specified string to a <see cref="float"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="result">The converted value when the conversion succeeds; otherwise, zero.</param>
+    /// <returns><see langword="true"/> when the value can be converted; otherwise, <see langword="false"/>.</returns>
+    public static bool TryToFloat(this string? value, out float result)
+    {
+        result = 0f;
+        if (string.IsNullOrWhiteSpace(value)) return false;
+
+        var trimmed = value ?? string.Empty;
+        return float.TryParse(trimmed.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
+            CultureInfo.InvariantCulture, out result);
+    }
+
+    /// <summary>
+    /// Converts the specified string to a <see cref="float"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <returns>The converted value.</returns>
+    public static float ToFloat(this string? value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        var nonNullValue = value;
+        if (nonNullValue.TryToFloat(out var result)) return result;
+
+        return float.Parse(nonNullValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Converts the specified string to a nullable <see cref="float"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <returns>The converted value, or <see langword="null"/> when conversion fails.</returns>
+    public static float? ToFloatOrNull(this string? value) => value.TryToFloat(out var r) ? r : null;
+
+    /// <summary>
+    /// Converts the specified string to a <see cref="float"/> using the invariant culture, or returns a default value when conversion fails.
+    /// </summary>
+    /// <param name="value">The string to convert.</param>
+    /// <param name="defaultValue">The value returned when conversion fails.</param>
+    /// <returns>The converted value or <paramref name="defaultValue"/>.</returns>
+    public static float ToFloatOrDefault(this string? value, float defaultValue = default) => value.TryToFloat(out var r) ? r : defaultValue;
+
+    #endregion
+
     #region string? -> DateTime
 
     public static bool TryToDateTime(this string? value, out DateTime result)

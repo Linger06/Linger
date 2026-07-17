@@ -515,6 +515,43 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(100m, "1e2".ToDecimal());
         }
 
+        [Theory]
+        [InlineData("123.45", true, 123.45d)]
+        [InlineData("1e2", true, 100d)]
+        [InlineData("invalid", false, 0d)]
+        [InlineData(null, false, 0d)]
+        public void TryToDouble_ShouldReturnExpectedResult(string? value, bool expectedSuccess, double expectedResult)
+        {
+            var success = value.TryToDouble(out var result);
+
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedResult, result);
+        }
+
+        [Theory]
+        [InlineData("123.45", true, 123.45f)]
+        [InlineData("1e2", true, 100f)]
+        [InlineData("invalid", false, 0f)]
+        [InlineData(null, false, 0f)]
+        public void TryToFloat_ShouldReturnExpectedResult(string? value, bool expectedSuccess, float expectedResult)
+        {
+            var success = value.TryToFloat(out var result);
+
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedResult, result);
+        }
+
+        [Fact]
+        public void FloatingPointConversions_ShouldSupportStrictNullableAndDefaultConversions()
+        {
+            Assert.Equal(123.45d, "123.45".ToDouble());
+            Assert.Equal(123.45f, "123.45".ToFloat());
+            Assert.Null("invalid".ToDoubleOrNull());
+            Assert.Null("invalid".ToFloatOrNull());
+            Assert.Equal(42.5d, "invalid".ToDoubleOrDefault(42.5d));
+            Assert.Equal(42.5f, "invalid".ToFloatOrDefault(42.5f));
+        }
+
         public static TheoryData<string?, bool, DateTime> TryToDateTimeData()
         {
             return new TheoryData<string?, bool, DateTime>

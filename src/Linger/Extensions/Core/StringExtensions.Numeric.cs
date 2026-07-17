@@ -62,6 +62,48 @@ public static partial class StringExtensions
     }
 
     /// <summary>
+    /// Determines whether the specified string can be converted to a <see cref="short"/>.
+    /// </summary>
+    /// <param name="value">The string to evaluate.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
+    public static bool IsShort(this string? value) => value.TryToShort(out _);
+
+    /// <summary>
+    /// Determines whether the specified string can be converted to an <see cref="int"/>.
+    /// </summary>
+    /// <param name="value">The string to evaluate.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
+    public static bool IsInt(this string? value) => value.TryToInt(out _);
+
+    /// <summary>
+    /// Determines whether the specified string can be converted to a <see cref="long"/>.
+    /// </summary>
+    /// <param name="value">The string to evaluate.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
+    public static bool IsLong(this string? value) => value.TryToLong(out _);
+
+    /// <summary>
+    /// Determines whether the specified string can be converted to a <see cref="decimal"/>.
+    /// </summary>
+    /// <param name="value">The string to evaluate.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
+    public static bool IsDecimal(this string? value) => value.TryToDecimal(out _);
+
+    /// <summary>
+    /// Determines whether the specified string can be converted to a <see cref="float"/>.
+    /// </summary>
+    /// <param name="value">The string to evaluate.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
+    public static bool IsFloat(this string? value) => value.TryToFloat(out _);
+
+    /// <summary>
+    /// Determines whether the specified string can be converted to a <see cref="double"/>.
+    /// </summary>
+    /// <param name="value">The string to evaluate.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
+    public static bool IsDouble(this string? value) => value.TryToDouble(out _);
+
+    /// <summary>
     /// Determines whether the specified string is a positive integer.
     /// </summary>
     /// <param name="s">The string to validate.</param>

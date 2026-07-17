@@ -334,6 +334,19 @@ if (result.IsSuccess)
 - ✅ 内置进度报告功能
 - ✅ 支持取消令牌
 
+`DownloadToFileAsync` 不会直接写入最终路径。它先写入同目录临时文件，仅在下载和刷新成功后提交；取消或传输失败会删除临时文件，并保持已有目标文件不变。取消通过抛出 `OperationCanceledException` 报告。
+
+需要访问原始 HTTP 响应时，请请求 `HttpResponseMessage` 并释放返回的实例：
+
+```csharp
+var result = await _httpClient.CallApi<HttpResponseMessage>(url);
+if (result.IsSuccess)
+{
+    using var response = result.Data;
+    // 直接检查响应头或响应内容。
+}
+```
+
 #### HttpResponseMode（Buffered / Streamed）
 
 可按场景选择响应读取模式：
@@ -391,6 +404,7 @@ else
 - 不要用 `CallApi<byte[]>` 下载大文件：会将整个响应载入内存。
 - 使用 `DownloadStreamAsync` 后要及时释放流：推荐配合 `using`。
 - 下载任务建议传入取消令牌，便于超时或用户取消时快速中断。
+- 当取消属于正常业务流程时，应捕获 `OperationCanceledException`；`DownloadToFileAsync` 不会把取消转换为失败的 `ApiResult`。
 - 包装外部 `HttpClient`（如工厂创建实例）时，不要重复管理其生命周期。
 - 统一按结构化错误处理，优先读取 `Errors` 列表，而不只是打印状态码。
 

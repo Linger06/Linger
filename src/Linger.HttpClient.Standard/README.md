@@ -269,6 +269,19 @@ if (result.IsSuccess)
 - ✅ Built-in progress reporting
 - ✅ Cancellation token support
 
+`DownloadToFileAsync` does not write directly to the final path. It commits a same-directory temporary file only after a successful flush. Cancellation or transfer failure removes the temporary file and leaves an existing destination unchanged. Cancellation is reported by throwing `OperationCanceledException`.
+
+To access the raw HTTP response, request `HttpResponseMessage` and dispose the returned instance:
+
+```csharp
+var result = await _httpClient.CallApi<HttpResponseMessage>(url);
+if (result.IsSuccess)
+{
+    using var response = result.Data;
+    // Inspect headers or content directly.
+}
+```
+
 **Performance Comparison (Downloading 500MB file):**
 
 | Method | Memory Usage | Notes |
@@ -334,6 +347,7 @@ else
 - Do not use `CallApi<byte[]>` to download large files: it loads the entire response into memory.
 - Dispose the stream promptly after `DownloadStreamAsync`; `using` is recommended.
 - Pass a cancellation token to download tasks so timeouts or user cancellation can stop quickly.
+- Catch `OperationCanceledException` when cancellation is an expected application flow; `DownloadToFileAsync` does not convert cancellation into a failed `ApiResult`.
 - Do not manage the lifecycle of an external `HttpClient` twice when wrapping an instance created by a factory.
 - Handle structured errors consistently and prefer the `Errors` list over status-code-only checks.
 

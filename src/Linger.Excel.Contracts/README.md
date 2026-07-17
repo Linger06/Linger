@@ -9,7 +9,7 @@ A unified, efficient, and extensible Excel operation framework that supports mul
 - **DataSet Support** - Import/export entire workbook as DataSet, supports multi-sheet operations
 - **Dependency Injection Friendly** - Supports .NET Core/ASP.NET Core dependency injection
 - **High-Performance Design** - Batch processing, parallel processing, and performance monitoring
-- **True Async Support** - Async file I/O + Task.Run for CPU-intensive operations
+- **Async API Support** - Async file I/O plus thread-pool isolation for synchronous provider parsing
 - **Flexible Configuration** - Rich options configuration system
 - **Extensibility** - Easy to customize and extend
 - **Cross-Platform Compatible** - Supports .NET Framework 4.7.2+, .NET Standard 2.0+, .NET 8+, .NET 9+, .NET 10+
@@ -151,6 +151,12 @@ var imported = await excelService.ExcelToListAsync(
 
 These overloads first import Excel into a `DataTable`, then reuse the existing AOT-friendly `DataTable` mapping APIs.
 
+### Import result and exception semantics
+
+- File-based sync and async imports return `null` when the path is blank or the file does not exist.
+- Once a file exists, access, I/O, workbook-format, and provider parsing failures are not converted to `null`; they propagate to the caller.
+- Stream-based provider implementations may have provider-specific validation behavior. Validate externally supplied streams before import and handle the provider's documented exceptions.
+
 ### 5. AOT-Friendly Exports
 
 Use explicit columns when you want to avoid reflection during collection export and template generation:
@@ -199,7 +205,7 @@ public interface IExcelService
     DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
     
-    // Async imports - True async file I/O
+    // Async imports - async file opening plus synchronous provider parsing isolation
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
     Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -287,7 +293,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 
 **Async Implementation Notes:**
 - ✅ **File I/O**: Uses true async (`FileStream` with `useAsync: true`)
-- ⚠️ **Excel Processing**: Uses `Task.Run` to wrap sync methods (library limitation)
+- ⚠️ **Excel Processing**: Provider parsing is synchronous and runs through `Task.Run`; callers should limit concurrent large imports
 - 🔧 **Extensible**: Subclasses can override `StreamToXXXAsync` methods for custom async implementations
 
 ## 🎨 Advanced Features

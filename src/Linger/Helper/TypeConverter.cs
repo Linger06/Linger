@@ -168,7 +168,7 @@ public static class TypeConverter
 
         if (actualType == typeof(double))
         {
-            if (TryConvertToDouble(value, out var converted))
+            if (value.TryToDouble(out var converted))
             {
                 result = converted;
                 return true;
@@ -180,7 +180,7 @@ public static class TypeConverter
 
         if (actualType == typeof(float))
         {
-            if (TryConvertToSingle(value, out var converted))
+            if (value.TryToFloat(out var converted))
             {
                 result = converted;
                 return true;
@@ -284,12 +284,12 @@ public static class TypeConverter
 
         if (actualType == typeof(double))
         {
-            return ConvertToDouble(value);
+            return value.ToDouble();
         }
 
         if (actualType == typeof(float))
         {
-            return ConvertToSingle(value);
+            return value.ToFloat();
         }
 
         if (actualType == typeof(bool))
@@ -351,84 +351,6 @@ public static class TypeConverter
         }
 
         return Convert.ChangeType(value, actualType, CultureInfo.InvariantCulture);
-    }
-
-    private static double ConvertToDouble(object value)
-    {
-        if (TryConvertToDouble(value, out var result))
-        {
-            return result;
-        }
-
-        if (value is string stringValue)
-        {
-            return double.Parse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-                CultureInfo.InvariantCulture);
-        }
-
-        return Convert.ToDouble(value, CultureInfo.InvariantCulture);
-    }
-
-    private static float ConvertToSingle(object value)
-    {
-        if (TryConvertToSingle(value, out var result))
-        {
-            return result;
-        }
-
-        if (value is string stringValue)
-        {
-            return float.Parse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-                CultureInfo.InvariantCulture);
-        }
-
-        return Convert.ToSingle(value, CultureInfo.InvariantCulture);
-    }
-
-    private static bool TryConvertToDouble(object value, out double result)
-    {
-        if (value is float f)
-        {
-            result = f;
-            return true;
-        }
-
-        if (value is double d)
-        {
-            result = d;
-            return true;
-        }
-
-        if (value is string stringValue &&
-            double.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-                CultureInfo.InvariantCulture, out var parsed))
-        {
-            result = parsed;
-            return true;
-        }
-
-        result = default;
-        return false;
-    }
-
-    private static bool TryConvertToSingle(object value, out float result)
-    {
-        if (value is float f)
-        {
-            result = f;
-            return true;
-        }
-
-        if (value is string stringValue &&
-            float.TryParse(stringValue.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-                CultureInfo.InvariantCulture, out var parsed))
-        {
-            result = parsed;
-            return true;
-        }
-
-        result = default;
-        return false;
     }
 
     private static TimeSpan ConvertToTimeSpan(object value)

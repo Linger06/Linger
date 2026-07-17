@@ -9,7 +9,7 @@
 - **DataSet支持** - 导入/导出整个工作簿为DataSet，支持多工作表操作
 - **依赖注入友好** - 支持.NET Core/ASP.NET Core依赖注入
 - **高性能设计** - 批处理、并行处理以及性能监控
-- **真正的异步支持** - 异步文件 I/O + Task.Run 包裹 CPU 密集型操作
+- **异步 API 支持** - 异步文件 I/O；同步提供方解析在线程池中执行
 - **灵活配置** - 丰富的选项配置系统
 - **可扩展性** - 易于自定义和扩展
 - **跨平台兼容** - 支持.NET Framework 4.7.2+、.NET Standard 2.0+、.NET 8+、.NET 9+、.NET 10+
@@ -151,6 +151,12 @@ var imported = await excelService.ExcelToListAsync(
 
 这些重载会先把 Excel 导入为 `DataTable`，再复用现有的 AOT 友好 `DataTable` 映射 API。
 
+### 导入返回值与异常语义
+
+- 基于文件的同步和异步导入在路径为空或文件不存在时返回 `null`。
+- 文件存在后，访问权限、I/O、工作簿格式和提供方解析错误不会转换为 `null`，而是继续向调用方传播。
+- 基于流的实现可能具有提供方特定的校验行为。导入外部流前应先验证流，并处理对应提供方声明的异常。
+
 ### 5. AOT 友好导出
 
 当你希望在集合导出和模板生成阶段避免反射时，可以使用显式列定义：
@@ -199,7 +205,7 @@ public interface IExcelService
     DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
     
-    // 异步导入 - 真正的异步文件 I/O
+    // 异步导入 - 异步打开文件，并隔离同步提供方解析
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
     Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -287,7 +293,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 
 **异步实现说明:**
 - ✅ **文件 I/O**: 使用真正的异步 (`FileStream` 的 `useAsync: true`)
-- ⚠️ **Excel 处理**: 使用 `Task.Run` 包裹同步方法(底层库限制)
+- ⚠️ **Excel 处理**: 提供方解析为同步操作并通过 `Task.Run` 执行；调用方应限制大文件的并发导入数
 - 🔧 **可扩展**: 子类可以覆盖 `StreamToXXXAsync` 方法提供自定义异步实现
 
 ## 🎨 高级功能

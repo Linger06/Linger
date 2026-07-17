@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using System.Collections.Concurrent;
 
 namespace Linger.Extensions.Core;
 
@@ -447,8 +446,7 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsCombinationOfEnglishNumber(this string input, int? minLength = null, int? maxLength = null)
     {
-        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: false);
-        return regex.IsMatch(input);
+        return IsCombination(input, minLength, maxLength, allowSymbols: false);
     }
 
     /// <summary>
@@ -467,38 +465,48 @@ public static partial class StringExtensions
     public static bool IsCombinationOfEnglishNumberSymbol(this string input, int? minLength = null,
         int? maxLength = null)
     {
-        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: true);
-        return regex.IsMatch(input);
+        return IsCombination(input, minLength, maxLength, allowSymbols: true);
     }
 
-    private static readonly ConcurrentDictionary<string, Regex> s_combinationRegexCache = new();
-
-    private static Regex GetCombinationRegex(int? minLength, int? maxLength, bool withSymbol)
+    private static bool IsCombination(string? input, int? minLength, int? maxLength, bool allowSymbols)
     {
-        // Base fragments are identical to the previous inline patterns
-        var core = withSymbol
-            ? @"(?=.*\d)(?=.*[a-zA-Z])(?=.*[^a-zA-Z\d])."
-            : @"(?=.*\d)(?=.*[a-zA-Z])[a-zA-Z0-9]";
-
-        string pattern;
-        if (minLength is null && maxLength is null)
+        if (input is null
+            || input.Length == 0
+            || minLength is < 0
+            || maxLength is < 0
+            || (minLength is not null && maxLength is not null && minLength > maxLength)
+            || (minLength is not null && input.Length < minLength)
+            || (maxLength is not null && input.Length > maxLength))
         {
-            pattern = $"^{core}+$";
-        }
-        else if (minLength is not null && maxLength is null)
-        {
-            pattern = $"^{core}{{{minLength},}}$";
-        }
-        else if (minLength is null && maxLength is not null)
-        {
-            pattern = $"^{core}{{1,{maxLength}}}$";
-        }
-        else
-        {
-            pattern = $"^{core}{{{minLength},{maxLength}}}$";
+            return false;
         }
 
-        return s_combinationRegexCache.GetOrAdd(pattern, static p =>
-            new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant));
+        var hasAsciiLetter = false;
+        var hasDigit = false;
+        var hasSymbol = false;
+
+        foreach (var character in input)
+        {
+            if ((character >= 'A' && character <= 'Z') || (character >= 'a' && character <= 'z'))
+            {
+                hasAsciiLetter = true;
+                continue;
+            }
+
+            if (character >= '0' && character <= '9')
+            {
+                hasDigit = true;
+                continue;
+            }
+
+            if (!allowSymbols || character == '\n')
+            {
+                return false;
+            }
+
+            hasSymbol = true;
+        }
+
+        return hasAsciiLetter && hasDigit && (!allowSymbols || hasSymbol);
     }
 }

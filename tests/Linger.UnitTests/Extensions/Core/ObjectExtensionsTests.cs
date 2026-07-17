@@ -98,6 +98,59 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.False(obj.IsNullOrDbNull());
         }
 
+        [Theory]
+        [InlineData(1, true)]
+        [InlineData(4, false)]
+        public void In_ShouldReturnWhetherValueIsPresent(int value, bool expected)
+        {
+            Assert.Equal(expected, value.In(1, 2, 3));
+        }
+
+        [Theory]
+        [InlineData(1, false)]
+        [InlineData(4, true)]
+        public void NotIn_ShouldReturnWhetherValueIsAbsent(int value, bool expected)
+        {
+            Assert.Equal(expected, value.NotIn(1, 2, 3));
+        }
+
+        [Fact]
+        public void ForEachProperty_ShouldEnumerateReadableNonIndexedProperties()
+        {
+            var value = new PropertyEnumerationTestModel { Name = "Linger", Count = 6 };
+            var properties = new Dictionary<string, object?>();
+
+            value.ForEachProperty((name, propertyValue) => properties.Add(name, propertyValue));
+
+            Assert.Equal("Linger", properties[nameof(PropertyEnumerationTestModel.Name)]);
+            Assert.Equal(6, properties[nameof(PropertyEnumerationTestModel.Count)]);
+            Assert.DoesNotContain("Item", properties.Keys);
+        }
+
+        [Fact]
+        public void ForEachProperty_ShouldNotInvokeAction_WhenValueIsNull()
+        {
+            object? value = null;
+            var invoked = false;
+
+            value.ForEachProperty((_, _) => invoked = true);
+
+            Assert.False(invoked);
+        }
+
+        [Fact]
+        public void ForIn_ShouldForwardToForEachProperty()
+        {
+            var value = new PropertyEnumerationTestModel { Name = "Linger" };
+            var properties = new Dictionary<string, object?>();
+
+#pragma warning disable CS0618
+            value.ForIn((name, propertyValue) => properties.Add(name, propertyValue));
+#pragma warning restore CS0618
+
+            Assert.Equal("Linger", properties[nameof(PropertyEnumerationTestModel.Name)]);
+        }
+
         [Fact]
         public void GetPropertyInfo_ShouldReturnPropertyInfo_WhenPropertyExists()
         {
@@ -312,6 +365,22 @@ namespace Linger.UnitTests.Extensions.Core
                     { "invalid", null },
                     { 123, 123f }
                 };
+        }
+
+        [Theory]
+        [MemberData(nameof(ToDoubleOrNullData))]
+        public void ToDoubleOrNull_ShouldReturnExpectedResult(object input, double? expected)
+        {
+            var result = input.ToDoubleOrNull();
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [MemberData(nameof(ToFloatOrNullData))]
+        public void ToFloatOrNull_ShouldReturnExpectedResult(object input, float? expected)
+        {
+            var result = input.ToFloatOrNull();
+            Assert.Equal(expected, result);
         }
 
         // New ToDateTimeOrDefault tests for ObjectExtensions
@@ -546,6 +615,53 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
+        [InlineData("123.45", 123.45d)]
+        [InlineData(123, 123d)]
+        [InlineData(double.PositiveInfinity, double.PositiveInfinity)]
+        public void ToDouble_ShouldReturnExpectedResult(object input, double expected)
+        {
+            var result = input.ToDouble();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("123.45", 123.45f)]
+        [InlineData(123, 123f)]
+        [InlineData(float.PositiveInfinity, float.PositiveInfinity)]
+        public void ToFloat_ShouldReturnExpectedResult(object input, float expected)
+        {
+            var result = input.ToFloat();
+
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void ToDouble_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToDouble());
+        }
+
+        [Fact]
+        public void ToFloat_ShouldThrowArgumentNullException_WhenInputIsNull()
+        {
+            object? input = null;
+
+            Assert.Throws<ArgumentNullException>(() => input.ToFloat());
+        }
+
+        [Fact]
+        public void FloatingPointConversions_ShouldUseDefaultValue_WhenTryConversionFails()
+        {
+            object input = "invalid";
+
+            Assert.Equal(42.5d, input.ToDoubleOrDefault(42.5d));
+            Assert.Equal(42.5f, input.ToFloatOrDefault(42.5f));
+        }
+
+        [Theory]
         [InlineData(double.NaN)]
         [InlineData(double.PositiveInfinity)]
         [InlineData(double.NegativeInfinity)]
@@ -729,6 +845,46 @@ namespace Linger.UnitTests.Extensions.Core
             var success = input.TryToDecimal(out var value);
             Assert.Equal(expectedSuccess, success);
             Assert.Equal(expectedValue, value);
+        }
+
+        [Theory]
+        [InlineData("123.45", true, 123.45d)]
+        [InlineData("invalid", false, 0d)]
+        [InlineData(null, false, 0d)]
+        public void TryToDouble_ShouldReturnExpected(object? input, bool expectedSuccess, double expectedValue)
+        {
+            var success = input.TryToDouble(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        [Theory]
+        [InlineData("123.45", true, 123.45f)]
+        [InlineData("invalid", false, 0f)]
+        [InlineData(null, false, 0f)]
+        public void TryToFloat_ShouldReturnExpected(object? input, bool expectedSuccess, float expectedValue)
+        {
+            var success = input.TryToFloat(out var value);
+            Assert.Equal(expectedSuccess, success);
+            Assert.Equal(expectedValue, value);
+        }
+
+        [Fact]
+        public void TryToTargetDouble_ShouldUseTheFloatingPointConversionRules()
+        {
+            object input = 123;
+
+            var success = input.TryToTarget<double>(out var value);
+
+            Assert.True(success);
+            Assert.Equal(123d, value);
+        }
+
+        private sealed class PropertyEnumerationTestModel
+        {
+            public string Name { get; init; } = string.Empty;
+            public int Count { get; init; }
+            public string this[int index] => index.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

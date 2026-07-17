@@ -188,19 +188,26 @@ public abstract class HttpClientBase : IHttpClient
     /// <typeparam name="T">期望的响应数据类型</typeparam>
     /// <param name="res">HTTP响应消息</param>
     /// <returns>包含响应数据的ApiResult</returns>
-    protected virtual async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res)
+    protected virtual Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res)
+    {
+        return HandleResponseMessage<T>(res, CancellationToken.None);
+    }
+
+    protected virtual async Task<ApiResult<T>> HandleResponseMessage<T>(HttpResponseMessage res, CancellationToken cancellationToken)
     {
         try
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var result = new ApiResult<T> { StatusCode = res.StatusCode };
 
             if (res.IsSuccessStatusCode)
             {
-                result.Data = await DeserializeResponseContent<T>(res).ConfigureAwait(false);
+                result.Data = await DeserializeResponseContent<T>(res, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                (result.ErrorMsg, result.Errors) = await GetErrorMessageAsync(res).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                (result.ErrorMsg, result.Errors) = await GetErrorMessageAsync(res, cancellationToken).ConfigureAwait(false);
             }
 
             return result;
@@ -221,26 +228,53 @@ public abstract class HttpClientBase : IHttpClient
     /// <typeparam name="T">目标类型</typeparam>
     /// <param name="response">HTTP响应消息</param>
     /// <returns>反序列化后的数据</returns>
-    protected virtual async Task<T> DeserializeResponseContent<T>(HttpResponseMessage response)
+    protected virtual Task<T> DeserializeResponseContent<T>(HttpResponseMessage response)
     {
+        return DeserializeResponseContent<T>(response, CancellationToken.None);
+    }
+
+    protected virtual async Task<T> DeserializeResponseContent<T>(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var targetType = typeof(T);
+
+        if (targetType == typeof(HttpResponseMessage))
+        {
+            return (T)(object)response;
+        }
 
         // 处理 Stream 类型(流式下载)
         if (targetType == typeof(Stream))
         {
-            var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            var stream = await ReadResponseStreamAsync(response.Content, cancellationToken).ConfigureAwait(false);
             return (T)(object)stream;
         }
 
         // 处理字节数组类型
         if (targetType == typeof(byte[]))
         {
-            var bytes = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            var bytes = await ReadResponseByteArrayAsync(response.Content, cancellationToken).ConfigureAwait(false);
             return (T)(object)bytes;
         }
 
         // 读取响应文本
-        var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        if (targetType != typeof(string) && targetType != typeof(object))
+        {
+            using var responseStream = new JsonContentTrackingStream(
+                await ReadResponseStreamAsync(response.Content, cancellationToken).ConfigureAwait(false));
+
+            try
+            {
+                return await JsonSerializer.DeserializeAsync<T>(responseStream, GetResponseJsonOptions(), cancellationToken).ConfigureAwait(false)
+                    ?? default!;
+            }
+            catch (JsonException) when (!responseStream.HasNonWhitespaceContent)
+            {
+                return default!;
+            }
+        }
+
+        var responseText = await ReadResponseStringAsync(response.Content, cancellationToken).ConfigureAwait(false);
 
         // 处理字符串类型
         if (targetType == typeof(string))
@@ -291,8 +325,169 @@ public abstract class HttpClientBase : IHttpClient
         }
     }
 
-    protected virtual async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage res)
+    private static Task<Stream> ReadResponseStreamAsync(HttpContent content, CancellationToken cancellationToken)
     {
+#if NET5_0_OR_GREATER
+        return content.ReadAsStreamAsync(cancellationToken);
+#else
+        cancellationToken.ThrowIfCancellationRequested();
+        return content.ReadAsStreamAsync();
+#endif
+    }
+
+    private static Task<byte[]> ReadResponseByteArrayAsync(HttpContent content, CancellationToken cancellationToken)
+    {
+#if NET5_0_OR_GREATER
+        return content.ReadAsByteArrayAsync(cancellationToken);
+#else
+        cancellationToken.ThrowIfCancellationRequested();
+        return content.ReadAsByteArrayAsync();
+#endif
+    }
+
+    private static Task<string> ReadResponseStringAsync(HttpContent content, CancellationToken cancellationToken)
+    {
+#if NET5_0_OR_GREATER
+        return content.ReadAsStringAsync(cancellationToken);
+#else
+        cancellationToken.ThrowIfCancellationRequested();
+        return content.ReadAsStringAsync();
+#endif
+    }
+
+    private sealed class JsonContentTrackingStream(Stream inner) : Stream
+    {
+        public bool HasNonWhitespaceContent { get; private set; }
+
+        public override bool CanRead => inner.CanRead;
+        public override bool CanSeek => inner.CanSeek;
+        public override bool CanWrite => false;
+        public override long Length => inner.Length;
+
+        public override long Position
+        {
+            get => inner.Position;
+            set => inner.Position = value;
+        }
+
+        public override void Flush()
+        {
+            inner.Flush();
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var bytesRead = inner.Read(buffer, offset, count);
+            TrackContent(buffer, offset, bytesRead);
+
+            return bytesRead;
+        }
+
+        public override async Task<int> ReadAsync(
+            byte[] buffer,
+            int offset,
+            int count,
+            CancellationToken cancellationToken)
+        {
+#if NET8_0_OR_GREATER
+            var bytesRead = await inner.ReadAsync(
+                buffer.AsMemory(offset, count),
+                cancellationToken).ConfigureAwait(false);
+#else
+            var bytesRead = await inner.ReadAsync(buffer, offset, count, cancellationToken).ConfigureAwait(false);
+#endif
+            TrackContent(buffer, offset, bytesRead);
+
+            return bytesRead;
+        }
+
+#if NET8_0_OR_GREATER
+        public override int Read(Span<byte> buffer)
+        {
+            var bytesRead = inner.Read(buffer);
+            TrackContent(buffer[..bytesRead]);
+
+            return bytesRead;
+        }
+
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer,
+            CancellationToken cancellationToken = default)
+        {
+            var bytesRead = await inner.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            TrackContent(buffer.Span[..bytesRead]);
+
+            return bytesRead;
+        }
+#endif
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            return inner.Seek(offset, origin);
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                inner.Dispose();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        private void TrackContent(byte[] buffer, int offset, int count)
+        {
+            for (var index = offset; index < offset + count; index++)
+            {
+                if (!IsJsonWhitespace(buffer[index]))
+                {
+                    HasNonWhitespaceContent = true;
+                    return;
+                }
+            }
+        }
+
+#if NET8_0_OR_GREATER
+        private void TrackContent(ReadOnlySpan<byte> buffer)
+        {
+            foreach (var value in buffer)
+            {
+                if (!IsJsonWhitespace(value))
+                {
+                    HasNonWhitespaceContent = true;
+                    return;
+                }
+            }
+        }
+#endif
+
+        private static bool IsJsonWhitespace(byte value)
+        {
+            return value is 0x20 or 0x09 or 0x0A or 0x0D;
+        }
+    }
+
+    protected virtual Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage res)
+    {
+        return GetErrorMessageAsync(res, CancellationToken.None);
+    }
+
+    protected virtual async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(
+        HttpResponseMessage res,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
             // 防御性限流读取，最多只读取前 50KB 的内容，防止大数据恶意撑爆客户端内存
@@ -300,11 +495,16 @@ public abstract class HttpClientBase : IHttpClient
             const int maxReadBytes = 50 * 1024;
             string responseTxt;
 
-            using (var stream = await res.Content.ReadAsStreamAsync().ConfigureAwait(false))
+            using (var stream = await ReadResponseStreamAsync(res.Content, cancellationToken).ConfigureAwait(false))
             using (var reader = new StreamReader(stream))
             {
                 var buffer = new char[maxReadBytes / 2]; // 粗略估算 char 长度
+#if NET8_0_OR_GREATER
+                int readCount = await reader.ReadBlockAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false);
+#else
                 int readCount = await reader.ReadBlockAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+#endif
                 responseTxt = new string(buffer, 0, readCount);
             }
             if (string.IsNullOrWhiteSpace(responseTxt))
@@ -392,12 +592,22 @@ public abstract class HttpClientBase : IHttpClient
                 return (statusMessage, [new Error(string.Empty, responseTxt)]);
             }
             // 由于上面已经做了 50KB 的流截断读取，这里直接截取前 200 字符即可，100% 安全
+#if NET8_0_OR_GREATER
+            string finalFallbackMsg = responseTxt.Length > 200
+                ? string.Concat(responseTxt.AsSpan(0, 200), "...".AsSpan())
+                : responseTxt;
+#else
             string finalFallbackMsg = responseTxt.Length > 200 ? responseTxt.Substring(0, 200) + "..." : responseTxt;
+#endif
             return (finalFallbackMsg, []);
         }
-        catch (Exception ex)
+        catch (HttpRequestException)
         {
-            return ($"HTTP {(int)res.StatusCode}: {res.ReasonPhrase} (Failed to read network stream: {ex.Message})", []);
+            throw;
+        }
+        catch (IOException)
+        {
+            throw;
         }
     }
 
@@ -534,6 +744,8 @@ public abstract class HttpClientBase : IHttpClient
     {
         var result = await DownloadStreamAsync(url, timeout, cancellationToken).ConfigureAwait(false);
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (!result.IsSuccess || result.Data is null)
         {
             return new ApiResult
@@ -544,44 +756,61 @@ public abstract class HttpClientBase : IHttpClient
             };
         }
 
+        var fullDestinationPath = Path.GetFullPath(destinationPath);
+        var destinationDirectory = Path.GetDirectoryName(fullDestinationPath) ?? Directory.GetCurrentDirectory();
+        var tempPath = Path.Combine(
+            destinationDirectory,
+            $".{Path.GetFileName(fullDestinationPath)}.{Guid.NewGuid():N}.tmp");
+        var committed = false;
+
         try
         {
-            using var sourceStream = result.Data;
-            using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize, true);
-
-            long? totalBytes = null;
-            if (sourceStream.CanSeek)
+            using (var sourceStream = result.Data)
+            using (var fileStream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize, true))
             {
-                totalBytes = sourceStream.Length;
-            }
-
-            var buffer = new byte[bufferSize];
-            long downloadedBytes = 0;
-            int bytesRead;
+                long? totalBytes = sourceStream.CanSeek ? sourceStream.Length : null;
+                var buffer = new byte[bufferSize];
+                long downloadedBytes = 0;
+                int bytesRead;
 
 #if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-            while ((bytesRead = await sourceStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-            {
-                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+                while ((bytesRead = await sourceStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
 #else
-            while ((bytesRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
-            {
-                await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
+                while ((bytesRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
 #endif
-                downloadedBytes += bytesRead;
+                    downloadedBytes += bytesRead;
+                    progress?.Report((downloadedBytes, totalBytes));
+                }
 
-                progress?.Report((downloadedBytes, totalBytes));
+                await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
+
+#if NETCOREAPP3_0_OR_GREATER
+            File.Move(tempPath, fullDestinationPath, overwrite: true);
+#else
+            if (File.Exists(fullDestinationPath))
+            {
+                File.Replace(tempPath, fullDestinationPath, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tempPath, fullDestinationPath);
+            }
+#endif
+            committed = true;
 
             return new ApiResult { StatusCode = result.StatusCode };
         }
-        catch (Exception ex)
+        finally
         {
-            return new ApiResult
+            if (!committed && File.Exists(tempPath))
             {
-                StatusCode = result.StatusCode,
-                ErrorMsg = $"下载文件时发生错误: {ex.Message}"
-            };
+                File.Delete(tempPath);
+            }
         }
     }
 
