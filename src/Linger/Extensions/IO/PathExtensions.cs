@@ -112,19 +112,60 @@ public static partial class PathExtensions
     /// <summary>
     /// Resolves a path to an absolute local path and normalizes trailing separators.
     /// </summary>
-    public static string ToFullPath(this string? relativePath, string? basePath = null, bool preserveEndingSeparator = false)
+    /// <param name="relativePath">The relative or absolute local path to resolve.</param>
+    /// <param name="basePath">
+    /// The base path used to resolve a relative path. A relative base path is resolved against
+    /// <see cref="Environment.CurrentDirectory"/>. When null, <see cref="Environment.CurrentDirectory"/> is used directly.
+    /// </param>
+    /// <param name="includeTrailingSeparator">
+    /// <see langword="true"/> to include a trailing directory separator in the result;
+    /// otherwise, <see langword="false"/>.
+    /// </param>
+    /// <returns>The resolved absolute local path.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="relativePath"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="relativePath"/> or <paramref name="basePath"/> is empty, whitespace, or otherwise invalid.
+    /// </exception>
+    /// <example>
+    /// <code>
+    /// string fullPath = "logs/app.log".ToFullPath("data", includeTrailingSeparator: false);
+    /// </code>
+    /// </example>
+    public static string ToFullPath(this string relativePath, string? basePath = null, bool includeTrailingSeparator = false)
     {
-        if (relativePath is null || relativePath.Length == 0)
-        {
-            return string.Empty;
-        }
+        ArgumentNullException.ThrowIfNull(relativePath);
 
         if (string.IsNullOrWhiteSpace(relativePath))
         {
-            throw new ArgumentException("Path cannot be whitespace only.", nameof(relativePath));
+            throw new ArgumentException("Path cannot be empty or whitespace.", nameof(relativePath));
         }
 
-        string pathToResolve = relativePath!;
+        if (basePath is not null && string.IsNullOrWhiteSpace(basePath))
+        {
+            throw new ArgumentException("Base path cannot be empty or whitespace.", nameof(basePath));
+        }
+
+        string resolvedBasePath;
+        try
+        {
+            if (basePath is not null && basePath.ContainsInvalidPathChars())
+            {
+                throw new IOException($"Invalid local base path characters found: {basePath}");
+            }
+
+            resolvedBasePath = basePath is null
+                ? Environment.CurrentDirectory
+                : Path.GetFullPath(basePath);
+        }
+        catch (Exception ex) when (PathHelper.IsPathException(ex))
+        {
+            throw new ArgumentException(
+                $"Failed to resolve the base path: {basePath}",
+                nameof(basePath),
+                ex);
+        }
+
+        string pathToResolve = relativePath;
 
         try
         {
@@ -136,38 +177,39 @@ public static partial class PathExtensions
             string resolvedPath;
 
 #if NETCOREAPP2_1_OR_GREATER || NET5_0_OR_GREATER || NET
-            basePath ??= Environment.CurrentDirectory;
-            resolvedPath = Path.GetFullPath(pathToResolve, basePath);
+            resolvedPath = Path.GetFullPath(pathToResolve, resolvedBasePath);
 #else
             // Older targets need a little extra logic to avoid odd rooted-path behavior.
-            if (pathToResolve.IsStrictAbsolutePath())
+            if (PathHelper.IsPathFullyQualified(pathToResolve))
             {
                 resolvedPath = Path.GetFullPath(pathToResolve);
             }
-            else
+            else if (Path.IsPathRooted(pathToResolve))
             {
-                basePath ??= Environment.CurrentDirectory;
-
                 // Preserve the drive root when the relative path starts with a single slash.
                 if (pathToResolve.Length > 0 && (pathToResolve[0] == '\\' || pathToResolve[0] == '/'))
                 {
-                    var baseRoot = Path.GetPathRoot(basePath) ?? string.Empty;
+                    var baseRoot = Path.GetPathRoot(resolvedBasePath) ?? string.Empty;
                     var trimmedPath = pathToResolve.Substring(1);
                     resolvedPath = Path.GetFullPath(Path.Combine(baseRoot, trimmedPath));
                 }
                 else
                 {
-                    resolvedPath = Path.GetFullPath(Path.Combine(basePath, pathToResolve));
+                    resolvedPath = Path.GetFullPath(pathToResolve);
                 }
+            }
+            else
+            {
+                resolvedPath = Path.GetFullPath(Path.Combine(resolvedBasePath, pathToResolve));
             }
 #endif
 
-            return PathHelper.HandleEndingSeparator(resolvedPath, preserveEndingSeparator);
+            return PathHelper.HandleEndingSeparator(resolvedPath, includeTrailingSeparator);
         }
         catch (Exception ex) when (PathHelper.IsPathException(ex))
         {
             throw new ArgumentException(
-                $"Failed to resolve local absolute path. Base: {basePath ?? "<null>"}, Relative: {relativePath ?? "<null>"}",
+                $"Failed to resolve local absolute path. Base: {resolvedBasePath}, Relative: {relativePath}",
                 nameof(relativePath),
                 ex);
         }
@@ -210,18 +252,31 @@ public static partial class PathExtensions
     /// </summary>
     /// <param name="relativeTo">Base path used as the origin.</param>
     /// <param name="path">Target path.</param>
-    /// <returns>The relative path, "." for identical paths, or an empty string when the target input is blank.</returns>
-    /// <exception cref="ArgumentException">Thrown when the base path is blank or path normalization fails.</exception>
+    /// <returns>The relative path, or <c>.</c> when both paths resolve to the same location.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="relativeTo"/> or <paramref name="path"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="relativeTo"/> or <paramref name="path"/> is empty, whitespace, or otherwise invalid.
+    /// </exception>
+    /// <example>
+    /// <code>
+    /// string relativePath = "/var/app".GetRelativePath("/var/app/logs/app.log");
+    /// // relativePath: "logs/app.log"
+    /// </code>
+    /// </example>
     public static string GetRelativePath(this string relativeTo, string path)
     {
-        if (string.IsNullOrWhiteSpace(relativeTo))
-            throw new ArgumentException("Local base path cannot be null or empty", nameof(relativeTo));
+        ArgumentNullException.ThrowIfNull(relativeTo);
+        ArgumentNullException.ThrowIfNull(path);
 
-        if (path is null || path.Length == 0)
-            return string.Empty;
+        if (string.IsNullOrWhiteSpace(relativeTo))
+        {
+            throw new ArgumentException("Local base path cannot be empty or whitespace.", nameof(relativeTo));
+        }
 
         if (string.IsNullOrWhiteSpace(path))
-            throw new ArgumentException("Target path cannot be whitespace only.", nameof(path));
+        {
+            throw new ArgumentException("Target path cannot be empty or whitespace.", nameof(path));
+        }
 
         try
         {
@@ -249,39 +304,15 @@ public static partial class PathExtensions
 #if NETCOREAPP2_1_OR_GREATER || NET5_0_OR_GREATER || NET
             return Path.GetRelativePath(relativeTo, path);
 #else
-            const string sep = "\\";
-
-            // Normalize both paths before using Uri-based relative path calculation.
-            string cleanFrom = relativeTo.Replace('/', '\\');
-            string cleanTo = path.Replace('/', '\\');
-
-            if (!cleanFrom.EndsWith(sep)) cleanFrom += sep;
-
-            bool isToDirectory = cleanTo.EndsWith(sep) || !Path.HasExtension(cleanTo);
-            if (isToDirectory && !cleanTo.EndsWith(sep))
-            {
-                cleanTo += sep;
-            }
-
-            var fromUri = new Uri(cleanFrom);
-            var toUri = new Uri(cleanTo);
-            if (fromUri.Scheme != toUri.Scheme) return path;
-
-            Uri relativeUri = fromUri.MakeRelativeUri(toUri);
-            string relativePath = Uri.UnescapeDataString(relativeUri.ToString());
-
-            string result = relativePath.Replace('/', '\\');
-            if (result.Length > 1 && result.EndsWith(sep))
-            {
-                result = result.TrimEnd('\\');
-            }
-
-            return string.IsNullOrEmpty(result) ? "." : result;
+            return PathHelper.GetRelativePathFallback(relativeTo, path);
 #endif
         }
         catch (Exception ex) when (PathHelper.IsPathException(ex))
         {
-            throw new ArgumentException($"Invalid local path for relative calculation. Base: {relativeTo}, Target: {path}", ex);
+            throw new ArgumentException(
+                $"Invalid local path for relative calculation. Base: {relativeTo}, Target: {path}",
+                nameof(path),
+                ex);
         }
     }
 
@@ -315,30 +346,35 @@ public static partial class PathExtensions
     /// <summary>
     /// Determines whether the path is a strict local absolute path, excluding classic UNC shares.
     /// </summary>
+    /// <param name="path">The path to evaluate.</param>
+    /// <returns>
+    /// <see langword="true"/> when the path is fully qualified and is not a classic UNC share;
+    /// otherwise, <see langword="false"/>.
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// bool isAbsolute = @"C:\data\file.txt".IsStrictAbsolutePath();
+    /// </code>
+    /// </example>
+    [Obsolete("Use Path.IsPathFullyQualified and apply an explicit UNC policy instead. This compatibility helper will be removed in the next major version.")]
     public static bool IsStrictAbsolutePath(this string path)
     {
-        if (!Path.IsPathRooted(path)) return false;
-
-        var root = Path.GetPathRoot(path);
-        if (string.IsNullOrEmpty(root)) return false;
-
-        // On Unix-like systems, a single leading slash is a local absolute path.
-        if (Path.DirectorySeparatorChar == '/')
+        if (!PathHelper.IsPathFullyQualified(path))
         {
-            return path.Length > 0 && path[0] == '/' && (path.Length == 1 || path[1] != '/');
+            return false;
         }
 
-        // On Windows, accept drive-rooted and device-prefixed local paths only.
-        if (root.Length >= 2 && char.IsLetter(root[0]) && root[1] == ':')
-        {
-            return root.Length == 2 || root[2] == '\\' || root[2] == '/';
-        }
-
-        if (root.StartsWith(@"\\?\", StringComparison.Ordinal) || root.StartsWith(@"\\.\", StringComparison.Ordinal))
+        if (Path.DirectorySeparatorChar != '\\')
         {
             return true;
         }
 
-        return false;
+        if (path.StartsWith(@"\\?\", StringComparison.Ordinal) ||
+            path.StartsWith(@"\\.\", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        return !path.StartsWith(@"\\", StringComparison.Ordinal);
     }
 }

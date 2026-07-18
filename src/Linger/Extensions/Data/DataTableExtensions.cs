@@ -305,7 +305,7 @@ public static class DataTableExtensions
     public static DataTable Join(this DataTable left, DataTable right, DataColumn[] leftCols, DataColumn[] rightCols,
         bool includeLeftJoin, bool includeRightJoin)
     {
-        leftCols.ForEach(x =>
+        Array.ForEach(leftCols, x =>
         {
             if (!left.ContainAllColumns(x.ColumnName))
             {
@@ -313,7 +313,7 @@ public static class DataTableExtensions
             }
         });
 
-        rightCols.ForEach(x =>
+        Array.ForEach(rightCols, x =>
         {
             if (!right.ContainAllColumns(x.ColumnName))
             {

@@ -65,7 +65,7 @@ public static partial class StringExtensions
             return Enumerable.Empty<string>().ToList();
         }
 
-        return Regex.Split(value, symbol, RegexOptions.IgnoreCase, s_regexSplitTimeout).ToList();
+        return new List<string>(Regex.Split(value, symbol, RegexOptions.IgnoreCase, s_regexSplitTimeout));
     }
 
     /// <summary>

@@ -50,38 +50,79 @@ public class PathExtensionsTests
     [Fact]
     public void GetRelativePath_ShouldCalculateRelativePaths_SchemeA()
     {
-        // Arrange
         string baseDir = OSPlatformHelper.IsWindows ? "C:\\base\\path" : "/base/path";
         string targetSameLevel = OSPlatformHelper.IsWindows ? "C:\\base\\other" : "/base/other";
         string targetSubDir = OSPlatformHelper.IsWindows ? "C:\\base\\path\\subdir" : "/base/path/subdir";
         string targetParentDir = OSPlatformHelper.IsWindows ? "C:\\base" : "/base";
-
-        // Expected results
         string expectedSameLevel = OSPlatformHelper.IsWindows ? "..\\other" : "../other";
         string expectedSubDir = "subdir";
         string expectedParent = "..";
 
-        // Act
         var relSameLevel = baseDir.GetRelativePath(targetSameLevel);
         var relSubDir = baseDir.GetRelativePath(targetSubDir);
         var relParent = baseDir.GetRelativePath(targetParentDir);
 
-        // Assert
         Assert.Equal(expectedSameLevel, relSameLevel);
         Assert.Equal(expectedSubDir, relSubDir);
         Assert.Equal(expectedParent, relParent);
+    }
 
-        // Same path should resolve to "."
-        Assert.Equal(".", baseDir.GetRelativePath(baseDir));
+    [Fact]
+    public void GetRelativePath_WithIdenticalPaths_ReturnsCurrentDirectoryMarker()
+    {
+        string path = Directory.GetCurrentDirectory();
 
-        // Blank base paths are rejected.
-        Assert.Throws<ArgumentException>(() => "".GetRelativePath(targetSubDir));
-        Assert.Throws<ArgumentException>(() => "   ".GetRelativePath(targetSubDir));
+        Assert.Equal(".", path.GetRelativePath(path));
+    }
 
-        // Null and empty target paths map back to empty strings.
-        Assert.Equal(string.Empty, baseDir.GetRelativePath(""));
-        Assert.Equal(string.Empty, baseDir.GetRelativePath(null!));
-        Assert.Throws<ArgumentException>(() => baseDir.GetRelativePath("   "));
+    [Fact]
+    public void GetRelativePath_WithNullBasePath_ThrowsArgumentNullException()
+    {
+        string? relativeTo = null;
+
+        Assert.Throws<ArgumentNullException>(() => PathExtensions.GetRelativePath(relativeTo!, "target"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void GetRelativePath_WithEmptyOrWhitespaceBasePath_ThrowsArgumentException(string relativeTo)
+    {
+        Assert.Throws<ArgumentException>(() => relativeTo.GetRelativePath("target"));
+    }
+
+    [Fact]
+    public void GetRelativePath_WithNullTargetPath_ThrowsArgumentNullException()
+    {
+        string? path = null;
+
+        Assert.Throws<ArgumentNullException>(() => Directory.GetCurrentDirectory().GetRelativePath(path!));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void GetRelativePath_WithEmptyOrWhitespaceTargetPath_ThrowsArgumentException(string path)
+    {
+        Assert.Throws<ArgumentException>(() => Directory.GetCurrentDirectory().GetRelativePath(path));
+    }
+
+    [Fact]
+    public void GetRelativePath_WithExtensionlessTarget_ReturnsTargetName()
+    {
+        string baseDir = Path.Combine(Directory.GetCurrentDirectory(), "base");
+        string targetPath = Path.Combine(baseDir, "LICENSE");
+
+        Assert.Equal("LICENSE", baseDir.GetRelativePath(targetPath));
+    }
+
+    [Fact]
+    public void GetRelativePath_WithDottedDirectoryTarget_ReturnsDirectoryName()
+    {
+        string baseDir = Path.Combine(Directory.GetCurrentDirectory(), "base");
+        string targetPath = Path.Combine(baseDir, "folder.name");
+
+        Assert.Equal("folder.name", baseDir.GetRelativePath(targetPath));
     }
 
     [Fact]
@@ -229,7 +270,6 @@ public class PathExtensionsTests
     [Fact]
     public void ToFullPath_ShouldResolveRelativePaths()
     {
-        // Relative path resolution should use the provided base directory.
         string baseDir = Directory.GetCurrentDirectory();
         string relativePath = "subdir/file.txt";
 
@@ -237,22 +277,73 @@ public class PathExtensionsTests
         var expected = Path.GetFullPath(Path.Combine(baseDir, relativePath));
 
         Assert.Equal(expected, result);
+    }
 
-        // Absolute paths should pass through unchanged.
+    [Fact]
+    public void ToFullPath_WithAbsolutePath_ReturnsAbsolutePath()
+    {
+        string baseDir = Directory.GetCurrentDirectory();
         string absolutePath = Path.GetFullPath("file.txt");
-        var absoluteResult = PathExtensions.ToFullPath(absolutePath, baseDir);
-        Assert.Equal(absolutePath, absoluteResult);
 
-        // Null and empty inputs normalize to empty strings.
-        Assert.Equal(string.Empty, PathExtensions.ToFullPath("", baseDir));
-        Assert.Equal(string.Empty, PathExtensions.ToFullPath(null, baseDir));
+        var result = PathExtensions.ToFullPath(absolutePath, baseDir);
 
-        // Whitespace-only input should match Path.GetFullPath and fail eagerly.
-        Assert.Throws<ArgumentException>(() => PathExtensions.ToFullPath("   ", baseDir));
+        Assert.Equal(absolutePath, result);
+    }
 
-        // Requesting a trailing separator should preserve it.
-        var withSeparator = PathExtensions.ToFullPath("subdir/", baseDir, true);
-        Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), withSeparator);
+    [Fact]
+    public void ToFullPath_WithNullPath_ThrowsArgumentNullException()
+    {
+        string? path = null;
+
+        Assert.Throws<ArgumentNullException>(() => PathExtensions.ToFullPath(path!));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ToFullPath_WithEmptyOrWhitespacePath_ThrowsArgumentException(string path)
+    {
+        Assert.Throws<ArgumentException>(() => PathExtensions.ToFullPath(path));
+    }
+
+    [Fact]
+    public void ToFullPath_WithRelativeBasePath_ResolvesAgainstCurrentDirectory()
+    {
+        const string basePath = "relative-base";
+        const string relativePath = "subdir/file.txt";
+
+        var result = PathExtensions.ToFullPath(relativePath, basePath);
+        var expected = Path.GetFullPath(Path.Combine(basePath, relativePath));
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ToFullPath_WithEmptyOrWhitespaceBasePath_ThrowsArgumentException(string basePath)
+    {
+        Assert.Throws<ArgumentException>(() => PathExtensions.ToFullPath("file.txt", basePath));
+    }
+
+    [Fact]
+    public void ToFullPath_WithTrailingSeparatorIncluded_AppendsSeparator()
+    {
+        string baseDir = Directory.GetCurrentDirectory();
+
+        var result = PathExtensions.ToFullPath("subdir", baseDir, includeTrailingSeparator: true);
+
+        Assert.EndsWith(Path.DirectorySeparatorChar.ToString(), result);
+    }
+
+    [Fact]
+    public void ToFullPath_WithTrailingSeparatorExcluded_RemovesSeparator()
+    {
+        string baseDir = Directory.GetCurrentDirectory();
+
+        var result = PathExtensions.ToFullPath("subdir/", baseDir, includeTrailingSeparator: false);
+
+        Assert.False(result.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal));
     }
 
     [Fact]
@@ -270,6 +361,17 @@ public class PathExtensionsTests
     }
 
     [Fact]
+    public void ToFullPath_WithReservedWindowsBasePath_ThrowsArgumentException()
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        Assert.Throws<ArgumentException>(() => PathExtensions.ToFullPath("file.txt", "CON"));
+    }
+
+    [Fact]
     public void ToFullPath_ShouldAcceptWindowsDevicePaths()
     {
         if (!OSPlatformHelper.IsWindows)
@@ -280,6 +382,47 @@ public class PathExtensionsTests
         const string devicePath = @"\\?\C:\temp\file.txt";
 
         Assert.Equal(devicePath, PathExtensions.ToFullPath(devicePath));
+    }
+
+    [Fact]
+    public void ToFullPath_ShouldPreserveWindowsUncPaths()
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        const string uncPath = @"\\server\share\folder\file.txt";
+
+        Assert.Equal(Path.GetFullPath(uncPath), PathExtensions.ToFullPath(uncPath));
+    }
+
+    [Theory]
+    [InlineData(@"C:")]
+    [InlineData(@"C:file.txt")]
+    public void ToFullPath_WithWindowsDriveRelativePath_ResolvesPath(string path)
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        Assert.Equal(Path.GetFullPath(path), PathExtensions.ToFullPath(path));
+    }
+
+    [Fact]
+    public void IsStrictAbsolutePath_ShouldRejectDriveRelativeAndClassicUncPaths()
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+#pragma warning disable CS0618
+        Assert.False(@"C:file.txt".IsStrictAbsolutePath());
+        Assert.False(@"\\server\share\file.txt".IsStrictAbsolutePath());
+        Assert.True(@"C:\file.txt".IsStrictAbsolutePath());
+#pragma warning restore CS0618
     }
 
     [Fact]

@@ -65,6 +65,7 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
+    [Obsolete("DataContractJsonSerializer compatibility is deprecated. Use ToJsonString(value, jsonSerializerOptions) instead.")]
     public static string SerializeJson<T>(this T value)
     {
         return SerializeJsonCore(value);
@@ -84,7 +85,7 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
-    [Obsolete("The Encoding parameter does not apply to a string result. Use SerializeJson(value) instead.")]
+    [Obsolete("The Encoding parameter does not apply to a string result. Use ToJsonString(value, jsonSerializerOptions) instead.")]
     public static string SerializeJson<T>(this T value, Encoding encoding)
     {
         ArgumentNullException.ThrowIfNull(encoding);
@@ -118,6 +119,7 @@ public static class JsonExtensions
     /// // json: "{\n  \"Name\": \"John\",\n  \"Age\": 30\n}"
     /// </code>
     /// </example>
+    [Obsolete("Use ToJsonString(value, jsonSerializerOptions) instead.")]
     public static string? Serialize<T>(this T value, JsonSerializerOptions? jsonSerializerOptions = null)
     {
         return value?.ToJsonString(jsonSerializerOptions);
@@ -136,6 +138,7 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
+    [Obsolete("DataContractJsonSerializer compatibility is deprecated. Use Deserialize<T>(value, jsonSerializerOptions) instead.")]
     public static T? DeserializeJson<T>(this string value)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
@@ -158,6 +161,7 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
+    [Obsolete("The Encoding parameter does not apply to a .NET string. Use Deserialize<T>(value, jsonSerializerOptions) instead.")]
     public static T? DeserializeJson<T>(this string value, Encoding encoding)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));

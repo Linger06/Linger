@@ -61,7 +61,7 @@ public static partial class FileInfoExtensions
     /// <returns>The renamed files.</returns>
     public static FileInfo[] ChangeExtensions(this FileInfo[] files, string newExtension)
     {
-        ArrayExtensions.ForEach(files, f => f.ChangeExtension(newExtension));
+        Array.ForEach(files, f => f.ChangeExtension(newExtension));
         return files;
     }
 

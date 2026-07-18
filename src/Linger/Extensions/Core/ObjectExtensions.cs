@@ -30,6 +30,7 @@ public static class ObjectExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsNotNull([NotNullWhen(true)] this object? value) => value is not null;
 
+    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition.")]
     public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value)
     {
         if (value is null) return true;
@@ -39,6 +40,7 @@ public static class ObjectExtensions
         return string.IsNullOrEmpty(objectStr);
     }
 
+    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition.")]
     public static bool IsNotNullOrEmpty([NotNullWhen(true)] this object? value)
     {
         if (value is null) return false;

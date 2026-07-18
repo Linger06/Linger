@@ -1,7 +1,8 @@
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Collections.Concurrent;
 using Linger.Enums;
+using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
 
 namespace Linger.Helper;
@@ -444,11 +445,15 @@ public static class ExpressionHelper
     /// </example>  
     public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<SortInfo>? sortList)
     {
-        if (sortList == null)
+        if (sortList is null)
+        {
             return null;
+        }
 
         if (sortList.Count == 0)
+        {
             return null;
+        }
 
         var propertyList = new List<string>();
         var dirList = new List<string>();
@@ -480,50 +485,56 @@ public static class ExpressionHelper
     /// </example>  
     public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<string> orderColumn, List<string> orderDir)
     {
+        ArgumentNullException.ThrowIfNull(orderColumn);
+        ArgumentNullException.ThrowIfNull(orderDir);
+
         if (orderColumn.Count != orderDir.Count)
         {
             throw new ArgumentException($"{nameof(orderColumn)} and {nameof(orderDir)} must have the same number of elements.");
         }
 
-        var ascKey = "OrderBy";
-        var descKey = "OrderByDescending";
+        if (orderColumn.Count == 0)
+        {
+            return null;
+        }
 
-        Type typeQueryable = typeof(IQueryable<T>);
-        ParameterExpression argQueryable = Expression.Parameter(typeQueryable, "jk");
-        LambdaExpression outerExpression = Expression.Lambda(argQueryable, argQueryable);
+        var orderings = new KeyValuePair<string, bool>[orderColumn.Count];
 
         for (var i = 0; i < orderColumn.Count; i++)
         {
             var columnName = orderColumn[i];
-            var dirKey = orderDir[i].ToLower();
-            var props = columnName.Split('.');
-            Type type = typeof(T);
-            ParameterExpression arg = Expression.Parameter(type, "uf");
-            Expression expr = arg;
-
-            foreach (var prop in props)
+            try
             {
-                PropertyInfo? pi = type.GetProperty(prop, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
-                if (pi == null)
-                {
-                    throw new InvalidOperationException(nameof(pi));
-                }
-
-                expr = Expression.Property(expr, pi);
-                type = pi.PropertyType;
+                DynamicOrderBuilder.ValidatePropertyPath<T>(columnName);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException(nameof(PropertyInfo), ex);
             }
 
-            LambdaExpression lambda = Expression.Lambda(expr, arg);
-            var methodName = dirKey == "asc" ? ascKey : descKey;
-            MethodCallExpression resultExp = Expression.Call(typeof(Queryable), methodName, [typeof(T), type], outerExpression.Body, Expression.Quote(lambda));
-
-            outerExpression = Expression.Lambda(resultExp, argQueryable);
-
-            ascKey = "ThenBy";
-            descKey = "ThenByDescending";
+            bool ascending = string.Equals(orderDir[i], "asc", StringComparison.OrdinalIgnoreCase);
+            orderings[i] = new KeyValuePair<string, bool>(columnName, ascending);
         }
 
-        return (Func<IQueryable<T>, IOrderedQueryable<T>>?)outerExpression.Compile();
+        return query =>
+        {
+            IOrderedQueryable<T> orderedQuery = DynamicOrderBuilder.Apply(
+                query,
+                orderings[0].Key,
+                orderings[0].Value,
+                thenBy: false);
+
+            for (var i = 1; i < orderings.Length; i++)
+            {
+                orderedQuery = DynamicOrderBuilder.Apply(
+                    orderedQuery,
+                    orderings[i].Key,
+                    orderings[i].Value,
+                    thenBy: true);
+            }
+
+            return orderedQuery;
+        };
     }
 
     /// <summary>  

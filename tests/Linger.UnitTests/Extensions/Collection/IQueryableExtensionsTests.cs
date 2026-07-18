@@ -8,6 +8,11 @@ public class IQueryableExtensionsTests
         public string? Name { get; set; }
     }
 
+    private class NestedEntity
+    {
+        public TestEntity Details { get; set; } = new();
+    }
+
     [Fact]
     public void CreateOrderBy_ShouldOrderByAscending()
     {
@@ -52,6 +57,21 @@ public class IQueryableExtensionsTests
 
         // Act & Assert
         Assert.Throws<System.ArgumentException>(() => data.CreateOrderBy("NonExistentProperty"));
+    }
+
+    [Fact]
+    public void CreateOrderBy_WithNestedCaseInsensitiveProperty_ShouldOrderCorrectly()
+    {
+        IQueryable<NestedEntity> data = new List<NestedEntity>
+        {
+            new NestedEntity { Details = new TestEntity { Name = "B" } },
+            new NestedEntity { Details = new TestEntity { Name = "A" } }
+        }.AsQueryable();
+
+        var result = data.CreateOrderBy("details.name").ToList();
+
+        Assert.Equal("A", result[0].Details.Name);
+        Assert.Equal("B", result[1].Details.Name);
     }
 
     [Fact]

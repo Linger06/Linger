@@ -1,4 +1,4 @@
-﻿namespace Linger.Extensions.Tests;
+namespace Linger.Extensions.Tests;
 
 public partial class ArrayExtensionsTests
 {
@@ -16,6 +16,24 @@ public partial class ArrayExtensionsTests
         byte[] value = { 1, 2, 3 };
         var result = value.ToImageBase64String();
         Assert.Equal("data:image/jpeg;base64,AQID", result);
+    }
+
+    [Fact]
+    public void ToImageDataUri_WithPngMediaType_UsesSpecifiedMediaType()
+    {
+        byte[] value = { 1, 2, 3 };
+
+        var result = value.ToImageDataUri("image/png");
+
+        Assert.Equal("data:image/png;base64,AQID", result);
+    }
+
+    [Fact]
+    public void ToImageDataUri_WithNonImageMediaType_ThrowsArgumentException()
+    {
+        byte[] value = { 1, 2, 3 };
+
+        Assert.Throws<ArgumentException>(() => value.ToImageDataUri("application/octet-stream"));
     }
 
     [Fact]
@@ -59,6 +77,27 @@ public partial class ArrayExtensionsTests
         var result = array.ToList();
         Assert.NotNull(result);
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public void ToListOrEmpty_WithNull_ReturnsEmptyList()
+    {
+        string[]? array = null;
+
+        var result = array.ToListOrEmpty();
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void ToListOrEmpty_WithValues_ReturnsCopiedList()
+    {
+        string[] array = { "one", "two" };
+
+        var result = array.ToListOrEmpty();
+
+        Assert.Equal(array, result);
+        Assert.NotSame(array, result);
     }
 
     [Fact]

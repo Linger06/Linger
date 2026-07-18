@@ -18,6 +18,7 @@ public static class ArrayExtensions
     /// // Output: 1 2 3
     /// </code>
     /// </example>
+    [Obsolete("Use Array.ForEach(array, action) or the IEnumerable<T> ForEach extension instead.")]
     public static void ForEach<T>(this T[] array, Action<T> action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -320,9 +321,35 @@ public static class ArrayExtensions
     /// // imageBase64String is "data:image/jpeg;base64,AQIDBAU="
     /// </code>
     /// </example>
+    [Obsolete("Use ToImageDataUri(value, mediaType) so the data URI contains the correct image media type.")]
     public static string ToImageBase64String(this byte[] value)
     {
-        return $"data:image/jpeg;base64,{Convert.ToBase64String(value, 0, value.Length)}";
+        return value.ToImageDataUri("image/jpeg");
+    }
+
+    /// <summary>
+    /// Converts image bytes to a Base64 data URI with the specified media type.
+    /// </summary>
+    /// <param name="value">The image bytes to encode.</param>
+    /// <param name="mediaType">The image media type, such as <c>image/png</c> or <c>image/jpeg</c>.</param>
+    /// <returns>A Base64 data URI containing the specified image media type.</returns>
+    /// <example>
+    /// <code>
+    /// byte[] imageBytes = File.ReadAllBytes("image.png");
+    /// string dataUri = imageBytes.ToImageDataUri("image/png");
+    /// </code>
+    /// </example>
+    public static string ToImageDataUri(this byte[] value, string mediaType)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        ArgumentException.ThrowIfNullOrWhiteSpace(mediaType);
+
+        if (!mediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("The media type must be an image media type.", nameof(mediaType));
+        }
+
+        return $"data:{mediaType};base64,{Convert.ToBase64String(value)}";
     }
 
     /// <summary>
@@ -378,6 +405,7 @@ public static class ArrayExtensions
     /// // enumerable contains "one", "two", "three"
     /// </code>
     /// </example>
+    [Obsolete("Arrays already implement IEnumerable<string>. Use value ?? Array.Empty<string>() when null normalization is required.")]
     public static IEnumerable<string> ToEnumerable(this string[]? value)
     {
         return value.IsNull() ? [] : new List<string>(value);
@@ -395,9 +423,25 @@ public static class ArrayExtensions
     /// // list contains "one", "two", "three"
     /// </code>
     /// </example>
+    [Obsolete("Use ToListOrEmpty() when null-to-empty normalization is required, or LINQ ToList() for non-null arrays.")]
     public static List<string> ToList(this string[]? value)
     {
-        // Avoid invalid cast when value is null; construct a List directly
+        return value.ToListOrEmpty();
+    }
+
+    /// <summary>
+    /// Converts a nullable string array to a list, returning an empty list when the array is null.
+    /// </summary>
+    /// <param name="value">The nullable string array to convert.</param>
+    /// <returns>A list containing the array values, or an empty list when <paramref name="value"/> is null.</returns>
+    /// <example>
+    /// <code>
+    /// string[]? values = null;
+    /// List&lt;string&gt; result = values.ToListOrEmpty();
+    /// </code>
+    /// </example>
+    public static List<string> ToListOrEmpty(this string[]? value)
+    {
         return new List<string>(value ?? []);
     }
 
