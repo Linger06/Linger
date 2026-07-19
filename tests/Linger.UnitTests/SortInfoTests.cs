@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Xunit.v3;
 
 namespace Linger.UnitTests;
@@ -7,51 +8,47 @@ public class SortInfoTests
     [Fact]
     public void SortInfo_PropertyShouldBeSettable()
     {
-        // Arrange
-        var sortInfo = new SortInfo();
+        var sortInfo = new SortInfo { Property = "InitialProperty" };
         var propertyName = "TestProperty";
-        
-        // Act
+
         sortInfo.Property = propertyName;
-        
-        // Assert
+
         Assert.Equal(propertyName, sortInfo.Property);
     }
-    
+
     [Fact]
     public void SortInfo_DirectionShouldBeSettable()
     {
-        // Arrange
-        var sortInfo = new SortInfo();
-        
-        // Act
+        var sortInfo = new SortInfo { Property = "Name" };
+
         sortInfo.Direction = SortDir.Desc;
-        
-        // Assert
+
         Assert.Equal(SortDir.Desc, sortInfo.Direction);
     }
-    
+
     [Fact]
     public void SortInfo_DefaultDirectionShouldBeAsc()
     {
-        // Arrange & Act
-        var sortInfo = new SortInfo();
-        
-        // Assert
+        var sortInfo = new SortInfo { Property = "Name" };
+
         Assert.Equal(SortDir.Asc, sortInfo.Direction);
     }
-    
+
+    [Fact]
+    public void SortInfo_DeserializeWithoutPropertyShouldThrowJsonException()
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<SortInfo>("{}"));
+    }
+
     [Fact]
     public void SortInfo_ShouldBeInitializableWithProperties()
     {
-        // Arrange & Act
         var sortInfo = new SortInfo
         {
             Property = "Name",
             Direction = SortDir.Desc
         };
-        
-        // Assert
+
         Assert.Equal("Name", sortInfo.Property);
         Assert.Equal(SortDir.Desc, sortInfo.Direction);
     }

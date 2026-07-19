@@ -466,7 +466,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             throw new InvalidOperationException("转换DataTable到MemoryStream失败");
         }
 
-        await ms.ToFileAsync(fullFileName).ConfigureAwait(false);
+        await ms.ToFileAsync(fullFileName, cancellationToken).ConfigureAwait(false);
         return fullFileName;
     }
 
@@ -486,7 +486,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             throw new InvalidOperationException("转换对象列表到MemoryStream失败");
         }
 
-        await ms.ToFileAsync(fullFileName).ConfigureAwait(false);
+        await ms.ToFileAsync(fullFileName, cancellationToken).ConfigureAwait(false);
         return fullFileName;
     }
 

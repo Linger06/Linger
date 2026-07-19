@@ -41,12 +41,12 @@ public class StringExtensionsCryptographyTests
         Assert.NotNull(encrypted);
         Assert.NotEmpty(encrypted);
         Assert.NotEqual(data, encrypted);
-        
+
         // 验证是否为有效的 Base64 字符串
         var bytes = Convert.FromBase64String(encrypted);
         Assert.NotNull(bytes);
         Assert.True(bytes.Length > 0);
-        
+
         // AES-CBC 模式，加密结果应该包含IV（至少16字节）+ 加密数据
         Assert.True(bytes.Length >= 16, "加密结果应该包含IV和加密数据");
     }
@@ -179,7 +179,19 @@ public class StringExtensionsCryptographyTests
         string decrypted = encrypted.AesDecryptAuthenticated(key);
 
         Assert.Equal(original, decrypted);
-        Assert.Equal(new byte[] { 0x4C, 0x4E, 0x47, 0x32 }, Convert.FromBase64String(encrypted).Take(4).ToArray());
+        Assert.Equal(new byte[] { 0x4C, 0x4E, 0x47, 0x33 }, Convert.FromBase64String(encrypted).Take(4).ToArray());
+    }
+
+    [Fact]
+    public void AesDecryptAuthenticated_V2Payload_ReturnsOriginalString()
+    {
+        const string original = "Version 2 authenticated value";
+        const string key = "Version2Key123";
+        string payload = CreateAuthenticatedV2Payload(original, key);
+
+        string decrypted = payload.AesDecryptAuthenticated(key);
+
+        Assert.Equal(original, decrypted);
     }
 
     [Fact]
@@ -203,7 +215,7 @@ public class StringExtensionsCryptographyTests
     {
         // Note: Empty string encryption is not supported and should throw ArgumentException
         // This test ensures the behavior is consistent
-        
+
         // Arrange
         string data = "";
         string key = "TestKey123";
@@ -286,7 +298,7 @@ public class StringExtensionsCryptographyTests
         // Act
         string encrypted1 = data.AesEncrypt(key);
         string decrypted1 = encrypted1.AesDecrypt(key);
-        
+
         string encrypted2 = decrypted1.AesEncrypt(key);
         string decrypted2 = encrypted2.AesDecrypt(key);
 
@@ -312,7 +324,7 @@ public class StringExtensionsCryptographyTests
         // Act
         string encrypted1 = data.AesEncrypt(key);
         string encrypted2 = data.AesEncrypt(key);
-        
+
         string decrypted1 = encrypted1.AesDecrypt(key);
         string decrypted2 = encrypted2.AesDecrypt(key);
 
@@ -357,7 +369,7 @@ public class StringExtensionsCryptographyTests
         {
             string encrypted = data.AesEncrypt(key);
             encryptedResults.Add(encrypted);
-            
+
             // Verify each can be decrypted correctly
             string decrypted = encrypted.AesDecrypt(key);
             Assert.Equal(data, decrypted);
@@ -385,5 +397,47 @@ public class StringExtensionsCryptographyTests
         Buffer.BlockCopy(aes.IV, 0, payload, 0, aes.IV.Length);
         Buffer.BlockCopy(encrypted, 0, payload, aes.IV.Length, encrypted.Length);
         return Convert.ToBase64String(payload);
+    }
+
+    private static string CreateAuthenticatedV2Payload(string input, string password)
+    {
+        byte[] magic = { 0x4C, 0x4E, 0x47, 0x32 };
+        byte[] salt = new byte[16];
+        using (var random = RandomNumberGenerator.Create())
+        {
+            random.GetBytes(salt);
+        }
+
+#pragma warning disable SYSLIB0041, SYSLIB0060
+        using var deriveBytes = new Rfc2898DeriveBytes(password, salt, 100_000);
+#pragma warning restore SYSLIB0041, SYSLIB0060
+        byte[] keyMaterial = deriveBytes.GetBytes(64);
+        try
+        {
+            using var aes = Aes.Create();
+            aes.Key = keyMaterial.Take(32).ToArray();
+            aes.Mode = CipherMode.CBC;
+            aes.Padding = PaddingMode.PKCS7;
+            aes.GenerateIV();
+
+            using var encryptor = aes.CreateEncryptor();
+            byte[] inputBytes = Encoding.UTF8.GetBytes(input);
+            byte[] encrypted = encryptor.TransformFinalBlock(inputBytes, 0, inputBytes.Length);
+            int tagOffset = magic.Length + salt.Length + aes.IV.Length + encrypted.Length;
+            byte[] payload = new byte[tagOffset + 32];
+            Buffer.BlockCopy(magic, 0, payload, 0, magic.Length);
+            Buffer.BlockCopy(salt, 0, payload, magic.Length, salt.Length);
+            Buffer.BlockCopy(aes.IV, 0, payload, magic.Length + salt.Length, aes.IV.Length);
+            Buffer.BlockCopy(encrypted, 0, payload, magic.Length + salt.Length + aes.IV.Length, encrypted.Length);
+
+            using var hmac = new HMACSHA256(keyMaterial.Skip(32).Take(32).ToArray());
+            byte[] tag = hmac.ComputeHash(payload, 0, tagOffset);
+            Buffer.BlockCopy(tag, 0, payload, tagOffset, tag.Length);
+            return Convert.ToBase64String(payload);
+        }
+        finally
+        {
+            Array.Clear(keyMaterial, 0, keyMaterial.Length);
+        }
     }
 }

@@ -8,7 +8,8 @@ namespace Linger.Extensions.Core;
 /// </summary>
 public static partial class StringExtensions
 {
-    private static readonly byte[] s_aesPayloadMagic = { 0x4C, 0x4E, 0x47, 0x32 }; // LNG2
+    private static readonly byte[] s_aesPayloadMagicV2 = { 0x4C, 0x4E, 0x47, 0x32 }; // LNG2
+    private static readonly byte[] s_aesPayloadMagicV3 = { 0x4C, 0x4E, 0x47, 0x33 }; // LNG3
     private const int AesSaltSize = 16;
     private const int AesIvSize = 16;
     private const int AesTagSize = 32;
@@ -52,6 +53,7 @@ public static partial class StringExtensions
     /// }
     /// </code>
     /// </example>
+    [Obsolete("Unauthenticated AES-CBC encryption is retained for compatibility. Use AesEncryptAuthenticated instead.")]
     public static string AesEncrypt(this string input, string key)
     {
         if (string.IsNullOrEmpty(input))
@@ -145,9 +147,9 @@ public static partial class StringExtensions
         {
             byte[] fullCipher = Convert.FromBase64String(encryptedInput);
 
-            if (IsAuthenticatedPayload(fullCipher))
+            if (TryGetAuthenticatedPayloadVersion(fullCipher, out AesPayloadVersion version))
             {
-                return DecryptAuthenticated(fullCipher, key);
+                return DecryptAuthenticated(fullCipher, key, version);
             }
 
             return DecryptLegacy(fullCipher, key);
@@ -176,12 +178,12 @@ public static partial class StringExtensions
         try
         {
             byte[] payload = Convert.FromBase64String(encryptedInput);
-            if (!IsAuthenticatedPayload(payload))
+            if (!TryGetAuthenticatedPayloadVersion(payload, out AesPayloadVersion version))
             {
                 throw new CryptographicException("加密数据不是受支持的认证格式。");
             }
 
-            return DecryptAuthenticated(payload, key);
+            return DecryptAuthenticated(payload, key, version);
         }
         catch (FormatException ex)
         {
@@ -203,7 +205,7 @@ public static partial class StringExtensions
             random.GetBytes(salt);
         }
 
-        byte[] keyMaterial = DeriveAesKeys(password, salt);
+        byte[] keyMaterial = DeriveAesKeys(password, salt, AesPayloadVersion.V3);
         try
         {
             using var aes = Aes.Create();
@@ -213,13 +215,13 @@ public static partial class StringExtensions
             aes.GenerateIV();
 
             byte[] encrypted = PerformEncryptionWithIV(aes, input);
-            int tagOffset = s_aesPayloadMagic.Length + salt.Length + aes.IV.Length + encrypted.Length;
+            int tagOffset = s_aesPayloadMagicV3.Length + salt.Length + aes.IV.Length + encrypted.Length;
             byte[] payload = new byte[tagOffset + AesTagSize];
 
-            Buffer.BlockCopy(s_aesPayloadMagic, 0, payload, 0, s_aesPayloadMagic.Length);
-            Buffer.BlockCopy(salt, 0, payload, s_aesPayloadMagic.Length, salt.Length);
-            Buffer.BlockCopy(aes.IV, 0, payload, s_aesPayloadMagic.Length + salt.Length, aes.IV.Length);
-            Buffer.BlockCopy(encrypted, 0, payload, s_aesPayloadMagic.Length + salt.Length + aes.IV.Length, encrypted.Length);
+            Buffer.BlockCopy(s_aesPayloadMagicV3, 0, payload, 0, s_aesPayloadMagicV3.Length);
+            Buffer.BlockCopy(salt, 0, payload, s_aesPayloadMagicV3.Length, salt.Length);
+            Buffer.BlockCopy(aes.IV, 0, payload, s_aesPayloadMagicV3.Length + salt.Length, aes.IV.Length);
+            Buffer.BlockCopy(encrypted, 0, payload, s_aesPayloadMagicV3.Length + salt.Length + aes.IV.Length, encrypted.Length);
 
             using var hmac = new HMACSHA256(CopyRange(keyMaterial, 32, 32));
             byte[] tag = hmac.ComputeHash(payload, 0, tagOffset);
@@ -232,16 +234,16 @@ public static partial class StringExtensions
         }
     }
 
-    private static string DecryptAuthenticated(byte[] payload, string password)
+    private static string DecryptAuthenticated(byte[] payload, string password, AesPayloadVersion version)
     {
-        int saltOffset = s_aesPayloadMagic.Length;
+        int saltOffset = s_aesPayloadMagicV3.Length;
         int ivOffset = saltOffset + AesSaltSize;
         int encryptedOffset = ivOffset + AesIvSize;
         int tagOffset = payload.Length - AesTagSize;
         int encryptedLength = tagOffset - encryptedOffset;
 
         byte[] salt = CopyRange(payload, saltOffset, AesSaltSize);
-        byte[] keyMaterial = DeriveAesKeys(password, salt);
+        byte[] keyMaterial = DeriveAesKeys(password, salt, version);
         try
         {
             using var hmac = new HMACSHA256(CopyRange(keyMaterial, 32, 32));
@@ -280,27 +282,124 @@ public static partial class StringExtensions
         return PerformDecryptionWithData(aes, CopyRange(fullCipher, AesIvSize, fullCipher.Length - AesIvSize));
     }
 
-    private static byte[] DeriveAesKeys(string password, byte[] salt)
+    private static byte[] DeriveAesKeys(string password, byte[] salt, AesPayloadVersion version)
     {
-#pragma warning disable SYSLIB0041, SYSLIB0060 // Required for one payload format across all target frameworks.
+        if (version == AesPayloadVersion.V2)
+        {
+#pragma warning disable SYSLIB0041, SYSLIB0060 // LNG2 compatibility requires the historical PBKDF2-SHA1 format.
+            using var legacyDeriveBytes = new Rfc2898DeriveBytes(password, salt, AesPbkdf2Iterations);
+#pragma warning restore SYSLIB0041, SYSLIB0060
+            return legacyDeriveBytes.GetBytes(AesDerivedKeySize);
+        }
+
+#if NETSTANDARD2_0
+        return DeriveAesKeysSha256Portable(password, salt);
+#elif NET10_0_OR_GREATER
+        return Rfc2898DeriveBytes.Pbkdf2(
+            password,
+            salt,
+            AesPbkdf2Iterations,
+            HashAlgorithmName.SHA256,
+            AesDerivedKeySize);
+#else
         using var deriveBytes = new Rfc2898DeriveBytes(
             password,
             salt,
-            AesPbkdf2Iterations);
-#pragma warning restore SYSLIB0041, SYSLIB0060
+            AesPbkdf2Iterations,
+            HashAlgorithmName.SHA256);
         return deriveBytes.GetBytes(AesDerivedKeySize);
+#endif
     }
 
-    private static bool IsAuthenticatedPayload(byte[] payload)
+#if NETSTANDARD2_0
+    private static byte[] DeriveAesKeysSha256Portable(string password, byte[] salt)
     {
-        int minimumLength = s_aesPayloadMagic.Length + AesSaltSize + AesIvSize + 16 + AesTagSize;
-        if (payload.Length < minimumLength)
-            return false;
+        byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
+        byte[] saltBlock = new byte[salt.Length + sizeof(int)];
+        Buffer.BlockCopy(salt, 0, saltBlock, 0, salt.Length);
+        var result = new byte[AesDerivedKeySize];
 
-        for (var i = 0; i < s_aesPayloadMagic.Length; i++)
+        try
         {
-            if (payload[i] != s_aesPayloadMagic[i])
+            using var hmac = new HMACSHA256(passwordBytes);
+            var resultOffset = 0;
+            for (var blockIndex = 1; resultOffset < result.Length; blockIndex++)
+            {
+                int suffixOffset = salt.Length;
+                saltBlock[suffixOffset] = (byte)(blockIndex >> 24);
+                saltBlock[suffixOffset + 1] = (byte)(blockIndex >> 16);
+                saltBlock[suffixOffset + 2] = (byte)(blockIndex >> 8);
+                saltBlock[suffixOffset + 3] = (byte)blockIndex;
+
+                byte[] iterationHash = hmac.ComputeHash(saltBlock);
+                byte[] block = (byte[])iterationHash.Clone();
+                try
+                {
+                    for (var iteration = 1; iteration < AesPbkdf2Iterations; iteration++)
+                    {
+                        byte[] nextHash = hmac.ComputeHash(iterationHash);
+                        Array.Clear(iterationHash, 0, iterationHash.Length);
+                        iterationHash = nextHash;
+                        for (var i = 0; i < block.Length; i++)
+                        {
+                            block[i] ^= iterationHash[i];
+                        }
+                    }
+
+                    int count = Math.Min(block.Length, result.Length - resultOffset);
+                    Buffer.BlockCopy(block, 0, result, resultOffset, count);
+                    resultOffset += count;
+                }
+                finally
+                {
+                    Array.Clear(iterationHash, 0, iterationHash.Length);
+                    Array.Clear(block, 0, block.Length);
+                }
+            }
+
+            return result;
+        }
+        finally
+        {
+            Array.Clear(passwordBytes, 0, passwordBytes.Length);
+            Array.Clear(saltBlock, 0, saltBlock.Length);
+        }
+    }
+#endif
+
+    private static bool TryGetAuthenticatedPayloadVersion(byte[] payload, out AesPayloadVersion version)
+    {
+        int minimumLength = s_aesPayloadMagicV3.Length + AesSaltSize + AesIvSize + 16 + AesTagSize;
+        if (payload.Length < minimumLength)
+        {
+            version = default;
+            return false;
+        }
+
+        if (HasMagic(payload, s_aesPayloadMagicV3))
+        {
+            version = AesPayloadVersion.V3;
+            return true;
+        }
+
+        if (HasMagic(payload, s_aesPayloadMagicV2))
+        {
+            version = AesPayloadVersion.V2;
+            return true;
+        }
+
+        version = default;
+        return false;
+    }
+
+    private static bool HasMagic(byte[] payload, byte[] magic)
+    {
+        for (var i = 0; i < magic.Length; i++)
+        {
+            if (payload[i] != magic[i])
+            {
                 return false;
+            }
         }
 
         return true;
@@ -325,6 +424,12 @@ public static partial class StringExtensions
         var result = new byte[count];
         Buffer.BlockCopy(source, offset, result, 0, count);
         return result;
+    }
+
+    private enum AesPayloadVersion
+    {
+        V2,
+        V3
     }
 
     /// <summary>

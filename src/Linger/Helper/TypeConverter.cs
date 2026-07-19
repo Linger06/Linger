@@ -1,7 +1,6 @@
 // Copyright (c) Linger. All rights reserved.
 // Licensed under the MIT License.
 using System.ComponentModel;
-using System.Globalization;
 using Linger.Extensions.Core;
 
 namespace Linger.Helper;

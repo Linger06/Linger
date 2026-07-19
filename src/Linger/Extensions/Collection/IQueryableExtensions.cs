@@ -91,6 +91,7 @@ public static class IQueryableExtensions
             foreach (SortInfo sortInfo in sortList)
             {
                 var propertyName = sortInfo.Property;
+                ArgumentException.ThrowIfNullOrWhiteSpace(propertyName, nameof(SortInfo.Property));
                 var isAsc = sortInfo.Direction == SortDir.Asc;
                 orderByPropertyList.Add(new KeyValuePair<string, bool>(propertyName, isAsc));
             }

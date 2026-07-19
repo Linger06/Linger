@@ -192,7 +192,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
 
         var helper = new RetryHelper(retryOptions);
         return await helper.ExecuteAsync(
-            operation,
+            _ => operation(),
             "batch operation",
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
@@ -217,7 +217,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
 
         var helper = new RetryHelper(retryOptions);
         await helper.ExecuteAsync(
-            operation,
+            _ => operation(),
             "batch operation",
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }

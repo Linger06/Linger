@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Linger.Extensions.Core;
 
 /// <summary>
@@ -31,8 +29,10 @@ public static class DecimalExtensions
         if (value.TryToInt(out var result)) return result;
 
         if (!HasNoFractionalPart(value))
+        {
             throw new InvalidCastException(
                 $"The value cannot be converted to Int32 because it contains a fractional part. value={FormatInvariant(value)}");
+        }
 
         throw new OverflowException(
             $"The value is outside the range of Int32. value={FormatInvariant(value)}");
@@ -69,8 +69,10 @@ public static class DecimalExtensions
         if (value.TryToLong(out var result)) return result;
 
         if (!HasNoFractionalPart(value))
+        {
             throw new InvalidCastException(
                 $"The value cannot be converted to Int64 because it contains a fractional part. value={FormatInvariant(value)}");
+        }
 
         throw new OverflowException(
             $"The value is outside the range of Int64. value={FormatInvariant(value)}");
@@ -107,8 +109,10 @@ public static class DecimalExtensions
         if (value.TryToShort(out var result)) return result;
 
         if (!HasNoFractionalPart(value))
+        {
             throw new InvalidCastException(
                 $"The value cannot be converted to Int16 because it contains a fractional part. value={FormatInvariant(value)}");
+        }
 
         throw new OverflowException(
             $"The value is outside the range of Int16. value={FormatInvariant(value)}");

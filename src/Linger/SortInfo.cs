@@ -1,4 +1,4 @@
-﻿namespace Linger;
+namespace Linger;
 
 /// <summary>
 /// Represents sorting information.
@@ -15,7 +15,7 @@ public class SortInfo
     /// // sets the property to sort by to "Name"
     /// </code>
     /// </example>
-    public string Property { get; set; } = null!;
+    public required string Property { get; set; }
 
     /// <summary>
     /// Gets or sets the sort direction.

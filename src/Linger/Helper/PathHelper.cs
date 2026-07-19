@@ -1,7 +1,7 @@
-using System.Text;
-
 #if NET
 using System.Buffers;
+#else
+using System.Text;
 #endif
 
 namespace Linger.Helper;

@@ -229,7 +229,7 @@ public class FtpFileSystem : RemoteFileSystemBase
 
             // 执行上传
             var result = await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     if (inputStream.CanSeek)
                     {
@@ -241,7 +241,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                         destinationFilePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
-                        token: cancellationToken).ConfigureAwait(false);
+                        token: operationCancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
@@ -292,14 +292,14 @@ public class FtpFileSystem : RemoteFileSystemBase
         try
         {
             var result = await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     var status = await Client.UploadFile(
                         localFilePath,
                         destinationFilePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
-                        token: cancellationToken).ConfigureAwait(false);
+                        token: operationCancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
@@ -360,14 +360,14 @@ public class FtpFileSystem : RemoteFileSystemBase
             var remotePath = BuildRemoteFilePath(destinationDirectory, sanitizedFileName);
 
             var result = await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     var status = await Client.UploadFile(
                         localFilePath,
                         remotePath,
                         overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
                         createRemoteDir: true,
-                        token: cancellationToken).ConfigureAwait(false);
+                        token: operationCancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
@@ -407,12 +407,12 @@ public class FtpFileSystem : RemoteFileSystemBase
 
             // 使用AsyncFtpClient执行下载
             var result = await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     var status = await Client.DownloadStream(
                         outputStream,
                         remoteFilePath,
-                        token: cancellationToken).ConfigureAwait(false);
+                        token: operationCancellationToken).ConfigureAwait(false);
 
                     return status;
                 },
@@ -469,13 +469,13 @@ public class FtpFileSystem : RemoteFileSystemBase
 
             // 执行下载
             var result = await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     var status = await Client.DownloadFile(
                         localDestinationPath,
                         remoteFilePath,
                         overwrite ? FtpLocalExists.Overwrite : FtpLocalExists.Skip,
-                        token: cancellationToken).ConfigureAwait(false);
+                        token: operationCancellationToken).ConfigureAwait(false);
 
                     return status == FtpStatus.Success;
                 },
@@ -506,9 +506,9 @@ public class FtpFileSystem : RemoteFileSystemBase
 
             // 执行删除
             await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
-                    await Client.DeleteFile(filePath, cancellationToken).ConfigureAwait(false);
+                    await Client.DeleteFile(filePath, operationCancellationToken).ConfigureAwait(false);
                     return true;
                 },
                 "Delete file", cancellationToken: cancellationToken).ConfigureAwait(false);

@@ -257,7 +257,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
             // 执行上传
             await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     await Task.Run(() =>
                     {
@@ -272,7 +272,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
                         Client.UploadFile(inputStream, destinationFilePath);
                         return true;
-                    }, cancellationToken).ConfigureAwait(false);
+                    }, operationCancellationToken).ConfigureAwait(false);
                     return true;
                 },
                 "Upload file", cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -392,13 +392,13 @@ public class SftpFileSystem : RemoteFileSystemBase
                 return FileOperationResult.CreateFailure($"文件不存在 {remoteFilePath}");
 
             await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     await Task.Run(() =>
                     {
                         Client.DownloadFile(remoteFilePath, outputStream);
                         return true;
-                    }, cancellationToken).ConfigureAwait(false);
+                    }, operationCancellationToken).ConfigureAwait(false);
                     return true;
                 },
                 "Download to stream", cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -445,7 +445,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                 return FileOperationResult.CreateFailure($"目标文件已存在 {localDestinationPath}");
 
             await RetryHelper.ExecuteAsync(
-                async () =>
+                async operationCancellationToken =>
                 {
                     await Task.Run(() =>
                     {
@@ -455,7 +455,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                         using var fileStream = File.Create(localDestinationPath);
                         Client.DownloadFile(remoteFilePath, fileStream);
                         return true;
-                    }, cancellationToken).ConfigureAwait(false);
+                    }, operationCancellationToken).ConfigureAwait(false);
                     return true;
                 },
                 "Download file", cancellationToken: cancellationToken).ConfigureAwait(false);

@@ -37,10 +37,26 @@ public static class StreamExtensions
     }
 
 #if NET6_0_OR_GREATER
-    public static async Task<byte[]> ToMd5HashByteAsync(this Stream stream)
+    /// <summary>
+    /// Computes the MD5 hash of a stream asynchronously.
+    /// </summary>
+    /// <param name="stream">The stream to hash.</param>
+    /// <returns>The computed hash.</returns>
+    public static Task<byte[]> ToMd5HashByteAsync(this Stream stream)
+    {
+        return stream.ToMd5HashByteAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Computes the MD5 hash of a stream asynchronously.
+    /// </summary>
+    /// <param name="stream">The stream to hash.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The computed hash.</returns>
+    public static async Task<byte[]> ToMd5HashByteAsync(this Stream stream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        return await MD5.HashDataAsync(stream).ConfigureAwait(false);
+        return await MD5.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
     }
 #endif
 
@@ -58,18 +74,43 @@ public static class StreamExtensions
         stream.CopyTo(fs);
     }
 
-    public static async Task ToFileAsync(this Stream stream, string filePath)
+    /// <summary>
+    /// Writes the stream to a file asynchronously.
+    /// </summary>
+    /// <param name="stream">The source stream.</param>
+    /// <param name="filePath">The destination file path.</param>
+    /// <returns>A task representing the write operation.</returns>
+    public static Task ToFileAsync(this Stream stream, string filePath)
+    {
+        return stream.ToFileAsync(filePath, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Writes the stream to a file asynchronously.
+    /// </summary>
+    /// <param name="stream">The source stream.</param>
+    /// <param name="filePath">The destination file path.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the write operation.</returns>
+    public static async Task ToFileAsync(this Stream stream, string filePath, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
-        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+        using var fs = new FileStream(
+            filePath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            4096,
+            useAsync: true);
 
         if (stream.CanSeek) stream.Position = 0;
-        await stream.CopyToAsync(fs).ConfigureAwait(false);
+        await stream.CopyToAsync(fs, 81920, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -81,7 +122,7 @@ public class ExtendedFileInfo : BaseFileInfo
     /// <summary>
     /// Gets or sets the relative file path.
     /// </summary>
-    public string RelativeFilePath { get; set; } = null!;
+    public string RelativeFilePath { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -92,22 +133,22 @@ public class BaseFileInfo
     /// <summary>
     /// Gets or sets the hash data of the file.
     /// </summary>
-    public string HashData { get; set; } = null!;
+    public string HashData { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the file name.
     /// </summary>
-    public string FileName { get; set; } = null!;
+    public string FileName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the fully qualified path and name of the file.
     /// </summary>
-    public string FullFilePath { get; set; } = null!;
+    public string FullFilePath { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the file size.
     /// </summary>
-    public string FileSize { get; set; } = null!;
+    public string FileSize { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the length of the file.

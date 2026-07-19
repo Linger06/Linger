@@ -296,12 +296,59 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the file data as a byte array.</returns>
-    public static async Task<byte[]> GetFileDataAsync(this string filePath)
+    public static Task<byte[]> GetFileDataAsync(this string filePath)
     {
-        using FileStream fs = File.OpenRead(filePath);
-        using var ms = new MemoryStream(4096);
-        await fs.CopyToAsync(ms).ConfigureAwait(false);
-        return ms.ToArray();
+        return filePath.GetFileDataAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Asynchronously retrieves the file data as a byte array.
+    /// </summary>
+    /// <param name="filePath">The file path.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task whose result contains the file data.</returns>
+    public static async Task<byte[]> GetFileDataAsync(this string filePath, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var fs = new FileStream(
+            filePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            4096,
+            useAsync: true);
+        if (fs.Length > int.MaxValue)
+        {
+            throw new IOException("The file is too large to fit in a byte array.");
+        }
+
+        var result = new byte[(int)fs.Length];
+        var offset = 0;
+        while (offset < result.Length)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+#if NET5_0_OR_GREATER
+            int bytesRead = await fs.ReadAsync(
+                result.AsMemory(offset, result.Length - offset),
+                cancellationToken).ConfigureAwait(false);
+#else
+            int bytesRead = await fs.ReadAsync(
+                result,
+                offset,
+                result.Length - offset,
+                cancellationToken).ConfigureAwait(false);
+#endif
+            if (bytesRead == 0)
+            {
+                throw new EndOfStreamException("The file ended before the expected number of bytes was read.");
+            }
+
+            offset += bytesRead;
+        }
+
+        return result;
     }
 #endif
 }

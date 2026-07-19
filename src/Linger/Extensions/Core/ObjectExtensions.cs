@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Linger.Helper;
@@ -744,15 +742,20 @@ public static class ObjectExtensions
     public static T ToTarget<T>(this object? value)
     {
         if (value is null || value is DBNull)
+        {
             throw new ArgumentNullException(nameof(value),
                 $"Strict conversion requires a non-null input for target type '{typeof(T).Name}'.");
+        }
 
         var targetType = typeof(T);
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
         var converted = TypeConverter.ConvertTo(value, targetType);
         if (converted is null)
+        {
             throw new InvalidCastException(
                 $"Cannot convert value '{FormatInvariant(value)}' (Type: {value.GetType().Name}) to target type '{targetType.Name}'.");
+        }
+
         if (converted is T typedValue)
             return typedValue;
         return CastToTarget<T>(converted, targetType, underlyingType);
@@ -887,20 +890,5 @@ public static class ObjectExtensions
             IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
             _ => value.ToString() ?? string.Empty
         };
-    }
-
-    private static bool TryConvertToTimeSpan(object value, out TimeSpan result)
-    {
-        result = default;
-
-        if (value is TimeSpan timeSpan)
-        {
-            result = timeSpan;
-            return true;
-        }
-
-        var stringValue = value as string ?? value.ToString();
-        return stringValue is not null &&
-               TimeSpan.TryParse(stringValue.Trim(), CultureInfo.InvariantCulture, out result);
     }
 }

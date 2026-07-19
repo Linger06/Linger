@@ -362,6 +362,7 @@ public static class ExcelExtensions
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <param name="styleAction"></param>
+    /// <param name="cancellationToken">用于取消导出操作的令牌。</param>
     /// <returns>文件路径</returns>
     public static async Task<string> DataTableToFileAsync<TWorkbook, TWorksheet>(
         this ExcelBase<TWorkbook, TWorksheet> excel,
@@ -369,13 +370,15 @@ public static class ExcelExtensions
         string fullFileName,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
+        Action<TWorksheet>? styleAction = null,
+        CancellationToken cancellationToken = default)
         where TWorkbook : class
         where TWorksheet : class
     {
         ArgumentNullException.ThrowIfNull(excel);
 
-        return await new RetryHelper().ExecuteAsync(async () =>
+        return await new RetryHelper().ExecuteAsync(async operationCancellationToken =>
         {
             using var ms = excel.DataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
             var directoryName = Path.GetDirectoryName(fullFileName);
@@ -384,12 +387,18 @@ public static class ExcelExtensions
                 Directory.CreateDirectory(directoryName);
             }
 
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            await ms.CopyToAsync(fs).ConfigureAwait(false);
-            await fs.FlushAsync().ConfigureAwait(false);
+            using var fs = new FileStream(
+                fullFileName,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                4096,
+                useAsync: true);
+            await ms.CopyToAsync(fs, 81920, operationCancellationToken).ConfigureAwait(false);
+            await fs.FlushAsync(operationCancellationToken).ConfigureAwait(false);
 
             return fullFileName;
-        }, "导出数据表到Excel文件").ConfigureAwait(false);
+        }, "导出数据表到Excel文件", cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -405,6 +414,7 @@ public static class ExcelExtensions
     /// <param name="title">标题</param>
     /// <param name="action">自定义操作</param>
     /// <param name="styleAction"></param>
+    /// <param name="cancellationToken">用于取消导出操作的令牌。</param>
     /// <returns>文件路径</returns>
     public static async Task<string> ListToFileAsync<T, TWorkbook, TWorksheet>(
         this ExcelBase<TWorkbook, TWorksheet> excel,
@@ -412,14 +422,16 @@ public static class ExcelExtensions
         string fullFileName,
         string sheetsName = "Sheet1",
         string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
+        Action<TWorksheet, PropertyInfo[]>? action = null,
+        Action<TWorksheet>? styleAction = null,
+        CancellationToken cancellationToken = default)
         where T : class
         where TWorkbook : class
         where TWorksheet : class
     {
         ArgumentNullException.ThrowIfNull(excel);
 
-        return await new RetryHelper().ExecuteAsync(async () =>
+        return await new RetryHelper().ExecuteAsync(async operationCancellationToken =>
         {
             using var ms = excel.CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
             var directoryName = Path.GetDirectoryName(fullFileName);
@@ -428,12 +440,18 @@ public static class ExcelExtensions
                 Directory.CreateDirectory(directoryName);
             }
 
-            using var fs = new FileStream(fullFileName, FileMode.Create, FileAccess.Write);
-            await ms.CopyToAsync(fs).ConfigureAwait(false);
-            await fs.FlushAsync().ConfigureAwait(false);
+            using var fs = new FileStream(
+                fullFileName,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                4096,
+                useAsync: true);
+            await ms.CopyToAsync(fs, 81920, operationCancellationToken).ConfigureAwait(false);
+            await fs.FlushAsync(operationCancellationToken).ConfigureAwait(false);
 
             return fullFileName;
-        }, "导出对象集合到Excel文件").ConfigureAwait(false);
+        }, "导出对象集合到Excel文件", cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     private static DataTable CreateExportDataTable<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns)

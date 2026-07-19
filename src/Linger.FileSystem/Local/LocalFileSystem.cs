@@ -137,7 +137,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         var effectiveUseSequencedName = useSequencedName ?? _options.DefaultUseSequencedName;
 
         var result = await RetryHelper.ExecuteAsync(
-            async () => await UploadInternalAsync(
+            async operationCancellationToken => await UploadInternalAsync(
                 inputStream,
                 sourceFileName,
                 containerName,
@@ -145,7 +145,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 effectiveNamingRule,
                 effectiveOverwrite,
                 effectiveUseSequencedName,
-                cancellationToken).ConfigureAwait(false),
+                operationCancellationToken).ConfigureAwait(false),
             "文件上传",
             ex => ex is not DuplicateFileException,
             cancellationToken: cancellationToken).ConfigureAwait(false); // 文件重复异常不重试
@@ -572,7 +572,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         Logger.LogDebug("Starting download: {Source} -> {Destination}", sourceFilePath, localDestinationPath);
 
         return await RetryHelper.ExecuteAsync(
-            async () =>
+            async operationCancellationToken =>
             {
                 var realSourcePath = GetRealPath(sourceFilePath);
                 if (!File.Exists(realSourcePath))
@@ -584,7 +584,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                     localDestinationPath,
                     overwrite,
                     useSequencedName,
-                    cancellationToken).ConfigureAwait(false);
+                    operationCancellationToken).ConfigureAwait(false);
 
                 var sourceStream = File.OpenRead(realSourcePath);
                 var destStream = File.Create(destFilePath);
@@ -597,7 +597,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 using (destStream)
 #endif
                 {
-                    await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize, cancellationToken).ConfigureAwait(false);
+                    await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize, operationCancellationToken).ConfigureAwait(false);
                 }
                 return destFilePath;
             },

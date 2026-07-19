@@ -100,6 +100,17 @@ public class StreamExtensionsTests : IDisposable
 
         Assert.Equal(expectedHash, actualHash);
     }
+
+    [Fact]
+    public async Task ToMd5HashByteAsync_WithCanceledToken_ThrowsOperationCanceledException()
+    {
+        using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes("cancel"));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => memoryStream.ToMd5HashByteAsync(cts.Token));
+    }
 #endif
 
     [Fact]
@@ -184,6 +195,19 @@ public class StreamExtensionsTests : IDisposable
         Assert.True(File.Exists(outputFilePath));
         string fileContent = File.ReadAllText(outputFilePath);
         Assert.Equal(testData, fileContent);
+    }
+
+    [Fact]
+    public async Task ToFileAsync_WithCanceledToken_DoesNotCreateFile()
+    {
+        using var memoryStream = new MemoryStream(Encoding.UTF8.GetBytes("cancel"));
+        string outputFilePath = GetTestFilePath("canceled_output.txt");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => memoryStream.ToFileAsync(outputFilePath, cts.Token));
+        Assert.False(File.Exists(outputFilePath));
     }
 
     [Fact]

@@ -456,6 +456,16 @@ public class FileInfoExtensionsTests : IDisposable
     }
 
     [Fact]
+    public async Task GetFileDataAsync_WithCanceledToken_ThrowsOperationCanceledException()
+    {
+        string filePath = CreateTestFile("file_data_canceled.txt", "cancel");
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => filePath.GetFileDataAsync(cts.Token));
+    }
+
+    [Fact]
     public void ComputeHashMd5_ShouldReturnCorrectHash()
     {
         string content = "Test content for MD5 hash";
@@ -465,7 +475,7 @@ public class FileInfoExtensionsTests : IDisposable
         byte[] contentBytes = Encoding.UTF8.GetBytes(content);
         using var md5 = MD5.Create();
         byte[] expectedHashBytes = md5.ComputeHash(contentBytes);
-    string expectedHash = BitConverter.ToString(expectedHashBytes).Replace("-", "").ToLowerInvariant();
+        string expectedHash = BitConverter.ToString(expectedHashBytes).Replace("-", "").ToLowerInvariant();
 
         string hash = fileInfo.ComputeHashMd5();
 
