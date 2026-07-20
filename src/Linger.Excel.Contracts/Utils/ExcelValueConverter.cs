@@ -34,7 +34,7 @@ public static class ExcelValueConverter
                 {
                     return DateTime.FromOADate(numericDate);
                 }
-                catch
+                catch (ArgumentException)
                 {
                     return value;
                 }

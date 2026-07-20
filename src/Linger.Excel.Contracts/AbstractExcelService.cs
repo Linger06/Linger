@@ -69,40 +69,40 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 将Stream转换为DataTable - 简单版本
     /// </summary>
-    DataTable? IExcelService.StreamToDataTable(Stream stream, string? sheetName, int headerRowIndex, bool addEmptyRow)
+    DataTable? IExcelService.StreamToDataTable(Stream stream, string? sheetName, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
     {
-        return StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        return StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
     }
 
     /// <summary>
     /// 将Stream转换为对象列表 - 简单版本
     /// </summary>
-    List<T>? IExcelService.StreamToList<T>(Stream stream, string? sheetName, int headerRowIndex, bool addEmptyRow)
+    List<T>? IExcelService.StreamToList<T>(Stream stream, string? sheetName, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
     {
-        return StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow);
+        return StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
     }
 
     /// <summary>
     /// 将Stream转换为DataSet - 简单版本
     /// </summary>
-    DataSet? IExcelService.StreamToDataSet(Stream stream, int headerRowIndex, bool addEmptyRow)
+    DataSet? IExcelService.StreamToDataSet(Stream stream, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
     {
-        return StreamToDataSet(stream, headerRowIndex, addEmptyRow);
+        return StreamToDataSet(stream, headerRowIndex, addEmptyRow, cancellationToken);
     }
 
-    DataSet? IExcelService.StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex, bool addEmptyRow)
+    DataSet? IExcelService.StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
     {
-        return StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow);
+        return StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow, cancellationToken);
     }
 
-    DataSet? IExcelService.StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow)
+    DataSet? IExcelService.StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow, CancellationToken cancellationToken)
     {
-        return StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow);
+        return StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow, cancellationToken);
     }
 
-    DataSet? IExcelService.StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow)
+    DataSet? IExcelService.StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow, CancellationToken cancellationToken)
     {
-        return StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow);
+        return StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow, cancellationToken);
     }
 
     /// <summary>
@@ -138,35 +138,37 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 将Stream转换为DataTable（推荐 - 同步版本）
     /// </summary>
-    public abstract DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    public abstract DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataTable（推荐 - 异步版本）
     /// </summary>
     /// <remarks>
-    /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
+    /// 取消采用协作式检查，不能强制中断底层提供方的同步解析阶段。
     /// </remarks>
     public virtual async Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        // Provider parsers are synchronous, so keep their work off the caller's context.
-        return await Task.Run(() => StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
+        return await ExecuteImportAsync(
+            cancellationToken,
+            () => StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
     /// 将Stream转换为对象列表（推荐 - 同步版本）
     /// </summary>
-    public abstract List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    public abstract List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
     /// 将Stream转换为对象列表（推荐 - 异步版本）
     /// </summary>
     /// <remarks>
-    /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
+    /// 取消采用协作式检查，不能强制中断底层提供方的同步解析阶段。
     /// </remarks>
     public virtual async Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new()
     {
-        // Provider parsers are synchronous, so keep their work off the caller's context.
-        return await Task.Run(() => StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
+        return await ExecuteImportAsync(
+            cancellationToken,
+            () => StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -192,69 +194,73 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)（推荐 - 同步版本）
     /// </summary>
-    public abstract DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+    public abstract DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)（推荐 - 异步版本）
     /// </summary>
     /// <remarks>
-    /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
+    /// 取消采用协作式检查，不能强制中断底层提供方的同步解析阶段。
     /// </remarks>
     public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        // Provider parsers are synchronous, so keep their work off the caller's context.
-        return await Task.Run(() => StreamToDataSet(stream, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
+        return await ExecuteImportAsync(
+            cancellationToken,
+            () => StreamToDataSet(stream, headerRowIndex, addEmptyRow, cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)（推荐 - 同步版本）
     /// </summary>
-    public abstract DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    public abstract DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)（推荐 - 异步版本）
     /// </summary>
     /// <remarks>
-    /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
+    /// 取消采用协作式检查，不能强制中断底层提供方的同步解析阶段。
     /// </remarks>
     public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        // Provider parsers are synchronous, so keep their work off the caller's context.
-        return await Task.Run(() => StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow), cancellationToken).ConfigureAwait(false);
+        return await ExecuteImportAsync(
+            cancellationToken,
+            () => StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow, cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行（推荐 - 同步版本）
     /// </summary>
-    public abstract DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    public abstract DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行（推荐 - 异步版本）
     /// </summary>
     /// <remarks>
-    /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
+    /// 取消采用协作式检查，不能强制中断底层提供方的同步解析阶段。
     /// </remarks>
     public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        // Provider parsers are synchronous, so keep their work off the caller's context.
-        return await Task.Run(() => StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow), cancellationToken).ConfigureAwait(false);
+        return await ExecuteImportAsync(
+            cancellationToken,
+            () => StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow, cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行（推荐 - 同步版本）
     /// </summary>
-    public abstract DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    public abstract DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行（推荐 - 异步版本）
     /// </summary>
     /// <remarks>
-    /// 子类应实现真正的异步 I/O 操作,使用 Stream 的异步 API (ReadAsync 等)
+    /// 取消采用协作式检查，不能强制中断底层提供方的同步解析阶段。
     /// </remarks>
     public virtual async Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        // Provider parsers are synchronous, so keep their work off the caller's context.
-        return await Task.Run(() => StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow), cancellationToken).ConfigureAwait(false);
+        return await ExecuteImportAsync(
+            cancellationToken,
+            () => StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow, cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -268,6 +274,16 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public abstract string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = ExcelOptions.DefaultDataSetSheetPrefix,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
+
+    /// <summary>
+    /// Exports a data set to Excel and invokes an action for every created worksheet.
+    /// </summary>
+    /// <remarks>
+    /// The action is invoked in source table order, including tables without columns. An exception
+    /// thrown by the action stops the export and is propagated to the caller.
+    /// </remarks>
+    public abstract string DataSetToExcel(DataSet dataSet, string fullFileName, Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
+        string defaultSheetName = ExcelOptions.DefaultDataSetSheetPrefix);
 
     /// <summary>
     /// 对象集合转 Excel 文件（推荐）
@@ -532,6 +548,46 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     }
 
     #region 私有辅助方法
+
+    private static async Task<TResult> ExecuteImportAsync<TResult>(CancellationToken cancellationToken, Func<TResult> import)
+    {
+        ArgumentNullException.ThrowIfNull(import);
+
+        return await Task.Run(() =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var result = import();
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return result;
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Copies a stream to a seekable memory stream while observing cancellation between reads.
+    /// </summary>
+    protected static MemoryStream CopyToMemoryStream(Stream stream, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+
+        var memoryStream = new MemoryStream();
+        var buffer = new byte[81920];
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var bytesRead = stream.Read(buffer, 0, buffer.Length);
+            if (bytesRead == 0)
+            {
+                break;
+            }
+
+            memoryStream.Write(buffer, 0, bytesRead);
+        }
+
+        memoryStream.Position = 0;
+        return memoryStream;
+    }
 
     /// <summary>
     /// 解析逗号分隔的工作表名称字符串

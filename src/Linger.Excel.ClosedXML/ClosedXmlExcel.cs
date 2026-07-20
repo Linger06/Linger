@@ -11,11 +11,9 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     : ExcelBase<XLWorkbook, IXLWorksheet>(options, logger)
 {
     // 添加基类要求的方法实现
-    protected override XLWorkbook OpenWorkbook(Stream stream)
+    protected override XLWorkbook OpenWorkbook(Stream stream, CancellationToken cancellationToken)
     {
-        var memoryStream = new MemoryStream();
-        stream.CopyTo(memoryStream);
-        memoryStream.Position = 0;
+        var memoryStream = CopyToMemoryStream(stream, cancellationToken);
         return new XLWorkbook(memoryStream);
     }
 
@@ -117,14 +115,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
 
     protected override void CloseWorkbook(XLWorkbook workbook)
     {
-        try
-        {
-            workbook.Dispose();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "关闭ClosedXML工作簿时出错");
-        }
+        workbook.Dispose();
     }
 
     protected override int EstimateColumnCount(IXLWorksheet worksheet)
@@ -278,46 +269,24 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </summary>
     private void ApplyTitleRowFormatting(IXLRange titleRange)
     {
-        try
+        titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold; // 更新为新路径
+        titleRange.Style.Font.FontSize = Options.StyleOptions.TitleStyle.FontSize; // 更新为新路径
+        titleRange.Style.Font.FontName = Options.StyleOptions.TitleStyle.FontName; // 更新为新路径
+        titleRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        titleRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // 设置背景色
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.BackgroundColor)) // 更新为新路径
         {
-            titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold; // 更新为新路径
-            titleRange.Style.Font.FontSize = Options.StyleOptions.TitleStyle.FontSize; // 更新为新路径
-            titleRange.Style.Font.FontName = Options.StyleOptions.TitleStyle.FontName; // 更新为新路径
-            titleRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            titleRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-
-            // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.BackgroundColor)) // 更新为新路径
-            {
-                try
-                {
-                    var color = XLColor.FromHtml(Options.StyleOptions.TitleStyle.BackgroundColor); // 更新为新路径
-                    titleRange.Style.Fill.BackgroundColor = color;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug(ex, "设置标题背景色失败");
-                    titleRange.Style.Fill.BackgroundColor = XLColor.LightGray;
-                }
-            }
-
-            // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor)) // 更新为新路径
-            {
-                try
-                {
-                    var fontColor = XLColor.FromHtml(Options.StyleOptions.TitleStyle.FontColor); // 更新为新路径
-                    titleRange.Style.Font.FontColor = fontColor;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug(ex, "设置标题文字颜色失败");
-                }
-            }
+            var color = XLColor.FromHtml(Options.StyleOptions.TitleStyle.BackgroundColor); // 更新为新路径
+            titleRange.Style.Fill.BackgroundColor = color;
         }
-        catch (Exception ex)
+
+        // 设置文字颜色
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor)) // 更新为新路径
         {
-            Logger.LogDebug(ex, "设置标题行样式失败");
+            var fontColor = XLColor.FromHtml(Options.StyleOptions.TitleStyle.FontColor); // 更新为新路径
+            titleRange.Style.Font.FontColor = fontColor;
         }
     }
 
@@ -326,50 +295,28 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </summary>
     private void ApplyHeaderRowFormatting(IXLCell headerCell)
     {
-        try
+        headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold; // 更新为新路径
+        headerCell.Style.Font.FontSize = Options.StyleOptions.HeaderStyle.FontSize; // 更新为新路径
+        headerCell.Style.Font.FontName = Options.StyleOptions.HeaderStyle.FontName; // 更新为新路径
+        headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+
+        // 设置背景色
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor)) // 更新为新路径
         {
-            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold; // 更新为新路径
-            headerCell.Style.Font.FontSize = Options.StyleOptions.HeaderStyle.FontSize; // 更新为新路径
-            headerCell.Style.Font.FontName = Options.StyleOptions.HeaderStyle.FontName; // 更新为新路径
-            headerCell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-            headerCell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-
-            // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor)) // 更新为新路径
-            {
-                try
-                {
-                    var color = XLColor.FromHtml(Options.StyleOptions.HeaderStyle.BackgroundColor); // 更新为新路径
-                    headerCell.Style.Fill.BackgroundColor = color;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug(ex, "设置表头背景色失败");
-                    headerCell.Style.Fill.BackgroundColor = XLColor.LightGray;
-                }
-            }
-
-            // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor)) // 更新为新路径
-            {
-                try
-                {
-                    var fontColor = XLColor.FromHtml(Options.StyleOptions.HeaderStyle.FontColor); // 更新为新路径
-                    headerCell.Style.Font.FontColor = fontColor;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogDebug(ex, "设置表头文字颜色失败");
-                }
-            }
-
-            // 应用边框
-            DrawBorder(headerCell);
+            var color = XLColor.FromHtml(Options.StyleOptions.HeaderStyle.BackgroundColor); // 更新为新路径
+            headerCell.Style.Fill.BackgroundColor = color;
         }
-        catch (Exception ex)
+
+        // 设置文字颜色
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor)) // 更新为新路径
         {
-            Logger.LogDebug(ex, "设置表头行样式失败");
+            var fontColor = XLColor.FromHtml(Options.StyleOptions.HeaderStyle.FontColor); // 更新为新路径
+            headerCell.Style.Font.FontColor = fontColor;
         }
+
+        // 应用边框
+        DrawBorder(headerCell);
     }
 
     /// <summary>
@@ -509,13 +456,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </remarks>
     protected override void ProcessCollectionRows<T>(IXLWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
-        // 优先查找带有ExcelColumn特性的属性
-        var columns = GetExcelColumns(properties).ToList();
-        if (columns.Count == 0)
-        {
-            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
-        }
-        columns = columns.OrderBy(c => c.Index).ToList();
+        var exportProperties = GetExportProperties(properties);
 
         // 判断是否需要并行处理
         var useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
@@ -529,15 +470,13 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
 
             // 预计算所有值
-            var cellValues = new object?[list.Count, columns.Count];
+            var cellValues = new object?[list.Count, exportProperties.Length];
 
             Parallel.For(0, list.Count, i =>
             {
-                for (var j = 0; j < columns.Count; j++)
+                for (var j = 0; j < exportProperties.Length; j++)
                 {
-                    // 查找对应的属性
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
-                    cellValues[i, j] = property?.GetValue(list[i]);
+                    cellValues[i, j] = exportProperties[j].GetValue(list[i]);
                 }
             });
 
@@ -547,7 +486,7 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 var batchEnd = Math.Min(batchStart + batchSize, list.Count);
                 for (var i = batchStart; i < batchEnd; i++)
                 {
-                    for (var j = 0; j < columns.Count; j++)
+                    for (var j = 0; j < exportProperties.Length; j++)
                     {
                         var cell = worksheet.Cell(startRowIndex + i + 2, j + 1);
                         WriteValueToCell(cell, cellValues[i, j]);
@@ -560,11 +499,10 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             // 顺序处理小数据集
             for (var i = 0; i < list.Count; i++)
             {
-                for (var j = 0; j < columns.Count; j++)
+                for (var j = 0; j < exportProperties.Length; j++)
                 {
                     var cell = worksheet.Cell(startRowIndex + i + 2, j + 1);
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
-                    WriteValueToCell(cell, property?.GetValue(list[i]));
+                    WriteValueToCell(cell, exportProperties[j].GetValue(list[i]));
                 }
             }
         }

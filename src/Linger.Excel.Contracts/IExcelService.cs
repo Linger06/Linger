@@ -3,6 +3,10 @@ namespace Linger.Excel.Contracts;
 /// <summary>
 /// Excel服务非泛型接口 - 提供基本的Excel操作功能
 /// </summary>
+/// <remarks>
+/// 异步流导入使用协作式取消：会在开始前、非可寻址流的缓冲读取以及后续转换循环中观察取消令牌。
+/// 底层提供方的同步解析阶段不能被强制中断，取消请求可能在该阶段结束后的下一个检查点才抛出 <see cref="OperationCanceledException"/>。
+/// </remarks>
 public interface IExcelService
 {
     #region Import
@@ -73,8 +77,9 @@ public interface IExcelService
     /// <param name="sheetName">工作表名称</param>
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
+    /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataTable</returns>
-    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为对象列表
@@ -84,8 +89,9 @@ public interface IExcelService
     /// <param name="sheetName">工作表名称</param>
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
+    /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的对象列表</returns>
-    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)
@@ -93,8 +99,9 @@ public interface IExcelService
     /// <param name="stream">要转换的Stream</param>
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0(所有工作表使用相同值)</param>
     /// <param name="addEmptyRow">是否添加空行</param>
+    /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
-    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)
@@ -103,8 +110,9 @@ public interface IExcelService
     /// <param name="sheetNames">要处理的工作表名称集合，为null或空集合时处理所有工作表</param>
     /// <param name="headerRowIndex">列名所在行号,从0开始,默认0(所有工作表使用相同值)</param>
     /// <param name="addEmptyRow">是否添加空行</param>
+    /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
@@ -112,8 +120,9 @@ public interface IExcelService
     /// <param name="stream">要转换的Stream</param>
     /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
+    /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
-    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
@@ -122,8 +131,9 @@ public interface IExcelService
     /// <param name="sheetNames">要处理的工作表名称集合，为null或空集合时处理所有工作表</param>
     /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
+    /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataTable

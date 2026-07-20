@@ -21,7 +21,5 @@ public static class ExcelWorksheetExtensions
         }
 
         return empties.All(e => e);
-
-        //return Enumerable.Range(1, worksheet.Dimension.End.Column).Select(i => worksheet.Cells[worksheet.Dimension.End.Row, i].Value == null).All(x => x);
     }
 }

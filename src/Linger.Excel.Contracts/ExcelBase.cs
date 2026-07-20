@@ -139,6 +139,32 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     public override string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
+        return DataSetToExcelCore(dataSet, fullFileName, defaultSheetName, action, styleAction, worksheetAction: null);
+    }
+
+    /// <summary>
+    /// Exports a data set and invokes an action for every created worksheet.
+    /// </summary>
+    /// <remarks>
+    /// The action is invoked in source table order, including tables without columns. An exception
+    /// thrown by the action stops the export and is propagated to the caller.
+    /// </remarks>
+    public override string DataSetToExcel(DataSet dataSet, string fullFileName, Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
+        string defaultSheetName = "Sheet")
+    {
+        ArgumentNullException.ThrowIfNull(worksheetAction);
+
+        return DataSetToExcelCore(dataSet, fullFileName, defaultSheetName, action: null, styleAction: null, worksheetAction);
+    }
+
+    private string DataSetToExcelCore(
+        DataSet dataSet,
+        string fullFileName,
+        string defaultSheetName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        Action<TWorksheet>? styleAction,
+        Action<IWorksheetExportContext<TWorksheet>>? worksheetAction)
+    {
         if (dataSet == null || dataSet.Tables.Count == 0)
         {
             Logger.LogWarning("要导出的DataSet为空或不包含任何DataTable");
@@ -147,43 +173,41 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             dataSet.Tables.Add(new DataTable($"{defaultSheetName}1"));
         }
 
-        try
+        ValidateExportOptions();
+
+        MemoryStream ms;
+        if (Options.EnablePerformanceMonitoring)
         {
-            MemoryStream ms;
-            if (Options.EnablePerformanceMonitoring)
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction);
-                sw.Stop();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction, worksheetAction);
+            sw.Stop();
 
-                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-                {
-                    Logger.LogInformation("导出DataSet到Excel[表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
-                        dataSet.Tables.Count, sw.ElapsedMilliseconds);
-                }
-            }
-            else
+            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
             {
-                ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction);
+                Logger.LogInformation("导出DataSet到Excel[表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
+                    dataSet.Tables.Count, sw.ElapsedMilliseconds);
             }
-
-            ms.ToFile(fullFileName);
-            ms.Dispose();
-            return fullFileName;
         }
-        catch (Exception ex)
+        else
         {
-            Logger.LogError(ex, "导出DataSet到Excel失败");
-            throw new InvalidOperationException("导出DataSet到Excel失败", ex);
+            ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction, worksheetAction);
+        }
+
+        using (ms)
+        {
+            ms.ToFile(fullFileName);
+            return fullFileName;
         }
     }
 
     /// <summary>
     /// 将Stream转换为DataTable（新方法）
     /// </summary>
-    public override DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        if (stream == null || stream.Length == 0)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (IsStreamEmpty(stream))
         {
             Logger.LogWarning("Excel流为空");
             return null;
@@ -194,7 +218,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             // 打开Excel工作簿
-            workbook = OpenWorkbook(stream);
+            workbook = OpenWorkbook(stream, cancellationToken);
             if (workbook == null)
             {
                 Logger.LogWarning("无法打开Excel工作簿");
@@ -220,7 +244,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
 
-                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
 
                 sw.Stop();
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
@@ -234,15 +258,10 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             }
             else
             {
-                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
+                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
             }
 
             return dataTable;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel流读取失败");
-            return null;
         }
         finally
         {
@@ -260,100 +279,88 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. For AOT/trimming scenarios, use the mapper/factory import overloads in ExcelExtensions.")]
 #endif
-    public override List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         // 首先转换为DataTable
-        var dataTable = StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        var dataTable = StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
         if (dataTable == null)
         {
             return null;
         }
 
         // 然后将DataTable转换为对象列表
-        try
+        var result = new List<T>(dataTable.Rows.Count);
+        var properties = typeof(T).GetProperties().Where(p => p.CanWrite).ToArray();
+
+        // 创建属性映射
+        var propertyMapping = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in properties)
         {
-            var result = new List<T>(dataTable.Rows.Count);
-            var properties = typeof(T).GetProperties().Where(p => p.CanWrite).ToArray();
-
-            // 创建属性映射
-            var propertyMapping = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-            foreach (var prop in properties)
+            // 检查是否有ExcelColumn特性
+            var excelAttr = prop.GetCustomAttribute<ExcelColumnAttribute>();
+            if (excelAttr != null && excelAttr.ColumnName.IsNotNullOrWhiteSpace())
             {
-                // 检查是否有ExcelColumn特性
-                var excelAttr = prop.GetCustomAttribute<ExcelColumnAttribute>();
-                if (excelAttr != null && excelAttr.ColumnName.IsNotNullOrWhiteSpace())
-                {
-                    propertyMapping[excelAttr.ColumnName] = prop;
-                }
-
-                // 同时添加属性名称映射
-                propertyMapping[prop.Name] = prop;
+                propertyMapping[excelAttr.ColumnName] = prop;
             }
 
-            // 创建列到属性的映射
-            var columnToProperty = new Dictionary<int, PropertyInfo>();
-            for (var i = 0; i < dataTable.Columns.Count; i++)
+            // 同时添加属性名称映射
+            propertyMapping[prop.Name] = prop;
+        }
+
+        // 创建列到属性的映射
+        var columnToProperty = new Dictionary<int, PropertyInfo>();
+        for (var i = 0; i < dataTable.Columns.Count; i++)
+        {
+            var columnName = dataTable.Columns[i].ColumnName;
+            if (propertyMapping.TryGetValue(columnName, out var property))
             {
-                var columnName = dataTable.Columns[i].ColumnName;
-                if (propertyMapping.TryGetValue(columnName, out var property))
-                {
-                    columnToProperty[i] = property;
-                }
+                columnToProperty[i] = property;
             }
+        }
 
-            // 转换每行数据
-            foreach (DataRow row in dataTable.Rows)
+        // 转换每行数据
+        foreach (DataRow row in dataTable.Rows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            T item = Activator.CreateInstance<T>();
+
+            foreach (var kvp in columnToProperty)
             {
-                T item = Activator.CreateInstance<T>();
+                var columnIndex = kvp.Key;
+                PropertyInfo property = kvp.Value;
 
-                foreach (var kvp in columnToProperty)
+                if (!row.IsNull(columnIndex))
                 {
-                    var columnIndex = kvp.Key;
-                    PropertyInfo property = kvp.Value;
-
-                    try
+                    var value = row[columnIndex];
+                    if (TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue) && convertedValue is not null)
                     {
-                        if (!row.IsNull(columnIndex))
-                        {
-                            var value = row[columnIndex];
-                            if (TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue) && convertedValue is not null)
-                            {
-                                property.SetValue(item, convertedValue);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogWarning(ex, "转换Excel单元格值到对象属性时出错: 列={Column}, 属性={Property}", dataTable.Columns[columnIndex].ColumnName, property.Name);
+                        property.SetValue(item, convertedValue);
                     }
                 }
-
-                result.Add(item);
             }
 
-            return result;
+            result.Add(item);
         }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "将DataTable转换为对象列表时出错");
-            return null;
-        }
+
+        return result;
     }
 
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)（新方法）
     /// </summary>
-    public override DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        return StreamToDataSet(stream, null, headerRowIndex, addEmptyRow);
+        return StreamToDataSet(stream, null, headerRowIndex, addEmptyRow, cancellationToken);
     }
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)（新方法）
     /// </summary>
-    public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        if (stream == null || stream.Length == 0)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (IsStreamEmpty(stream))
         {
             Logger.LogWarning("Excel流为空");
             return null;
@@ -364,86 +371,42 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             // 打开Excel工作簿
-            workbook = OpenWorkbook(stream);
+            workbook = OpenWorkbook(stream, cancellationToken);
             if (workbook == null)
             {
                 Logger.LogWarning("无法打开Excel工作簿");
                 return null;
             }
 
-            var dataSet = new DataSet();
-
             // 获取要处理的工作表名称列表
             var targetSheetNames = GetTargetSheetNames(workbook, sheetNames);
             if (targetSheetNames == null || targetSheetNames.Count == 0)
             {
                 Logger.LogWarning("工作簿中没有找到要处理的工作表");
-                return dataSet;
+                return new DataSet();
             }
 
-            DataSet? result;
+            DataSet result;
             if (Options.EnablePerformanceMonitoring)
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-
-                // 遍历指定的工作表
-                foreach (var sheetName in targetSheetNames)
-                {
-                    var worksheet = GetWorksheet(workbook, sheetName);
-                    if (worksheet == null || !HasData(worksheet))
-                    {
-                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
-                        continue;
-                    }
-
-                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
-                    if (dataTable != null)
-                    {
-                        dataTable.TableName = sheetName;
-                        dataSet.Tables.Add(dataTable);
-                    }
-                }
-
-                result = dataSet;
+                result = ImportDataSetFromWorksheets(workbook, targetSheetNames, _ => headerRowIndex, addEmptyRow, cancellationToken);
                 sw.Stop();
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
                     Logger.LogInformation(
                         "从Excel流导入到DataSet[工作表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
-                        dataSet.Tables.Count,
+                        result.Tables.Count,
                         sw.ElapsedMilliseconds);
                 }
             }
             else
             {
-                // 遍历指定的工作表
-                foreach (var sheetName in targetSheetNames)
-                {
-                    var worksheet = GetWorksheet(workbook, sheetName);
-                    if (worksheet == null || !HasData(worksheet))
-                    {
-                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
-                        continue;
-                    }
-
-                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
-                    if (dataTable != null)
-                    {
-                        dataTable.TableName = sheetName;
-                        dataSet.Tables.Add(dataTable);
-                    }
-                }
-
-                result = dataSet;
+                result = ImportDataSetFromWorksheets(workbook, targetSheetNames, _ => headerRowIndex, addEmptyRow, cancellationToken);
             }
 
             return result;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel流读取并转换为DataSet失败");
-            return null;
         }
         finally
         {
@@ -458,17 +421,19 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
-    public override DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        return StreamToDataSet(stream, null, headerRowIndexSelector, addEmptyRow);
+        return StreamToDataSet(stream, null, headerRowIndexSelector, addEmptyRow, cancellationToken);
     }
 
     /// <summary>
     /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行（新方法）
     /// </summary>
-    public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        if (stream == null || stream.Length == 0)
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (IsStreamEmpty(stream))
         {
             Logger.LogWarning("Excel流为空");
             return null;
@@ -479,92 +444,42 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             // 打开Excel工作簿
-            workbook = OpenWorkbook(stream);
+            workbook = OpenWorkbook(stream, cancellationToken);
             if (workbook == null)
             {
                 Logger.LogWarning("无法打开Excel工作簿");
                 return null;
             }
 
-            var dataSet = new DataSet();
-
             // 获取要处理的工作表名称列表
             var targetSheetNames = GetTargetSheetNames(workbook, sheetNames);
             if (targetSheetNames == null || targetSheetNames.Count == 0)
             {
                 Logger.LogWarning("工作簿中没有找到要处理的工作表");
-                return dataSet;
+                return new DataSet();
             }
 
-            DataSet? result;
+            DataSet result;
             if (Options.EnablePerformanceMonitoring)
             {
                 var sw = System.Diagnostics.Stopwatch.StartNew();
-
-                // 遍历指定的工作表
-                foreach (var sheetName in targetSheetNames)
-                {
-                    var worksheet = GetWorksheet(workbook, sheetName);
-                    if (worksheet == null || !HasData(worksheet))
-                    {
-                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
-                        continue;
-                    }
-
-                    // 为每个工作表获取对应的表头行索引
-                    var headerRowIndex = headerRowIndexSelector(sheetName) ?? 0;
-
-                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
-                    if (dataTable != null)
-                    {
-                        dataTable.TableName = sheetName;
-                        dataSet.Tables.Add(dataTable);
-                    }
-                }
-
-                result = dataSet;
+                result = ImportDataSetFromWorksheets(workbook, targetSheetNames, sheetName => headerRowIndexSelector(sheetName) ?? 0, addEmptyRow, cancellationToken);
                 sw.Stop();
 
                 if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
                 {
                     Logger.LogInformation(
                         "从Excel流导入到DataSet[工作表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
-                        dataSet.Tables.Count,
+                        result.Tables.Count,
                         sw.ElapsedMilliseconds);
                 }
             }
             else
             {
-                // 遍历指定的工作表
-                foreach (var sheetName in targetSheetNames)
-                {
-                    var worksheet = GetWorksheet(workbook, sheetName);
-                    if (worksheet == null || !HasData(worksheet))
-                    {
-                        Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
-                        continue;
-                    }
-
-                    // 为每个工作表获取对应的表头行索引
-                    var headerRowIndex = headerRowIndexSelector(sheetName) ?? 0;
-
-                    var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow);
-                    if (dataTable != null)
-                    {
-                        dataTable.TableName = sheetName;
-                        dataSet.Tables.Add(dataTable);
-                    }
-                }
-
-                result = dataSet;
+                result = ImportDataSetFromWorksheets(workbook, targetSheetNames, sheetName => headerRowIndexSelector(sheetName) ?? 0, addEmptyRow, cancellationToken);
             }
 
             return result;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "从Excel流读取并转换为DataSet失败");
-            return null;
         }
         finally
         {
@@ -585,24 +500,27 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         var allSheetNames = GetAllSheetNames(workbook);
 
         // 如果没有指定工作表或指定的集合为空，则返回所有工作表
-        if (requestedSheetNames == null || !requestedSheetNames.Any())
+        if (requestedSheetNames is null)
+        {
+            return allSheetNames;
+        }
+
+        var requestedNames = requestedSheetNames.ToList();
+        if (requestedNames.Count == 0)
         {
             return allSheetNames;
         }
 
         // 按请求的顺序返回存在的工作表（保持用户指定的顺序）
         var result = new List<string>();
-        var allSheetNamesSet = new HashSet<string>(allSheetNames, StringComparer.OrdinalIgnoreCase);
+        var sheetNamesByOrdinalIgnoreCase = allSheetNames.ToDictionary(name => name, StringComparer.OrdinalIgnoreCase);
+        var selectedSheetNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var requestedName in requestedSheetNames)
+        foreach (var requestedName in requestedNames)
         {
-            if (allSheetNamesSet.Contains(requestedName))
+            if (sheetNamesByOrdinalIgnoreCase.TryGetValue(requestedName, out var actualName))
             {
-                // 使用实际的工作表名称（保持Excel中的大小写）
-                var actualName = allSheetNames.FirstOrDefault(n =>
-                    string.Equals(n, requestedName, StringComparison.OrdinalIgnoreCase));
-
-                if (actualName != null)
+                if (selectedSheetNames.Add(actualName))
                 {
                     result.Add(actualName);
                 }
@@ -614,6 +532,21 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
 
         return result;
+    }
+
+    private static bool IsStreamEmpty(Stream? stream)
+    {
+        if (stream is null)
+        {
+            return true;
+        }
+
+        if (!stream.CanRead)
+        {
+            throw new ArgumentException(null, nameof(stream));
+        }
+
+        return stream.CanSeek && stream.Length == 0;
     }
 
     /// <summary>
@@ -635,39 +568,27 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             list = [];
         }
 
-        try
+        ValidateExportOptions();
+
+        MemoryStream result;
+        if (Options.EnablePerformanceMonitoring)
         {
-            MemoryStream result;
-            if (Options.EnablePerformanceMonitoring)
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                result = ExportCollection(list, sheetsName, title, action, styleAction);
-                sw.Stop();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            result = ExportCollection(list, sheetsName, title, action, styleAction);
+            sw.Stop();
 
-                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-                {
-                    Logger.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
-                        list.Count, sw.ElapsedMilliseconds);
-                }
-            }
-            else
+            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
             {
-                result = ExportCollection(list, sheetsName, title, action, styleAction);
+                Logger.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
+                    list.Count, sw.ElapsedMilliseconds);
             }
-
-            // ExportCollection方法不应该返回null，但为了健壮性仍进行检查
-            if (result == null)
-            {
-                throw new InvalidOperationException("转换对象列表到MemoryStream失败");
-            }
-
-            return result;
         }
-        catch (Exception ex)
+        else
         {
-            Logger.LogError(ex, "导出列表到Excel失败");
-            throw new InvalidOperationException("导出列表到Excel失败", ex);
+            result = ExportCollection(list, sheetsName, title, action, styleAction);
         }
+
+        return result;
     }
 
     /// <summary>
@@ -686,39 +607,27 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             dataTable = new DataTable();
         }
 
-        try
+        ValidateExportOptions();
+
+        MemoryStream result;
+        if (Options.EnablePerformanceMonitoring)
         {
-            MemoryStream result;
-            if (Options.EnablePerformanceMonitoring)
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-                result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
-                sw.Stop();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
+            sw.Stop();
 
-                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-                {
-                    Logger.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
-                        dataTable.Rows.Count, dataTable.Columns.Count, sw.ElapsedMilliseconds);
-                }
-            }
-            else
+            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
             {
-                result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
+                Logger.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                    dataTable.Rows.Count, dataTable.Columns.Count, sw.ElapsedMilliseconds);
             }
-
-            // ExportDataTable方法不应该返回null，但为了健壮性仍进行检查
-            if (result == null)
-            {
-                throw new InvalidOperationException("转换DataTable到MemoryStream失败");
-            }
-
-            return result;
         }
-        catch (Exception ex)
+        else
         {
-            Logger.LogError(ex, "导出DataTable到Excel失败");
-            throw new InvalidOperationException("导出DataTable到Excel失败", ex);
+            result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
         }
+
+        return result;
     }
 
     /// <summary>
@@ -736,47 +645,42 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         // 创建Excel工作簿和工作表
         var workbook = CreateWorkbook();
-        var worksheet = CreateWorksheet(workbook, sheetsName);
-
-        // 获取所有列名
-        string[] columnNames;
-        var columns = GetExcelColumns(properties);
-
-        if (columns.Count != 0)
+        try
         {
-            // 使用特性标记的列名,按Index排序
-            columnNames = columns.OrderBy(c => c.Index).Select(c => c.ColumnName).ToArray();
+            var worksheet = CreateWorksheet(workbook, sheetsName);
+
+            var exportColumns = GetExportColumns(properties);
+            var columnNames = exportColumns.Select(column => column.ColumnName).ToArray();
+
+            // 应用标题
+            var startRowIndex = 0;
+            if (title.IsNotNullOrEmpty())
+            {
+                startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
+            }
+
+            // 创建表头行
+            CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
+
+            // 填充数据行
+            ProcessCollectionRows(worksheet, list, properties, startRowIndex);
+
+            // 应用自定义处理
+            action?.Invoke(worksheet, properties);
+
+            // 应用样式
+            styleAction?.Invoke(worksheet);
+
+            // 进行工作表格式化
+            ApplyWorksheetFormatting(worksheet, list.Count + startRowIndex + 1, columnNames.Length);
+
+            // 保存到流
+            return SaveWorkbookToStream(workbook);
         }
-        else
+        finally
         {
-            // 使用属性名作为列名
-            columnNames = properties.Select(p => p.Name).ToArray();
+            CloseWorkbook(workbook);
         }
-
-        // 应用标题
-        var startRowIndex = 0;
-        if (title.IsNotNullOrEmpty())
-        {
-            startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
-        }
-
-        // 创建表头行
-        CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
-
-        // 填充数据行
-        ProcessCollectionRows(worksheet, list, properties, startRowIndex);
-
-        // 应用自定义处理
-        action?.Invoke(worksheet, properties);
-
-        // 应用样式
-        styleAction?.Invoke(worksheet);
-
-        // 进行工作表格式化
-        ApplyWorksheetFormatting(worksheet, list.Count + startRowIndex + 1, columnNames.Length);
-
-        // 保存到流
-        return SaveWorkbookToStream(workbook);
     }
 
     /// <summary>
@@ -791,12 +695,79 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         // 创建Excel工作簿
         var workbook = CreateWorkbook();
+        try
+        {
+            // 调用通用方法处理单个DataTable
+        ExportDataTableToWorksheet(workbook, dataTable, sheetsName, title, action, styleAction, worksheetAction: null, tableIndex: 0);
 
-        // 调用通用方法处理单个DataTable
-        ExportDataTableToWorksheet(workbook, dataTable, sheetsName, title, action, styleAction);
+            // 保存到流
+            return SaveWorkbookToStream(workbook);
+        }
+        finally
+        {
+            CloseWorkbook(workbook);
+        }
+    }
 
-        // 保存到流
-        return SaveWorkbookToStream(workbook);
+    private void ValidateExportOptions()
+    {
+        if (Options.UseBatchWrite && Options.BatchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ExcelOptions.BatchSize), Options.BatchSize, "Batch size must be greater than zero.");
+        }
+
+        if (Options.ParallelProcessingThreshold < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ExcelOptions.ParallelProcessingThreshold), Options.ParallelProcessingThreshold, "Parallel processing threshold cannot be negative.");
+        }
+
+        if (Options.PerformanceThreshold < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ExcelOptions.PerformanceThreshold), Options.PerformanceThreshold, "Performance threshold cannot be negative.");
+        }
+
+        var styleOptions = Options.StyleOptions;
+        ValidateHexColor(styleOptions.TitleStyle.BackgroundColor);
+        ValidateHexColor(styleOptions.TitleStyle.FontColor);
+        ValidateHexColor(styleOptions.HeaderStyle.BackgroundColor);
+        ValidateHexColor(styleOptions.HeaderStyle.FontColor);
+    }
+
+    private static void ValidateHexColor(string? color)
+    {
+        if (color is null || color.Length == 0)
+        {
+            return;
+        }
+
+        var hexColor = color[0] == '#' ? color.Substring(1) : color;
+        if (hexColor.Length != 6 || hexColor.Any(character => !Uri.IsHexDigit(character)))
+        {
+            throw new ArgumentException(null, nameof(color));
+        }
+    }
+
+    private IReadOnlyList<(PropertyInfo Property, string ColumnName)> GetExportColumns(PropertyInfo[] properties)
+    {
+        var attributedColumns = GetExcelColumns(properties)
+            .OrderBy(column => column.Index)
+            .ToArray();
+
+        if (attributedColumns.Length == 0)
+        {
+            return properties.Select(property => (property, property.Name)).ToArray();
+        }
+
+        return attributedColumns
+            .Select(column => (properties.First(property => property.Name == column.Name), column.ColumnName))
+            .ToArray();
+    }
+
+    protected PropertyInfo[] GetExportProperties(PropertyInfo[] properties)
+    {
+        return GetExportColumns(properties)
+            .Select(column => column.Property)
+            .ToArray();
     }
 
     /// <summary>
@@ -806,23 +777,30 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         DataSet dataSet,
         string defaultSheetName,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
-        Action<TWorksheet>? styleAction)
+        Action<TWorksheet>? styleAction,
+        Action<IWorksheetExportContext<TWorksheet>>? worksheetAction)
     {
         // 创建Excel工作簿
         var workbook = CreateWorkbook();
-
-        // 遍历所有DataTable
-        for (var i = 0; i < dataSet.Tables.Count; i++)
+        try
         {
-            var dataTable = dataSet.Tables[i];
-            var sheetName = !string.IsNullOrWhiteSpace(dataTable.TableName) ? dataTable.TableName : $"{defaultSheetName}{i + 1}";
+            // 遍历所有DataTable
+            for (var i = 0; i < dataSet.Tables.Count; i++)
+            {
+                var dataTable = dataSet.Tables[i];
+                var sheetName = !string.IsNullOrWhiteSpace(dataTable.TableName) ? dataTable.TableName : $"{defaultSheetName}{i + 1}";
 
-            // 调用通用方法处理每个DataTable，不设置标题
-            ExportDataTableToWorksheet(workbook, dataTable, sheetName, null, action, styleAction);
+                // 调用通用方法处理每个DataTable，不设置标题
+                ExportDataTableToWorksheet(workbook, dataTable, sheetName, null, action, styleAction, worksheetAction, i);
+            }
+
+            // 保存到流
+            return SaveWorkbookToStream(workbook);
         }
-
-        // 保存到流
-        return SaveWorkbookToStream(workbook);
+        finally
+        {
+            CloseWorkbook(workbook);
+        }
     }
 
     /// <summary>
@@ -840,7 +818,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         string sheetName,
         string? title,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
-        Action<TWorksheet>? styleAction)
+        Action<TWorksheet>? styleAction,
+        Action<IWorksheetExportContext<TWorksheet>>? worksheetAction,
+        int tableIndex)
     {
         // 创建工作表
         var worksheet = CreateWorksheet(workbook, sheetName);
@@ -865,32 +845,48 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             // 填充数据行
             ProcessDataRows(worksheet, dataTable, startRowIndex);
 
-            // 应用自定义处理
-            action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
-
-            // 应用样式
-            styleAction?.Invoke(worksheet);
-
             // 进行工作表格式化
             ApplyWorksheetFormatting(worksheet, dataTable.Rows.Count + startRowIndex + 1, columnNames.Length);
         }
+
+        action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
+        styleAction?.Invoke(worksheet);
+        worksheetAction?.Invoke(new WorksheetExportContext<TWorksheet>(worksheet, dataTable, tableIndex, sheetName));
     }
 
     /// <summary>
-    /// 从工作表导入数据
+    /// Imports the requested worksheets into a data set.
     /// </summary>
-    /// <param name="worksheet">工作表</param>
-    /// <param name="headerRowIndex">表头行索引(0-based)，-1表示没有表头行</param>
-    /// <param name="addEmptyRow">是否添加空行</param>
-    /// <returns>转换后的DataTable</returns>
-    /// <remarks>
-    /// headerRowIndex的约定：
-    /// 1. headerRowIndex传入为0-based索引（如同C#数组）
-    /// 2. 如果headerRowIndex为-1，表示Excel没有表头行，直接从第一行开始读取数据
-    /// 3. 各实现类需要根据自己的索引系统进行适当转换
-    /// 4. 如果有表头行，数据行从表头的下一行开始
-    /// </remarks>
-    private DataTable ImportFromWorksheet(TWorksheet worksheet, int headerRowIndex, bool addEmptyRow)
+    private DataSet ImportDataSetFromWorksheets(
+        TWorkbook workbook,
+        IEnumerable<string> sheetNames,
+        Func<string, int> headerRowIndexSelector,
+        bool addEmptyRow,
+        CancellationToken cancellationToken)
+    {
+        var dataSet = new DataSet();
+        foreach (var sheetName in sheetNames)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var worksheet = GetWorksheet(workbook, sheetName);
+            if (worksheet is null || !HasData(worksheet))
+            {
+                Logger.LogDebug("跳过空工作表: {SheetName}", sheetName);
+                continue;
+            }
+
+            var dataTable = ImportFromWorksheet(worksheet, headerRowIndexSelector(sheetName), addEmptyRow, cancellationToken);
+            dataTable.TableName = sheetName;
+            dataSet.Tables.Add(dataTable);
+        }
+
+        return dataSet;
+    }
+
+    /// <summary>
+    /// Imports one worksheet using the provider's native row and column indexes.
+    /// </summary>
+    private DataTable ImportFromWorksheet(TWorksheet worksheet, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
     {
         var dataTable = new DataTable(GetSheetName(worksheet));
 
@@ -919,6 +915,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         // 读取数据行
         for (var rowNum = startRow; rowNum <= endRow; rowNum++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             DataRow row = dataTable.NewRow();
             var hasValue = false;
 
@@ -1024,7 +1021,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 打开Excel工作簿
     /// </summary>
-    protected abstract TWorkbook OpenWorkbook(Stream stream);
+    protected abstract TWorkbook OpenWorkbook(Stream stream, CancellationToken cancellationToken);
 
     /// <summary>
     /// 获取工作表

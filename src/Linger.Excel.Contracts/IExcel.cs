@@ -35,6 +35,21 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
 
     /// <summary>
+    /// Exports a data set to Excel and invokes an action for every created worksheet.
+    /// </summary>
+    /// <param name="dataSet">The data set to export.</param>
+    /// <param name="fullFileName">The full output file path.</param>
+    /// <param name="worksheetAction">The action invoked after default worksheet formatting.</param>
+    /// <param name="defaultSheetName">The prefix used for unnamed tables.</param>
+    /// <returns>The generated file path.</returns>
+    /// <remarks>
+    /// The action is invoked in source table order, including tables without columns. An exception
+    /// thrown by the action stops the export and is propagated to the caller.
+    /// </remarks>
+    string DataSetToExcel(DataSet dataSet, string fullFileName, Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
+        string defaultSheetName = ExcelOptions.DefaultDataSetSheetPrefix);
+
+    /// <summary>
     /// 对象集合转 Excel 文件，支持自定义操作
     /// </summary>
     /// <typeparam name="T">对象类型</typeparam>

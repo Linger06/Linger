@@ -15,18 +15,17 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     : ExcelBase<IWorkbook, ISheet>(options, logger)
 {
     // 添加基类要求的方法实现
-    protected override IWorkbook OpenWorkbook(Stream stream)
+    protected override IWorkbook OpenWorkbook(Stream stream, CancellationToken cancellationToken)
     {
+        if (!stream.CanSeek)
+        {
+            var seekableStream = CopyToMemoryStream(stream, cancellationToken);
+            return WorkbookFactory.Create(seekableStream);
+        }
+
         var bufferedStream = new BufferedStream(stream);
-        try
-        {
-            return WorkbookFactory.Create(bufferedStream);
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "无法创建工作簿");
-            return null!;
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return WorkbookFactory.Create(bufferedStream);
     }
     protected override ISheet GetWorksheet(IWorkbook workbook, string? sheetName)
     {
@@ -122,14 +121,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
 
     protected override void CloseWorkbook(IWorkbook workbook)
     {
-        try
-        {
-            workbook.Close();
-        }
-        catch (Exception ex)
-        {
-            logger?.LogError(ex, "关闭NPOI工作簿时出错");
-        }
+        workbook.Close();
     }
 
     protected override int EstimateColumnCount(ISheet worksheet)
@@ -304,50 +296,36 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                  valueType == typeof(uint?) || valueType == typeof(ulong?))
         {
             // 整数类型 - 使用统一的整数格式
-            try
-            {
-                var longValue = value.ToLongOrDefault();// Convert.ToInt64(value);
-                cell.SetCellValue(longValue);
+            var longValue = value.ToLongOrDefault();// Convert.ToInt64(value);
+            cell.SetCellValue(longValue);
 
-                // 应用整数样式
-                if (!styleCache.TryGetValue(typeof(int), out var intStyle))
-                {
-                    intStyle = workbook.CreateCellStyle();
-                    var format = workbook.CreateDataFormat();
-                    intStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.IntegerFormat);
-                    styleCache[typeof(int)] = intStyle;
-                }
-                cell.CellStyle = intStyle;
-            }
-            catch
+            // 应用整数样式
+            if (!styleCache.TryGetValue(typeof(int), out var intStyle))
             {
-                cell.SetCellValue(value.ToString());
+                intStyle = workbook.CreateCellStyle();
+                var format = workbook.CreateDataFormat();
+                intStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.IntegerFormat);
+                styleCache[typeof(int)] = intStyle;
             }
+            cell.CellStyle = intStyle;
         }
         else if (valueType == typeof(double) || valueType == typeof(float) ||
                  valueType == typeof(decimal) || valueType == typeof(double?) ||
                  valueType == typeof(float?) || valueType == typeof(decimal?))
         {
             // 浮点类型 - 使用统一的小数格式
-            try
-            {
-                var doubleValue = value.ToTarget<double>();
-                cell.SetCellValue(doubleValue);
+            var doubleValue = value.ToTarget<double>();
+            cell.SetCellValue(doubleValue);
 
-                // 应用浮点数样式
-                if (!styleCache.TryGetValue(typeof(double), out var doubleStyle))
-                {
-                    doubleStyle = workbook.CreateCellStyle();
-                    var format = workbook.CreateDataFormat();
-                    doubleStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DecimalFormat);
-                    styleCache[typeof(double)] = doubleStyle;
-                }
-                cell.CellStyle = doubleStyle;
-            }
-            catch
+            // 应用浮点数样式
+            if (!styleCache.TryGetValue(typeof(double), out var doubleStyle))
             {
-                cell.SetCellValue(value.ToString());
+                doubleStyle = workbook.CreateCellStyle();
+                var format = workbook.CreateDataFormat();
+                doubleStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DecimalFormat);
+                styleCache[typeof(double)] = doubleStyle;
             }
+            cell.CellStyle = doubleStyle;
         }
         else
         {
@@ -409,49 +387,30 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// </summary>
     private void ApplyTitleRowFormatting(ICell titleRange)
     {
-        try
+        var workbook = titleRange.Sheet.Workbook;
+
+        var titleStyle = workbook.CreateCellStyle();
+        titleStyle.Alignment = HorizontalAlignment.Center;
+        titleStyle.VerticalAlignment = VerticalAlignment.Center;
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.BackgroundColor))
         {
-            var workbook = titleRange.Sheet.Workbook;
-
-            var titleStyle = workbook.CreateCellStyle();
-            titleStyle.Alignment = HorizontalAlignment.Center;
-            titleStyle.VerticalAlignment = VerticalAlignment.Center;
-
-            var titleFont = workbook.CreateFont();
-            titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleStyle.FontSize;
-            titleFont.IsBold = Options.StyleOptions.TitleStyle.Bold;
-            titleFont.FontName = Options.StyleOptions.TitleStyle.FontName;
-
-            // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor))
-            {
-                try
-                {
-                    // 尝试解析HTML颜色代码
-                    var colorStr = Options.StyleOptions.TitleStyle.FontColor.TrimStart('#');
-                    if (colorStr.Length == 6) // 标准RGB格式
-                    {
-                        var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
-                        var g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
-                        var b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
-
-                        // 将RGB值转换为NPOI的最接近的索引颜色
-                        titleFont.Color = ExcelStyleHelper.GetClosestColorIndex(r, g, b);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "设置标题文字颜色失败，将使用默认颜色");
-                }
-            }
-
-            titleStyle.SetFont(titleFont);
-            titleRange.CellStyle = titleStyle;
+            titleStyle.FillPattern = FillPattern.SolidForeground;
+            ExcelStyleHelper.SetFillForegroundColor(titleStyle, Options.StyleOptions.TitleStyle.BackgroundColor);
         }
-        catch (Exception ex)
+
+        var titleFont = workbook.CreateFont();
+        titleFont.FontHeightInPoints = (short)Options.StyleOptions.TitleStyle.FontSize;
+        titleFont.IsBold = Options.StyleOptions.TitleStyle.Bold;
+        titleFont.FontName = Options.StyleOptions.TitleStyle.FontName;
+
+        // 设置文字颜色
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor))
         {
-            logger?.LogWarning(ex, "设置标题行样式失败，将使用默认样式");
+            ExcelStyleHelper.SetFontColor(titleFont, Options.StyleOptions.TitleStyle.FontColor);
         }
+
+        titleStyle.SetFont(titleFont);
+        titleRange.CellStyle = titleStyle;
     }
 
     /// <summary>
@@ -459,88 +418,35 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// </summary>
     private void ApplyHeaderRowFormatting(ICell headerCell)
     {
-        try
+        var workbook = headerCell.Sheet.Workbook;
+
+        var headerStyle = workbook.CreateCellStyle();
+        headerStyle.Alignment = HorizontalAlignment.Center;
+        headerStyle.VerticalAlignment = VerticalAlignment.Center;
+
+        // 设置背景色
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor))
         {
-            var workbook = headerCell.Sheet.Workbook;
-
-            var headerStyle = workbook.CreateCellStyle();
-            headerStyle.Alignment = HorizontalAlignment.Center;
-            headerStyle.VerticalAlignment = VerticalAlignment.Center;
-
-            // 设置背景色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor))
-            {
-                try
-                {
-                    // NPOI 使用索引色，这里使用灰色作为表头背景
-                    headerStyle.FillForegroundColor = HSSFColor.Grey25Percent.Index;
-                    headerStyle.FillPattern = FillPattern.SolidForeground;
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "设置表头背景色失败，将使用默认颜色");
-                }
-            }
-
-            var headerFont = workbook.CreateFont();
-            headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderStyle.FontSize;
-            headerFont.IsBold = Options.StyleOptions.HeaderStyle.Bold;
-            headerFont.FontName = Options.StyleOptions.HeaderStyle.FontName;
-
-            // 设置文字颜色
-            if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor))
-            {
-                try
-                {
-                    // 尝试解析HTML颜色代码
-                    var colorStr = Options.StyleOptions.HeaderStyle.FontColor.TrimStart('#');
-                    if (colorStr.Length == 6) // 标准RGB格式
-                    {
-                        var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
-                        var g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
-                        var b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
-
-                        // 将RGB值转换为NPOI的最接近的索引颜色
-                        headerFont.Color = ExcelStyleHelper.GetClosestColorIndex(r, g, b);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    logger?.LogWarning(ex, "设置表头文字颜色失败，将使用默认颜色");
-                }
-            }
-
-            headerStyle.SetFont(headerFont);
-            headerCell.CellStyle = headerStyle;
-
-            // 应用边框
-            DrawBorder(headerCell);
+            headerStyle.FillPattern = FillPattern.SolidForeground;
+            ExcelStyleHelper.SetFillForegroundColor(headerStyle, Options.StyleOptions.HeaderStyle.BackgroundColor);
         }
-        catch (Exception ex)
+
+        var headerFont = workbook.CreateFont();
+        headerFont.FontHeightInPoints = (short)Options.StyleOptions.HeaderStyle.FontSize;
+        headerFont.IsBold = Options.StyleOptions.HeaderStyle.Bold;
+        headerFont.FontName = Options.StyleOptions.HeaderStyle.FontName;
+
+        // 设置文字颜色
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor))
         {
-            logger?.LogWarning(ex, "设置表头行样式失败，将使用默认样式");
+            ExcelStyleHelper.SetFontColor(headerFont, Options.StyleOptions.HeaderStyle.FontColor);
         }
-    }
 
-    /// <summary>
-    /// 为Excel表格的区域设置边框样式
-    /// </summary>
-    /// <param name="borderStyle">边框样式，如细线、粗线、虚线等</param>
-    /// <param name="region">要应用边框的单元格区域，由左上角和右下角坐标定义</param>
-    /// <param name="sheet">要操作的工作表对象</param>
-    /// <remarks>
-    /// 此方法利用NPOI的RegionUtil工具类为指定区域设置外边框样式。
-    /// 它会同时设置区域的上、下、左、右四个方向的边框。
-    /// 与DrawBorder方法不同，该方法适用于整个区域的外边框设置，
-    /// 而不是单个单元格的边框设置。
-    /// 常用于为表格整体或合并的单元格区域添加边框。
-    /// </remarks>
-    private static void SetRegionBorderStyle(BorderStyle borderStyle, CellRangeAddress region, ISheet sheet)
-    {
-        RegionUtil.SetBorderBottom(borderStyle, region, sheet);
-        RegionUtil.SetBorderLeft(borderStyle, region, sheet);
-        RegionUtil.SetBorderRight(borderStyle, region, sheet);
-        RegionUtil.SetBorderTop(borderStyle, region, sheet);
+        headerStyle.SetFont(headerFont);
+        headerCell.CellStyle = headerStyle;
+
+        // 应用边框
+        DrawBorder(headerCell);
     }
 
     /// <summary>
@@ -548,49 +454,12 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     /// </summary>
     private static void DrawBorder(ICell cell)
     {
-        // 创建新样式并复制原有样式属性
-        var workbook = cell.Sheet.Workbook;
-        ICellStyle newStyle = workbook.CreateCellStyle();
-
-        // 复制原有样式的属性
-        if (cell.CellStyle != null)
-        {
-            newStyle.CloneStyleFrom(cell.CellStyle);
-        }
-
-        // 设置边框样式
-        newStyle.BorderTop = BorderStyle.Thin;
-        newStyle.BorderBottom = BorderStyle.Thin;
-        newStyle.BorderLeft = BorderStyle.Thin;
-        newStyle.BorderRight = BorderStyle.Thin;
-
-        // 设置边框颜色（黑色）
-        newStyle.TopBorderColor = HSSFColor.Black.Index;
-        newStyle.BottomBorderColor = HSSFColor.Black.Index;
-        newStyle.LeftBorderColor = HSSFColor.Black.Index;
-        newStyle.RightBorderColor = HSSFColor.Black.Index;
-
-        // 应用样式到单元格
-        cell.CellStyle = newStyle;
+        var style = cell.CellStyle;
+        style.BorderTop = BorderStyle.Thin;
+        style.BorderBottom = BorderStyle.Thin;
+        style.BorderLeft = BorderStyle.Thin;
+        style.BorderRight = BorderStyle.Thin;
     }
-
-    ///// <summary>
-    ///// 为单元格添加边框
-    ///// </summary>
-    //private void DrawBorder(IWorkbook workbook, ICell cell)
-    //{
-    //    // 如果单元格没有样式，创建一个新样式
-    //    ICellStyle style = cell.CellStyle ?? workbook.CreateCellStyle();
-
-    //    // 设置边框
-    //    style.BorderTop = BorderStyle.Thin;
-    //    style.BorderBottom = BorderStyle.Thin;
-    //    style.BorderLeft = BorderStyle.Thin;
-    //    style.BorderRight = BorderStyle.Thin;
-
-    //    // 应用样式到单元格
-    //    cell.CellStyle = style;
-    //}
 
     #endregion
 
@@ -622,7 +491,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
 
         ApplyTitleRowFormatting(titleCell);
 
-        worksheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, columnCount - 1));
+        if (columnCount > 1)
+        {
+            worksheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, columnCount - 1));
+        }
         return 1; // 标题占用1行
     }
 
@@ -742,9 +614,23 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         // 设置表格边框
         if (rowCount > 1 && columnCount > 0)
         {
-            var cellRangeAddress = new CellRangeAddress(0, rowCount - 1, 0, columnCount - 1);
-            //var cellRange = GetCellRange(worksheet, new CellRangeAddress(1, 1, rowCount, columnCount));
-            SetRegionBorderStyle(BorderStyle.Thin, cellRangeAddress, worksheet);
+            for (var rowIndex = 0; rowIndex < rowCount; rowIndex++)
+            {
+                var row = worksheet.GetRow(rowIndex);
+                if (row is null)
+                {
+                    continue;
+                }
+
+                for (var columnIndex = 0; columnIndex < columnCount; columnIndex++)
+                {
+                    var cell = row.GetCell(columnIndex);
+                    if (cell is not null)
+                    {
+                        DrawBorder(cell);
+                    }
+                }
+            }
         }
     }
 
@@ -777,6 +663,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         var sheet = worksheet;
         var workbook = sheet.Workbook;
         var useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
+        var exportProperties = GetExportProperties(properties);
 
         // 预创建样式字典，提高性能
         var styleCache = new Dictionary<Type, ICellStyle>();
@@ -787,31 +674,22 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
         dateStyle.DataFormat = format.GetFormat(Options.StyleOptions.DataStyle.DateFormat);
         styleCache[typeof(DateTime)] = dateStyle;
 
-        // 获取有ExcelColumn特性的列，如果没有则使用所有列
-        var columns = GetExcelColumns(properties).ToList();
-        if (columns.Count == 0)
-        {
-            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
-        }
-        columns = columns.OrderBy(c => c.Index).ToList();
-
         if (useParallelProcessing)
         {
             // 并行处理大数据集
-            logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
+            Logger.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
 
             // 使用批处理提高性能
             var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
 
             // 预计算所有值
-            var cellValues = new object?[list.Count, columns.Count];
+            var cellValues = new object?[list.Count, exportProperties.Length];
 
             Parallel.For(0, list.Count, rowIndex =>
             {
-                for (var colIndex = 0; colIndex < columns.Count; colIndex++)
+                for (var colIndex = 0; colIndex < exportProperties.Length; colIndex++)
                 {
-                    var property = properties.FirstOrDefault(p => p.Name == columns[colIndex].Name);
-                    cellValues[rowIndex, colIndex] = property?.GetValue(list[rowIndex]);
+                    cellValues[rowIndex, colIndex] = exportProperties[colIndex].GetValue(list[rowIndex]);
                 }
             });
 
@@ -822,10 +700,10 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                 for (var i = batchStart; i < batchEnd; i++)
                 {
                     var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                    for (var j = 0; j < columns.Count; j++)
+                    for (var j = 0; j < exportProperties.Length; j++)
                     {
                         WriteValueToCell(workbook, dataRow, j, cellValues[i, j],
-                            properties.FirstOrDefault(p => p.Name == columns[j].Name)?.PropertyType ?? typeof(string),
+                            exportProperties[j].PropertyType,
                             styleCache);
                     }
                 }
@@ -837,11 +715,11 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             for (var i = 0; i < list.Count; i++)
             {
                 var dataRow = sheet.CreateRow(i + startRowIndex + 1);  // +1跳过表头行
-                for (var j = 0; j < columns.Count; j++)
+                for (var j = 0; j < exportProperties.Length; j++)
                 {
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
-                    WriteValueToCell(workbook, dataRow, j, property?.GetValue(list[i]),
-                        property?.PropertyType ?? typeof(string),
+                    var property = exportProperties[j];
+                    WriteValueToCell(workbook, dataRow, j, property.GetValue(list[i]),
+                        property.PropertyType,
                         styleCache);
                 }
             }

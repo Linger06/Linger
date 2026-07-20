@@ -75,6 +75,7 @@ public static class ExcelExtensions
     /// <param name="sheetName">工作表名称。</param>
     /// <param name="headerRowIndex">列头所在行索引。</param>
     /// <param name="addEmptyRow">是否保留空行。</param>
+    /// <param name="cancellationToken">用于取消导入操作的令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
     public static List<T>? StreamToList<T>(
         this IExcelService excelService,
@@ -82,12 +83,13 @@ public static class ExcelExtensions
         Func<DataRow, T> map,
         string? sheetName = null,
         int headerRowIndex = 0,
-        bool addEmptyRow = false)
+        bool addEmptyRow = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(excelService);
         ArgumentNullException.ThrowIfNull(map);
 
-        var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
         return dataTable?.ToList(map);
     }
 
@@ -103,6 +105,7 @@ public static class ExcelExtensions
     /// <param name="sheetName">工作表名称。</param>
     /// <param name="headerRowIndex">列头所在行索引。</param>
     /// <param name="addEmptyRow">是否保留空行。</param>
+    /// <param name="cancellationToken">用于取消导入操作的令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
     public static List<T>? StreamToList<T>(
         this IExcelService excelService,
@@ -111,13 +114,14 @@ public static class ExcelExtensions
         IReadOnlyDictionary<string, Action<T, object?>> columnSetters,
         string? sheetName = null,
         int headerRowIndex = 0,
-        bool addEmptyRow = false)
+        bool addEmptyRow = false,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(excelService);
         ArgumentNullException.ThrowIfNull(factory);
         ArgumentNullException.ThrowIfNull(columnSetters);
 
-        var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
         return dataTable?.ToList(factory, columnSetters);
     }
 
@@ -147,7 +151,11 @@ public static class ExcelExtensions
         ArgumentNullException.ThrowIfNull(map);
 
         var dataTable = await excelService.ExcelToDataTableAsync(filePath, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
-        return dataTable?.ToList(map);
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = dataTable?.ToList(map);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return result;
     }
 
     /// <summary>
@@ -179,12 +187,16 @@ public static class ExcelExtensions
         ArgumentNullException.ThrowIfNull(columnSetters);
 
         var dataTable = await excelService.ExcelToDataTableAsync(filePath, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
-        return dataTable?.ToList(factory, columnSetters);
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = dataTable?.ToList(factory, columnSetters);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return result;
     }
 
     /// <summary>
     /// 异步将Excel流转换为对象列表，并使用调用方提供的映射委托完成对象构造。
-    /// The synchronous parser runs on a thread-pool thread and observes cancellation before it begins.
+    /// Delegates parsing to the service's cancellable asynchronous import path.
     /// </summary>
     /// <typeparam name="T">目标对象类型。</typeparam>
     /// <param name="excelService">Excel 服务实例。</param>
@@ -195,7 +207,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
-    public static Task<List<T>?> StreamToListAsync<T>(
+    public static async Task<List<T>?> StreamToListAsync<T>(
         this IExcelService excelService,
         Stream stream,
         Func<DataRow, T> map,
@@ -207,18 +219,17 @@ public static class ExcelExtensions
         ArgumentNullException.ThrowIfNull(excelService);
         ArgumentNullException.ThrowIfNull(map);
 
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        var dataTable = await excelService.StreamToDataTableAsync(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = dataTable?.ToList(map);
+        cancellationToken.ThrowIfCancellationRequested();
 
-            return dataTable?.ToList(map);
-        }, cancellationToken);
+        return result;
     }
 
     /// <summary>
     /// 异步将Excel流转换为对象列表，并使用调用方提供的工厂与列 setter 映射完成对象构造。
-    /// The synchronous parser runs on a thread-pool thread and observes cancellation before it begins.
+    /// Delegates parsing to the service's cancellable asynchronous import path.
     /// </summary>
     /// <typeparam name="T">目标对象类型。</typeparam>
     /// <param name="excelService">Excel 服务实例。</param>
@@ -230,7 +241,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
-    public static Task<List<T>?> StreamToListAsync<T>(
+    public static async Task<List<T>?> StreamToListAsync<T>(
         this IExcelService excelService,
         Stream stream,
         Func<T> factory,
@@ -244,13 +255,12 @@ public static class ExcelExtensions
         ArgumentNullException.ThrowIfNull(factory);
         ArgumentNullException.ThrowIfNull(columnSetters);
 
-        return Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var dataTable = excelService.StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow);
+        var dataTable = await excelService.StreamToDataTableAsync(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        var result = dataTable?.ToList(factory, columnSetters);
+        cancellationToken.ThrowIfCancellationRequested();
 
-            return dataTable?.ToList(factory, columnSetters);
-        }, cancellationToken);
+        return result;
     }
 
     /// <summary>

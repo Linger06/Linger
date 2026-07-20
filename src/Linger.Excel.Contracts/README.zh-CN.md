@@ -155,7 +155,27 @@ var imported = await excelService.ExcelToListAsync(
 
 - 基于文件的同步和异步导入在路径为空或文件不存在时返回 `null`。
 - 文件存在后，访问权限、I/O、工作簿格式和提供方解析错误不会转换为 `null`，而是继续向调用方传播。
-- 基于流的实现可能具有提供方特定的校验行为。导入外部流前应先验证流，并处理对应提供方声明的异常。
+- 内置提供方会在内部缓冲可读但不可寻址的输入流。调用方必须在导入完成前保持输入流处于打开状态。
+
+例如，HTTP 响应流通常不可寻址。应在整个导入过程完成前保持响应和流处于打开状态：
+
+```csharp
+using var response = await httpClient.GetAsync(
+    excelUri,
+    HttpCompletionOption.ResponseHeadersRead,
+    cancellationToken);
+response.EnsureSuccessStatusCode();
+
+using Stream stream = await response.Content.ReadAsStreamAsync();
+DataTable? table = await excelService.StreamToDataTableAsync(
+    stream,
+    sheetName: "Users",
+    cancellationToken: cancellationToken);
+```
+
+### 流取消
+
+所有异步流导入重载都接受可选的 `CancellationToken`。取消采用协作式检查：在导入开始前、非可寻址流的缓冲读取期间以及转换循环中观察令牌。NPOI、EPPlus 和 ClosedXML 会同步解析工作簿，因此在其内部 CPU 解析阶段收到的取消请求，需要等到该阶段完成并到达下一个检查点后才会抛出 `OperationCanceledException`。应传入请求或后台任务所使用的取消令牌。
 
 ### 5. AOT 友好导出
 
@@ -191,19 +211,20 @@ public interface IExcelService
     
     // 导入单个工作表为 DataTable
     DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
     // 导入单个工作表为对象列表
     List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
     
     // 导入整个工作簿为 DataSet (支持多种重载)
     DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
     DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
     // 异步导入 - 异步打开文件，并隔离同步提供方解析
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -260,6 +281,11 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
         Action<TWorksheet>? styleAction = null);
+
+    // 将每个 DataTable 导出为工作表，并按工作表定制
+    string DataSetToExcel(DataSet dataSet, string fullFileName,
+        Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
+        string defaultSheetName = "Sheet");
         
     string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, 
@@ -362,6 +388,29 @@ dataSet.Tables.Add(CreateProductTable());
 // 导出DataSet,每个DataTable成为一个工作表
 string filePath = excelService.DataSetToExcel(dataSet, "multi-sheet-workbook.xlsx");
 ```
+
+#### 按工作表定制导出行为
+
+当不同工作表需要不同处理时，使用带上下文的 `DataSetToExcel` 重载。回调可取得提供方工作表对象、源 `DataTable`、从零开始的表索引和最终工作表名称：
+
+```csharp
+IExcel<ISheet> excel = npoiExcel;
+
+excel.DataSetToExcel(dataSet, "multi-sheet-workbook.xlsx", context =>
+{
+    if (context.SheetName == "Users")
+    {
+        context.Worksheet.CreateFreezePane(0, 1);
+    }
+
+    if (context.TableIndex == 2)
+    {
+        // 对第三个 DataTable 对应的工作表应用提供方特定行为。
+    }
+});
+```
+
+回调按源 `DataTable` 顺序执行一次，默认格式化完成后调用，零列空表也会执行。回调抛出的异常会中止导出并向调用方传播。
 
 ### 高级导出 - 自定义单元格操作
 
@@ -478,6 +527,8 @@ public class StyledExcelService
     }
 }
 ```
+
+`TitleStyle` 和 `HeaderStyle` 的背景色与字体颜色支持 `RRGGBB` 或 `#RRGGBB`。无效颜色会在导出前抛出 `ArgumentException`；内置提供方会一致地应用配置的标题和表头颜色。
 
 ### 大数据处理
 

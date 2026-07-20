@@ -23,26 +23,12 @@ public static class ExcelStyleHelper
     {
         if (backgroundColor.IsNotNullOrWhiteSpace())
         {
-            try
-            {
-                cell.Style.Fill.BackgroundColor = XLColor.FromHtml(backgroundColor);
-            }
-            catch
-            {
-                // 如果颜色无效，忽略错误
-            }
+            cell.Style.Fill.BackgroundColor = XLColor.FromHtml(backgroundColor);
         }
 
         if (fontColor.IsNotNullOrWhiteSpace())
         {
-            try
-            {
-                cell.Style.Font.FontColor = XLColor.FromHtml(fontColor);
-            }
-            catch
-            {
-                // 如果颜色无效，忽略错误
-            }
+            cell.Style.Font.FontColor = XLColor.FromHtml(fontColor);
         }
 
         if (bold.HasValue)
@@ -84,26 +70,12 @@ public static class ExcelStyleHelper
     {
         if (backgroundColor.IsNotNullOrWhiteSpace())
         {
-            try
-            {
-                range.Style.Fill.BackgroundColor = XLColor.FromHtml(backgroundColor);
-            }
-            catch
-            {
-                // 如果颜色无效，忽略错误
-            }
+            range.Style.Fill.BackgroundColor = XLColor.FromHtml(backgroundColor);
         }
 
         if (fontColor.IsNotNullOrWhiteSpace())
         {
-            try
-            {
-                range.Style.Font.FontColor = XLColor.FromHtml(fontColor);
-            }
-            catch
-            {
-                // 如果颜色无效，忽略错误
-            }
+            range.Style.Font.FontColor = XLColor.FromHtml(fontColor);
         }
 
         if (bold.HasValue)

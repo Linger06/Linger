@@ -14,8 +14,15 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     : ExcelBase<ExcelPackage, ExcelWorksheet>(options, logger)
 {
     // 添加基类要求的方法实现
-    protected override ExcelPackage OpenWorkbook(Stream stream)
+    protected override ExcelPackage OpenWorkbook(Stream stream, CancellationToken cancellationToken)
     {
+        if (!stream.CanSeek)
+        {
+            var seekableStream = CopyToMemoryStream(stream, cancellationToken);
+            return new ExcelPackage(seekableStream);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         return new ExcelPackage(stream);
     }
 
@@ -25,7 +32,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         var workBook = package.Workbook;
 
         if (workBook.Worksheets.Count == 0)
-            return null!;
+            return null;
 
         if (!string.IsNullOrEmpty(sheetName))
         {
@@ -99,17 +106,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
 
     protected override void CloseWorkbook(ExcelPackage workbook)
     {
-        if (workbook is { } package)
-        {
-            try
-            {
-                package.Dispose();
-            }
-            catch (Exception ex)
-            {
-                logger?.LogError(ex, "关闭EPPlus工作簿时出错");
-            }
-        }
+        workbook.Dispose();
     }
 
     protected override int EstimateColumnCount(ExcelWorksheet worksheet)
@@ -211,17 +208,6 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
 
     #region 私有辅助方法
 
-    ///// <summary>
-    ///// 绘制单元格边框
-    ///// </summary>
-    //private static void DrawBorder(ExcelStyle style, ExcelBorderStyle borderStyle = ExcelBorderStyle.Thin)
-    //{
-    //    style.Border.Top.Style = borderStyle;
-    //    style.Border.Bottom.Style = borderStyle;
-    //    style.Border.Left.Style = borderStyle;
-    //    style.Border.Right.Style = borderStyle;
-    //}
-
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式
     /// </summary>
@@ -273,18 +259,20 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// </summary>
     private void ApplyTitleRowFormatting(ExcelRange titleRange)
     {
-        try
+        titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold;
+        titleRange.Style.Font.Size = Options.StyleOptions.TitleStyle.FontSize;
+        titleRange.Style.Font.Name = Options.StyleOptions.TitleStyle.FontName;
+        titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.BackgroundColor))
         {
-            titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold;
-            titleRange.Style.Font.Size = Options.StyleOptions.TitleStyle.FontSize;
-            titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-            titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-
-            // 可以在这里添加更多标题行的样式设置
+            titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            titleRange.Style.Fill.BackgroundColor.SetColor(Color.ParseHex(Options.StyleOptions.TitleStyle.BackgroundColor.TrimStart('#')));
         }
-        catch (Exception ex)
+
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor))
         {
-            logger?.LogWarning(ex, "设置标题行样式失败，将使用默认样式");
+            titleRange.Style.Font.Color.SetColor(Color.ParseHex(Options.StyleOptions.TitleStyle.FontColor.TrimStart('#')));
         }
     }
 
@@ -293,22 +281,24 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// </summary>
     private void ApplyHeaderRowFormatting(ExcelRange headerCell)
     {
-        try
+        headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold;
+        headerCell.Style.Font.Size = Options.StyleOptions.HeaderStyle.FontSize;
+        headerCell.Style.Font.Name = Options.StyleOptions.HeaderStyle.FontName;
+        headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor))
         {
-            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold;
-            headerCell.Style.Font.Size = Options.StyleOptions.HeaderStyle.FontSize;
-            headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-            headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
             headerCell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-            headerCell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+            headerCell.Style.Fill.BackgroundColor.SetColor(Color.ParseHex(Options.StyleOptions.HeaderStyle.BackgroundColor.TrimStart('#')));
+        }
 
-            // 应用边框
-            DrawBorder(headerCell);
-        }
-        catch (Exception ex)
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor))
         {
-            logger?.LogWarning(ex, "设置表头行样式失败，将使用默认样式");
+            headerCell.Style.Font.Color.SetColor(Color.ParseHex(Options.StyleOptions.HeaderStyle.FontColor.TrimStart('#')));
         }
+
+        // 应用边框
+        DrawBorder(headerCell);
     }
 
     private static void ApplyBasicFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)
@@ -448,13 +438,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// </summary>
     protected override void ProcessCollectionRows<T>(ExcelWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
-        // 优先查找带有ExcelColumn特性的属性
-        var columns = GetExcelColumns(properties).ToList();
-        if (columns.Count == 0)
-        {
-            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
-        }
-        columns = columns.OrderBy(c => c.Index).ToList();
+        var exportProperties = GetExportProperties(properties);
 
         // 判断是否需要并行处理
         var useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
@@ -468,15 +452,13 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
 
             // 预计算所有值
-            var cellValues = new object?[list.Count, columns.Count];
+            var cellValues = new object?[list.Count, exportProperties.Length];
 
             Parallel.For(0, list.Count, i =>
             {
-                for (var j = 0; j < columns.Count; j++)
+                for (var j = 0; j < exportProperties.Length; j++)
                 {
-                    // 查找对应的属性
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
-                    cellValues[i, j] = property?.GetValue(list[i]);
+                    cellValues[i, j] = exportProperties[j].GetValue(list[i]);
                 }
             });
 
@@ -486,7 +468,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
                 var batchEnd = Math.Min(batchStart + batchSize, list.Count);
                 for (var i = batchStart; i < batchEnd; i++)
                 {
-                    for (var j = 0; j < columns.Count; j++)
+                    for (var j = 0; j < exportProperties.Length; j++)
                     {
                         var cell = worksheet.Cells[startRowIndex + i + 2, j + 1];
                         WriteValueToCell(cell, cellValues[i, j]);
@@ -499,11 +481,10 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             // 顺序处理小数据集
             for (var i = 0; i < list.Count; i++)
             {
-                for (var j = 0; j < columns.Count; j++)
+                for (var j = 0; j < exportProperties.Length; j++)
                 {
                     var cell = worksheet.Cells[startRowIndex + i + 2, j + 1];
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
-                    WriteValueToCell(cell, property?.GetValue(list[i]));
+                    WriteValueToCell(cell, exportProperties[j].GetValue(list[i]));
                 }
             }
         }
