@@ -6,6 +6,36 @@ using Xunit;
 public class DecimalExtensionsTests
 {
 
+    [Theory]
+    [InlineData(12.345, 2, 12.35)]
+    [InlineData(-12.345, 2, -12.35)]
+    [InlineData(12.344, 2, 12.34)]
+    [InlineData(12.5, 0, 13)]
+    public void Round_ReturnsConventionallyRoundedValue(decimal value, int decimals, decimal expected)
+    {
+        var result = value.Round(decimals);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(29)]
+    public void Round_ThrowsArgumentOutOfRangeException_WhenDecimalsAreOutsideSupportedRange(int decimals)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => 1m.Round(decimals));
+    }
+
+    [Fact]
+    public void ToRounding_ReturnsSameValueAsRound()
+    {
+#pragma warning disable CS0618
+        var result = 12.345m.ToRounding(2);
+#pragma warning restore CS0618
+
+        Assert.Equal(12.345m.Round(2), result);
+    }
+
 
     [Theory]
     [InlineData(1.1)]
