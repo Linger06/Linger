@@ -56,31 +56,6 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
         return worksheet.RangeUsed() != null;
     }
 
-    protected override Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(IXLWorksheet worksheet, int headerRowIndex)
-    {
-        var result = new Dictionary<int, PropertyInfo>();
-
-        if (headerRowIndex < 0) return result;
-
-        var headerRow = worksheet.Row(headerRowIndex + 1);
-        var properties = typeof(T).GetProperties()
-            .Where(p => p.CanWrite)
-            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
-
-        foreach (var cell in headerRow.CellsUsed())
-        {
-            var columnName = cell.Value.ToString();
-            if (string.IsNullOrEmpty(columnName)) continue;
-
-            if (properties.TryGetValue(columnName, out var property))
-            {
-                result[cell.Address.ColumnNumber] = property;
-            }
-        }
-
-        return result;
-    }
-
     /// <summary>
     /// 获取数据开始行索引
     /// </summary>
@@ -179,25 +154,6 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             return DBNull.Value;
 
         return GetExcelCellValue(cell);
-    }
-
-    /// <summary>
-    /// 检查指定行是否为空行
-    /// </summary>
-    /// <param name="worksheet">工作表</param>
-    /// <param name="rowNum">行索引(1-based)</param>
-    /// <returns>如果该行为空则返回true</returns>
-    /// <remarks>
-    /// ClosedXML提供了CellsUsed()方法来获取使用过的单元格，
-    /// 如果没有使用过的单元格，则该行为空。
-    /// 这比遍历所有单元格要高效。
-    /// </remarks>
-    protected override bool IsRowEmpty(IXLWorksheet worksheet, int rowNum)
-    {
-        var row = worksheet.Row(rowNum);
-
-        // 使用ClosedXML的CellsUsed()方法，如果没有使用过的单元格，该行为空
-        return !row.CellsUsed().Any();
     }
 
     #region 私有辅助方法
@@ -389,38 +345,31 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </remarks>
     protected override void ProcessDataRows(IXLWorksheet worksheet, DataTable dataTable, int startRowIndex)
     {
-        var useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
-
-        if (useParallelProcessing)
+        if (ShouldUseBatchWrite(dataTable.Rows.Count))
         {
-            // 并行处理大数据集
-            Logger.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
+            Logger.LogDebug("使用分批处理导出 {Count} 行数据", dataTable.Rows.Count);
 
-            // 使用批处理提高性能
-            var batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
-
-            // 预先计算所有值以避免在多线程中重复计算
-            var cellValues = new object?[dataTable.Rows.Count, dataTable.Columns.Count];
-
-            Parallel.For(0, dataTable.Rows.Count, i =>
+            for (var batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += Options.BatchSize)
             {
-                for (var j = 0; j < dataTable.Columns.Count; j++)
-                {
-                    cellValues[i, j] = dataTable.Rows[i][j];
-                }
-            });
+                var batchSize = GetBatchSize(dataTable.Rows.Count - batchStart);
+                var cellValues = new object?[batchSize, dataTable.Columns.Count];
 
-            // 批量写入
-            for (var batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
-            {
-                var batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
-
-                for (var i = batchStart; i < batchEnd; i++)
+                Parallel.For(0, batchSize, batchOffset =>
                 {
-                    for (var j = 0; j < dataTable.Columns.Count; j++)
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
                     {
-                        var cell = worksheet.Cell(startRowIndex + i + 2, j + 1);
-                        WriteValueToCell(cell, cellValues[i, j]);
+                        cellValues[batchOffset, columnIndex] = dataTable.Rows[rowIndex][columnIndex];
+                    }
+                });
+
+                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
+                {
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
+                    {
+                        var cell = worksheet.Cell(startRowIndex + rowIndex + 2, columnIndex + 1);
+                        WriteValueToCell(cell, cellValues[batchOffset, columnIndex]);
                     }
                 }
             }
@@ -458,38 +407,31 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     {
         var exportProperties = GetExportProperties(properties);
 
-        // 判断是否需要并行处理
-        var useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
-
-        if (useParallelProcessing)
+        if (ShouldUseBatchWrite(list.Count))
         {
-            // 并行处理大数据集
-            Logger.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
+            Logger.LogDebug("使用分批处理导出 {Count} 条记录", list.Count);
 
-            // 使用批处理提高性能
-            var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-
-            // 预计算所有值
-            var cellValues = new object?[list.Count, exportProperties.Length];
-
-            Parallel.For(0, list.Count, i =>
+            for (var batchStart = 0; batchStart < list.Count; batchStart += Options.BatchSize)
             {
-                for (var j = 0; j < exportProperties.Length; j++)
-                {
-                    cellValues[i, j] = exportProperties[j].GetValue(list[i]);
-                }
-            });
+                var batchSize = GetBatchSize(list.Count - batchStart);
+                var cellValues = new object?[batchSize, exportProperties.Length];
 
-            // 批量写入
-            for (var batchStart = 0; batchStart < list.Count; batchStart += batchSize)
-            {
-                var batchEnd = Math.Min(batchStart + batchSize, list.Count);
-                for (var i = batchStart; i < batchEnd; i++)
+                Parallel.For(0, batchSize, batchOffset =>
                 {
-                    for (var j = 0; j < exportProperties.Length; j++)
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
                     {
-                        var cell = worksheet.Cell(startRowIndex + i + 2, j + 1);
-                        WriteValueToCell(cell, cellValues[i, j]);
+                        cellValues[batchOffset, columnIndex] = exportProperties[columnIndex].GetValue(list[rowIndex]);
+                    }
+                });
+
+                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
+                {
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
+                    {
+                        var cell = worksheet.Cell(startRowIndex + rowIndex + 2, columnIndex + 1);
+                        WriteValueToCell(cell, cellValues[batchOffset, columnIndex]);
                     }
                 }
             }

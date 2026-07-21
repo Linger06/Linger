@@ -312,26 +312,10 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger.LogTrace("开始异步读取Excel文件: {FilePath}", filePath);
-
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            Logger.LogWarning("文件路径为空");
-            return null;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            Logger.LogWarning("文件不存在: {FilePath}", filePath);
-            return null;
-        }
-
-#if NET5_0_OR_GREATER
-        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#else
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#endif
-        return await StreamToDataTableAsync(fileStream, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        return await ImportFileAsync(
+            filePath,
+            stream => StreamToDataTableAsync(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -339,26 +323,10 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new()
     {
-        Logger.LogTrace("开始异步读取Excel文件并转换为对象列表: {FilePath}", filePath);
-
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            Logger.LogWarning("文件路径为空");
-            return null;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            Logger.LogWarning("文件不存在: {FilePath}", filePath);
-            return null;
-        }
-
-#if NET5_0_OR_GREATER
-        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#else
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#endif
-        return await StreamToListAsync<T>(fileStream, sheetName, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        return await ImportFileAsync(
+            filePath,
+            stream => StreamToListAsync<T>(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -366,26 +334,10 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
-
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            Logger.LogWarning("文件路径为空");
-            return null;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            Logger.LogWarning("文件不存在: {FilePath}", filePath);
-            return null;
-        }
-
-#if NET5_0_OR_GREATER
-        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#else
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#endif
-        return await StreamToDataSetAsync(fileStream, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        return await ImportFileAsync(
+            filePath,
+            stream => StreamToDataSetAsync(stream, headerRowIndex, addEmptyRow, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -393,26 +345,10 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
-
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            Logger.LogWarning("文件路径为空");
-            return null;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            Logger.LogWarning("文件不存在: {FilePath}", filePath);
-            return null;
-        }
-
-#if NET5_0_OR_GREATER
-        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#else
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#endif
-        return await StreamToDataSetAsync(fileStream, sheetNames, headerRowIndex, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        return await ImportFileAsync(
+            filePath,
+            stream => StreamToDataSetAsync(stream, sheetNames, headerRowIndex, addEmptyRow, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -420,26 +356,10 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
-
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            Logger.LogWarning("文件路径为空");
-            return null;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            Logger.LogWarning("文件不存在: {FilePath}", filePath);
-            return null;
-        }
-
-#if NET5_0_OR_GREATER
-        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#else
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#endif
-        return await StreamToDataSetAsync(fileStream, headerRowIndexSelector, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        return await ImportFileAsync(
+            filePath,
+            stream => StreamToDataSetAsync(stream, headerRowIndexSelector, addEmptyRow, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -447,26 +367,10 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     public virtual async Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
-        Logger.LogTrace("开始异步读取Excel文件并转换为DataSet: {FilePath}", filePath);
-
-        if (string.IsNullOrWhiteSpace(filePath))
-        {
-            Logger.LogWarning("文件路径为空");
-            return null;
-        }
-
-        if (!File.Exists(filePath))
-        {
-            Logger.LogWarning("文件不存在: {FilePath}", filePath);
-            return null;
-        }
-
-#if NET5_0_OR_GREATER
-        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#else
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
-#endif
-        return await StreamToDataSetAsync(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow, cancellationToken).ConfigureAwait(false);
+        return await ImportFileAsync(
+            filePath,
+            stream => StreamToDataSetAsync(stream, sheetNames, headerRowIndexSelector, addEmptyRow, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -548,6 +452,39 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     }
 
     #region 私有辅助方法
+
+    private async Task<TResult?> ImportFileAsync<TResult>(
+        string filePath,
+        Func<Stream, Task<TResult?>> importAsync,
+        CancellationToken cancellationToken)
+        where TResult : class
+    {
+        ArgumentNullException.ThrowIfNull(importAsync);
+
+        Logger.LogTrace("开始异步读取Excel文件: {FilePath}", filePath);
+
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            Logger.LogWarning("文件路径为空");
+            return null;
+        }
+
+        if (!File.Exists(filePath))
+        {
+            Logger.LogWarning("文件不存在: {FilePath}", filePath);
+            return null;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+#if NET5_0_OR_GREATER
+        await using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+#else
+        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, useAsync: true);
+#endif
+
+        return await importAsync(fileStream).ConfigureAwait(false);
+    }
 
     private static async Task<TResult> ExecuteImportAsync<TResult>(CancellationToken cancellationToken, Func<TResult> import)
     {

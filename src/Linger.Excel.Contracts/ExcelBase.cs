@@ -17,15 +17,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public override DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
-        {
-            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return null;
-        }
-
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-
-        return StreamToDataTable(fileStream, sheetName, headerRowIndex, addEmptyRow);
+        return ImportFile(
+            filePath,
+            stream => StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow));
     }
 
     /// <summary>
@@ -33,15 +27,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public override List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
-        {
-            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return null;
-        }
-
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-
-        return StreamToList<T>(fileStream, sheetName, headerRowIndex, addEmptyRow);
+        return ImportFile(
+            filePath,
+            stream => StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow));
     }
 
     /// <summary>
@@ -49,15 +37,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public override DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
-        {
-            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return null;
-        }
-
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-
-        return StreamToDataSet(fileStream, headerRowIndex, addEmptyRow);
+        return ImportFile(
+            filePath,
+            stream => StreamToDataSet(stream, headerRowIndex, addEmptyRow));
     }
 
     /// <summary>
@@ -65,15 +47,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public override DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
     {
-        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
-        {
-            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return null;
-        }
-
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-
-        return StreamToDataSet(fileStream, sheetNames, headerRowIndex, addEmptyRow);
+        return ImportFile(
+            filePath,
+            stream => StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow));
     }
 
     /// <summary>
@@ -81,15 +57,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public override DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
     {
-        if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
-        {
-            Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
-            return null;
-        }
-
-        using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-
-        return StreamToDataSet(fileStream, headerRowIndexSelector, addEmptyRow);
+        return ImportFile(
+            filePath,
+            stream => StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow));
     }
 
     /// <summary>
@@ -97,6 +67,16 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public override DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
     {
+        return ImportFile(
+            filePath,
+            stream => StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow));
+    }
+
+    private TResult? ImportFile<TResult>(string filePath, Func<Stream, TResult?> import)
+        where TResult : class
+    {
+        ArgumentNullException.ThrowIfNull(import);
+
         if (filePath.IsNullOrEmpty() || !File.Exists(filePath))
         {
             Logger.LogWarning("Excel文件不存在或路径为空: {FilePath}", filePath);
@@ -105,7 +85,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
-        return StreamToDataSet(fileStream, sheetNames, headerRowIndexSelector, addEmptyRow);
+        return import(fileStream);
     }
 
     /// <summary>
@@ -698,7 +678,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         try
         {
             // 调用通用方法处理单个DataTable
-        ExportDataTableToWorksheet(workbook, dataTable, sheetsName, title, action, styleAction, worksheetAction: null, tableIndex: 0);
+            ExportDataTableToWorksheet(workbook, dataTable, sheetsName, title, action, styleAction, worksheetAction: null, tableIndex: 0);
 
             // 保存到流
             return SaveWorkbookToStream(workbook);
@@ -768,6 +748,22 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         return GetExportColumns(properties)
             .Select(column => column.Property)
             .ToArray();
+    }
+
+    /// <summary>
+    /// Determines whether large exports should use bounded batch extraction.
+    /// </summary>
+    protected bool ShouldUseBatchWrite(int itemCount)
+    {
+        return Options.UseBatchWrite && itemCount > Options.ParallelProcessingThreshold;
+    }
+
+    /// <summary>
+    /// Gets the size of the next bounded export batch.
+    /// </summary>
+    protected int GetBatchSize(int remainingItemCount)
+    {
+        return Math.Min(Options.BatchSize, remainingItemCount);
     }
 
     /// <summary>
@@ -919,12 +915,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             DataRow row = dataTable.NewRow();
             var hasValue = false;
 
-            // 优化：使用原生判断快速跳过空行（当addEmptyRow为false时）
-            if (!addEmptyRow && IsRowEmpty(worksheet, rowNum))
-            {
-                continue; // 跳过空行
-            }
-
             foreach (var mapping in normalizedHeaderMappings)
             {
                 var colIndex = mapping.Key;
@@ -1054,11 +1044,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     protected abstract TWorksheet CreateWorksheet(TWorkbook workbook, string sheetName);
 
     /// <summary>
-    /// 创建属性映射
-    /// </summary>
-    protected abstract Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(TWorksheet worksheet, int headerRowIndex) where T : class, new();
-
-    /// <summary>
     /// 获取数据开始行索引
     /// </summary>
     /// <param name="worksheet">工作表</param>
@@ -1094,18 +1079,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// 获取单元格值
     /// </summary>
     protected abstract object GetCellValue(TWorksheet worksheet, int rowNum, int colIndex);
-
-    /// <summary>
-    /// 检查指定行是否为空行(所有单元格都为空)
-    /// </summary>
-    /// <param name="worksheet">工作表</param>
-    /// <param name="rowNum">行索引(使用各引擎的原生索引系统)</param>
-    /// <returns>如果该行所有单元格都为空则返回true，否则返回false</returns>
-    /// <remarks>
-    /// 此方法使用各Excel引擎的原生方法判断行是否为空，性能优于遍历所有列。
-    /// 各实现类应使用最高效的原生判断方式。
-    /// </remarks>
-    protected abstract bool IsRowEmpty(TWorksheet worksheet, int rowNum);
 
     /// <summary>
     /// 应用标题

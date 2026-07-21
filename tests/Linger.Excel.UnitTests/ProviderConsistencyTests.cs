@@ -145,6 +145,36 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
+    public void DataTableToMemoryStream_WithSmallBatchSize_PreservesAllRowsAcrossProviders()
+    {
+        var options = new ExcelOptions
+        {
+            AutoFitColumns = false,
+            BatchSize = 2,
+            ParallelProcessingThreshold = 0,
+            UseBatchWrite = true
+        };
+        var dataTable = new DataTable();
+        dataTable.Columns.Add("Id", typeof(int));
+        dataTable.Columns.Add("Name", typeof(string));
+
+        for (var i = 1; i <= 7; i++)
+        {
+            dataTable.Rows.Add(i, $"Name {i}");
+        }
+
+        foreach (var provider in CreateProviders(options))
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(dataTable);
+            var imported = provider.Service.StreamToDataTable(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal(dataTable.Rows.Count, imported.Rows.Count);
+            Assert.Equal("Name 7", imported.Rows[6]["Name"]);
+        }
+    }
+
+    [Fact]
     public void ExcelToDataSet_WithDuplicateRequestedSheetNames_ImportsEachWorksheetOnce()
     {
         var dataSet = new DataSet();
