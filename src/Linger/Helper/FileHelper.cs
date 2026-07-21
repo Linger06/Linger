@@ -215,12 +215,9 @@ public static partial class FileHelper
         if (string.IsNullOrEmpty(fullFileName))
             return null;
 
-        var basePath = string.IsNullOrEmpty(relativeTo)
-            ? Environment.CurrentDirectory
-            : relativeTo;
-
-        if (basePath is null)
-            return null;
+        string basePath = relativeTo is { Length: > 0 }
+            ? relativeTo
+            : Directory.GetCurrentDirectory();
 
         try
         {

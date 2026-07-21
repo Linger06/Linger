@@ -4,6 +4,11 @@ namespace Linger.UnitTests.JsonConverter;
 
 public class DataTableJsonHelperTests
 {
+    private enum TestStatus
+    {
+        Active
+    }
+
     private DataTable CreateTestDataTable()
     {
         var table = new DataTable();
@@ -119,6 +124,23 @@ public class DataTableJsonHelperTests
         var json = Encoding.UTF8.GetString(stream.ToArray());
 
         Assert.Equal("[]", json);
+    }
+
+    [Fact]
+    public void WriteDataTable_EnumColumn_WritesUnderlyingValueAsString()
+    {
+        var dataTable = new DataTable();
+        dataTable.Columns.Add("Status", typeof(TestStatus));
+        dataTable.Rows.Add(TestStatus.Active);
+
+        using var stream = new MemoryStream();
+        using var writer = new Utf8JsonWriter(stream);
+        DataTableJsonHelper.WriteDataTable(writer, dataTable);
+        writer.Flush();
+
+        var json = Encoding.UTF8.GetString(stream.ToArray());
+
+        Assert.Equal("[{\"Status\":\"0\"}]", json);
     }
 
     [Fact]

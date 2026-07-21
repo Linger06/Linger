@@ -119,34 +119,19 @@ public static partial class StringExtensions
     public static bool IsPositiveInteger(this string s)
     {
         if (s.IsNullOrWhiteSpace())
+        {
             return false;
+        }
 
-#if NET8_0_OR_GREATER
-        ReadOnlySpan<char> span = s.AsSpan();
-        if (span.IsEmpty)
-            return false;
-
-        // 检查每个字符是否都是数字
-        foreach (var c in span)
+        foreach (var c in s)
         {
             if (!char.IsDigit(c))
+            {
                 return false;
+            }
         }
 
         return true;
-#else
-        if (s.Length == 0)
-            return false;
-
-        // 检查每个字符是否都是数字
-        foreach (var t in s)
-        {
-            if (!char.IsDigit(t))
-                return false;
-        }
-
-        return true;
-#endif
     }
 
     /// <summary>
@@ -165,54 +150,31 @@ public static partial class StringExtensions
     public static bool IsInteger(this string s)
     {
         if (s.IsNullOrWhiteSpace())
+        {
             return false;
-
-#if NET8_0_OR_GREATER
-        ReadOnlySpan<char> span = s.AsSpan();
-        if (span.IsEmpty)
-            return false;
+        }
 
         var startIndex = 0;
 
-        // 检查可选的负号
-        if (span[0] == '-')
-        {
-            if (span.Length == 1) // 只有一个负号
-                return false;
-            startIndex = 1;
-        }
-
-        // 检查剩余字符是否都是数字
-        for (var i = startIndex; i < span.Length; i++)
-        {
-            if (!char.IsDigit(span[i]))
-                return false;
-        }
-
-        return true;
-#else
-        if (s.Length == 0)
-            return false;
-
-        var startIndex = 0;
-
-        // 检查可选的负号
         if (s[0] == '-')
         {
-            if (s.Length == 1) // 只有一个负号
+            if (s.Length == 1)
+            {
                 return false;
+            }
+
             startIndex = 1;
         }
 
-        // 检查剩余字符是否都是数字
         for (var i = startIndex; i < s.Length; i++)
         {
             if (!char.IsDigit(s[i]))
+            {
                 return false;
+            }
         }
 
         return true;
-#endif
     }
 
     /// <summary>
@@ -233,21 +195,20 @@ public static partial class StringExtensions
     public static bool IsNumber(this string s, int precision = 32, int scale = 0)
     {
         if (s.IsNullOrWhiteSpace())
+        {
             return false;
+        }
 
         if (precision == 0 && scale == 0)
+        {
             return false;
+        }
 
-#if NET8_0_OR_GREATER
-        ReadOnlySpan<char> span = s.AsSpan();
-        if (span.IsEmpty)
-            return false;
-
-        var integerDigits = 0;  // 小数点前的位数
-        var decimalPlaces = 0;  // 小数点后的位数
+        var integerDigits = 0;
+        var decimalPlaces = 0;
         var foundDecimal = false;
 
-        foreach (var c in span)
+        foreach (var c in s)
         {
             if (char.IsDigit(c))
             {
@@ -255,13 +216,17 @@ public static partial class StringExtensions
                 {
                     decimalPlaces++;
                     if (decimalPlaces > scale)
+                    {
                         return false;
+                    }
                 }
                 else
                 {
                     integerDigits++;
                     if (integerDigits > precision)
+                    {
                         return false;
+                    }
                 }
             }
             else if (c == '.' && !foundDecimal)
@@ -270,67 +235,21 @@ public static partial class StringExtensions
             }
             else
             {
-                return false; // 无效字符
+                return false;
             }
         }
 
-        // 至少包含一个数字
         if (integerDigits + decimalPlaces == 0)
-            return false;
-
-        // 存在小数点但不允许小数位，或小数点后无数字
-        if (foundDecimal && (scale == 0 || decimalPlaces == 0))
-            return false;
-
-        // 检查整数位数和小数位数是否符合要求
-        return integerDigits <= precision && decimalPlaces <= scale;
-#else
-        if (s.Length == 0)
-            return false;
-
-        var integerDigits = 0;  // 小数点前的位数
-        var decimalPlaces = 0;  // 小数点后的位数
-        var foundDecimal = false;
-
-        for (var i = 0; i < s.Length; i++)
         {
-            var c = s[i];
-            if (char.IsDigit(c))
-            {
-                if (foundDecimal)
-                {
-                    decimalPlaces++;
-                    if (decimalPlaces > scale)
-                        return false;
-                }
-                else
-                {
-                    integerDigits++;
-                    if (integerDigits > precision)
-                        return false;
-                }
-            }
-            else if (c == '.' && !foundDecimal)
-            {
-                foundDecimal = true;
-            }
-            else
-            {
-                return false; // 无效字符
-            }
+            return false;
         }
 
-        // 至少包含一个数字
-        if (integerDigits + decimalPlaces == 0)
-            return false;
-
-        // 存在小数点但不允许小数位，或小数点后无数字
         if (foundDecimal && (scale == 0 || decimalPlaces == 0))
+        {
             return false;
+        }
 
-        // 检查整数位数和小数位数是否符合要求
         return integerDigits <= precision && decimalPlaces <= scale;
-#endif
     }
 
     /// <summary>
@@ -349,113 +268,75 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsScientificNotation(this string input)
     {
-        if (input == null)
-            return false;
-
-#if NET8_0_OR_GREATER
-        ReadOnlySpan<char> span = input.AsSpan();
-        if (span.IsEmpty)
-            return false;
-
-        var pos = 0;
-
-        // 检查可选的符号
-        if (span[pos] is '+' or '-')
-            pos++;
-
-        if (pos >= span.Length)
-            return false;
-
-        // 检查至少一个数字
-        if (!char.IsDigit(span[pos]))
-            return false;
-
-        // 跳过数字
-        while (pos < span.Length && char.IsDigit(span[pos]))
-            pos++;
-
-        // 可选的小数部分
-        if (pos < span.Length && span[pos] == '.')
+        if (input is null)
         {
-            pos++;
-            // 小数点后必须有至少一个数字
-            if (pos >= span.Length || !char.IsDigit(span[pos]))
-                return false;
-            while (pos < span.Length && char.IsDigit(span[pos]))
-                pos++;
+            return false;
         }
 
-        // 必须有E或e
-        if (pos >= span.Length || (span[pos] != 'e' && span[pos] != 'E'))
-            return false;
-        pos++;
-
-        // E后可选的符号
-        if (pos < span.Length && (span[pos] is '+' or '-'))
-            pos++;
-
-        // E后必须有至少一个数字
-        if (pos >= span.Length || !char.IsDigit(span[pos]))
-            return false;
-
-        // 跳过指数部分的数字
-        while (pos < span.Length && char.IsDigit(span[pos]))
-            pos++;
-
-        // 确保没有多余字符
-        return pos == span.Length;
-#else
         if (input.Length == 0)
+        {
             return false;
+        }
 
         var pos = 0;
 
-        // 检查可选的符号
-        if (input[pos] == '+' || input[pos] == '-')
+        if (input[pos] is '+' or '-')
+        {
             pos++;
+        }
 
         if (pos >= input.Length)
+        {
             return false;
+        }
 
-        // 检查至少一个数字
         if (!char.IsDigit(input[pos]))
+        {
             return false;
+        }
 
-        // 跳过数字
         while (pos < input.Length && char.IsDigit(input[pos]))
+        {
             pos++;
+        }
 
-        // 可选的小数部分
         if (pos < input.Length && input[pos] == '.')
         {
             pos++;
-            // 小数点后必须有至少一个数字
             if (pos >= input.Length || !char.IsDigit(input[pos]))
+            {
                 return false;
+            }
+
             while (pos < input.Length && char.IsDigit(input[pos]))
+            {
                 pos++;
+            }
         }
 
-        // 必须有E或e
         if (pos >= input.Length || (input[pos] != 'e' && input[pos] != 'E'))
+        {
             return false;
+        }
+
         pos++;
 
-        // E后可选的符号
-        if (pos < input.Length && (input[pos] == '+' || input[pos] == '-'))
+        if (pos < input.Length && (input[pos] is '+' or '-'))
+        {
             pos++;
+        }
 
-        // E后必须有至少一个数字
         if (pos >= input.Length || !char.IsDigit(input[pos]))
+        {
             return false;
+        }
 
-        // 跳过指数部分的数字
         while (pos < input.Length && char.IsDigit(input[pos]))
+        {
             pos++;
+        }
 
-        // 确保没有多余字符
         return pos == input.Length;
-#endif
     }
 
     /// <summary>

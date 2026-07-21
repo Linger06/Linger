@@ -40,27 +40,10 @@ public static class DataTableJsonHelper
         }
 
         // 预先确定每列的类型，避免在每个单元格都进行类型判断
-        var writeActions = new Dictionary<int, Action<Utf8JsonWriter, string, object>>(value.Columns.Count);
+        var writeActions = new Action<Utf8JsonWriter, string, object>[value.Columns.Count];
         for (var i = 0; i < value.Columns.Count; i++)
         {
-            var columnType = value.Columns[i].DataType;
-
-            // 根据列类型选择合适的写入方法
-            if (columnType == typeof(bool)) writeActions[i] = (writer, key, val) => writer.WriteBoolean(key, (bool)val);
-            else if (columnType == typeof(byte)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (byte)val);
-            else if (columnType == typeof(sbyte)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (sbyte)val);
-            else if (columnType == typeof(decimal)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (decimal)val);
-            else if (columnType == typeof(double)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (double)val);
-            else if (columnType == typeof(float)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (float)val);
-            else if (columnType == typeof(short)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (short)val);
-            else if (columnType == typeof(int)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (int)val);
-            else if (columnType == typeof(ushort)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (ushort)val);
-            else if (columnType == typeof(uint)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (uint)val);
-            else if (columnType == typeof(ulong)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (ulong)val);
-            else if (columnType == typeof(long)) writeActions[i] = (writer, key, val) => writer.WriteNumber(key, (long)val);
-            else if (columnType == typeof(DateTime)) writeActions[i] = (writer, key, val) => writer.WriteString(key, (DateTime)val);
-            else if (columnType == typeof(Guid)) writeActions[i] = (writer, key, val) => writer.WriteString(key, (Guid)val);
-            else writeActions[i] = (writer, key, val) => writer.WriteString(key, val?.ToString() ?? string.Empty);
+            writeActions[i] = CreateWriteAction(value.Columns[i].DataType);
         }
 
         // 遍历行和列
@@ -74,7 +57,7 @@ public static class DataTableJsonHelper
                 var cellValue = row[i];
 
                 // 处理DBNull值
-                if (cellValue == DBNull.Value)
+                if (cellValue is DBNull)
                 {
                     jsonWriter.WriteNull(key);
                     continue;
@@ -88,6 +71,37 @@ public static class DataTableJsonHelper
         }
 
         jsonWriter.WriteEndArray();
+    }
+
+    private static Action<Utf8JsonWriter, string, object> CreateWriteAction(Type columnType)
+    {
+        if (columnType.IsEnum)
+        {
+            return static (writer, key, value) => writer.WriteString(key, value.ToString());
+        }
+
+        if (columnType == typeof(Guid))
+        {
+            return static (writer, key, value) => writer.WriteString(key, (Guid)value);
+        }
+
+        return Type.GetTypeCode(columnType) switch
+        {
+            TypeCode.Boolean => static (writer, key, value) => writer.WriteBoolean(key, (bool)value),
+            TypeCode.Byte => static (writer, key, value) => writer.WriteNumber(key, (byte)value),
+            TypeCode.SByte => static (writer, key, value) => writer.WriteNumber(key, (sbyte)value),
+            TypeCode.Decimal => static (writer, key, value) => writer.WriteNumber(key, (decimal)value),
+            TypeCode.Double => static (writer, key, value) => writer.WriteNumber(key, (double)value),
+            TypeCode.Single => static (writer, key, value) => writer.WriteNumber(key, (float)value),
+            TypeCode.Int16 => static (writer, key, value) => writer.WriteNumber(key, (short)value),
+            TypeCode.Int32 => static (writer, key, value) => writer.WriteNumber(key, (int)value),
+            TypeCode.UInt16 => static (writer, key, value) => writer.WriteNumber(key, (ushort)value),
+            TypeCode.UInt32 => static (writer, key, value) => writer.WriteNumber(key, (uint)value),
+            TypeCode.UInt64 => static (writer, key, value) => writer.WriteNumber(key, (ulong)value),
+            TypeCode.Int64 => static (writer, key, value) => writer.WriteNumber(key, (long)value),
+            TypeCode.DateTime => static (writer, key, value) => writer.WriteString(key, (DateTime)value),
+            _ => static (writer, key, value) => writer.WriteString(key, value.ToString() ?? string.Empty)
+        };
     }
 }
 #endif

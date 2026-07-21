@@ -97,10 +97,7 @@ public static class ArrayExtensions
     /// </example>
     public static T[] Insert<T>(this T[] array, T value)
     {
-        var result = new T[array.Length + 1];
-        Array.Copy(array, result, array.Length);
-        result[array.Length] = value;
-        return result;
+        return array.Add(value);
     }
 
     /// <summary>
@@ -119,14 +116,11 @@ public static class ArrayExtensions
     /// </example>
     public static T[] Add<T>(this T[] array, T value)
     {
-        var arr = new T[array.Length + 1];
-        for (var i = 0; i < array.Length; i++)
-        {
-            arr[i] = array[i];
-        }
+        var result = new T[array.Length + 1];
+        Array.Copy(array, result, array.Length);
+        result[array.Length] = value;
 
-        arr[array.Length] = value;
-        return arr;
+        return result;
     }
 
     /// <summary>

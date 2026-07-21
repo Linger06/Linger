@@ -715,6 +715,44 @@ public class TypeConverterTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public void ConvertTo_StringToTimeSpan_ReturnsConvertedValue()
+    {
+        var result = TypeConverter.ConvertTo("01:30:00", typeof(TimeSpan));
+
+        Assert.Equal(TimeSpan.FromMinutes(90), result);
+    }
+
+    [Fact]
+    public void TryConvertTo_StringToTimeSpan_ReturnsTrueAndValue()
+    {
+        var success = TypeConverter.TryConvertTo("01:30:00", typeof(TimeSpan), out var result);
+
+        Assert.True(success);
+        Assert.Equal(TimeSpan.FromMinutes(90), result);
+    }
+
+    [Fact]
+    public void ConvertTo_InvalidStringToTimeSpan_ThrowsFormatException()
+    {
+        Assert.Throws<FormatException>(() => TypeConverter.ConvertTo("invalid", typeof(TimeSpan)));
+    }
+
+    [Fact]
+    public void TryConvertTo_InvalidStringToTimeSpan_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvertTo("invalid", typeof(TimeSpan), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ConvertTo_InvalidNumericBoolean_ThrowsInvalidCastException()
+    {
+        Assert.Throws<InvalidCastException>(() => TypeConverter.ConvertTo(2, typeof(bool)));
+    }
+
     #endregion
 
 }

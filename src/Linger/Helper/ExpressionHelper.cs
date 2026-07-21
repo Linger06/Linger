@@ -199,9 +199,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateEqual<T>(string propertyName, object propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.Equals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.Equals, propertyValue);
     }
 
     /// <summary>
@@ -263,9 +261,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateNotEqual<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.NotEquals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.NotEquals, propertyValue);
     }
 
     /// <summary>
@@ -283,9 +279,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateGreaterThan<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.GreaterThan, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.GreaterThan, propertyValue);
     }
 
     /// <summary>
@@ -303,9 +297,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateLessThan<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.LessThan, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.LessThan, propertyValue);
     }
 
     /// <summary>
@@ -323,9 +315,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateGreaterThanOrEqual<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.GreaterThanOrEquals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.GreaterThanOrEquals, propertyValue);
     }
 
     /// <summary>
@@ -343,9 +333,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateLessThanOrEqual<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.LessThanOrEquals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.LessThanOrEquals, propertyValue);
     }
 
     /// <summary>
@@ -363,9 +351,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetContains<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.Contains, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.Contains, propertyValue);
     }
 
     /// <summary>
@@ -383,9 +369,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetNotContains<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.NotContains, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.NotContains, propertyValue);
     }
 
     /// <summary>
@@ -404,9 +388,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetIn<T, TKey>(string propertyName, TKey[] arrayValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.StdIn, Value = arrayValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.StdIn, arrayValue);
     }
 
     /// <summary>
@@ -425,8 +407,22 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetNotIn<T, TKey>(string propertyName, TKey[] arrayValue)
     {
+        return CreateConditionLambda<T>(propertyName, CompareOperator.StdNotIn, arrayValue);
+    }
+
+    private static Expression<Func<T, bool>> CreateConditionLambda<T>(
+        string propertyName,
+        CompareOperator compareOperator,
+        object? propertyValue)
+    {
         ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.StdNotIn, Value = arrayValue });
+        Expression expression = GetExpression(parameter, new Condition
+        {
+            Field = propertyName,
+            Op = compareOperator,
+            Value = propertyValue
+        });
+
         return Expression.Lambda<Func<T, bool>>(expression, parameter);
     }
 
@@ -622,27 +618,7 @@ public static class ExpressionHelper
     /// </example>  
     public static Expression<Func<T, bool>> BuildAndAlsoLambda<T>(IEnumerable<Condition>? conditions)
     {
-        if (conditions is null)
-        {
-            return x => true;
-        }
-
-        // Materialize only if needed for count check.
-        var list = conditions as IList<Condition> ?? conditions.ToList();
-        if (list.Count == 0)
-        {
-            return x => true;
-        }
-
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-        Expression? combined = null;
-        foreach (var c in list)
-        {
-            var exp = GetExpression(parameter, c);
-            combined = combined is null ? exp : Expression.AndAlso(combined, exp);
-        }
-
-        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
+        return BuildCombinedLambda<T>(conditions, useOrElse: false);
     }
 
     /// <summary>  
@@ -660,6 +636,13 @@ public static class ExpressionHelper
     /// </example>  
     public static Expression<Func<T, bool>> BuildOrElseLambda<T>(IEnumerable<Condition>? conditions)
     {
+        return BuildCombinedLambda<T>(conditions, useOrElse: true);
+    }
+
+    private static Expression<Func<T, bool>> BuildCombinedLambda<T>(
+        IEnumerable<Condition>? conditions,
+        bool useOrElse)
+    {
         if (conditions is null)
         {
             return x => true;
@@ -676,7 +659,11 @@ public static class ExpressionHelper
         foreach (var c in list)
         {
             var exp = GetExpression(parameter, c);
-            combined = combined is null ? exp : Expression.OrElse(combined, exp);
+            combined = combined is null
+                ? exp
+                : useOrElse
+                    ? Expression.OrElse(combined, exp)
+                    : Expression.AndAlso(combined, exp);
         }
 
         return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);

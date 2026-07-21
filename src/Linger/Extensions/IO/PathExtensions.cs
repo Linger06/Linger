@@ -29,81 +29,75 @@ public static partial class PathExtensions
     /// </summary>
     public static bool ContainsInvalidPathChars(this string? path)
     {
-        if (string.IsNullOrEmpty(path))
+        if (path is null or "")
+        {
             return false;
+        }
 
-        string nonNullPath = path!;
-        string pathToValidate = nonNullPath;
+        string pathToValidate = path;
 
         if (Path.DirectorySeparatorChar == '\\' &&
-            (nonNullPath.StartsWith(@"\\?\", StringComparison.Ordinal) ||
-             nonNullPath.StartsWith(@"\\.\", StringComparison.Ordinal)))
+            (path.StartsWith(@"\\?\", StringComparison.Ordinal) ||
+             path.StartsWith(@"\\.\", StringComparison.Ordinal)))
         {
             // The question mark or dot is part of the Windows device-path prefix.
-            pathToValidate = nonNullPath.Substring(4);
+            pathToValidate = path.Substring(4);
         }
 
         if (pathToValidate.IndexOfAny(Path.GetInvalidPathChars()) != -1)
+        {
             return true;
+        }
 
         if (Path.DirectorySeparatorChar == '\\')
         {
-#if NET8_0_OR_GREATER
-            if (pathToValidate.AsSpan().ContainsAny(s_windowsInvalidChars))
-                return true;
-
-            ReadOnlySpan<char> pathSpan = pathToValidate.AsSpan();
-            while (!pathSpan.IsEmpty)
-            {
-                int separatorIndex = pathSpan.IndexOfAny('/', '\\');
-                ReadOnlySpan<char> segment = separatorIndex == -1 ? pathSpan : pathSpan.Slice(0, separatorIndex);
-
-                if (!segment.IsEmpty)
-                {
-                    int firstDot = segment.IndexOf('.');
-                    ReadOnlySpan<char> nameToCheck = firstDot == -1 ? segment : segment.Slice(0, firstDot);
-                    nameToCheck = nameToCheck.TrimEnd(' ');
-
-                    if (nameToCheck.Length >= 3 && nameToCheck.Length <= 4)
-                    {
-                        if (s_windowsReservedNames.Contains(nameToCheck.ToString()))
-                            return true;
-                    }
-                }
-
-                if (separatorIndex == -1) break;
-                pathSpan = pathSpan.Slice(separatorIndex + 1);
-            }
-#else
-            if (pathToValidate.IndexOfAny(s_windowsInvalidChars) != -1)
-                return true;
-
-            int lastIdx = 0;
-            while (lastIdx < pathToValidate.Length)
-            {
-                int nextSep = pathToValidate.IndexOfAny(PathHelper.PathSeparators, lastIdx);
-                int len = (nextSep == -1 ? pathToValidate.Length : nextSep) - lastIdx;
-
-                if (len > 0)
-                {
-                    string segment = pathToValidate.Substring(lastIdx, len);
-                    int firstDot = segment.IndexOf('.');
-                    string nameToCheck = firstDot != -1 ? segment.Substring(0, firstDot) : segment;
-                    nameToCheck = nameToCheck.TrimEnd(' ');
-
-                    if (s_windowsReservedNames.Contains(nameToCheck))
-                        return true;
-                }
-
-                if (nextSep == -1) break;
-                lastIdx = nextSep + 1;
-            }
-#endif
+            return ContainsWindowsInvalidChars(pathToValidate)
+                || ContainsWindowsReservedName(pathToValidate);
         }
-        else
+
+        return path.Contains('\0');
+    }
+
+    private static bool ContainsWindowsInvalidChars(string path)
+    {
+#if NET8_0_OR_GREATER
+        return path.AsSpan().ContainsAny(s_windowsInvalidChars);
+#else
+        return path.IndexOfAny(s_windowsInvalidChars) != -1;
+#endif
+    }
+
+    private static bool ContainsWindowsReservedName(string path)
+    {
+        var segmentStart = 0;
+        while (segmentStart < path.Length)
         {
-            if (nonNullPath.Contains('\0'))
+            var separatorIndex = path.IndexOfAny(PathHelper.PathSeparators, segmentStart);
+            var segmentEnd = separatorIndex == -1 ? path.Length : separatorIndex;
+            var nameEnd = path.IndexOf('.', segmentStart, segmentEnd - segmentStart);
+            if (nameEnd == -1)
+            {
+                nameEnd = segmentEnd;
+            }
+
+            while (nameEnd > segmentStart && path[nameEnd - 1] == ' ')
+            {
+                nameEnd--;
+            }
+
+            var nameLength = nameEnd - segmentStart;
+            if (nameLength is >= 3 and <= 4
+                && s_windowsReservedNames.Contains(path.Substring(segmentStart, nameLength)))
+            {
                 return true;
+            }
+
+            if (separatorIndex == -1)
+            {
+                break;
+            }
+
+            segmentStart = separatorIndex + 1;
         }
 
         return false;

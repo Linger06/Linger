@@ -7,6 +7,13 @@ namespace Linger.Helper;
 
 public static class TypeConverter
 {
+    private enum KnownTypeConversionStatus
+    {
+        NotSupported,
+        Success,
+        Failed
+    }
+
     public static object? ConvertTo(object? value, Type targetType)
     {
         ArgumentNullException.ThrowIfNull(targetType);
@@ -51,9 +58,14 @@ public static class TypeConverter
             return DateTime.FromOADate(oaDateValue);
         }
 
-        if (IsKnownType(actualType))
+        var knownTypeStatus = ConvertKnownType(
+            value,
+            actualType,
+            throwOnFailure: true,
+            out var knownTypeResult);
+        if (knownTypeStatus is not KnownTypeConversionStatus.NotSupported)
         {
-            return ConvertKnownType(value, actualType);
+            return knownTypeResult;
         }
 
         return ConvertUsingFallback(value, sourceType, actualType);
@@ -101,218 +113,175 @@ public static class TypeConverter
             return true;
         }
 
-        if (TryConvertKnownType(value, actualType, out result))
+        var knownTypeStatus = ConvertKnownType(
+            value,
+            actualType,
+            throwOnFailure: false,
+            out result);
+        if (knownTypeStatus is not KnownTypeConversionStatus.NotSupported)
         {
-            return true;
+            return knownTypeStatus is KnownTypeConversionStatus.Success;
         }
 
         return TryConvertUsingFallback(value, sourceType, actualType, out result);
     }
 
-    private static bool TryConvertKnownType(object value, Type actualType, out object? result)
+    private static KnownTypeConversionStatus ConvertKnownType(
+        object value,
+        Type actualType,
+        bool throwOnFailure,
+        out object? result)
     {
-        if (actualType == typeof(string))
+        switch (Type.GetTypeCode(actualType))
         {
-            result = value as string ?? value.ToString();
-            return true;
+            case TypeCode.String:
+            {
+                result = value as string ?? value.ToString();
+                if (throwOnFailure && result is null)
+                {
+                    result = string.Empty;
+                }
+
+                return KnownTypeConversionStatus.Success;
+            }
+            case TypeCode.Int16:
+            {
+                var succeeded = value.TryToShort(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToShort(),
+                    out result);
+            }
+            case TypeCode.Int32:
+            {
+                var succeeded = value.TryToInt(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToInt(),
+                    out result);
+            }
+            case TypeCode.Int64:
+            {
+                var succeeded = value.TryToLong(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToLong(),
+                    out result);
+            }
+            case TypeCode.Decimal:
+            {
+                var succeeded = value.TryToDecimal(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToDecimal(),
+                    out result);
+            }
+            case TypeCode.Double:
+            {
+                var succeeded = value.TryToDouble(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToDouble(),
+                    out result);
+            }
+            case TypeCode.Single:
+            {
+                var succeeded = value.TryToFloat(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToFloat(),
+                    out result);
+            }
+            case TypeCode.Boolean:
+            {
+                var succeeded = value.TryToBool(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToBool(),
+                    out result);
+            }
+            case TypeCode.DateTime:
+            {
+                var succeeded = value.TryToDateTime(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToDateTime(),
+                    out result);
+            }
+            case TypeCode.Object when actualType == typeof(Guid):
+            {
+                var succeeded = value.TryToGuid(out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    static input => input.ToGuid(),
+                    out result);
+            }
+            case TypeCode.Object when actualType == typeof(TimeSpan):
+            {
+                var succeeded = TryConvertToTimeSpan(value, out var converted);
+                return CompleteKnownTypeConversion(
+                    value,
+                    succeeded,
+                    converted,
+                    throwOnFailure,
+                    ConvertToTimeSpan,
+                    out result);
+            }
+            default:
+                result = null;
+                return KnownTypeConversionStatus.NotSupported;
+        }
+    }
+
+    private static KnownTypeConversionStatus CompleteKnownTypeConversion<T>(
+        object value,
+        bool succeeded,
+        T convertedValue,
+        bool throwOnFailure,
+        Func<object, T> strictConverter,
+        out object? result)
+    {
+        if (succeeded)
+        {
+            result = convertedValue;
+            return KnownTypeConversionStatus.Success;
         }
 
-        if (actualType == typeof(short))
+        if (throwOnFailure)
         {
-            if (value.TryToShort(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(int))
-        {
-            if (value.TryToInt(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(long))
-        {
-            if (value.TryToLong(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(decimal))
-        {
-            if (value.TryToDecimal(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(double))
-        {
-            if (value.TryToDouble(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(float))
-        {
-            if (value.TryToFloat(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(bool))
-        {
-            if (value.TryToBool(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(DateTime))
-        {
-            if (value.TryToDateTime(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(Guid))
-        {
-            if (value.TryToGuid(out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
-        }
-
-        if (actualType == typeof(TimeSpan))
-        {
-            if (TryConvertToTimeSpan(value, out var converted))
-            {
-                result = converted;
-                return true;
-            }
-
-            result = null;
-            return false;
+            result = strictConverter(value);
+            return KnownTypeConversionStatus.Success;
         }
 
         result = null;
-        return false;
-    }
-
-    private static bool IsKnownType(Type actualType)
-        => actualType == typeof(string) ||
-           actualType == typeof(short) ||
-           actualType == typeof(int) ||
-           actualType == typeof(long) ||
-           actualType == typeof(decimal) ||
-           actualType == typeof(double) ||
-           actualType == typeof(float) ||
-           actualType == typeof(bool) ||
-           actualType == typeof(DateTime) ||
-           actualType == typeof(Guid) ||
-           actualType == typeof(TimeSpan);
-
-    private static object ConvertKnownType(object value, Type actualType)
-    {
-        if (actualType == typeof(string))
-        {
-            return value as string ?? value.ToString() ?? string.Empty;
-        }
-
-        if (actualType == typeof(short))
-        {
-            return value.ToShort();
-        }
-
-        if (actualType == typeof(int))
-        {
-            return value.ToInt();
-        }
-
-        if (actualType == typeof(long))
-        {
-            return value.ToLong();
-        }
-
-        if (actualType == typeof(decimal))
-        {
-            return value.ToDecimal();
-        }
-
-        if (actualType == typeof(double))
-        {
-            return value.ToDouble();
-        }
-
-        if (actualType == typeof(float))
-        {
-            return value.ToFloat();
-        }
-
-        if (actualType == typeof(bool))
-        {
-            return value.ToBool();
-        }
-
-        if (actualType == typeof(DateTime))
-        {
-            return value.ToDateTime();
-        }
-
-        if (actualType == typeof(Guid))
-        {
-            return value.ToGuid();
-        }
-
-        if (actualType == typeof(TimeSpan))
-        {
-            return ConvertToTimeSpan(value);
-        }
-
-        throw new InvalidCastException(
-            $"Cannot convert value '{value}' (Type: {value.GetType().Name}) to target type '{actualType.Name}'.");
+        return KnownTypeConversionStatus.Failed;
     }
 
     private static bool TryConvertUsingFallback(object value, Type sourceType, Type actualType, out object? result)

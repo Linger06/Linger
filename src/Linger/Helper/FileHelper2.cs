@@ -46,7 +46,7 @@ public static partial class FileHelper
         return GetDirectories(
             directoryPath,
             searchPattern,
-            searchOption: isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly).ToArray();
+            searchOption: isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
     }
 
     /// <summary>
@@ -71,10 +71,7 @@ public static partial class FileHelper
     [Obsolete("Use Directory.CreateDirectory(directoryPath) instead.")]
     public static void CreateDirectoryIfNotExists(string directoryPath)
     {
-        if (!Directory.Exists(directoryPath))
-        {
-            _ = Directory.CreateDirectory(directoryPath);
-        }
+        _ = Directory.CreateDirectory(directoryPath);
     }
 
     /// <summary>

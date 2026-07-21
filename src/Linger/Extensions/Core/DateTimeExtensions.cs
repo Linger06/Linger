@@ -361,7 +361,7 @@ public static class DateTimeExtensions
     /// <returns>A <see cref="DateTime"/> representing the first day of the month.</returns>
     public static DateTime FirstDayOfMonth(this DateTime dateTime)
     {
-        return new DateTime(dateTime.Year, dateTime.Month, 1);
+        return dateTime.StartOfMonth();
     }
 
     /// <summary>

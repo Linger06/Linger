@@ -198,6 +198,22 @@ public class PathExtensionsTests
         Assert.True(PathExtensions.ContainsInvalidPathChars(@"\\?\C:\temp\file?.txt"));
     }
 
+    [Theory]
+    [InlineData(@"C:\temp\CON.txt", true)]
+    [InlineData(@"C:\temp\CON .txt", true)]
+    [InlineData(@"C:\temp\COM9.log", true)]
+    [InlineData(@"C:\temp\COM10.log", false)]
+    [InlineData(@"C:\temp\CONSOLE.txt", false)]
+    public void ContainsInvalidPathChars_WindowsReservedNames_ReturnsExpectedResult(string path, bool expected)
+    {
+        if (!OSPlatformHelper.IsWindows)
+        {
+            return;
+        }
+
+        Assert.Equal(expected, PathExtensions.ContainsInvalidPathChars(path));
+    }
+
     [Fact]
     public void GetParentDirectory_ShouldReturnCorrectParentPath()
     {

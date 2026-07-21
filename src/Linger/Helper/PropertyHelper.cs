@@ -44,37 +44,15 @@ public static class PropertyHelper
     /// <returns>属性名</returns>
     public static string GetPropertyName(this Expression expression, bool getAll = true)
     {
-        if (expression.IsNull())
+        MemberExpression? me = GetMemberExpression(expression);
+        if (me is null)
         {
             return string.Empty;
         }
 
-        MemberExpression? me = null;
-        if (expression is MemberExpression memberExpression)
-        {
-            me = memberExpression;
-        }
+        var rv = me.Member.Name;
 
-        if (expression is LambdaExpression le)
-        {
-            if (le.Body is MemberExpression body)
-            {
-                me = body;
-            }
-
-            if (le.Body is UnaryExpression unaryExpression)
-            {
-                me = unaryExpression.Operand as MemberExpression;
-            }
-        }
-
-        var rv = string.Empty;
-        if (me != null)
-        {
-            rv = me.Member.Name;
-        }
-
-        while (me != null && getAll && me.NodeType == ExpressionType.MemberAccess)
+        while (getAll && me.NodeType == ExpressionType.MemberAccess)
         {
             Expression? exp = me.Expression;
             if (exp is MemberExpression exp1)
@@ -117,6 +95,17 @@ public static class PropertyHelper
         return rv;
     }
 
+    private static MemberExpression? GetMemberExpression(Expression? expression)
+    {
+        return expression switch
+        {
+            MemberExpression memberExpression => memberExpression,
+            LambdaExpression { Body: MemberExpression memberExpression } => memberExpression,
+            LambdaExpression { Body: UnaryExpression { Operand: MemberExpression memberExpression } } => memberExpression,
+            _ => null
+        };
+    }
+
     /// <summary>
     /// Gets the property information from the expression.
     /// </summary>
@@ -130,30 +119,13 @@ public static class PropertyHelper
     /// </example>
     public static PropertyInfo? GetPropertyInfo(this Expression expression)
     {
-        MemberExpression? me = null;
-        if (expression is MemberExpression memberExpression)
-        {
-            me = memberExpression;
-        }
-
-        if (expression is LambdaExpression le)
-        {
-            if (le.Body is MemberExpression body)
-            {
-                me = body;
-            }
-
-            if (le.Body is UnaryExpression unaryExpression)
-            {
-                me = unaryExpression.Operand as MemberExpression;
-            }
-        }
+        MemberExpression? me = GetMemberExpression(expression);
 
         PropertyInfo? rv = null;
-        if (me != null)
+        if (me is not null)
         {
             var declaringType = me.Member.DeclaringType;
-            if (declaringType != null)
+            if (declaringType is not null)
             {
                 // Use cached properties for better performance
                 var properties = PropertyMetadataCache.GetProperties(declaringType);

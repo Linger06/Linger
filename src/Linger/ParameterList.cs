@@ -139,14 +139,7 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// <returns>true if the key was found; otherwise, false.</returns>
     public bool TryGet<T>(string key, out T? value) where T : class
     {
-        if (Parameters.TryGetValue(key, out var obj) && obj is T typedValue)
-        {
-            value = typedValue;
-            return true;
-        }
-
-        value = default;
-        return false;
+        return TryGetCore(key, out value);
     }
 
     /// <summary>
@@ -157,6 +150,11 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// <param name="value">When this method returns, contains the value associated with the specified key, if found; otherwise, the default value for the type.</param>
     /// <returns>true if the key was found; otherwise, false.</returns>
     public bool TryGetValue<T>(string key, out T value) where T : struct
+    {
+        return TryGetCore(key, out value);
+    }
+
+    private bool TryGetCore<T>(string key, [MaybeNullWhen(false)] out T value)
     {
         if (Parameters.TryGetValue(key, out var obj) && obj is T typedValue)
         {
