@@ -13,21 +13,21 @@ public static class DataTableExtensions
 {
 #if NET451_OR_GREATER || NETSTANDARD || NET5_0_OR_GREATER
     /// <summary>
-    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with performance optimizations.
+    /// Converts the current <see cref="DataTable"/> synchronously and returns the result in a completed task.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
     /// <example>
     /// <code>
     /// DataTable table = GetDataTable();
-    /// List&lt;MyClass&gt; list = await table.ToListAsync&lt;MyClass&gt;();
+    /// List&lt;MyClass&gt;? list = table.ToList&lt;MyClass&gt;();
     /// </code>
     /// </example>
 #if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToListAsync<T>(DataTable, Func<DataRow, T>) for AOT/trimming scenarios.")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>() instead.")]
+    [Obsolete("This method performs synchronous in-memory work. Use a synchronous ToList<T>() overload instead.")]
     public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
         return Task.FromResult(dt.ToList<T>());
@@ -35,24 +35,24 @@ public static class DataTableExtensions
     }
 
     /// <summary>
-    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using a caller-provided mapper.
+    /// Converts the current <see cref="DataTable"/> synchronously using a caller-provided mapper and returns the result in a completed task.
     /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
     /// <param name="map">A mapper that converts each <see cref="DataRow"/> to <typeparamref name="T"/>.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
     /// <example>
     /// <code>
     /// DataTable table = GetDataTable();
-    /// List&lt;MyClass&gt; list = await table.ToListAsync(row =&gt; new MyClass
+    /// List&lt;MyClass&gt; list = table.ToList(row =&gt; new MyClass
     /// {
     ///     Id = row["Id"].ToIntOrDefault(),
     ///     Name = row["Name"]?.ToString()
     /// });
     /// </code>
     /// </example>
-    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>() instead.")]
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<DataRow, T>) instead.")]
     public static Task<List<T>> ToListAsync<T>(this DataTable dt, Func<DataRow, T> map)
     {
         ArgumentNullException.ThrowIfNull(dt);
@@ -62,19 +62,19 @@ public static class DataTableExtensions
     }
 
     /// <summary>
-    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using
-    /// a caller-provided factory and column setter map.
+    /// Converts the current <see cref="DataTable"/> synchronously using a caller-provided factory and
+    /// column setter map, then returns the result in a completed task.
     /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
     /// <param name="factory">Factory used to create each target item.</param>
     /// <param name="columnSetters">Column name to setter delegate map. Column matching is case-insensitive.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
     /// <example>
     /// <code>
     /// DataTable table = GetDataTable();
-    /// var list = await table.ToListAsync(
+    /// var list = table.ToList(
     ///     () =&gt; new MyClass(),
     ///     new Dictionary&lt;string, Action&lt;MyClass, object?&gt;&gt;
     ///     {
@@ -83,7 +83,7 @@ public static class DataTableExtensions
     ///     });
     /// </code>
     /// </example>
-    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>() instead.")]
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
     public static Task<List<T>> ToListAsync<T>(
         this DataTable dt,
         Func<T> factory,

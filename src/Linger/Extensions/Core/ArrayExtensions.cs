@@ -395,7 +395,7 @@ public static class ArrayExtensions
     /// <example>
     /// <code>
     /// string[] array = { "one", "two", "three" };
-    /// IEnumerable&lt;string&gt; enumerable = array.ToEnumerable();
+    /// IEnumerable&lt;string&gt; enumerable = array;
     /// // enumerable contains "one", "two", "three"
     /// </code>
     /// </example>
@@ -413,14 +413,14 @@ public static class ArrayExtensions
     /// <example>
     /// <code>
     /// string[] array = { "one", "two", "three" };
-    /// List&lt;string&gt; list = array.ToList();
+    /// List&lt;string&gt; list = Enumerable.ToList(array);
     /// // list contains "one", "two", "three"
     /// </code>
     /// </example>
-    [Obsolete("Use ToListOrEmpty() when null-to-empty normalization is required, or LINQ ToList() for non-null arrays.")]
+    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) for null-to-empty normalization, or Enumerable.ToList(value) for non-null arrays.")]
     public static List<string> ToList(this string[]? value)
     {
-        return value.ToListOrEmpty();
+        return new List<string>(value ?? []);
     }
 
     /// <summary>
@@ -431,9 +431,10 @@ public static class ArrayExtensions
     /// <example>
     /// <code>
     /// string[]? values = null;
-    /// List&lt;string&gt; result = values.ToListOrEmpty();
+    /// List&lt;string&gt; result = new(values ?? Array.Empty&lt;string&gt;());
     /// </code>
     /// </example>
+    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) instead.")]
     public static List<string> ToListOrEmpty(this string[]? value)
     {
         return new List<string>(value ?? []);
