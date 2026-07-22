@@ -1,6 +1,6 @@
 # Linger.Utils
 
-A comprehensive .NET utility library providing extensive extension methods and helper classes for everyday development tasks.
+A comprehensive .NET utility library providing AOT-friendly extension methods and helper classes for everyday development tasks. Reflection, expression-tree, property metadata, and dynamic query APIs are provided by the optional `Linger.Reflection` package.
 
 ## Overview
 
@@ -25,9 +25,9 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
   - [Array Extensions](#array-extensions)
   - [Enum Extensions](#enum-extensions)
   - [Parameter Validation](#parameter-validation)
+- [Optional Reflection Features](#optional-reflection-features)
 - [Advanced Features](#advanced-features)
   - [Retry Helper](#retry-helper)
-  - [Expression Helper](#expression-helper)
   - [Path Operations](#path-operations)
 - [Best Practices](#best-practices)
 - [API Standardization & Type Safety](#api-standardization--type-safety)
@@ -45,7 +45,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
     Note: Decimal-to-int conversions were enhanced. `DecimalExtensions` now provides `ToIntOrNull`, `ToIntOrDefault` and `TryToInt` (including nullable overloads). These methods return a value only when the decimal has no fractional part (fractional == 0) and the numeric value fits in `Int32`. Example: `(decimal)1.0000m.ToIntOrDefault() => 1`.
 
     Also, object/string conversion paths now accept strings like "1.00000" as integer-compatible and will convert them to `1` when appropriate.
-- **Enum Extensions**: Enhanced enum handling and conversion
+- **Enum Extensions**: Enum parsing, validation, and value conversion
 - **Object Extensions**: General object operations and validation, **enhanced with complete numeric type support**
 - **Array Extensions**: Array processing and manipulation utilities
 - **GUID Extensions**: GUID operation and validation utilities
@@ -64,12 +64,13 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **Directory Operations**: Directory management and traversal utilities
 
 ### Helper Classes
-- **Expression Helper**: Expression tree operations and utilities
 - **Retry Helper**: Robust retry mechanisms for operations
-- **Property Helper**: Reflection-based property operations
 - **GUID Code**: Enhanced GUID generation and operations
 - **OS Platform Helper**: Cross-platform operating system detection
 - **Parameter Validation Extensions**: Defensive programming and input validation utilities
+
+### Optional Reflection Package
+- **`Linger.Reflection`**: Expression composition, dynamic `IQueryable` ordering, runtime property access, enum metadata, and reflection-based DataTable conversion
 
 ### JSON Support
 - **JSON Extensions**: Simplified JSON serialization and deserialization
@@ -82,6 +83,14 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 ```bash
 dotnet add package Linger.Utils
 ```
+
+Install `Linger.Reflection` only when the application needs runtime metadata or expression-tree APIs:
+
+```bash
+dotnet add package Linger.Reflection
+```
+
+`Linger.Reflection` depends on `Linger.Utils`. Keep applications that use trimming or Native AOT on the `Linger.Utils` mapper/factory APIs.
 
 ## Target Frameworks
 
@@ -209,8 +218,7 @@ string result = list.ToSeparatedString(", "); // "1, 2, 3, 4, 5"
 // Execute action on each element
 list.ForEach(Console.WriteLine); // Print each element
 
-// Convert to DataTable
-var dataTable = list.Select(x => new { Value = x }).ToDataTable();
+// For reflection-based IEnumerable<T>.ToDataTable(), install Linger.Reflection.
 
 // .NET 10+ Join operations — compatibility (now supported)
 // Note: Polyfill implementations are used on older target frameworks; on .NET 10+ targets the framework native implementations will be used
@@ -296,8 +304,8 @@ List<UserDto>? usersBySetters = table.ToList(
         ["Name"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<UserDto, string?>((x, v) => x.Name = v)
     });
 
-// Reflection-based overloads are retained for compatibility but obsolete:
-// var legacy = table.ToList<UserDto>();
+// Reflection-based mapping is provided by the optional Linger.Reflection package:
+// var mappedByProperties = table.ToList<UserDto>();
 ```
 
 ### IDataReader Extensions (AOT-Friendly)
@@ -496,8 +504,7 @@ Status statusFromInt = statusValue.GetEnum<Status>();
 // Get enum name
 string enumName = statusValue.GetEnumName<Status>(); // Returns "Active"
 
-// Get enum description (if Description attribute exists)
-string description = status.GetDescription(); // Get description text
+// GetDescription() and GetDisplay() read enum attributes and are provided by Linger.Reflection.
 ```
 
 ### Parameter Validation
@@ -517,6 +524,10 @@ public void ProcessData(string data, IEnumerable<int> numbers)
     // - ThrowIfNullOrEmpty / ThrowIfNullOrWhiteSpace: built-in on .NET 8+, polyfilled by Linger on .NET 7 and below
 }
 ```
+
+## Optional Reflection Features
+
+Install `Linger.Reflection` for runtime property access, `IEnumerable<T>.ToDataTable()`, enum descriptions/display names, expression composition, and dynamic `IQueryable` ordering. It has a one-way dependency on `Linger.Utils` and should not be used in trimmed or Native AOT applications.
 
 ## Advanced Features
 
@@ -549,31 +560,6 @@ var result2 = await defaultRetryHelper.ExecuteAsync(
 
 // Synchronous variant
 defaultRetryHelper.Execute(() => DoSomething());
-```
-
-### Expression Helper
-
-```csharp
-using System.Linq.Expressions;
-using Linger.Helper;
-using Linger.Enums;
-
-// Dynamic expression building
-// Basic expressions
-Expression<Func<User, bool>> trueExpression = ExpressionHelper.True<User>();
-Expression<Func<User, bool>> falseExpression = ExpressionHelper.False<User>();
-
-// Single condition expressions
-Expression<Func<User, bool>> ageFilter = ExpressionHelper.CreateGreaterThan<User>("Age", "18");
-Expression<Func<User, bool>> nameFilter = ExpressionHelper.GetContains<User>("Name", "John");
-
-// Build complex expressions using condition collections
-var conditions = new List<Condition>
-{
-    new Condition { Field = "Age", Op = CompareOperator.GreaterThan, Value = 18 },
-    new Condition { Field = "Name", Op = CompareOperator.Contains, Value = "John" }
-};
-Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(conditions);
 ```
 
 ### Path Operations

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0;net472</TargetFrameworks>
+    <PackageId>Linger.Reflection</PackageId>
+    <AssemblyTitle>Linger.Reflection</AssemblyTitle>
+    <Description>Reflection, expression-tree, and dynamic query utilities for Linger.</Description>
+    <Version>2.0.0-preview.1</Version>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Linger\Linger.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.301" />
+  </ItemGroup>
+</Project>

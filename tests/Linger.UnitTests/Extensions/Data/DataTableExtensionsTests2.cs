@@ -171,48 +171,4 @@ public partial class DataTableExtensionsTests
         Assert.Equal("null", result);
     }
 
-    [Fact]
-    public void ToList_ReturnsListOfObjects()
-    {
-        DataTable? table = CreateTestDataTable();
-
-        var result = table.ToList<TestClass2>();
-
-        Assert.NotNull(result);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(1, result[0].Int);
-        Assert.Null(result[0].NullableInt);
-        Assert.Equal("John", result[0].Name);
-        Assert.Equal(2, result[1].Int);
-        Assert.Equal(2, result[1].NullableInt);
-        Assert.Equal("Jane", result[1].Name);
-        Assert.Null(result[0].NullBool);
-        Assert.Null(result[0].NullShort);
-        Assert.Null(result[0].NullLong);
-        Assert.Null(result[1].NullDecimal);
-        Assert.Null(result[1].NullFloat);
-        Assert.Null(result[1].NullDouble);
-    }
-
-    [Fact]
-    public void ToList_HandlesEmptyDataTable()
-    {
-        var table = new DataTable();
-        table.Columns.Add("Int", typeof(int));
-
-        var result = table.ToList<TestClass2>();
-
-        Assert.NotNull(result);
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public void ToList_HandlesNullDataTable()
-    {
-        DataTable? table = null;
-
-        var result = table.ToList<TestClass2>();
-
-        Assert.Null(result);
-    }
 }

@@ -1,6 +1,6 @@
 # Linger.Utils
 
-一个功能丰富的 .NET 工具库，包含大量实用的扩展方法和帮助类，让您的日常开发工作更加轻松高效。
+一个功能丰富的 .NET 工具库，包含大量实用的扩展方法和帮助类，让您的日常开发工作更加轻松高效。反射、表达式树、属性元数据和动态查询能力已拆分至可选的 `Linger.Reflection` 包。
 
 ## 概述
 
@@ -27,8 +27,8 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
   - [参数验证](#参数验证)
 - [高级功能](#高级功能)
   - [重试助手](#重试助手)
-  - [表达式助手](#表达式助手)
   - [路径操作](#路径操作)
+- [可选反射功能](#可选反射功能)
 - [最佳实践](#最佳实践)
 - [API 标准化与类型安全](#api-标准化与类型安全)
   - [.NET 10 兼容性（已支持）](#net-10-兼容性已支持)
@@ -45,7 +45,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
     说明：已增强小数到整数的转换能力。`DecimalExtensions` 新增 `ToIntOrNull`、`ToIntOrDefault` 与 `TryToInt`（含 nullable 重载）。这些方法仅在小数部分为 0 且数值位于 `Int32` 范围内时返回有效值。示例：`(decimal)1.0000m.ToIntOrDefault() => 1`。
 
     此外，对象/字符串转换路径现在会将类似 "1.00000" 的字符串视为可转换为整数（在适用时转换为 `1`）。
-- **枚举扩展**: 让枚举操作更加便捷，支持字符串转换和描述获取
+- **枚举扩展**: 让枚举操作更加便捷，支持字符串解析、数值转换和有效性检查
 - **对象扩展**: 通用的对象处理方法，提供空值检查和对象/字符串的常用类型转换能力
 - **数组扩展**: 简化数组操作，提供遍历和处理的便捷方法
 - **GUID 扩展**: 完善的 GUID 操作工具，包括验证和转换功能
@@ -64,12 +64,13 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 - **目录操作**: 完整的目录管理功能，包括创建、遍历等
 
 ### 助手类
-- **表达式助手**: 动态构建表达式树，适用于条件查询等场景
 - **重试助手**: 为不稳定的操作提供智能重试机制
-- **属性助手**: 基于反射的属性操作工具
 - **GUID 工具**: 高级 GUID 生成和处理功能
 - **平台助手**: 跨平台的操作系统检测和兼容性处理
 - **参数验证**: 提供防御性编程所需的输入验证工具
+
+### 可选反射包
+- **`Linger.Reflection`**: 提供表达式组合、动态 `IQueryable` 排序、运行时属性访问、枚举元数据和基于反射的 DataTable 转换
 
 ### JSON 支持
 - **JSON 扩展**: 简化 JSON 的序列化和反序列化操作
@@ -82,6 +83,14 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 ```bash
 dotnet add package Linger.Utils
 ```
+
+仅当应用需要运行时元数据或表达式树 API 时，再安装反射包：
+
+```bash
+dotnet add package Linger.Reflection
+```
+
+`Linger.Reflection` 单向依赖 `Linger.Utils`。需要裁剪或 Native AOT 的应用应只使用 `Linger.Utils` 的显式 mapper/factory API。
 
 ## 目标框架
 
@@ -209,8 +218,8 @@ string result = list.ToSeparatedString(", "); // 输出："1, 2, 3, 4, 5"
 // 遍历处理
 list.ForEach(Console.WriteLine); // 对每个元素执行操作
 
-// 转换为数据表
-var dataTable = list.Select(x => new { Value = x }).ToDataTable();
+// 使用反射将集合转换为 DataTable，请安装 Linger.Reflection：
+// var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 
 // .NET 10+ Join 操作兼容
 // ⚠️ 注意：在较旧目标框架上使用 Polyfill；在 .NET 10+ 目标上自动使用框架原生实现
@@ -296,9 +305,9 @@ List<UserDto>? usersBySetters = table.ToList(
         ["Name"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<UserDto, string?>((x, v) => x.Name = v)
     });
 
-// 反射版本为兼容历史代码而保留，但已标记为 Obsolete：
-// var legacy = table.ToList<UserDto>();
 ```
+
+属性自动映射的 `DataTable.ToList<T>()` 位于 `Linger.Reflection`，不应在 AOT 或裁剪敏感路径使用。
 
 ### IDataReader 扩展（AOT 友好）
 
@@ -320,9 +329,6 @@ UserDto? user = modelReader.ReaderToModel(record => new UserDto
     Name = record["Name"]?.ToString()
 });
 
-// 反射版本为兼容历史代码而保留，但已标记为 Obsolete：
-// var legacyList = listReader.ReaderToList<UserDto>();
-// var legacyModel = modelReader.ReaderToModel<UserDto>();
 ```
 
 ### 对象扩展
@@ -516,9 +522,9 @@ Status statusFromInt = statusValue.GetEnum<Status>();
 // 获取枚举名称
 string enumName = statusValue.GetEnumName<Status>(); // 返回 "Active"
 
-// 获取枚举描述（如果存在 Description 特性）
-string description = status.GetDescription(); // 获取描述文本
 ```
+
+读取 `DescriptionAttribute` 或 `DisplayAttribute` 的 `GetDescription()` 和 `GetDisplay()` 位于 `Linger.Reflection`。
 
 ### 参数验证
 
@@ -537,6 +543,20 @@ public void ProcessData(string data, IEnumerable<int> numbers)
     // - ThrowIfNullOrEmpty / ThrowIfNullOrWhiteSpace: .NET 8+ 使用内置实现，.NET 7 及以下由 Linger 补齐
 }
 ```
+
+## 可选反射功能
+
+`Linger.Reflection` 提供以下运行时元数据能力：
+
+- 表达式树组合、条件构建和谓词帮助方法
+- 按属性名称进行动态 `IQueryable` 排序
+- 运行时属性读取、属性枚举和元数据缓存
+- 枚举的 `DescriptionAttribute` 与 `DisplayAttribute` 读取
+- `IEnumerable<T>.ToDataTable()` 和 `DataTable.ToList<T>()` 的反射转换
+
+这些 API 依赖运行时反射，不适用于 Native AOT 或对裁剪敏感的路径。此类应用应使用 `Linger.Utils` 提供的显式 mapper/factory API 或编译期投影。
+
+完整示例请参阅 [Linger.Reflection 中文 README](../Linger.Reflection/README.zh-CN.md)。
 
 ## 高级功能
 
@@ -566,31 +586,6 @@ var result2 = await defaultRetryHelper.ExecuteAsync(
     async () => await AnotherOperationThatMightFail(),
     "数据库操作"
 );
-```
-
-### 表达式助手
-
-```csharp
-using System.Linq.Expressions;
-using Linger.Helper;
-using Linger.Enums;
-
-// 构建动态查询条件
-// 基础表达式
-Expression<Func<User, bool>> trueExpression = ExpressionHelper.True<User>();   // 永远为真
-Expression<Func<User, bool>> falseExpression = ExpressionHelper.False<User>(); // 永远为假
-
-// 单个条件
-Expression<Func<User, bool>> ageFilter = ExpressionHelper.CreateGreaterThan<User>("Age", "18");
-Expression<Func<User, bool>> nameFilter = ExpressionHelper.GetContains<User>("Name", "John");
-
-// 组合多个条件
-var conditions = new List<Condition>
-{
-    new Condition { Field = "Age", Op = CompareOperator.GreaterThan, Value = 18 },    // 年龄大于 18
-    new Condition { Field = "Name", Op = CompareOperator.Contains, Value = "John" }   // 姓名包含 "John"
-};
-Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(conditions);
 ```
 
 ### 路径操作

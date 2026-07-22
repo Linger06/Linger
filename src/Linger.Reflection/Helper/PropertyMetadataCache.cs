@@ -13,6 +13,7 @@ internal static class PropertyMetadataCache
         BindingFlags flags = BindingFlags.Public | BindingFlags.Instance)
     {
         ArgumentNullException.ThrowIfNull(type);
+
         return s_properties.GetOrAdd((type, flags), static key => key.Type.GetProperties(key.Flags));
     }
 
@@ -23,6 +24,7 @@ internal static class PropertyMetadataCache
         BindingFlags flags = BindingFlags.Public | BindingFlags.Instance)
     {
         ArgumentNullException.ThrowIfNull(type);
+
         return s_propertyMaps.GetOrAdd((type, flags, ignoreCase, writableOnly), static key =>
         {
             var comparer = key.IgnoreCase ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
@@ -31,7 +33,9 @@ internal static class PropertyMetadataCache
             foreach (PropertyInfo property in GetProperties(key.Type, key.Flags))
             {
                 if (key.WritableOnly && (!property.CanWrite || property.SetMethod?.IsPublic != true))
+                {
                     continue;
+                }
 
                 map[property.Name] = property;
             }

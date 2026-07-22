@@ -8,6 +8,9 @@ namespace Linger.Extensions.Core;
 /// <summary>
 /// Extension methods for the Type class with performance optimizations
 /// </summary>
+#if NET5_0_OR_GREATER
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to inspect type members and attributes. This API is not compatible with trimming.")]
+#endif
 public static class TypeExtensions
 {
     /// <summary>

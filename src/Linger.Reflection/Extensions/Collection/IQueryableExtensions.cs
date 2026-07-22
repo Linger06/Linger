@@ -3,6 +3,9 @@ namespace Linger.Extensions.Collection;
 /// <summary>
 /// Provides extension methods for IQueryable for dynamic sorting.
 /// </summary>
+#if NET5_0_OR_GREATER
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to resolve sorting property paths. This API is not compatible with trimming.")]
+#endif
 public static class IQueryableExtensions
 {
     /// <summary>

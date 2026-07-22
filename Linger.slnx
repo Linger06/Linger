@@ -40,6 +40,7 @@
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />
     <Project Path="src/Linger.Results.AspNetCore/Linger.Results.AspNetCore.csproj" />
     <Project Path="src/Linger.Results/Linger.Results.csproj" />
+    <Project Path="src/Linger.Reflection/Linger.Reflection.csproj" />
     <Project Path="src/Linger.SharedKernel/Linger.SharedKernel.csproj" />
     <Project Path="src/Linger/Linger.csproj" />
   </Folder>
@@ -53,6 +54,7 @@
     <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" />
     <Project Path="tests/Linger.HttpClient.UnitTests/Linger.HttpClient.UnitTests.csproj" />
     <Project Path="tests/Linger.Results.UnitTests/Linger.Results.UnitTests.csproj" />
+    <Project Path="tests/Linger.Reflection.UnitTests/Linger.Reflection.UnitTests.csproj" />
     <Project Path="tests/Linger.UnitTests/Linger.UnitTests.csproj" />
   </Folder>
 </Solution>

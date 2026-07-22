@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using Linger.Helper;
 
@@ -6,21 +5,6 @@ namespace Linger.Extensions.Core;
 
 public static class ObjectExtensions
 {
-    public static PropertyInfo? GetPropertyInfo(this object obj, string propertyName)
-    {
-        ArgumentNullException.ThrowIfNull(obj);
-        ArgumentNullException.ThrowIfNull(propertyName);
-
-        var type = obj.GetType();
-        var map = PropertyMetadataCache.GetPropertyMap(type);
-        return map.TryGetValue(propertyName, out var pi) ? pi : null;
-    }
-
-    public static object? GetPropertyValue(this object obj, string propertyName)
-    {
-        var pi = obj.GetPropertyInfo(propertyName);
-        return pi?.GetValue(obj, null);
-    }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsNull([NotNullWhen(false)] this object? value) => value is null;
@@ -77,45 +61,6 @@ public static class ObjectExtensions
     public static bool NotIn<T>(this T obj, params T[] values)
     {
         return !obj.In(values);
-    }
-
-    /// <summary>
-    /// Executes an action for each readable, non-indexed public property of the specified object.
-    /// </summary>
-    /// <param name="value">The object whose properties are enumerated.</param>
-    /// <param name="action">The action to execute with each property name and value.</param>
-    /// <remarks>Exceptions thrown by a property getter or <paramref name="action"/> propagate to the caller.</remarks>
-    public static void ForEachProperty(this object? value, Action<string, object?> action)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        if (value is null)
-        {
-            return;
-        }
-
-        foreach (var property in PropertyMetadataCache.GetProperties(value.GetType()))
-        {
-            if (property.GetMethod?.IsPublic != true || property.GetIndexParameters().Length != 0)
-            {
-                continue;
-            }
-
-            action(property.Name, property.GetValue(value));
-        }
-    }
-
-    /// <summary>
-    /// Executes an action for each readable, non-indexed public property of the specified object.
-    /// </summary>
-    /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="value">The object whose properties are enumerated.</param>
-    /// <param name="action">The action to execute with each property name and value.</param>
-    /// <remarks>Use <see cref="ForEachProperty"/> instead.</remarks>
-    [Obsolete]
-    public static void ForIn<T>(this T? value, Action<string, object?> action)
-        where T : class
-    {
-        value.ForEachProperty(action);
     }
 
     public static string? ToNormalizedString(this object? input, bool trim = false, bool treatEmptyAsNull = false)

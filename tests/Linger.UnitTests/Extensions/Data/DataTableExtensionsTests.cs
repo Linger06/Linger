@@ -39,23 +39,6 @@ public partial class DataTableExtensionsTests
     }
 
     [Fact]
-    public async Task ToListAsync_ReturnsListOfObjects()
-    {
-        DataTable? table = CreateTestDataTable();
-
-        List<TestClass2>? result = await table.ToListAsync<TestClass2>();
-
-        Assert.NotNull(result);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(1, result[0].Int);
-        Assert.Null(result[0].NullableInt);
-        Assert.Equal("John", result[0].Name);
-        Assert.Equal(2, result[1].Int);
-        Assert.Equal(2, result[1].NullableInt);
-        Assert.Equal("Jane", result[1].Name);
-    }
-
-    [Fact]
     public async Task ToListAsync_WithMapper_ReturnsListOfObjects()
     {
         DataTable? table = CreateTestDataTable();
@@ -111,18 +94,6 @@ public partial class DataTableExtensionsTests
         });
 
         Assert.Null(result);
-    }
-
-    [Fact]
-    public void ToList_WithInvalidDateTimeValue_ThrowsInvalidCastException()
-    {
-        var table = new DataTable();
-        table.Columns.Add("DateTime", typeof(string));
-        table.Rows.Add("not a date");
-
-        var exception = Assert.Throws<InvalidCastException>(() => table.ToList<TestClass2>());
-
-        Assert.Contains("DateTime", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -42,6 +42,9 @@ public class BaseSearch : IBaseSearch
     /// </summary>
     /// <typeparam name="TEntity">实体类型</typeparam>
     /// <returns>用于筛选实体的表达式树</returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to inspect search model and entity properties. This API is not compatible with trimming.")]
+#endif
     public Expression<Func<TEntity, bool>> GetSearchModelExpression<TEntity>()
     {
         PropertyInfo[] properties = typeof(TEntity).GetProperties();
@@ -93,6 +96,9 @@ public class BaseSearch : IBaseSearch
     /// </summary>
     /// <typeparam name="T">实体类型</typeparam>
     /// <returns>用于对查询结果排序的函数，如果没有排序条件则返回 null</returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to construct dynamic sorting expressions. This API is not compatible with trimming.")]
+#endif
     public Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>()
     {
         return ExpressionHelper.GetOrderBy<T>(SortList);
@@ -104,6 +110,9 @@ public class BaseSearch : IBaseSearch
     /// </summary>
     /// <typeparam name="TEntity">实体类型</typeparam>
     /// <returns>用于文本搜索的表达式树</returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to inspect entity properties. This API is not compatible with trimming.")]
+#endif
     public Expression<Func<TEntity, bool>> GetSearchTextExpression<TEntity>()
     {
         PropertyInfo[] properties = typeof(TEntity).GetProperties();
@@ -161,6 +170,9 @@ public class BaseSearch : IBaseSearch
     /// </summary>
     /// <typeparam name="TEntity">实体类型</typeparam>
     /// <returns>组合后的搜索表达式树</returns>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to construct search expressions. This API is not compatible with trimming.")]
+#endif
     public Expression<Func<TEntity, bool>> GetSearchExpression<TEntity>()
     {
         Expression<Func<TEntity, bool>> pre = GetSearchTextExpression<TEntity>();

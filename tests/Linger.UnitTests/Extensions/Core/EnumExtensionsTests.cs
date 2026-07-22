@@ -1,8 +1,6 @@
-using System.ComponentModel;
-
+﻿
 #if NET5_0_OR_GREATER
 
-using System.ComponentModel.DataAnnotations;
 using Linger;
 using Linger.UnitTests;
 using Linger.UnitTests.Extensions.Core;
@@ -15,10 +13,6 @@ public class EnumExtensionsTests
 {
     private enum TestEnum
     {
-        [Description("Description for ValueOne")]
-#if NET5_0_OR_GREATER
-        [Display(Name = "Display for ValueOne")]
-#endif
         ValueOne = 1,
 
         ValueTwo = 2
@@ -64,17 +58,6 @@ public class EnumExtensionsTests
 
         //Assert
         Assert.Equal(statusCode.ToString(), actual.GetEnumName<StatusCode>());
-    }
-
-    [Fact]
-    [Trait("GetDescription", "Enum")]
-    public void GetDescription_Enum_ReturnCorrespondEnumDescription()
-    {
-        //Arrange
-        StatusCode statusCode = StatusCode.Deleted;
-
-        //Assert
-        Assert.Equal("Deleted", statusCode.GetDescription());
     }
 
     [Fact]
@@ -163,39 +146,4 @@ public class EnumExtensionsTests
         Assert.Null(result);
     }
 
-    [Fact]
-    public void GetDescription_ReturnsCorrectDescription()
-    {
-        TestEnum item = TestEnum.ValueOne;
-        var result = item.GetDescription();
-        Assert.Equal("Description for ValueOne", result);
-    }
-
-    [Fact]
-    public void GetDescription_ReturnsEnumNameIfNoDescription()
-    {
-        TestEnum item = TestEnum.ValueTwo;
-        var result = item.GetDescription();
-        Assert.Equal("ValueTwo", result);
-    }
-
-#if NET5_0_OR_GREATER
-
-    [Fact]
-    public void GetDisplay_ReturnsCorrectDisplay()
-    {
-        TestEnum item = TestEnum.ValueOne;
-        var result = item.GetDisplay();
-        Assert.Equal("Display for ValueOne", result);
-    }
-
-    [Fact]
-    public void GetDisplay_ReturnsEnumNameIfNoDisplay()
-    {
-        TestEnum item = TestEnum.ValueTwo;
-        var result = item.GetDisplay();
-        Assert.Equal("ValueTwo", result);
-    }
-
-#endif
 }

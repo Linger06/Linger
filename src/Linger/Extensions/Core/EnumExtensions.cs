@@ -1,10 +1,4 @@
-using System.Collections.Concurrent;
-using System.ComponentModel;
-#if NET5_0_OR_GREATER
-using System.ComponentModel.DataAnnotations;
-#endif
-using System.Reflection;
-
+﻿
 namespace Linger.Extensions.Core;
 
 /// <summary>
@@ -12,67 +6,6 @@ namespace Linger.Extensions.Core;
 /// </summary>
 public static class EnumExtensions
 {
-    // Performance optimization: Cache enum descriptions to avoid repeated reflection calls
-    private static readonly ConcurrentDictionary<Enum, string> s_descriptionCache = new();
-
-#if NET5_0_OR_GREATER
-    // Cache for Display attributes (NET5+ only)
-    private static readonly ConcurrentDictionary<Enum, string> s_displayCache = new();
-#endif
-
-    /// <summary>
-    /// Gets the description attribute of the enum value with caching for performance.
-    /// If no description attribute is found, returns the enum name.
-    /// </summary>
-    /// <param name="item">The enum value.</param>
-    /// <returns>The description of the enum value, or the enum name if no description is found.</returns>
-    /// <example>
-    /// <code>
-    /// enum Status 
-    /// { 
-    ///     [Description("Currently Active")]
-    ///     Active,
-    ///     Inactive 
-    /// }
-    /// string desc = Status.Active.GetDescription(); // Returns "Currently Active"
-    /// </code>
-    /// </example>
-    public static string GetDescription(this Enum item)
-    {
-        if (item == null)
-            return string.Empty;
-
-        // Use cached reflection path
-        return s_descriptionCache.GetOrAdd(item, GetDescriptionInternal);
-    }
-
-#if NET5_0_OR_GREATER
-    /// <summary>
-    /// Gets the <see cref="DisplayAttribute"/> of the enum value with caching for performance.
-    /// </summary>
-    /// <param name="item">The enum value.</param>
-    /// <returns>The display name of the enum value, or the enum name if no display attribute is found.</returns>
-    /// <example>
-    /// <code>
-    /// enum Priority 
-    /// { 
-    ///     [Display(Name = "High Priority")]
-    ///     High,
-    ///     Normal 
-    /// }
-    /// string display = Priority.High.GetDisplay(); // Returns "High Priority"
-    /// </code>
-    /// </example>
-    public static string GetDisplay(this Enum item)
-    {
-        if (item == null)
-            return string.Empty;
-
-        // Use cached reflection path
-        return s_displayCache.GetOrAdd(item, GetDisplayInternal);
-    }
-#endif
-
     /// <summary>
     /// Gets the enum value based on the name (extension method version).
     /// </summary>
@@ -166,29 +99,4 @@ public static class EnumExtensions
         return true;
     }
 
-    /// <summary>
-    /// Internal method to get description using reflection.
-    /// </summary>
-    /// <param name="enumValue">The enum value.</param>
-    /// <returns>The description or enum name.</returns>
-    private static string GetDescriptionInternal(Enum enumValue)
-    {
-        var fieldInfo = enumValue.GetType().GetField(enumValue.ToString());
-        var descriptionAttribute = fieldInfo?.GetCustomAttribute<DescriptionAttribute>();
-        return descriptionAttribute?.Description ?? enumValue.ToString();
-    }
-
-#if NET5_0_OR_GREATER
-    /// <summary>
-    /// Internal method to get display name using reflection.
-    /// </summary>
-    /// <param name="enumValue">The enum value.</param>
-    /// <returns>The display name or enum name.</returns>
-    private static string GetDisplayInternal(Enum enumValue)
-    {
-        var fieldInfo = enumValue.GetType().GetField(enumValue.ToString());
-        var displayAttribute = fieldInfo?.GetCustomAttribute<DisplayAttribute>();
-        return displayAttribute?.Name ?? enumValue.ToString();
-    }
-#endif
 }

@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-
+﻿
 namespace Linger.UnitTests.Extensions.Collection;
 
 public class IEnumerableExtensionsTests
@@ -25,19 +24,6 @@ public class IEnumerableExtensionsTests
 
         Assert.Equal(new List<int> { 0, 2, 6 }, result);
     }
-
-#if !NETFRAMEWORK || NET462_OR_GREATER
-
-    [Fact]
-    public void HasAttribute_ShouldReturnTrueIfAttributeExists()
-    {
-        Type? type = typeof(SampleClass);
-        IList<CustomAttributeData>? attributes = type.GetCustomAttributesData();
-
-        Assert.True(attributes.HasAttribute(typeof(SampleAttribute)));
-    }
-
-#endif
 
 #if !NET6_0_OR_GREATER
     [Fact]
@@ -240,41 +226,6 @@ public class IEnumerableExtensionsTests
 
         Assert.Equal(4, result.Count);
         Assert.Equal(4, result.Last());
-    }
-
-    [Fact]
-    public void ToDataTable_ShouldConvertListToDataTable()
-    {
-        var list = new List<SampleClass>
-        {
-            new SampleClass { Id = 1, Name = "A" },
-            new SampleClass { Id = 2, Name = "B" }
-        };
-
-        var dataTable = list.ToDataTable();
-
-        Assert.Equal(2, dataTable.Rows.Count);
-        Assert.Equal(1, dataTable.Rows[0]["Id"]);
-        Assert.Equal("A", dataTable.Rows[0]["Name"]);
-    }
-
-    [Fact]
-    public void ToDataTable_WithActions_ShouldConvertListToDataTable()
-    {
-        var list = new List<SampleClass>
-        {
-            new SampleClass { Id = 1, Name = "A" },
-            new SampleClass { Id = 2, Name = "B" }
-        };
-
-        var dataTable = list.ToDataTable(
-            (column, columnInfo) => column.ColumnName = columnInfo.PropertyName.ToUpper(),
-            (row, columnInfo, item) => row[columnInfo.PropertyName.ToUpper()] = columnInfo.Property.GetValue(item)
-        );
-
-        Assert.Equal(2, dataTable.Rows.Count);
-        Assert.Equal(1, dataTable.Rows[0]["ID"]);
-        Assert.Equal("A", dataTable.Rows[0]["NAME"]);
     }
 
     [Fact]

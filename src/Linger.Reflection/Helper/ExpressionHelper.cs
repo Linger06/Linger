@@ -16,6 +16,9 @@ namespace Linger.Helper;
 /// </code>
 /// </example>
 /// </summary>
+#if NET5_0_OR_GREATER
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to construct expressions from member names. This API is not compatible with trimming.")]
+#endif
 public static class ExpressionHelper
 {
     /// <summary>
@@ -119,6 +122,9 @@ public static class ExpressionHelper
     /// // Returns: Ordered list by MyProperty in ascending order
     /// </code>
     /// </example>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Compiles a runtime expression to perform dynamic ordering. This API is not compatible with Native AOT.")]
+#endif
     public static IEnumerable<T> OrderBy<T>(this IEnumerable<T> query, string name)
     {
         var sort = "OrderBy";
@@ -159,6 +165,9 @@ public static class ExpressionHelper
     /// // Returns: Ordered list by MyProperty in descending order
     /// </code>
     /// </example>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresDynamicCode("Compiles a runtime expression to perform dynamic ordering. This API is not compatible with Native AOT.")]
+#endif
     public static IEnumerable<T> OrderBy<T>(this IEnumerable<T> query, string propertyName, string sort)
     {
         ArgumentNullException.ThrowIfNull(query);

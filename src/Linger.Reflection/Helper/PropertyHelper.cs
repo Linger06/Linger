@@ -8,6 +8,9 @@ namespace Linger.Helper;
 /// <summary>
 /// Helper class for property operations with performance optimizations.
 /// </summary>
+#if NET5_0_OR_GREATER
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to inspect and set properties. This API is not compatible with trimming.")]
+#endif
 public static class PropertyHelper
 {
     private static readonly ConcurrentDictionary<string, PropertyInfo?> s_cachedObjectProperties = new();

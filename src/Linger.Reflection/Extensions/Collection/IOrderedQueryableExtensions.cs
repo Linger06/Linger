@@ -3,6 +3,9 @@
 /// <summary>
 /// Provides extension methods for adding secondary sorting criteria to IOrderedQueryable.
 /// </summary>
+#if NET5_0_OR_GREATER
+[System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to resolve sorting property paths. This API is not compatible with trimming.")]
+#endif
 public static class IOrderedQueryableExtensions
 {
 #if NET5_0_OR_GREATER

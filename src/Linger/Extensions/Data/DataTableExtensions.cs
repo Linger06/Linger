@@ -1,7 +1,5 @@
 using System.Collections;
-using System.Reflection;
 using Linger.Extensions.Core;
-using Linger.Helper;
 using Linger.Json.JsonConverter;
 
 namespace Linger.Extensions.Data;
@@ -12,28 +10,6 @@ namespace Linger.Extensions.Data;
 public static class DataTableExtensions
 {
 #if NET451_OR_GREATER || NETSTANDARD || NET5_0_OR_GREATER
-    /// <summary>
-    /// Converts the current <see cref="DataTable"/> synchronously and returns the result in a completed task.
-    /// </summary>
-    /// <typeparam name="T">The type of elements to convert to.</typeparam>
-    /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
-    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
-    /// <example>
-    /// <code>
-    /// DataTable table = GetDataTable();
-    /// List&lt;MyClass&gt;? list = table.ToList&lt;MyClass&gt;();
-    /// </code>
-    /// </example>
-#if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
-#endif
-    [Obsolete("This method performs synchronous in-memory work. Use a synchronous ToList<T>() overload instead.")]
-    public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
-    {
-        return Task.FromResult(dt.ToList<T>());
-        //return await Task.Run(dt.ToList<T>).ConfigureAwait(false);
-    }
-
     /// <summary>
     /// Converts the current <see cref="DataTable"/> synchronously using a caller-provided mapper and returns the result in a completed task.
     /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
@@ -921,153 +897,9 @@ public static class DataTableExtensions
         return result;
     }
 
-    /// <summary>
-    /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with advanced performance optimizations.
-    /// Uses caching to minimize reflection overhead and supports parallel processing for large datasets.
-    /// </summary>
-    /// <typeparam name="T">The type of elements to convert to.</typeparam>
-    /// <param name="dataTable">The current <see cref="DataTable"/>.</param>
-    /// <param name="parallelProcessingThreshold">The minimum number of rows to enable parallel processing (default: 1000).</param>
-    /// <returns>A <see cref="List{T}"/> representing the rows.</returns>
-    /// <example>
-    /// <code>
-    /// DataTable table = GetDataTable();
-    /// List&lt;MyClass&gt; list = table.ToList&lt;MyClass&gt;(500); // Enable parallel processing for 500+ rows
-    /// </code>
-    /// </example>
-#if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
-#endif
-    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ToList<T>(DataTable?, Func<DataRow, T>) or ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
-    public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000) where T : class, new()
-    {
-        if (dataTable?.Rows.Count == 0)
-        {
-            return [];
-        }
-
-        if (dataTable is null)
-        {
-            return null;
-        }
-
-        var result = new List<T>(dataTable.Rows.Count);
-
-        // Get cached property mapping for the type
-        var propertyMap = GetCachedPropertyMapping<T>();
-
-        // Build column to property mappings
-        var columnMappings = new Dictionary<int, PropertyInfo>();
-        for (var i = 0; i < dataTable.Columns.Count; i++)
-        {
-            if (propertyMap.TryGetValue(dataTable.Columns[i].ColumnName, out var property))
-            {
-                columnMappings[i] = property;
-            }
-        }
-
-        if (columnMappings.Count == 0)
-        {
-            //Logger?.LogWarning("未找到任何列名与类型 {Type} 的属性匹配", typeof(T).Name);
-            return result;
-        }
-
-        // 判断是否使用并行处理
-        var useParallel = dataTable.Rows.Count > parallelProcessingThreshold;
-
-        static T MapRow(DataRow row, IReadOnlyDictionary<int, PropertyInfo> mappings)
-        {
-            var item = new T();
-            foreach (var mapping in mappings)
-            {
-                var value = row[mapping.Key];
-                if (value is not DBNull)
-                {
-                    SetProperty(item, mapping.Value, value);
-                }
-            }
-
-            return item;
-        }
-
-        if (useParallel)
-        {
-            //Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dataTable.Rows.Count);
-
-            var items = new T[dataTable.Rows.Count];
-
-            Parallel.For(0, dataTable.Rows.Count, i =>
-            {
-                items[i] = MapRow(dataTable.Rows[i], columnMappings);
-            });
-
-            result.AddRange(items);
-        }
-        else
-        {
-            foreach (DataRow row in dataTable.Rows)
-            {
-                result.Add(MapRow(row, columnMappings));
-            }
-        }
-
-        return result;
-    }
-
-    /// <summary>
-    /// Gets cached property mapping for the specified type to minimize reflection overhead.
-    /// Only includes properties that have public setters.
-    /// </summary>
-    /// <typeparam name="T">The type to get property mapping for.</typeparam>
-    /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
-    private static IReadOnlyDictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
-    {
-        return PropertyMetadataCache.GetPropertyMap(typeof(T), ignoreCase: true, writableOnly: true);
-    }
-
     private static bool IsNullableOrReferenceType(Type type)
     {
         return !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
     }
 
-    /// <summary>
-    /// 动态为属性赋值。类型不兼容、格式不匹配、只读属性或向不可空值类型赋 null 时，直接抛出异常。
-    /// </summary>
-    /// <exception cref="ArgumentNullException">当 property 为 null 时抛出</exception>
-    /// <exception cref="InvalidOperationException">当属性不可写时抛出</exception>
-    /// <exception cref="InvalidCastException">当类型转换或赋值失败时抛出</exception>
-    private static void SetProperty<T>(this T obj, PropertyInfo property, object? value) where T : class
-    {
-        ArgumentNullException.ThrowIfNull(property);
-
-        if (!property.CanWrite)
-        {
-            throw new InvalidOperationException($"属性 {property.Name} 是只读的，无法赋值。");
-        }
-
-        if (value is null || value is DBNull)
-        {
-            if (property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) is null)
-            {
-                throw new InvalidCastException($"无法将 null 赋值给不可空的值类型属性: '{property.DeclaringType?.Name}.{property.Name}'。");
-            }
-
-            property.SetValue(obj, null);
-            return;
-        }
-
-        if (!Helper.TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue))
-        {
-            throw new InvalidCastException(
-                $"[核心转换失败] 无法将输入值 '{value}' (类型: {value.GetType().Name}) 转换为属性 '{property.Name}' 所需的目标类型 {property.PropertyType.Name}。 " +
-                $"当前系统的运行时 Culture 是: '{CultureInfo.CurrentCulture.Name}'。");
-        }
-
-        if (convertedValue is null && property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) is null)
-        {
-            throw new InvalidCastException($"转换器发生异常：无法将转换后的 null 赋值给不可空值类型 '{property.Name}'。");
-        }
-
-        property.SetValue(obj, convertedValue);
-    }
 }
