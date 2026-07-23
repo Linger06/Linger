@@ -39,16 +39,14 @@ public class JsonStringConverter : JsonConverter<string>
                 return reader.GetString();
             case JsonTokenType.Number:
                 {
-                    var stringValue = reader.GetDouble();
-                    return stringValue.ToString(CultureInfo.InvariantCulture);
+                    using var document = JsonDocument.ParseValue(ref reader);
+                    return document.RootElement.GetRawText();
                 }
             case JsonTokenType.False or JsonTokenType.True:
                 return reader.GetBoolean().ToString();
             case JsonTokenType.StartObject:
-                reader.Skip();
-                return "(not supported)";
+                throw new JsonException($"Unsupported token type: {reader.TokenType}");
             default:
-                Console.WriteLine($"Unsupported token type: {reader.TokenType}");
                 throw new JsonException($"Unsupported token type: {reader.TokenType}");
         }
     }

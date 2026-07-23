@@ -51,12 +51,13 @@ public class Email : IEmail, IDisposable
 
     private async Task ConnectToServerAsync(CancellationToken cancellationToken)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(_emailConfig.Host);
         var secureOptions = DetermineSecureOptions();
         await _smtpClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, secureOptions, cancellationToken).ConfigureAwait(false);
 
         if (_emailConfig.UserName.IsNotNullOrEmpty())
         {
-            await _smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password, cancellationToken).ConfigureAwait(false);
+            await _smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password ?? string.Empty, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -155,11 +156,13 @@ public class Email : IEmail, IDisposable
 
     private static MimePart CreateMimePart(AttachmentInfo att)
     {
-        var attachment = string.IsNullOrWhiteSpace(att.ContentType)
+        string? contentType = att.ContentType;
+        var attachment = string.IsNullOrWhiteSpace(contentType)
             ? new MimePart()
-            : new MimePart(att.ContentType);
+            : new MimePart(contentType!);
 
-        attachment.Content = new MimeContent(att.Stream);
+        Stream stream = att.Stream ?? throw new ArgumentException("The attachment must provide a stream or data.", nameof(att));
+        attachment.Content = new MimeContent(stream);
         attachment.ContentDisposition = new ContentDisposition(ContentDisposition.Attachment);
         attachment.ContentTransferEncoding = ContentEncoding.Base64;
         attachment.FileName = ConvertHeaderToBase64(att.FileName, Encoding.UTF8);

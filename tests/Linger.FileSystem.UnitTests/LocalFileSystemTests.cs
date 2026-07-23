@@ -54,6 +54,16 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
+        public async Task DeleteAsync_WhenCanceled_ThrowsOperationCanceledException()
+        {
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                _fileSystem.DeleteAsync("test.txt", cancellation.Token));
+        }
+
+        [Fact]
         public async Task UploadAsync_WithValidStream_UploadsFile()
         {
             // Arrange

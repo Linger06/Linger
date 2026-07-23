@@ -14,8 +14,15 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     : ExcelBase<ExcelPackage, ExcelWorksheet>(options, logger)
 {
     // 添加基类要求的方法实现
-    protected override ExcelPackage OpenWorkbook(Stream stream)
+    protected override ExcelPackage OpenWorkbook(Stream stream, CancellationToken cancellationToken)
     {
+        if (!stream.CanSeek)
+        {
+            var seekableStream = CopyToMemoryStream(stream, cancellationToken);
+            return new ExcelPackage(seekableStream);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         return new ExcelPackage(stream);
     }
 
@@ -25,7 +32,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         var workBook = package.Workbook;
 
         if (workBook.Worksheets.Count == 0)
-            return null!;
+            return null;
 
         if (!string.IsNullOrEmpty(sheetName))
         {
@@ -61,31 +68,6 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return excelWorksheet.Dimension != null;
     }
 
-    protected override Dictionary<int, PropertyInfo> CreatePropertyMappings<T>(ExcelWorksheet worksheet, int headerRowIndex)
-    {
-        var columnMappings = new Dictionary<int, PropertyInfo>();
-        var excelWorksheet = worksheet;
-
-        var properties = typeof(T).GetProperties().Where(p => p.CanWrite)
-            .ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
-
-        if (headerRowIndex >= 0)
-        {
-            int colCount = excelWorksheet.Dimension.End.Column;
-
-            for (int i = 1; i <= colCount; i++)
-            {
-                string? columnName = excelWorksheet.Cells[headerRowIndex + 1, i].Text?.Trim();
-                if (columnName.IsNotNullOrEmpty() && properties.TryGetValue(columnName, out var property))
-                {
-                    columnMappings[i] = property;
-                }
-            }
-        }
-
-        return columnMappings;
-    }
-
     protected override int GetDataStartRow(ExcelWorksheet worksheet, int headerRowIndex)
     {
         return headerRowIndex + 2; // EPPlus从1开始计数，加2表示从表头下一行开始
@@ -99,17 +81,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
 
     protected override void CloseWorkbook(ExcelPackage workbook)
     {
-        if (workbook is { } package)
-        {
-            try
-            {
-                package.Dispose();
-            }
-            catch (Exception ex)
-            {
-                logger?.LogError(ex, "关闭EPPlus工作簿时出错");
-            }
-        }
+        workbook.Dispose();
     }
 
     protected override int EstimateColumnCount(ExcelWorksheet worksheet)
@@ -177,50 +149,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
         return GetExcelCellValue(cell.Value, isDateFormat);
     }
 
-    /// <summary>
-    /// 检查指定行是否为空行
-    /// </summary>
-    /// <param name="worksheet">工作表</param>
-    /// <param name="rowNum">行索引(1-based)</param>
-    /// <returns>如果该行为空则返回true</returns>
-    /// <remarks>
-    /// EPPlus没有像NPOI那样的FirstCellNum属性，需要遍历该行的单元格。
-    /// 使用ExcelRange获取整行，然后检查是否所有单元格都为空。
-    /// </remarks>
-    protected override bool IsRowEmpty(ExcelWorksheet worksheet, int rowNum)
-    {
-        // 获取工作表的列数范围
-        if (worksheet.Dimension == null)
-            return true;
-
-        var startCol = worksheet.Dimension.Start.Column;
-        var endCol = worksheet.Dimension.End.Column;
-
-        // 检查该行的所有单元格
-        for (int col = startCol; col <= endCol; col++)
-        {
-            var cell = worksheet.Cells[rowNum, col];
-            if (cell?.Value != null)
-            {
-                return false; // 找到非空单元格，该行不为空
-            }
-        }
-
-        return true; // 所有单元格都为空
-    }
-
     #region 私有辅助方法
-
-    ///// <summary>
-    ///// 绘制单元格边框
-    ///// </summary>
-    //private static void DrawBorder(ExcelStyle style, ExcelBorderStyle borderStyle = ExcelBorderStyle.Thin)
-    //{
-    //    style.Border.Top.Style = borderStyle;
-    //    style.Border.Bottom.Style = borderStyle;
-    //    style.Border.Left.Style = borderStyle;
-    //    style.Border.Right.Style = borderStyle;
-    //}
 
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式
@@ -273,18 +202,20 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// </summary>
     private void ApplyTitleRowFormatting(ExcelRange titleRange)
     {
-        try
+        titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold;
+        titleRange.Style.Font.Size = Options.StyleOptions.TitleStyle.FontSize;
+        titleRange.Style.Font.Name = Options.StyleOptions.TitleStyle.FontName;
+        titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.BackgroundColor))
         {
-            titleRange.Style.Font.Bold = Options.StyleOptions.TitleStyle.Bold;
-            titleRange.Style.Font.Size = Options.StyleOptions.TitleStyle.FontSize;
-            titleRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-            titleRange.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-
-            // 可以在这里添加更多标题行的样式设置
+            titleRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            titleRange.Style.Fill.BackgroundColor.SetColor(Color.ParseHex(Options.StyleOptions.TitleStyle.BackgroundColor.TrimStart('#')));
         }
-        catch (Exception ex)
+
+        if (!string.IsNullOrEmpty(Options.StyleOptions.TitleStyle.FontColor))
         {
-            logger?.LogWarning(ex, "设置标题行样式失败，将使用默认样式");
+            titleRange.Style.Font.Color.SetColor(Color.ParseHex(Options.StyleOptions.TitleStyle.FontColor.TrimStart('#')));
         }
     }
 
@@ -293,35 +224,40 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// </summary>
     private void ApplyHeaderRowFormatting(ExcelRange headerCell)
     {
-        try
+        headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold;
+        headerCell.Style.Font.Size = Options.StyleOptions.HeaderStyle.FontSize;
+        headerCell.Style.Font.Name = Options.StyleOptions.HeaderStyle.FontName;
+        headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+        headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.BackgroundColor))
         {
-            headerCell.Style.Font.Bold = Options.StyleOptions.HeaderStyle.Bold;
-            headerCell.Style.Font.Size = Options.StyleOptions.HeaderStyle.FontSize;
-            headerCell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-            headerCell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
             headerCell.Style.Fill.PatternType = ExcelFillStyle.Solid;
-            headerCell.Style.Fill.BackgroundColor.SetColor(Color.LightGray);
+            headerCell.Style.Fill.BackgroundColor.SetColor(Color.ParseHex(Options.StyleOptions.HeaderStyle.BackgroundColor.TrimStart('#')));
+        }
 
-            // 应用边框
-            DrawBorder(headerCell);
-        }
-        catch (Exception ex)
+        if (!string.IsNullOrEmpty(Options.StyleOptions.HeaderStyle.FontColor))
         {
-            logger?.LogWarning(ex, "设置表头行样式失败，将使用默认样式");
+            headerCell.Style.Font.Color.SetColor(Color.ParseHex(Options.StyleOptions.HeaderStyle.FontColor.TrimStart('#')));
         }
+
+        // 应用边框
+        DrawBorder(headerCell);
     }
 
-    private static void ApplyBasicFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)
+    private void ApplyBasicFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)
     {
-        // 设置所有单元格自动适应宽度
-        worksheet.Cells.AutoFitColumns();
-
-        // 对标题行进行特殊处理，最小宽度为12
-        for (int i = 1; i <= columnCount; i++)
+        if (Options.AutoFitColumns)
         {
-            var column = worksheet.Column(i);
-            if (column.Width < 12)
-                column.Width = 12;
+            worksheet.Cells.AutoFitColumns();
+
+            for (var columnIndex = 1; columnIndex <= columnCount; columnIndex++)
+            {
+                var column = worksheet.Column(columnIndex);
+                if (column.Width < 12)
+                {
+                    column.Width = 12;
+                }
+            }
         }
 
         // 设置表格边框
@@ -392,38 +328,33 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     protected override void ProcessDataRows(ExcelWorksheet worksheet, DataTable dataTable, int startRowIndex)
     {
         var excelWorksheet = worksheet;
-        bool useParallelProcessing = dataTable.Rows.Count > Options.ParallelProcessingThreshold;
 
-        if (useParallelProcessing)
+        if (ShouldUseBatchWrite(dataTable.Rows.Count))
         {
-            // 并行处理大数据集
-            logger?.LogDebug("使用并行处理导出 {Count} 行数据", dataTable.Rows.Count);
+            Logger.LogDebug("使用分批处理导出 {Count} 行数据", dataTable.Rows.Count);
 
-            // 使用批处理提高性能
-            int batchSize = Options.UseBatchWrite ? Options.BatchSize : dataTable.Rows.Count;
-
-            // 预计算所有值
-            var cellValues = new object?[dataTable.Rows.Count, dataTable.Columns.Count];
-
-            Parallel.For(0, dataTable.Rows.Count, i =>
+            for (var batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += Options.BatchSize)
             {
-                for (int j = 0; j < dataTable.Columns.Count; j++)
-                {
-                    var value = dataTable.Rows[i][j];
-                    cellValues[i, j] = value != DBNull.Value ? value : null;
-                }
-            });
+                var batchSize = GetBatchSize(dataTable.Rows.Count - batchStart);
+                var cellValues = new object?[batchSize, dataTable.Columns.Count];
 
-            // 批量写入
-            for (int batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += batchSize)
-            {
-                int batchEnd = Math.Min(batchStart + batchSize, dataTable.Rows.Count);
-                for (int i = batchStart; i < batchEnd; i++)
+                Parallel.For(0, batchSize, batchOffset =>
                 {
-                    for (int j = 0; j < dataTable.Columns.Count; j++)
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
                     {
-                        var cell = excelWorksheet.Cells[startRowIndex + i + 2, j + 1];
-                        WriteValueToCell(cell, cellValues[i, j]);
+                        var value = dataTable.Rows[rowIndex][columnIndex];
+                        cellValues[batchOffset, columnIndex] = value is DBNull ? null : value;
+                    }
+                });
+
+                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
+                {
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
+                    {
+                        var cell = excelWorksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
+                        WriteValueToCell(cell, cellValues[batchOffset, columnIndex]);
                     }
                 }
             }
@@ -448,48 +379,33 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// </summary>
     protected override void ProcessCollectionRows<T>(ExcelWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex)
     {
-        // 优先查找带有ExcelColumn特性的属性
-        var columns = GetExcelColumns(properties).ToList();
-        if (columns.Count == 0)
+        var exportProperties = GetExportProperties(properties);
+
+        if (ShouldUseBatchWrite(list.Count))
         {
-            columns = properties.Select((p, i) => (p.Name, ColumnName: p.Name, Index: i)).ToList();
-        }
-        columns = columns.OrderBy(c => c.Index).ToList();
+            Logger.LogDebug("使用分批处理导出 {Count} 条记录", list.Count);
 
-        // 判断是否需要并行处理
-        var useParallelProcessing = list.Count > Options.ParallelProcessingThreshold;
-
-        if (useParallelProcessing)
-        {
-            // 并行处理大数据集
-            Logger?.LogDebug("使用并行处理导出 {Count} 条记录", list.Count);
-
-            // 使用批处理提高性能
-            var batchSize = Options.UseBatchWrite ? Options.BatchSize : list.Count;
-
-            // 预计算所有值
-            var cellValues = new object?[list.Count, columns.Count];
-
-            Parallel.For(0, list.Count, i =>
+            for (var batchStart = 0; batchStart < list.Count; batchStart += Options.BatchSize)
             {
-                for (var j = 0; j < columns.Count; j++)
-                {
-                    // 查找对应的属性
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
-                    cellValues[i, j] = property?.GetValue(list[i]);
-                }
-            });
+                var batchSize = GetBatchSize(list.Count - batchStart);
+                var cellValues = new object?[batchSize, exportProperties.Length];
 
-            // 批量写入
-            for (var batchStart = 0; batchStart < list.Count; batchStart += batchSize)
-            {
-                var batchEnd = Math.Min(batchStart + batchSize, list.Count);
-                for (var i = batchStart; i < batchEnd; i++)
+                Parallel.For(0, batchSize, batchOffset =>
                 {
-                    for (var j = 0; j < columns.Count; j++)
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
                     {
-                        var cell = worksheet.Cells[startRowIndex + i + 2, j + 1];
-                        WriteValueToCell(cell, cellValues[i, j]);
+                        cellValues[batchOffset, columnIndex] = exportProperties[columnIndex].GetValue(list[rowIndex]);
+                    }
+                });
+
+                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
+                {
+                    var rowIndex = batchStart + batchOffset;
+                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
+                    {
+                        var cell = worksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
+                        WriteValueToCell(cell, cellValues[batchOffset, columnIndex]);
                     }
                 }
             }
@@ -499,11 +415,10 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             // 顺序处理小数据集
             for (var i = 0; i < list.Count; i++)
             {
-                for (var j = 0; j < columns.Count; j++)
+                for (var j = 0; j < exportProperties.Length; j++)
                 {
                     var cell = worksheet.Cells[startRowIndex + i + 2, j + 1];
-                    var property = properties.FirstOrDefault(p => p.Name == columns[j].Name);
-                    WriteValueToCell(cell, property?.GetValue(list[i]));
+                    WriteValueToCell(cell, exportProperties[j].GetValue(list[i]));
                 }
             }
         }

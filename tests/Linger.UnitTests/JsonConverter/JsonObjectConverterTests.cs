@@ -46,6 +46,17 @@ public class JsonObjectConverterTests
         Assert.IsType<JsonElement>(result);
     }
 
+    [Fact]
+    public void Read_UtcRoundtripDateTime_ReturnsUtcDateTime()
+    {
+        var json = "\"2019-01-30T12:01:02Z\"";
+
+        var result = JsonSerializer.Deserialize<object>(json, _options);
+
+        var dateTime = Assert.IsType<DateTime>(result);
+        Assert.Equal(new DateTime(2019, 1, 30, 12, 1, 2, DateTimeKind.Utc), dateTime);
+    }
+
     [Theory]
     [InlineData(null, "null")]
     [InlineData(123, "123")]

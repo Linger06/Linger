@@ -51,6 +51,16 @@ public class IEnumerableExtensionsPolyfillsTests
     }
 
     [Fact]
+    public void DistinctBy_CanBeEnumeratedMoreThanOnce()
+    {
+        var source = new[] { "a", "a", "b" };
+        IEnumerable<string> result = source.DistinctBy(item => item);
+
+        Assert.Equal(["a", "b"], result);
+        Assert.Equal(["a", "b"], result);
+    }
+
+    [Fact]
     public void DistinctBy_ThrowsArgumentNullException_WhenSourceIsNull()
     {
         // Arrange
@@ -128,31 +138,6 @@ public class IEnumerableExtensionsPolyfillsTests
     }
 
     [Fact]
-    public void LeftJoin_ReturnsCorrectTuples()
-    {
-        // Act
-        var result = _people.LeftJoin(
-            _orders,
-            p => p.Id,
-            o => o.PersonId
-        ).ToList();
-
-        // Assert
-        Assert.Equal(4, result.Count); // John has 2 orders, Jane has 1, Bob has 0 = 4 total
-        
-        // Check John's results
-        var johnResults = result.Where(r => r.Item1.Name == "John").ToList();
-        Assert.Equal(2, johnResults.Count);
-        Assert.Contains(johnResults, r => r.Item2?.Product == "Laptop");
-        Assert.Contains(johnResults, r => r.Item2?.Product == "Mouse");
-        
-        // Check Bob (no orders)
-        var bobResults = result.Where(r => r.Item1.Name == "Bob").ToList();
-        Assert.Single(bobResults);
-        Assert.Null(bobResults[0].Item2);
-    }
-
-    [Fact]
     public void LeftJoin_ThrowsArgumentNullException_WhenParametersAreNull()
     {
         // Assert
@@ -186,6 +171,18 @@ public class IEnumerableExtensionsPolyfillsTests
         Assert.Equal("Mouse", result[1].Product);
         Assert.Equal("Jane", result[2].Person);
         Assert.Equal("Keyboard", result[2].Product);
+    }
+
+    [Fact]
+    public void RightJoin_WithNullResultSelector_ThrowsArgumentNullException()
+    {
+        Func<Person?, Order, object> resultSelector = null!;
+
+        Assert.Throws<ArgumentNullException>(() => _people.RightJoin(
+            _orders,
+            person => person.Id,
+            order => order.PersonId,
+            resultSelector));
     }
 
     [Fact]
@@ -292,6 +289,21 @@ public class IEnumerableExtensionsPolyfillsTests
         Assert.True(stopwatch.ElapsedMilliseconds < 1000, "RightJoin should complete within reasonable time");
     }
 #endif
+
+    [Fact]
+    public void LeftJoin_ReturnsCorrectTuples()
+    {
+        var result = _people.LeftJoin(
+            _orders,
+            person => person.Id,
+            order => order.PersonId).ToList();
+
+        Assert.Equal(4, result.Count);
+        Assert.Equal(2, result.Count(item => item.Item1.Name == "John"));
+        Assert.Contains(result, item => item.Item1.Name == "John" && item.Item2?.Product == "Laptop");
+        Assert.Contains(result, item => item.Item1.Name == "John" && item.Item2?.Product == "Mouse");
+        Assert.Null(Assert.Single(result.Where(item => item.Item1.Name == "Bob")).Item2);
+    }
 
 #if !NET9_0_OR_GREATER
     [Fact]

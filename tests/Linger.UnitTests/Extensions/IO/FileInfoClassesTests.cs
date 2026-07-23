@@ -14,10 +14,10 @@ public class FileInfoClassesTests
 
         // Assert
         Assert.NotNull(fileInfo);
-        Assert.Null(fileInfo.HashData);
-        Assert.Null(fileInfo.FileName);
-        Assert.Null(fileInfo.FullFilePath);
-        Assert.Null(fileInfo.FileSize);
+        Assert.Equal(string.Empty, fileInfo.HashData);
+        Assert.Equal(string.Empty, fileInfo.FileName);
+        Assert.Equal(string.Empty, fileInfo.FullFilePath);
+        Assert.Equal(string.Empty, fileInfo.FileSize);
         Assert.Equal(0, fileInfo.Length);
     }
 
@@ -113,12 +113,12 @@ public class FileInfoClassesTests
 
         // Assert
         Assert.NotNull(fileInfo);
-        Assert.Null(fileInfo.HashData);
-        Assert.Null(fileInfo.FileName);
-        Assert.Null(fileInfo.FullFilePath);
-        Assert.Null(fileInfo.FileSize);
+        Assert.Equal(string.Empty, fileInfo.HashData);
+        Assert.Equal(string.Empty, fileInfo.FileName);
+        Assert.Equal(string.Empty, fileInfo.FullFilePath);
+        Assert.Equal(string.Empty, fileInfo.FileSize);
         Assert.Equal(0, fileInfo.Length);
-        Assert.Null(fileInfo.RelativeFilePath);
+        Assert.Equal(string.Empty, fileInfo.RelativeFilePath);
     }
 
     [Fact]

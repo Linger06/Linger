@@ -151,19 +151,19 @@ public class RetryHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-        {
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
                 await retryHelper.ExecuteAsync<int>(
-                    async () =>
-                    {
-                        await Task.Delay(1000, cts.Token);
-                        return 42;
-                    },
-                    "TestOperation",
-                    null,
-                    null,
-                    cts.Token);
-        });
+                async () =>
+                {
+                            await Task.Delay(1000, cts.Token);
+                            return 42;
+                        },
+                "TestOperation",
+                null,
+                null,
+                cts.Token);
+            });
     }
 
     [Fact]
@@ -176,15 +176,34 @@ public class RetryHelperTests
         cts.Cancel(); // 立即取消
 
         // Act & Assert
-    await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-        {
-            await retryHelper.ExecuteAsync(
-                async () => { await Task.Delay(1000, cts.Token); },
-                "TestOperation",
-                null,
-                null,
-                cts.Token);
-        });
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            {
+                await retryHelper.ExecuteAsync(
+                    async () => { await Task.Delay(1000, cts.Token); },
+                    "TestOperation",
+                    null,
+                    null,
+                    cts.Token);
+            });
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithTokenAwareOperation_CancelsRunningAttempt()
+    {
+        var options = new RetryOptions { MaxRetryAttempts = 3, DelayMilliseconds = 10 };
+        var retryHelper = new RetryHelper(options);
+        using var cts = new CancellationTokenSource();
+
+        Task<int> operation = retryHelper.ExecuteAsync(
+            async cancellationToken =>
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                return 42;
+            },
+            cancellationToken: cts.Token);
+        cts.CancelAfter(50);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
     }
 
     [Fact]
@@ -246,7 +265,7 @@ public class RetryHelperTests
         // Act & Assert
         await Assert.ThrowsAsync<System.ArgumentNullException>(async () =>
         {
-            await retryHelper.ExecuteAsync<int>(null!, "TestOperation");
+            await retryHelper.ExecuteAsync<int>((Func<Task<int>>)null!, "TestOperation");
         });
     }
 
@@ -259,7 +278,7 @@ public class RetryHelperTests
         // Act & Assert
         await Assert.ThrowsAsync<System.ArgumentNullException>(async () =>
         {
-            await retryHelper.ExecuteAsync(null!, "TestOperation");
+            await retryHelper.ExecuteAsync((Func<Task>)null!, "TestOperation");
         });
     }
 

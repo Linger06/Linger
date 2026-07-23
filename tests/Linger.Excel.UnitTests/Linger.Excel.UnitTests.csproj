@@ -1,13 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.8" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Linger.Excel\Linger.Excel.csproj" />
     <ProjectReference Include="..\..\src\Linger.Excel.Contracts\Linger.Excel.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Linger.Excel.ClosedXML\Linger.Excel.ClosedXML.csproj" />
     <ProjectReference Include="..\..\src\Linger.Excel.Npoi\Linger.Excel.Npoi.csproj" />
@@ -16,7 +15,7 @@
 
   <ItemGroup>
     <PackageReference Update="coverlet.collector" Version="10.0.1" />
-    <PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.8.1" />
     <PackageReference Update="xunit.v3" Version="3.2.2" />
   </ItemGroup>
 

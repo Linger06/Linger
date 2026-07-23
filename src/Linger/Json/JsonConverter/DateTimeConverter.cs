@@ -1,6 +1,7 @@
 #if !NETFRAMEWORK || NET462_OR_GREATER
 
 using System.Text.Json.Serialization;
+using Linger.Helper;
 
 namespace Linger.Json.JsonConverter;
 
@@ -32,7 +33,7 @@ public class DateTimeConverter : JsonConverter<DateTime>
     {
         if (reader.TokenType == JsonTokenType.String)
         {
-            if (DateTime.TryParse(reader.GetString(), CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            if (DateTimeConversionHelper.TryConvertStringToDateTime(reader.GetString(), out DateTime date))
             {
                 return date;
             }
@@ -49,14 +50,7 @@ public class DateTimeConverter : JsonConverter<DateTime>
     /// <param name="options">The serializer options.</param>
     public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
     {
-        if (value.Hour == 0 && value is { Minute: 0, Second: 0 })
-        {
-            writer.WriteStringValue(value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-        }
-        else
-        {
-            writer.WriteStringValue(value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
-        }
+        DateTimeJsonFormatting.Write(writer, value);
     }
 }
 
@@ -95,7 +89,7 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
                 return null;
             }
 
-            if (DateTime.TryParse(dateTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime date))
+            if (DateTimeConversionHelper.TryConvertStringToDateTime(dateTime, out DateTime date))
             {
                 return date;
             }
@@ -118,13 +112,25 @@ public class DateTimeNullConverter : JsonConverter<DateTime?>
             return;
         }
 
-        if (value.Value is { Hour: 0, Minute: 0, Second: 0 })
+        DateTimeJsonFormatting.Write(writer, value.Value);
+    }
+}
+
+internal static class DateTimeJsonFormatting
+{
+    public static void Write(Utf8JsonWriter writer, DateTime value)
+    {
+        if (value.Kind != DateTimeKind.Unspecified || value.Ticks % TimeSpan.TicksPerSecond != 0)
         {
-            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+            writer.WriteStringValue(value.ToString("O", CultureInfo.InvariantCulture));
+        }
+        else if (value.TimeOfDay == TimeSpan.Zero)
+        {
+            writer.WriteStringValue(value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         }
         else
         {
-            writer.WriteStringValue(value.Value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+            writer.WriteStringValue(value.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
         }
     }
 }

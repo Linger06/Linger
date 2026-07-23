@@ -1,7 +1,8 @@
+using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Collections.Concurrent;
 using Linger.Enums;
+using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
 
 namespace Linger.Helper;
@@ -198,9 +199,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateEqual<T>(string propertyName, object propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.Equals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.Equals, propertyValue);
     }
 
     /// <summary>
@@ -262,9 +261,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateNotEqual<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.NotEquals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.NotEquals, propertyValue);
     }
 
     /// <summary>
@@ -282,9 +279,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateGreaterThan<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.GreaterThan, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.GreaterThan, propertyValue);
     }
 
     /// <summary>
@@ -302,9 +297,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateLessThan<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.LessThan, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.LessThan, propertyValue);
     }
 
     /// <summary>
@@ -322,9 +315,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateGreaterThanOrEqual<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.GreaterThanOrEquals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.GreaterThanOrEquals, propertyValue);
     }
 
     /// <summary>
@@ -342,9 +333,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> CreateLessThanOrEqual<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.LessThanOrEquals, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.LessThanOrEquals, propertyValue);
     }
 
     /// <summary>
@@ -362,9 +351,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetContains<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.Contains, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.Contains, propertyValue);
     }
 
     /// <summary>
@@ -382,9 +369,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetNotContains<T>(string propertyName, string propertyValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.NotContains, Value = propertyValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.NotContains, propertyValue);
     }
 
     /// <summary>
@@ -403,9 +388,7 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetIn<T, TKey>(string propertyName, TKey[] arrayValue)
     {
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.StdIn, Value = arrayValue });
-        return Expression.Lambda<Func<T, bool>>(expression, parameter);
+        return CreateConditionLambda<T>(propertyName, CompareOperator.StdIn, arrayValue);
     }
 
     /// <summary>
@@ -424,8 +407,22 @@ public static class ExpressionHelper
     /// </example>
     public static Expression<Func<T, bool>> GetNotIn<T, TKey>(string propertyName, TKey[] arrayValue)
     {
+        return CreateConditionLambda<T>(propertyName, CompareOperator.StdNotIn, arrayValue);
+    }
+
+    private static Expression<Func<T, bool>> CreateConditionLambda<T>(
+        string propertyName,
+        CompareOperator compareOperator,
+        object? propertyValue)
+    {
         ParameterExpression parameter = Expression.Parameter(typeof(T), "p");
-        Expression expression = GetExpression(parameter, new Condition { Field = propertyName, Op = CompareOperator.StdNotIn, Value = arrayValue });
+        Expression expression = GetExpression(parameter, new Condition
+        {
+            Field = propertyName,
+            Op = compareOperator,
+            Value = propertyValue
+        });
+
         return Expression.Lambda<Func<T, bool>>(expression, parameter);
     }
 
@@ -444,17 +441,22 @@ public static class ExpressionHelper
     /// </example>  
     public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<SortInfo>? sortList)
     {
-        if (sortList == null)
+        if (sortList is null)
+        {
             return null;
+        }
 
         if (sortList.Count == 0)
+        {
             return null;
+        }
 
         var propertyList = new List<string>();
         var dirList = new List<string>();
         foreach (SortInfo sortInfo in sortList)
         {
             var propertyName = sortInfo.Property;
+            ArgumentException.ThrowIfNullOrWhiteSpace(propertyName, nameof(SortInfo.Property));
             var dir = sortInfo.Direction.ToString();
             propertyList.Add(propertyName);
             dirList.Add(dir);
@@ -480,50 +482,56 @@ public static class ExpressionHelper
     /// </example>  
     public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<string> orderColumn, List<string> orderDir)
     {
+        ArgumentNullException.ThrowIfNull(orderColumn);
+        ArgumentNullException.ThrowIfNull(orderDir);
+
         if (orderColumn.Count != orderDir.Count)
         {
             throw new ArgumentException($"{nameof(orderColumn)} and {nameof(orderDir)} must have the same number of elements.");
         }
 
-        var ascKey = "OrderBy";
-        var descKey = "OrderByDescending";
+        if (orderColumn.Count == 0)
+        {
+            return null;
+        }
 
-        Type typeQueryable = typeof(IQueryable<T>);
-        ParameterExpression argQueryable = Expression.Parameter(typeQueryable, "jk");
-        LambdaExpression outerExpression = Expression.Lambda(argQueryable, argQueryable);
+        var orderings = new KeyValuePair<string, bool>[orderColumn.Count];
 
         for (var i = 0; i < orderColumn.Count; i++)
         {
             var columnName = orderColumn[i];
-            var dirKey = orderDir[i].ToLower();
-            var props = columnName.Split('.');
-            Type type = typeof(T);
-            ParameterExpression arg = Expression.Parameter(type, "uf");
-            Expression expr = arg;
-
-            foreach (var prop in props)
+            try
             {
-                PropertyInfo? pi = type.GetProperty(prop, BindingFlags.IgnoreCase | BindingFlags.Public | BindingFlags.Instance);
-                if (pi == null)
-                {
-                    throw new InvalidOperationException(nameof(pi));
-                }
-
-                expr = Expression.Property(expr, pi);
-                type = pi.PropertyType;
+                DynamicOrderBuilder.ValidatePropertyPath<T>(columnName);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException(nameof(PropertyInfo), ex);
             }
 
-            LambdaExpression lambda = Expression.Lambda(expr, arg);
-            var methodName = dirKey == "asc" ? ascKey : descKey;
-            MethodCallExpression resultExp = Expression.Call(typeof(Queryable), methodName, [typeof(T), type], outerExpression.Body, Expression.Quote(lambda));
-
-            outerExpression = Expression.Lambda(resultExp, argQueryable);
-
-            ascKey = "ThenBy";
-            descKey = "ThenByDescending";
+            bool ascending = string.Equals(orderDir[i], "asc", StringComparison.OrdinalIgnoreCase);
+            orderings[i] = new KeyValuePair<string, bool>(columnName, ascending);
         }
 
-        return (Func<IQueryable<T>, IOrderedQueryable<T>>?)outerExpression.Compile();
+        return query =>
+        {
+            IOrderedQueryable<T> orderedQuery = DynamicOrderBuilder.Apply(
+                query,
+                orderings[0].Key,
+                orderings[0].Value,
+                thenBy: false);
+
+            for (var i = 1; i < orderings.Length; i++)
+            {
+                orderedQuery = DynamicOrderBuilder.Apply(
+                    orderedQuery,
+                    orderings[i].Key,
+                    orderings[i].Value,
+                    thenBy: true);
+            }
+
+            return orderedQuery;
+        };
     }
 
     /// <summary>  
@@ -610,27 +618,7 @@ public static class ExpressionHelper
     /// </example>  
     public static Expression<Func<T, bool>> BuildAndAlsoLambda<T>(IEnumerable<Condition>? conditions)
     {
-        if (conditions is null)
-        {
-            return x => true;
-        }
-
-        // Materialize only if needed for count check.
-        var list = conditions as IList<Condition> ?? conditions.ToList();
-        if (list.Count == 0)
-        {
-            return x => true;
-        }
-
-        ParameterExpression parameter = Expression.Parameter(typeof(T), "x");
-        Expression? combined = null;
-        foreach (var c in list)
-        {
-            var exp = GetExpression(parameter, c);
-            combined = combined is null ? exp : Expression.AndAlso(combined, exp);
-        }
-
-        return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
+        return BuildCombinedLambda<T>(conditions, useOrElse: false);
     }
 
     /// <summary>  
@@ -648,6 +636,13 @@ public static class ExpressionHelper
     /// </example>  
     public static Expression<Func<T, bool>> BuildOrElseLambda<T>(IEnumerable<Condition>? conditions)
     {
+        return BuildCombinedLambda<T>(conditions, useOrElse: true);
+    }
+
+    private static Expression<Func<T, bool>> BuildCombinedLambda<T>(
+        IEnumerable<Condition>? conditions,
+        bool useOrElse)
+    {
         if (conditions is null)
         {
             return x => true;
@@ -664,7 +659,11 @@ public static class ExpressionHelper
         foreach (var c in list)
         {
             var exp = GetExpression(parameter, c);
-            combined = combined is null ? exp : Expression.OrElse(combined, exp);
+            combined = combined is null
+                ? exp
+                : useOrElse
+                    ? Expression.OrElse(combined, exp)
+                    : Expression.AndAlso(combined, exp);
         }
 
         return Expression.Lambda<Func<T, bool>>(combined ?? Expression.Constant(true), parameter);
@@ -678,64 +677,117 @@ public static class ExpressionHelper
     /// <returns>An expression representing the condition.</returns>  
     private static Expression GetExpression(Expression parameter, Condition condition)
     {
+        ArgumentNullException.ThrowIfNull(condition);
+        ArgumentException.ThrowIfNullOrWhiteSpace(condition.Field);
+
         MemberExpression propertyParam = Expression.Property(parameter, condition.Field);
 
         var propertyInfo = propertyParam.Member as PropertyInfo ?? throw new MissingMemberException(nameof(Condition), condition.Field);
         Type realPropertyType = Nullable.GetUnderlyingType(propertyInfo.PropertyType) ?? propertyInfo.PropertyType;
-        if (propertyInfo.PropertyType.IsGenericType && propertyInfo.PropertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+        Type? nullableUnderlyingType = Nullable.GetUnderlyingType(propertyInfo.PropertyType);
+        Expression valueProperty = propertyParam;
+        Expression? hasValue = null;
+        if (nullableUnderlyingType is not null)
         {
-            propertyParam = Expression.Property(propertyParam, "Value");
+            valueProperty = Expression.Property(propertyParam, nameof(Nullable<int>.Value));
+            hasValue = Expression.Property(propertyParam, nameof(Nullable<int>.HasValue));
         }
 
-        if (condition.Op is not CompareOperator.StdIn and not CompareOperator.StdNotIn)
+        if (condition.Op is CompareOperator.StdIn or CompareOperator.StdNotIn)
         {
-            condition.Value = Convert.ChangeType(condition.Value, realPropertyType, CultureInfo.InvariantCulture);
-        }
-        else
-        {
-            if (condition.Value != null)
-            {
-                Type typeOfValue = condition.Value.GetType();
-                Type typeOfList = typeof(IEnumerable<>).MakeGenericType(realPropertyType);
-                if (typeOfValue.IsGenericType && typeOfList.IsAssignableFrom(typeOfValue))
-                {
-                    var toArrayDef = GetCachedMethod(typeof(Enumerable), "ToArray", 1);
-                    condition.Value = toArrayDef
-                        ?.MakeGenericMethod(realPropertyType)
-                        .Invoke(null, [condition.Value]);
-                }
-            }
+            return BuildCollectionExpression(condition, realPropertyType, valueProperty, hasValue);
         }
 
-        ConstantExpression constantParam = Expression.Constant(condition.Value);
+        object? convertedValue = condition.Value is null
+            ? null
+            : Convert.ChangeType(condition.Value, realPropertyType, CultureInfo.InvariantCulture);
+        Expression constantParam = CreateConstantExpression(convertedValue, propertyInfo.PropertyType, realPropertyType);
+
         return condition.Op switch
         {
             CompareOperator.Equals => Expression.Equal(propertyParam, constantParam),
             CompareOperator.NotEquals => Expression.NotEqual(propertyParam, constantParam),
-            CompareOperator.Contains => Expression.Call(propertyParam, "Contains", null, constantParam),
-            CompareOperator.NotContains => Expression.Not(Expression.Call(propertyParam, "Contains", null, constantParam)),
-            CompareOperator.StartsWith => Expression.Call(propertyParam, "StartsWith", null, constantParam),
-            CompareOperator.EndsWith => Expression.Call(propertyParam, "EndsWith", null, constantParam),
+            CompareOperator.Contains => BuildNullSafeStringCall(propertyParam, nameof(string.Contains), constantParam),
+            CompareOperator.NotContains => BuildNullSafeStringCall(propertyParam, nameof(string.Contains), constantParam, negate: true),
+            CompareOperator.StartsWith => BuildNullSafeStringCall(propertyParam, nameof(string.StartsWith), constantParam),
+            CompareOperator.EndsWith => BuildNullSafeStringCall(propertyParam, nameof(string.EndsWith), constantParam),
             CompareOperator.GreaterThan => Expression.GreaterThan(propertyParam, constantParam),
             CompareOperator.GreaterThanOrEquals => Expression.GreaterThanOrEqual(propertyParam, constantParam),
             CompareOperator.LessThan => Expression.LessThan(propertyParam, constantParam),
             CompareOperator.LessThanOrEquals => Expression.LessThanOrEqual(propertyParam, constantParam),
-            CompareOperator.StdIn =>
-                Expression.Call(
-                    // Use cached generic Contains (2 parameters)
-                    GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
-                        .MakeGenericMethod(realPropertyType),
-                    constantParam,
-                    propertyParam),
-            CompareOperator.StdNotIn =>
-                Expression.Not(
-                    Expression.Call(
-                        GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
-                            .MakeGenericMethod(realPropertyType),
-                        constantParam,
-                        propertyParam)),
             _ => throw new NotSupportedException($"{condition.Op} Not Supported")
         };
+    }
+
+    private static Expression BuildCollectionExpression(
+        Condition condition,
+        Type elementType,
+        Expression valueProperty,
+        Expression? hasValue)
+    {
+        Type enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+        if (condition.Value is null || !enumerableType.IsInstanceOfType(condition.Value))
+        {
+            throw new ArgumentException(
+                $"The value for {condition.Op} must implement {enumerableType}.",
+                nameof(condition));
+        }
+
+        MethodInfo containsMethod = GetCachedMethod(typeof(Enumerable), nameof(Enumerable.Contains), 2)!
+            .MakeGenericMethod(elementType);
+        Expression contains = Expression.Call(
+            containsMethod,
+            Expression.Constant(condition.Value, enumerableType),
+            valueProperty);
+
+        if (condition.Op == CompareOperator.StdIn)
+        {
+            return hasValue is null ? contains : Expression.AndAlso(hasValue, contains);
+        }
+
+        Expression notContains = Expression.Not(contains);
+        return hasValue is null
+            ? notContains
+            : Expression.OrElse(Expression.Not(hasValue), notContains);
+    }
+
+    private static Expression BuildNullSafeStringCall(
+        Expression property,
+        string methodName,
+        Expression value,
+        bool negate = false)
+    {
+        if (property.Type != typeof(string))
+        {
+            throw new ArgumentException($"{methodName} can only be used with string properties.", nameof(property));
+        }
+
+        if (value is ConstantExpression { Value: null })
+        {
+            throw new ArgumentException($"{methodName} requires a non-null comparison value.", nameof(value));
+        }
+
+        Expression call = Expression.Call(property, methodName, null, value);
+        Expression isNull = Expression.Equal(property, Expression.Constant(null, typeof(string)));
+        return negate
+            ? Expression.OrElse(isNull, Expression.Not(call))
+            : Expression.AndAlso(Expression.Not(isNull), call);
+    }
+
+    private static Expression CreateConstantExpression(object? value, Type propertyType, Type actualType)
+    {
+        if (value is null)
+        {
+            if (!propertyType.IsValueType || Nullable.GetUnderlyingType(propertyType) is not null)
+            {
+                return Expression.Constant(null, propertyType);
+            }
+
+            throw new ArgumentException($"A null value cannot be compared with {propertyType}.", nameof(value));
+        }
+
+        Expression constant = Expression.Constant(value, actualType);
+        return propertyType == actualType ? constant : Expression.Convert(constant, propertyType);
     }
 
     /// <summary>  
@@ -773,7 +825,7 @@ public class Condition
     /// Gets or sets the field name.
     /// </summary>
     /// <value>The name of the field.</value>
-    public string Field { get; set; } = null!;
+    public required string Field { get; set; }
 
     /// <summary>
     /// Gets or sets the comparison operator.

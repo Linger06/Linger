@@ -1,5 +1,7 @@
 using Linger.Extensions.Core;
+using NPOI.OOXML.XSSF.UserModel;
 using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel;
 
 namespace Linger.Excel.Npoi;
 
@@ -44,45 +46,15 @@ public static class ExcelStyleHelper
 
         if (fontColor.IsNotNullOrWhiteSpace())
         {
-            try
-            {
-                // 尝试解析HTML颜色
-                var colorStr = fontColor.TrimStart('#');
-                if (colorStr.Length == 6)
-                {
-                    var r = Convert.ToInt32(colorStr.Substring(0, 2), 16);
-                    var g = Convert.ToInt32(colorStr.Substring(2, 2), 16);
-                    var b = Convert.ToInt32(colorStr.Substring(4, 2), 16);
-
-                    // 获取最接近的颜色索引
-                    font.Color = GetClosestColorIndex(r, g, b);
-                }
-            }
-            catch
-            {
-                // 忽略颜色解析错误
-            }
+            SetFontColor(font, fontColor);
         }
 
         style.SetFont(font);
 
         if (backgroundColor.IsNotNullOrWhiteSpace())
         {
-            try
-            {
-                // 尝试解析HTML颜色
-                var colorStr = backgroundColor.TrimStart('#');
-                if (colorStr.Length == 6)
-                {
-                    // 为NPOI设置背景色
-                    style.FillForegroundColor = NPOI.HSSF.Util.HSSFColor.Grey25Percent.Index; // 默认使用灰色
-                    style.FillPattern = FillPattern.SolidForeground;
-                }
-            }
-            catch
-            {
-                // 忽略颜色解析错误
-            }
+            style.FillPattern = FillPattern.SolidForeground;
+            SetFillForegroundColor(style, backgroundColor);
         }
 
         if (horizontalAlignment.HasValue)
@@ -100,6 +72,59 @@ public static class ExcelStyleHelper
         }
 
         cell.CellStyle = style;
+    }
+
+    internal static void SetFontColor(IFont font, string color)
+    {
+        if (font is XSSFFont xssfFont)
+        {
+            xssfFont.SetColor(CreateXssfColor(color));
+            return;
+        }
+
+        font.Color = GetColorIndex(color);
+    }
+
+    internal static void SetFillForegroundColor(ICellStyle style, string color)
+    {
+        if (style is XSSFCellStyle xssfStyle)
+        {
+            xssfStyle.FillForegroundXSSFColor = CreateXssfColor(color);
+            return;
+        }
+
+        style.FillForegroundColor = GetColorIndex(color);
+    }
+
+    private static XSSFColor CreateXssfColor(string color)
+    {
+        var hexColor = color.TrimStart('#');
+        if (hexColor.Length != 6 || hexColor.Any(character => !Uri.IsHexDigit(character)))
+        {
+            throw new ArgumentException(null, nameof(color));
+        }
+
+        return new XSSFColor(
+        [
+            Convert.ToByte(hexColor.Substring(0, 2), 16),
+            Convert.ToByte(hexColor.Substring(2, 2), 16),
+            Convert.ToByte(hexColor.Substring(4, 2), 16)
+        ],
+        new DefaultIndexedColorMap());
+    }
+
+    private static short GetColorIndex(string color)
+    {
+        var hexColor = color.TrimStart('#');
+        if (hexColor.Length != 6 || hexColor.Any(character => !Uri.IsHexDigit(character)))
+        {
+            throw new ArgumentException(null, nameof(color));
+        }
+
+        return GetClosestColorIndex(
+            Convert.ToInt32(hexColor.Substring(0, 2), 16),
+            Convert.ToInt32(hexColor.Substring(2, 2), 16),
+            Convert.ToInt32(hexColor.Substring(4, 2), 16));
     }
 
     /// <summary>

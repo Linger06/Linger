@@ -1,5 +1,7 @@
 ﻿using LingerDataTableExtensions = Linger.Extensions.Data.DataTableExtensions;
 
+#pragma warning disable CS0618 // Compatibility coverage for legacy async-named wrappers.
+
 namespace Linger.UnitTests;
 
 public partial class DataTableExtensionsTests
@@ -322,6 +324,33 @@ public partial class DataTableExtensionsTests
         Assert.Equal(2, result[1].Int);
         Assert.Equal("Jane", result[1].Name);
         Assert.Equal(2, result[1].NullableInt);
+    }
+
+    [Fact]
+    public void CreateColumnSetter_WithNullValue_AssignsDefaultToNullableTarget()
+    {
+        var target = new TestClass2 { NullableInt = 42, Name = "existing" };
+        var nullableIntSetter = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int?>((x, v) => x.NullableInt = v);
+        var nameSetter = LingerDataTableExtensions.CreateColumnSetter<TestClass2, string?>((x, v) => x.Name = v);
+
+        nullableIntSetter(target, null);
+        nameSetter(target, DBNull.Value);
+
+        Assert.Null(target.NullableInt);
+        Assert.Null(target.Name);
+    }
+
+    [Fact]
+    public void CreateColumnSetter_WithNullValueAndDefaultAssignmentDisabled_PreservesTargetValue()
+    {
+        var target = new TestClass2 { NullableInt = 42 };
+        var setter = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int?>(
+            (x, v) => x.NullableInt = v,
+            assignDefaultWhenNull: false);
+
+        setter(target, null);
+
+        Assert.Equal(42, target.NullableInt);
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 #if !NETFRAMEWORK || NET462_OR_GREATER
 
 using System.Text.Json.Serialization;
+using Linger.Helper;
 
 namespace Linger.Json.JsonConverter;
 
@@ -41,10 +42,16 @@ public class JsonObjectConverter : JsonConverter<object>
                 return l;
             case JsonTokenType.Number:
                 return reader.GetDouble();
-            case JsonTokenType.String when reader.TryGetDateTime(out DateTime datetime):
-                return datetime;
             case JsonTokenType.String:
-                return reader.GetString();
+                {
+                    var stringValue = reader.GetString();
+                    if (DateTimeConversionHelper.TryConvertStringToDateTime(stringValue, out var datetime))
+                    {
+                        return datetime;
+                    }
+
+                    return stringValue;
+                }
             default:
                 {
                     // Use JsonElement as fallback. Newtonsoft uses JArray or JObject.

@@ -417,7 +417,7 @@ public class BaseDatabase : IBaseDatabase
         CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
     {
         using DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
         var affectedRows = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return affectedRows;
@@ -460,7 +460,7 @@ public class BaseDatabase : IBaseDatabase
         DbConnection conn = connection ?? Provider.CreateConnection(ConnString);
         try
         {
-            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
             var commandBehavior = ownsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
             IDataReader reader = await cmd.ExecuteReaderAsync(commandBehavior, cancellationToken)
                 .ConfigureAwait(false);
@@ -685,7 +685,7 @@ public class BaseDatabase : IBaseDatabase
         CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
     {
         using DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters).ConfigureAwait(false);
+        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
         var value = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
         cmd.Parameters.Clear();
         return value;
@@ -712,7 +712,7 @@ public class BaseDatabase : IBaseDatabase
         using DbCommand cmd = Provider.CreateCommand();
         using DbConnection conn = Provider.CreateConnection(ConnString);
 
-        await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters).ConfigureAwait(false);
+        await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
         return await ReadDataSetAsync(cmd, cancellationToken).ConfigureAwait(false);
     }
 
@@ -913,11 +913,12 @@ public class BaseDatabase : IBaseDatabase
     /// <param name="times">超时时间 秒</param>
     protected async Task PrepareCommandAsync(DbCommand cmd, DbConnection conn, DbTransaction? transaction,
         CommandType commandType,
-        string commandText, DbParameter[]? parameters, int? times = null)
+        string commandText, DbParameter[]? parameters, int? times = null,
+        CancellationToken cancellationToken = default)
     {
         if (conn.State != ConnectionState.Open)
         {
-            await conn.OpenAsync().ConfigureAwait(false);
+            await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
         }
 
         cmd.Connection = conn;

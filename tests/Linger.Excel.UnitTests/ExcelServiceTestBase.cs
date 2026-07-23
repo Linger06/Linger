@@ -25,7 +25,7 @@ namespace Linger.Excel.Tests
         protected ExcelServiceTestBase()
         {
             // 确保测试目录存在
-            TestFilesDir = Path.Combine(Path.GetTempPath(), "LingerExcelTests", GuidCode.NewGuid().ToString());
+            TestFilesDir = Path.Combine(Path.GetTempPath(), "LingerExcelTests", Guid.NewGuid().ToString());
             if (!Directory.Exists(TestFilesDir))
             {
                 Directory.CreateDirectory(TestFilesDir);

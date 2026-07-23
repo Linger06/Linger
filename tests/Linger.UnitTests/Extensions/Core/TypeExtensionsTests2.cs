@@ -1,3 +1,4 @@
+using System.Reflection;
 using Linger.Attributes;
 using Linger.Extensions.Core;
 
@@ -300,6 +301,38 @@ namespace Linger.UnitTests.Extensions.Core
             // 默认顺序应该依次递增
             Assert.Equal(1, result[0].PropertyOrder);
             Assert.Equal(2, result[1].PropertyOrder);
+        }
+
+        [Fact]
+        public void GetColumnsInfo_ModifyingResult_DoesNotChangeCachedMetadata()
+        {
+            var first = typeof(SampleClass2).GetColumnsInfo().ToList();
+            first[0].PropertyName = "Changed";
+            first.Clear();
+
+            var second = typeof(SampleClass2).GetColumnsInfo().ToList();
+
+            Assert.Equal(2, second.Count);
+            Assert.Equal("Name", second[0].PropertyName);
+        }
+
+        [Fact]
+        public void Props_ModifyingReturnedArray_DoesNotChangeCachedMetadata()
+        {
+            var first = Assert.IsType<PropertyInfo[]>(typeof(SampleClass2).Props());
+            first[0] = null!;
+
+            var second = typeof(SampleClass2).Props().ToArray();
+
+            Assert.All(second, property => Assert.NotNull(property));
+        }
+
+        [Fact]
+        public void ColumnInfo_UninitializedProperty_ThrowsInvalidOperationException()
+        {
+            var column = Activator.CreateInstance<ColumnInfo>();
+
+            Assert.Throws<InvalidOperationException>(() => column.Property);
         }
 
         // Sample class and attribute for testing

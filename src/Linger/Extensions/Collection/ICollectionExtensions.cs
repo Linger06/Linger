@@ -13,6 +13,9 @@ public static class ICollectionExtensions
     /// <param name="predicate">The predicate that defines the conditions of the elements to remove.</param>
     public static void RemoveAll<T>(this ICollection<T> @this, Func<T, bool> predicate)
     {
+        ArgumentNullException.ThrowIfNull(@this);
+        ArgumentNullException.ThrowIfNull(predicate);
+
         // Check if the collection is a List<T> to use the optimized RemoveAll method
         if (@this is List<T> list)
         {

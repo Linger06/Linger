@@ -1,4 +1,7 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
+using System.Text.Json;
+
+using Linger.Enums;
 
 namespace Linger.UnitTests.Helper;
 
@@ -8,6 +11,7 @@ public class ExpressionHelperTests
     {
         public string? Name { get; set; }
         public int Age { get; set; }
+        public int? Score { get; set; }
     }
 
     [Fact]
@@ -167,5 +171,50 @@ public class ExpressionHelperTests
         Func<TestClass, bool>? compiled = expression.Compile();
         var testObj = new TestClass { Age = 40 };
         Assert.True(compiled(testObj));
+    }
+
+    [Fact]
+    public void BuildLambda_WithNullNullableValue_DoesNotThrow()
+    {
+        var condition = new Condition
+        {
+            Field = nameof(TestClass.Score),
+            Op = CompareOperator.GreaterThan,
+            Value = 10
+        };
+        var predicate = ExpressionHelper.BuildLambda<TestClass>([condition]).Compile();
+
+        Assert.False(predicate(new TestClass { Score = null }));
+        Assert.True(predicate(new TestClass { Score = 11 }));
+    }
+
+    [Fact]
+    public void GetContains_WithNullProperty_ReturnsFalse()
+    {
+        var predicate = ExpressionHelper.GetContains<TestClass>(nameof(TestClass.Name), "value").Compile();
+
+        Assert.False(predicate(new TestClass { Name = null }));
+    }
+
+    [Fact]
+    public void GetNotContains_WithNullProperty_ReturnsTrue()
+    {
+        var predicate = ExpressionHelper.GetNotContains<TestClass>(nameof(TestClass.Name), "value").Compile();
+
+        Assert.True(predicate(new TestClass { Name = null }));
+    }
+
+    [Fact]
+    public void BuildLambda_WithEmptyField_ThrowsArgumentException()
+    {
+        var condition = new Condition { Field = string.Empty, Op = CompareOperator.Equals, Value = 1 };
+
+        Assert.Throws<ArgumentException>(() => ExpressionHelper.BuildLambda<TestClass>([condition]));
+    }
+
+    [Fact]
+    public void Condition_DeserializeWithoutField_ThrowsJsonException()
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<Condition>("{}"));
     }
 }

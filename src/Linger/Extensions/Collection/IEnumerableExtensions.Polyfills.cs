@@ -15,8 +15,19 @@ public static partial class IEnumerableExtensions
         if (source == null) throw new ArgumentNullException(nameof(source));
         if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
 
-        var hash = new HashSet<TKey>();
-        return source.Where(p => hash.Add(keySelector(p)));
+        return Iterator();
+
+        IEnumerable<TSource> Iterator()
+        {
+            var seenKeys = new HashSet<TKey>();
+            foreach (TSource item in source)
+            {
+                if (seenKeys.Add(keySelector(item)))
+                {
+                    yield return item;
+                }
+            }
+        }
     }
 #endif
 
@@ -63,23 +74,6 @@ public static partial class IEnumerableExtensions
     }
 
     /// <summary>
-    /// Performs a left outer join on two sequences and returns a sequence of tuples.
-    /// </summary>
-    public static IEnumerable<Tuple<TOuter, TInner?>> LeftJoin<TOuter, TInner, TKey>(
-        this IEnumerable<TOuter> outer,
-        IEnumerable<TInner> inner,
-        Func<TOuter, TKey> outerKeySelector,
-        Func<TInner, TKey> innerKeySelector)
-    {
-        ArgumentNullException.ThrowIfNull(outer);
-        ArgumentNullException.ThrowIfNull(inner);
-        ArgumentNullException.ThrowIfNull(outerKeySelector);
-        ArgumentNullException.ThrowIfNull(innerKeySelector);
-
-        return LeftJoin(outer, inner, outerKeySelector, innerKeySelector, (o, i) => new Tuple<TOuter, TInner?>(o, i));
-    }
-
-    /// <summary>
     /// Performs a right outer join on two sequences.
     /// </summary>
     public static IEnumerable<TResult> RightJoin<TOuter, TInner, TKey, TResult>(
@@ -90,6 +84,12 @@ public static partial class IEnumerableExtensions
             Func<TOuter?, TInner, TResult> resultSelector
         )
     {
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+        ArgumentNullException.ThrowIfNull(resultSelector);
+
         return RightJoin(outer, inner, outerKeySelector, innerKeySelector, resultSelector, null);
     }
 
@@ -105,9 +105,49 @@ public static partial class IEnumerableExtensions
             IEqualityComparer<TKey>? comparer
         )
     {
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+        ArgumentNullException.ThrowIfNull(resultSelector);
+
         return LeftJoin(inner, outer, innerKeySelector, outerKeySelector, (i, o) => resultSelector(o, i), comparer);
     }
 #endif
+
+    /// <summary>
+    /// Performs a left outer join and returns each match as a tuple.
+    /// </summary>
+    /// <typeparam name="TOuter">The type of elements in the outer sequence.</typeparam>
+    /// <typeparam name="TInner">The type of elements in the inner sequence.</typeparam>
+    /// <typeparam name="TKey">The type of the join key.</typeparam>
+    /// <param name="outer">The outer sequence.</param>
+    /// <param name="inner">The inner sequence.</param>
+    /// <param name="outerKeySelector">The function used to extract a key from an outer element.</param>
+    /// <param name="innerKeySelector">The function used to extract a key from an inner element.</param>
+    /// <returns>A sequence of tuples containing outer elements and their matching inner elements.</returns>
+    /// <example>
+    /// <code>
+    /// var result = employees.LeftJoin(departments, employee => employee.DepartmentId, department => department.Id);
+    /// </code>
+    /// </example>
+    public static IEnumerable<Tuple<TOuter, TInner?>> LeftJoin<TOuter, TInner, TKey>(
+        this IEnumerable<TOuter> outer,
+        IEnumerable<TInner> inner,
+        Func<TOuter, TKey> outerKeySelector,
+        Func<TInner, TKey> innerKeySelector)
+    {
+        ArgumentNullException.ThrowIfNull(outer);
+        ArgumentNullException.ThrowIfNull(inner);
+        ArgumentNullException.ThrowIfNull(outerKeySelector);
+        ArgumentNullException.ThrowIfNull(innerKeySelector);
+
+        return outer.LeftJoin(
+            inner,
+            outerKeySelector,
+            innerKeySelector,
+            static (outerItem, innerItem) => new Tuple<TOuter, TInner?>(outerItem, innerItem));
+    }
 
 #if !NET9_0_OR_GREATER
     /// <summary>

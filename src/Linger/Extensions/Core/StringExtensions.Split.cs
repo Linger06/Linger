@@ -115,9 +115,9 @@ public static partial class StringExtensions
                 sb.Append('&');
             }
 
-            sb.Append(item.Key);
+            sb.Append(Uri.EscapeDataString(item.Key?.ToString() ?? string.Empty));
             sb.Append('=');
-            sb.Append(item.Value);
+            sb.Append(Uri.EscapeDataString(item.Value?.ToString() ?? string.Empty));
             isFirst = false;
         }
 
@@ -151,9 +151,9 @@ public static partial class StringExtensions
             }
 
             var item = data[i];
-            sb.Append(item.Key);
+            sb.Append(Uri.EscapeDataString(item.Key ?? string.Empty));
             sb.Append('=');
-            sb.Append(item.Value);
+            sb.Append(Uri.EscapeDataString(item.Value ?? string.Empty));
         }
 #else
         var isFirst = true;
@@ -164,9 +164,9 @@ public static partial class StringExtensions
                 sb.Append('&');
             }
 
-            sb.Append(item.Key);
+            sb.Append(Uri.EscapeDataString(item.Key ?? string.Empty));
             sb.Append('=');
-            sb.Append(item.Value);
+            sb.Append(Uri.EscapeDataString(item.Value ?? string.Empty));
             isFirst = false;
         }
 #endif

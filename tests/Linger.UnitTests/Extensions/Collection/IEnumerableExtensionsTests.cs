@@ -172,6 +172,40 @@ public class IEnumerableExtensionsTests
     }
 
     [Fact]
+    public void FullJoin_DefersSourceEnumerationUntilResultIsEnumerated()
+    {
+        var sourceWasEnumerated = false;
+        IEnumerable<int> Outer()
+        {
+            sourceWasEnumerated = true;
+            yield return 1;
+        }
+
+        IEnumerable<int> result = Outer().FullJoin(
+            Array.Empty<int>(),
+            item => item,
+            item => item,
+            (outer, _) => outer);
+
+        Assert.False(sourceWasEnumerated);
+        _ = result.ToList();
+        Assert.True(sourceWasEnumerated);
+    }
+
+    [Fact]
+    public void FullJoin_WithComparer_MatchesEquivalentKeys()
+    {
+        var result = new[] { "A" }.FullJoin(
+            new[] { "a" },
+            item => item,
+            item => item,
+            (outer, inner) => (outer, inner),
+            StringComparer.OrdinalIgnoreCase);
+
+        Assert.Equal(("A", "a"), Assert.Single(result));
+    }
+
+    [Fact]
     public void FullOuterJoin_ShouldReturnLeftOuterJoinWihtIntType()
     {
         var list1 = new int?[] { 1, 2, 3 };
@@ -417,6 +451,16 @@ public class IEnumerableExtensionsTests
 
         Assert.Empty(enumerable.Paging(1, 0));
         Assert.Empty(enumerable.Paging(1, -2));
+    }
+
+    [Fact]
+    public void Paging_ReturnsEmpty_WhenOffsetExceedsSupportedRange()
+    {
+        var enumerable = new[] { 1, 2, 3 };
+
+        var result = enumerable.Paging(int.MaxValue, 2);
+
+        Assert.Empty(result);
     }
 
     [Sample]

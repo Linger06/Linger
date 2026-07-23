@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 using Linger.Attributes;
+using Linger.Helper;
 
 namespace Linger.Extensions.Core;
 
@@ -13,17 +14,10 @@ public static class TypeExtensions
     /// Thread-safe property cache for improved performance.
     /// </summary>
     /// <value>The property cache.</value>
-    private static readonly ConcurrentDictionary<string, PropertyInfo[]> s_propertyCache = new();
-
-    /// <summary>
-    /// Cache for type properties to minimize reflection overhead.
-    /// </summary>
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertyCache = new();
-
     /// <summary>
     /// Cache for column information to minimize reflection overhead.
     /// </summary>
-    private static readonly ConcurrentDictionary<Type, IEnumerable<ColumnInfo>> s_columnInfoCache = new();
+    private static readonly ConcurrentDictionary<Type, IReadOnlyList<ColumnInfo>> s_columnInfoCache = new();
 
     /// <summary>
     /// Determines if the type is a generic type.
@@ -104,9 +98,7 @@ public static class TypeExtensions
     /// </example>
     public static PropertyInfo? GetSingleProperty(this Type self, string name)
     {
-        var fullName = self.FullName ?? throw new ArgumentException(nameof(self.FullName));
-
-        var properties = s_propertyCache.GetOrAdd(fullName, _ => self.GetProperties());
+        var properties = PropertyMetadataCache.GetProperties(self);
         return properties.FirstOrDefault(x => x.Name == name);
     }
 
@@ -184,7 +176,7 @@ public static class TypeExtensions
     /// </example>
     public static IEnumerable<PropertyInfo> Props(this Type type)
     {
-        return s_typePropertyCache.GetOrAdd(type, t => t.GetProperties());
+        return PropertyMetadataCache.GetProperties(type).ToArray();
     }
 
     /// <summary>
@@ -417,7 +409,7 @@ public static class TypeExtensions
         ArgumentNullException.ThrowIfNull(name);
 
         // Use cached properties for better performance
-        var properties = s_typePropertyCache.GetOrAdd(objType, t => t.GetProperties());
+        var properties = PropertyMetadataCache.GetProperties(objType);
         PropertyInfo? matchedProperty = properties.FirstOrDefault(p => p.Name == name);
         return matchedProperty ?? throw new InvalidOperationException($"Property '{name}' not found on type '{objType.FullName}'.");
     }
@@ -437,13 +429,13 @@ public static class TypeExtensions
     {
         ArgumentNullException.ThrowIfNull(type);
 
-        return s_columnInfoCache.GetOrAdd(type, t =>
+        IReadOnlyList<ColumnInfo> columns = s_columnInfoCache.GetOrAdd(type, t =>
         {
-            var columns = new List<ColumnInfo>();
+            var cachedColumns = new List<ColumnInfo>();
             var counter = 0;
 
             // 使用缓存的属性信息以提高性能
-            var properties = s_typePropertyCache.GetOrAdd(t, pt => pt.GetProperties());
+            var properties = PropertyMetadataCache.GetProperties(t);
 
             foreach (var propertyInfo in properties)
             {
@@ -461,12 +453,20 @@ public static class TypeExtensions
                     PropertyType = propertyInfo.PropertyType
                 };
 
-                columns.Add(column);
+                cachedColumns.Add(column);
             }
 
             // 按照PropertyOrder排序
-            return columns.OrderBy(info => info.PropertyOrder).ToList();
+            return cachedColumns.OrderBy(info => info.PropertyOrder).ToArray();
         });
+
+        return columns.Select(static column => new ColumnInfo
+        {
+            PropertyName = column.PropertyName,
+            PropertyOrder = column.PropertyOrder,
+            Property = column.Property,
+            PropertyType = column.PropertyType
+        }).ToArray();
     }
 }
 
@@ -475,11 +475,13 @@ public static class TypeExtensions
 /// </summary>
 public class ColumnInfo
 {
+    private PropertyInfo? _property;
+
     /// <summary>
     /// Gets or sets the name of the property.
     /// </summary>
     /// <value>The name of the property.</value>
-    public string PropertyName { get; set; } = null!;
+    public string PropertyName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the order of the property.
@@ -491,11 +493,19 @@ public class ColumnInfo
     /// Gets or sets the property information.
     /// </summary>
     /// <value>The property information.</value>
-    public PropertyInfo Property { get; set; } = null!;
+    public required PropertyInfo Property
+    {
+        get => _property ?? throw new InvalidOperationException("Property metadata has not been initialized.");
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _property = value;
+        }
+    }
 
     /// <summary>
     /// Gets or sets the type of the property.
     /// </summary>
     /// <value>The type of the property.</value>
-    public Type PropertyType { get; set; } = null!;
+    public Type PropertyType { get; set; } = typeof(object);
 }

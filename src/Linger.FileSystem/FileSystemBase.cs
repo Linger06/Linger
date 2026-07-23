@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Text;
 
 namespace Linger.FileSystem;
@@ -43,8 +45,14 @@ public abstract class FileSystemBase : IFileSystemOperations
     /// <summary>
     /// 异常处理并记录日志
     /// </summary>
+    [DoesNotReturn]
     protected virtual void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
+        if (ex is OperationCanceledException)
+        {
+            ExceptionDispatchInfo.Capture(ex).Throw();
+        }
+
         var message = $"{operation} failed. {(path is not null ? $"Path: {path}" : string.Empty)}, Method: {callerMethod}";
         Logger.LogError(ex, "{Message}", message);
         throw new FileSystemException(operation, path, message, ex);

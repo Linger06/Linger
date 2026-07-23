@@ -82,6 +82,16 @@ public class JsonStringConverterTests
         // Assert
         Assert.Equal("123.45", result);
     }
+
+    [Fact]
+    public void Read_LargeIntegerToken_PreservesExactRepresentation()
+    {
+        const string json = "9007199254740993";
+
+        var result = JsonSerializer.Deserialize<string>(json, _options);
+
+        Assert.Equal(json, result);
+    }
     
     [Fact]
     public void Read_BooleanToken_ReturnsStringRepresentation()
@@ -110,29 +120,29 @@ public class JsonStringConverterTests
     }
 
     [Fact]
-    public void Read_StartObjectToken_ReturnsNotSupportedMessage()
+    public void Read_StartObjectToken_ThrowsJsonException()
     {
         // Arrange
         var json = "{}";
-        
-        // Act
-        var result = JsonSerializer.Deserialize<string>(json, _options);
-        
-        // Assert
-        Assert.Equal("(not supported)", result);
+
+        // Act & Assert
+        var exception = Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<string>(json, _options));
+        Assert.Contains("Unsupported token type", exception.Message);
+        Assert.Contains("StartObject", exception.Message);
     }
 
     [Fact]
-    public void Read_ComplexObjectToken_ReturnsNotSupportedMessage()
+    public void Read_ComplexObjectToken_ThrowsJsonException()
     {
         // Arrange
         var json = "{\"name\":\"test\",\"value\":123}";
-        
-        // Act
-        var result = JsonSerializer.Deserialize<string>(json, _options);
-        
-        // Assert
-        Assert.Equal("(not supported)", result);
+
+        // Act & Assert
+        var exception = Assert.Throws<JsonException>(() =>
+            JsonSerializer.Deserialize<string>(json, _options));
+        Assert.Contains("Unsupported token type", exception.Message);
+        Assert.Contains("StartObject", exception.Message);
     }
 
     [Fact]
@@ -199,7 +209,7 @@ public class JsonStringConverterTests
     }
 
     [Fact]
-    public void Read_UnsupportedToken_LogsAndThrowsException()
+    public void Read_UnsupportedToken_ThrowsExceptionWithoutWritingToConsole()
     {
         // Arrange
         var converter = new JsonStringConverter();
@@ -229,10 +239,9 @@ public class JsonStringConverterTests
             Assert.NotNull(exception);
             Assert.Contains("Unsupported token type", exception.Message);
             Assert.Contains("StartArray", exception.Message);
-            
-            // Check console output
+
             var consoleOutput = stringWriter.ToString();
-            Assert.Contains("Unsupported token type: StartArray", consoleOutput);
+            Assert.Equal(string.Empty, consoleOutput);
         }
         finally
         {

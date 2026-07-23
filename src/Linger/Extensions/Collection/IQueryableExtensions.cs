@@ -1,12 +1,3 @@
-using System.Linq.Expressions;
-using System.Reflection;
-#if NET5_0_OR_GREATER
-
-using Linger.Extensions.Core;
-using Linger.Helper;
-
-#endif
-
 namespace Linger.Extensions.Collection;
 
 /// <summary>
@@ -31,16 +22,7 @@ public static class IQueryableExtensions
     public static IQueryable<T> CreateOrderBy<T>(this IQueryable<T> source, string orderByPropertyName,
         bool isOrderByAsc = true)
     {
-        var command = isOrderByAsc ? "OrderBy" : "OrderByDescending";
-        Type type = typeof(T);
-        PropertyInfo property = type.GetProperty(orderByPropertyName) ?? throw new ArgumentException($"Cannot find Property:{nameof(orderByPropertyName)} in {nameof(T)}");
-        ParameterExpression parameter = Expression.Parameter(type, "p");
-        MemberExpression propertyAccess = Expression.MakeMemberAccess(parameter, property);
-        LambdaExpression orderByExpression = Expression.Lambda(propertyAccess, parameter);
-        MethodCallExpression resultExpression = Expression.Call(typeof(Queryable), command,
-            [type, property.PropertyType],
-            source.Expression, Expression.Quote(orderByExpression));
-        return source.Provider.CreateQuery<T>(resultExpression);
+        return DynamicOrderBuilder.Apply(source, orderByPropertyName, isOrderByAsc, thenBy: false);
     }
 
     /// <summary>
@@ -58,12 +40,30 @@ public static class IQueryableExtensions
     /// // sortedList is sorted by Name
     /// </code>
     /// </example>
+    [Obsolete("Use OrderByIf<T>(IQueryable<T>, bool, string) so query providers may return their own ordered query type.")]
     public static TQueryable OrderByIf<T, TQueryable>(this TQueryable query, bool condition, string sorting)
         where TQueryable : IQueryable<T>
     {
-        return condition
-            ? (TQueryable)query.CreateOrderBy(sorting)
-            : query;
+        ArgumentNullException.ThrowIfNull(query);
+        if (!condition)
+        {
+            return query;
+        }
+
+        IQueryable<T> orderedQuery = query.CreateOrderBy(sorting);
+        return orderedQuery is TQueryable typedQuery
+            ? typedQuery
+            : throw new InvalidOperationException(
+                $"The query provider returned '{orderedQuery.GetType().FullName}', which cannot be converted to '{typeof(TQueryable).FullName}'. Use the IQueryable<T> OrderByIf overload instead.");
+    }
+
+    /// <summary>
+    /// Conditionally applies dynamic sorting without requiring the provider to preserve its concrete query type.
+    /// </summary>
+    public static IQueryable<T> OrderByIf<T>(this IQueryable<T> query, bool condition, string sorting)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return condition ? query.CreateOrderBy(sorting) : query;
     }
 
 #if NET5_0_OR_GREATER
@@ -82,21 +82,21 @@ public static class IQueryableExtensions
     /// // sortedList is sorted by Name in ascending order
     /// </code>
     /// </example>
-    public static IQueryable<T> CreateOrderBy<T>(this IQueryable<T> source, List<SortInfo> sortList)
+    public static IQueryable<T> CreateOrderBy<T>(this IQueryable<T> source, List<SortInfo>? sortList)
     {
-        if (sortList.IsNotNull())
+        ArgumentNullException.ThrowIfNull(source);
+        if (sortList is { Count: > 0 })
         {
-            if (sortList.Count != 0)
+            var orderByPropertyList = new List<KeyValuePair<string, bool>>(sortList.Count);
+            foreach (SortInfo sortInfo in sortList)
             {
-                var orderByPropertyList = new List<KeyValuePair<string, bool>>();
-                foreach (SortInfo sortInfo in sortList)
-                {
-                    var propertyName = sortInfo.Property;
-                    var isAsc = sortInfo.Direction == SortDir.Asc;
-                    orderByPropertyList.Add(new KeyValuePair<string, bool>(propertyName, isAsc));
-                }
-                return source.CreateOrderBy(orderByPropertyList.ToArray());
+                var propertyName = sortInfo.Property;
+                ArgumentException.ThrowIfNullOrWhiteSpace(propertyName, nameof(SortInfo.Property));
+                var isAsc = sortInfo.Direction == SortDir.Asc;
+                orderByPropertyList.Add(new KeyValuePair<string, bool>(propertyName, isAsc));
             }
+
+            return source.CreateOrderBy(orderByPropertyList.ToArray());
         }
 
         return source;
@@ -120,10 +120,11 @@ public static class IQueryableExtensions
         params KeyValuePair<string, bool>[] orderByPropertyList)
     {
         ArgumentNullException.ThrowIfNull(source, nameof(source));
+        ArgumentNullException.ThrowIfNull(orderByPropertyList);
 
         if (orderByPropertyList.Length == 0)
         {
-            throw new ArgumentException("The length of params cannot be zero", nameof(orderByPropertyList));
+            return source;
         }
 
         if (orderByPropertyList.Length == 1)
@@ -131,25 +132,19 @@ public static class IQueryableExtensions
             return source.CreateOrderBy(orderByPropertyList[0].Key, orderByPropertyList[0].Value);
         }
 
-        Type type = typeof(T);
-        ParameterExpression param = Expression.Parameter(type, type.Name);
+        IOrderedQueryable<T> orderedQueryable = DynamicOrderBuilder.Apply(
+            source,
+            orderByPropertyList[0].Key,
+            orderByPropertyList[0].Value,
+            thenBy: false);
 
-        Expression<Func<T, object>> KeySelectorFunc(string propertyName)
-        {
-            ArgumentException.ThrowIfNullOrEmpty(propertyName, nameof(propertyName));
-            MemberExpression property = Expression.Property(param, propertyName);
-            UnaryExpression converted = Expression.Convert(property, typeof(object));
-            return Expression.Lambda<Func<T, object>>(converted, param);
-        }
-
-        IOrderedQueryable<T> orderedQueryable = orderByPropertyList[0].Value
-            ? source.OrderBy(KeySelectorFunc(orderByPropertyList[0].Key))
-            : source.OrderByDescending(KeySelectorFunc(orderByPropertyList[0].Key));
         for (var i = 1; i < orderByPropertyList.Length; i++)
         {
-            orderedQueryable = orderByPropertyList[i].Value
-                ? orderedQueryable.ThenBy(KeySelectorFunc(orderByPropertyList[i].Key))
-                : orderedQueryable.ThenByDescending(KeySelectorFunc(orderByPropertyList[i].Key));
+            orderedQueryable = DynamicOrderBuilder.Apply(
+                orderedQueryable,
+                orderByPropertyList[i].Key,
+                orderByPropertyList[i].Value,
+                thenBy: true);
         }
 
         return orderedQueryable;

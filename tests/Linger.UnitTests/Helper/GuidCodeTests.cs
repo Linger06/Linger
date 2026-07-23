@@ -1,6 +1,8 @@
 ﻿using Linger.Helper;
 using Xunit.v3;
 
+#pragma warning disable CS0618 // Tests document the retained compatibility APIs.
+
 namespace Linger.UnitTests.Helper;
 
 public class GuidCodeTests
@@ -54,11 +56,11 @@ public class GuidCodeTests
     }
 
     [Fact]
-    public void NewGuid_ShouldGenerateUniqueGuids()
+    public void GuidNewGuid_ShouldGenerateUniqueGuids()
     {
         // Arrange & Act
-        var guid1 = GuidCode.NewGuid();
-        var guid2 = GuidCode.NewGuid();
+        var guid1 = Guid.NewGuid();
+        var guid2 = Guid.NewGuid();
 
         // Assert
         Assert.NotEqual(guid1, guid2);

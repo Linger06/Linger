@@ -4,24 +4,43 @@ namespace Linger.Excel.EPPlus;
 
 public static class ExcelWorksheetExtensions
 {
+    /// <summary>
+    /// Removes all trailing rows that contain no cell values.
+    /// </summary>
+    /// <param name="worksheet">The worksheet to trim.</param>
     public static void TrimLastEmptyRows(this ExcelWorksheet worksheet)
     {
-        if (worksheet.IsLastRowEmpty())
+        ArgumentNullException.ThrowIfNull(worksheet);
+
+        while (worksheet.Dimension is not null && worksheet.IsLastRowEmpty())
+        {
             worksheet.DeleteRow(worksheet.Dimension.End.Row);
+        }
     }
 
+    /// <summary>
+    /// Determines whether the last used row contains no cell values.
+    /// </summary>
+    /// <param name="worksheet">The worksheet to inspect.</param>
+    /// <returns><see langword="true"/> when the worksheet is empty or its last used row has no values; otherwise, <see langword="false"/>.</returns>
     public static bool IsLastRowEmpty(this ExcelWorksheet worksheet)
     {
-        var empties = new List<bool>();
+        ArgumentNullException.ThrowIfNull(worksheet);
 
-        for (var i = 1; i <= worksheet.Dimension.End.Column; i++)
+        if (worksheet.Dimension is null)
         {
-            var rowEmpty = worksheet.Cells[worksheet.Dimension.End.Row, i].Value == null;
-            empties.Add(rowEmpty);
+            return true;
         }
 
-        return empties.All(e => e);
+        var lastRow = worksheet.Dimension.End.Row;
+        for (var columnIndex = worksheet.Dimension.Start.Column; columnIndex <= worksheet.Dimension.End.Column; columnIndex++)
+        {
+            if (worksheet.Cells[lastRow, columnIndex].Value is not null)
+            {
+                return false;
+            }
+        }
 
-        //return Enumerable.Range(1, worksheet.Dimension.End.Column).Select(i => worksheet.Cells[worksheet.Dimension.End.Row, i].Value == null).All(x => x);
+        return true;
     }
 }

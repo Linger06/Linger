@@ -47,6 +47,18 @@ public class DateTimeConverterTests
         // Assert
         Assert.Equal("\"2025-04-11 14:30:45\"", json);
     }
+
+    [Fact]
+    public void DateTimeConverter_ReadWrite_PreservesUtcKindAndFractionalSeconds()
+    {
+        var value = new DateTime(2025, 4, 11, 0, 0, 0, 500, DateTimeKind.Utc);
+
+        var json = JsonSerializer.Serialize(value, _options);
+        var result = JsonSerializer.Deserialize<DateTime>(json, _options);
+
+        Assert.Equal(value, result);
+        Assert.Equal(DateTimeKind.Utc, result.Kind);
+    }
     
     [Fact]
     public void DateTimeConverter_Read_WithDateFormat_ReturnsDateTime()
@@ -72,6 +84,16 @@ public class DateTimeConverterTests
         
         // Assert
         Assert.Equal(new DateTime(2025, 4, 11, 14, 30, 45), result);
+    }
+
+    [Fact]
+    public void DateTimeConverter_Read_WithUtcRoundtripFormat_PreservesUtcKind()
+    {
+        var json = "\"2019-01-30T12:01:02Z\"";
+
+        var result = JsonSerializer.Deserialize<DateTime>(json, _options);
+
+        Assert.Equal(new DateTime(2019, 1, 30, 12, 1, 2, DateTimeKind.Utc), result);
     }
     
     [Fact]
@@ -126,6 +148,17 @@ public class DateTimeConverterTests
         // Assert
         Assert.Equal("\"2025-04-11 14:30:45\"", json);
     }
+
+    [Fact]
+    public void DateTimeNullConverter_ReadWrite_PreservesFractionalSeconds()
+    {
+        DateTime? value = new DateTime(2025, 4, 11, 14, 30, 45, 123, DateTimeKind.Unspecified);
+
+        var json = JsonSerializer.Serialize(value, _nullableOptions);
+        var result = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+
+        Assert.Equal(value, result);
+    }
     
     [Fact]
     public void DateTimeNullConverter_Read_WithNull_ReturnsNull()
@@ -164,5 +197,15 @@ public class DateTimeConverterTests
         
         // Assert
         Assert.Equal(new DateTime(2025, 4, 11), result);
+    }
+
+    [Fact]
+    public void DateTimeNullConverter_Read_WithUtcRoundtripFormat_PreservesUtcKind()
+    {
+        var json = "\"2019-01-30T12:01:02Z\"";
+
+        var result = JsonSerializer.Deserialize<DateTime?>(json, _nullableOptions);
+
+        Assert.Equal(new DateTime(2019, 1, 30, 12, 1, 2, DateTimeKind.Utc), result);
     }
 }

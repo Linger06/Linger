@@ -8,6 +8,11 @@ public class IQueryableExtensionsTests
         public string? Name { get; set; }
     }
 
+    private class NestedEntity
+    {
+        public TestEntity Details { get; set; } = new();
+    }
+
     [Fact]
     public void CreateOrderBy_ShouldOrderByAscending()
     {
@@ -55,6 +60,21 @@ public class IQueryableExtensionsTests
     }
 
     [Fact]
+    public void CreateOrderBy_WithNestedCaseInsensitiveProperty_ShouldOrderCorrectly()
+    {
+        IQueryable<NestedEntity> data = new List<NestedEntity>
+        {
+            new NestedEntity { Details = new TestEntity { Name = "B" } },
+            new NestedEntity { Details = new TestEntity { Name = "A" } }
+        }.AsQueryable();
+
+        var result = data.CreateOrderBy("details.name").ToList();
+
+        Assert.Equal("A", result[0].Details.Name);
+        Assert.Equal("B", result[1].Details.Name);
+    }
+
+    [Fact]
     public void OrderByIf_ShouldOrderBy_WhenConditionIsTrue()
     {
         // Arrange
@@ -68,6 +88,21 @@ public class IQueryableExtensionsTests
         var result = data.OrderByIf<TestEntity, IQueryable<TestEntity>>(true, "Id").ToList();
 
         // Assert
+        Assert.Equal(1, result[0].Id);
+        Assert.Equal(2, result[1].Id);
+    }
+
+    [Fact]
+    public void OrderByIf_WithIQueryableOverload_ShouldOrderWithoutConcreteTypeCast()
+    {
+        IQueryable<TestEntity> data = new List<TestEntity>
+        {
+            new TestEntity { Id = 2 },
+            new TestEntity { Id = 1 }
+        }.AsQueryable();
+
+        var result = data.OrderByIf(true, "Id").ToList();
+
         Assert.Equal(1, result[0].Id);
         Assert.Equal(2, result[1].Id);
     }
@@ -201,8 +236,21 @@ public class IQueryableExtensionsTests
 
         KeyValuePair<string, bool>[]? orderByPropertyList = Array.Empty<KeyValuePair<string, bool>>();
 
+        // Act
+        var result = data.CreateOrderBy(orderByPropertyList).ToList();
+
         // Assert
-        Assert.Throws<System.ArgumentException>(() => data.CreateOrderBy(orderByPropertyList));
+        Assert.Equal(2, result[0].Id);
+        Assert.Equal(1, result[1].Id);
+    }
+
+    [Fact]
+    public void CreateOrderBy_WithNullPropertyArray_ThrowsArgumentNullException()
+    {
+        IQueryable<TestEntity> data = Array.Empty<TestEntity>().AsQueryable();
+        KeyValuePair<string, bool>[]? properties = null;
+
+        Assert.Throws<ArgumentNullException>(() => data.CreateOrderBy(properties!));
     }
 
 #endif

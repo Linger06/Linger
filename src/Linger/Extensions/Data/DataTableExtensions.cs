@@ -1,6 +1,7 @@
-using System.Collections.Concurrent;
+using System.Collections;
 using System.Reflection;
 using Linger.Extensions.Core;
+using Linger.Helper;
 using Linger.Json.JsonConverter;
 
 namespace Linger.Extensions.Data;
@@ -10,29 +11,23 @@ namespace Linger.Extensions.Data;
 /// </summary>
 public static class DataTableExtensions
 {
-    // Performance optimization: Cache property mappings to avoid repeated reflection calls
-    private static readonly ConcurrentDictionary<Type, Dictionary<string, PropertyInfo>> s_propertyMappingCache = new();
-
-    // Cache for type property arrays to reduce reflection overhead
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_typePropertiesCache = new();
-
-#if NET451_OR_GREATER || NETSTANDARD|| NET5_0_OR_GREATER
+#if NET451_OR_GREATER || NETSTANDARD || NET5_0_OR_GREATER
     /// <summary>
-    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> with performance optimizations.
+    /// Converts the current <see cref="DataTable"/> synchronously and returns the result in a completed task.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
     /// <example>
     /// <code>
     /// DataTable table = GetDataTable();
-    /// List&lt;MyClass&gt; list = await table.ToListAsync&lt;MyClass&gt;();
+    /// List&lt;MyClass&gt;? list = table.ToList&lt;MyClass&gt;();
     /// </code>
     /// </example>
 #if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToListAsync<T>(DataTable, Func<DataRow, T>) for AOT/trimming scenarios.")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ToListAsync<T>(DataTable, Func<DataRow, T>) or ToListAsync<T>(DataTable, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
+    [Obsolete("This method performs synchronous in-memory work. Use a synchronous ToList<T>() overload instead.")]
     public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
         return Task.FromResult(dt.ToList<T>());
@@ -40,23 +35,24 @@ public static class DataTableExtensions
     }
 
     /// <summary>
-    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using a caller-provided mapper.
+    /// Converts the current <see cref="DataTable"/> synchronously using a caller-provided mapper and returns the result in a completed task.
     /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
     /// <param name="map">A mapper that converts each <see cref="DataRow"/> to <typeparamref name="T"/>.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
     /// <example>
     /// <code>
     /// DataTable table = GetDataTable();
-    /// List&lt;MyClass&gt; list = await table.ToListAsync(row =&gt; new MyClass
+    /// List&lt;MyClass&gt; list = table.ToList(row =&gt; new MyClass
     /// {
     ///     Id = row["Id"].ToIntOrDefault(),
     ///     Name = row["Name"]?.ToString()
     /// });
     /// </code>
     /// </example>
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<DataRow, T>) instead.")]
     public static Task<List<T>> ToListAsync<T>(this DataTable dt, Func<DataRow, T> map)
     {
         ArgumentNullException.ThrowIfNull(dt);
@@ -66,19 +62,19 @@ public static class DataTableExtensions
     }
 
     /// <summary>
-    /// Asynchronously converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using
-    /// a caller-provided factory and column setter map.
+    /// Converts the current <see cref="DataTable"/> synchronously using a caller-provided factory and
+    /// column setter map, then returns the result in a completed task.
     /// This overload avoids reflection and is suitable for AOT/trimming scenarios.
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dt">The <see cref="DataTable"/> to convert.</param>
     /// <param name="factory">Factory used to create each target item.</param>
     /// <param name="columnSetters">Column name to setter delegate map. Column matching is case-insensitive.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the converted <see cref="List{T}"/>.</returns>
+    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
     /// <example>
     /// <code>
     /// DataTable table = GetDataTable();
-    /// var list = await table.ToListAsync(
+    /// var list = table.ToList(
     ///     () =&gt; new MyClass(),
     ///     new Dictionary&lt;string, Action&lt;MyClass, object?&gt;&gt;
     ///     {
@@ -87,6 +83,7 @@ public static class DataTableExtensions
     ///     });
     /// </code>
     /// </example>
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
     public static Task<List<T>> ToListAsync<T>(
         this DataTable dt,
         Func<T> factory,
@@ -216,14 +213,9 @@ public static class DataTableExtensions
     /// </example>
     public static double Sum(this DataTable sourceTable, string columnName)
     {
-        double sum = 0;
-
-        foreach (DataRow dr in sourceTable.Rows)
-        {
-            sum += dr[columnName].ToDoubleOrDefault();
-        }
-
-        return sum;
+        ArgumentNullException.ThrowIfNull(sourceTable);
+        ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
+        return sourceTable.AsEnumerable().Sum(dr => dr[columnName].ToTargetOrDefault<double>());
     }
 
     /// <summary>
@@ -310,114 +302,143 @@ public static class DataTableExtensions
     /// DataTable joinedTable = table1.Join(table2, new DataColumn[] { table1.Columns["Id"] }, new DataColumn[] { table2.Columns["Id"] }, true, false);
     /// </code>
     /// </example>
-    /// <exception cref="Exception">Thrown when the specified columns are not found in the respective tables.</exception>
+    /// <exception cref="ArgumentException">Thrown when the specified columns are not found in the respective tables.</exception>
     public static DataTable Join(this DataTable left, DataTable right, DataColumn[] leftCols, DataColumn[] rightCols,
         bool includeLeftJoin, bool includeRightJoin)
     {
-        leftCols.ForEach(x =>
-        {
-            if (!left.ContainAllColumns(x.ColumnName))
-            {
-                throw new ArgumentException($"{nameof(leftCols)} have columns not in {nameof(left)}");
-            }
-        });
+        ValidateJoinColumns(left, leftCols, nameof(leftCols), nameof(left));
+        ValidateJoinColumns(right, rightCols, nameof(rightCols), nameof(right));
 
-        rightCols.ForEach(x =>
-        {
-            if (!right.ContainAllColumns(x.ColumnName))
-            {
-                throw new ArgumentException($"{nameof(rightCols)} have columns not in {nameof(right)}");
-            }
-        });
-
-        DataTable result = new("JoinResult");
         using DataSet ds = new();
         ds.Tables.AddRange([left.Copy(), right.Copy()]);
-        var leftRelationCols = new DataColumn[leftCols.Length];
-        for (var i = 0; i < leftCols.Length; i++)
-        {
-            leftRelationCols[i] = ds.Tables[0].Columns[leftCols[i].ColumnName]!;
-        }
+        var leftRelationCols = ResolveJoinColumns(ds.Tables[0], leftCols);
+        var rightRelationCols = ResolveJoinColumns(ds.Tables[1], rightCols);
+        var result = CreateJoinResultTable(left, right);
 
-        var rightRelationCols = new DataColumn[rightCols.Length];
-        for (var i = 0; i < rightCols.Length; i++)
-        {
-            rightRelationCols[i] = ds.Tables[1].Columns[rightCols[i].ColumnName]!;
-        }
+        DataRelation leftRelation = new("rLeft", leftRelationCols, rightRelationCols, false);
+        ds.Relations.Add(leftRelation);
 
-        //create result columns
-        for (var i = 0; i < left.Columns.Count; i++)
-        {
-            _ = result.Columns.Add(left.Columns[i].ColumnName, left.Columns[i].DataType);
-        }
-
-        for (var i = 0; i < right.Columns.Count; i++)
-        {
-            var colName = right.Columns[i].ColumnName;
-            while (result.Columns.Contains(colName))
-            {
-                colName += "_2";
-            }
-
-            _ = result.Columns.Add(colName, right.Columns[i].DataType);
-        }
-
-        //add left join relations
-        DataRelation drLeftJoin = new("rLeft", leftRelationCols, rightRelationCols, false);
-        ds.Relations.Add(drLeftJoin);
-
-        //join
         result.BeginLoadData();
-        foreach (DataRow parentRow in ds.Tables[0].Rows)
-        {
-            DataRow[] childrenRowList = parentRow.GetChildRows(drLeftJoin);
-            if (childrenRowList.Length > 0)
-            {
-                var parentArray = parentRow.ItemArray;
-                foreach (DataRow childRow in childrenRowList)
-                {
-                    var childArray = childRow.ItemArray;
-                    var joinArray = new object[parentArray.Length + childArray.Length];
-                    Array.Copy(parentArray, 0, joinArray, 0, parentArray.Length);
-                    Array.Copy(childArray, 0, joinArray, parentArray.Length, childArray.Length);
-                    _ = result.LoadDataRow(joinArray, true);
-                }
-            }
-            else //left join
-            {
-                if (includeLeftJoin)
-                {
-                    var parentArray = parentRow.ItemArray;
-                    var joinArray = new object[result.Columns.Count];
-                    Array.Copy(parentArray, 0, joinArray, 0, parentArray.Length);
-                    _ = result.LoadDataRow(joinArray, true);
-                }
-            }
-        }
+        LoadLeftJoinRows(result, ds.Tables[0], leftRelation, includeLeftJoin);
 
         if (includeRightJoin)
         {
-            //add right join relations
-            DataRelation drRightJoin = new("rRight", rightRelationCols, leftRelationCols, false);
-            ds.Relations.Add(drRightJoin);
-
-            foreach (DataRow parentRow in ds.Tables[1].Rows)
-            {
-                DataRow[] childrenRowList = parentRow.GetChildRows(drRightJoin);
-                if (childrenRowList.Length == 0)
-                {
-                    var parentArray = parentRow.ItemArray;
-                    var joinArray = new object[result.Columns.Count];
-                    Array.Copy(parentArray, 0, joinArray,
-                        joinArray.Length - parentArray.Length, parentArray.Length);
-                    _ = result.LoadDataRow(joinArray, true);
-                }
-            }
+            DataRelation rightRelation = new("rRight", rightRelationCols, leftRelationCols, false);
+            ds.Relations.Add(rightRelation);
+            LoadUnmatchedRightRows(result, ds.Tables[1], rightRelation);
         }
 
         result.EndLoadData();
 
         return result;
+    }
+
+    private static void ValidateJoinColumns(
+        DataTable table,
+        DataColumn[] columns,
+        string columnsParameterName,
+        string tableParameterName)
+    {
+        foreach (var column in columns)
+        {
+            if (!table.ContainAllColumns(column.ColumnName))
+            {
+                throw new ArgumentException($"{columnsParameterName} have columns not in {tableParameterName}");
+            }
+        }
+    }
+
+    private static DataColumn[] ResolveJoinColumns(DataTable table, DataColumn[] sourceColumns)
+    {
+        var result = new DataColumn[sourceColumns.Length];
+        for (var i = 0; i < sourceColumns.Length; i++)
+        {
+            result[i] = table.Columns[sourceColumns[i].ColumnName]!;
+        }
+
+        return result;
+    }
+
+    private static DataTable CreateJoinResultTable(DataTable left, DataTable right)
+    {
+        DataTable result = new("JoinResult");
+        foreach (DataColumn column in left.Columns)
+        {
+            result.Columns.Add(column.ColumnName, column.DataType);
+        }
+
+        foreach (DataColumn column in right.Columns)
+        {
+            var columnName = column.ColumnName;
+            while (result.Columns.Contains(columnName))
+            {
+                columnName += "_2";
+            }
+
+            result.Columns.Add(columnName, column.DataType);
+        }
+
+        return result;
+    }
+
+    private static void LoadLeftJoinRows(
+        DataTable result,
+        DataTable left,
+        DataRelation relation,
+        bool includeUnmatchedRows)
+    {
+        foreach (DataRow leftRow in left.Rows)
+        {
+            var rightRows = leftRow.GetChildRows(relation);
+            if (rightRows.Length == 0)
+            {
+                if (includeUnmatchedRows)
+                {
+                    LoadUnmatchedLeftRow(result, leftRow);
+                }
+
+                continue;
+            }
+
+            foreach (var rightRow in rightRows)
+            {
+                LoadMatchedJoinRow(result, leftRow, rightRow);
+            }
+        }
+    }
+
+    private static void LoadMatchedJoinRow(DataTable result, DataRow leftRow, DataRow rightRow)
+    {
+        var leftValues = leftRow.ItemArray;
+        var rightValues = rightRow.ItemArray;
+        var joinedValues = new object[leftValues.Length + rightValues.Length];
+        Array.Copy(leftValues, 0, joinedValues, 0, leftValues.Length);
+        Array.Copy(rightValues, 0, joinedValues, leftValues.Length, rightValues.Length);
+        result.LoadDataRow(joinedValues, true);
+    }
+
+    private static void LoadUnmatchedLeftRow(DataTable result, DataRow leftRow)
+    {
+        var leftValues = leftRow.ItemArray;
+        var joinedValues = new object[result.Columns.Count];
+        Array.Copy(leftValues, 0, joinedValues, 0, leftValues.Length);
+        result.LoadDataRow(joinedValues, true);
+    }
+
+    private static void LoadUnmatchedRightRows(DataTable result, DataTable right, DataRelation relation)
+    {
+        foreach (DataRow rightRow in right.Rows)
+        {
+            if (rightRow.GetChildRows(relation).Length != 0)
+            {
+                continue;
+            }
+
+            var rightValues = rightRow.ItemArray;
+            var joinedValues = new object[result.Columns.Count];
+            Array.Copy(rightValues, 0, joinedValues, joinedValues.Length - rightValues.Length, rightValues.Length);
+            result.LoadDataRow(joinedValues, true);
+        }
     }
 
     /// <summary>
@@ -436,25 +457,8 @@ public static class DataTableExtensions
         ArgumentNullException.ThrowIfNull(captionColumns, nameof(captionColumns));
         ArgumentNullException.ThrowIfNull(valueColumn, nameof(valueColumn));
 
-        // 验证所有列都属于源表
-        foreach (var column in groupColumns.Concat(captionColumns).Append(valueColumn))
-        {
-            if (!source.Columns.Contains(column.ColumnName))
-            {
-                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
-            }
-        }
-
-        // 创建结果表
-        var resultTable = new DataTable();
-
-        // 添加分组列作为结果表的列
-        foreach (DataColumn groupColumn in groupColumns)
-        {
-            var sourceColumn = source.Columns[groupColumn.ColumnName];
-            ArgumentNullException.ThrowIfNull(sourceColumn);
-            resultTable.Columns.Add(sourceColumn.ColumnName, sourceColumn.DataType);
-        }
+        ValidatePivotColumns(source, groupColumns, captionColumns, valueColumn);
+        var resultTable = CreatePivotResultTable(source, groupColumns);
 
         // 如果源表没有数据，直接返回只包含列定义的空表
         if (source.Rows.Count == 0)
@@ -462,111 +466,166 @@ public static class DataTableExtensions
             return resultTable;
         }
 
-        // 获取不同的列标题
-        var distinctCaptionValues = new HashSet<string>();
-        foreach (DataRow row in source.Rows)
-        {
-            var captionValue = FormatCaptionValue(row, captionColumns);
-            distinctCaptionValues.Add(captionValue);
-        }
-
-        // 添加列标题作为新列
-        foreach (var captionValue in distinctCaptionValues)
-        {
-            if (!resultTable.Columns.Contains(captionValue) &&
-                !string.IsNullOrEmpty(captionValue))
-            {
-                var newColumn = resultTable.Columns.Add(captionValue, typeof(decimal));
-                newColumn.AllowDBNull = true;
-            }
-        }
+        AddPivotCaptionColumns(source, resultTable, captionColumns);
 
         // 使用字典存储分组键与其对应的数据行
-        var groupedRows = new Dictionary<string, DataRow>();
+        var groupedRows = new Dictionary<object?[], DataRow>(ColumnValueArrayComparer.Instance);
 
         // 分组处理数据
         foreach (DataRow sourceRow in source.Rows)
         {
-            // 使用分隔符生成分组键，避免歧义
-            var groupKey = GenerateGroupKey(sourceRow, groupColumns);
-
-            // 获取或创建分组对应的结果行
-            if (!groupedRows.TryGetValue(groupKey, out DataRow? resultRow))
-            {
-                resultRow = resultTable.NewRow();
-
-                // 设置分组列的值
-                foreach (DataColumn groupColumn in groupColumns)
-                {
-                    resultRow[groupColumn.ColumnName] = sourceRow[groupColumn.ColumnName];
-                }
-
-                resultTable.Rows.Add(resultRow);
-                groupedRows[groupKey] = resultRow;
-            }
-
-            // 获取列标题和值
-            var captionValue = FormatCaptionValue(sourceRow, captionColumns);
-
-            if (resultTable.Columns.Contains(captionValue))
-            {
-                try
-                {
-                    // 获取值并设置到对应单元格
-                    var cellValue = sourceRow[valueColumn.ColumnName];
-                    if (cellValue != DBNull.Value)
-                    {
-                        decimal currentValue = 0;
-
-                        // 如果单元格已有值，则获取现有值
-                        if (resultRow[captionValue] != DBNull.Value)
-                        {
-                            var value = resultRow[captionValue];
-                            currentValue = value.ToDecimalOrDefault();
-                        }
-
-                        // 将新值添加到现有值
-                        decimal newValue = cellValue.ToDecimalOrDefault();
-
-                        resultRow[captionValue] = currentValue + newValue;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // 记录异常但继续处理其他行
-                    Console.WriteLine($"处理值时出错: {ex.Message}");
-                }
-            }
+            var resultRow = GetOrCreatePivotRow(sourceRow, resultTable, groupedRows, groupColumns);
+            AccumulatePivotValue(sourceRow, resultRow, resultTable, captionColumns, valueColumn);
         }
 
         return resultTable;
     }
 
-    // 生成唯一的分组键，使用特殊分隔符避免歧义
-    private static string GenerateGroupKey(DataRow row, DataColumn[] groupColumns)
+    private static void ValidatePivotColumns(
+        DataTable source,
+        DataColumn[] groupColumns,
+        DataColumn[] captionColumns,
+        DataColumn valueColumn)
     {
-        var keyParts = new List<string>();
-        foreach (DataColumn column in groupColumns)
+        foreach (var column in groupColumns.Concat(captionColumns).Append(valueColumn))
         {
-            var value = row[column.ColumnName];
-            // 确保null和DBNull值也能生成唯一键
-            var stringValue = value == DBNull.Value ? "<NULL>" : value?.ToString() ?? "<NULL>";
-            keyParts.Add(stringValue);
+            if (!source.Columns.Contains(column.ColumnName))
+            {
+                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
+            }
+        }
+    }
+
+    private static DataTable CreatePivotResultTable(DataTable source, DataColumn[] groupColumns)
+    {
+        var resultTable = new DataTable();
+        foreach (var groupColumn in groupColumns)
+        {
+            var sourceColumn = source.Columns[groupColumn.ColumnName];
+            ArgumentNullException.ThrowIfNull(sourceColumn);
+            resultTable.Columns.Add(sourceColumn.ColumnName, sourceColumn.DataType);
         }
 
-        // 使用不太可能出现在数据中的分隔符
-        return string.Join("||:||", keyParts);
+        return resultTable;
+    }
+
+    private static void AddPivotCaptionColumns(
+        DataTable source,
+        DataTable resultTable,
+        DataColumn[] captionColumns)
+    {
+        var captionValuesByName = GetPivotCaptionValues(source, captionColumns);
+        foreach (var captionName in captionValuesByName.Keys)
+        {
+            AddPivotCaptionColumn(resultTable, captionName);
+        }
+    }
+
+    private static Dictionary<string, object?[]> GetPivotCaptionValues(
+        DataTable source,
+        DataColumn[] captionColumns)
+    {
+        var captionValuesByName = new Dictionary<string, object?[]>(StringComparer.OrdinalIgnoreCase);
+        foreach (DataRow row in source.Rows)
+        {
+            var captionValues = GetColumnValues(row, captionColumns);
+            var captionName = FormatCaptionValue(captionValues);
+
+            if (!captionValuesByName.TryGetValue(captionName, out var existingCaptionValues))
+            {
+                captionValuesByName.Add(captionName, captionValues);
+                continue;
+            }
+
+            if (!ColumnValueArrayComparer.Instance.Equals(existingCaptionValues, captionValues))
+            {
+                throw new DuplicateNameException(captionName);
+            }
+        }
+
+        return captionValuesByName;
+    }
+
+    private static void AddPivotCaptionColumn(DataTable resultTable, string captionName)
+    {
+        if (string.IsNullOrEmpty(captionName))
+        {
+            return;
+        }
+
+        if (resultTable.Columns.Contains(captionName))
+        {
+            throw new DuplicateNameException(captionName);
+        }
+
+        var newColumn = resultTable.Columns.Add(captionName, typeof(decimal));
+        newColumn.AllowDBNull = true;
+    }
+
+    private static DataRow GetOrCreatePivotRow(
+        DataRow sourceRow,
+        DataTable resultTable,
+        Dictionary<object?[], DataRow> groupedRows,
+        DataColumn[] groupColumns)
+    {
+        var groupKey = GetColumnValues(sourceRow, groupColumns);
+        if (groupedRows.TryGetValue(groupKey, out var resultRow))
+        {
+            return resultRow;
+        }
+
+        resultRow = resultTable.NewRow();
+        foreach (var groupColumn in groupColumns)
+        {
+            resultRow[groupColumn.ColumnName] = sourceRow[groupColumn.ColumnName];
+        }
+
+        resultTable.Rows.Add(resultRow);
+        groupedRows.Add(groupKey, resultRow);
+
+        return resultRow;
+    }
+
+    private static void AccumulatePivotValue(
+        DataRow sourceRow,
+        DataRow resultRow,
+        DataTable resultTable,
+        DataColumn[] captionColumns,
+        DataColumn valueColumn)
+    {
+        var captionName = FormatCaptionValue(GetColumnValues(sourceRow, captionColumns));
+        var cellValue = sourceRow[valueColumn.ColumnName];
+        if (!resultTable.Columns.Contains(captionName) || cellValue is DBNull)
+        {
+            return;
+        }
+
+        var currentValue = resultRow[captionName] is DBNull
+            ? 0
+            : resultRow[captionName].ToDecimal();
+        resultRow[captionName] = currentValue + cellValue.ToDecimal();
+    }
+
+    private static object?[] GetColumnValues(DataRow row, DataColumn[] columns)
+    {
+        var values = new object?[columns.Length];
+        for (var i = 0; i < columns.Length; i++)
+        {
+            var value = row[columns[i].ColumnName];
+            values[i] = value is DBNull ? null : value;
+        }
+
+        return values;
     }
 
     // 格式化列标题值
-    private static string FormatCaptionValue(DataRow row, DataColumn[] captionColumns)
+    private static string FormatCaptionValue(object?[] captionValues)
     {
         var captionParts = new List<string>();
-        foreach (DataColumn column in captionColumns)
+        foreach (var value in captionValues)
         {
-            var value = row[column.ColumnName];
             // 确保null和DBNull值也能生成有效的列名
-            var stringValue = value == DBNull.Value ? "NULL" : value?.ToString() ?? "NULL";
+            var stringValue = value?.ToString() ?? "NULL";
 
             // 替换可能导致列名无效的字符
             stringValue = SanitizeColumnName(stringValue);
@@ -591,6 +650,50 @@ public static class DataTableExtensions
             .Replace(">", "_")
             .Replace("|", "_")
             .Replace(" ", "_");
+    }
+
+    private sealed class ColumnValueArrayComparer : IEqualityComparer<object?[]>
+    {
+        public static ColumnValueArrayComparer Instance { get; } = new();
+
+        public bool Equals(object?[]? x, object?[]? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return true;
+            }
+
+            if (x is null || y is null || x.Length != y.Length)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < x.Length; i++)
+            {
+                if (!StructuralComparisons.StructuralEqualityComparer.Equals(x[i], y[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public int GetHashCode(object?[] obj)
+        {
+            unchecked
+            {
+                var hashCode = 17;
+                foreach (var value in obj)
+                {
+                    hashCode = (hashCode * 31) + (value is null
+                        ? 0
+                        : StructuralComparisons.StructuralEqualityComparer.GetHashCode(value));
+                }
+
+                return hashCode;
+            }
+        }
     }
 
     /// <summary>
@@ -707,6 +810,16 @@ public static class DataTableExtensions
 
         return (target, rawValue) =>
         {
+            if (rawValue is null or DBNull)
+            {
+                if (assignDefaultWhenNull && IsNullableOrReferenceType(typeof(TValue)))
+                {
+                    assign(target, default!);
+                }
+
+                return;
+            }
+
             if (!Helper.TypeConverter.TryConvertTo(rawValue, typeof(TValue), out var convertedValue))
             {
                 return;
@@ -862,6 +975,21 @@ public static class DataTableExtensions
         // 判断是否使用并行处理
         var useParallel = dataTable.Rows.Count > parallelProcessingThreshold;
 
+        static T MapRow(DataRow row, IReadOnlyDictionary<int, PropertyInfo> mappings)
+        {
+            var item = new T();
+            foreach (var mapping in mappings)
+            {
+                var value = row[mapping.Key];
+                if (value is not DBNull)
+                {
+                    SetProperty(item, mapping.Value, value);
+                }
+            }
+
+            return item;
+        }
+
         if (useParallel)
         {
             //Logger?.LogDebug("使用并行处理转换 {Count} 行数据为对象列表", dataTable.Rows.Count);
@@ -870,22 +998,7 @@ public static class DataTableExtensions
 
             Parallel.For(0, dataTable.Rows.Count, i =>
             {
-                var item = new T();
-                var row = dataTable.Rows[i];
-
-                foreach (var mapping in columnMappings)
-                {
-                    var colIndex = mapping.Key;
-                    PropertyInfo property = mapping.Value;
-                    var value = row[colIndex];
-
-                    if (value != DBNull.Value)
-                    {
-                        SetProperty(item, property, value);
-                    }
-                }
-
-                items[i] = item;
+                items[i] = MapRow(dataTable.Rows[i], columnMappings);
             });
 
             result.AddRange(items);
@@ -894,50 +1007,22 @@ public static class DataTableExtensions
         {
             foreach (DataRow row in dataTable.Rows)
             {
-                var item = new T();
-
-                foreach (var mapping in columnMappings)
-                {
-                    var colIndex = mapping.Key;
-                    PropertyInfo property = mapping.Value;
-                    var value = row[colIndex];
-
-                    if (value != DBNull.Value)
-                    {
-                        SetProperty(item, property, value);
-                    }
-                }
-
-                result.Add(item);
+                result.Add(MapRow(row, columnMappings));
             }
         }
 
         return result;
-    }    /// <summary>
-         /// Gets cached property mapping for the specified type to minimize reflection overhead.
-         /// Only includes properties that have public setters.
-         /// </summary>
-         /// <typeparam name="T">The type to get property mapping for.</typeparam>
-         /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
-    private static Dictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
-    {
-        return s_propertyMappingCache.GetOrAdd(typeof(T), type =>
-        {
-            var properties = GetCachedTypeProperties(type);
-            // Only include properties with public setters
-            var writableProperties = properties.Where(p => p.CanWrite && p.SetMethod?.IsPublic == true);
-            return writableProperties.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
-        });
     }
 
     /// <summary>
-    /// Gets cached type properties to minimize reflection overhead.
+    /// Gets cached property mapping for the specified type to minimize reflection overhead.
+    /// Only includes properties that have public setters.
     /// </summary>
-    /// <param name="type">The type to get properties for.</param>
-    /// <returns>An array of PropertyInfo objects.</returns>
-    private static PropertyInfo[] GetCachedTypeProperties(Type type)
+    /// <typeparam name="T">The type to get property mapping for.</typeparam>
+    /// <returns>A dictionary mapping property names to PropertyInfo objects.</returns>
+    private static IReadOnlyDictionary<string, PropertyInfo> GetCachedPropertyMapping<T>() where T : class
     {
-        return s_typePropertiesCache.GetOrAdd(type, t => t.GetProperties());
+        return PropertyMetadataCache.GetPropertyMap(typeof(T), ignoreCase: true, writableOnly: true);
     }
 
     private static bool IsNullableOrReferenceType(Type type)

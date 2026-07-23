@@ -74,8 +74,8 @@ public class DataTableJsonConverterTests
         Assert.Equal((short)2, result.Rows[0]["Int16"].ToShortOrDefault());
         Assert.Equal(3L, result.Rows[0]["Int64"].ToLongOrDefault());
         Assert.Equal(4.5m, result.Rows[0]["Decimal"].ToDecimalOrDefault());
-        Assert.Equal(5.6f, result.Rows[0]["Single"].ToFloatOrDefault());
-        Assert.Equal(7.8, result.Rows[0]["Double"].ToDoubleOrDefault());
+        Assert.Equal(5.6f, result.Rows[0]["Single"].ToTargetOrDefault<float>());
+        Assert.Equal(7.8, result.Rows[0]["Double"].ToTargetOrDefault<double>());
     }
 
     [Fact]
@@ -124,9 +124,22 @@ public class DataTableJsonConverterTests
     }
 
     [Fact]
-    public void Read_InvalidJson_ThrowsJsonException()
+    public void Read_NullOnlyColumn_RetainsLaterTypedValue()
     {
-        var json = "[{\"NullableInt\":null}]";
+        var json = "[{\"NullableInt\":null},{\"NullableInt\":42}]";
+        DataTable? result = JsonSerializer.Deserialize<DataTable>(json, _options);
+
+        Assert.NotNull(result);
+        Assert.Single(result.Columns);
+        Assert.Equal(typeof(long), result.Columns["NullableInt"].DataType);
+        Assert.Equal(DBNull.Value, result.Rows[0]["NullableInt"]);
+        Assert.Equal(42L, result.Rows[1]["NullableInt"]);
+    }
+
+    [Fact]
+    public void Read_NestedObject_ThrowsNotSupportedException()
+    {
+        var json = "[{\"Nested\":{\"Value\":1}}]";
 
         Assert.Throws<NotSupportedException>(() => JsonSerializer.Deserialize<DataTable>(json, _options));
     }

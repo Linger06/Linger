@@ -1,6 +1,5 @@
-using Linger.Helper.PathHelpers;
-using System.Text;
 using System.Collections.Concurrent;
+using System.Text;
 
 namespace Linger.FileSystem.Local;
 
@@ -57,7 +56,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// </summary>
     public bool Exists()
     {
-        return StandardPathHelper.Exists(RootDirectoryPath, false);
+        return PathExtensions.Exists(RootDirectoryPath, false);
     }
 
     /// <summary>
@@ -73,7 +72,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// </summary>
     public void CreateIfNotExists()
     {
-        if (!StandardPathHelper.Exists(RootDirectoryPath, false))
+        if (!PathExtensions.Exists(RootDirectoryPath, false))
         {
             Directory.CreateDirectory(RootDirectoryPath);
         }
@@ -91,14 +90,14 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(filePath);
-        return Task.FromResult(StandardPathHelper.Exists(realPath, true));
+        return Task.FromResult(PathExtensions.Exists(realPath, true));
     }
 
     public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(directoryPath);
-        return Task.FromResult(StandardPathHelper.Exists(realPath, false));
+        return Task.FromResult(PathExtensions.Exists(realPath, false));
     }
 
     public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default)
@@ -138,7 +137,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         var effectiveUseSequencedName = useSequencedName ?? _options.DefaultUseSequencedName;
 
         var result = await RetryHelper.ExecuteAsync(
-            async () => await UploadInternalAsync(
+            async operationCancellationToken => await UploadInternalAsync(
                 inputStream,
                 sourceFileName,
                 containerName,
@@ -146,7 +145,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 effectiveNamingRule,
                 effectiveOverwrite,
                 effectiveUseSequencedName,
-                cancellationToken).ConfigureAwait(false),
+                operationCancellationToken).ConfigureAwait(false),
             "文件上传",
             ex => ex is not DuplicateFileException,
             cancellationToken: cancellationToken).ConfigureAwait(false); // 文件重复异常不重试
@@ -222,7 +221,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                         relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
 
                         // 确保目录存在
-                        FileHelper.EnsureDirectoryExists(relativeFilePath);
+                        CreateParentDirectory(relativeFilePath);
 
                         // 对于 MD5 命名，目标文件名是确定的：不允许覆盖时直接按重复文件处理
                         if (!overwrite && File.Exists(relativeFilePath))
@@ -284,7 +283,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                     relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
 
                     // 确保目录存在
-                    FileHelper.EnsureDirectoryExists(relativeFilePath);
+                    CreateParentDirectory(relativeFilePath);
 
                     using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
                     var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
@@ -481,6 +480,15 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// // 如果document.pdf存在，抛出 DuplicateFileException
     /// </code>
     /// </example>
+    private static void CreateParentDirectory(string filePath)
+    {
+        string? directoryPath = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
+    }
+
     private static string GetDestFilePath(string destPath, string destFileName, bool overwrite, bool useSequencedName, string destRootPath = "")
     {
         // 如果允许覆盖，直接返回目标路径
@@ -564,7 +572,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         Logger.LogDebug("Starting download: {Source} -> {Destination}", sourceFilePath, localDestinationPath);
 
         return await RetryHelper.ExecuteAsync(
-            async () =>
+            async operationCancellationToken =>
             {
                 var realSourcePath = GetRealPath(sourceFilePath);
                 if (!File.Exists(realSourcePath))
@@ -576,7 +584,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                     localDestinationPath,
                     overwrite,
                     useSequencedName,
-                    cancellationToken).ConfigureAwait(false);
+                    operationCancellationToken).ConfigureAwait(false);
 
                 var sourceStream = File.OpenRead(realSourcePath);
                 var destStream = File.Create(destFilePath);
@@ -589,7 +597,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 using (destStream)
 #endif
                 {
-                    await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize, cancellationToken).ConfigureAwait(false);
+                    await sourceStream.CopyToAsync(destStream, _options.DownloadBufferSize, operationCancellationToken).ConfigureAwait(false);
                 }
                 return destFilePath;
             },
@@ -756,7 +764,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(filePath);
-        FileHelper.EnsureDirectoryExists(realPath);
+        CreateParentDirectory(realPath);
 
         if (!overwrite && File.Exists(realPath))
         {
@@ -796,7 +804,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     {
         cancellationToken.ThrowIfCancellationRequested();
         var realPath = GetRealPath(directoryPath);
-        return Task.FromResult(StandardPathHelper.Exists(realPath, false));
+        return Task.FromResult(PathExtensions.Exists(realPath, false));
     }
 
     public override Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
@@ -837,6 +845,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 uploadedInfo.Length,
                 uploadedInfo.HashData);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
@@ -855,6 +867,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
             using var fileStream = new FileStream(localFilePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
             return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
@@ -867,6 +883,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         {
             await DownloadToStreamInternalAsync(remoteFilePath, outputStream, cancellationToken).ConfigureAwait(false);
             return FileOperationResult.CreateSuccess();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -881,6 +901,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
             localDestinationPath = await DownloadAsync(remoteFilePath, localDestinationPath, overwrite, false, cancellationToken).ConfigureAwait(false);
             var fileInfo = new FileInfo(localDestinationPath);
             return FileOperationResult.CreateSuccess(remoteFilePath, localDestinationPath, fileInfo.Length);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -899,6 +923,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 File.Delete(realPath);
             }
             return Task.FromResult(FileOperationResult.CreateSuccess(filePath));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {

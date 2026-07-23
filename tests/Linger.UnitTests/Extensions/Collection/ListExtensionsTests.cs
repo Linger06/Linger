@@ -194,6 +194,23 @@ public class ListExtensionsTests
         Assert.Empty(result);
     }
 
+    [Fact]
+    public void ToTree_WhenHierarchyContainsCycle_ThrowsInvalidOperationException()
+    {
+        var list = new List<SampleClass>
+        {
+            new SampleClass { Id = 1, Name = "Root" },
+            new SampleClass { Id = 2, Name = "Child" }
+        };
+
+        Assert.Throws<InvalidOperationException>(() => list.ToTree(
+            (_, child) => child.Id == 1,
+            (parent, child) =>
+                (parent.Id == 1 && child.Id == 2) ||
+                (parent.Id == 2 && child.Id == 1),
+            (parent, children) => parent.Children.AddRange(children)));
+    }
+
     private class SampleClass
     {
         public int Id { get; set; }

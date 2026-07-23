@@ -7,16 +7,16 @@ public class FileInfoModelsTests
     #region BaseFileInfo Tests
 
     [Fact]
-    public void BaseFileInfo_DefaultValues_AreNull()
+    public void BaseFileInfo_DefaultValues_AreEmpty()
     {
         // Arrange & Act
         var fileInfo = new BaseFileInfo();
 
         // Assert
-        Assert.Null(fileInfo.HashData);
-        Assert.Null(fileInfo.FileName);
-        Assert.Null(fileInfo.FullFilePath);
-        Assert.Null(fileInfo.FileSize);
+        Assert.Equal(string.Empty, fileInfo.HashData);
+        Assert.Equal(string.Empty, fileInfo.FileName);
+        Assert.Equal(string.Empty, fileInfo.FullFilePath);
+        Assert.Equal(string.Empty, fileInfo.FileSize);
         Assert.Equal(0, fileInfo.Length);
     }
 
@@ -116,17 +116,17 @@ public class FileInfoModelsTests
     #region ExtendedFileInfo Tests
 
     [Fact]
-    public void ExtendedFileInfo_DefaultValues_AreNull()
+    public void ExtendedFileInfo_DefaultValues_AreEmpty()
     {
         // Arrange & Act
         var fileInfo = new ExtendedFileInfo();
 
         // Assert
-        Assert.Null(fileInfo.RelativeFilePath);
-        Assert.Null(fileInfo.HashData);
-        Assert.Null(fileInfo.FileName);
-        Assert.Null(fileInfo.FullFilePath);
-        Assert.Null(fileInfo.FileSize);
+        Assert.Equal(string.Empty, fileInfo.RelativeFilePath);
+        Assert.Equal(string.Empty, fileInfo.HashData);
+        Assert.Equal(string.Empty, fileInfo.FileName);
+        Assert.Equal(string.Empty, fileInfo.FullFilePath);
+        Assert.Equal(string.Empty, fileInfo.FileSize);
         Assert.Equal(0, fileInfo.Length);
     }
 

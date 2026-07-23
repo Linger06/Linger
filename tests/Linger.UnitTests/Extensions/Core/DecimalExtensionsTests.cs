@@ -1,10 +1,41 @@
-﻿namespace Linger.UnitTests.Extensions.Core;
+namespace Linger.UnitTests.Extensions.Core;
 
+using System.Globalization;
 using Xunit;
 
 public class DecimalExtensionsTests
 {
-    
+
+    [Theory]
+    [InlineData(12.345, 2, 12.35)]
+    [InlineData(-12.345, 2, -12.35)]
+    [InlineData(12.344, 2, 12.34)]
+    [InlineData(12.5, 0, 13)]
+    public void Round_ReturnsConventionallyRoundedValue(decimal value, int decimals, decimal expected)
+    {
+        var result = value.Round(decimals);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(29)]
+    public void Round_ThrowsArgumentOutOfRangeException_WhenDecimalsAreOutsideSupportedRange(int decimals)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => 1m.Round(decimals));
+    }
+
+    [Fact]
+    public void ToRounding_ReturnsSameValueAsRound()
+    {
+#pragma warning disable CS0618
+        var result = 12.345m.ToRounding(2);
+#pragma warning restore CS0618
+
+        Assert.Equal(12.345m.Round(2), result);
+    }
+
 
     [Theory]
     [InlineData(1.1)]
@@ -27,26 +58,6 @@ public class DecimalExtensionsTests
         var result = value.IsInteger();
         Assert.True(result);
     }
-
-    public static IEnumerable<object[]> FileData = new List<object[]>
-    {
-        new object[] { 0.03, 2, 0.03 },
-        new object[] { 1.23, 2, 1.23 },
-        new object[] { 1.45, 0, 1 },
-        new object[] { 1.45, 1, 1.5 },
-        new object[] { 1.45, 2, 1.45 },
-        new object[] { 1.45, 3, 1.450 },
-        new object[] { 1.456, 3, 1.456 }
-    };
-
-    [Theory]
-    [MemberData(nameof(FileData))]
-    public void ToRounding(decimal num1, int num2, decimal num3)
-    {
-        var result = num1.ToRounding(num2);
-        Assert.Equal(result, num3);
-    }
-
 
     [Theory]
     [InlineData(0.2000001, 0.2000001)]
@@ -73,7 +84,7 @@ public class DecimalExtensionsTests
         Assert.False(result);
     }
 
-        public static TheoryData<decimal, int> ToIntData()
+    public static TheoryData<decimal, int> ToIntData()
     {
         return new TheoryData<decimal, int>
         {
@@ -97,13 +108,6 @@ public class DecimalExtensionsTests
             { 123.45m },
             { (decimal)int.MaxValue + 1m }
         };
-    }
-
-    [Theory]
-    [MemberData(nameof(ToIntThrowsData))]
-    public void ToInt_ThrowsExceptionForInvalidValue(decimal value)
-    {
-        Assert.Throws<InvalidCastException>(() => value.ToInt());
     }
 
     public static TheoryData<decimal, int> ToIntBoundaryData()
@@ -136,7 +140,7 @@ public class DecimalExtensionsTests
     [MemberData(nameof(ToIntOutOfRangeBoundaryData))]
     public void ToInt_ThrowsForOutOfRangeBoundaryValues(decimal value)
     {
-        Assert.Throws<InvalidCastException>(() => value.ToInt());
+        Assert.Throws<OverflowException>(() => value.ToInt());
     }
 
     [Fact]
@@ -147,6 +151,29 @@ public class DecimalExtensionsTests
         var exception = Assert.Throws<InvalidCastException>(() => value.ToInt());
 
         Assert.Contains("value=123.45", exception.Message);
+    }
+
+    [Fact]
+    public void ToInt_ExceptionMessage_ShouldUseInvariantCulture()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+            CultureInfo.CurrentUICulture = new CultureInfo("fr-FR");
+
+            var exception = Assert.Throws<InvalidCastException>(() => 123.45m.ToInt());
+
+            Assert.Contains("value=123.45", exception.Message);
+            Assert.DoesNotContain("value=123,45", exception.Message);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
     }
 
     public static TheoryData<decimal?, int?> ToIntOrNullData()
@@ -338,14 +365,146 @@ public class DecimalExtensionsTests
         }
     }
 
+    public static TheoryData<decimal, long> ToLongData()
+    {
+        return new TheoryData<decimal, long>
+        {
+            { 123m, 123L },
+            { 1.0000m, 1L },
+            { long.MinValue, long.MinValue },
+            { long.MaxValue, long.MaxValue }
+        };
+    }
 
+    [Theory]
+    [MemberData(nameof(ToLongData))]
+    public void ToLong_ConvertsIntegerValue(decimal value, long expected)
+    {
+        var result = value.ToLong();
+        Assert.Equal(expected, result);
+    }
 
     [Fact]
-    public void ToRounding_RoundsValueToSpecifiedDecimalPlaces()
+    public void ToLong_ThrowsInvalidCastException_ForFractionalValue()
     {
-        var value = 123.4567m;
-        var result = value.ToRounding(2);
-        Assert.Equal(123.46m, result);
+        var exception = Assert.Throws<InvalidCastException>(() => 123.45m.ToLong());
+        Assert.Contains("value=123.45", exception.Message);
+    }
+
+    [Theory]
+    [InlineData("9223372036854775808")]
+    [InlineData("-9223372036854775809")]
+    public void ToLong_ThrowsOverflowException_ForOutOfRangeValue(string rawValue)
+    {
+        var value = decimal.Parse(rawValue, CultureInfo.InvariantCulture);
+        Assert.Throws<OverflowException>(() => value.ToLong());
+    }
+
+    public static TheoryData<decimal?, bool, long> TryToLongData()
+    {
+        return new TheoryData<decimal?, bool, long>
+        {
+            { 123m, true, 123L },
+            { 123.45m, false, 0L },
+            { long.MinValue, true, long.MinValue },
+            { long.MaxValue, true, long.MaxValue },
+            { null, false, 0L }
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(TryToLongData))]
+    public void TryToLong_ReturnsExpectedResult(decimal? value, bool expectedSuccess, long expectedResult)
+    {
+        var success = value.TryToLong(out var result);
+
+        Assert.Equal(expectedSuccess, success);
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Theory]
+    [InlineData("9223372036854775808", null)]
+    [InlineData("-9223372036854775809", null)]
+    public void ToLongOrNull_ReturnsNull_ForOutOfRangeValue(string rawValue, long? expected)
+    {
+        var value = decimal.Parse(rawValue, CultureInfo.InvariantCulture);
+        Assert.Equal(expected, value.ToLongOrNull());
+    }
+
+    [Fact]
+    public void ToLongOrDefault_ReturnsDefault_ForFractionalValue()
+    {
+        Assert.Equal(42L, 123.45m.ToLongOrDefault(42L));
+    }
+
+    public static TheoryData<decimal, short> ToShortData()
+    {
+        return new TheoryData<decimal, short>
+        {
+            { 123m, 123 },
+            { 1.0000m, 1 },
+            { short.MinValue, short.MinValue },
+            { short.MaxValue, short.MaxValue }
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(ToShortData))]
+    public void ToShort_ConvertsIntegerValue(decimal value, short expected)
+    {
+        var result = value.ToShort();
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ToShort_ThrowsInvalidCastException_ForFractionalValue()
+    {
+        var exception = Assert.Throws<InvalidCastException>(() => 123.45m.ToShort());
+        Assert.Contains("value=123.45", exception.Message);
+    }
+
+    [Theory]
+    [InlineData(32768)]
+    [InlineData(-32769)]
+    public void ToShort_ThrowsOverflowException_ForOutOfRangeValue(decimal value)
+    {
+        Assert.Throws<OverflowException>(() => value.ToShort());
+    }
+
+    public static TheoryData<decimal?, bool, short> TryToShortData()
+    {
+        return new TheoryData<decimal?, bool, short>
+        {
+            { 123m, true, 123 },
+            { 123.45m, false, 0 },
+            { short.MinValue, true, short.MinValue },
+            { short.MaxValue, true, short.MaxValue },
+            { null, false, 0 }
+        };
+    }
+
+    [Theory]
+    [MemberData(nameof(TryToShortData))]
+    public void TryToShort_ReturnsExpectedResult(decimal? value, bool expectedSuccess, short expectedResult)
+    {
+        var success = value.TryToShort(out var result);
+
+        Assert.Equal(expectedSuccess, success);
+        Assert.Equal(expectedResult, result);
+    }
+
+    [Theory]
+    [InlineData(32768, null)]
+    [InlineData(-32769, null)]
+    public void ToShortOrNull_ReturnsNull_ForOutOfRangeValue(decimal value, short? expected)
+    {
+        Assert.Equal(expected, value.ToShortOrNull());
+    }
+
+    [Fact]
+    public void ToShortOrDefault_ReturnsDefault_ForFractionalValue()
+    {
+        Assert.Equal((short)42, 123.45m.ToShortOrDefault(42));
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-﻿# Linger.Utils
+# Linger.Utils
 
 一个功能丰富的 .NET 工具库，包含大量实用的扩展方法和帮助类，让您的日常开发工作更加轻松高效。
 
@@ -18,12 +18,11 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
   - [文件操作](#文件操作)
   - [集合扩展](#集合扩展)
     - [DataTable 扩展（AOT 友好）](#datatable-扩展aot-友好)
-        - [IDataReader 扩展（AOT 友好）](#idatareader-扩展aot-友好)
   - [对象扩展](#对象扩展)
   - [JSON 扩展](#json-扩展)
   - [GUID 扩展](#guid-扩展)
   - [数组扩展](#数组扩展)
-  - [枚举扩展](#枚举扩展)  
+  - [枚举扩展](#枚举扩展)
   - [参数验证](#参数验证)
 - [高级功能](#高级功能)
   - [重试助手](#重试助手)
@@ -40,13 +39,13 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 - **字符串扩展**: 提供丰富的字符串处理功能，包括验证、转换、格式化等实用方法
 - **字符串加密扩展**: 提供安全的 AES 加密解密功能，保护数据安全
 - **日期时间扩展**: 简化日期时间的计算、格式化和各种常用操作
-- **数值扩展**: 安全可靠的数值类型转换，**严格的类型安全原则**，**完整支持所有 .NET 基本数值类型**
+- **数值扩展**: 安全可靠的数值类型转换，遵循**偏保守、可预测的转换策略**，覆盖常用整数与小数转换场景
 
     说明：已增强小数到整数的转换能力。`DecimalExtensions` 新增 `ToIntOrNull`、`ToIntOrDefault` 与 `TryToInt`（含 nullable 重载）。这些方法仅在小数部分为 0 且数值位于 `Int32` 范围内时返回有效值。示例：`(decimal)1.0000m.ToIntOrDefault() => 1`。
 
     此外，对象/字符串转换路径现在会将类似 "1.00000" 的字符串视为可转换为整数（在适用时转换为 `1`）。
 - **枚举扩展**: 让枚举操作更加便捷，支持字符串转换和描述获取
-- **对象扩展**: 通用的对象处理方法，提供空值检查和类型转换，**新增完整数值类型支持**
+- **对象扩展**: 通用的对象处理方法，提供空值检查和对象/字符串的常用类型转换能力
 - **数组扩展**: 简化数组操作，提供遍历和处理的便捷方法
 - **GUID 扩展**: 完善的 GUID 操作工具，包括验证和转换功能
 
@@ -117,7 +116,13 @@ string part = text.Truncate(20, ""); // 安全截取，超长不会报错
 bool isEmpty = text.IsNullOrEmpty(); // 检查是否为空
 bool isNumber = number.IsNumber(); // 检查是否为数字
 bool isInt = number.IsInteger(); // 检查是否为整数
+
+// 字面量分隔符
+string[] columns = "id,name,email".SplitToArray(',');
+IEnumerable<string> lines = "第一行\r\n第二行".SplitToList("\r\n");
 ```
+
+字面量分隔符请使用 `SplitToArray` / `SplitToList`。旧的字符版本 `ToSplitArray`、`ToSplitList` 和 `ToSplitArrayByCrlf` 已标记为过时。`ToSplitList(string)` 仅为正则表达式分隔符保留，并设置了一秒匹配超时。
 
 ### 字符串加密扩展
 
@@ -127,14 +132,14 @@ using Linger.Extensions.Core;
 string data = "敏感数据需要加密";
 string aesKey = "mySecretKey12345"; // AES 密钥
 
-// AES 加密解密（推荐，安全性高）
-string aesEncrypted = data.AesEncrypt(aesKey);    // AES-256-CBC 模式，自动生成随机 IV
-string aesDecrypted = aesEncrypted.AesDecrypt(aesKey); // 自动提取 IV 并解密
+// 认证加密解密（推荐）
+string aesEncrypted = data.AesEncryptAuthenticated(aesKey);
+string aesDecrypted = aesEncrypted.AesDecryptAuthenticated(aesKey);
 
 // 🔐 安全特性：
-// - 每次加密使用随机 IV，相同明文产生不同密文
-// - 密钥长度可变，内部自动使用 SHA256 处理为 32 字节
-// - IV 自动包含在密文中，解密时自动提取
+// - 使用 PBKDF2 派生加密密钥和认证密钥
+// - 使用随机 Salt 与 IV，相同明文产生不同密文
+// - 使用 HMAC-SHA256 校验密文完整性
 // ⚠️ 密钥应安全存储，生产环境使用专业密钥管理方案
 ```
 
@@ -165,13 +170,12 @@ DateTime endOfMonth = date.EndOfMonth(); // 当月最后一天
 using Linger.Helper;
 
 // 基本文件操作
-FileHelper.WriteText("data.txt", "Hello World"); // 写入文本文件
-string content = FileHelper.ReadText("data.txt"); // 读取文本文件
+FileHelper.CreateFile("data.txt", content: "Hello World"); // 创建并写入文本文件
 
 // Try 风格文件读取（文件不存在不会抛出异常）
-if (FileHelper.TryReadText("config.txt", out string configContent))
+if (FileHelper.TryReadText("data.txt", out string content))
 {
-    Console.WriteLine(configContent);
+    Console.WriteLine(content);
 }
 
 // 文件复制（自动创建目录）
@@ -182,18 +186,8 @@ FileHelper.DeleteFileIfExists("temp.txt"); // 文件存在才删除，不会报�
 
 // 目录操作
 FileHelper.CopyDir("sourceFolder", "backupFolder"); // 递归复制目录
-FileHelper.EnsureDirectoryExists("logs/2026"); // 目录不存在则创建
 FileHelper.ClearDirectory("temp"); // 清空目录中的所有文件和子目录
 ```
-
-> **⚠️ 已弃用的方法**: 以下方法已标记为弃用，将在未来版本中移除：
-> - `IsExistFile()` → 请直接使用 `File.Exists()`
-> - `IsExistDirectory()` → 请直接使用 `Directory.Exists()`
-> - `ReadTxt()` → 请使用 `ReadText()` 或 `TryReadText()`
-> - `WriteTxt()` → 请使用 `WriteText()`
-> - `Copy()` → 请使用 `CopyFile()`
-> - `CopyFolder()` → 请使用 `CopyDir()`
-> - `GetFileName()` → 请直接使用 `Path.GetFileName()`
 
 ### 集合扩展
 
@@ -218,10 +212,10 @@ list.ForEach(Console.WriteLine); // 对每个元素执行操作
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 
 // .NET 10+ Join 操作兼容
-// ⚠️ 注意：在较旧目标框架上使用 Polyfill；在 .NET 10+ 目标上自动使用框架原生实现
+// LeftJoin/RightJoin 在旧目标框架使用 Polyfill，在 .NET 10 使用框架实现；FullJoin 始终由 Linger 提供
 
 // Left Join（左外连接）- 保留所有左侧记录
-var employees = new List<Employee> 
+var employees = new List<Employee>
 {
     new Employee { Id = 1, Name = "张三", DeptId = 1 },
     new Employee { Id = 2, Name = "李四", DeptId = 2 },
@@ -238,9 +232,9 @@ var leftJoinResult = employees.LeftJoin(
     departments,
     emp => emp.DeptId,           // 外部键选择器
     dept => dept.Id,             // 内部键选择器
-    (emp, dept) => new { 
-        Employee = emp.Name, 
-        Department = dept?.Name ?? "无部门" 
+    (emp, dept) => new {
+        Employee = emp.Name,
+        Department = dept?.Name ?? "无部门"
     }
 );
 // 输出: 张三-开发部, 李四-测试部, 王五-无部门
@@ -268,7 +262,7 @@ var caseInsensitiveJoin = stringList1.LeftJoin(
     StringComparer.OrdinalIgnoreCase
 );
 
-// .NET 10+ 内置兼容：方法签名与标准一致，升级时无需修改代码
+// 元组便利重载与 FullJoin 在所有目标框架上均由 Linger 提供
 ```
 
 ### DataTable 扩展（AOT 友好）
@@ -280,13 +274,6 @@ using Linger.Extensions.Data;
 DataTable? table = GetDataTable();
 
 List<UserDto>? users = table.ToList(row => new UserDto
-{
-    Id = Convert.ToInt32(row["Id"]),
-    Name = row["Name"]?.ToString()
-});
-
-// 异步版本（同样无反射）
-List<UserDto> usersAsync = await table!.ToListAsync(row => new UserDto
 {
     Id = Convert.ToInt32(row["Id"]),
     Name = row["Name"]?.ToString()
@@ -305,31 +292,6 @@ List<UserDto>? usersBySetters = table.ToList(
 // var legacy = table.ToList<UserDto>();
 ```
 
-### IDataReader 扩展（AOT 友好）
-
-```csharp
-using Linger.Extensions.Data;
-
-// 在 AOT / Trim 场景下推荐使用“无反射映射”
-using IDataReader listReader = GetDataReader();
-List<UserDto> users = listReader.ReaderToList(record => new UserDto
-{
-    Id = Convert.ToInt32(record["Id"]),
-    Name = record["Name"]?.ToString()
-});
-
-using IDataReader modelReader = GetDataReader();
-UserDto? user = modelReader.ReaderToModel(record => new UserDto
-{
-    Id = Convert.ToInt32(record["Id"]),
-    Name = record["Name"]?.ToString()
-});
-
-// 反射版本为兼容历史代码而保留，但已标记为 Obsolete：
-// var legacyList = listReader.ReaderToList<UserDto>();
-// var legacyModel = modelReader.ReaderToModel<UserDto>();
-```
-
 ### 对象扩展
 
 ```csharp
@@ -339,46 +301,51 @@ using Linger.Extensions.Core;
 object stringObj = "123";
 int intValue = stringObj.ToIntOrDefault(0);           // 成功：123
 long longValue = stringObj.ToLongOrDefault(0L);       // 成功：123
-double doubleValue = stringObj.ToDoubleOrDefault(0.0); // 成功：123.0
+decimal decimalValue = stringObj.ToDecimalOrDefault(0m); // 成功：123
 
-// 严格类型安全：非字符串对象返回默认值
-object numberObj = 123.45;
-int invalidInt = numberObj.ToIntOrDefault(0);         // 返回 0（默认值）
+// 对常见数值对象也会走安全转换路径
+object numberObj = 123.00m;
+int convertedInt = numberObj.ToIntOrDefault(0);       // 成功：123
+
+// 仅当值不能无损转换时才返回默认值
+object fractionalNumberObj = 123.45;
+int invalidInt = fractionalNumberObj.ToIntOrDefault(0); // 小数部分非 0，返回 0
 ```
 
-**支持的数值类型转换**
+**当前内置的常用转换方法**
 
-| 方法 | 支持范围 | 方法 | 支持范围 |
-|------|---------|------|---------|
-| `ToSByteOrDefault` | -128 到 127 | `ToByteOrDefault` | 0 到 255 |
-| `ToShortOrDefault` | -32,768 到 32,767 | `ToUShortOrDefault` | 0 到 65,535 |
-| `ToIntOrDefault` | ±2.1×10⁹ | `ToUIntOrDefault` | 0 到 4.3×10⁹ |
-| `ToLongOrDefault` | ±9.2×10¹⁸ | `ToULongOrDefault` | 0 到 1.8×10¹⁹ |
-| `ToFloatOrDefault` | 单精度浮点 | `ToDoubleOrDefault` | 双精度浮点 |
-| `ToDecimalOrDefault` | 高精度小数 | - | - |
+| 方法 | 目标类型 | 说明 |
+|------|---------|------|
+| `ToShortOrDefault` | `short` | 支持字符串、常见数值对象与整值 `decimal/double/float` |
+| `ToIntOrDefault` | `int` | 支持字符串、常见数值对象与整值 `decimal/double/float` |
+| `ToLongOrDefault` | `long` | 支持字符串、常见数值对象与整值 `decimal/double/float` |
+| `ToDecimalOrDefault` | `decimal` | 支持字符串及常见数值对象 |
+| `ToDateTimeOrDefault` | `DateTime` | 支持字符串、`DateTime`、`DateTimeOffset` |
+| `ToBoolOrDefault` | `bool` | 支持字符串，以及 `0/1` 数值语义 |
+| `ToGuidOrDefault` | `Guid` | 支持字符串、`Guid` 与 16 字节数组 |
 
 ```csharp
 // 其他类型转换
-DateTime dateValue = stringObj.ToDateTimeOrDefault(DateTime.MinValue);
-Guid guidValue = "550e8400-e29b-41d4-a716-446655440000".ToGuidOrDefault();
-bool boolValue = stringObj.ToBoolOrDefault(false);
+object dateObj = "2025-01-01";
+DateTime dateValue = dateObj.ToDateTimeOrDefault(DateTime.MinValue);
+
+object guidObj = "550e8400-e29b-41d4-a716-446655440000";
+Guid guidValue = guidObj.ToGuidOrDefault();
+
+object boolObj = "true";
+bool boolValue = boolObj.ToBoolOrDefault(false);
 
 // 空值安全处理
 object obj = GetSomeObject();
 string result = obj.ToStringOrDefault("default"); // 为 null 时返回默认值
 
-// 类型检查方法（支持所有数值类型）
+// 类型检查方法
 object testObj = (byte)255;
-bool isByte = testObj.IsByte();                      // 检查是否为 byte 类型
 bool isNumeric = testObj.IsNumeric();                // 检查是否为任意数值类型
-bool isUnsigned = testObj.IsAnyUnsignedInteger();    // 检查是否为无符号整数类型
 
 // 性能优化的 Try 风格转换 - 避免默认值掩盖失败
 if ("123".TryToInt(out var parsedInt)) { /* parsedInt = 123 */ }
 if (!"坏数据".TryToDecimal(out var decVal)) { /* decVal = 0，转换失败 */ }
-
-// 有符号字节类型
-if ("-100".TryToSByte(out var sbyteResult)) { /* sbyteResult = -100 */ }
 
 // 确保前后缀（幂等，不重复添加）
 var apiUrl = "api/v1".EnsureStartsWith("/"); // => "/api/v1"
@@ -386,7 +353,7 @@ var folder = "logs".EnsureEndsWith("/");     // => "logs/"
 
 // 数值范围验证（使用 Guard 扩展）
 int value = 5;
-try 
+try
 {
     // 使用 EnsureIsInRange 进行范围验证（推荐方式）
     int validatedValue = value.EnsureIsInRange(1, 10); // 验证值在 1-10 范围内
@@ -438,7 +405,7 @@ var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP 请求
 
 // 在 WebAPI 中应用配置
 builder.Services.AddControllers()
-    .AddJsonOptions(options => 
+    .AddJsonOptions(options =>
         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
 // 💡 详细配置说明请参考: Json/JsonDefaults.README.zh-CN.md
@@ -469,7 +436,6 @@ int intValue = guid.ToInt32(); // 转换为 Int32
 // GuidCode 工具类 - 生成唯一标识符
 string uniqueId = GuidCode.NewId; // 基于日期时间 + GUID 的唯一 ID
 string dateGuid = GuidCode.NewDateGuid; // 短日期格式的唯一 ID
-long uniqueCode = GuidCode.GetInt64UniqueCode(); // 唯一的 Int64 编码
 
 // .NET 9+ 功能：V7 GUID 生成和时间戳提取
 #if NET9_0_OR_GREATER
@@ -477,8 +443,6 @@ Guid v7Guid = Guid.CreateVersion7(); // 创建 V7 GUID
 DateTimeOffset timestamp = v7Guid.GetTimestamp(); // 从 V7 GUID 提取时间戳
 #endif
 ```
-
-> **⚠️ 已弃用**: `GuidCode.NewGuid()` → 请直接使用 `Guid.NewGuid()`
 
 ### 数组扩展
 
@@ -525,18 +489,18 @@ string description = status.GetDescription(); // 获取描述文本
 ### 参数验证
 
 ```csharp
-using Linger;
-
 public void ProcessData(string data, IEnumerable<int> numbers)
 {
-    // .NET 8 之前版本的参数验证 Polyfill
+    // 新框架直接使用 BCL 原生 API
+    // 低版本目标框架由 Linger 自动补齐兼容 Polyfill，无需额外 using
     ArgumentNullException.ThrowIfNull(data);                    // 确保不为 null
     ArgumentException.ThrowIfNullOrEmpty(data);                 // 确保不为 null 或空字符串
     ArgumentException.ThrowIfNullOrWhiteSpace(data);            // 确保不为 null、空或纯空白字符
     ArgumentNullException.ThrowIfNull(numbers);                 // 确保集合不为 null
-    
-    // 框架支持：.NET 6+ 使用内置实现，.NET 5 及以下使用 Linger Polyfill
-    // 升级到 .NET 8+ 时，只需移除 using Linger; 即可，其他代码无需修改
+
+    // 框架支持：
+    // - ThrowIfNull: .NET 6+ 使用内置实现，.NET 5 及以下由 Linger 补齐
+    // - ThrowIfNullOrEmpty / ThrowIfNullOrWhiteSpace: .NET 8+ 使用内置实现，.NET 7 及以下由 Linger 补齐
 }
 ```
 
@@ -548,7 +512,7 @@ public void ProcessData(string data, IEnumerable<int> numbers)
 using Linger.Helper;
 
 // 自定义重试策略
-var options = new RetryOptions 
+var options = new RetryOptions
 {
     MaxRetryAttempts = 3,           // 最多重试 3 次
     DelayMilliseconds = 1000,       // 基础延迟时间 1 秒
@@ -557,22 +521,26 @@ var options = new RetryOptions
     Jitter = 0.2                    // 抖动因子 20%
 };
 var retryHelper = new RetryHelper(options);
+CancellationToken cancellationToken = GetCancellationToken();
 var result = await retryHelper.ExecuteAsync(
-    async () => await SomeOperationThatMightFail(), // 可能失败的操作
-    "网络请求"  // 操作描述
+    ct => SomeOperationThatMightFail(ct),
+    "网络请求",
+    cancellationToken: cancellationToken
 );
 
 // 使用默认重试策略
 var defaultRetryHelper = new RetryHelper();
 var result2 = await defaultRetryHelper.ExecuteAsync(
-    async () => await AnotherOperationThatMightFail(),
-    "数据库操作"
+    ct => AnotherOperationThatMightFail(ct),
+    "数据库操作",
+    cancellationToken: cancellationToken
 );
 ```
 
 ### 表达式助手
 
 ```csharp
+using System.Linq.Expressions;
 using Linger.Helper;
 using Linger.Enums;
 
@@ -597,44 +565,40 @@ Expression<Func<User, bool>> complexFilter = ExpressionHelper.BuildLambda<User>(
 ### 路径操作
 
 ```csharp
-using Linger.Helper.PathHelpers;
+using Linger.Extensions.IO;
+using Linger.Helper;
 
-// 路径标准化 - 处理相对路径、重复分隔符等
-string messyPath = @"C:\temp\..\folder\.\file.txt";
-string normalized = StandardPathHelper.NormalizePath(messyPath);
-// 结果: "C:\folder\file.txt" (Windows) 或 "/folder/file.txt" (Unix)
-
-// 路径比较 - 跨平台安全的路径相等性检查
-string path1 = @"C:\Users\Documents\file.txt";
-string path2 = @"c:\users\documents\FILE.TXT"; // 大小写不同
-bool pathEquals = StandardPathHelper.PathEquals(path1, path2); // Windows: true, Linux: false
+// 路径标准化 - 处理重复分隔符和尾部分隔符策略
+string messyPath = @"temp\\folder//file.txt\";
+string normalized = PathHelper.CleanAndNormalizePureString(messyPath, preserveEndingSeparator: false);
+// 结果会移除重复分隔符，并按当前平台规范处理路径分隔符与末尾分隔符
 
 // 获取相对路径 - 从基础路径到目标路径的相对路径
 string basePath = @"C:\Projects\MyApp";
 string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string relative = StandardPathHelper.GetRelativePath(basePath, targetPath);
+string relative = PathExtensions.GetRelativePath(basePath, targetPath);
 // 结果: "src\Components\Button.cs" (Windows) 或 "src/Components/Button.cs" (Unix)
 
 // 解析绝对路径 - 将相对路径转换为绝对路径
 string workingDir = @"C:\Projects";
 string relativePath = @"MyApp\src\file.txt";
-string absolutePath = StandardPathHelper.ResolveToAbsolutePath(workingDir, relativePath);
+string absolutePath = PathExtensions.ToFullPath(relativePath, workingDir);
 // 结果: "C:\Projects\MyApp\src\file.txt"
 
 // 检查路径中的非法字符
-string suspiciousPath = "file<name>.txt"; // 包含非法字符 '<'
-bool hasInvalidChars = StandardPathHelper.ContainsInvalidPathChars(suspiciousPath); // true
+string suspiciousPath = "file<name>.txt";
+bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // Windows: true；Unix: false
 
 // 检查文件或目录是否存在
 string filePath = @"C:\temp\data.txt";
-bool fileExists = StandardPathHelper.Exists(filePath, checkAsFile: true); // 检查文件
-bool dirExists = StandardPathHelper.Exists(filePath, checkAsFile: false); // 检查目录
+bool fileExists = PathExtensions.Exists(filePath, checkAsFile: true); // 检查文件
+bool dirExists = PathExtensions.Exists(filePath, checkAsFile: false); // 检查目录
 
 // 获取父目录路径
 string deepPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string parentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 1);
+string parentDir = PathExtensions.GetParentDirectory(deepPath, levels: 1);
 // 结果: "C:\Projects\MyApp\src\Components"
-string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 2);
+string grandParentDir = PathExtensions.GetParentDirectory(deepPath, levels: 2);
 // 结果: "C:\Projects\MyApp\src"
 ```
 
@@ -642,36 +606,37 @@ string grandParentDir = StandardPathHelper.GetParentDirectory(deepPath, levels: 
 
 ### .NET 10 兼容性（已支持）
 
-提供的 `LeftJoin`、`RightJoin`、`FullJoin` 等方法与 .NET 10 标准完全兼容。由于项目已包含对 .NET 10 的支持，在 .NET 10 目标上这些 API 将直接使用框架原生实现；同时我们保留条件编译的 Polyfill（例如 `#if !NET10_0_OR_GREATER` 分支），以确保向后兼容仍然可用，便于在低版本目标框架上继续工作且升级时无需修改业务代码。
+`LeftJoin` 和 `RightJoin` 在 .NET 10 目标上使用框架原生实现，在较旧目标框架上由条件编译的 Polyfill 提供。无结果选择器的元组 `LeftJoin` 重载以及 `FullJoin` 始终由 Linger 提供，因此这些便利 API 在所有受支持的目标框架上保持一致。
 
 ### 严格类型安全原则
 
-**类型转换策略**（性能优化）:
-1. 首先检查直接类型匹配（零开销）
-2. 然后尝试 `ToString()` 转字符串再解析
+**类型转换策略**（偏保守，优先低开销路径）:
+1. 优先检查直接类型匹配和常见数值类型分支，避免不必要的字符串解析
+2. 对整数目标类型，仅接受可无损转换的数值输入
+3. 仅在前述路径都不适用时，才回退到 `ToString()` 后再解析
 
 ```csharp
 object intObj = 123;
-int result = intObj.ToIntOrDefault(0);     // 直接匹配，零开销
+int result = intObj.ToIntOrDefault(0);     // 直接匹配，无需字符串解析
 object doubleObj = 123.45;
-int failed = doubleObj.ToIntOrDefault(0);  // 返回 0（转换失败）
+int failed = doubleObj.ToIntOrDefault(0);  // 小数部分非 0，返回 0（转换失败）
 ```
 
-**完整数值类型支持**: byte, sbyte, short, ushort, int, uint, long, ulong, float, double, decimal
+**当前核心数值转换支持**: `short`、`int`、`long`、`decimal`，并在对象/字符串路径上提供 `DateTime`、`bool`、`Guid` 等常用转换
 
 ### 性能优势
 
-- 零开销同类型转换
-- 避免异常，返回默认值提升性能
-- 智能回退策略，仅在需要时字符串转换
+- 同类型与常见数值类型走快速分支，避免不必要的字符串解析
+- `TryToXxx()` / `ToXxxOrDefault()` 避免用异常表示常规失败路径
+- 智能回退策略，仅在必要时才进行字符串转换
 - 统一 API 命名模式
 
 ## 最佳实践
 
-1. **类型转换**: 使用 `ToXxxOrDefault()` 避免异常开销;需要明确判断转换是否成功时使用 `TryToXxx()` 方法
-2. **空值检查**: 善用 `IsNullOrEmpty()`、`EnsureIsNotNull()` 等扩展方法
-3. **异步操作**: I/O 密集型任务(文件、网络)使用异步版本
-4. **异常处理**: 不稳定操作使用 `RetryHelper`,做好异常处理和用户提示
+1. **类型转换**: 输入必须有效、失败应尽早暴露时使用 `ToXxx()`；可接受空结果时使用 `ToXxxOrNull()`；需要回退值时使用 `ToXxxOrDefault()`；需要显式判断是否转换成功时使用 `TryToXxx()`
+2. **空值检查**: 使用 `IsNullOrEmpty()` 做状态判断，使用 `EnsureIsNotNull()` 等 Guard 方法做参数保护
+3. **异步操作**: 对已提供异步 API 的 I/O 密集型任务（文件、网络）优先使用异步版本
+4. **异常处理**: 对不稳定操作使用 `RetryHelper`，并做好异常处理和用户提示
 5. **资源管理**: 使用 `using` 语句确保资源正确释放
 
 ## Polyfill 汇总
@@ -685,7 +650,7 @@ int failed = doubleObj.ToIntOrDefault(0);  // 返回 0（转换失败）
 | **转换工具** | `Convert.ToHexStringLower` (.NET 9 前) | `Polyfills/Convert.cs` |
 | **语言特性** | `required` 关键字支持 (C# 11)<br>`RequiredMemberAttribute`、`SetsRequiredMembersAttribute`、`CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **可空性注解** | `AllowNull`、`NotNull`、`MaybeNullWhen`、`NotNullIfNotNull` 等 11 个特性 | `Polyfills/NullableAttributes.cs` |
-| **集合扩展** | `LeftJoin`、`RightJoin`、`FullJoin` ( .NET 10 兼容，向下保留 Polyfill ) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |
+| **集合扩展** | `LeftJoin`、`RightJoin`（.NET 10 前使用 Polyfill）；元组 `LeftJoin` 与 `FullJoin`（Linger 扩展） | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs`<br>`Extensions/Collection/IEnumerableExtensions.cs` |
 | **调用方捕获** | `CallerArgumentExpressionAttribute` (改进 Guard 体验) | `Polyfills/CallerArgumentExpressionAttribute.cs` |
 
 ## 依赖项

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Linger.Extensions.Core;
 
 namespace Linger.Extensions.IO;
@@ -9,175 +10,135 @@ namespace Linger.Extensions.IO;
 public static partial class FileInfoExtensions
 {
     /// <summary>
-    /// An IEnumerable&lt;FileInfo&gt; extension method that deletes the given @this.
+    /// Deletes each file using the legacy fail-fast behavior.
     /// </summary>
-    /// <param name="this">The @this to act on.</param>
-    public static void Delete(this IEnumerable<FileInfo> @this)
+    [Obsolete("Use Delete(files, consolidateExceptions) and choose the exception behavior explicitly.")]
+    public static void Delete(this IEnumerable<FileInfo> files)
     {
-        foreach (FileInfo t in @this)
+        if (files == null) return;
+
+        foreach (FileInfo file in files)
         {
-            t.Delete();
+            if (file.Exists) file.Delete();
         }
     }
 
-    public static FileVersionInfo GetVersionInfo(this FileInfo fileInfo)
+    /// <summary>
+    /// Retrieves version metadata for a physical file.
+    /// </summary>
+    public static FileVersionInfo? GetVersionInfo(this FileInfo fileInfo)
     {
-        var path = fileInfo.FullName;
-        return path.GetVersionInfo();
+        ArgumentNullException.ThrowIfNull(fileInfo);
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return null;
+
+        return FileVersionInfo.GetVersionInfo(fileInfo.FullName);
     }
 
     /// <summary>
-    /// Retrieve the version information
+    /// Gets the file version string from a path.
+    /// Returns <see langword="null"/> on non-Windows platforms.
     /// </summary>
-    /// <param name="fileFullPath">
-    /// The fully qualified path and name of the file to retrieve the version information for.
-    /// </param>
-    /// <returns></returns>
-    public static FileVersionInfo GetVersionInfo(this string fileFullPath)
-    {
-        var versionInfo = FileVersionInfo.GetVersionInfo(fileFullPath);
-        return versionInfo;
-    }
-
-    /// <summary>
-    /// 获取文件版本
-    /// </summary>
-    /// <param name="fileFullPath">完整路径 D://A/b.txt</param>
-    /// <returns></returns>
-    /// <example>
-    /// <code>
-    ///string fileFullPath = @"D://A/b.txt";
-    ///string version = fileFullPath.GetFileVersion();
-    /// </code>
-    /// </example>
+    [Obsolete("Use new FileInfo(fileFullPath).GetFileVersion() instead.")]
     public static string? GetFileVersion(this string fileFullPath)
     {
-        return fileFullPath.GetVersionInfo().FileVersion;
+        if (string.IsNullOrWhiteSpace(fileFullPath)) return null;
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return null;
+
+        return FileVersionInfo.GetVersionInfo(fileFullPath).FileVersion;
     }
 
     /// <summary>
-    /// Get the file Absolute Path
+    /// Gets the directory portion of a file path and appends the native separator.
     /// </summary>
-    /// <param name="filePath">D://A/b.txt Or A/b.txt</param>
-    /// <returns>D://A Or A</returns>
-    /// <example>
-    /// <code>
-    ///string filePath = "D://A/b.txt";
-    ///string version = filePath.GetFilePath();
-    /// </code>
-    /// </example>
+    [Obsolete("Prefer Path.GetDirectoryName(filePath) and append a separator explicitly when needed.")]
     public static string GetFilePath(this string filePath)
     {
-        var fi = new FileInfo(filePath);
-        return fi.FullName.Replace(fi.Name, string.Empty);
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
+        var directory = Path.GetDirectoryName(filePath);
+        if (directory == null) return string.Empty;
+
+        // Normalize the return value to a directory path with a trailing separator.
+        if (directory.Length > 0 && !directory.EndsWith(Path.DirectorySeparatorChar.ToString()))
+        {
+            directory += Path.DirectorySeparatorChar;
+        }
+
+        return directory;
     }
 
     /// <summary>
-    /// Get the Size of the file
+    /// Gets the formatted size string for a file path.
     /// </summary>
-    /// <param name="filePath">D://A/b.txt Or A/b.txt</param>
-    /// <returns></returns>
+    /// <param name="filePath">Physical file path.</param>
+    /// <exception cref="ArgumentException">
+    /// Thrown when the path is null, blank, or contains invalid characters.
+    /// </exception>
+    /// <exception cref="FileNotFoundException">
+    /// Thrown when the target file does not exist.
+    /// </exception>
+    [Obsolete("Use filePath.GetFileSizeFormatted() instead.")]
     public static string FileSize(this string filePath)
     {
+        // Guard against blank inputs before touching the file system.
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be null, empty, or whitespace.", nameof(filePath));
+        }
+
+        // Let path validation fail fast with a clear exception.
+        if (filePath.IndexOfAny(Path.GetInvalidPathChars()) != -1)
+        {
+            throw new ArgumentException($"File path contains invalid characters: {filePath}", nameof(filePath));
+        }
+
+        // Match the strict contract: the file must exist.
         var fi = new FileInfo(filePath);
+        if (!fi.Exists)
+        {
+            throw new FileNotFoundException("Target file for size calculation does not exist.", filePath);
+        }
+
         return fi.Length.FormatFileSize();
     }
 
+    /// <summary>
+    /// Gets the formatted size string from a <see cref="FileInfo"/> instance.
+    /// </summary>
+    [Obsolete("Use fileInfo.GetFileSizeFormatted() instead.")]
     public static string FileSize(this FileInfo fileInfo)
     {
+        ArgumentNullException.ThrowIfNull(fileInfo);
         return fileInfo.Length.FormatFileSize();
     }
 
     /// <summary>
-    /// 从文件的绝对路径中获取文件名( 不包含扩展名 )
+    /// Gets the file name without its extension from a path.
     /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
+    [Obsolete("Use Path.GetFileNameWithoutExtension(filePath) instead.")]
     public static string GetFileNameNoExtension(this string filePath)
-    {
-        var fi = new FileInfo(filePath);
-        return fi.GetFileNameNoExtension();
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取文件名( 不包含扩展名 )
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
-    public static string GetFileNameNoExtensionString(this string filePath)
     {
         return Path.GetFileNameWithoutExtension(filePath);
     }
 
     /// <summary>
-    /// 获取文件名( 不包含扩展名 )
+    /// Gets the file name without its extension from a <see cref="FileInfo"/> instance.
     /// </summary>
-    /// <param name="fileInfo">文件的绝对路径</param>
+    [Obsolete("Use Path.GetFileNameWithoutExtension(fileInfo.Name) instead.")]
     public static string GetFileNameNoExtension(this FileInfo fileInfo)
     {
+        ArgumentNullException.ThrowIfNull(fileInfo);
         return Path.GetFileNameWithoutExtension(fileInfo.Name);
     }
 
     /// <summary>
-    /// 获取文件名(包含扩展名)
+    /// Gets the extension text without the leading dot.
     /// </summary>
-    /// <param name="filePath"></param>
-    /// <returns></returns>
-    public static string GetFileNameString(this string filePath)
-    {
-        return Path.GetFileName(filePath);
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取文件路径(不包含文件名)
-    /// </summary>
-    /// <param name="fileFullPath"></param>
-    /// <returns></returns>
-    public static string GetFilePathString(this string fileFullPath)
-    {
-        return Path.GetDirectoryName(fileFullPath) ?? string.Empty;
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取扩展名(包含.)
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
-    public static string GetExtension(this string filePath)
-    {
-        //获取文件的名称
-        var fi = new FileInfo(filePath);
-        return fi.Extension;
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取扩展名(包含.)
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
-    public static string GetExtensionString(this string filePath)
-    {
-        var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf('.'),
-                filePath.Length - filePath.LastIndexOf('.'));
-        return strExtensionName;
-    }
-
-    /// <summary>
-    /// 从文件的绝对路径中获取扩展名(不包含.)
-    /// </summary>
-    /// <param name="filePath">文件的绝对路径</param>
+    [Obsolete("Use Path.GetExtension(filePath).TrimStart('.') instead.")]
     public static string GetExtensionNotDotString(this string filePath)
     {
-        var strExtensionName =
-            filePath.Substring(filePath.LastIndexOf('.') + 1,
-                filePath.Length - filePath.LastIndexOf('.') - 1);
-        return strExtensionName;
-    }
+        if (string.IsNullOrEmpty(filePath)) return string.Empty;
 
-    /// <summary>
-    /// 获取扩展名(包含.)
-    /// </summary>
-    /// <param name="fileInfo"></param>
-    /// <returns></returns>
-    public static string GetExtension(this FileInfo fileInfo)
-    {
-        return fileInfo.Extension;
+        var ext = Path.GetExtension(filePath);
+        return ext.Length > 1 ? ext.Substring(1) : string.Empty;
     }
 }

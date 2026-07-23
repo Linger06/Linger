@@ -61,7 +61,7 @@ public static partial class FileInfoExtensions
     /// <returns>The renamed files.</returns>
     public static FileInfo[] ChangeExtensions(this FileInfo[] files, string newExtension)
     {
-        ArrayExtensions.ForEach(files, f => f.ChangeExtension(newExtension));
+        Array.ForEach(files, f => f.ChangeExtension(newExtension));
         return files;
     }
 
@@ -74,32 +74,15 @@ public static partial class FileInfoExtensions
     /// </param>
     public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions = true)
     {
-        var exceptions = new List<Exception>();
-        foreach (FileInfo file in files)
-        {
-            try
+        _ = ExecuteFileBatch(
+            files,
+            static file =>
             {
                 file.Delete();
-            }
-            catch (Exception e)
-            {
-                if (consolidateExceptions)
-                {
-                    exceptions.Add(e);
-                }
-                else
-                {
-                    throw;
-                }
-            }
-        }
-
-        if (exceptions is { Count: > 0 })
-        {
-            throw new AggregateException(
-                "Error while deleting one or several files, see InnerExceptions array for details.",
-                exceptions);
-        }
+                return file;
+            },
+            consolidateExceptions,
+            "Error while deleting one or several files, see InnerExceptions array for details.");
     }
 
     /// <summary>
@@ -124,38 +107,12 @@ public static partial class FileInfoExtensions
     /// <returns>The newly created file copies.</returns>
     public static FileInfo[] CopyTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
-        var copiedFiles = new List<FileInfo>();
-        List<Exception>? exceptions = null;
-
-        foreach (FileInfo file in files)
-        {
-            try
-            {
-                var fileName = Path.Combine(targetPath, file.Name);
-                copiedFiles.Add(file.CopyTo(fileName));
-            }
-            catch (Exception e)
-            {
-                if (consolidateExceptions)
-                {
-                    exceptions ??= [];
-                    exceptions.Add(e);
-                }
-                else
-                {
-                    throw;
-                }
-            }
-        }
-
-        if (exceptions is { Count: > 0 })
-        {
-            throw new AggregateException(
-                "Error while copying one or several files, see InnerExceptions array for details.",
-                exceptions);
-        }
-
-        return copiedFiles.ToArray();
+        return ExecuteFileBatch(
+                files,
+                file => file.CopyTo(Path.Combine(targetPath, file.Name)),
+                consolidateExceptions,
+                "Error while copying one or several files, see InnerExceptions array for details.")
+            .ToArray();
     }
 
     /// <summary>
@@ -180,37 +137,50 @@ public static partial class FileInfoExtensions
     /// <returns>The moved files.</returns>
     public static FileInfo[] MoveTo(this FileInfo[] files, string targetPath, bool consolidateExceptions)
     {
+        return ExecuteFileBatch(
+                files,
+                file =>
+                {
+                    file.MoveTo(Path.Combine(targetPath, file.Name));
+                    return file;
+                },
+                consolidateExceptions,
+                "Error while moving one or several files, see InnerExceptions array for details.")
+            .ToArray();
+    }
+
+    private static List<TResult> ExecuteFileBatch<TResult>(
+        IEnumerable<FileInfo> files,
+        Func<FileInfo, TResult> operation,
+        bool consolidateExceptions,
+        string aggregateMessage)
+    {
+        ArgumentNullException.ThrowIfNull(files);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        var results = new List<TResult>();
         List<Exception>? exceptions = null;
 
         foreach (FileInfo file in files)
         {
             try
             {
-                var fileName = Path.Combine(targetPath, file.Name);
-                file.MoveTo(fileName);
+                results.Add(operation(file));
             }
-            catch (Exception e)
+            catch (Exception ex) when (ex is UnauthorizedAccessException || PathHelper.IsPathException(ex))
             {
-                if (consolidateExceptions)
-                {
-                    exceptions ??= [];
-                    exceptions.Add(e);
-                }
-                else
-                {
+                if (!consolidateExceptions)
                     throw;
-                }
+
+                exceptions ??= [];
+                exceptions.Add(ex);
             }
         }
 
         if (exceptions is { Count: > 0 })
-        {
-            throw new AggregateException(
-                "Error while moving one or several files, see InnerExceptions array for details.",
-                exceptions);
-        }
+            throw new AggregateException(aggregateMessage, exceptions);
 
-        return files;
+        return results;
     }
 
     /// <summary>
@@ -224,6 +194,7 @@ public static partial class FileInfoExtensions
     /// string formattedSize = size.ToFileSizeBytesString();
     /// </code>
     /// </example>
+    [Obsolete("Use FormatFileSize() for a consistent unit format.")]
     public static string ToFileSizeBytesString(this int bytes)
     {
         return bytes switch
@@ -243,7 +214,7 @@ public static partial class FileInfoExtensions
     /// <exception cref="IOException"></exception>
     public static long GetFileSize(this string filePath)
     {
-        // 由 EnsureFileExists 完整执行 null/empty 与存在性校验
+        // EnsureFileExists performs the null/empty and existence checks.
         GuardExtensions.EnsureFileExists(filePath);
 
         return new FileInfo(filePath).Length;
@@ -325,12 +296,59 @@ public static partial class FileInfoExtensions
     /// </summary>
     /// <param name="filePath">The file path.</param>
     /// <returns>A task that represents the asynchronous operation. The task result contains the file data as a byte array.</returns>
-    public static async Task<byte[]> GetFileDataAsync(this string filePath)
+    public static Task<byte[]> GetFileDataAsync(this string filePath)
     {
-        using FileStream fs = File.OpenRead(filePath);
-        using var ms = new MemoryStream(4096);
-        await fs.CopyToAsync(ms).ConfigureAwait(false);
-        return ms.ToArray();
+        return filePath.GetFileDataAsync(CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Asynchronously retrieves the file data as a byte array.
+    /// </summary>
+    /// <param name="filePath">The file path.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task whose result contains the file data.</returns>
+    public static async Task<byte[]> GetFileDataAsync(this string filePath, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        using var fs = new FileStream(
+            filePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            4096,
+            useAsync: true);
+        if (fs.Length > int.MaxValue)
+        {
+            throw new IOException("The file is too large to fit in a byte array.");
+        }
+
+        var result = new byte[(int)fs.Length];
+        var offset = 0;
+        while (offset < result.Length)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+#if NET5_0_OR_GREATER
+            int bytesRead = await fs.ReadAsync(
+                result.AsMemory(offset, result.Length - offset),
+                cancellationToken).ConfigureAwait(false);
+#else
+            int bytesRead = await fs.ReadAsync(
+                result,
+                offset,
+                result.Length - offset,
+                cancellationToken).ConfigureAwait(false);
+#endif
+            if (bytesRead == 0)
+            {
+                throw new EndOfStreamException("The file ended before the expected number of bytes was read.");
+            }
+
+            offset += bytesRead;
+        }
+
+        return result;
     }
 #endif
 }

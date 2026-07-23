@@ -55,6 +55,13 @@ public interface IHttpClient
 }
 ```
 
+### Response ownership and file downloads
+
+- `CallApi<HttpResponseMessage>` returns the original response. The caller owns it and must dispose it.
+- `DownloadStreamAsync` returns a live response stream. The caller must dispose the stream.
+- `DownloadToFileAsync` writes to a temporary file in the destination directory and replaces the destination only after the download and flush complete successfully.
+- Cancellation throws `OperationCanceledException`, removes the temporary file, and preserves any existing destination file. File-system and stream I/O failures are propagated to the caller.
+
 ### ApiResult<T>
 ```csharp
 public class ApiResult<T>

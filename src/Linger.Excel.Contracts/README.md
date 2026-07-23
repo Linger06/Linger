@@ -9,7 +9,7 @@ A unified, efficient, and extensible Excel operation framework that supports mul
 - **DataSet Support** - Import/export entire workbook as DataSet, supports multi-sheet operations
 - **Dependency Injection Friendly** - Supports .NET Core/ASP.NET Core dependency injection
 - **High-Performance Design** - Batch processing, parallel processing, and performance monitoring
-- **True Async Support** - Async file I/O + Task.Run for CPU-intensive operations
+- **Async API Support** - Async file I/O plus thread-pool isolation for synchronous provider parsing
 - **Flexible Configuration** - Rich options configuration system
 - **Extensibility** - Easy to customize and extend
 - **Cross-Platform Compatible** - Supports .NET Framework 4.7.2+, .NET Standard 2.0+, .NET 8+, .NET 9+, .NET 10+
@@ -151,6 +151,32 @@ var imported = await excelService.ExcelToListAsync(
 
 These overloads first import Excel into a `DataTable`, then reuse the existing AOT-friendly `DataTable` mapping APIs.
 
+### Import result and exception semantics
+
+- File-based sync and async imports return `null` when the path is blank or the file does not exist.
+- Once a file exists, access, I/O, workbook-format, and provider parsing failures are not converted to `null`; they propagate to the caller.
+- The bundled providers accept readable, non-seekable input streams by buffering them internally. The caller must keep the input stream open until the import completes.
+
+For example, an HTTP response stream is commonly non-seekable. Keep the response and its stream alive for the entire import:
+
+```csharp
+using var response = await httpClient.GetAsync(
+    excelUri,
+    HttpCompletionOption.ResponseHeadersRead,
+    cancellationToken);
+response.EnsureSuccessStatusCode();
+
+using Stream stream = await response.Content.ReadAsStreamAsync();
+DataTable? table = await excelService.StreamToDataTableAsync(
+    stream,
+    sheetName: "Users",
+    cancellationToken: cancellationToken);
+```
+
+### Stream Cancellation
+
+All asynchronous stream-import overloads accept an optional `CancellationToken`. Cancellation is cooperative: it is checked before import, while a non-seekable stream is buffered, and during conversion loops. NPOI, EPPlus, and ClosedXML parse workbooks synchronously, so a request received during their internal CPU-bound parsing phase is observed only after that phase reaches the next check point, where `OperationCanceledException` is thrown. Pass the token from the calling request or background operation.
+
 ### 5. AOT-Friendly Exports
 
 Use explicit columns when you want to avoid reflection during collection export and template generation:
@@ -185,21 +211,22 @@ public interface IExcelService
     
     // Import single worksheet as DataTable
     DataTable? ExcelToDataTable(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
     // Import single worksheet as object list
     List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
     
     // Import entire workbook as DataSet (multiple overloads)
     DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
     DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
-    // Async imports - True async file I/O
+    // Async imports - async file opening plus synchronous provider parsing isolation
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
     Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -254,6 +281,11 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
         Action<TWorksheet>? styleAction = null);
+
+    // Export each DataTable as a worksheet with per-worksheet customization
+    string DataSetToExcel(DataSet dataSet, string fullFileName,
+        Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
+        string defaultSheetName = "Sheet");
         
     string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, 
@@ -287,7 +319,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 
 **Async Implementation Notes:**
 - ✅ **File I/O**: Uses true async (`FileStream` with `useAsync: true`)
-- ⚠️ **Excel Processing**: Uses `Task.Run` to wrap sync methods (library limitation)
+- ⚠️ **Excel Processing**: Provider parsing is synchronous and runs through `Task.Run`; callers should limit concurrent large imports
 - 🔧 **Extensible**: Subclasses can override `StreamToXXXAsync` methods for custom async implementations
 
 ## 🎨 Advanced Features
@@ -356,6 +388,29 @@ dataSet.Tables.Add(CreateProductTable());
 // Export DataSet, each DataTable becomes a worksheet
 string filePath = excelService.DataSetToExcel(dataSet, "multi-sheet-workbook.xlsx");
 ```
+
+#### Customize Individual Worksheets
+
+Use the contextual `DataSetToExcel` overload when a worksheet needs behavior that differs from the others. The callback exposes the provider-specific worksheet together with its source `DataTable`, zero-based table index, and final sheet name:
+
+```csharp
+IExcel<ISheet> excel = npoiExcel;
+
+excel.DataSetToExcel(dataSet, "multi-sheet-workbook.xlsx", context =>
+{
+    if (context.SheetName == "Users")
+    {
+        context.Worksheet.CreateFreezePane(0, 1);
+    }
+
+    if (context.TableIndex == 2)
+    {
+        // Apply provider-specific behavior to the third DataTable's worksheet.
+    }
+});
+```
+
+The callback runs once in source table order after default worksheet formatting, including tables without columns. An exception from the callback stops the export and is propagated to the caller.
 
 ### Advanced Export - Custom Cell Operations
 
@@ -472,6 +527,8 @@ public class StyledExcelService
     }
 }
 ```
+
+`TitleStyle` and `HeaderStyle` background and font colors accept `RRGGBB` or `#RRGGBB`. Invalid color values throw `ArgumentException` before export; the bundled providers apply the configured title and header colors consistently.
 
 ### Large Data Processing
 

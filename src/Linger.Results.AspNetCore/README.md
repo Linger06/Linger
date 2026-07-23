@@ -34,28 +34,28 @@ public class UsersController : ControllerBase
         var result = await _userService.GetUserByIdAsync(id);
         return result.ToActionResult(); // Success returns UserDto, failure returns error array
     }
-    
+
     [HttpPost]
     public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
     {
         var result = await _userService.CreateUserAsync(request);
         return result.ToActionResult(HttpStatusCode.Created);
     }
-    
+
     [HttpDelete("{id}")]
     public async Task<ActionResult> DeleteUser(int id)
     {
         var result = await _userService.DeleteUserAsync(id);
         return result.ToActionResult(HttpStatusCode.NoContent); // Success returns 204, failure returns error
     }
-    
+
     // Compatible with methods returning IActionResult type signature
-    // IActionResult interface is already implemented by ActionResult, no specialized conversion needed
+    // This only applies to non-generic Result; Result<T> should use ActionResult<T>
     [HttpPut("{id}")]
     public async Task<IActionResult> UpdateUser(int id, UpdateUserRequest request)
     {
         var result = await _userService.UpdateUserAsync(id, request);
-        return result.ToActionResult(); // Directly return ActionResult as IActionResult type
+      return result.ToActionResult(); // Non-generic Result can be returned directly as IActionResult
     }
 }
 ```
@@ -138,25 +138,21 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
   }
 ]
 
-// ProblemDetails format (ToProblemDetails())
-{
-  "type": null,
-  "title": "One or more validation errors occurred",
-  "status": 400,
-  "detail": "Email format is invalid; Password strength is insufficient",
-  "errors": {
-    "User.InvalidEmail": "Email format is invalid",
-    "User.WeakPassword": "Password strength is insufficient"
-  }
-}
-```
+See detailed request/response mapping and error contract in
+[REQUEST_RESPONSE_MAPPING.zh-CN.md](../Linger.HttpClient.Standard/REQUEST_RESPONSE_MAPPING.zh-CN.md).
 
-Note: `errors` is an RFC 7807 extension member. The server adds it via `ProblemDetails.Extensions["errors"]`. ASP.NET Core serializes `Extensions` entries as top-level properties, so you will see a top-level `errors` field. This is compliant with RFC 7807's extension mechanism.
+Short summary: `errors` values are arrays of strings per field; `CreateProblemDetails` groups `Error` items by `Code` and writes `string[]` into `errors`. The client will prioritize `detail` for the global message, otherwise the first `errors` entry.
+Note: `errors` is an RFC 7807 extension member and SHOULD use string arrays (e.g. `{"Field": ["msg1", "msg2"]}`) so a single field can carry multiple validation messages. The server adds it via `ProblemDetails.Extensions["errors"]`; ASP.NET Core serializes `Extensions` entries as top-level properties, so you will see a top-level `errors` field.
+
+Client mapping notes:
+
+- The library exposes `ProblemDetails` with `errors` where each value is an array of strings. `CreateProblemDetails` groups `Error` items by `Code` and sets each group's messages as `string[]` in `errors`.
+- Consumers should expect `errors` values to be arrays and handle multiple messages per field. When using `ToProblemDetails()`, clients will receive `errors` that map to `ApiResult.Errors` where each array element becomes an `Error` item (`Error.Code` = field, `Error.Message` = single message).
 
 ## Status Code Mapping
 
 - `Result.Success()` → 200 OK
-- `Result.NotFound()` → 404 Not Found  
+- `Result.NotFound()` → 404 Not Found
 - `Result.Failure()` → 400 Bad Request
 
 ## Best Practices
@@ -173,11 +169,11 @@ Note: `errors` is an RFC 7807 extension member. The server adds it via `ProblemD
 
 - **Type Safety**: `ActionResult<T>` is generic and preserves the complete type information of return values, facilitating framework features like OpenAPI/Swagger generation and type checking. `IActionResult` is a non-generic interface that loses generic type information, hindering tool chain support.
 
-- **Seamless Compatibility**: Both `ActionResult` and `ActionResult<T>` already implement the `IActionResult` interface. When your method signature needs to return `IActionResult`, you can directly return an instance of `ActionResult` or `ActionResult<T>` without needing additional conversion methods.
+- **Seamless Compatibility**: Non-generic `Result` converts directly to `ActionResult`, so when your method signature needs to return `IActionResult` you can return `ToActionResult()` directly; `Result<T>` should use `ActionResult<T>` as the return type.
 
 - **Consistency**: We follow ASP.NET Core official best practices by prioritizing the use of generic `ActionResult<T>` over non-generic `IActionResult`.
 
-**Summary**: If your method return type is `IActionResult`, you can directly use `ToActionResult()` and assign it to that variable—no specialized conversion method is needed.
+**Summary**: If your method return type is `IActionResult`, you can directly use `ToActionResult()` for non-generic `Result`; if you are returning `Result<T>`, change the method signature to `ActionResult<T>`.
 
 ## Using with Linger.Results
 

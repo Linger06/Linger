@@ -268,11 +268,6 @@ var settings = new RemoteSystemSetting
     
     // Concurrency for batch operations
     MaxDegreeOfParallelism = 4,
-    
-    // Connection pool idle timeout (optional)
-    // Connections idle longer than this will be discarded and recreated
-    ConnectionPoolIdleTimeout = TimeSpan.FromMinutes(5),
-    
     // Batch operation retry settings
     BatchRetryOptions = new RetryOptions
     {

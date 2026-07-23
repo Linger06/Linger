@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using System.Collections.Concurrent;
 
 namespace Linger.Extensions.Core;
 
@@ -7,15 +6,101 @@ public static partial class StringExtensions
 {
     #region Regex Constants
 #if !NET10_0_OR_GREATER
-    const string Ipv4RegexPattern = @"^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$";
+    private const string Ipv4RegexPattern = @"^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$";
 #endif
-    const string DomainRegexPattern = @"^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?$";
-    const string UrlRegexPattern = @"^https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]";
-    const string EmailRegexPattern = @"^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
-    const string MultipleMailRegexPattern = @"^((?:(?:[a-zA-Z0-9_\-\.]+)@(?:(?:\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(?:(?:[a-zA-Z0-9\-]+\.)+))(?:[a-zA-Z]{2,4}|[0-9]{1,3})(?:\]?)(?:\s*;\s*|\s*$))+)$";
+    private const string DomainRegexPattern = @"^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?$";
+    private const string UrlRegexPattern = @"^https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]";
+    private const string EmailRegexPattern = @"^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
+    private const string MultipleMailRegexPattern = @"^((?:(?:[a-zA-Z0-9_\-\.]+)@(?:(?:\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(?:(?:[a-zA-Z0-9\-]+\.)+))(?:[a-zA-Z]{2,4}|[0-9]{1,3})(?:\]?)(?:\s*;\s*|\s*$))+)$";
     #endregion
 
 #if NET8_0_OR_GREATER
+    [GeneratedRegex(UrlRegexPattern)]
+    private static partial Regex GeneratedUrlRegex();
+
+    [GeneratedRegex(DomainRegexPattern)]
+    private static partial Regex GeneratedDomainRegex();
+
+    [GeneratedRegex(EmailRegexPattern)]
+    private static partial Regex GeneratedEmailRegex();
+
+    [GeneratedRegex(MultipleMailRegexPattern)]
+    private static partial Regex GeneratedMultipleMailRegex();
+
+#if !NET10_0_OR_GREATER
+    [GeneratedRegex(Ipv4RegexPattern)]
+    private static partial Regex GeneratedIpv4Regex();
+
+    private static Regex GetIpv4Regex() => GeneratedIpv4Regex();
+#endif
+
+    private static Regex GetUrlRegex() => GeneratedUrlRegex();
+
+    private static Regex GetDomainRegex() => GeneratedDomainRegex();
+
+    private static Regex GetEmailRegex() => GeneratedEmailRegex();
+
+    private static Regex GetMultipleMailRegex() => GeneratedMultipleMailRegex();
+#else
+    private static readonly Regex s_ipv4Regex = new(Ipv4RegexPattern, RegexOptions.Compiled);
+    private static readonly Regex s_domainRegex = new(DomainRegexPattern, RegexOptions.Compiled);
+    private static readonly Regex s_urlRegex = new(UrlRegexPattern, RegexOptions.Compiled);
+    private static readonly Regex s_emailRegex = new(EmailRegexPattern, RegexOptions.Compiled);
+    private static readonly Regex s_multipleMailRegex = new(MultipleMailRegexPattern, RegexOptions.Compiled);
+
+    private static Regex GetIpv4Regex() => s_ipv4Regex;
+
+    private static Regex GetUrlRegex() => s_urlRegex;
+
+    private static Regex GetDomainRegex() => s_domainRegex;
+
+    private static Regex GetEmailRegex() => s_emailRegex;
+
+    private static Regex GetMultipleMailRegex() => s_multipleMailRegex;
+#endif
+
+    private static bool IsIpAddressCore(string input)
+    {
+#if NET10_0_OR_GREATER
+        return System.Net.IPAddress.IsValid(input);
+#else
+        return System.Net.IPAddress.TryParse(input, out _);
+#endif
+    }
+
+    private static bool IsIpv4Core(string input)
+    {
+#if NET10_0_OR_GREATER
+        if (!System.Net.IPAddress.TryParse(input, out var ip)
+            || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        {
+            return false;
+        }
+
+        var dotCount = 0;
+        foreach (var character in input)
+        {
+            if (character == '.')
+            {
+                dotCount++;
+            }
+        }
+
+        return dotCount == 3;
+#else
+        return GetIpv4Regex().IsMatch(input);
+#endif
+    }
+
+    private static bool IsAsciiLetter(char character)
+    {
+#if NET8_0_OR_GREATER
+        return char.IsAsciiLetter(character);
+#else
+        return (character >= 'A' && character <= 'Z')
+            || (character >= 'a' && character <= 'z');
+#endif
+    }
 
     /// <summary>
     /// Determines whether the specified string contains only English letters.
@@ -33,25 +118,21 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsEnglish(this string input)
     {
-        if (input is null)
-            return false;
-
-        ReadOnlySpan<char> span = input.AsSpan();
-        if (span.IsEmpty)
-            return false;
-
-        // 检查每个字符是否都是英文字母
-        foreach (var c in span)
+        if (string.IsNullOrEmpty(input))
         {
-            if (!char.IsAsciiLetter(c))
+            return false;
+        }
+
+        foreach (var character in input)
+        {
+            if (!IsAsciiLetter(character))
+            {
                 return false;
+            }
         }
 
         return true;
     }
-
-    [GeneratedRegex(UrlRegexPattern)]
-    private static partial Regex UrlRegex();
 
     /// <summary>
     /// Determines whether the specified string is a valid URL.
@@ -67,13 +148,9 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsUrl(this string input)
     {
-        if (input is null)
-            return false;
-
-        return UrlRegex().IsMatch(input);
+        return input is not null && GetUrlRegex().IsMatch(input);
     }
 
-#if NET10_0_OR_GREATER
     /// <summary>
     /// 判断指定字符串是否为有效的 IP 地址（IPv4 或 IPv6）。
     /// </summary>
@@ -89,10 +166,7 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsIpAddress(this string? input)
     {
-        if (input is null)
-            return false;
-
-        return System.Net.IPAddress.IsValid(input);
+        return input is not null && IsIpAddressCore(input);
     }
 
     /// <summary>
@@ -111,26 +185,7 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsIpv4(this string? input)
     {
-        if (input is null)
-            return false;
-
-        // 验证格式：必须是标准的 4 段点分十进制格式
-        // IPAddress.TryParse 会接受简写形式如 "192.168.1"，但我们只接受标准格式
-        if (!System.Net.IPAddress.TryParse(input, out var ip)
-            || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
-        {
-            return false;
-        }
-
-        // 确保原始输入是标准的 4 段格式（3 个点）
-        var dotCount = 0;
-        foreach (var c in input)
-        {
-            if (c == '.')
-                dotCount++;
-        }
-
-        return dotCount == 3;
+        return input is not null && IsIpv4Core(input);
     }
 
     /// <summary>
@@ -147,80 +202,9 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsIpv6(this string? input)
     {
-        if (input is null)
-            return false;
-
         return System.Net.IPAddress.TryParse(input, out var ip)
             && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
     }
-#else
-    [GeneratedRegex(Ipv4RegexPattern)]
-    private static partial Regex Ipv4Regex();
-
-    /// <summary>
-    /// Determines whether the specified string is a valid IPv4 address.
-    /// </summary>
-    /// <param name="input">The string to validate.</param>
-    /// <returns>True if the string is a valid IPv4 address; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// bool ok = "192.168.1.1".IsIpv4();   // true
-    /// bool no = "999.1.1.1".IsIpv4();     // false
-    /// </code>
-    /// </example>
-    public static bool IsIpv4(this string input)
-    {
-        if (input is null)
-            return false;
-
-        return Ipv4Regex().IsMatch(input);
-    }
-
-    /// <summary>
-    /// 判断指定字符串是否为有效的 IP 地址（IPv4 或 IPv6）。
-    /// </summary>
-    /// <param name="input">要验证的字符串。</param>
-    /// <returns>如果字符串是有效的 IP 地址，则返回 true；否则返回 false。</returns>
-    /// <example>
-    /// <code>
-    /// bool ok1 = "192.168.1.1".IsIpAddress();              // true (IPv4)
-    /// bool ok2 = "::1".IsIpAddress();                       // true (IPv6)
-    /// bool ok3 = "2001:db8::1".IsIpAddress();              // true (IPv6)
-    /// bool no = "999.1.1.1".IsIpAddress();                  // false
-    /// </code>
-    /// </example>
-    public static bool IsIpAddress(this string? input)
-    {
-        if (input is null)
-            return false;
-
-        return System.Net.IPAddress.TryParse(input, out _);
-    }
-
-    /// <summary>
-    /// 判断指定字符串是否为有效的 IPv6 地址。
-    /// </summary>
-    /// <param name="input">要验证的字符串。</param>
-    /// <returns>如果字符串是有效的 IPv6 地址，则返回 true；否则返回 false。</returns>
-    /// <example>
-    /// <code>
-    /// bool ok1 = "::1".IsIpv6();                    // true
-    /// bool ok2 = "2001:db8::1".IsIpv6();           // true
-    /// bool no = "192.168.1.1".IsIpv6();            // false (IPv4)
-    /// </code>
-    /// </example>
-    public static bool IsIpv6(this string? input)
-    {
-        if (input is null)
-            return false;
-
-        return System.Net.IPAddress.TryParse(input, out var ip)
-            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
-    }
-#endif
-
-    [GeneratedRegex(DomainRegexPattern)]
-    private static partial Regex DomainRegex();
 
     /// <summary>
     /// Determines whether the specified string is a valid domain name.
@@ -236,14 +220,8 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsDomainName(this string str)
     {
-        if (str is null)
-            return false;
-
-        return DomainRegex().IsMatch(str);
+        return str is not null && GetDomainRegex().IsMatch(str);
     }
-
-    [GeneratedRegex(EmailRegexPattern)]
-    private static partial Regex EmailRegex();
 
     /// <summary>
     /// Determines whether the specified string is a valid email address.
@@ -258,12 +236,8 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsEmail(this string? input)
     {
-        if (input is null) return false;
-        return EmailRegex().IsMatch(input);
+        return input is not null && GetEmailRegex().IsMatch(input);
     }
-
-    [GeneratedRegex(MultipleMailRegexPattern)]
-    private static partial Regex MultipleMailRegex();
 
     /// <summary>
     /// Determines whether the specified string contains multiple valid email addresses.
@@ -278,157 +252,8 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsMultipleEmail(this string input)
     {
-        if (input is null)
-            return false;
-
-        return MultipleMailRegex().IsMatch(input);
+        return input is not null && GetMultipleMailRegex().IsMatch(input);
     }
-
-#else
-    private static readonly Regex s_ipv4Regex = new(Ipv4RegexPattern, RegexOptions.Compiled);
-    private static readonly Regex s_domainRegex = new(DomainRegexPattern, RegexOptions.Compiled);
-    private static readonly Regex s_urlRegex = new(UrlRegexPattern, RegexOptions.Compiled);
-    private static readonly Regex s_emailRegex = new(EmailRegexPattern, RegexOptions.Compiled);
-    private static readonly Regex s_multipleMailRegex = new(MultipleMailRegexPattern, RegexOptions.Compiled);
-
-    /// <summary>
-    /// Determines whether the specified string is a valid email address.
-    /// </summary>
-    /// <param name="input">The string to validate.</param>
-    /// <returns>True if the string is a valid email address; otherwise, false.</returns>
-    public static bool IsEmail(this string? input)
-    {
-        if (input is null) return false;
-        return s_emailRegex.IsMatch(input);
-    }
-
-    /// <summary>
-    /// Determines whether the specified string contains multiple valid email addresses.
-    /// </summary>
-    /// <param name="input">The string to validate.</param>
-    /// <returns>True if the string contains multiple valid email addresses; otherwise, false.</returns>
-    public static bool IsMultipleEmail(this string input)
-    {
-        if (input is null)
-            return false;
-
-        return s_multipleMailRegex.IsMatch(input);
-    }
-
-    /// <summary>
-    /// Determines whether the specified string is a valid domain name.
-    /// </summary>
-    /// <param name="str">The string to validate.</param>
-    /// <returns>True if the string is a valid domain name; otherwise, false.</returns>
-    public static bool IsDomainName(this string str)
-    {
-        if (str is null)
-            return false;
-
-        return s_domainRegex.IsMatch(str);
-    }
-
-    /// <summary>
-    /// Determines whether the specified string is a valid IPv4 address.
-    /// </summary>
-    /// <param name="input">The string to validate.</param>
-    /// <returns>True if the string is a valid IPv4 address; otherwise, false.</returns>
-    public static bool IsIpv4(this string input)
-    {
-        if (input is null)
-            return false;
-
-        return s_ipv4Regex.IsMatch(input);
-    }
-
-    /// <summary>
-    /// 判断指定字符串是否为有效的 IP 地址（IPv4 或 IPv6）。
-    /// </summary>
-    /// <param name="input">要验证的字符串。</param>
-    /// <returns>如果字符串是有效的 IP 地址，则返回 true；否则返回 false。</returns>
-    /// <example>
-    /// <code>
-    /// bool ok1 = "192.168.1.1".IsIpAddress();              // true (IPv4)
-    /// bool ok2 = "::1".IsIpAddress();                       // true (IPv6)
-    /// bool ok3 = "2001:db8::1".IsIpAddress();              // true (IPv6)
-    /// bool no = "999.1.1.1".IsIpAddress();                  // false
-    /// </code>
-    /// </example>
-    public static bool IsIpAddress(this string? input)
-    {
-        if (input is null)
-            return false;
-
-        return System.Net.IPAddress.TryParse(input, out _);
-    }
-
-    /// <summary>
-    /// 判断指定字符串是否为有效的 IPv6 地址。
-    /// </summary>
-    /// <param name="input">要验证的字符串。</param>
-    /// <returns>如果字符串是有效的 IPv6 地址，则返回 true；否则返回 false。</returns>
-    /// <example>
-    /// <code>
-    /// bool ok1 = "::1".IsIpv6();                    // true
-    /// bool ok2 = "2001:db8::1".IsIpv6();           // true
-    /// bool no = "192.168.1.1".IsIpv6();            // false (IPv4)
-    /// </code>
-    /// </example>
-    public static bool IsIpv6(this string? input)
-    {
-        if (input is null)
-            return false;
-
-        return System.Net.IPAddress.TryParse(input, out var ip)
-            && ip.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6;
-    }
-
-    /// <summary>
-    /// Determines whether the specified string is a valid URL.
-    /// </summary>
-    /// <param name="input">The string to validate.</param>
-    /// <returns>True if the string is a valid URL; otherwise, false.</returns>
-    public static bool IsUrl(this string input)
-    {
-        if (input is null)
-            return false;
-
-        return s_urlRegex.IsMatch(input);
-    }
-
-    /// <summary>
-    /// Determines whether the specified string contains only English letters.
-    /// </summary>
-    /// <param name="input">The string to validate.</param>
-    /// <returns>True if the string contains only English letters; otherwise, false.</returns>
-    /// <example>
-    /// <code>
-    /// bool result1 = "abc".IsEnglish(); // true
-    /// bool result2 = "ABC".IsEnglish(); // true
-    /// bool result3 = "AbCdEf".IsEnglish(); // true
-    /// bool result4 = "abc123".IsEnglish(); // false
-    /// bool result5 = "abc_def".IsEnglish(); // false
-    /// </code>
-    /// </example>
-    public static bool IsEnglish(this string input)
-    {
-        if (input is null)
-            return false;
-
-        if (input.Length == 0)
-            return false;
-
-        // 检查每个字符是否都是英文字母(A-Z, a-z)
-        for (var i = 0; i < input.Length; i++)
-        {
-            var c = input[i];
-            if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')))
-                return false;
-        }
-
-        return true;
-    }
-#endif
 
     /// <summary>
     /// Determines whether the specified string contains only a combination of English letters and numbers.
@@ -447,8 +272,7 @@ public static partial class StringExtensions
     /// </example>
     public static bool IsCombinationOfEnglishNumber(this string input, int? minLength = null, int? maxLength = null)
     {
-        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: false);
-        return regex.IsMatch(input);
+        return IsCombination(input, minLength, maxLength, allowSymbols: false);
     }
 
     /// <summary>
@@ -467,38 +291,48 @@ public static partial class StringExtensions
     public static bool IsCombinationOfEnglishNumberSymbol(this string input, int? minLength = null,
         int? maxLength = null)
     {
-        var regex = GetCombinationRegex(minLength, maxLength, withSymbol: true);
-        return regex.IsMatch(input);
+        return IsCombination(input, minLength, maxLength, allowSymbols: true);
     }
 
-    private static readonly ConcurrentDictionary<string, Regex> s_combinationRegexCache = new();
-
-    private static Regex GetCombinationRegex(int? minLength, int? maxLength, bool withSymbol)
+    private static bool IsCombination(string? input, int? minLength, int? maxLength, bool allowSymbols)
     {
-        // Base fragments are identical to the previous inline patterns
-        var core = withSymbol
-            ? @"(?=.*\d)(?=.*[a-zA-Z])(?=.*[^a-zA-Z\d])."
-            : @"(?=.*\d)(?=.*[a-zA-Z])[a-zA-Z0-9]";
-
-        string pattern;
-        if (minLength is null && maxLength is null)
+        if (input is null
+            || input.Length == 0
+            || minLength is < 0
+            || maxLength is < 0
+            || (minLength is not null && maxLength is not null && minLength > maxLength)
+            || (minLength is not null && input.Length < minLength)
+            || (maxLength is not null && input.Length > maxLength))
         {
-            pattern = $"^{core}+$";
-        }
-        else if (minLength is not null && maxLength is null)
-        {
-            pattern = $"^{core}{{{minLength},}}$";
-        }
-        else if (minLength is null && maxLength is not null)
-        {
-            pattern = $"^{core}{{1,{maxLength}}}$";
-        }
-        else
-        {
-            pattern = $"^{core}{{{minLength},{maxLength}}}$";
+            return false;
         }
 
-        return s_combinationRegexCache.GetOrAdd(pattern, static p =>
-            new Regex(p, RegexOptions.Compiled | RegexOptions.CultureInvariant));
+        var hasAsciiLetter = false;
+        var hasDigit = false;
+        var hasSymbol = false;
+
+        foreach (var character in input)
+        {
+            if (IsAsciiLetter(character))
+            {
+                hasAsciiLetter = true;
+                continue;
+            }
+
+            if (character >= '0' && character <= '9')
+            {
+                hasDigit = true;
+                continue;
+            }
+
+            if (!allowSymbols || character == '\n')
+            {
+                return false;
+            }
+
+            hasSymbol = true;
+        }
+
+        return hasAsciiLetter && hasDigit && (!allowSymbols || hasSymbol);
     }
 }

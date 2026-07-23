@@ -261,7 +261,7 @@ public static class DateTimeExtensions
     /// <returns>The number of days between the two dates.</returns>
     public static int GetDays(this DateTime fromDate, DateTime toDate)
     {
-        return Convert.ToInt32(toDate.Subtract(fromDate).TotalDays);
+        return (toDate.Date - fromDate.Date).Days;
     }
 
     /// <summary>
@@ -289,7 +289,7 @@ public static class DateTimeExtensions
 
         var dtEasterSunday = new DateTime(y, month, day);
 
-        return date == dtEasterSunday;
+        return date.Date == dtEasterSunday.Date;
     }
 
     /// <summary>
@@ -361,7 +361,7 @@ public static class DateTimeExtensions
     /// <returns>A <see cref="DateTime"/> representing the first day of the month.</returns>
     public static DateTime FirstDayOfMonth(this DateTime dateTime)
     {
-        return new DateTime(dateTime.Year, dateTime.Month, 1);
+        return dateTime.StartOfMonth();
     }
 
     /// <summary>

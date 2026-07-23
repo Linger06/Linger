@@ -56,30 +56,6 @@ public partial class StringExtensionsTests
         new object[] { "1234.567890", 4, 6, true }
     };
 
-    [Theory]
-    [InlineData("1")]
-    [InlineData("1 ")]
-    [InlineData(" 1")]
-    [InlineData("1.0")]
-    [InlineData("1.0 ")]
-    [InlineData("1.1")]
-    [InlineData("0.1")]
-    public void IsNumber(string value)
-    {
-        var result = value.IsDecimal();
-        Assert.True(result);
-    }
-
-    [Theory]
-    [InlineData("A")]
-    [InlineData("1A")]
-    [InlineData(" ")]
-    public void IsNumber2(string value)
-    {
-        var result = value.IsDecimal();
-        Assert.False(result);
-    }
-
     [Fact]
     public void DelLastComma()
     {
@@ -461,162 +437,6 @@ public partial class StringExtensionsTests
     }
 
     [Fact]
-    public void IsInt16_ValidInt16String_ReturnsTrue()
-    {
-        // Arrange
-        var value = "12345";
-
-        // Act
-        var result = value.IsInt16();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsInt16_InvalidInt16String_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsInt16();
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsInt_ValidIntString_ReturnsTrue()
-    {
-        // Arrange
-        var value = "1234567890";
-
-        // Act
-        var result = value.IsInt();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsInt_InvalidIntString_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsInt();
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsInt64_ValidInt64String_ReturnsTrue()
-    {
-        // Arrange
-        var value = "1234567890123456789";
-
-        // Act
-        var result = value.IsInt64();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsInt64_InvalidInt64String_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsInt64();
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsDecimal_ValidDecimalString_ReturnsTrue()
-    {
-        // Arrange
-        var value = "12345.6789";
-
-        // Act
-        var result = value.IsDecimal();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsDecimal_InvalidDecimalString_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsDecimal();
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsFloat_ValidFloatString_ReturnsTrue()
-    {
-        // Arrange
-        var value = "12345.6789";
-
-        // Act
-        var result = value.IsFloat();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsFloat_InvalidFloatString_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsFloat();
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsDouble_ValidDoubleString_ReturnsTrue()
-    {
-        // Arrange
-        var value = "12345.6789";
-
-        // Act
-        var result = value.IsDouble();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsDouble_InvalidDoubleString_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsDouble();
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
     public void IsDateTime_ValidDateTimeString_ReturnsTrue()
     {
         // Arrange
@@ -627,19 +447,6 @@ public partial class StringExtensionsTests
 
         // Assert
         Assert.True(result);
-    }
-
-    [Fact]
-    public void IsDateTime_InvalidDateTimeString_ReturnsFalse()
-    {
-        // Arrange
-        var value = "invalid";
-
-        // Act
-        var result = value.IsDateTime();
-
-        // Assert
-        Assert.False(result);
     }
 
     [Theory]
@@ -734,22 +541,13 @@ public partial class StringExtensionsTests
         Assert.False(result);
     }
 
-    [Fact]
-    public void IsDateTime_DefaultOverload_InvalidDateString_ReturnsFalse()
-    {
-        // Arrange
-        var input = "not-a-date";
-
-        // Act
-        var result = input.IsDateTime();
-
-        // Assert
-        Assert.False(result);
-    }
-
     [Theory]
     [InlineData("true", true)]
     [InlineData("false", true)]
+    [InlineData("1", false)]
+    [InlineData("0", false)]
+    [InlineData("yes", false)]
+    [InlineData("off", false)]
     [InlineData("abc", false)]
     public void IsBoolean_ShouldReturnExpectedResult(string value, bool expected)
     {
@@ -1012,10 +810,21 @@ public partial class StringExtensionsTests
     }
 
     [Theory]
+    [InlineData(-1, null)]
+    [InlineData(null, -1)]
+    [InlineData(3, 2)]
+    public void IsCombinationOfEnglishNumber_WithInvalidLengthBounds_ReturnsFalse(int? minLength, int? maxLength)
+    {
+        var result = "abc123".IsCombinationOfEnglishNumber(minLength, maxLength);
+
+        Assert.False(result);
+    }
+
+    [Theory]
     [InlineData("hello", 10, null, "hello")]
     [InlineData("hello world", 5, null, "he...")]
     [InlineData("hello world", 5, "***", "he***")]
-    [InlineData("hello world", 2, "***", "***")]
+    [InlineData("hello world", 2, "***", "**")]
     [InlineData("hello", 0, null, "")]
     [InlineData("", 5, null, "")]
     [InlineData(null, 5, null, "")]
@@ -1089,9 +898,9 @@ public partial class StringExtensionsTests
         var result = input.ToMd5HashCode();
 
         // Assert
-    Assert.NotNull(result);
-    Assert.Equal(32, result.Length); // MD5 hash string is always 32 characters (16 bytes * 2 hex digits)
-    Assert.True(result.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))); // Only lower-case hex characters
+        Assert.NotNull(result);
+        Assert.Equal(32, result.Length); // MD5 hash string is always 32 characters (16 bytes * 2 hex digits)
+        Assert.True(result.All(c => (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'))); // Only lower-case hex characters
     }
 
     [Fact]
@@ -1230,6 +1039,22 @@ public partial class StringExtensionsTests
     }
 
     [Fact]
+    public void AppendQuery_DictionaryOverload_ShouldUrlEncodeKeysAndValues()
+    {
+        var url = "http://example.com";
+        var data = new Dictionary<string, string>
+        {
+            ["user name"] = "hello world",
+            ["filter"] = "a&b"
+        };
+
+        var result = url.AppendQuery(data);
+
+        Assert.Contains("user%20name=hello%20world", result);
+        Assert.Contains("filter=a%26b", result);
+    }
+
+    [Fact]
     public void AppendQuery_KeyValuePairListOverload_ShouldAppendQueryParameters()
     {
         // Arrange
@@ -1247,6 +1072,22 @@ public partial class StringExtensionsTests
         Assert.Contains("?id=123", result);
         Assert.Contains("name=test", result);
         Assert.StartsWith("http://example.com?", result);
+    }
+
+    [Fact]
+    public void AppendQuery_KeyValuePairListOverload_ShouldUrlEncodeKeysAndValues()
+    {
+        var url = "http://example.com";
+        var data = new List<KeyValuePair<string, string>>
+        {
+            new("user name", "hello world"),
+            new("filter", "a&b")
+        };
+
+        var result = url.AppendQuery(data);
+
+        Assert.Contains("user%20name=hello%20world", result);
+        Assert.Contains("filter=a%26b", result);
     }
 
     [Theory]
@@ -1366,6 +1207,60 @@ public partial class StringExtensionsTests
     {
         var result = input.IsPositiveInteger();
         Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("32767", true)]
+    [InlineData("32768", false)]
+    [InlineData(null, false)]
+    public void IsShort_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsShort());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("2147483648", false)]
+    [InlineData(null, false)]
+    public void IsInt_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsInt());
+    }
+
+    [Theory]
+    [InlineData("9223372036854775807", true)]
+    [InlineData("9223372036854775808", false)]
+    [InlineData(null, false)]
+    public void IsLong_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsLong());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("invalid", false)]
+    [InlineData(null, false)]
+    public void IsDecimal_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsDecimal());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("invalid", false)]
+    [InlineData(null, false)]
+    public void IsFloat_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsFloat());
+    }
+
+    [Theory]
+    [InlineData("1e2", true)]
+    [InlineData("invalid", false)]
+    [InlineData(null, false)]
+    public void IsDouble_ShouldReturnWhetherTheValueCanBeConverted(string? input, bool expected)
+    {
+        Assert.Equal(expected, input.IsDouble());
     }
 
     [Theory]

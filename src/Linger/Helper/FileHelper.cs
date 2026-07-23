@@ -1,7 +1,6 @@
 using System.Text;
 using Linger.Extensions.Core;
 using Linger.Extensions.IO;
-using Linger.Helper.PathHelpers;
 
 namespace Linger.Helper;
 
@@ -10,163 +9,22 @@ public static partial class FileHelper
     #region File Read Operations
 
     /// <summary>
-    /// Reads all text content from the specified file.
+    /// Tries to read all text from the specified file without throwing on missing files.
     /// </summary>
-    /// <param name="filename">The path to the file to read.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <returns>A string containing all text from the file.</returns>
-    /// <exception cref="FileNotFoundException">Thrown when the specified file does not exist.</exception>
-    /// <example>
-    /// <code>
-    /// string content = FileHelper.ReadText("C:\\data\\config.txt");
-    /// </code>
-    /// </example>
-    public static string ReadText(string filename, Encoding? encoding = null)
+    public static bool TryReadText(string filename, [NotNullWhen(true)] out string? content, Encoding? encoding = null)
     {
-        filename.EnsureFileExists();
-
-        encoding ??= Encoding.UTF8;
-
-        using var sr = new StreamReader(filename, encoding);
-        return sr.ReadToEnd();
-    }
-
-    /// <summary>
-    /// Attempts to read all text content from the specified file without throwing exceptions.
-    /// </summary>
-    /// <param name="filename">The path to the file to read.</param>
-    /// <param name="content">When this method returns, contains the file content if successful; otherwise, an empty string.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <returns><c>true</c> if the file was read successfully; otherwise, <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if (FileHelper.TryReadText("config.txt", out string content))
-    /// {
-    ///     Console.WriteLine(content);
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryReadText(string filename, out string content, Encoding? encoding = null)
-    {
-        content = string.Empty;
-        if (!File.Exists(filename))
+        content = null;
+        if (string.IsNullOrWhiteSpace(filename) || !File.Exists(filename))
         {
             return false;
         }
 
         try
         {
-            content = ReadText(filename, encoding);
+            content = File.ReadAllText(filename, encoding ?? Encoding.UTF8);
             return true;
         }
-        catch
-        {
-            return false;
-        }
-    }
-
-    #endregion
-
-    #region File Write Operations
-
-    /// <summary>
-    /// Writes the specified text content to a file. Creates the directory structure if it doesn't exist.
-    /// </summary>
-    /// <param name="filePath">The path to the file to write.</param>
-    /// <param name="text">The text content to write.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
-    /// <example>
-    /// <code>
-    /// FileHelper.WriteText("C:\\data\\output.txt", "Hello, World!");
-    /// </code>
-    /// </example>
-    public static void WriteText(string filePath, string text, Encoding? encoding = null)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-        encoding ??= Encoding.UTF8;
-
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-        File.WriteAllText(filePath, text, encoding);
-    }
-
-    /// <summary>
-    /// Appends the specified text content to a file. Creates the directory structure if it doesn't exist.
-    /// </summary>
-    /// <param name="filePath">The path to the file to append to.</param>
-    /// <param name="content">The text content to append.</param>
-    /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
-    /// <example>
-    /// <code>
-    /// FileHelper.AppendText("C:\\logs\\app.log", "New log entry\n");
-    /// </code>
-    /// </example>
-    public static void AppendText(string filePath, string content)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
-
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-        File.AppendAllText(filePath, content);
-    }
-
-    /// <summary>
-    /// Attempts to write the specified text content to a file without throwing exceptions.
-    /// </summary>
-    /// <param name="filePath">The path to the file to write.</param>
-    /// <param name="text">The text content to write.</param>
-    /// <param name="encoding">The character encoding to use. Defaults to UTF-8 if not specified.</param>
-    /// <returns><c>true</c> if the file was written successfully; otherwise, <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if (FileHelper.TryWriteText("output.txt", "Hello"))
-    /// {
-    ///     Console.WriteLine("File saved successfully.");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryWriteText(string filePath, string text, Encoding? encoding = null)
-    {
-        try
-        {
-            WriteText(filePath, text, encoding);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Attempts to append the specified text content to a file without throwing exceptions.
-    /// </summary>
-    /// <param name="filePath">The path to the file to append to.</param>
-    /// <param name="content">The text content to append.</param>
-    /// <returns><c>true</c> if the content was appended successfully; otherwise, <c>false</c>.</returns>
-    /// <example>
-    /// <code>
-    /// if (FileHelper.TryAppendText("log.txt", "New entry"))
-    /// {
-    ///     Console.WriteLine("Log entry added.");
-    /// }
-    /// </code>
-    /// </example>
-    public static bool TryAppendText(string filePath, string content)
-    {
-        try
-        {
-            AppendText(filePath, content);
-            return true;
-        }
-        catch
+        catch (Exception ex) when (ex is UnauthorizedAccessException || PathHelper.IsPathException(ex))
         {
             return false;
         }
@@ -212,7 +70,7 @@ public static partial class FileHelper
     {
         sourceFile.EnsureFileExists();
 
-        var normalizedDest = StandardPathHelper.NormalizePath(destFile);
+        var normalizedDest = PathHelper.CleanAndNormalizePureString(destFile, false);
         var directory = Path.GetDirectoryName(normalizedDest);
 
         if (!string.IsNullOrEmpty(directory))
@@ -272,10 +130,10 @@ public static partial class FileHelper
     /// <code>
     /// // Create with text content
     /// FileHelper.CreateFile("output.txt", content: "Hello, World!");
-    /// 
+    ///
     /// // Create with binary content
     /// FileHelper.CreateFile("data.bin", buffer: new byte[] { 0x01, 0x02, 0x03 });
-    /// 
+    ///
     /// // Create empty file
     /// FileHelper.CreateFile("empty.txt");
     /// </code>
@@ -334,7 +192,7 @@ public static partial class FileHelper
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException
                                  || ex is DirectoryNotFoundException
-                                 || ex is PathTooLongException)
+                                 || PathHelper.IsPathException(ex))
         {
             return false;
         }
@@ -345,52 +203,51 @@ public static partial class FileHelper
     #region File Information
 
     /// <summary>
-    /// Gets extended information for the specified file, including hash, path, and file size metadata.
+    /// Gets extended metadata for an existing file, including hash, paths, and size information.
     /// </summary>
-    /// <param name="fullFileName">The full path of the target file.</param>
-    /// <param name="relativeTo">The base directory used to calculate relative paths. Defaults to the current working directory.</param>
-    /// <returns>An <see cref="ExtendedFileInfo"/> instance containing file metadata; or <see langword="null"/> if the file doesn't exist or the path is invalid.</returns>
-    /// <example>
-    /// <code>
-    /// var fileInfo = FileHelper.GetExistingFileInfo(@"C:\logs\app.log");
-    /// if (fileInfo is not null)
-    /// {
-    ///     Console.WriteLine($"Hash: {fileInfo.HashData}");
-    ///     Console.WriteLine($"Size: {fileInfo.FileSize}");
-    /// }
-    /// </code>
-    /// </example>
+    /// <param name="fullFileName">The target file path, absolute or relative.</param>
+    /// <param name="relativeTo">The base directory used to compute the relative path. Defaults to the current working directory.</param>
+    /// <returns>
+    /// An <see cref="ExtendedFileInfo"/> instance when the file exists and the path is valid; otherwise <see langword="null"/>.
+    /// </returns>
     public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName, string? relativeTo = null)
     {
         if (string.IsNullOrEmpty(fullFileName))
             return null;
 
-        var basePath = string.IsNullOrEmpty(relativeTo)
-            ? Environment.CurrentDirectory
-            : relativeTo;
+        string basePath = relativeTo is { Length: > 0 }
+            ? relativeTo
+            : Directory.GetCurrentDirectory();
 
-        if (basePath is null)
+        try
         {
-            return null;
-        }
+            string absolutePath = fullFileName.ToFullPath();
 
-        var absolutePath = StandardPathHelper.ResolveToAbsolutePath(null, fullFileName);
-        var file = new FileInfo(absolutePath);
-        if (file.Exists)
-        {
-            using var memoryStream = file.ToMemoryStream();
-            var strHashData = memoryStream.ComputeHashMd5();
+            if (!PathExtensions.Exists(absolutePath, checkAsFile: true))
+                return null;
+
+            var file = new FileInfo(absolutePath);
+            string strHashData;
+
+            using (var fileStream = file.OpenRead())
+            {
+                strHashData = fileStream.ComputeHashMd5();
+            }
+
             return new ExtendedFileInfo
             {
                 HashData = strHashData,
                 FileName = file.Name,
-                RelativeFilePath = StandardPathHelper.GetRelativePath(basePath, absolutePath),
+                RelativeFilePath = basePath.GetRelativePath(absolutePath),
                 FullFilePath = file.FullName,
                 FileSize = file.Length.FormatFileSize(),
                 Length = file.Length
             };
         }
-        return null;
+        catch (Exception ex) when (PathHelper.IsPathException(ex))
+        {
+            return null;
+        }
     }
 
     #endregion
@@ -476,10 +333,10 @@ public static partial class FileHelper
     }
 
     /// <summary>
-    /// Determines whether the specified directory is empty (contains no files or subdirectories).
+    /// Determines whether the specified directory is empty.
     /// </summary>
     /// <param name="directory">The directory path to check.</param>
-    /// <returns><c>true</c> if the directory is empty; otherwise, <c>false</c>.</returns>
+    /// <returns><c>true</c> if the directory contains no files or subdirectories; otherwise, <c>false</c>.</returns>
     /// <exception cref="DirectoryNotFoundException">Thrown when the directory does not exist.</exception>
     /// <example>
     /// <code>
@@ -516,13 +373,11 @@ public static partial class FileHelper
 
         srcDirectory.EnsureDirectoryExists();
 
-        // Normalize source and destination paths with a trailing separator.
         srcDirectory = Path.GetFullPath(srcDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar);
         destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar);
 
-        // Prevent recursive self-copy (destination equals source or is under source).
         var pathComparison = Path.DirectorySeparatorChar == '\\'
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
@@ -531,10 +386,8 @@ public static partial class FileHelper
             throw new ArgumentException("Destination directory cannot be the same as or a subdirectory of source directory.", nameof(destDirectory));
         }
 
-        // Create destination directory if it doesn't exist
         Directory.CreateDirectory(destDirectory);
 
-        // Get all entries (files and directories)
         var fileList = Directory.GetFileSystemEntries(srcDirectory);
 
         foreach (var file in fileList)
@@ -584,19 +437,6 @@ public static partial class FileHelper
         if (Directory.Exists(directoryPath))
         {
             Directory.Delete(directoryPath, true);
-        }
-    }
-
-    /// <summary>
-    /// 确保目录存在
-    /// </summary>
-    /// <param name="filePath">文件路径</param>
-    public static void EnsureDirectoryExists(string filePath)
-    {
-        var directory = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
         }
     }
 

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using Linger.Extensions.Core;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Models;
@@ -155,6 +156,9 @@ public class StandardHttpClient : HttpClientBase, IDisposable
     {
         ApiResult<T> rv = new();
         var requestId = Guid.NewGuid().ToString("N").Substring(0, 8);
+        var effectiveTimeout = timeout.HasValue
+            ? TimeSpan.FromSeconds(timeout.Value)
+            : _httpClient.Timeout;
 
         try
         {
@@ -183,7 +187,12 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             }
 
             // Create combined cancellation token with timeout support
-            using var timeoutSource = HttpClientBase.CreateTimeoutTokenSource(timeout, cancellationToken);
+            using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (effectiveTimeout != Timeout.InfiniteTimeSpan)
+            {
+                timeoutSource.CancelAfter(effectiveTimeout);
+            }
+
             var combinedToken = timeoutSource.Token;
 
             HttpMethod httpMethod = method switch
@@ -231,7 +240,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
             // 根据 responseMode 选择不同的 HttpCompletionOption
-            var completionOption = responseMode == HttpResponseMode.Streamed
+            var completionOption = responseMode == HttpResponseMode.Streamed || ShouldStreamTypedResponse<T>()
                 ? HttpCompletionOption.ResponseHeadersRead
                 : HttpCompletionOption.ResponseContentRead;
 
@@ -243,7 +252,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             _logger.LogDebug("[{RequestId}] HTTP {Method} request to {Url} completed in {ElapsedMs}ms with status {StatusCode}",
                 requestId, method, request.RequestUri, stopwatch.ElapsedMilliseconds, (int)res.StatusCode);
 
-            rv = await HandleResponseMessage<T>(res).ConfigureAwait(false);
+            rv = await HandleResponseMessage<T>(res, combinedToken).ConfigureAwait(false);
 
             if (rv.IsSuccess)
             {
@@ -256,11 +265,15 @@ public class StandardHttpClient : HttpClientBase, IDisposable
 
             return rv;
         }
-        catch (OperationCanceledException ex) when (timeout.HasValue && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
         {
             // Handle timeout exception (distinguish from user cancellation)
-            var timeoutMessage = $"Request timed out after {timeout} seconds";
-            _logger.LogWarning(ex, "[{RequestId}] Request timed out after {Timeout} seconds", requestId, timeout);
+            var timeoutMessage = $"Request timed out after {effectiveTimeout.TotalSeconds} seconds";
+            _logger.LogWarning(
+                ex,
+                "[{RequestId}] Request timed out after {Timeout} seconds",
+                requestId,
+                effectiveTimeout.TotalSeconds);
 
             rv.ErrorMsg = timeoutMessage;
             return rv;
@@ -271,13 +284,36 @@ public class StandardHttpClient : HttpClientBase, IDisposable
             rv.ErrorMsg = "Request was cancelled";
             return rv;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "[{RequestId}] HTTP {Method} request to {Url} failed: {ErrorMessage}", requestId, method, url, ex.Message);
 
             rv.ErrorMsg = ex.ToString();
             return rv;
         }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "[{RequestId}] HTTP {Method} request to {Url} failed: {ErrorMessage}", requestId, method, url, ex.Message);
+
+            rv.ErrorMsg = ex.ToString();
+            return rv;
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "[{RequestId}] HTTP {Method} request to {Url} returned invalid JSON: {ErrorMessage}", requestId, method, url, ex.Message);
+
+            rv.ErrorMsg = ex.Message;
+            return rv;
+        }
+    }
+
+    private static bool ShouldStreamTypedResponse<T>()
+    {
+        var responseType = typeof(T);
+        return responseType != typeof(string)
+            && responseType != typeof(byte[])
+            && responseType != typeof(object)
+            && responseType != typeof(HttpResponseMessage);
     }
 
     /// <summary>

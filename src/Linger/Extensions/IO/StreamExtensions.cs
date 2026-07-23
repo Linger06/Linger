@@ -1,8 +1,5 @@
 using System.Security.Cryptography;
 using Linger.Extensions.Core;
-using Linger.Helper;
-#if NET6_0_OR_GREATER
-#endif
 
 namespace Linger.Extensions.IO;
 
@@ -12,131 +9,108 @@ namespace Linger.Extensions.IO;
 public static class StreamExtensions
 {
     /// <summary>
-    /// Returns the MD5 hash of the current Stream object as a byte array.
+    /// Computes the MD5 hash of the stream and returns a lowercase hex string.
+    /// Resets the position for seekable streams before hashing.
     /// </summary>
-    /// <param name="inputStream">The input stream.</param>
-    /// <returns>The MD5 hash as a byte array.</returns>
-    /// <example>
-    /// <code>
-    /// using (var stream = File.OpenRead("example.txt"))
-    /// {
-    ///     byte[] hashBytes = stream.ToMd5HashByte();
-    ///     Console.WriteLine(BitConverter.ToString(hashBytes));
-    /// }
-    /// </code>
-    /// </example>
-    public static byte[] ToMd5HashByte(this Stream inputStream)
-    {
-        using var md5 = MD5.Create();
-        var hashBytes = md5.ComputeHash(inputStream);
-        return hashBytes;
-    }
-
-#if NET6_0_OR_GREATER
-
-    /// <summary>
-    /// Asynchronously returns the MD5 hash of the current Stream object as a byte array.
-    /// </summary>
-    /// <param name="stream">The input stream.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains the MD5 hash as a byte array.</returns>
-    /// <example>
-    /// <code>
-    /// using (var stream = File.OpenRead("example.txt"))
-    /// {
-    ///     byte[] hashBytes = await stream.ToMd5HashByteAsync();
-    ///     Console.WriteLine(BitConverter.ToString(hashBytes));
-    /// }
-    /// </code>
-    /// </example>
-    public static async Task<byte[]> ToMd5HashByteAsync(this Stream stream)
-    {
-        using var md5 = MD5.Create();
-        var hashBytes = await md5.ComputeHashAsync(stream).ConfigureAwait(false);
-        return hashBytes;
-    }
-
-#endif
-
-    /// <summary>
-    /// Computes the MD5 hash of the current Stream object and returns it as a string.
-    /// </summary>
-    /// <param name="inputStream">The input stream.</param>
-    /// <returns>The MD5 hash as a string.</returns>
-    /// <example>
-    /// <code>
-    /// using (var stream = File.OpenRead("example.txt"))
-    /// {
-    ///     string hash = stream.ComputeHashMd5();
-    ///     Console.WriteLine(hash);
-    /// }
-    /// </code>
-    /// </example>
     public static string ComputeHashMd5(this Stream inputStream)
     {
-        _ = inputStream.Seek(0, SeekOrigin.Begin);
+        ArgumentNullException.ThrowIfNull(inputStream);
+
+        if (inputStream.CanSeek)
+        {
+            inputStream.Position = 0;
+        }
+
         var arrayHashValue = inputStream.ToMd5HashByte();
         return arrayHashValue.ToMd5HashCode();
     }
 
-    /// <summary>
-    /// 将流写入到文件
-    /// </summary>
-    /// <param name="stream">要写入的流</param>
-    /// <param name="filePath">文件路径</param>
-    /// <example>
-    /// <code>
-    /// using (var stream = File.OpenRead("example.txt"))
-    /// {
-    ///     stream.ToFile("output.txt");
-    /// }
-    /// </code>
-    /// </example>
-    public static void ToFile(this Stream stream, string filePath)
+    public static byte[] ToMd5HashByte(this Stream inputStream)
     {
-        FileHelper.EnsureDirectoryExists(filePath);
+        ArgumentNullException.ThrowIfNull(inputStream);
+#if NET6_0_OR_GREATER
+        return MD5.HashData(inputStream);
+#else
+        using var md5 = MD5.Create();
+        return md5.ComputeHash(inputStream);
+#endif
+    }
 
-        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
-
-        // 对于可查找的流,尝试将位置重置到开始
-        if (stream.CanSeek)
-        {
-            stream.Position = 0;
-        }
-
-        // 使用CopyTo方法进行流复制,适用于所有类型的流
-        stream.CopyTo(fs);
-        fs.Flush();
+#if NET6_0_OR_GREATER
+    /// <summary>
+    /// Computes the MD5 hash of a stream asynchronously.
+    /// </summary>
+    /// <param name="stream">The stream to hash.</param>
+    /// <returns>The computed hash.</returns>
+    public static Task<byte[]> ToMd5HashByteAsync(this Stream stream)
+    {
+        return stream.ToMd5HashByteAsync(CancellationToken.None);
     }
 
     /// <summary>
-    /// 异步将流写入到文件
+    /// Computes the MD5 hash of a stream asynchronously.
     /// </summary>
-    /// <param name="stream">要写入的流</param>
-    /// <param name="filePath">文件路径</param>
-    /// <returns>表示异步操作的任务</returns>
-    /// <example>
-    /// <code>
-    /// using (var stream = File.OpenRead("example.txt"))
-    /// {
-    ///     await stream.ToFileAsync("output.txt");
-    /// }
-    /// </code>
-    /// </example>
-    public static async Task ToFileAsync(this Stream stream, string filePath)
+    /// <param name="stream">The stream to hash.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>The computed hash.</returns>
+    public static async Task<byte[]> ToMd5HashByteAsync(this Stream stream, CancellationToken cancellationToken)
     {
-        FileHelper.EnsureDirectoryExists(filePath);
+        ArgumentNullException.ThrowIfNull(stream);
+        return await MD5.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
+    }
+#endif
 
-        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write);
+    public static void ToFile(this Stream stream, string filePath)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        // 对于可查找的流,尝试将位置重置到开始
-        if (stream.CanSeek)
-        {
-            stream.Position = 0;
-        }
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
 
-        // 使用CopyToAsync方法进行异步流复制
-        await stream.CopyToAsync(fs).ConfigureAwait(false);
-        await fs.FlushAsync().ConfigureAwait(false);
+        using var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None);
+
+        if (stream.CanSeek) stream.Position = 0;
+        stream.CopyTo(fs);
+    }
+
+    /// <summary>
+    /// Writes the stream to a file asynchronously.
+    /// </summary>
+    /// <param name="stream">The source stream.</param>
+    /// <param name="filePath">The destination file path.</param>
+    /// <returns>A task representing the write operation.</returns>
+    public static Task ToFileAsync(this Stream stream, string filePath)
+    {
+        return stream.ToFileAsync(filePath, CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Writes the stream to a file asynchronously.
+    /// </summary>
+    /// <param name="stream">The source stream.</param>
+    /// <param name="filePath">The destination file path.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the write operation.</returns>
+    public static async Task ToFileAsync(this Stream stream, string filePath, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var directory = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+
+        using var fs = new FileStream(
+            filePath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            4096,
+            useAsync: true);
+
+        if (stream.CanSeek) stream.Position = 0;
+        await stream.CopyToAsync(fs, 81920, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -148,7 +122,7 @@ public class ExtendedFileInfo : BaseFileInfo
     /// <summary>
     /// Gets or sets the relative file path.
     /// </summary>
-    public string RelativeFilePath { get; set; } = null!;
+    public string RelativeFilePath { get; set; } = string.Empty;
 }
 
 /// <summary>
@@ -159,22 +133,22 @@ public class BaseFileInfo
     /// <summary>
     /// Gets or sets the hash data of the file.
     /// </summary>
-    public string HashData { get; set; } = null!;
+    public string HashData { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the file name.
     /// </summary>
-    public string FileName { get; set; } = null!;
+    public string FileName { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the fully qualified path and name of the file.
     /// </summary>
-    public string FullFilePath { get; set; } = null!;
+    public string FullFilePath { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the file size.
     /// </summary>
-    public string FileSize { get; set; } = null!;
+    public string FileSize { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the length of the file.
