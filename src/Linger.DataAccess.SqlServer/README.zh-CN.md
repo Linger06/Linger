@@ -41,7 +41,7 @@ var nextId = await sqlHelper.GetMaxIdAsync("UserId", "Users");
 var hasData = await sqlHelper.ExistsAsync("SELECT COUNT(*) FROM Users WHERE Age > 18");
 
 // 继承的数据库操作
-var users = await sqlHelper.FindListBySqlAsync<User>("SELECT * FROM Users WHERE IsActive = 1");
+var users = sqlHelper.FindListBySql<User>("SELECT * FROM Users WHERE IsActive = 1");
 var rowsAffected = sqlHelper.ExecuteBySql("UPDATE Users SET LastLogin = GETDATE() WHERE UserId = 1");
 ```
 

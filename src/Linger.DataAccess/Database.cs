@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Text;
 using Linger.Extensions.Collection;
 using Linger.Extensions.Core;
-using Linger.Extensions.Data;
 
 namespace Linger.DataAccess;
 
