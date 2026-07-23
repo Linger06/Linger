@@ -18,7 +18,6 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
   - [文件操作](#文件操作)
   - [集合扩展](#集合扩展)
     - [DataTable 扩展（AOT 友好）](#datatable-扩展aot-友好)
-    - [IDataReader 扩展（AOT 友好）](#idatareader-扩展aot-友好)
   - [对象扩展](#对象扩展)
   - [JSON 扩展](#json-扩展)
   - [GUID 扩展](#guid-扩展)
@@ -133,14 +132,14 @@ using Linger.Extensions.Core;
 string data = "敏感数据需要加密";
 string aesKey = "mySecretKey12345"; // AES 密钥
 
-// AES 加密解密（推荐，安全性高）
-string aesEncrypted = data.AesEncrypt(aesKey);    // AES-256-CBC 模式，自动生成随机 IV
-string aesDecrypted = aesEncrypted.AesDecrypt(aesKey); // 自动提取 IV 并解密
+// 认证加密解密（推荐）
+string aesEncrypted = data.AesEncryptAuthenticated(aesKey);
+string aesDecrypted = aesEncrypted.AesDecryptAuthenticated(aesKey);
 
 // 🔐 安全特性：
-// - 每次加密使用随机 IV，相同明文产生不同密文
-// - 密钥长度可变，内部自动使用 SHA256 处理为 32 字节
-// - IV 自动包含在密文中，解密时自动提取
+// - 使用 PBKDF2 派生加密密钥和认证密钥
+// - 使用随机 Salt 与 IV，相同明文产生不同密文
+// - 使用 HMAC-SHA256 校验密文完整性
 // ⚠️ 密钥应安全存储，生产环境使用专业密钥管理方案
 ```
 
@@ -213,7 +212,7 @@ list.ForEach(Console.WriteLine); // 对每个元素执行操作
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 
 // .NET 10+ Join 操作兼容
-// ⚠️ 注意：在较旧目标框架上使用 Polyfill；在 .NET 10+ 目标上自动使用框架原生实现
+// LeftJoin/RightJoin 在旧目标框架使用 Polyfill，在 .NET 10 使用框架实现；FullJoin 始终由 Linger 提供
 
 // Left Join（左外连接）- 保留所有左侧记录
 var employees = new List<Employee>
@@ -263,7 +262,7 @@ var caseInsensitiveJoin = stringList1.LeftJoin(
     StringComparer.OrdinalIgnoreCase
 );
 
-// .NET 10+ 内置兼容：方法签名与标准一致，升级时无需修改代码
+// 元组便利重载与 FullJoin 在所有目标框架上均由 Linger 提供
 ```
 
 ### DataTable 扩展（AOT 友好）
@@ -280,13 +279,6 @@ List<UserDto>? users = table.ToList(row => new UserDto
     Name = row["Name"]?.ToString()
 });
 
-// 异步版本（同样无反射）
-List<UserDto> usersAsync = await table!.ToListAsync(row => new UserDto
-{
-    Id = Convert.ToInt32(row["Id"]),
-    Name = row["Name"]?.ToString()
-});
-
 // 属性映射风格（同样无反射）
 List<UserDto>? usersBySetters = table.ToList(
     () => new UserDto(),
@@ -298,31 +290,6 @@ List<UserDto>? usersBySetters = table.ToList(
 
 // 反射版本为兼容历史代码而保留，但已标记为 Obsolete：
 // var legacy = table.ToList<UserDto>();
-```
-
-### IDataReader 扩展（AOT 友好）
-
-```csharp
-using Linger.Extensions.Data;
-
-// 在 AOT / Trim 场景下推荐使用“无反射映射”
-using IDataReader listReader = GetDataReader();
-List<UserDto> users = listReader.ReaderToList(record => new UserDto
-{
-    Id = Convert.ToInt32(record["Id"]),
-    Name = record["Name"]?.ToString()
-});
-
-using IDataReader modelReader = GetDataReader();
-UserDto? user = modelReader.ReaderToModel(record => new UserDto
-{
-    Id = Convert.ToInt32(record["Id"]),
-    Name = record["Name"]?.ToString()
-});
-
-// 反射版本为兼容历史代码而保留，但已标记为 Obsolete：
-// var legacyList = listReader.ReaderToList<UserDto>();
-// var legacyModel = modelReader.ReaderToModel<UserDto>();
 ```
 
 ### 对象扩展
@@ -469,7 +436,6 @@ int intValue = guid.ToInt32(); // 转换为 Int32
 // GuidCode 工具类 - 生成唯一标识符
 string uniqueId = GuidCode.NewId; // 基于日期时间 + GUID 的唯一 ID
 string dateGuid = GuidCode.NewDateGuid; // 短日期格式的唯一 ID
-long uniqueCode = GuidCode.GetInt64UniqueCode(); // 唯一的 Int64 编码
 
 // .NET 9+ 功能：V7 GUID 生成和时间戳提取
 #if NET9_0_OR_GREATER
@@ -555,16 +521,19 @@ var options = new RetryOptions
     Jitter = 0.2                    // 抖动因子 20%
 };
 var retryHelper = new RetryHelper(options);
+CancellationToken cancellationToken = GetCancellationToken();
 var result = await retryHelper.ExecuteAsync(
-    async () => await SomeOperationThatMightFail(), // 可能失败的操作
-    "网络请求"  // 操作描述
+    ct => SomeOperationThatMightFail(ct),
+    "网络请求",
+    cancellationToken: cancellationToken
 );
 
 // 使用默认重试策略
 var defaultRetryHelper = new RetryHelper();
 var result2 = await defaultRetryHelper.ExecuteAsync(
-    async () => await AnotherOperationThatMightFail(),
-    "数据库操作"
+    ct => AnotherOperationThatMightFail(ct),
+    "数据库操作",
+    cancellationToken: cancellationToken
 );
 ```
 
@@ -617,8 +586,8 @@ string absolutePath = PathExtensions.ToFullPath(relativePath, workingDir);
 // 结果: "C:\Projects\MyApp\src\file.txt"
 
 // 检查路径中的非法字符
-string suspiciousPath = "file<name>.txt"; // 包含非法字符 '<'
-bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // true
+string suspiciousPath = "file<name>.txt";
+bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // Windows: true；Unix: false
 
 // 检查文件或目录是否存在
 string filePath = @"C:\temp\data.txt";
@@ -637,7 +606,7 @@ string grandParentDir = PathExtensions.GetParentDirectory(deepPath, levels: 2);
 
 ### .NET 10 兼容性（已支持）
 
-提供的 `LeftJoin`、`RightJoin`、`FullJoin` 等方法与 .NET 10 标准完全兼容。由于项目已包含对 .NET 10 的支持，在 .NET 10 目标上这些 API 将直接使用框架原生实现；同时我们保留条件编译的 Polyfill（例如 `#if !NET10_0_OR_GREATER` 分支），以确保向后兼容仍然可用，便于在低版本目标框架上继续工作且升级时无需修改业务代码。
+`LeftJoin` 和 `RightJoin` 在 .NET 10 目标上使用框架原生实现，在较旧目标框架上由条件编译的 Polyfill 提供。无结果选择器的元组 `LeftJoin` 重载以及 `FullJoin` 始终由 Linger 提供，因此这些便利 API 在所有受支持的目标框架上保持一致。
 
 ### 严格类型安全原则
 
@@ -681,7 +650,7 @@ int failed = doubleObj.ToIntOrDefault(0);  // 小数部分非 0，返回 0（转
 | **转换工具** | `Convert.ToHexStringLower` (.NET 9 前) | `Polyfills/Convert.cs` |
 | **语言特性** | `required` 关键字支持 (C# 11)<br>`RequiredMemberAttribute`、`SetsRequiredMembersAttribute`、`CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **可空性注解** | `AllowNull`、`NotNull`、`MaybeNullWhen`、`NotNullIfNotNull` 等 11 个特性 | `Polyfills/NullableAttributes.cs` |
-| **集合扩展** | `LeftJoin`、`RightJoin`、`FullJoin` ( .NET 10 兼容，向下保留 Polyfill ) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |
+| **集合扩展** | `LeftJoin`、`RightJoin`（.NET 10 前使用 Polyfill）；元组 `LeftJoin` 与 `FullJoin`（Linger 扩展） | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs`<br>`Extensions/Collection/IEnumerableExtensions.cs` |
 | **调用方捕获** | `CallerArgumentExpressionAttribute` (改进 Guard 体验) | `Polyfills/CallerArgumentExpressionAttribute.cs` |
 
 ## 依赖项

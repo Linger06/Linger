@@ -18,7 +18,6 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
   - [File Operations](#file-operations)
   - [Collection Extensions](#collection-extensions)
     - [DataTable Extensions (AOT-Friendly)](#datatable-extensions-aot-friendly)
-        - [IDataReader Extensions (AOT-Friendly)](#idatareader-extensions-aot-friendly)
   - [Object Extensions](#object-extensions)
   - [JSON Extensions](#json-extensions)
   - [GUID Extensions](#guid-extensions)
@@ -133,14 +132,14 @@ using Linger.Extensions.Core;
 string data = "Sensitive data to encrypt";
 string aesKey = "mySecretKey12345"; // AES key
 
-// AES Encryption/Decryption (Recommended - High Security)
-string aesEncrypted = data.AesEncrypt(aesKey);    // AES-256-CBC mode, auto-generates random IV
-string aesDecrypted = aesEncrypted.AesDecrypt(aesKey); // Auto-extracts IV and decrypts
+// Authenticated encryption/decryption (recommended)
+string aesEncrypted = data.AesEncryptAuthenticated(aesKey);
+string aesDecrypted = aesEncrypted.AesDecryptAuthenticated(aesKey);
 
 // Security Features:
-// - Random IV per encryption, same plaintext produces different ciphertext
-// - Variable key length, internally uses SHA256 to process to 32 bytes
-// - IV automatically included in ciphertext, auto-extracted during decryption
+// - PBKDF2 derives separate encryption and authentication keys
+// - Random salt and IV produce different ciphertext for the same plaintext
+// - HMAC-SHA256 detects modified ciphertext
 // ⚠️ Store keys securely, use professional key management solutions in production
 ```
 
@@ -213,7 +212,7 @@ list.ForEach(Console.WriteLine); // Print each element
 var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 
 // .NET 10+ Join operations — compatibility (now supported)
-// Note: Polyfill implementations are used on older target frameworks; on .NET 10+ targets the framework native implementations will be used
+// LeftJoin/RightJoin use Polyfills on older targets and BCL implementations on .NET 10; FullJoin remains a Linger API
 
 // Left Join (Left Outer Join) - Keep all left-side records
 var employees = new List<Employee>
@@ -263,7 +262,7 @@ var caseInsensitiveJoin = stringList1.LeftJoin(
     StringComparer.OrdinalIgnoreCase
 );
 
-// .NET 10+ Built-in Compatible: Method signatures match the standard, no code changes required when upgrading
+// The tuple convenience overload and FullJoin remain available from Linger on every target framework
 ```
 
 ### DataTable Extensions (AOT-Friendly)
@@ -280,13 +279,6 @@ List<UserDto>? users = table.ToList(row => new UserDto
     Name = row["Name"]?.ToString()
 });
 
-// Async variant (also reflection-free)
-List<UserDto> usersAsync = await table!.ToListAsync(row => new UserDto
-{
-    Id = Convert.ToInt32(row["Id"]),
-    Name = row["Name"]?.ToString()
-});
-
 // Property-mapping style (still reflection-free)
 List<UserDto>? usersBySetters = table.ToList(
     () => new UserDto(),
@@ -298,31 +290,6 @@ List<UserDto>? usersBySetters = table.ToList(
 
 // Reflection-based overloads are retained for compatibility but obsolete:
 // var legacy = table.ToList<UserDto>();
-```
-
-### IDataReader Extensions (AOT-Friendly)
-
-```csharp
-using Linger.Extensions.Data;
-
-// Reflection-free mapping for AOT/trim scenarios
-using IDataReader listReader = GetDataReader();
-List<UserDto> users = listReader.ReaderToList(record => new UserDto
-{
-    Id = Convert.ToInt32(record["Id"]),
-    Name = record["Name"]?.ToString()
-});
-
-using IDataReader modelReader = GetDataReader();
-UserDto? user = modelReader.ReaderToModel(record => new UserDto
-{
-    Id = Convert.ToInt32(record["Id"]),
-    Name = record["Name"]?.ToString()
-});
-
-// Reflection-based overloads are retained for compatibility but obsolete:
-// var legacyList = listReader.ReaderToList<UserDto>();
-// var legacyModel = modelReader.ReaderToModel<UserDto>();
 ```
 
 ### Object Extensions
@@ -447,7 +414,6 @@ int intValue = guid.ToInt32(); // Convert to Int32
 // GuidCode helper class - Generate unique identifiers
 string uniqueId = GuidCode.NewId; // DateTime + GUID based unique ID
 string dateGuid = GuidCode.NewDateGuid; // Short date-based unique ID
-long uniqueCode = GuidCode.GetInt64UniqueCode(); // Unique Int64 code
 
 // .NET 9+ feature: V7 GUID generation and timestamp extraction
 #if NET9_0_OR_GREATER
@@ -455,8 +421,6 @@ Guid v7Guid = Guid.CreateVersion7(); // Create V7 GUID
 DateTimeOffset timestamp = v7Guid.GetTimestamp(); // Extract timestamp from V7 GUID
 #endif
 ```
-
-> **⚠️ Deprecated**: `GuidCode.NewGuid()` → Use `Guid.NewGuid()` directly
 
 ### Array Extensions
 
@@ -535,16 +499,19 @@ var options = new RetryOptions
     Jitter = 0.2
 };
 var retryHelper = new RetryHelper(options);
+CancellationToken cancellationToken = GetCancellationToken();
 var result = await retryHelper.ExecuteAsync(
-    async () => await SomeOperationThatMightFail(),
-    "Operation Name"
+    ct => SomeOperationThatMightFail(ct),
+    "Operation Name",
+    cancellationToken: cancellationToken
 );
 
 // Or use default options
 var defaultRetryHelper = new RetryHelper();
 var result2 = await defaultRetryHelper.ExecuteAsync(
-    async () => await AnotherOperationThatMightFail(),
-    "Another Operation Name"
+    ct => AnotherOperationThatMightFail(ct),
+    "Another Operation Name",
+    cancellationToken: cancellationToken
 );
 
 // Synchronous variant
@@ -600,8 +567,8 @@ string absolutePath = PathExtensions.ToFullPath(relativePath, workingDir);
 // Result: "C:\Projects\MyApp\src\file.txt"
 
 // Check for invalid path characters
-string suspiciousPath = "file<name>.txt"; // Contains invalid character '<'
-bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // true
+string suspiciousPath = "file<name>.txt";
+bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // Windows: true; Unix: false
 
 // Check if file or directory exists
 string filePath = @"C:\temp\data.txt";
@@ -620,7 +587,7 @@ string grandParentDir = PathExtensions.GetParentDirectory(deepPath, levels: 2);
 
 ### .NET 10 Compatibility (Now Supported)
 
-Methods like `LeftJoin`, `RightJoin`, `FullJoin` are fully compatible with .NET 10 standard. Zero code changes required when upgrading. Automatically switches via conditional compilation `#if !NET10_0_OR_GREATER`.
+`LeftJoin` and `RightJoin` use the .NET 10 BCL implementations when targeting .NET 10 and conditional Polyfills on older targets. The tuple-returning `LeftJoin` overload and `FullJoin` remain Linger APIs on every supported target framework.
 
 ### Strict Type Safety Principles
 
@@ -664,7 +631,7 @@ Provides forward-compatible Polyfills for BCL APIs & language features (for .NET
 | **Conversion Utilities** | `Convert.ToHexStringLower` (pre-.NET 9) | `Polyfills/Convert.cs` |
 | **Language Features** | `required` keyword support (C# 11)<br>`RequiredMemberAttribute`, `SetsRequiredMembersAttribute`, `CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **Nullability Attributes** | 11 attributes: `AllowNull`, `NotNull`, `MaybeNullWhen`, `NotNullIfNotNull`, etc. | `Polyfills/NullableAttributes.cs` |
-| **Collection Extensions** | `LeftJoin`, `RightJoin`, `FullJoin` ( .NET 10 compatible — Polyfills retained for older targets ) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs` |
+| **Collection Extensions** | `LeftJoin`, `RightJoin` (polyfilled before .NET 10); tuple `LeftJoin` and `FullJoin` (Linger extensions) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs`<br>`Extensions/Collection/IEnumerableExtensions.cs` |
 | **Caller Capture** | `CallerArgumentExpressionAttribute` (improves Guard experience) | `Polyfills/CallerArgumentExpressionAttribute.cs` |
 
 ## Dependencies

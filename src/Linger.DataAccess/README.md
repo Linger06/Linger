@@ -7,7 +7,7 @@ A core data access library that provides database abstraction and common databas
 - **Database Abstraction**: Provider-agnostic database access
 - **CRUD Operations**: Complete Create, Read, Update, Delete operations
 - **Async Support**: Full async/await support for modern applications
-- **Multiple Data Types**: Support for DataTable, DataSet, Entity objects, and Hashtable
+- **Multiple Data Types**: Support for DataTable, DataSet, and entity objects
 - **Transaction Support**: Built-in transaction management
 - **SQL Builder**: Helper for dynamic SQL generation
 - **Bulk Operations**: Interface for high-performance bulk data insertion
