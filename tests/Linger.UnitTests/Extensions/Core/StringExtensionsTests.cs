@@ -1126,18 +1126,6 @@ public partial class StringExtensionsTests
     }
 
     [Theory]
-    [InlineData("Hello123", "123", "Hello")]
-    [InlineData("123Hello123", "123", "123Hello")]
-    [InlineData("Hello", "123", "Hello")]
-    [InlineData("", "123", "")]
-    [InlineData(null, "123", "")]
-    public void DelLastChar_ShouldReturnExpectedResult(string? input, string character, string expected)
-    {
-        var result = input.RemoveLastChar(character);
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
     [InlineData("/api", "/", "/api")]
     [InlineData("api", "/", "/api")]
     [InlineData(null, "/", "/")]

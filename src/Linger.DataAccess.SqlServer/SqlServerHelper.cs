@@ -126,9 +126,9 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
             var obj = FindMaxBySql(sql);
 
-            // 1. 如果 obj 是 null 或 DBNull，ToTargetOrNull<int?>() 会安全返回 null
-            // 2. 如果 obj 是 long/decimal/string 等奇葩数字类型，ToTargetOrNull会将其完美反向解析成合法的 int?
-            int? maxId = obj.ToTargetOrNull<int>();
+            // 1. 如果 obj 是 null 或 DBNull，ToIntOrNull() 会安全返回 null
+            // 2. 如果 obj 是 long/decimal/string 等数字类型，ToIntOrNull() 会尝试解析为合法的 int?
+            int? maxId = obj.ToIntOrNull();
 
             // 如果 maxId 是 null（说明是空表），则返回 1；否则返回最大值 + 1
             return (maxId ?? 0) + 1;
@@ -162,9 +162,9 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
             var sql = $"SELECT MAX([{fieldName}]) FROM [{tableName}]";
             var obj = await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false);
 
-            // 1. 如果 obj 是 null 或 DBNull，ToTargetOrNull<int?>() 会安全返回 null
-            // 2. 如果 obj 是 long/decimal/string 等奇葩数字类型，ToTargetOrNull会将其完美反向解析成合法的 int?
-            int? maxId = obj.ToTargetOrNull<int>();
+            // 1. 如果 obj 是 null 或 DBNull，ToIntOrNull() 会安全返回 null
+            // 2. 如果 obj 是 long/decimal/string 等数字类型，ToIntOrNull() 会尝试解析为合法的 int?
+            int? maxId = obj.ToIntOrNull();
 
             // 如果 maxId 是 null（说明是空表），则返回 1；否则返回最大值 + 1
             return (maxId ?? 0) + 1;

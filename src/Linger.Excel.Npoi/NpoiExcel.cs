@@ -215,7 +215,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             case TypeCode.Decimal:
             case TypeCode.Double:
             case TypeCode.Single:
-                cell.SetCellValue(value.ToTarget<double>());
+                cell.SetCellValue(value.ToDouble());
                 cell.CellStyle = GetOrCreateDataStyle(
                     workbook,
                     styleCache,

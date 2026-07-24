@@ -38,9 +38,21 @@ public class DataTableEnumerableExtensionsAdditionalTests
         Assert.Equal("A", table.Rows[0][nameof(RowModel.Name).ToUpperInvariant()]);
     }
 
+    [Fact]
+    public void ToDataTable_ExcludesIndexerProperties()
+    {
+        var source = new List<RowModel> { new() { Id = 1, Name = "A" } };
+
+        DataTable table = source.ToDataTable();
+
+        Assert.Equal(2, table.Columns.Count);
+        Assert.False(table.Columns.Contains("Item"));
+    }
+
     private sealed class RowModel
     {
         public int Id { get; set; }
         public string? Name { get; set; }
+        public string this[int index] => index.ToString();
     }
 }

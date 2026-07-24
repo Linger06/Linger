@@ -480,19 +480,6 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void AttrValues_ShouldReturnPropertiesWithAttributeValues()
-        {
-            // Arrange
-            var type = typeof(SampleClass);
-
-            // Act
-            var result = type.AttrValues<SampleAttribute>();
-
-            // Assert
-            Assert.NotEmpty(result);
-        }
-
-        [Fact]
         public void AttrPropValues_ShouldReturnPropertiesWithAttributeValues()
         {
             // Arrange

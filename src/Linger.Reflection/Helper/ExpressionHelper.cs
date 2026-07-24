@@ -19,7 +19,7 @@ namespace Linger.Helper;
 #if NET5_0_OR_GREATER
 [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("Uses runtime reflection to construct expressions from member names. This API is not compatible with trimming.")]
 #endif
-public static class ExpressionHelper
+public static partial class ExpressionHelper
 {
     /// <summary>
     /// Cache for reflection MethodInfo lookups to reduce repeated reflection cost.
@@ -127,26 +127,21 @@ public static class ExpressionHelper
 #endif
     public static IEnumerable<T> OrderBy<T>(this IEnumerable<T> query, string name)
     {
-        var sort = "OrderBy";
-        string propertyName;
-        if (name.Contains(' '))
+        ArgumentNullException.ThrowIfNull(query);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        string[] parts = name.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length is < 1 or > 2)
         {
-            var splitName = name.Split(' ');
-            propertyName = splitName[0];
-            sort = splitName[1];
-            if (sort == "Asc")
-            {
-                sort = "OrderBy";
-            }
-            else
-            {
-                sort = "OrderByDescending";
-            }
+            throw new ArgumentException(
+                "The sort expression must contain a property name followed by an optional 'asc' or 'desc' direction.",
+                nameof(name));
         }
-        else
-        {
-            propertyName = name;
-        }
+
+        var propertyName = parts[0];
+        var sort = parts.Length == 1 || GetSortDirection(parts[1], nameof(name))
+            ? nameof(Enumerable.OrderBy)
+            : nameof(Enumerable.OrderByDescending);
 
         return query.OrderBy(propertyName, sort);
     }
@@ -171,8 +166,16 @@ public static class ExpressionHelper
     public static IEnumerable<T> OrderBy<T>(this IEnumerable<T> query, string propertyName, string sort)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (string.IsNullOrEmpty(propertyName)) throw new ArgumentException("Property name cannot be null or empty", nameof(propertyName));
-        if (string.IsNullOrEmpty(sort)) throw new ArgumentException("Sort direction cannot be null or empty", nameof(sort));
+        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sort);
+
+        if (!string.Equals(sort, nameof(Enumerable.OrderBy), StringComparison.Ordinal) &&
+            !string.Equals(sort, nameof(Enumerable.OrderByDescending), StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                $"Sort must be '{nameof(Enumerable.OrderBy)}' or '{nameof(Enumerable.OrderByDescending)}'.",
+                nameof(sort));
+        }
 
         try
         {
@@ -435,112 +438,19 @@ public static class ExpressionHelper
         return Expression.Lambda<Func<T, bool>>(expression, parameter);
     }
 
-    /// <summary>  
-    /// Generates a function to order a queryable collection based on a list of sort information.  
-    /// </summary>  
-    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
-    /// <param name="sortList">A list of <see cref="SortInfo"/> objects containing the sorting information.</param>  
-    /// <returns>A function that orders a queryable collection, or null if the sort list is null or empty.</returns>  
-    /// <example>  
-    /// <code>  
-    /// var sortList = new List&lt;SortInfo&gt; { new SortInfo { Property = "Name", Direction = SortDirection.Ascending } };  
-    /// var orderByFunc = ExpressionHelper.GetOrderBy&lt;MyClass&gt;(sortList);  
-    /// var orderedQueryable = orderByFunc(myQueryable);  
-    /// </code>  
-    /// </example>  
-    public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<SortInfo>? sortList)
+    private static bool GetSortDirection(string? direction, string parameterName)
     {
-        if (sortList is null)
+        if (string.Equals(direction, "asc", StringComparison.OrdinalIgnoreCase))
         {
-            return null;
+            return true;
         }
 
-        if (sortList.Count == 0)
+        if (string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase))
         {
-            return null;
+            return false;
         }
 
-        var propertyList = new List<string>();
-        var dirList = new List<string>();
-        foreach (SortInfo sortInfo in sortList)
-        {
-            var propertyName = sortInfo.Property;
-            ArgumentException.ThrowIfNullOrWhiteSpace(propertyName, nameof(SortInfo.Property));
-            var dir = sortInfo.Direction.ToString();
-            propertyList.Add(propertyName);
-            dirList.Add(dir);
-        }
-
-        return GetOrderBy<T>(propertyList, dirList);
-    }
-
-    /// <summary>  
-    /// Generates a function to order a queryable collection based on specified columns and directions.  
-    /// </summary>  
-    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>  
-    /// <param name="orderColumn">A list of column names to sort by.</param>  
-    /// <param name="orderDir">A list of sort directions corresponding to the columns.</param>  
-    /// <returns>A function that orders a queryable collection.</returns>  
-    /// <example>  
-    /// <code>  
-    /// var orderColumns = new List&lt;string&gt; { "Name", "Age" };  
-    /// var orderDirs = new List&lt;string&gt; { "asc", "desc" };  
-    /// var orderByFunc = ExpressionHelper.GetOrderBy&lt;MyClass&gt;(orderColumns, orderDirs);  
-    /// var orderedQueryable = orderByFunc(myQueryable);  
-    /// </code>  
-    /// </example>  
-    public static Func<IQueryable<T>, IOrderedQueryable<T>>? GetOrderBy<T>(List<string> orderColumn, List<string> orderDir)
-    {
-        ArgumentNullException.ThrowIfNull(orderColumn);
-        ArgumentNullException.ThrowIfNull(orderDir);
-
-        if (orderColumn.Count != orderDir.Count)
-        {
-            throw new ArgumentException($"{nameof(orderColumn)} and {nameof(orderDir)} must have the same number of elements.");
-        }
-
-        if (orderColumn.Count == 0)
-        {
-            return null;
-        }
-
-        var orderings = new KeyValuePair<string, bool>[orderColumn.Count];
-
-        for (var i = 0; i < orderColumn.Count; i++)
-        {
-            var columnName = orderColumn[i];
-            try
-            {
-                DynamicOrderBuilder.ValidatePropertyPath<T>(columnName);
-            }
-            catch (ArgumentException ex)
-            {
-                throw new InvalidOperationException(nameof(PropertyInfo), ex);
-            }
-
-            bool ascending = string.Equals(orderDir[i], "asc", StringComparison.OrdinalIgnoreCase);
-            orderings[i] = new KeyValuePair<string, bool>(columnName, ascending);
-        }
-
-        return query =>
-        {
-            IOrderedQueryable<T> orderedQuery = DynamicOrderBuilder.Apply(
-                query,
-                orderings[0].Key,
-                orderings[0].Value,
-                thenBy: false);
-
-            for (var i = 1; i < orderings.Length; i++)
-            {
-                orderedQuery = DynamicOrderBuilder.Apply(
-                    orderedQuery,
-                    orderings[i].Key,
-                    orderings[i].Value,
-                    thenBy: true);
-            }
-
-            return orderedQuery;
-        };
+        throw new ArgumentException("Sort direction must be 'asc' or 'desc'.", parameterName);
     }
 
     /// <summary>  
@@ -707,9 +617,7 @@ public static class ExpressionHelper
             return BuildCollectionExpression(condition, realPropertyType, valueProperty, hasValue);
         }
 
-        object? convertedValue = condition.Value is null
-            ? null
-            : Convert.ChangeType(condition.Value, realPropertyType, CultureInfo.InvariantCulture);
+        object? convertedValue = ConvertConditionValue(condition, realPropertyType);
         Expression constantParam = CreateConstantExpression(convertedValue, propertyInfo.PropertyType, realPropertyType);
 
         return condition.Op switch
@@ -726,6 +634,23 @@ public static class ExpressionHelper
             CompareOperator.LessThanOrEquals => Expression.LessThanOrEqual(propertyParam, constantParam),
             _ => throw new NotSupportedException($"{condition.Op} Not Supported")
         };
+    }
+
+    private static object? ConvertConditionValue(Condition condition, Type targetType)
+    {
+        if (condition.Value is null)
+        {
+            return null;
+        }
+
+        if (TypeConverter.TryConvert(condition.Value, targetType, out var convertedValue))
+        {
+            return convertedValue;
+        }
+
+        throw new ArgumentException(
+            $"Value '{condition.Value}' cannot be converted to '{targetType.Name}' for field '{condition.Field}'.",
+            nameof(condition));
     }
 
     private static Expression BuildCollectionExpression(

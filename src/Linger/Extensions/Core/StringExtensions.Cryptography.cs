@@ -20,68 +20,6 @@ public static partial class StringExtensions
     // 新代码应使用 AesEncryptAuthenticated 和 AesDecryptAuthenticated。
 
     /// <summary>
-    /// 使用旧版 AES-256-CBC 格式加密字符串，以兼容已有密文使用方。
-    /// </summary>
-    /// <param name="input">要加密的字符串</param>
-    /// <param name="key">密钥字符串（任意长度，将通过 SHA-256 处理为 32 字节）。</param>
-    /// <returns>Base64 编码的旧版加密结果（包含 IV）。</returns>
-    /// <exception cref="ArgumentException">当输入参数为null或空时抛出</exception>
-    /// <exception cref="CryptographicException">当加密操作失败时抛出</exception>
-    /// <remarks>
-    /// 此格式不提供完整性认证，仅用于兼容。新代码应使用 <see cref="AesEncryptAuthenticated"/>。
-    /// </remarks>
-    /// <example>
-    /// <code>
-    /// try
-    /// {
-    ///     string plainText = "Hello World";
-    ///     string key = "mySecretKey"; // 任意长度密钥
-    ///     string encrypted = plainText.AesEncrypt(key);
-    ///     Console.WriteLine($"加密结果: {encrypted}");
-    ///     
-    ///     // 解密
-    ///     string decrypted = encrypted.AesDecrypt(key);
-    ///     Console.WriteLine($"解密结果: {decrypted}"); // 输出: Hello World
-    /// }
-    /// catch (ArgumentException ex)
-    /// {
-    ///     Console.WriteLine($"参数错误: {ex.Message}");
-    /// }
-    /// catch (CryptographicException ex)
-    /// {
-    ///     Console.WriteLine($"加密失败: {ex.Message}");
-    /// }
-    /// </code>
-    /// </example>
-    [Obsolete("Unauthenticated AES-CBC encryption is retained for compatibility. Use AesEncryptAuthenticated instead.")]
-    public static string AesEncrypt(this string input, string key)
-    {
-        if (string.IsNullOrEmpty(input))
-            throw new ArgumentException("输入文本不能为null或空字符串", nameof(input));
-
-        if (string.IsNullOrEmpty(key))
-            throw new ArgumentException("密钥不能为null或空字符串", nameof(key));
-        try
-        {
-            using var aes = Aes.Create();
-            aes.Key = key.ToSha256HashByte();
-            aes.Mode = CipherMode.CBC;
-            aes.Padding = PaddingMode.PKCS7;
-            aes.GenerateIV();
-
-            byte[] encrypted = PerformEncryptionWithIV(aes, input);
-            byte[] result = new byte[aes.IV.Length + encrypted.Length];
-            Buffer.BlockCopy(aes.IV, 0, result, 0, aes.IV.Length);
-            Buffer.BlockCopy(encrypted, 0, result, aes.IV.Length, encrypted.Length);
-            return Convert.ToBase64String(result);
-        }
-        catch (Exception ex)
-        {
-            throw new CryptographicException($"AES加密失败: {ex.Message}", ex);
-        }
-    }
-
-    /// <summary>
     /// Encrypts a string using PBKDF2, AES-256-CBC, and HMAC-SHA256 authentication.
     /// </summary>
     /// <param name="input">The plaintext to encrypt.</param>

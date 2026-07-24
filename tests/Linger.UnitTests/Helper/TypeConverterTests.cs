@@ -1,758 +1,217 @@
-using System.Globalization;
-using Linger.Extensions.Core;
+using Linger.Helper;
 
 namespace Linger.UnitTests.Helper;
-
-using Linger.Helper;
 
 public class TypeConverterTests
 {
     [Fact]
-    public void ConvertTo_WithNullValue_ReturnsNull()
+    public void TryConvert_NullValue_ReturnsFalse()
     {
-        var result = TypeConverter.ConvertTo(null, typeof(int?));
-        Assert.Null(result);
-    }
+        var success = TypeConverter.TryConvert(null, typeof(int?), out var result);
 
-    [Fact]
-    public void ConvertTo_WithDBNullValue_ReturnsNull()
-    {
-        var result = TypeConverter.ConvertTo(DBNull.Value, typeof(string));
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void ConvertTo_WithNullValueAndNonNullableTarget_ThrowsArgumentNullException()
-    {
-        var exception = Assert.Throws<ArgumentNullException>(() => TypeConverter.ConvertTo(null, typeof(int)));
-        Assert.Equal("value", exception.ParamName);
-    }
-
-    [Fact]
-    public void ConvertTo_WithDBNullValueAndNonNullableTarget_ThrowsArgumentNullException()
-    {
-        var exception = Assert.Throws<ArgumentNullException>(() => TypeConverter.ConvertTo(DBNull.Value, typeof(int)));
-        Assert.Equal("value", exception.ParamName);
-    }
-
-    [Fact]
-    public void ConvertTo_WithDBNullValueAndNullableTarget_ReturnsNull()
-    {
-        var result = TypeConverter.ConvertTo(DBNull.Value, typeof(int?));
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void ConvertTo_WithExactTypeMatch_ReturnsSameValue()
-    {
-        var original = 42;
-        var result = TypeConverter.ConvertTo(original, typeof(int));
-        Assert.Equal(original, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToInt_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("123", typeof(int));
-        Assert.Equal(123, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToNullableInt_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("456", typeof(int?));
-        Assert.Equal(456, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToLong_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("9876543210", typeof(long));
-        Assert.Equal(9876543210L, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToDecimal_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("123.45", typeof(decimal));
-        Assert.Equal(123.45m, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToDouble_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("3.14159", typeof(double));
-        Assert.Equal(3.14159, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToFloat_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("2.5", typeof(float));
-        Assert.Equal(2.5f, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToBool_ReturnsConvertedValue()
-    {
-        Assert.Equal(true, TypeConverter.ConvertTo("true", typeof(bool)));
-        Assert.Equal(false, TypeConverter.ConvertTo("false", typeof(bool)));
-        Assert.Equal(true, TypeConverter.ConvertTo("on", typeof(bool)));
-        Assert.Equal(false, TypeConverter.ConvertTo("off", typeof(bool)));
-    }
-
-    [Fact]
-    public void ConvertTo_StringToDateTime_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("2024-01-15", typeof(DateTime));
-        Assert.IsType<DateTime>(result);
-        Assert.Equal(new DateTime(2024, 1, 15), result);
-    }
-
-    [Fact]
-    public void ConvertTo_DoubleToDateTime_ConvertsOADate()
-    {
-        // 45306.0 is the OLE Automation date for 2024-01-15
-        var oaDate = new DateTime(2024, 1, 15).ToOADate();
-        var result = TypeConverter.ConvertTo(oaDate, typeof(DateTime));
-        Assert.IsType<DateTime>(result);
-        Assert.Equal(new DateTime(2024, 1, 15), result);
-    }
-
-    [Fact]
-    public void ConvertTo_DateTimeOffsetToDateTime_NormalizesToUtc()
-    {
-        var input = new DateTimeOffset(2024, 1, 15, 12, 30, 45, TimeSpan.FromHours(8));
-
-        var result = Assert.IsType<DateTime>(TypeConverter.ConvertTo(input, typeof(DateTime)));
-
-        Assert.Equal(input.UtcDateTime, result);
-        Assert.Equal(DateTimeKind.Utc, result.Kind);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToGuid_ReturnsConvertedValue()
-    {
-        var guidString = "12345678-1234-1234-1234-123456789abc";
-        var result = TypeConverter.ConvertTo(guidString, typeof(Guid));
-        Assert.Equal(Guid.Parse(guidString), result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToEnum_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("Friday", typeof(DayOfWeek));
-        Assert.Equal(DayOfWeek.Friday, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToEnumCaseInsensitive_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("friday", typeof(DayOfWeek));
-        Assert.Equal(DayOfWeek.Friday, result);
-    }
-
-    [Fact]
-    public void ConvertTo_IntToEnum_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo(5, typeof(DayOfWeek));
-        Assert.Equal(DayOfWeek.Friday, result);
-    }
-
-    [Fact]
-    public void ConvertTo_IntToShort_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo(100, typeof(short));
-        Assert.Equal((short)100, result);
-    }
-
-    [Fact]
-    public void ConvertTo_IntToByte_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo(255, typeof(byte));
-        Assert.Equal((byte)255, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_WithValidValue_ReturnsTrueAndConvertedValue()
-    {
-        var success = TypeConverter.TryConvertTo("123", typeof(int), out var result);
-        Assert.True(success);
-        Assert.Equal(123, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_WithInvalidValue_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a number", typeof(int), out var result);
         Assert.False(success);
         Assert.Null(result);
     }
 
     [Fact]
-    public void TryConvertTo_WithNullValue_ReturnsFalseWithNull()
+    public void TryConvert_DBNullValue_ReturnsFalse()
     {
-        var success = TypeConverter.TryConvertTo(null, typeof(int), out var result);
+        var success = TypeConverter.TryConvert(DBNull.Value, typeof(string), out var result);
+
         Assert.False(success);
         Assert.Null(result);
     }
 
     [Fact]
-    public void ConvertTo_WithNullTargetType_ThrowsArgumentNullException()
+    public void TryConvert_NullTargetType_ThrowsArgumentNullException()
     {
-        Assert.Throws<ArgumentNullException>(() => TypeConverter.ConvertTo("test", null!));
-    }
-
-    [Theory]
-    [InlineData("123", typeof(int), 123)]
-    [InlineData("456", typeof(long), 456L)]
-    [InlineData("true", typeof(bool), true)]
-    [InlineData("test", typeof(string), "test")]
-    public void ConvertTo_WithVariousTypes_ReturnsCorrectValue(object input, Type targetType, object expected)
-    {
-        var result = TypeConverter.ConvertTo(input, targetType);
-        Assert.Equal(expected, result);
+        Assert.Throws<ArgumentNullException>(() => TypeConverter.TryConvert("test", null!, out _));
     }
 
     [Fact]
-    public void ConvertTo_StringToDecimalTheory_ReturnsCorrectValue()
+    public void TryConvert_ExactType_ReturnsSameValue()
     {
-        var result = TypeConverter.ConvertTo("7.89", typeof(decimal));
-        Assert.Equal(7.89m, result);
-    }
+        var value = 42;
 
-    [Fact]
-    public void ConvertTo_StringWholeNumberTextToInt_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("42.0", typeof(int));
-        Assert.Equal(42, result);
-    }
+        var success = TypeConverter.TryConvert(value, typeof(int), out var result);
 
-    [Fact]
-    public void ConvertTo_StringScientificWholeNumberTextToInt_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("1e2", typeof(int));
-        Assert.Equal(100, result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringFractionalTextToInt_ThrowsFormatException()
-    {
-        Assert.Throws<FormatException>(() => TypeConverter.ConvertTo("42.5", typeof(int)));
-    }
-
-    [Fact]
-    public void ConvertTo_UnsignedTypes_ReturnsCorrectValue()
-    {
-        Assert.Equal((ushort)100, TypeConverter.ConvertTo(100, typeof(ushort)));
-        Assert.Equal((uint)200, TypeConverter.ConvertTo(200, typeof(uint)));
-        Assert.Equal((ulong)300, TypeConverter.ConvertTo(300, typeof(ulong)));
-    }
-
-    [Fact]
-    public void ConvertTo_SignedByteTypes_ReturnsCorrectValue()
-    {
-        Assert.Equal((sbyte)-50, TypeConverter.ConvertTo(-50, typeof(sbyte)));
-    }
-
-    #region TryConvertTo Additional Tests
-
-    [Fact]
-    public void TryConvertTo_WithDBNullValue_ReturnsFalseWithNull()
-    {
-        var success = TypeConverter.TryConvertTo(DBNull.Value, typeof(int), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_WithExactTypeMatch_ReturnsTrueAndSameValue()
-    {
-        var original = 42;
-        var success = TypeConverter.TryConvertTo(original, typeof(int), out var result);
         Assert.True(success);
-        Assert.Equal(original, result);
+        Assert.Equal(value, result);
     }
 
     [Fact]
-    public void TryConvertTo_WithNullTargetType_ThrowsArgumentNullException()
+    public void TryConvert_AssignableTarget_ReturnsOriginalValue()
     {
-        Assert.Throws<ArgumentNullException>(() => TypeConverter.TryConvertTo("test", null!, out _));
-    }
+        object value = new Uri("https://example.com");
 
-    [Fact]
-    public void TryConvertTo_StringToEnum_ReturnsTrueAndEnumValue()
-    {
-        var success = TypeConverter.TryConvertTo("Friday", typeof(DayOfWeek), out var result);
+        var success = TypeConverter.TryConvert(value, typeof(object), out var result);
+
         Assert.True(success);
-        Assert.Equal(DayOfWeek.Friday, result);
+        Assert.Same(value, result);
     }
 
     [Fact]
-    public void TryConvertTo_InvalidStringToEnum_ReturnsFalse()
+    public void TryConvert_StringToNumericTypes_ReturnsConvertedValues()
     {
-        var success = TypeConverter.TryConvertTo("InvalidDay", typeof(DayOfWeek), out var result);
-        Assert.False(success);
-        Assert.Null(result);
+        AssertConversion("123", 123);
+        AssertConversion("9876543210", 9876543210L);
+        AssertConversion("123.45", 123.45m);
+        AssertConversion("3.14159", 3.14159d);
+        AssertConversion("2.5", 2.5f);
     }
 
     [Fact]
-    public void TryConvertTo_IntToEnum_ReturnsTrueAndEnumValue()
+    public void TryConvert_StringToUnsignedTypes_ReturnsConvertedValues()
     {
-        var success = TypeConverter.TryConvertTo(5, typeof(DayOfWeek), out var result);
-        Assert.True(success);
-        Assert.Equal(DayOfWeek.Friday, result);
+        AssertConversion("255", (byte)255);
+        AssertConversion("-50", (sbyte)-50);
+        AssertConversion("100", (ushort)100);
+        AssertConversion("200", (uint)200);
+        AssertConversion("300", (ulong)300);
     }
 
     [Fact]
-    public void TryConvertTo_DoubleToDateTime_ConvertsOADate()
+    public void TryConvert_StringToBoolean_ReturnsConvertedValue()
     {
-        var oaDate = new DateTime(2024, 1, 15).ToOADate();
-        var success = TypeConverter.TryConvertTo(oaDate, typeof(DateTime), out var result);
+        AssertConversion("true", true);
+        AssertConversion("off", false);
+    }
+
+    [Fact]
+    public void TryConvert_StringToDateTime_ReturnsConvertedValue()
+    {
+        AssertConversion("2024-01-15", new DateTime(2024, 1, 15));
+    }
+
+    [Fact]
+    public void TryConvert_OleAutomationDateToDateTime_ReturnsConvertedValue()
+    {
+        var value = new DateTime(2024, 1, 15).ToOADate();
+
+        var success = TypeConverter.TryConvert(value, typeof(DateTime), out var result);
+
         Assert.True(success);
         Assert.Equal(new DateTime(2024, 1, 15), result);
     }
 
     [Fact]
-    public void TryConvertTo_StringToLong_ReturnsTrueAndValue()
+    public void TryConvert_InvalidOleAutomationDate_ReturnsFalse()
     {
-        var success = TypeConverter.TryConvertTo("9876543210", typeof(long), out var result);
-        Assert.True(success);
-        Assert.Equal(9876543210L, result);
-    }
+        var success = TypeConverter.TryConvert(double.MaxValue, typeof(DateTime), out var result);
 
-    [Fact]
-    public void TryConvertTo_StringWholeNumberTextToInt_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("42.0", typeof(int), out var result);
-        Assert.True(success);
-        Assert.Equal(42, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringScientificWholeNumberTextToInt_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("1e2", typeof(int), out var result);
-        Assert.True(success);
-        Assert.Equal(100, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToLong_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a number", typeof(long), out var result);
         Assert.False(success);
         Assert.Null(result);
     }
 
     [Fact]
-    public void TryConvertTo_StringToDecimal_ReturnsTrueAndValue()
+    public void TryConvert_DateTimeOffsetToDateTime_UsesUtcValue()
     {
-        var success = TypeConverter.TryConvertTo("123.45", typeof(decimal), out var result);
-        Assert.True(success);
-        Assert.Equal(123.45m, result);
-    }
+        var value = new DateTimeOffset(2024, 1, 15, 12, 30, 45, TimeSpan.FromHours(8));
 
-    [Fact]
-    public void TryConvertTo_InvalidStringToDecimal_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a decimal", typeof(decimal), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToDouble_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("3.14159", typeof(double), out var result);
-        Assert.True(success);
-        Assert.Equal(3.14159, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_DoubleToDouble_ReturnsSameValue()
-    {
-        var success = TypeConverter.TryConvertTo(3.14159, typeof(double), out var result);
-        Assert.True(success);
-        Assert.Equal(3.14159, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_FloatToDouble_ReturnsConvertedValue()
-    {
-        var success = TypeConverter.TryConvertTo(2.5f, typeof(double), out var result);
-        Assert.True(success);
-        Assert.Equal(2.5, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToDouble_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a double", typeof(double), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToFloat_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("2.5", typeof(float), out var result);
-        Assert.True(success);
-        Assert.Equal(2.5f, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_FloatToFloat_ReturnsSameValue()
-    {
-        var success = TypeConverter.TryConvertTo(2.5f, typeof(float), out var result);
-        Assert.True(success);
-        Assert.Equal(2.5f, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToFloat_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a float", typeof(float), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToBool_VariousFormats()
-    {
-        Assert.True(TypeConverter.TryConvertTo("true", typeof(bool), out var r1) && (bool)r1! == true);
-        Assert.True(TypeConverter.TryConvertTo("false", typeof(bool), out var r2) && (bool)r2! == false);
-        Assert.True(TypeConverter.TryConvertTo("1", typeof(bool), out var r3) && (bool)r3! == true);
-        Assert.True(TypeConverter.TryConvertTo("0", typeof(bool), out var r4) && (bool)r4! == false);
-        Assert.True(TypeConverter.TryConvertTo("yes", typeof(bool), out var r5) && (bool)r5! == true);
-        Assert.True(TypeConverter.TryConvertTo("no", typeof(bool), out var r6) && (bool)r6! == false);
-        Assert.True(TypeConverter.TryConvertTo("y", typeof(bool), out var r7) && (bool)r7! == true);
-        Assert.True(TypeConverter.TryConvertTo("n", typeof(bool), out var r8) && (bool)r8! == false);
-        Assert.True(TypeConverter.TryConvertTo("on", typeof(bool), out var r9) && (bool)r9! == true);
-        Assert.True(TypeConverter.TryConvertTo("off", typeof(bool), out var r10) && (bool)r10! == false);
-    }
-
-    [Fact]
-    public void TryConvertTo_BoolToBool_ReturnsSameValue()
-    {
-        var success = TypeConverter.TryConvertTo(true, typeof(bool), out var result);
-        Assert.True(success);
-        Assert.Equal(true, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToBool_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("maybe", typeof(bool), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToDateTime_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("2024-01-15", typeof(DateTime), out var result);
-        Assert.True(success);
-        Assert.Equal(new DateTime(2024, 1, 15), result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToUtcDateTime_UsesSameStrategyAsStringExtensions()
-    {
-        const string input = "2019-01-30T12:01:02Z";
-
-        var convertSuccess = TypeConverter.TryConvertTo(input, typeof(DateTime), out var converted);
-        var stringSuccess = input.TryToDateTime(out var parsed);
-
-        Assert.True(convertSuccess);
-        Assert.True(stringSuccess);
-
-        var convertedDateTime = Assert.IsType<DateTime>(converted);
-        Assert.Equal(parsed, convertedDateTime);
-        Assert.Equal(DateTimeKind.Utc, convertedDateTime.Kind);
-    }
-
-    [Fact]
-    public void TryConvertTo_DateTimeOffsetToDateTime_NormalizesToUtc()
-    {
-        var input = new DateTimeOffset(2024, 1, 15, 12, 30, 45, TimeSpan.FromHours(8));
-
-        var success = TypeConverter.TryConvertTo(input, typeof(DateTime), out var result);
+        var success = TypeConverter.TryConvert(value, typeof(DateTime), out var result);
 
         Assert.True(success);
         var converted = Assert.IsType<DateTime>(result);
-        Assert.Equal(input.UtcDateTime, converted);
+        Assert.Equal(value.UtcDateTime, converted);
         Assert.Equal(DateTimeKind.Utc, converted.Kind);
     }
 
     [Fact]
-    public void TryConvertTo_StringToDateTime_WithZhCnCulture_ReturnsFalse()
+    public void TryConvert_StringToGuid_ReturnsConvertedValue()
     {
-        var originalCulture = CultureInfo.CurrentCulture;
+        var expected = Guid.Parse("12345678-1234-1234-1234-123456789abc");
 
-        try
-        {
-            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("zh-CN");
-
-            var success = TypeConverter.TryConvertTo("2024/1/15 下午 3:04:05", typeof(DateTime), out var result);
-
-            Assert.False(success);
-            Assert.Null(result);
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = originalCulture;
-        }
+        AssertConversion(expected.ToString(), expected);
     }
 
     [Fact]
-    public void TryConvertTo_DateTimeToDateTime_ReturnsSameValue()
+    public void TryConvert_StringAndNumberToEnum_ReturnsConvertedValues()
     {
-        var dt = new DateTime(2024, 1, 15);
-        var success = TypeConverter.TryConvertTo(dt, typeof(DateTime), out var result);
-        Assert.True(success);
-        Assert.Equal(dt, result);
+        AssertConversion("Friday", DayOfWeek.Friday);
+        AssertConversion(5, DayOfWeek.Friday);
     }
 
     [Fact]
-    public void TryConvertTo_InvalidStringToDateTime_ReturnsFalse()
+    public void TryConvert_StringToNullableTypes_ReturnsConvertedValues()
     {
-        var success = TypeConverter.TryConvertTo("not a date", typeof(DateTime), out var result);
-        Assert.False(success);
-        Assert.Null(result);
+        AssertConversion("123", (int?)123);
+        AssertConversion("Friday", (DayOfWeek?)DayOfWeek.Friday);
     }
 
     [Fact]
-    public void TryConvertTo_StringToGuid_ReturnsTrueAndValue()
+    public void TryConvert_StringToTimeSpan_ReturnsConvertedValue()
     {
-        var guidString = "12345678-1234-1234-1234-123456789abc";
-        var success = TypeConverter.TryConvertTo(guidString, typeof(Guid), out var result);
-        Assert.True(success);
-        Assert.Equal(Guid.Parse(guidString), result);
+        AssertConversion("01:30:00", TimeSpan.FromMinutes(90));
     }
 
     [Fact]
-    public void TryConvertTo_GuidToGuid_ReturnsSameValue()
+    public void TryConvert_InvalidNumericValue_ReturnsFalse()
     {
-        var guid = Guid.NewGuid();
-        var success = TypeConverter.TryConvertTo(guid, typeof(Guid), out var result);
-        Assert.True(success);
-        Assert.Equal(guid, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToGuid_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a guid", typeof(Guid), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_NumericStringToEnumWithoutDefinedValue_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("999", typeof(DayOfWeek), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToShort_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("100", typeof(short), out var result);
-        Assert.True(success);
-        Assert.Equal((short)100, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToShort_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a short", typeof(short), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToByte_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("255", typeof(byte), out var result);
-        Assert.True(success);
-        Assert.Equal((byte)255, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToByte_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a byte", typeof(byte), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToSByte_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("-50", typeof(sbyte), out var result);
-        Assert.True(success);
-        Assert.Equal((sbyte)-50, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToSByte_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a sbyte", typeof(sbyte), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToUShort_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("100", typeof(ushort), out var result);
-        Assert.True(success);
-        Assert.Equal((ushort)100, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToUShort_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a ushort", typeof(ushort), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToUInt_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("200", typeof(uint), out var result);
-        Assert.True(success);
-        Assert.Equal((uint)200, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToUInt_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a uint", typeof(uint), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToULong_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("300", typeof(ulong), out var result);
-        Assert.True(success);
-        Assert.Equal((ulong)300, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToULong_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("not a ulong", typeof(ulong), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void TryConvertTo_ObjectToString_AlwaysSucceeds()
-    {
-        var success = TypeConverter.TryConvertTo(12345, typeof(string), out var result);
-        Assert.True(success);
-        Assert.Equal("12345", result);
-    }
-
-    [Fact]
-    public void TryConvertTo_ToNullableType_ReturnsValue()
-    {
-        var success = TypeConverter.TryConvertTo("123", typeof(int?), out var result);
-        Assert.True(success);
-        Assert.Equal(123, result);
-    }
-
-    [Fact]
-    public void TryConvertTo_FallbackToChangeType_ReturnsValue()
-    {
-        var success = TypeConverter.TryConvertTo("A", typeof(char), out var result);
-        Assert.True(success);
-        Assert.Equal('A', result);
-    }
-
-    [Fact]
-    public void TryConvertTo_FallbackToChangeType_InvalidConversion_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("invalid", typeof(char), out var result);
-        Assert.False(success);
-        Assert.Null(result);
-    }
-
-    #endregion
-
-    #region ConvertTo Edge Cases
-
-    [Fact]
-    public void ConvertTo_InvalidEnumString_ThrowsInvalidCastException()
-    {
-        Assert.Throws<InvalidCastException>(() => TypeConverter.ConvertTo("InvalidDay", typeof(DayOfWeek)));
-    }
-
-    [Fact]
-    public void ConvertTo_ToChar_UsesChangeTypeFallback()
-    {
-        var result = TypeConverter.ConvertTo("A", typeof(char));
-        Assert.Equal('A', result);
-    }
-
-    [Fact]
-    public void ConvertTo_NullableEnum_ReturnsEnumValue()
-    {
-        var result = TypeConverter.ConvertTo("Friday", typeof(DayOfWeek?));
-        Assert.Equal(DayOfWeek.Friday, result);
-    }
-
-    [Fact]
-    public void ConvertTo_NullToNullableEnum_ReturnsNull()
-    {
-        var result = TypeConverter.ConvertTo(null, typeof(DayOfWeek?));
-        Assert.Null(result);
-    }
-
-    [Fact]
-    public void ConvertTo_StringToTimeSpan_ReturnsConvertedValue()
-    {
-        var result = TypeConverter.ConvertTo("01:30:00", typeof(TimeSpan));
-
-        Assert.Equal(TimeSpan.FromMinutes(90), result);
-    }
-
-    [Fact]
-    public void TryConvertTo_StringToTimeSpan_ReturnsTrueAndValue()
-    {
-        var success = TypeConverter.TryConvertTo("01:30:00", typeof(TimeSpan), out var result);
-
-        Assert.True(success);
-        Assert.Equal(TimeSpan.FromMinutes(90), result);
-    }
-
-    [Fact]
-    public void ConvertTo_InvalidStringToTimeSpan_ThrowsFormatException()
-    {
-        Assert.Throws<FormatException>(() => TypeConverter.ConvertTo("invalid", typeof(TimeSpan)));
-    }
-
-    [Fact]
-    public void TryConvertTo_InvalidStringToTimeSpan_ReturnsFalse()
-    {
-        var success = TypeConverter.TryConvertTo("invalid", typeof(TimeSpan), out var result);
+        var success = TypeConverter.TryConvert("not a number", typeof(int), out var result);
 
         Assert.False(success);
         Assert.Null(result);
     }
 
     [Fact]
-    public void ConvertTo_InvalidNumericBoolean_ThrowsInvalidCastException()
+    public void TryConvert_InvalidBooleanValue_ReturnsFalse()
     {
-        Assert.Throws<InvalidCastException>(() => TypeConverter.ConvertTo(2, typeof(bool)));
+        var success = TypeConverter.TryConvert(2, typeof(bool), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
     }
 
-    #endregion
+    [Fact]
+    public void TryConvert_UndefinedEnumValue_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvert("999", typeof(DayOfWeek), out var result);
 
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryConvert_InvalidTimeSpan_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvert("invalid", typeof(TimeSpan), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryConvert_UnsupportedType_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvert("https://example.com", typeof(Uri), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryConvert_CharTarget_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvert("A", typeof(char), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryConvert_ArbitraryObjectToString_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvert(new Uri("https://example.com"), typeof(string), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    private static void AssertConversion<T>(object value, T expected)
+    {
+        var success = TypeConverter.TryConvert(value, typeof(T), out var result);
+
+        Assert.True(success);
+        Assert.Equal(expected, result);
+    }
 }

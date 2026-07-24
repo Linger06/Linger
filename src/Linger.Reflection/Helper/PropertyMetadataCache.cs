@@ -32,6 +32,11 @@ internal static class PropertyMetadataCache
 
             foreach (PropertyInfo property in GetProperties(key.Type, key.Flags))
             {
+                if (property.GetIndexParameters().Length != 0)
+                {
+                    continue;
+                }
+
                 if (key.WritableOnly && (!property.CanWrite || property.SetMethod?.IsPublic != true))
                 {
                     continue;

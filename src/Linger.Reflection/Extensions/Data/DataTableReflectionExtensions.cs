@@ -9,26 +9,6 @@ namespace Linger.Extensions.Data;
 /// </summary>
 public static class DataTableReflectionExtensions
 {
-#if NET451_OR_GREATER || NETSTANDARD || NET5_0_OR_GREATER
-    /// <summary>
-    /// Converts the current <see cref="DataTable"/> synchronously and returns the result in a completed task.
-    /// </summary>
-    /// <typeparam name="T">The type of elements to convert to.</typeparam>
-    /// <param name="dataTable">The <see cref="DataTable"/> to convert.</param>
-    /// <returns>A completed task containing the converted <see cref="List{T}"/>.</returns>
-#if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload in Linger.Utils for AOT/trimming scenarios.")]
-#endif
-    [Obsolete("This method performs synchronous in-memory work. Use the synchronous ToList<T>() overload instead.")]
-    public static Task<List<T>?> ToListAsync<T>(this DataTable dataTable)
-        where T : class, new()
-    {
-        ArgumentNullException.ThrowIfNull(dataTable);
-
-        return Task.FromResult(dataTable.ToList<T>());
-    }
-#endif
-
     /// <summary>
     /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> by mapping public writable properties.
     /// </summary>
@@ -39,7 +19,6 @@ public static class DataTableReflectionExtensions
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload in Linger.Utils for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This overload uses reflection and is not AOT-friendly. Use a mapper or column-setter overload from Linger.Utils instead.")]
     public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000)
         where T : class, new()
     {
@@ -132,7 +111,7 @@ public static class DataTableReflectionExtensions
             return;
         }
 
-        if (!TypeConverter.TryConvertTo(value, property.PropertyType, out object? convertedValue))
+        if (!TypeConverter.TryConvert(value, property.PropertyType, out object? convertedValue))
         {
             throw new InvalidCastException(
                 $"[核心转换失败] 无法将输入值 '{value}' (类型: {value.GetType().Name}) 转换为属性 '{property.Name}' 所需的目标类型 {property.PropertyType.Name}。 " +

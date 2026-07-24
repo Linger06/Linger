@@ -174,7 +174,11 @@ public static class LdapEntryExtensions
         try
         {
             var userAccountControl = attributeSet.GetAttribute(LdapUserType.UserAccountControl).StringValue;
-            var num = userAccountControl.ToIntOrDefault();
+            if (!userAccountControl.TryToInt(out var num))
+            {
+                return "Unknown";
+            }
+
             return (num & 2) > 0 ? "Disabled" : "Enabled";
         }
         catch

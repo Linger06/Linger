@@ -422,7 +422,12 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
                 if (value is null or DBNull)
                     continue;
 
-                object? convertedValue = Linger.Helper.TypeConverter.ConvertTo(value, binding.Key.PropertyType);
+                if (!Linger.Helper.TypeConverter.TryConvert(value, binding.Key.PropertyType, out object? convertedValue))
+                {
+                    throw new InvalidCastException(
+                        $"Cannot convert value of type '{value.GetType().Name}' to property '{binding.Key.Name}' of type '{binding.Key.PropertyType.Name}'.");
+                }
+
                 binding.Key.SetValue(instance, convertedValue, null);
             }
 
@@ -578,7 +583,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public int FindCountBySql(string sql)
     {
-        return ExecuteScalar(CommandType.Text, sql).ToIntOrDefault();
+        return ExecuteScalar(CommandType.Text, sql).ToInt();
     }
 
     /// <summary>
@@ -589,7 +594,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<int> FindCountBySqlAsync(string sql, CancellationToken cancellationToken = default)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false)).ToIntOrDefault();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false)).ToInt();
     }
 
     /// <summary>
@@ -600,7 +605,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public int FindCountBySql(string sql, DbParameter[] parameters)
     {
-        return ExecuteScalar(CommandType.Text, sql, parameters).ToIntOrDefault();
+        return ExecuteScalar(CommandType.Text, sql, parameters).ToInt();
     }
 
     /// <summary>
@@ -612,7 +617,7 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
     /// <returns></returns>
     public async Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken = default)
     {
-        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters, cancellationToken).ConfigureAwait(false)).ToIntOrDefault();
+        return (await ExecuteScalarAsync(CommandType.Text, sql, parameters, cancellationToken).ConfigureAwait(false)).ToInt();
     }
 
     #endregion

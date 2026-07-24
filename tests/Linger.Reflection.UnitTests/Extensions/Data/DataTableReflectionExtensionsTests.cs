@@ -8,11 +8,11 @@ namespace Linger.UnitTests.Extensions.Data;
 public class DataTableReflectionExtensionsTests
 {
     [Fact]
-    public async Task ToListAsync_MapsPublicWritableProperties()
+    public void ToList_MapsPublicWritableProperties()
     {
         DataTable table = CreateTable();
 
-        List<RowModel>? result = await table.ToListAsync<RowModel>();
+        List<RowModel>? result = table.ToList<RowModel>();
 
         Assert.NotNull(result);
         Assert.Equal(2, result.Count);

@@ -36,48 +36,6 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Fact]
-        public void IsNotNullOrEmpty_ShouldReturnTrue_WhenObjectIsNotNullAndNotEmpty()
-        {
-            object obj = "Hello";
-            Assert.True(obj.IsNotNullOrEmpty());
-        }
-
-        [Fact]
-        public void IsNotNullOrEmpty_ShouldReturnFalse_WhenObjectIsNull()
-        {
-            object? obj = null;
-            Assert.False(obj.IsNotNullOrEmpty());
-        }
-
-        [Fact]
-        public void IsNotNullOrEmpty_ShouldReturnFalse_WhenObjectIsEmptyString()
-        {
-            object obj = "";
-            Assert.False(obj.IsNotNullOrEmpty());
-        }
-
-        [Fact]
-        public void IsNullOrEmpty_ShouldReturnTrue_WhenObjectIsNull()
-        {
-            object? obj = null;
-            Assert.True(obj.IsNullOrEmpty());
-        }
-
-        [Fact]
-        public void IsNullOrEmpty_ShouldReturnTrue_WhenObjectIsEmptyString()
-        {
-            object obj = "";
-            Assert.True(obj.IsNullOrEmpty());
-        }
-
-        [Fact]
-        public void IsNullOrEmpty_ShouldReturnFalse_WhenObjectIsNotNullAndNotEmpty()
-        {
-            object obj = "Hello";
-            Assert.False(obj.IsNullOrEmpty());
-        }
-
-        [Fact]
         public void IsNullOrDbNull_ShouldReturnTrue_WhenObjectIsNull()
         {
             object? obj = null;
@@ -795,17 +753,6 @@ namespace Linger.UnitTests.Extensions.Core
             var success = input.TryToFloat(out var value);
             Assert.Equal(expectedSuccess, success);
             Assert.Equal(expectedValue, value);
-        }
-
-        [Fact]
-        public void TryToTargetDouble_ShouldUseTheFloatingPointConversionRules()
-        {
-            object input = 123;
-
-            var success = input.TryToTarget<double>(out var value);
-
-            Assert.True(success);
-            Assert.Equal(123d, value);
         }
 
         private sealed class PropertyEnumerationTestModel

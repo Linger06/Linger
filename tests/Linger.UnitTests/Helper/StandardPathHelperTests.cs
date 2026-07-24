@@ -427,21 +427,6 @@ public class PathExtensionsTests
     }
 
     [Fact]
-    public void IsStrictAbsolutePath_ShouldRejectDriveRelativeAndClassicUncPaths()
-    {
-        if (!OSPlatformHelper.IsWindows)
-        {
-            return;
-        }
-
-#pragma warning disable CS0618
-        Assert.False(@"C:file.txt".IsStrictAbsolutePath());
-        Assert.False(@"\\server\share\file.txt".IsStrictAbsolutePath());
-        Assert.True(@"C:\file.txt".IsStrictAbsolutePath());
-#pragma warning restore CS0618
-    }
-
-    [Fact]
     public void ContainsInvalidPathChars_ShouldCheckNonWindowsPlatforms()
     {
         // Embedded null characters should be rejected on every platform.

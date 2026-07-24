@@ -209,22 +209,6 @@ public class FileInfoExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void Delete_SingleParameterOverload_ShouldPreserveFailFastBehavior()
-    {
-        string validPath = CreateTestFile("valid_default.txt");
-        string lockedPath = CreateTestFile("locked_default.txt");
-        var validFile = new FileInfo(validPath);
-        var lockedFile = new FileInfo(lockedPath);
-        var files = new[] { validFile, lockedFile };
-
-        using var fs = new FileStream(lockedPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-
-        Assert.Throws<IOException>(() => files.Delete());
-        Assert.False(File.Exists(validPath));
-        Assert.True(File.Exists(lockedPath));
-    }
-
-    [Fact]
     public void CopyTo_ShouldCopyMultipleFiles()
     {
         var filePaths = new[]
@@ -378,15 +362,6 @@ public class FileInfoExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void ToFileSizeBytesString_ShouldFormatBytesCorrectly()
-    {
-        Assert.Equal("100Bytes", 100.ToFileSizeBytesString());
-        Assert.Equal("1K", 1024.ToFileSizeBytesString());
-        Assert.Equal("1M", 1048576.ToFileSizeBytesString());
-        Assert.Equal("1G", 1073741824.ToFileSizeBytesString());
-    }
-
-    [Fact]
     public void GetFileSize_ShouldReturnCorrectSize()
     {
         string content = new string('A', 1000);
@@ -491,23 +466,6 @@ public class FileInfoExtensionsTests : IDisposable
         string? version = fileInfo.GetFileVersion();
 
         Assert.NotNull(version);
-    }
-
-    [Fact]
-    public void GetFileVersion_StringOverload_ShouldMatchPlatformBehavior()
-    {
-        string currentAssembly = typeof(FileInfoExtensionsTests).Assembly.Location;
-
-        string? version = currentAssembly.GetFileVersion();
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            Assert.NotNull(version);
-        }
-        else
-        {
-            Assert.Null(version);
-        }
     }
 
     [Fact]

@@ -72,7 +72,7 @@ public static partial class FileInfoExtensions
     /// <param name="consolidateExceptions">
     /// If set to <c>true</c>, exceptions are consolidated and the processing is not interrupted.
     /// </param>
-    public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions = true)
+    public static void Delete(this IEnumerable<FileInfo> files, bool consolidateExceptions)
     {
         _ = ExecuteFileBatch(
             files,
@@ -181,29 +181,6 @@ public static partial class FileInfoExtensions
             throw new AggregateException(aggregateMessage, exceptions);
 
         return results;
-    }
-
-    /// <summary>
-    /// Formats a byte count as a string for display (e.g., "1K", "1M", "1G").
-    /// </summary>
-    /// <param name="bytes">The byte count.</param>
-    /// <returns>A formatted string representing the byte count.</returns>
-    /// <example>
-    /// <code>
-    /// int size = 1024;
-    /// string formattedSize = size.ToFileSizeBytesString();
-    /// </code>
-    /// </example>
-    [Obsolete("Use FormatFileSize() for a consistent unit format.")]
-    public static string ToFileSizeBytesString(this int bytes)
-    {
-        return bytes switch
-        {
-            >= 1073741824 => (bytes / (double)1073741824).ToString("0", CultureInfo.InvariantCulture) + "G",
-            >= 1048576 => (bytes / (double)1048576).ToString("0", CultureInfo.InvariantCulture) + "M",
-            >= 1024 => (bytes / (double)1024).ToString("0", CultureInfo.InvariantCulture) + "K",
-            _ => bytes + "Bytes"
-        };
     }
 
     /// <summary>

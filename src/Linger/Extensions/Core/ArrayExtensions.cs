@@ -6,26 +6,6 @@ namespace Linger.Extensions.Core;
 public static class ArrayExtensions
 {
     /// <summary>
-    /// Executes the specified action on each element of the array.
-    /// </summary>
-    /// <typeparam name="T">The type of the elements in the array.</typeparam>
-    /// <param name="array">The array to iterate over.</param>
-    /// <param name="action">The action to execute on each element.</param>
-    /// <example>
-    /// <code>
-    /// int[] numbers = { 1, 2, 3 };
-    /// numbers.ForEach(n => Console.WriteLine(n));
-    /// // Output: 1 2 3
-    /// </code>
-    /// </example>
-    [Obsolete("Use Array.ForEach(array, action) or the IEnumerable<T> ForEach extension instead.")]
-    public static void ForEach<T>(this T[] array, Action<T> action)
-    {
-        ArgumentNullException.ThrowIfNull(action);
-        Array.ForEach(array, action);
-    }
-
-    /// <summary>
     /// Executes the specified action on each element of the array, providing the element's index.
     /// </summary>
     /// <typeparam name="T">The type of the elements in the array.</typeparam>
@@ -304,24 +284,6 @@ public static class ArrayExtensions
     }
 
     /// <summary>
-    /// Converts the current Byte[] sequence to a Base64 encoded string for an image.
-    /// </summary>
-    /// <param name="value">The Byte[] to convert.</param>
-    /// <returns>The converted string representation of the image in Base64.</returns>
-    /// <example>
-    /// <code>
-    /// byte[] imageBytes = { 1, 2, 3, 4, 5 };
-    /// string imageBase64String = imageBytes.ToImageBase64String();
-    /// // imageBase64String is "data:image/jpeg;base64,AQIDBAU="
-    /// </code>
-    /// </example>
-    [Obsolete("Use ToImageDataUri(value, mediaType) so the data URI contains the correct image media type.")]
-    public static string ToImageBase64String(this byte[] value)
-    {
-        return value.ToImageDataUri("image/jpeg");
-    }
-
-    /// <summary>
     /// Converts image bytes to a Base64 data URI with the specified media type.
     /// </summary>
     /// <param name="value">The image bytes to encode.</param>
@@ -385,59 +347,6 @@ public static class ArrayExtensions
         }
 
         return table;
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="string"/>[] to an <see cref="IEnumerable{String}"/>.
-    /// </summary>
-    /// <param name="value">The <see cref="string"/>[] to convert.</param>
-    /// <returns>An <see cref="IEnumerable{String}"/> created from the array.</returns>
-    /// <example>
-    /// <code>
-    /// string[] array = { "one", "two", "three" };
-    /// IEnumerable&lt;string&gt; enumerable = array;
-    /// // enumerable contains "one", "two", "three"
-    /// </code>
-    /// </example>
-    [Obsolete("Arrays already implement IEnumerable<string>. Use value ?? Array.Empty<string>() when null normalization is required.")]
-    public static IEnumerable<string> ToEnumerable(this string[]? value)
-    {
-        return value.IsNull() ? [] : new List<string>(value);
-    }
-
-    /// <summary>
-    /// Converts the current <see cref="string"/>[] to a <see cref="List{String}"/>.
-    /// </summary>
-    /// <param name="value">The <see cref="string"/>[] to convert.</param>
-    /// <returns>A <see cref="List{String}"/> created from the array.</returns>
-    /// <example>
-    /// <code>
-    /// string[] array = { "one", "two", "three" };
-    /// List&lt;string&gt; list = Enumerable.ToList(array);
-    /// // list contains "one", "two", "three"
-    /// </code>
-    /// </example>
-    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) for null-to-empty normalization, or Enumerable.ToList(value) for non-null arrays.")]
-    public static List<string> ToList(this string[]? value)
-    {
-        return new List<string>(value ?? []);
-    }
-
-    /// <summary>
-    /// Converts a nullable string array to a list, returning an empty list when the array is null.
-    /// </summary>
-    /// <param name="value">The nullable string array to convert.</param>
-    /// <returns>A list containing the array values, or an empty list when <paramref name="value"/> is null.</returns>
-    /// <example>
-    /// <code>
-    /// string[]? values = null;
-    /// List&lt;string&gt; result = new(values ?? Array.Empty&lt;string&gt;());
-    /// </code>
-    /// </example>
-    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) instead.")]
-    public static List<string> ToListOrEmpty(this string[]? value)
-    {
-        return new List<string>(value ?? []);
     }
 
     /// <summary>

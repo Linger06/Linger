@@ -63,17 +63,4 @@ public static class ObjectReflectionExtensions
         }
     }
 
-    /// <summary>
-    /// Executes an action for each readable, non-indexed public property of an object.
-    /// </summary>
-    /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="value">The object whose properties are enumerated.</param>
-    /// <param name="action">The action to execute with each property name and value.</param>
-    /// <remarks>Use <see cref="ForEachProperty"/> instead.</remarks>
-    [Obsolete]
-    public static void ForIn<T>(this T? value, Action<string, object?> action)
-        where T : class
-    {
-        value.ForEachProperty(action);
-    }
 }

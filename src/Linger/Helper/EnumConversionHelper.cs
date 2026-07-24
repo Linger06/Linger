@@ -6,39 +6,59 @@ internal static class EnumConversionHelper
     {
         result = null;
 
-        try
+        if (value is string stringValue)
         {
-            if (value is string stringValue)
+            var trimmed = stringValue.Trim();
+            if (trimmed.Length == 0)
             {
-                var trimmed = stringValue.Trim();
-                if (trimmed.Length == 0)
-                    return false;
+                return false;
+            }
 
 #if NET8_0_OR_GREATER
-                if (!Enum.TryParse(enumType, trimmed, ignoreCase: true, out var parsed) || parsed is null)
-                    return false;
-#else
-                var parsed = Enum.Parse(enumType, trimmed, ignoreCase: true);
-#endif
-                if (IsNumericEnumText(trimmed) && !Enum.IsDefined(enumType, parsed))
-                    return false;
-
-                result = parsed;
-                return true;
-            }
-
-            if (Enum.IsDefined(enumType, value))
+            if (!Enum.TryParse(enumType, trimmed, true, out var parsed) || parsed is null)
             {
-                result = Enum.ToObject(enumType, value);
-                return true;
+                return false;
             }
+#else
+            object parsed;
+            try
+            {
+                parsed = Enum.Parse(enumType, trimmed, true);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (OverflowException)
+            {
+                return false;
+            }
+#endif
+
+            if (IsNumericEnumText(trimmed) && !Enum.IsDefined(enumType, parsed))
+            {
+                return false;
+            }
+
+            result = parsed;
+            return true;
         }
-        catch
+
+        try
+        {
+            if (!Enum.IsDefined(enumType, value))
+            {
+                return false;
+            }
+
+            result = Enum.ToObject(enumType, value);
+            return true;
+        }
+        catch (ArgumentException)
         {
             return false;
         }
 
-        return false;
     }
 
     private static bool IsNumericEnumText(string value)

@@ -29,38 +29,6 @@ public static class IQueryableExtensions
     }
 
     /// <summary>
-    /// Conditionally applies an OrderBy expression to the IQueryable.
-    /// </summary>
-    /// <typeparam name="T">The type of the elements of source.</typeparam>
-    /// <typeparam name="TQueryable">The type of the IQueryable.</typeparam>
-    /// <param name="query">An IQueryable to sort.</param>
-    /// <param name="condition">A boolean value to determine whether to apply the sorting.</param>
-    /// <param name="sorting">The name of the property to sort by.</param>
-    /// <returns><value>An IQueryable whose elements are sorted according to a key if the condition is true; otherwise, the original IQueryable.</value></returns>
-    /// <example>
-    /// <code>
-    /// var sortedList = myQueryable.OrderByIf(true, "Name");
-    /// // sortedList is sorted by Name
-    /// </code>
-    /// </example>
-    [Obsolete("Use OrderByIf<T>(IQueryable<T>, bool, string) so query providers may return their own ordered query type.")]
-    public static TQueryable OrderByIf<T, TQueryable>(this TQueryable query, bool condition, string sorting)
-        where TQueryable : IQueryable<T>
-    {
-        ArgumentNullException.ThrowIfNull(query);
-        if (!condition)
-        {
-            return query;
-        }
-
-        IQueryable<T> orderedQuery = query.CreateOrderBy(sorting);
-        return orderedQuery is TQueryable typedQuery
-            ? typedQuery
-            : throw new InvalidOperationException(
-                $"The query provider returned '{orderedQuery.GetType().FullName}', which cannot be converted to '{typeof(TQueryable).FullName}'. Use the IQueryable<T> OrderByIf overload instead.");
-    }
-
-    /// <summary>
     /// Conditionally applies dynamic sorting without requiring the provider to preserve its concrete query type.
     /// </summary>
     public static IQueryable<T> OrderByIf<T>(this IQueryable<T> query, bool condition, string sorting)

@@ -234,55 +234,6 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// Removes the specified character(s) from the end of the string.
-    /// </summary>
-    /// <param name="str">The string to remove the character from.</param>
-    /// <param name="character">The character(s) to remove.</param>
-    /// <returns>The string without the specified character(s) at the end.</returns>
-    /// <remarks>
-    /// Behavioral note for multi-character tokens: when <paramref name="character"/> has length greater than 1, this method trims by character set semantics
-    /// (equivalent to <see cref="string.TrimEnd(char[])"/>), which can be surprising for callers expecting exact suffix removal.
-    /// Prefer <see cref="RemoveSuffixOnce(string,string,StringComparison)"/> for precise single-suffix removal with comparison control.
-    /// </remarks>
-    /// <example>
-    /// <code>
-    /// // Single-char: precise one-character removal
-    /// "abc".RemoveLastChar("c")    // => "ab"
-    /// "abc".RemoveLastChar("x")    // => "abc"
-    ///
-    /// // Multi-char: trims by character set (legacy behavior)
-    /// "abcc".RemoveLastChar("bc")  // => "a"   (because both 'b' and 'c' are trimmed from the end)
-    ///
-    /// // Prefer precise API for exact suffix once
-    /// "abcc".RemoveSuffixOnce("bc") // => "abcc" (no exact "bc" suffix)
-    /// "hello.txt".RemoveSuffixOnce(".txt") // => "hello"
-    /// </code>
-    /// </example>
-    [Obsolete("For single-character removal prefer RemoveLastChar(char). For multi-character exact suffix removal use RemoveSuffixOnce(string, StringComparison). The multi-character overload trims by character set (legacy).", false)]
-    public static string RemoveLastChar(this string str, string character)
-    {
-        if (str.IsNullOrEmpty() || character.IsNullOrEmpty())
-        {
-            return str ?? string.Empty;
-        }
-        if (character.Length == 1)
-        {
-            var ch = character[0];
-#if NET6_0_OR_GREATER
-            if (str.Length > 0 && str[^1] == ch)
-                return str[..^1];
-#else
-            if (str.Length > 0 && str[str.Length - 1] == ch)
-                return str.Substring(0, str.Length - 1);
-#endif
-            return str; // 未匹配则返回原引用
-        }
-        // 保留旧语义（作为字符集合裁剪），但避免重复分配：使用内部缓存或临时 span 操作
-        // 当前简化仍调用 ToCharArray，未来可考虑缓存策略
-        return str.TrimEnd(character.ToCharArray());
-    }
-
-    /// <summary>
     /// 如果字符串以指定 <paramref name="suffix"/> 结尾，则精确移除一次该后缀（区分大小写可控）。
     /// </summary>
     /// <param name="str">源字符串。</param>

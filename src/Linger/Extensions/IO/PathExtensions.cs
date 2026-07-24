@@ -337,38 +337,4 @@ public static partial class PathExtensions
         }
     }
 
-    /// <summary>
-    /// Determines whether the path is a strict local absolute path, excluding classic UNC shares.
-    /// </summary>
-    /// <param name="path">The path to evaluate.</param>
-    /// <returns>
-    /// <see langword="true"/> when the path is fully qualified and is not a classic UNC share;
-    /// otherwise, <see langword="false"/>.
-    /// </returns>
-    /// <example>
-    /// <code>
-    /// bool isAbsolute = @"C:\data\file.txt".IsStrictAbsolutePath();
-    /// </code>
-    /// </example>
-    [Obsolete("Use Path.IsPathFullyQualified and apply an explicit UNC policy instead. This compatibility helper will be removed in the next major version.")]
-    public static bool IsStrictAbsolutePath(this string path)
-    {
-        if (!PathHelper.IsPathFullyQualified(path))
-        {
-            return false;
-        }
-
-        if (Path.DirectorySeparatorChar != '\\')
-        {
-            return true;
-        }
-
-        if (path.StartsWith(@"\\?\", StringComparison.Ordinal) ||
-            path.StartsWith(@"\\.\", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        return !path.StartsWith(@"\\", StringComparison.Ordinal);
-    }
 }

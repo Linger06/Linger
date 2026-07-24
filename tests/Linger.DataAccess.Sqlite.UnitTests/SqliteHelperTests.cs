@@ -895,6 +895,50 @@ public class SqliteHelperTests : IDisposable
 
     #endregion
 
+    #region Count query tests
+
+    [Fact]
+    public void FindCountBySql_WithValidCount_ShouldReturnCount()
+    {
+        var result = _fileHelper.FindCountBySql("SELECT COUNT(*) FROM users");
+
+        Assert.Equal(5, result);
+    }
+
+    [Fact]
+    public void FindCountBySql_WithNonIntegerResult_ShouldThrowFormatException()
+    {
+        Assert.Throws<FormatException>(() =>
+            _fileHelper.FindCountBySql("SELECT 'not-a-count'"));
+    }
+
+    [Fact]
+    public async Task FindCountBySqlAsync_WithNonIntegerResult_ShouldThrowFormatException()
+    {
+        await Assert.ThrowsAsync<FormatException>(() =>
+            _fileHelper.FindCountBySqlAsync("SELECT 'not-a-count'"));
+    }
+
+    [Fact]
+    public void FindCountBySql_WithParametersAndNonIntegerResult_ShouldThrowFormatException()
+    {
+        SQLiteParameter[] parameters = [new SQLiteParameter("@value", "not-a-count")];
+
+        Assert.Throws<FormatException>(() =>
+            _fileHelper.FindCountBySql("SELECT @value", parameters));
+    }
+
+    [Fact]
+    public async Task FindCountBySqlAsync_WithParametersAndNonIntegerResult_ShouldThrowFormatException()
+    {
+        SQLiteParameter[] parameters = [new SQLiteParameter("@value", "not-a-count")];
+
+        await Assert.ThrowsAsync<FormatException>(() =>
+            _fileHelper.FindCountBySqlAsync("SELECT @value", parameters));
+    }
+
+    #endregion
+
     private sealed class UserRecord
     {
         public int Id { get; set; }

@@ -75,24 +75,6 @@ public class IQueryableExtensionsTests
     }
 
     [Fact]
-    public void OrderByIf_ShouldOrderBy_WhenConditionIsTrue()
-    {
-        // Arrange
-        IQueryable<TestEntity>? data = new List<TestEntity>
-        {
-            new TestEntity { Id = 2, Name = "B" },
-            new TestEntity { Id = 1, Name = "A" }
-        }.AsQueryable();
-
-        // Act
-        var result = data.OrderByIf<TestEntity, IQueryable<TestEntity>>(true, "Id").ToList();
-
-        // Assert
-        Assert.Equal(1, result[0].Id);
-        Assert.Equal(2, result[1].Id);
-    }
-
-    [Fact]
     public void OrderByIf_WithIQueryableOverload_ShouldOrderWithoutConcreteTypeCast()
     {
         IQueryable<TestEntity> data = new List<TestEntity>
@@ -105,24 +87,6 @@ public class IQueryableExtensionsTests
 
         Assert.Equal(1, result[0].Id);
         Assert.Equal(2, result[1].Id);
-    }
-
-    [Fact]
-    public void OrderByIf_ShouldNotOrderBy_WhenConditionIsFalse()
-    {
-        // Arrange
-        IQueryable<TestEntity>? data = new List<TestEntity>
-        {
-            new TestEntity { Id = 2, Name = "B" },
-            new TestEntity { Id = 1, Name = "A" }
-        }.AsQueryable();
-
-        // Act
-        var result = data.OrderByIf<TestEntity, IQueryable<TestEntity>>(false, "Id").ToList();
-
-        // Assert
-        Assert.Equal(2, result[0].Id);
-        Assert.Equal(1, result[1].Id);
     }
 
 #if NET5_0_OR_GREATER

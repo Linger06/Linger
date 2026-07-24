@@ -299,21 +299,6 @@ public static class TypeExtensions
     /// <param name="type">The type to check.</param>
     /// <returns>A dictionary of properties and their attribute values.</returns>
 #if NET5_0_OR_GREATER
-    public static Dictionary<PropertyInfo, E?> AttrValues<E>(this Type type) where E : Attribute
-#else
-    public static Dictionary<PropertyInfo, E> AttrValues<E>(this Type type) where E : Attribute
-#endif
-    {
-        return type.AttrPropValues<E>();
-    }
-
-    /// <summary>
-    /// Gets the properties of a type that have a specified attribute and their attribute values.
-    /// </summary>
-    /// <typeparam name="E">The type of the attribute.</typeparam>
-    /// <param name="type">The type to check.</param>
-    /// <returns>A dictionary of properties and their attribute values.</returns>
-#if NET5_0_OR_GREATER
     public static Dictionary<PropertyInfo, E?> AttrPropValues<E>(this Type type) where E : Attribute
 #else
     public static Dictionary<PropertyInfo, E> AttrPropValues<E>(this Type type) where E : Attribute
@@ -442,6 +427,11 @@ public static class TypeExtensions
 
             foreach (var propertyInfo in properties)
             {
+                if (propertyInfo.GetIndexParameters().Length != 0)
+                {
+                    continue;
+                }
+
                 counter++;
 
                 // 使用GetCustomAttribute<T>方法直接获取特性，避免使用反射

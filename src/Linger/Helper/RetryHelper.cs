@@ -11,34 +11,6 @@ public sealed class RetryHelper(RetryOptions? options = null)
     private readonly RetryOptions _options = options ?? new RetryOptions();
 
     /// <summary>
-    /// 执行可重试的异步操作
-    /// </summary>
-    /// <typeparam name="T">返回值类型</typeparam>
-    /// <param name="operation">要执行的操作</param>
-    /// <param name="operationName">操作名称（用于异常信息）</param>
-    /// <param name="shouldRetry">判断是否应该重试的函数</param>
-    /// <param name="operationExpr"></param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>操作结果</returns>
-    /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
-    [Obsolete("Use the overload that accepts Func<CancellationToken, Task<T>> so cancellation reaches the operation.")]
-    public async Task<T> ExecuteAsync<T>(
-        Func<Task<T>> operation,
-        string? operationName = null,
-        Func<Exception, bool>? shouldRetry = null,
-    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-        return await ExecuteAsync(
-            _ => operation(),
-            operationName,
-            shouldRetry,
-            operationExpr,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
     /// Executes an asynchronous operation with retry and forwards cancellation to each attempt.
     /// </summary>
     /// <typeparam name="T">The result type.</typeparam>
@@ -64,33 +36,6 @@ public sealed class RetryHelper(RetryOptions? options = null)
             () => operation(cancellationToken),
             operationName,
             shouldRetry,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 执行可重试的异步操作（无返回值版本）
-    /// </summary>
-    /// <param name="operation">要执行的操作</param>
-    /// <param name="operationName">操作名称（用于异常信息）</param>
-    /// <param name="shouldRetry">判断是否应该重试的函数</param>
-    /// <param name="operationExpr"></param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>表示操作完成的任务</returns>
-    /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
-    [Obsolete("Use the overload that accepts Func<CancellationToken, Task> so cancellation reaches the operation.")]
-    public async Task ExecuteAsync(
-        Func<Task> operation,
-        string? operationName = null,
-        Func<Exception, bool>? shouldRetry = null,
-    [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-        await ExecuteAsync(
-            _ => operation(),
-            operationName,
-            shouldRetry,
-            operationExpr,
             cancellationToken).ConfigureAwait(false);
     }
 

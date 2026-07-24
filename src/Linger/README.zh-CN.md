@@ -1,5 +1,7 @@
 # Linger.Utils
 
+[2.0.0-preview.1 迁移指南](MIGRATION.zh-CN.md)
+
 一个功能丰富的 .NET 工具库，包含大量实用的扩展方法和帮助类，让您的日常开发工作更加轻松高效。反射、表达式树、属性元数据和动态查询能力已拆分至可选的 `Linger.Reflection` 包。
 
 ## 概述
@@ -131,7 +133,7 @@ string[] columns = "id,name,email".SplitToArray(',');
 IEnumerable<string> lines = "第一行\r\n第二行".SplitToList("\r\n");
 ```
 
-字面量分隔符请使用 `SplitToArray` / `SplitToList`。旧的字符版本 `ToSplitArray`、`ToSplitList` 和 `ToSplitArrayByCrlf` 已标记为过时。`ToSplitList(string)` 仅为正则表达式分隔符保留，并设置了一秒匹配超时。
+字面量分隔符请使用 `SplitToArray` / `SplitToList`。`ToSplitList(string)` 仅为正则表达式分隔符保留，并设置了一秒匹配超时。
 
 ### 字符串加密扩展
 
@@ -395,14 +397,10 @@ using Linger.Json;
 
 // 对象转 JSON
 var user = new { Name = "John", Age = 30 };
-string json = user.ToJsonString(); // 或 user.SerializeJson()
+string json = user.ToJsonString();
 
 // JSON 转对象
-var userObj = json.Deserialize<User>(); // 或 json.DeserializeJson<User>()
-
-// 动态 JSON 对象
-dynamic dynamicObj = json.DeserializeDynamicJsonObject();
-string name = dynamicObj.Name; // 访问属性
+var userObj = json.Deserialize<User>();
 
 // JSON 转 DataTable（字符串扩展）
 string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";

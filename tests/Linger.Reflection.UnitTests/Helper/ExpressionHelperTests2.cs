@@ -253,6 +253,15 @@ public class ExpressionHelperTests2
     }
 
     [Fact]
+    public void GetOrderBy_WithInvalidDirection_ThrowsArgumentException()
+    {
+        var orderColumns = new List<string> { "Name" };
+        var orderDirs = new List<string> { "anything" };
+
+        Assert.Throws<ArgumentException>(() => ExpressionHelper.GetOrderBy<Student>(orderColumns, orderDirs));
+    }
+
+    [Fact]
     public void GetOrderBy_WithNoValidColumnsAndDirections_ReturnsOrderedQueryable()
     {
         IQueryable<Student>? data = new List<Student>

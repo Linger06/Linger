@@ -1,5 +1,7 @@
 # Linger.Utils
 
+[Migration guide for 2.0.0-preview.1](MIGRATION.md)
+
 A comprehensive .NET utility library providing AOT-friendly extension methods and helper classes for everyday development tasks. Reflection, expression-tree, property metadata, and dynamic query APIs are provided by the optional `Linger.Reflection` package.
 
 ## Overview
@@ -131,7 +133,7 @@ string[] columns = "id,name,email".SplitToArray(',');
 IEnumerable<string> lines = "first\r\nsecond".SplitToList("\r\n");
 ```
 
-Use `SplitToArray` / `SplitToList` for literal delimiters. The older character-based `ToSplitArray`, `ToSplitList`, and `ToSplitArrayByCrlf` APIs are obsolete. `ToSplitList(string)` is retained only for regular-expression delimiters and enforces a one-second match timeout.
+Use `SplitToArray` / `SplitToList` for literal delimiters. `ToSplitList(string)` is retained only for regular-expression delimiters and enforces a one-second match timeout.
 
 ### String Cryptography Extensions
 
@@ -372,14 +374,10 @@ using Linger.Json;
 
 // Object to JSON
 var user = new { Name = "John", Age = 30 };
-string json = user.ToJsonString(); // or user.SerializeJson()
+string json = user.ToJsonString();
 
 // JSON to object
-var userObj = json.Deserialize<User>(); // or json.DeserializeJson<User>()
-
-// Dynamic JSON object
-dynamic dynamicObj = json.DeserializeDynamicJsonObject();
-string name = dynamicObj.Name; // Access properties
+var userObj = json.Deserialize<User>();
 
 // JSON to DataTable (string extension)
 string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";

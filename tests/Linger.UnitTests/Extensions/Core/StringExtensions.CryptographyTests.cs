@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Linger.Extensions.Core;
 
@@ -32,10 +32,10 @@ public class StringExtensionsCryptographyTests
 
     [Theory]
     [MemberData(nameof(ValidAESTestData))]
-    public void AesEncrypt_ValidInputs_ReturnsEncryptedString(string data, string key)
+    public void AesEncryptAuthenticated_ValidInputs_ReturnsEncryptedString(string data, string key)
     {
         // Act
-        string encrypted = data.AesEncrypt(key);
+        string encrypted = data.AesEncryptAuthenticated(key);
 
         // Assert
         Assert.NotNull(encrypted);
@@ -56,22 +56,22 @@ public class StringExtensionsCryptographyTests
     [InlineData("", "validkey")]
     [InlineData("validdata", null)]
     [InlineData("validdata", "")]
-    public void AesEncrypt_InvalidParameters_ThrowsArgumentException(string data, string key)
+    public void AesEncryptAuthenticated_InvalidParameters_ThrowsArgumentException(string data, string key)
     {
         // Act & Assert
-        Assert.Throws<System.ArgumentException>(() => data.AesEncrypt(key));
+        Assert.Throws<System.ArgumentException>(() => data.AesEncryptAuthenticated(key));
     }
 
     [Fact]
-    public void AesEncrypt_SameInputs_ProducesDifferentResults()
+    public void AesEncryptAuthenticated_SameInputs_ProducesDifferentResults()
     {
         // Arrange
         string data = "Test Data";
         string key = "TestKey123";
 
         // Act
-        string encrypted1 = data.AesEncrypt(key);
-        string encrypted2 = data.AesEncrypt(key);
+        string encrypted1 = data.AesEncryptAuthenticated(key);
+        string encrypted2 = data.AesEncryptAuthenticated(key);
 
         // Assert
         // AES with random IV should produce different encrypted results each time
@@ -79,14 +79,14 @@ public class StringExtensionsCryptographyTests
     }
 
     [Fact]
-    public void AesEncrypt_DifferentKeys_ProduceDifferentResults()
+    public void AesEncryptAuthenticated_DifferentKeys_ProduceDifferentResults()
     {
         // Arrange
         string data = "Test Data";
 
         // Act
-        string encrypted1 = data.AesEncrypt("Key1");
-        string encrypted2 = data.AesEncrypt("Key2");
+        string encrypted1 = data.AesEncryptAuthenticated("Key1");
+        string encrypted2 = data.AesEncryptAuthenticated("Key2");
 
         // Assert
         Assert.NotEqual(encrypted1, encrypted2);
@@ -101,7 +101,7 @@ public class StringExtensionsCryptographyTests
     public void AesDecrypt_ValidEncryptedData_ReturnsOriginalString(string originalData, string key)
     {
         // Arrange
-        string encrypted = originalData.AesEncrypt(key);
+        string encrypted = originalData.AesEncryptAuthenticated(key);
 
         // Act
         string decrypted = encrypted.AesDecrypt(key);
@@ -211,7 +211,7 @@ public class StringExtensionsCryptographyTests
     #region Edge Cases and Integration Tests
 
     [Fact]
-    public void AesEncryptDecrypt_EmptyString_WorksCorrectly()
+    public void AesEncryptAuthenticatedDecrypt_EmptyString_WorksCorrectly()
     {
         // Note: Empty string encryption is not supported and should throw ArgumentException
         // This test ensures the behavior is consistent
@@ -221,18 +221,18 @@ public class StringExtensionsCryptographyTests
         string key = "TestKey123";
 
         // Act & Assert
-        Assert.Throws<System.ArgumentException>(() => data.AesEncrypt(key));
+        Assert.Throws<System.ArgumentException>(() => data.AesEncryptAuthenticated(key));
     }
 
     [Fact]
-    public void AesEncryptDecrypt_SingleCharacter_WorksCorrectly()
+    public void AesEncryptAuthenticatedDecrypt_SingleCharacter_WorksCorrectly()
     {
         // Arrange
         string data = "A";
         string key = "TestKey123";
 
         // Act
-        string encrypted = data.AesEncrypt(key);
+        string encrypted = data.AesEncryptAuthenticated(key);
         string decrypted = encrypted.AesDecrypt(key);
 
         // Assert
@@ -241,14 +241,14 @@ public class StringExtensionsCryptographyTests
     }
 
     [Fact]
-    public void AesEncryptDecrypt_LongString_WorksCorrectly()
+    public void AesEncryptAuthenticatedDecrypt_LongString_WorksCorrectly()
     {
         // Arrange
         string data = new string('A', 10000); // 10KB of data
         string key = "TestKey123";
 
         // Act
-        string encrypted = data.AesEncrypt(key);
+        string encrypted = data.AesEncryptAuthenticated(key);
         string decrypted = encrypted.AesDecrypt(key);
 
         // Assert
@@ -257,14 +257,14 @@ public class StringExtensionsCryptographyTests
     }
 
     [Fact]
-    public void AesEncryptDecrypt_UnicodeCharacters_WorksCorrectly()
+    public void AesEncryptAuthenticatedDecrypt_UnicodeCharacters_WorksCorrectly()
     {
         // Arrange
         string unicodeData = "Hello 世界! 🌍 Émojis: 😀😃😄 العالم мир";
         string key = "TestKey123";
 
         // Act
-        string encrypted = unicodeData.AesEncrypt(key);
+        string encrypted = unicodeData.AesEncryptAuthenticated(key);
         string decrypted = encrypted.AesDecrypt(key);
 
         // Assert
@@ -273,14 +273,14 @@ public class StringExtensionsCryptographyTests
     }
 
     [Fact]
-    public void AesEncryptDecrypt_SpecialCharacters_WorksCorrectly()
+    public void AesEncryptAuthenticatedDecrypt_SpecialCharacters_WorksCorrectly()
     {
         // Arrange
         string specialData = "!@#$%^&*()_+-=[]{}|;:'\",.<>?/~`";
         string key = "TestKey123";
 
         // Act
-        string encrypted = specialData.AesEncrypt(key);
+        string encrypted = specialData.AesEncryptAuthenticated(key);
         string decrypted = encrypted.AesDecrypt(key);
 
         // Assert
@@ -289,17 +289,17 @@ public class StringExtensionsCryptographyTests
     }
 
     [Fact]
-    public void AesEncryptDecrypt_MultipleRounds_ProducesConsistentResults()
+    public void AesEncryptAuthenticatedDecrypt_MultipleRounds_ProducesConsistentResults()
     {
         // Arrange
         string data = "Test data for multiple encryption rounds";
         string key = "TestKey123";
 
         // Act
-        string encrypted1 = data.AesEncrypt(key);
+        string encrypted1 = data.AesEncryptAuthenticated(key);
         string decrypted1 = encrypted1.AesDecrypt(key);
 
-        string encrypted2 = decrypted1.AesEncrypt(key);
+        string encrypted2 = decrypted1.AesEncryptAuthenticated(key);
         string decrypted2 = encrypted2.AesDecrypt(key);
 
         // Assert
@@ -315,15 +315,15 @@ public class StringExtensionsCryptographyTests
     #region Security and Consistency Tests
 
     [Fact]
-    public void AesEncrypt_SameKeyDifferentSessions_ProducesDecryptableResults()
+    public void AesEncryptAuthenticated_SameKeyDifferentSessions_ProducesDecryptableResults()
     {
         // Arrange
         string data = "Cross-session test data";
         string key = "ConsistentKey123";
 
         // Act
-        string encrypted1 = data.AesEncrypt(key);
-        string encrypted2 = data.AesEncrypt(key);
+        string encrypted1 = data.AesEncryptAuthenticated(key);
+        string encrypted2 = data.AesEncryptAuthenticated(key);
 
         string decrypted1 = encrypted1.AesDecrypt(key);
         string decrypted2 = encrypted2.AesDecrypt(key);
@@ -337,7 +337,7 @@ public class StringExtensionsCryptographyTests
     }
 
     [Fact]
-    public void AesEncrypt_KeySensitivity_DifferentKeysProduceDifferentResults()
+    public void AesEncryptAuthenticated_KeySensitivity_DifferentKeysProduceDifferentResults()
     {
         // Arrange
         string data = "Sensitive data";
@@ -346,9 +346,9 @@ public class StringExtensionsCryptographyTests
         string key3 = "key1"; // Case sensitivity test
 
         // Act
-        string encrypted1 = data.AesEncrypt(key1);
-        string encrypted2 = data.AesEncrypt(key2);
-        string encrypted3 = data.AesEncrypt(key3);
+        string encrypted1 = data.AesEncryptAuthenticated(key1);
+        string encrypted2 = data.AesEncryptAuthenticated(key2);
+        string encrypted3 = data.AesEncryptAuthenticated(key3);
 
         // Assert
         Assert.NotEqual(encrypted1, encrypted2);
@@ -357,7 +357,7 @@ public class StringExtensionsCryptographyTests
     }
 
     [Fact]
-    public void AesEncrypt_RandomnessTest_MultipleEncryptionsProduceDifferentResults()
+    public void AesEncryptAuthenticated_RandomnessTest_MultipleEncryptionsProduceDifferentResults()
     {
         // Arrange
         string data = "Randomness test data";
@@ -367,7 +367,7 @@ public class StringExtensionsCryptographyTests
         // Act
         for (int i = 0; i < 10; i++)
         {
-            string encrypted = data.AesEncrypt(key);
+            string encrypted = data.AesEncryptAuthenticated(key);
             encryptedResults.Add(encrypted);
 
             // Verify each can be decrypted correctly

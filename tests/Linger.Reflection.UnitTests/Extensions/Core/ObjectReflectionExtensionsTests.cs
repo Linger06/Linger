@@ -1,4 +1,4 @@
-namespace Linger.Reflection.UnitTests.Extensions.Core;
+﻿namespace Linger.Reflection.UnitTests.Extensions.Core;
 
 public class ObjectReflectionExtensionsTests
 {
@@ -27,13 +27,13 @@ public class ObjectReflectionExtensionsTests
     }
 
     [Fact]
-    public void ForIn_ShouldForwardToForEachProperty()
+    public void ForEachProperty_ShouldForwardToForEachProperty()
     {
         var value = new PropertyEnumerationTestModel { Name = "Linger" };
         var properties = new Dictionary<string, object?>();
 
 #pragma warning disable CS0618 // Tests document the retained compatibility API.
-        value.ForIn((name, propertyValue) => properties.Add(name, propertyValue));
+        value.ForEachProperty((name, propertyValue) => properties.Add(name, propertyValue));
 #pragma warning restore CS0618
 
         Assert.Equal("Linger", properties[nameof(PropertyEnumerationTestModel.Name)]);

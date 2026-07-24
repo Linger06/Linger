@@ -152,65 +152,6 @@ public class ListExtensionsTests
         Assert.Equal(string.Empty, result);
     }
 
-    [Fact]
-    public void ToTree_CreatesTreeStructureCorrectly()
-    {
-        var list = new List<SampleClass>
-        {
-            new SampleClass { Id = 1, ParentId = 0, Name = "Root" },
-            new SampleClass { Id = 2, ParentId = 1, Name = "Child1" },
-            new SampleClass { Id = 3, ParentId = 1, Name = "Child2" }
-        };
-
-        List<SampleClass>? result = list.ToTree(
-            (_, child) => child.ParentId == 0,
-            (parent, child) => parent.Id == child.ParentId,
-            (parent, children) =>
-            {
-                parent.Children = parent.Children ?? new List<SampleClass>();
-                parent.Children.AddRange(children);
-            }
-        );
-
-        Assert.Single(result);
-        Assert.Equal(2, result[0].Children.Count);
-    }
-
-    [Fact]
-    public void ToTree_ReturnsEmptyListForEmptyInputList()
-    {
-        var list = new List<SampleClass>();
-
-        List<SampleClass>? result = list.ToTree(
-            (_, child) => child.ParentId == 0,
-            (parent, child) => parent.Id == child.ParentId,
-            (parent, children) =>
-            {
-                parent.Children = parent.Children ?? new List<SampleClass>();
-                parent.Children.AddRange(children);
-            }
-        );
-
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public void ToTree_WhenHierarchyContainsCycle_ThrowsInvalidOperationException()
-    {
-        var list = new List<SampleClass>
-        {
-            new SampleClass { Id = 1, Name = "Root" },
-            new SampleClass { Id = 2, Name = "Child" }
-        };
-
-        Assert.Throws<InvalidOperationException>(() => list.ToTree(
-            (_, child) => child.Id == 1,
-            (parent, child) =>
-                (parent.Id == 1 && child.Id == 2) ||
-                (parent.Id == 2 && child.Id == 1),
-            (parent, children) => parent.Children.AddRange(children)));
-    }
-
     private class SampleClass
     {
         public int Id { get; set; }

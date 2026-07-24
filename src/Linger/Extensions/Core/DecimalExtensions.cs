@@ -144,20 +144,6 @@ public static class DecimalExtensions
         return decimal.Round(value, decimals, MidpointRounding.AwayFromZero);
     }
 
-    /// <summary>
-    /// Rounds a decimal value to the specified number of fractional digits using conventional rounding.
-    /// </summary>
-    /// <param name="value">The decimal value to round.</param>
-    /// <param name="decimals">The number of fractional digits to retain, from 0 through 28.</param>
-    /// <returns>The rounded decimal value.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="decimals"/> is outside the supported range.</exception>
-    /// <remarks>Use <see cref="Round(decimal, int)"/> instead.</remarks>
-    [Obsolete("Use Round instead.")]
-    public static decimal ToRounding(this decimal value, int decimals)
-    {
-        return value.Round(decimals);
-    }
-
     #endregion
 
     #region Decimal formatting helpers

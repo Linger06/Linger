@@ -39,28 +39,6 @@ public partial class DataTableExtensionsTests
     }
 
     [Fact]
-    public async Task ToListAsync_WithMapper_ReturnsListOfObjects()
-    {
-        DataTable? table = CreateTestDataTable();
-
-        List<TestClass2> result = await table.ToListAsync(row => new TestClass2
-        {
-            Int = Convert.ToInt32(row["Int"]),
-            Name = row["Name"]?.ToString(),
-            NullableInt = row["NullableInt"] == DBNull.Value ? null : Convert.ToInt32(row["NullableInt"])
-        });
-
-        Assert.NotNull(result);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(1, result[0].Int);
-        Assert.Equal("John", result[0].Name);
-        Assert.Null(result[0].NullableInt);
-        Assert.Equal(2, result[1].Int);
-        Assert.Equal("Jane", result[1].Name);
-        Assert.Equal(2, result[1].NullableInt);
-    }
-
-    [Fact]
     public void ToList_WithMapper_ReturnsListOfObjects()
     {
         DataTable? table = CreateTestDataTable();
@@ -168,29 +146,6 @@ public partial class DataTableExtensionsTests
     }
 
     [Fact]
-    public async Task ToListAsync_WithFactoryAndColumnSetters_ReturnsListOfObjects()
-    {
-        DataTable? table = CreateTestDataTable();
-        var setters = new Dictionary<string, Action<TestClass2, object?>>
-        {
-            ["int"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int>((x, v) => x.Int = v),
-            ["name"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, string?>((x, v) => x.Name = v),
-            ["nullableint"] = LingerDataTableExtensions.CreateColumnSetter<TestClass2, int?>((x, v) => x.NullableInt = v)
-        };
-
-        List<TestClass2> result = await table.ToListAsync(() => new TestClass2(), setters);
-
-        Assert.NotNull(result);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(1, result[0].Int);
-        Assert.Equal("John", result[0].Name);
-        Assert.Null(result[0].NullableInt);
-        Assert.Equal(2, result[1].Int);
-        Assert.Equal("Jane", result[1].Name);
-        Assert.Equal(2, result[1].NullableInt);
-    }
-
-    [Fact]
     public void ToList_WithFactoryAndColumnSettersAndParameterizedConstructor_ReturnsListOfObjects()
     {
         DataTable? table = CreateTestDataTable();
@@ -228,28 +183,6 @@ public partial class DataTableExtensionsTests
         Assert.Equal(2, result.Count);
         Assert.Equal(17, result[0].TenantId);
         Assert.Equal("factory-required", result[0].Source);
-        Assert.Equal(1, result[0].Int);
-        Assert.Equal("John", result[0].Name);
-        Assert.Equal(2, result[1].Int);
-        Assert.Equal("Jane", result[1].Name);
-    }
-
-    [Fact]
-    public async Task ToListAsync_WithFactoryAndColumnSettersAndParameterizedConstructor_ReturnsListOfObjects()
-    {
-        DataTable? table = CreateTestDataTable();
-        var setters = new Dictionary<string, Action<TestClassWithConstructor, object?>>
-        {
-            ["int"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithConstructor, int>((x, v) => x.Int = v),
-            ["name"] = LingerDataTableExtensions.CreateColumnSetter<TestClassWithConstructor, string?>((x, v) => x.Name = v)
-        };
-
-        List<TestClassWithConstructor> result = await table.ToListAsync(() => new TestClassWithConstructor(tenantId: 11, source: "factory-async"), setters);
-
-        Assert.NotNull(result);
-        Assert.Equal(2, result.Count);
-        Assert.Equal(11, result[0].TenantId);
-        Assert.Equal("factory-async", result[0].Source);
         Assert.Equal(1, result[0].Int);
         Assert.Equal("John", result[0].Name);
         Assert.Equal(2, result[1].Int);
@@ -322,6 +255,18 @@ public partial class DataTableExtensionsTests
         setter(target, null);
 
         Assert.Equal(42, target.NullableInt);
+    }
+
+    [Fact]
+    public void CreateColumnSetter_WithUnsupportedValue_PreservesTargetValue()
+    {
+        var original = new Uri("https://original.example");
+        var target = new UriTarget { Value = original };
+        var setter = LingerDataTableExtensions.CreateColumnSetter<UriTarget, Uri>((x, v) => x.Value = v);
+
+        setter(target, "https://replacement.example");
+
+        Assert.Same(original, target.Value);
     }
 
     [Fact]
@@ -489,6 +434,11 @@ public partial class DataTableExtensionsTests
         Assert.Equal("Jane", result.Rows[1]["Name"]);
         Assert.Equal(3, result.Rows[2]["Int_2"]);
         Assert.Equal("Doe", result.Rows[2]["Name_2"]);
+    }
+
+    private sealed class UriTarget
+    {
+        public required Uri Value { get; set; }
     }
 
     private class TestClass2

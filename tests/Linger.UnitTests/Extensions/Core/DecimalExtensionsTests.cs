@@ -26,16 +26,6 @@ public class DecimalExtensionsTests
         Assert.Throws<ArgumentOutOfRangeException>(() => 1m.Round(decimals));
     }
 
-    [Fact]
-    public void ToRounding_ReturnsSameValueAsRound()
-    {
-#pragma warning disable CS0618
-        var result = 12.345m.ToRounding(2);
-#pragma warning restore CS0618
-
-        Assert.Equal(12.345m.Round(2), result);
-    }
-
 
     [Theory]
     [InlineData(1.1)]

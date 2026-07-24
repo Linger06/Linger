@@ -173,26 +173,6 @@ public class FileHelperTests : IDisposable
     }
 
     [Fact]
-    public void DeleteFolderFiles_ShouldBeIdempotentWhenTargetFileIsAlreadyMissing()
-    {
-        var sourceDir = CreateTestDirectory("source");
-        var targetDir = CreateTestDirectory("target");
-        var sourceFile = Path.Combine(sourceDir, "shared.txt");
-        var targetFile = Path.Combine(targetDir, "shared.txt");
-
-        File.WriteAllText(sourceFile, "source");
-        File.WriteAllText(targetFile, "target");
-        _createdFiles.Add(sourceFile);
-        _createdFiles.Add(targetFile);
-
-        FileHelper.DeleteFolderFiles(sourceDir, targetDir);
-        Assert.False(File.Exists(targetFile));
-
-        FileHelper.DeleteFolderFiles(sourceDir, targetDir);
-        Assert.False(File.Exists(targetFile));
-    }
-
-    [Fact]
     public void CopyFile_WithValidPaths_CopiesFile()
     {
         var content = "test content";

@@ -12,6 +12,15 @@ public class ExpressionHelperTests
         public string? Name { get; set; }
         public int Age { get; set; }
         public int? Score { get; set; }
+        public Guid Id { get; set; }
+        public Status Status { get; set; }
+        public TimeSpan Duration { get; set; }
+    }
+
+    private enum Status
+    {
+        Active,
+        Disabled
     }
 
     [Fact]
@@ -66,12 +75,46 @@ public class ExpressionHelperTests
     }
 
     [Fact]
+    public void OrderBy_WithInvalidDirection_ThrowsArgumentException()
+    {
+        var data = new List<TestClass> { new() { Name = "John" } };
+
+        Assert.Throws<ArgumentException>(() => data.OrderBy("Name anything").ToList());
+    }
+
+    [Fact]
     public void CreateEqual_ReturnsCorrectExpression()
     {
         Expression<Func<TestClass, bool>>? expression = ExpressionHelper.CreateEqual<TestClass>("Name", "John");
         Func<TestClass, bool>? compiled = expression.Compile();
         var testObj = new TestClass { Name = "John" };
         Assert.True(compiled(testObj));
+    }
+
+    [Fact]
+    public void CreateEqual_ConvertsStringToGuid()
+    {
+        var id = Guid.NewGuid();
+
+        var predicate = ExpressionHelper.CreateEqual<TestClass>(nameof(TestClass.Id), id.ToString()).Compile();
+
+        Assert.True(predicate(new TestClass { Id = id }));
+    }
+
+    [Fact]
+    public void CreateEqual_ConvertsStringToEnum()
+    {
+        var predicate = ExpressionHelper.CreateEqual<TestClass>(nameof(TestClass.Status), nameof(Status.Active)).Compile();
+
+        Assert.True(predicate(new TestClass { Status = Status.Active }));
+    }
+
+    [Fact]
+    public void CreateEqual_ConvertsStringToTimeSpan()
+    {
+        var predicate = ExpressionHelper.CreateEqual<TestClass>(nameof(TestClass.Duration), "01:30:00").Compile();
+
+        Assert.True(predicate(new TestClass { Duration = TimeSpan.FromMinutes(90) }));
     }
 
     [Fact]

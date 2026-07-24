@@ -12,26 +12,6 @@ public static class ObjectExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsNotNull([NotNullWhen(true)] this object? value) => value is not null;
 
-    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition.")]
-    public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value)
-    {
-        if (value is null) return true;
-        if (value is string str) return string.IsNullOrEmpty(str);
-
-        var objectStr = value.ToString();
-        return string.IsNullOrEmpty(objectStr);
-    }
-
-    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition.")]
-    public static bool IsNotNullOrEmpty([NotNullWhen(true)] this object? value)
-    {
-        if (value is null) return false;
-        if (value is string str) return !string.IsNullOrEmpty(str);
-
-        var objectStr = value.ToString();
-        return !string.IsNullOrEmpty(objectStr);
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsNullOrDbNull([NotNullWhen(false)] this object? value) => value is DBNull or null;
 
@@ -495,7 +475,37 @@ public static class ObjectExtensions
         return Convert.ToInt32(value, CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Converts the specified value to a nullable <see cref="int"/> using the invariant culture.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <returns>
+    /// The converted value, or <see langword="null"/> when <paramref name="value"/> is <see langword="null"/>,
+    /// <see cref="DBNull"/>, has an invalid format, is outside the range of <see cref="int"/>, or has a fractional part.
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// object value = "42";
+    /// int? result = value.ToIntOrNull();
+    /// </code>
+    /// </example>
     public static int? ToIntOrNull(this object? value) => value.TryToInt(out var r) ? r : null;
+
+    /// <summary>
+    /// Converts the specified value to an <see cref="int"/> using the invariant culture, or returns a default value when conversion fails.
+    /// </summary>
+    /// <param name="value">The value to convert.</param>
+    /// <param name="defaultValue">The value returned when conversion fails.</param>
+    /// <returns>
+    /// The converted value, or <paramref name="defaultValue"/> when <paramref name="value"/> is <see langword="null"/>,
+    /// <see cref="DBNull"/>, has an invalid format, is outside the range of <see cref="int"/>, or has a fractional part.
+    /// </returns>
+    /// <example>
+    /// <code>
+    /// object value = "not a number";
+    /// int result = value.ToIntOrDefault(-1);
+    /// </code>
+    /// </example>
     public static int ToIntOrDefault(this object? value, int defaultValue = 0) => value.TryToInt(out var r) ? r : defaultValue;
 
     public static bool TryToDateTime(this object? value, out DateTime result)
@@ -663,62 +673,6 @@ public static class ObjectExtensions
 
     public static Guid? ToGuidOrNull(this object? value) => value.TryToGuid(out var r) ? r : null;
     public static Guid ToGuidOrDefault(this object? value, Guid defaultValue = default) => value.TryToGuid(out var r) ? r : defaultValue;
-
-    public static bool TryToTarget<T>(this object? value, [NotNullWhen(true)] out T? result)
-    {
-        result = default;
-        var targetType = typeof(T);
-        if (!TypeConverter.TryConvertTo(value, targetType, out var converted) || converted is null)
-        {
-            return false;
-        }
-
-        if (converted is T typedValue)
-        {
-            result = typedValue;
-            return true;
-        }
-
-        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        result = CastToTarget<T>(converted, targetType, underlyingType);
-        return true;
-    }
-
-    public static T ToTarget<T>(this object? value)
-    {
-        if (value is null || value is DBNull)
-        {
-            throw new ArgumentNullException(nameof(value),
-                $"Strict conversion requires a non-null input for target type '{typeof(T).Name}'.");
-        }
-
-        var targetType = typeof(T);
-        var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
-        var converted = TypeConverter.ConvertTo(value, targetType);
-        if (converted is null)
-        {
-            throw new InvalidCastException(
-                $"Cannot convert value '{FormatInvariant(value)}' (Type: {value.GetType().Name}) to target type '{targetType.Name}'.");
-        }
-
-        if (converted is T typedValue)
-            return typedValue;
-        return CastToTarget<T>(converted, targetType, underlyingType);
-    }
-
-    public static T ToTargetOrDefault<T>(this object? value, T defaultValue = default!)
-        => value.TryToTarget<T>(out var result) ? result! : defaultValue;
-
-    public static T? ToTargetOrNull<T>(this object? value) where T : struct
-        => value.TryToTarget<T>(out var result) ? result : null;
-
-    [return: NotNull]
-    private static T CastToTarget<T>([DisallowNull] object value, Type targetType, Type underlyingType)
-    {
-        return targetType == underlyingType
-            ? (T)value
-            : (T)Activator.CreateInstance(targetType, value)!;
-    }
 
     private static bool TryConvertToWholeNumber(double value, short minValue, short maxValue, out short result)
     {

@@ -11,14 +11,6 @@ public partial class ArrayExtensionsTests
     }
 
     [Fact]
-    public void ToImageBase64String_ConvertsCorrectly()
-    {
-        byte[] value = { 1, 2, 3 };
-        var result = value.ToImageBase64String();
-        Assert.Equal("data:image/jpeg;base64,AQID", result);
-    }
-
-    [Fact]
     public void ToImageDataUri_WithPngMediaType_UsesSpecifiedMediaType()
     {
         byte[] value = { 1, 2, 3 };
@@ -52,52 +44,6 @@ public partial class ArrayExtensionsTests
         Assert.Equal(2, table.Columns.Count);
         Assert.Equal("Column1", table.Columns[0].ColumnName);
         Assert.Equal("Column2", table.Columns[1].ColumnName);
-    }
-
-    [Fact]
-    public void ToEnumerable_ConvertsCorrectly()
-    {
-        string[] array = { "one", "two" };
-        IEnumerable<string> result = array.ToEnumerable();
-        Assert.Equal(array, result);
-    }
-
-    [Fact]
-    public void ToList_ConvertsCorrectly()
-    {
-        string[] array = { "one", "two" };
-        var result = array.ToList();
-        Assert.Equal(array, result);
-    }
-
-    [Fact]
-    public void ToList_WithNull_ReturnsEmptyList()
-    {
-        string[]? array = null;
-        var result = array.ToList();
-        Assert.NotNull(result);
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public void ToListOrEmpty_WithNull_ReturnsEmptyList()
-    {
-        string[]? array = null;
-
-        var result = array.ToListOrEmpty();
-
-        Assert.Empty(result);
-    }
-
-    [Fact]
-    public void ToListOrEmpty_WithValues_ReturnsCopiedList()
-    {
-        string[] array = { "one", "two" };
-
-        var result = array.ToListOrEmpty();
-
-        Assert.Equal(array, result);
-        Assert.NotSame(array, result);
     }
 
     [Fact]

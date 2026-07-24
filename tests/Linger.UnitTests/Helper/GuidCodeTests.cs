@@ -78,25 +78,4 @@ public class GuidCodeTests
     }
 #endif
 
-    [Fact]
-    public void GetInt64UniqueCode_ShouldGenerateUniqueValues()
-    {
-        // Arrange & Act
-        var code1 = GuidCode.GetInt64UniqueCode();
-        var code2 = GuidCode.GetInt64UniqueCode();
-
-        // Assert
-        Assert.NotEqual(code1, code2);
-    }
-
-    [Fact]
-    public void GetInt32UniqueCode_ShouldGenerateUniqueValues()
-    {
-        // Arrange & Act
-        var code1 = GuidCode.GetInt32UniqueCode();
-        var code2 = GuidCode.GetInt32UniqueCode();
-
-        // Assert
-        Assert.NotEqual(code1, code2);
-    }
 }

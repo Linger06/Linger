@@ -312,7 +312,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                 if (!row.IsNull(columnIndex))
                 {
                     var value = row[columnIndex];
-                    if (TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue) && convertedValue is not null)
+                    if (TypeConverter.TryConvert(value, property.PropertyType, out var convertedValue) && convertedValue is not null)
                     {
                         property.SetValue(item, convertedValue);
                     }
