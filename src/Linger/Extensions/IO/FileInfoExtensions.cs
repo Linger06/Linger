@@ -194,7 +194,7 @@ public static partial class FileInfoExtensions
     /// string formattedSize = size.ToFileSizeBytesString();
     /// </code>
     /// </example>
-    [Obsolete("Use FormatFileSize() for a consistent unit format.")]
+    [Obsolete("Use FormatFileSize() for a consistent unit format. This API will be removed in 2.0.")]
     public static string ToFileSizeBytesString(this int bytes)
     {
         return bytes switch

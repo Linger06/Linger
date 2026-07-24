@@ -68,7 +68,7 @@ public static class GuidCode
     /// Gets a 64-bit code based on part of a GUID.
     /// </summary>
     /// <returns>A 64-bit integer that is not guaranteed to be unique.</returns>
-    [Obsolete("This 64-bit value is not guaranteed to be unique. Use a full Guid instead.")]
+    [Obsolete("This 64-bit value is not guaranteed to be unique. Use a full Guid instead. This API will be removed in 2.0.")]
     public static long GetInt64UniqueCode()
     {
         var value = Guid.NewGuid();
@@ -79,7 +79,7 @@ public static class GuidCode
     /// Gets a 32-bit code based on part of a GUID.
     /// </summary>
     /// <returns>A 32-bit integer that is not guaranteed to be unique.</returns>
-    [Obsolete("This 32-bit value is not guaranteed to be unique. Use a full Guid instead.")]
+    [Obsolete("This 32-bit value is not guaranteed to be unique. Use a full Guid instead. This API will be removed in 2.0.")]
     public static int GetInt32UniqueCode()
     {
         var value = Guid.NewGuid();

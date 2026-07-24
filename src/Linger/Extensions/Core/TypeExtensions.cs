@@ -296,8 +296,10 @@ public static class TypeExtensions
     /// <param name="type">The type to check.</param>
     /// <returns>A dictionary of properties and their attribute values.</returns>
 #if NET5_0_OR_GREATER
+    [Obsolete("Use AttrPropValues<E> instead. This API will be removed in 2.0.")]
     public static Dictionary<PropertyInfo, E?> AttrValues<E>(this Type type) where E : Attribute
 #else
+    [Obsolete("Use AttrPropValues<E> instead. This API will be removed in 2.0.")]
     public static Dictionary<PropertyInfo, E> AttrValues<E>(this Type type) where E : Attribute
 #endif
     {

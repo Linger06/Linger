@@ -1,5 +1,7 @@
 # Linger.Utils
 
+[Preparing for Linger 2.0](MIGRATION.md)
+
 A comprehensive .NET utility library providing extensive extension methods and helper classes for everyday development tasks.
 
 ## Overview

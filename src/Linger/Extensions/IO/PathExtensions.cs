@@ -350,7 +350,7 @@ public static partial class PathExtensions
     /// bool isAbsolute = @"C:\data\file.txt".IsStrictAbsolutePath();
     /// </code>
     /// </example>
-    [Obsolete("Use Path.IsPathFullyQualified and apply an explicit UNC policy instead. This compatibility helper will be removed in the next major version.")]
+    [Obsolete("Use Path.IsPathFullyQualified and apply an explicit UNC policy instead. This compatibility helper will be removed in 2.0.")]
     public static bool IsStrictAbsolutePath(this string path)
     {
         if (!PathHelper.IsPathFullyQualified(path))

@@ -40,7 +40,7 @@ public static class IQueryableExtensions
     /// // sortedList is sorted by Name
     /// </code>
     /// </example>
-    [Obsolete("Use OrderByIf<T>(IQueryable<T>, bool, string) so query providers may return their own ordered query type.")]
+    [Obsolete("Use OrderByIf<T>(IQueryable<T>, bool, string) so query providers may return their own ordered query type. This API will be removed in 2.0.")]
     public static TQueryable OrderByIf<T, TQueryable>(this TQueryable query, bool condition, string sorting)
         where TQueryable : IQueryable<T>
     {
