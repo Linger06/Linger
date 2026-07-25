@@ -10,14 +10,19 @@ for applications upgrading from the previous API surface.
 | Source package | Removed API | Replacement | Replacement location | Notes |
 | --- | --- | --- | --- | --- |
 | `Linger.Utils` | `DataTable.ToListAsync<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` | Add a reference to `Linger.Reflection`; the removed method only wrapped synchronous reflection-based mapping in `Task.FromResult`. |
+| `Linger.Utils` | Reflection-based `DataTable.ToList<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` | Add a reference to `Linger.Reflection`. Use the mapper or factory overloads in `Linger.Utils` when runtime reflection is unnecessary. |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<DataRow, T>)` | `DataTable.ToList<T>(Func<DataRow, T>)` | `Linger.Utils` | The removed method only wrapped synchronous mapping in `Task.FromResult`. |
+| `Linger.Utils` | `DataTable.ToListAsync<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `DataTable.ToList<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `Linger.Utils` | The removed method only wrapped synchronous mapping in `Task.FromResult`. |
 | `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | Accept and forward the supplied cancellation token. |
 | `Linger.Utils` | `JsonExtensions.Serialize<T>` | `ToJsonString(...)` | `Linger.Utils` | See the JSON behavior change below. |
+| `Linger.Utils` | `JsonExtensions.SerializeJson<T>(...)` | `ToJsonString(...)` | `Linger.Utils` | The legacy implementation used `DataContractJsonSerializer`. |
+| `Linger.Utils` | `JsonExtensions.DeserializeJson<T>(...)` | `Deserialize<T>(...)` | `Linger.Utils` | The legacy implementation used `DataContractJsonSerializer`. |
 | `Linger.Utils` | `ObjectExtensions.ForIn` | `ForEachProperty` | `Linger.Reflection` | Add a reference to `Linger.Reflection`; the replacement has the same property enumeration intent with a clearer name. |
 | `Linger.Utils` | `TypeExtensions.AttrValues<T>` | `AttrPropValues<T>` | `Linger.Reflection` | Add a reference to `Linger.Reflection`; `AttrValues<T>` was only an alias. |
 | `Linger.Utils` | `IQueryable.OrderByIf<T, TQueryable>` | `IQueryable.OrderByIf<T>(bool, string)` | `Linger.Reflection` | Add a reference to `Linger.Reflection` and use the `IQueryable<T>` overload. |
 | `Linger.Utils` | `DecimalExtensions.ToRounding` | `Round` | `Linger.Utils` | Both use the library's conventional decimal rounding behavior. |
 | `Linger.Utils` | `byte[].ToImageBase64String` | `ToImageDataUri(mediaType)` | `Linger.Utils` | Specify the actual image media type. |
+| `Linger.Utils` | `ArrayExtensions.ForEach<T>(T[], Action<T>)` | `Array.ForEach(array, action)` or `IEnumerable<T>.ForEach(action)` | .NET BCL / `Linger.Utils` | Choose the array API or the maintained enumerable extension. |
 | `Linger.Utils` | `string[].ToEnumerable` | Use the array directly, or `value ?? Array.Empty<string>()` | .NET BCL | Arrays already implement `IEnumerable<string>`. |
 | `Linger.Utils` | `string[].ToList` and `ToListOrEmpty` | `new List<string>(value ?? Array.Empty<string>())` | .NET BCL | Use `Enumerable.ToList()` when the array is known to be non-null. |
 | `Linger.Utils` | `string.ToSplitList(char)` | `SplitToList(char)` | `Linger.Utils` | The `ToSplitList(string)` regex overload remains available. |
@@ -61,8 +66,8 @@ for applications upgrading from the previous API surface.
 | `Linger.Utils` | `ToTree` | Build the hierarchy in the caller with an explicit node model, root rule, duplicate-key policy, and cycle handling. | Application code | The generic helper concealed essential tree-construction semantics. |
 | `Linger.Utils` | `FileHelper.DeleteFolderFiles` | Perform the required `Directory` and `File` operations in the caller. | .NET BCL / application code | The recursive delete-by-name behavior was too implicit for a general utility API. |
 | `Linger.Utils` | `ExtensionMethodSetting` defaults | Configure `Encoding`, `CultureInfo`, buffer sizes, and `JsonSerializerOptions` explicitly. Use `JsonDefaults.CreateRequestOptions`, `CreateResponseOptions`, or `ApplyDefaultConfiguration` for JSON. | .NET BCL / `Linger.Utils` | Process-wide mutable defaults made behavior difficult to reason about. |
-| `Linger.Utils` | `DataContractJsonSerializer` helpers | Use `System.Text.Json.JsonSerializer` or `ToJsonString` / `Deserialize<T>`. | .NET BCL / `Linger.Utils` | The project standardizes on `System.Text.Json`. |
-| `Linger.Utils` | `DeserializeDynamicJsonObject` | Use `JsonDocument`, `JsonElement`, or `JsonNode` according to the required mutability. | .NET BCL | Dynamic JSON obscured schema and runtime failure modes. |
+| `Linger.Utils` | Other `DataContractJsonSerializer` helpers | Use `System.Text.Json.JsonSerializer` or `ToJsonString` / `Deserialize<T>`. | .NET BCL / `Linger.Utils` | The project standardizes on `System.Text.Json`. |
+| `Linger.Utils` | `DeserializeDynamicJsonObject` and `JsonTextAccessor` | Use `JsonDocument`, `JsonElement`, or `JsonNode` according to the required mutability. | .NET BCL | Dynamic JSON obscured schema and runtime failure modes. |
 
 ## Behavioral changes
 
