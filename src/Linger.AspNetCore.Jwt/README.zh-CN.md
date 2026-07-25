@@ -2,7 +2,7 @@
 
 一个用于处理 JWT 认证并可选支持刷新令牌的 C# 辅助库，聚焦“简单集成 + 可扩展 + 安全实践”。
 
-> 计划从 1.6 升级到 2.0？请参阅 [Linger 2.0 迁移准备](../Linger/MIGRATION.zh-CN.md)。
+> 计划从 1.6 升级到 2.0？请参阅 [Linger 2.0 迁移准备](https://github.com/Linger06/Linger/blob/v1.6.0/src/Linger/MIGRATION.zh-CN.md)。
 
 ## 目录
 - [核心特性](#核心特性)

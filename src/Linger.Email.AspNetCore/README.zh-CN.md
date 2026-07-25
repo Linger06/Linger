@@ -1,6 +1,6 @@
 # Linger.Email.AspNetCore
 
-> 计划从 1.6 升级到 2.0？请参阅 [Linger 2.0 迁移准备](../Linger/MIGRATION.zh-CN.md)。
+> 计划从 1.6 升级到 2.0？请参阅 [Linger 2.0 迁移准备](https://github.com/Linger06/Linger/blob/v1.6.0/src/Linger/MIGRATION.zh-CN.md)。
 
 ## 概述
 

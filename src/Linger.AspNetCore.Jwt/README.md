@@ -2,7 +2,7 @@
 
 Lightweight helpers for issuing and refreshing JWT access tokens in ASP.NET Core, focusing on "simple integration + extensibility + security best practices".
 
-> Upgrading from 1.6 to 2.0? See [Preparing for Linger 2.0](../Linger/MIGRATION.md).
+> Upgrading from 1.6 to 2.0? See [Preparing for Linger 2.0](https://github.com/Linger06/Linger/blob/v1.6.0/src/Linger/MIGRATION.md).
 
 ## Table of Contents
 - [Features](#features)

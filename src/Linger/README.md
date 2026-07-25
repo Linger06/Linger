@@ -1,6 +1,6 @@
 # Linger.Utils
 
-[Preparing for Linger 2.0](MIGRATION.md)
+[Preparing for Linger 2.0](https://github.com/Linger06/Linger/blob/v1.6.0/src/Linger/MIGRATION.md)
 
 A comprehensive .NET utility library providing extensive extension methods and helper classes for everyday development tasks.
 
