@@ -1,4 +1,31 @@
-# JSON Serialization Configuration
+# Linger.Json
+
+`Linger.Json` contains the optional JSON support that was previously part of `Linger.Utils`. It provides `System.Text.Json` converters, `DataTable` conversion extensions, and reusable `JsonSerializerOptions` factories.
+
+## Installation
+
+```shell
+dotnet add package Linger.Json
+```
+
+For the 2.0 package split, add a reference to `Linger.Json` wherever the following APIs are used: `JsonDefaults`, `DateTimeConverter`, `DateTimeNullConverter`, `DataTableJsonConverter`, `DataSetConverter`, `JsonStringConverter`, `string.ToDataTable()`, `DataTable.ToJsonString()`, or `JsonElement.JsonElementToDataTable()`.
+
+## DataTable JSON Extensions
+
+```csharp
+using Linger.Extensions;
+using Linger.Extensions.Core;
+using Linger.Extensions.Data;
+using System.Text.Json;
+
+DataTable? table = "[{\"Name\":\"Ada\",\"Age\":37}]".ToDataTable();
+string json = table.ToJsonString();
+
+using var document = JsonDocument.Parse(json);
+DataTable inferredTable = document.RootElement.JsonElementToDataTable();
+```
+
+## JSON Serialization Configuration
 
 `JsonDefaults` provides unified JSON serialization configuration for HTTP clients and ASP.NET Core WebAPI applications.
 
@@ -17,7 +44,7 @@
 Add this to your Program.cs or Startup.cs:
 
 ```
-using Linger.JsonConverter;
+using Linger.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,7 +58,7 @@ var app = builder.Build();
 ### For Minimal API
 
 ```
-using Linger.JsonConverter;
+using Linger.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,7 +73,7 @@ var app = builder.Build();
 If you need to customize further:
 
 ```
-using Linger.JsonConverter;
+using Linger.Json;
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -59,7 +86,7 @@ builder.Services.AddControllers()
 ### Configure JsonSerializerOptions Directly
 
 ```
-using Linger.JsonConverter;
+using Linger.Json;
 
 var jsonOptions = new JsonSerializerOptions();
 JsonDefaults.ApplyDefaultConfiguration(jsonOptions);
@@ -107,7 +134,6 @@ The following custom converters are included in the configuration:
 - DateTimeConverter: Handles DateTime serialization/deserialization
 - DateTimeNullConverter: Handles nullable DateTime
 - DataTableJsonConverter: Converts between DataTable and JSON
-- JsonObjectConverter: Handles dynamic JSON objects
 
 ## Related Types
 
@@ -115,5 +141,4 @@ The following custom converters are included in the configuration:
 - DateTimeConverter - DateTime serialization converter
 - DateTimeNullConverter - Nullable DateTime converter
 - DataTableJsonConverter - DataTable serialization converter
-- JsonObjectConverter - Dynamic JSON object converter
 - HttpClientBase - HTTP client base class that uses these options

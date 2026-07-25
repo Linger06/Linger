@@ -315,7 +315,7 @@ public abstract class HttpClientBase : IHttpClient
         // 尝试JSON反序列化
         try
         {
-            var result = responseText.Deserialize<T>(GetResponseJsonOptions());
+            var result = JsonSerializer.Deserialize<T>(responseText, GetResponseJsonOptions());
             return result ?? default!;
         }
         catch (JsonException)
@@ -515,7 +515,7 @@ public abstract class HttpClientBase : IHttpClient
             // --- 1. 尝试解析 ProblemDetails 格式 (RFC 7807) ---
             try
             {
-                var problemDetails = responseTxt.Deserialize<ProblemDetailsWithErrors>(GetResponseJsonOptions());
+                var problemDetails = JsonSerializer.Deserialize<ProblemDetailsWithErrors>(responseTxt, GetResponseJsonOptions());
                 if (problemDetails is not null)
                 {
                     var errors = new List<Error>();
@@ -559,7 +559,7 @@ public abstract class HttpClientBase : IHttpClient
             // --- 2. 尝试解析通用的错误集合格式 (IEnumerable<Error>) ---
             try
             {
-                var errorList = responseTxt.Deserialize<IEnumerable<Error>>(GetResponseJsonOptions());
+                var errorList = JsonSerializer.Deserialize<IEnumerable<Error>>(responseTxt, GetResponseJsonOptions());
                 var materializedList = errorList?.Where(e => e is not null).ToList();
                 if (materializedList is { Count: > 0 })
                 {

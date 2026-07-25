@@ -1,5 +1,4 @@
 ﻿using System.Data;
-using System.Text.Json;
 using Linger.Extensions.Core;
 using Linger.Extensions.Data;
 
@@ -122,40 +121,6 @@ public partial class DataTableExtensionsTests
 
         Assert.NotNull(result);
         Assert.Empty(result.Rows);
-    }
-
-    [Fact]
-    public void ToJsonString_ReturnsCorrectJsonString()
-    {
-        // 创建测试数据表
-        var sourceTable = new DataTable();
-        sourceTable.Columns.Add("Id", typeof(int));
-        sourceTable.Columns.Add("Name", typeof(string));
-        sourceTable.Columns.Add("Date", typeof(DateTime));
-
-        var testDate = new DateTime(2023, 4, 15);
-        sourceTable.Rows.Add(1, "John", testDate);
-        sourceTable.Rows.Add(2, "Jane", testDate.AddDays(1));
-
-        // 转换为 JSON
-        var json = sourceTable.ToJsonString();
-
-        // 断言
-        Assert.NotNull(json);
-        Assert.Contains("\"Id\":1", json);
-        Assert.Contains("\"Name\":\"John\"", json);
-        Assert.Contains("\"Id\":2", json);
-        Assert.Contains("\"Name\":\"Jane\"", json);
-        // 日期格式会根据 DateTimeConverter 实现而变化
-    }
-
-    [Fact]
-    public void ToJsonString_WithNullTable_ReturnsEmptyJson()
-    {
-        DataTable? nullTable = null;
-        var json = nullTable.ToJsonString();
-        Assert.NotNull(json);
-        Assert.Equal("null", json);
     }
 
 }

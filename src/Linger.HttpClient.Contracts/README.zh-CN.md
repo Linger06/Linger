@@ -173,7 +173,7 @@ else
 - **Encoder**: `JavaScriptEncoder.Default`（更安全的转义策略）
 - **数字解析**: 宽松（允许从字符串读取数字，`AllowReadingFromString`）
 - **其他配置**: 大小写不敏感、CamelCase、忽略 null、禁止尾逗号、禁止注释、忽略循环引用
-- **内置转换器**: `JsonObjectConverter`、`DateTimeConverter`、`DateTimeNullConverter`、`DataTableJsonConverter`
+- **内置转换器**: `DateTimeConverter`、`DateTimeNullConverter`、`DataTableJsonConverter`
 
 ### 请求序列化配置
 
@@ -200,7 +200,7 @@ builder.Services.AddControllers()
         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 ```
 
-详细配置说明请参考 `Linger/Json/JsonDefaults.README.zh-CN.md`
+详细配置说明请参阅 `Linger.Json` 包的 README。
 
 ### 自定义配置
 
@@ -229,7 +229,6 @@ public class CustomHttpClient : HttpClientBase
             PropertyNameCaseInsensitive = true
         };
         options.Converters.Add(new DateTimeConverter());
-        options.Converters.Add(new JsonObjectConverter());
         return options;
     }
 }

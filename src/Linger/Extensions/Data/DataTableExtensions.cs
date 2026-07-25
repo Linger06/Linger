@@ -1,6 +1,5 @@
 using System.Collections;
 using Linger.Extensions.Core;
-using Linger.Json.JsonConverter;
 
 namespace Linger.Extensions.Data;
 
@@ -351,23 +350,6 @@ public static partial class DataTableExtensions
             result.LoadDataRow(joinedValues, true);
         }
     }
-
-#if !NETFRAMEWORK || NET462_OR_GREATER
-    /// <summary>
-    /// Converts the current <see cref="DataTable"/> to a JSON string.
-    /// </summary>
-    /// <param name="dataTable">The <see cref="DataTable"/> to convert.</param>
-    /// <returns>A JSON string representing the <see cref="DataTable"/>.</returns>
-    public static string ToJsonString(this DataTable? dataTable)
-    {
-        var options = new JsonSerializerOptions
-        {
-            Converters = { new DataTableJsonConverter(), new DateTimeConverter() }
-        };
-
-        return dataTable.ToJsonString(options);
-    }
-#endif
 
     /// <summary>
     /// Converts the current <see cref="DataTable"/> to a <see cref="List{T}"/> using a caller-provided mapper.

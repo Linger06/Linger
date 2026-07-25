@@ -19,6 +19,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Linger\Linger.csproj" />
+    <ProjectReference Include="..\Linger.Json\Linger.Json.csproj" />
   </ItemGroup>
 
   <ItemGroup>

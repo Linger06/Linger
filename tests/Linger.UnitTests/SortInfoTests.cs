@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Xunit.v3;
 
 namespace Linger.UnitTests;
@@ -32,12 +31,6 @@ public class SortInfoTests
         var sortInfo = new SortInfo { Property = "Name" };
 
         Assert.Equal(SortDir.Asc, sortInfo.Direction);
-    }
-
-    [Fact]
-    public void SortInfo_DeserializeWithoutPropertyShouldThrowJsonException()
-    {
-        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<SortInfo>("{}"));
     }
 
     [Fact]

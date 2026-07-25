@@ -38,6 +38,7 @@
     <Project Path="src/Linger.Ldap.ActiveDirectory/Linger.Ldap.ActiveDirectory.csproj" />
     <Project Path="src/Linger.Ldap.Contracts/Linger.Ldap.Contracts.csproj" />
     <Project Path="src/Linger.Ldap.Novell/Linger.Ldap.Novell.csproj" />
+    <Project Path="src/Linger.Json/Linger.Json.csproj" />
     <Project Path="src/Linger.Results.AspNetCore/Linger.Results.AspNetCore.csproj" />
     <Project Path="src/Linger.Results/Linger.Results.csproj" />
     <Project Path="src/Linger.Reflection/Linger.Reflection.csproj" />
@@ -52,6 +53,7 @@
     <Project Path="tests/Linger.EFCore.UnitTests/Linger.EFCore.UnitTests.csproj" />
     <Project Path="tests/Linger.Excel.UnitTests/Linger.Excel.UnitTests.csproj" />
     <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" />
+    <Project Path="tests/Linger.Json.UnitTests/Linger.Json.UnitTests.csproj" />
     <Project Path="tests/Linger.HttpClient.UnitTests/Linger.HttpClient.UnitTests.csproj" />
     <Project Path="tests/Linger.Results.UnitTests/Linger.Results.UnitTests.csproj" />
     <Project Path="tests/Linger.Reflection.UnitTests/Linger.Reflection.UnitTests.csproj" />

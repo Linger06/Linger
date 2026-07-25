@@ -1,4 +1,31 @@
-# JSON 序列化配置
+# Linger.Json
+
+`Linger.Json` 是从 `Linger.Utils` 拆分出的可选 JSON 包，提供 `System.Text.Json` 转换器、`DataTable` JSON 扩展和可复用的 `JsonSerializerOptions` 工厂。
+
+## 安装
+
+```shell
+dotnet add package Linger.Json
+```
+
+升级到 2.0 时，使用 `JsonDefaults`、`DateTimeConverter`、`DateTimeNullConverter`、`DataTableJsonConverter`、`DataSetConverter`、`JsonStringConverter`、`string.ToDataTable()`、`DataTable.ToJsonString()` 或 `JsonElement.JsonElementToDataTable()` 的项目需要添加 `Linger.Json` 引用。
+
+## DataTable JSON 扩展
+
+```csharp
+using Linger.Extensions;
+using Linger.Extensions.Core;
+using Linger.Extensions.Data;
+using System.Text.Json;
+
+DataTable? table = "[{\"Name\":\"Ada\",\"Age\":37}]".ToDataTable();
+string json = table.ToJsonString();
+
+using var document = JsonDocument.Parse(json);
+DataTable inferredTable = document.RootElement.JsonElementToDataTable();
+```
+
+## JSON 序列化配置
 
 `JsonDefaults` 提供统一的 JSON 序列化选项配置，用于 HTTP 客户端和 ASP.NET Core WebAPI 应用程序。
 
@@ -17,7 +44,7 @@
 在 Program.cs 或 Startup.cs 中添加:
 
 ```
-using Linger.JsonConverter;
+using Linger.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,7 +58,7 @@ var app = builder.Build();
 ### 用于 Minimal API
 
 ```
-using Linger.JsonConverter;
+using Linger.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,7 +84,7 @@ builder.Services.AddControllers()
 ### 直接配置 JsonSerializerOptions
 
 ```
-using Linger.JsonConverter;
+using Linger.Json;
 
 var webApiOptions = new JsonSerializerOptions();
 JsonDefaults.ApplyDefaultConfiguration(webApiOptions);
@@ -108,7 +135,6 @@ var requestOptions = JsonDefaults.CreateRequestOptions();
 - DateTimeConverter: 处理 DateTime 序列化/反序列化
 - DateTimeNullConverter: 处理可空 DateTime
 - DataTableJsonConverter: 在 DataTable 和 JSON 之间转换
-- JsonObjectConverter: 处理动态 JSON 对象
 
 ## 相关类型
 
@@ -116,5 +142,4 @@ var requestOptions = JsonDefaults.CreateRequestOptions();
 - DateTimeConverter - DateTime 序列化转换器
 - DateTimeNullConverter - 可空 DateTime 转换器
 - DataTableJsonConverter - DataTable 序列化转换器
-- JsonObjectConverter - 动态 JSON 对象转换器
 - HttpClientBase - 使用这些选项的 HTTP 客户端基类

@@ -27,8 +27,20 @@ public static class DataTableJsonHelper
     /// <param name="value">The DataTable to write.</param>
     public static void WriteDataTable(Utf8JsonWriter jsonWriter, DataTable value)
     {
+#if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(jsonWriter);
         ArgumentNullException.ThrowIfNull(value);
+#else
+        if (jsonWriter is null)
+        {
+            throw new ArgumentNullException(nameof(jsonWriter));
+        }
+
+        if (value is null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+#endif
 
         jsonWriter.WriteStartArray();
 

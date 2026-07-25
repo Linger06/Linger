@@ -1,7 +1,6 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <!-- 需要 net472 支持 -->
         <TargetFrameworks>net10.0;net9.0;net8.0;net472</TargetFrameworks>
         <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS</DefineConstants>
         <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(DefineConstants);LINUX</DefineConstants>
@@ -9,17 +8,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\src\Linger\Linger.csproj" />
+        <ProjectReference Include="..\..\src\Linger\Linger.csproj" />
+        <ProjectReference Include="..\..\src\Linger.Json\Linger.Json.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Update="coverlet.collector" Version="10.0.1" />
-      <PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.8.1" />
-      <PackageReference Update="xunit.v3" Version="3.2.2" />
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(TargetFramework)'=='net472'">
-      <PackageReference Include="System.Text.Json" Version="10.0.10" />
+        <PackageReference Update="coverlet.collector" Version="10.0.1" />
+        <PackageReference Update="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+        <PackageReference Update="xunit.v3" Version="3.2.2" />
     </ItemGroup>
 
 </Project>

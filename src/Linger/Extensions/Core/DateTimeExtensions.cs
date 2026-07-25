@@ -321,7 +321,7 @@ public static class DateTimeExtensions
     /// <returns>A <see cref="DateTime"/> representing the start of the day.</returns>
     public static DateTime StartOfDay(this DateTime dateTime)
     {
-        return new DateTime(dateTime.Year, dateTime.Month, dateTime.Day);
+        return dateTime.Date;
     }
 
     /// <summary>
@@ -341,7 +341,7 @@ public static class DateTimeExtensions
     /// <returns>A <see cref="DateTime"/> representing the first day of the month.</returns>
     public static DateTime StartOfMonth(this DateTime dateTime)
     {
-        return new DateTime(dateTime.Year, dateTime.Month, 1);
+        return new DateTime(dateTime.Year, dateTime.Month, 1, 0, 0, 0, dateTime.Kind);
     }
 
     /// <summary>
@@ -351,17 +351,7 @@ public static class DateTimeExtensions
     /// <returns>A <see cref="DateTime"/> representing the end of the month.</returns>
     public static DateTime EndOfMonth(this DateTime dateTime)
     {
-        return new DateTime(dateTime.Year, dateTime.Month, 1).AddMonths(1).AddMilliseconds(-1);
-    }
-
-    /// <summary>
-    /// Gets the first day of the month for the specified date (alias for StartOfMonth).
-    /// </summary>
-    /// <param name="dateTime">The date to get the first day of month for.</param>
-    /// <returns>A <see cref="DateTime"/> representing the first day of the month.</returns>
-    public static DateTime FirstDayOfMonth(this DateTime dateTime)
-    {
-        return dateTime.StartOfMonth();
+        return dateTime.StartOfMonth().AddMonths(1).AddMilliseconds(-1);
     }
 
     /// <summary>
@@ -371,7 +361,7 @@ public static class DateTimeExtensions
     /// <returns>A <see cref="DateTime"/> representing the last day of the month.</returns>
     public static DateTime LastDayOfMonth(this DateTime date)
     {
-        return new DateTime(date.Year, date.Month, date.GetCountDaysOfMonth());
+        return new DateTime(date.Year, date.Month, date.GetCountDaysOfMonth(), 0, 0, 0, date.Kind);
     }
 
     /// <summary>
@@ -381,7 +371,7 @@ public static class DateTimeExtensions
     /// <returns>A <see cref="DateTime"/> representing the end of the year.</returns>
     public static DateTime EndOfYear(this DateTime dateTime)
     {
-        return new DateTime(dateTime.Year, 1, 1).AddYears(1).AddMilliseconds(-1);
+        return new DateTime(dateTime.Year, 1, 1, 0, 0, 0, dateTime.Kind).AddYears(1).AddMilliseconds(-1);
     }
 
     /// <summary>
@@ -394,8 +384,8 @@ public static class DateTimeExtensions
     {
         return timeMode switch
         {
-            TimeMode.Zero => new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 0, 0, 0, 0),
-            TimeMode.Full => new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 23, 59, 59, 999),
+            TimeMode.Zero => new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 0, 0, 0, 0, dateTime.Kind),
+            TimeMode.Full => new DateTime(dateTime.Year, dateTime.Month, dateTime.Day, 23, 59, 59, 999, dateTime.Kind),
             _ => dateTime
         };
     }
@@ -436,7 +426,8 @@ public static class DateTimeExtensions
             hour ?? current.Hour,
             minute ?? current.Minute,
             second ?? current.Second,
-            millisecond ?? current.Millisecond);
+            millisecond ?? current.Millisecond,
+            current.Kind);
     }
 
 #if NET6_0_OR_GREATER

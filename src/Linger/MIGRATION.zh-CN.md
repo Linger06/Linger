@@ -13,15 +13,21 @@
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<DataRow, T>)` | `DataTable.ToList<T>(Func<DataRow, T>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `DataTable.ToList<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
 | `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | 接收并向实际操作传递取消令牌。 |
-| `Linger.Utils` | `JsonExtensions.Serialize<T>` | `ToJsonString(...)` | `Linger.Utils` | 请同时参阅下文的 JSON 行为变化。 |
-| `Linger.Utils` | `JsonExtensions.SerializeJson<T>(...)` | `ToJsonString(...)` | `Linger.Utils` | 旧实现使用 `DataContractJsonSerializer`。 |
-| `Linger.Utils` | `JsonExtensions.DeserializeJson<T>(...)` | `Deserialize<T>(...)` | `Linger.Utils` | 旧实现使用 `DataContractJsonSerializer`。 |
+| `Linger.Utils` | `JsonExtensions.Serialize<T>` / `SerializeJson<T>(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | 旧实现使用 `DataContractJsonSerializer`。 |
+| `Linger.Utils` | `JsonExtensions.DeserializeJson<T>(...)` | `JsonSerializer.Deserialize<T>(...)` | .NET BCL | 旧实现使用 `DataContractJsonSerializer`。 |
+| `Linger.Utils` | `JsonExtensions.ToJsonString(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | 包装方法没有增加序列化能力，且无法保证 Native AOT 兼容性。 |
+| `Linger.Utils` | `JsonExtensions.Deserialize<T>(...)` | `JsonSerializer.Deserialize<T>(...)` | .NET BCL | 包装方法没有增加反序列化能力，且无法保证 Native AOT 兼容性。 |
+| `Linger.Utils` | `JsonObjectConverter` | 使用 `JsonElement`、`JsonNode` 或强类型模型。 | .NET BCL | 混合 CLR 基元与 JSON DOM 的结果难以预期，且转换器无法保证 Native AOT 兼容性。 |
+| `Linger.Utils` | `JsonDefaults`、`DateTimeConverter`、`DateTimeNullConverter`、`DataTableJsonConverter`、`DataSetConverter` 和 `JsonStringConverter` | 相同 API | `Linger.Json` | 添加 `Linger.Json` 引用；公共命名空间和 API 名称不变。 |
+| `Linger.Utils` | `string.ToDataTable()`、`DataTable.ToJsonString()` 和 `JsonElement.JsonElementToDataTable()` | 相同 API | `Linger.Json` | 添加 `Linger.Json` 引用；这些 API 为 JSON 专用功能，不再使 `Linger.Utils` 带入 JSON 依赖。 |
 | `Linger.Utils` | `ObjectExtensions.ForIn` | `ForEachProperty` | `Linger.Reflection` | 需要引用 `Linger.Reflection`；替代方法具有相同的属性遍历意图，名称更明确。 |
 | `Linger.Utils` | `TypeExtensions.AttrValues<T>` | `AttrPropValues<T>` | `Linger.Reflection` | 需要引用 `Linger.Reflection`；`AttrValues<T>` 只是一个别名。 |
 | `Linger.Utils` | `IQueryable.OrderByIf<T, TQueryable>` | `IQueryable.OrderByIf<T>(bool, string)` | `Linger.Reflection` | 需要引用 `Linger.Reflection` 并使用 `IQueryable<T>` 重载。 |
 | `Linger.Utils` | `DecimalExtensions.ToRounding` | `Round` | `Linger.Utils` | 两者均使用库中约定的 decimal 舍入行为。 |
 | `Linger.Utils` | `byte[].ToImageBase64String` | `ToImageDataUri(mediaType)` | `Linger.Utils` | 显式指定真实的图片媒体类型。 |
 | `Linger.Utils` | `ArrayExtensions.ForEach<T>(T[], Action<T>)` | `Array.ForEach(array, action)` 或 `IEnumerable<T>.ForEach(action)` | .NET BCL / `Linger.Utils` | 根据集合类型选择数组 API 或当前维护的可枚举扩展。 |
+| `Linger.Utils` | `ArrayExtensions.Insert<T>(T[], T)` | `Add<T>(T[], T)` | `Linger.Utils` | `Insert` 仅在数组末尾追加元素，且不支持指定插入索引。 |
+| `Linger.Utils` | `DateTimeExtensions.FirstDayOfMonth` | `StartOfMonth` | `Linger.Utils` | `FirstDayOfMonth` 是完全别名。 |
 | `Linger.Utils` | `string[].ToEnumerable` | 直接使用数组，或使用 `value ?? Array.Empty<string>()` | .NET BCL | 数组已经实现 `IEnumerable<string>`。 |
 | `Linger.Utils` | `string[].ToList` 和 `ToListOrEmpty` | `new List<string>(value ?? Array.Empty<string>())` | .NET BCL | 确定数组非空时可使用 `Enumerable.ToList()`。 |
 | `Linger.Utils` | `string.ToSplitList(char)` | `SplitToList(char)` | `Linger.Utils` | 正则表达式重载 `ToSplitList(string)` 仍然保留。 |
@@ -64,14 +70,12 @@
 | `Linger.Utils` | `TypeConverter.ConvertTo`、`TryConvertTo` 和 `TryConvertKnownType` | 使用 `TypeConverter.TryConvert`。 | `Linger.Utils` | 保留的 API 具有明确且兼容 AOT 的标量类型支持边界。 |
 | `Linger.Utils` | `ToTree` | 在调用方基于明确的节点模型、根节点规则、重复键策略和循环处理规则构建树。 | 应用代码 | 通用帮助方法隐藏了树构建所需的关键业务语义。 |
 | `Linger.Utils` | `FileHelper.DeleteFolderFiles` | 在调用方显式组合所需的 `Directory` 和 `File` 操作。 | .NET BCL / 应用代码 | 按文件名递归删除的行为对于通用工具 API 过于隐式。 |
-| `Linger.Utils` | `ExtensionMethodSetting` 中的默认值 | 显式配置 `Encoding`、`CultureInfo`、缓冲区大小和 `JsonSerializerOptions`。JSON 可使用 `JsonDefaults.CreateRequestOptions`、`CreateResponseOptions` 或 `ApplyDefaultConfiguration`。 | .NET BCL / `Linger.Utils` | 进程级可变默认值会使行为难以推断。 |
-| `Linger.Utils` | 其他 `DataContractJsonSerializer` 相关帮助方法 | 使用 `System.Text.Json.JsonSerializer`，或使用 `ToJsonString` / `Deserialize<T>`。 | .NET BCL / `Linger.Utils` | 项目统一采用 `System.Text.Json`。 |
+| `Linger.Utils` | `ExtensionMethodSetting` 中的默认值 | 显式配置 `Encoding`、`CultureInfo`、缓冲区大小和 `JsonSerializerOptions`。JSON 可使用 `JsonDefaults.CreateRequestOptions`、`CreateResponseOptions` 或 `ApplyDefaultConfiguration`。 | .NET BCL / `Linger.Json` | 进程级可变默认值会使行为难以推断。 |
+| `Linger.Utils` | 其他 `DataContractJsonSerializer` 相关帮助方法 | 使用 `System.Text.Json.JsonSerializer`。 | .NET BCL | 项目统一采用 `System.Text.Json`。 |
 | `Linger.Utils` | `DeserializeDynamicJsonObject` 和 `JsonTextAccessor` | 根据是否需要可变 JSON，使用 `JsonDocument`、`JsonElement` 或 `JsonNode`。 | .NET BCL | 动态 JSON 隐藏了数据结构和运行时失败方式。 |
 
 ## 行为变化
 
-- **`Linger.Utils`**：`ToJsonString(null)` 返回 JSON 字面量 `"null"`。已删除的 `Serialize<T>`
-  包装方法在输入为 null 时返回 C# 的 `null` 引用。
 - **`Linger.Utils` -> `Linger.Utils` / `Linger.Reflection`**：已删除的
   `DataTable.ToListAsync` 不执行异步 I/O。使用同步的 `ToList` 可以避免产生误导性的异步 API。
 - **`Linger.Utils` -> `Linger.Reflection`**：字符串排序表达式只接受 `asc` 或 `desc`，忽略大小写。无效方向现在会抛出

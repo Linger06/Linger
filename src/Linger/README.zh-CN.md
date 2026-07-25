@@ -21,7 +21,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
   - [集合扩展](#集合扩展)
     - [DataTable 扩展（AOT 友好）](#datatable-扩展aot-友好)
   - [对象扩展](#对象扩展)
-  - [JSON 扩展](#json-扩展)
+  - [可选 JSON 包](#可选-json-包)
   - [GUID 扩展](#guid-扩展)
   - [数组扩展](#数组扩展)
   - [枚举扩展](#枚举扩展)
@@ -73,11 +73,8 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 ### 可选反射包
 - **`Linger.Reflection`**: 提供表达式组合、动态 `IQueryable` 排序、运行时属性访问、枚举元数据和基于反射的 DataTable 转换
 
-### JSON 支持
-- **JSON 扩展**: 简化 JSON 的序列化和反序列化操作
-- **自定义转换器**: 针对特殊类型提供专门的 JSON 处理方案 (DateTime、DataTable、JsonObject 等)
-- **JSON 默认配置**: `JsonDefaults` 提供统一的 JSON 序列化配置
-    - 详细文档: [JsonDefaults.README.zh-CN.md](Json/JsonDefaults.README.zh-CN.md)
+### 可选 JSON 包
+- **`Linger.Json`**: 提供 `System.Text.Json` 转换器、`DataTable` JSON 转换和 `JsonDefaults` 选项工厂。请参阅 [Linger.Json 文档](../Linger.Json/README.zh-CN.md)。
 
 ## 安装
 
@@ -389,18 +386,19 @@ DateTime date = DateTime.Now;
 DateTime validDate = date.EnsureIsInRange(DateTime.Today, DateTime.Today.AddDays(30)); // 日期范围验证
 ```
 
-### JSON 扩展
+### 可选 JSON 包
 
 ```csharp
 using Linger.Extensions;
 using Linger.Json;
+using System.Text.Json;
 
 // 对象转 JSON
 var user = new { Name = "John", Age = 30 };
-string json = user.ToJsonString();
+string json = JsonSerializer.Serialize(user);
 
 // JSON 转对象
-var userObj = json.Deserialize<User>();
+var userObj = JsonSerializer.Deserialize<User>(json);
 
 // JSON 转 DataTable（字符串扩展）
 string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
@@ -415,7 +413,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options =>
         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 
-// 💡 详细配置说明请参考: Json/JsonDefaults.README.zh-CN.md
+// 详细配置说明请参考: ../Linger.Json/README.zh-CN.md
 ```
 
 ### GUID 扩展
@@ -652,7 +650,6 @@ int failed = doubleObj.ToIntOrDefault(0);  // 小数部分非 0，返回 0（转
 ## 依赖项
 
 这个库保持轻量化设计，只依赖少量必要的外部包：
-- **System.Text.Json** - 用于 JSON 序列化和反序列化
 - **System.Data.DataSetExtensions** - 为 .NET Framework 和 .NET Standard 2.0 提供 DataTable 支持
 
 ## 贡献代码

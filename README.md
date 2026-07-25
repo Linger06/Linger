@@ -23,6 +23,9 @@
 # Core utilities
 dotnet add package Linger.Utils
 
+# JSON converters and DataTable JSON extensions
+dotnet add package Linger.Json
+
 # Result pattern
 dotnet add package Linger.Results
 
@@ -36,6 +39,7 @@ dotnet add package Linger.DataAccess.SqlServer
 ## Package Selection Guide
 
 - Build common utilities and extension methods: install `Linger.Utils`
+- Use `System.Text.Json` converters, `DataTable` JSON extensions, or `JsonDefaults`: install `Linger.Json`
 - Need explicit success/failure return models in service boundaries: install `Linger.Results`
 - Build ASP.NET Core token authentication: install `Linger.AspNetCore.Jwt`
 - Access relational databases with provider abstraction: install one of
@@ -71,6 +75,7 @@ public Result<User> GetUser(int id)
 | Package | Description |
 |---------|-------------|
 | **Linger.Utils** | Core utilities with extension methods and helpers |
+| **Linger.Json** | `System.Text.Json` converters, DataTable JSON extensions, and serializer options |
 | **Linger.Results** | Functional result handling library |
 | **Linger.AspNetCore.Jwt** | JWT authentication service |
 | **Linger.DataAccess** | Database abstraction layer (SQL Server, Oracle, SQLite) |
@@ -84,6 +89,7 @@ public Result<User> GetUser(int id)
 ## Documentation
 
 - [Linger.Utils Documentation](src/Linger/README.md)
+- [Linger.Json Documentation](src/Linger.Json/README.md)
 - [Linger.Results Documentation](src/Linger.Results/README.md)
 - [Linger.AspNetCore.Jwt Documentation](src/Linger.AspNetCore.Jwt/README.md)
 - [Linger.DataAccess Documentation](src/Linger.DataAccess/README.md)

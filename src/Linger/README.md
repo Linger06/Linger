@@ -21,7 +21,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
   - [Collection Extensions](#collection-extensions)
     - [DataTable Extensions (AOT-Friendly)](#datatable-extensions-aot-friendly)
   - [Object Extensions](#object-extensions)
-  - [JSON Extensions](#json-extensions)
+  - [Optional JSON Package](#optional-json-package)
   - [GUID Extensions](#guid-extensions)
   - [Array Extensions](#array-extensions)
   - [Enum Extensions](#enum-extensions)
@@ -73,11 +73,8 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 ### Optional Reflection Package
 - **`Linger.Reflection`**: Expression composition, dynamic `IQueryable` ordering, runtime property access, enum metadata, and reflection-based DataTable conversion
 
-### JSON Support
-- **JSON Extensions**: Simplified JSON serialization and deserialization
-- **Custom Converters**: Specialized JSON converters for complex types (DateTime, DataTable, JsonObject, etc.)
-- **JSON Defaults**: `JsonDefaults` provides unified JSON serialization configuration
-    - Detailed documentation: [JsonDefaults.README.md](Json/JsonDefaults.README.md)
+### Optional JSON Package
+- **`Linger.Json`**: `System.Text.Json` converters, `DataTable` JSON conversion, and `JsonDefaults` option factories. See the [Linger.Json documentation](../Linger.Json/README.md).
 
 ## Installation
 
@@ -366,34 +363,9 @@ int value = 5;
 bool inRange = value.InRange(1, 10); // Check if in range 1 to 10
 ```
 
-### JSON Extensions
+### Optional JSON Package
 
-```csharp
-using Linger.Extensions;
-using Linger.Json;
-
-// Object to JSON
-var user = new { Name = "John", Age = 30 };
-string json = user.ToJsonString();
-
-// JSON to object
-var userObj = json.Deserialize<User>();
-
-// JSON to DataTable (string extension)
-string jsonArray = "[{\"Name\":\"John\",\"Age\":30}]";
-DataTable? dataTable = jsonArray.ToDataTable();
-
-// Use JsonDefaults for unified configuration
-var responseOptions = JsonDefaults.CreateResponseOptions();  // HTTP responses
-var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP requests
-
-// Apply configuration in WebAPI
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
-
-// For detailed configuration documentation, see: Json/JsonDefaults.README.md
-```
+Install `Linger.Json` for JSON converters, `DataTable` JSON extensions, and `JsonDefaults`. Its APIs are intentionally separate from `Linger.Utils`; see the [Linger.Json documentation](../Linger.Json/README.md) and [migration guide](../Linger.Json/MIGRATION.md).
 
 ### GUID Extensions
 
@@ -621,7 +593,6 @@ Provides forward-compatible Polyfills for BCL APIs & language features (for .NET
 ## Dependencies
 
 The library has minimal external dependencies:
-- System.Text.Json (for JSON operations)
 - System.Data.DataSetExtensions (for .NET Framework and .NET Standard 2.0)
 
 ## Contributing

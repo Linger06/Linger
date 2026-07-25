@@ -23,6 +23,9 @@
 # 核心工具库
 dotnet add package Linger.Utils
 
+# JSON 转换器和 DataTable JSON 扩展
+dotnet add package Linger.Json
+
 # Result 模式库
 dotnet add package Linger.Results
 
@@ -36,6 +39,7 @@ dotnet add package Linger.DataAccess.SqlServer
 ## 包选择指南
 
 - 构建通用工具与扩展方法：安装 `Linger.Utils`
+- 使用 `System.Text.Json` 转换器、`DataTable` JSON 扩展或 `JsonDefaults`：安装 `Linger.Json`
 - 在服务边界需要明确成功/失败返回模型：安装 `Linger.Results`
 - 构建 ASP.NET Core Token 认证：安装 `Linger.AspNetCore.Jwt`
 - 使用统一抽象访问关系型数据库：按数据库选择其一
@@ -71,6 +75,7 @@ public Result<User> GetUser(int id)
 | 包名 | 描述 |
 |------|------|
 | **Linger.Utils** | 核心工具库，提供扩展方法和 Helper 类 |
+| **Linger.Json** | `System.Text.Json` 转换器、DataTable JSON 扩展和序列化选项 |
 | **Linger.Results** | 函数式结果处理库 |
 | **Linger.AspNetCore.Jwt** | JWT 认证服务 |
 | **Linger.DataAccess** | 数据库抽象层（SQL Server、Oracle、SQLite） |
@@ -84,6 +89,7 @@ public Result<User> GetUser(int id)
 ## 文档
 
 - [Linger.Utils 文档](src/Linger/README.md)
+- [Linger.Json 文档](src/Linger.Json/README.zh-CN.md)
 - [Linger.Results 文档](src/Linger.Results/README.md)
 - [Linger.AspNetCore.Jwt 文档](src/Linger.AspNetCore.Jwt/README.md)
 - [Linger.DataAccess 文档](src/Linger.DataAccess/README.md)

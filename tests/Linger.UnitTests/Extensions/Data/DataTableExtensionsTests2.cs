@@ -138,37 +138,4 @@ public partial class DataTableExtensionsTests
         Assert.Empty(result.Rows);
     }
 
-    [Fact]
-    public void ToJsonString_ReturnsJsonString()
-    {
-        DataTable? table = CreateTestDataTable();
-
-        var result = table.ToJsonString();
-
-        Assert.NotNull(result);
-        Assert.Contains("\"Int\":1", result);
-        Assert.Contains("\"Name\":\"John\"", result);
-    }
-
-    [Fact]
-    public void ToJsonString_HandlesEmptyDataTable()
-    {
-        var table = new DataTable();
-        table.Columns.Add("Int", typeof(int));
-
-        var result = table.ToJsonString();
-
-        Assert.Equal("[]", result);
-    }
-
-    [Fact]
-    public void ToJsonString_HandlesNullDataTable()
-    {
-        DataTable? table = null;
-
-        var result = table.ToJsonString();
-
-        Assert.Equal("null", result);
-    }
-
 }

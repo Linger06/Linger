@@ -512,19 +512,6 @@ public partial class DateTimeExtensionsTests
     }
 
     [Fact]
-    public void FirstDayOfMonth_WithNoDayOfWeek_ReturnsFirstDay()
-    {
-        // Arrange
-        var dateTime = new DateTime(2023, 4, 15);
-
-        // Act
-        var result = dateTime.FirstDayOfMonth();
-
-        // Assert
-        Assert.Equal(new DateTime(2023, 4, 1), result);
-    }
-
-    [Fact]
     public void LastDayOfMonth_WithNoDayOfWeek_ReturnsLastDay()
     {
         // Arrange
@@ -634,6 +621,24 @@ public partial class DateTimeExtensionsTests
         Assert.Equal(new DateTime(2023, 4, 15, 14, 30, 30, 500), result6);
         Assert.Equal(new DateTime(2023, 4, 15, 14, 30, 25, 750), result7);
         Assert.Equal(new DateTime(2024, 6, 20, 9, 45, 30, 750), result8);
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Utc)]
+    [InlineData(DateTimeKind.Local)]
+    public void DateBoundaryMethods_PreserveDateTimeKind(DateTimeKind kind)
+    {
+        var dateTime = new DateTime(2024, 2, 15, 14, 30, 25, kind);
+
+        Assert.Equal(kind, dateTime.StartOfDay().Kind);
+        Assert.Equal(kind, dateTime.EndOfDay().Kind);
+        Assert.Equal(kind, dateTime.StartOfMonth().Kind);
+        Assert.Equal(kind, dateTime.EndOfMonth().Kind);
+        Assert.Equal(kind, dateTime.LastDayOfMonth().Kind);
+        Assert.Equal(kind, dateTime.EndOfYear().Kind);
+        Assert.Equal(kind, dateTime.ToDateTimeOfMode(TimeMode.Zero).Kind);
+        Assert.Equal(kind, dateTime.ToDateTimeOfMode(TimeMode.Full).Kind);
+        Assert.Equal(kind, dateTime.SetDateTime(minute: 0).Kind);
     }
 
 #if NET6_0_OR_GREATER

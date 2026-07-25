@@ -2,7 +2,6 @@ using System.Security.Claims;
 using System.Text;
 using Linger.AspNetCore.Jwt.Contracts;
 using Linger.Configuration;
-using Linger.Extensions;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
@@ -121,8 +120,7 @@ public static class ServiceCollectionExtensions
                     var errorDescription = context.ErrorDescription;
 
                     var result = new { error = errorInfo, error_description = errorDescription };
-                    context.Response.WriteAsync(result.ToJsonString());
-                    return Task.CompletedTask;
+                    return context.Response.WriteAsJsonAsync(result);
                 }
             };
         });

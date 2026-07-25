@@ -44,7 +44,6 @@ public static class JsonDefaults
             NumberHandling = JsonNumberHandling.AllowReadingFromString
         };
 
-        jsonOptions.Converters.Add(new JsonObjectConverter());
         jsonOptions.Converters.Add(new DateTimeConverter());
         jsonOptions.Converters.Add(new DateTimeNullConverter());
         jsonOptions.Converters.Add(new DataTableJsonConverter());
@@ -135,7 +134,14 @@ public static class JsonDefaults
     /// </example>
     public static void ApplyDefaultConfiguration(JsonSerializerOptions options)
     {
+#if NET6_0_OR_GREATER
         ArgumentNullException.ThrowIfNull(options);
+#else
+        if (options is null)
+        {
+            throw new ArgumentNullException(nameof(options));
+        }
+#endif
 
         // 应用 WebAPI 优化配置
         options.Encoder = JavaScriptEncoder.Default;
@@ -146,7 +152,6 @@ public static class JsonDefaults
         // 添加自定义转换器(避免重复添加)
         var convertersToAdd = new System.Text.Json.Serialization.JsonConverter[]
         {
-            new JsonObjectConverter(),
             new DateTimeConverter(),
             new DateTimeNullConverter(),
             new DataTableJsonConverter()

@@ -173,7 +173,7 @@ else
 - **Encoder**: `JavaScriptEncoder.Default` (safer escaping strategy)
 - **Number handling**: Lenient (allows reading numbers from strings, `AllowReadingFromString`)
 - **Other settings**: Case-insensitive properties, CamelCase naming, ignore nulls, disallow trailing commas and comments, ignore cycles
-- **Built-in converters**: `JsonObjectConverter`, `DateTimeConverter`, `DateTimeNullConverter`, `DataTableJsonConverter`
+- **Built-in converters**: `DateTimeConverter`, `DateTimeNullConverter`, `DataTableJsonConverter`
 
 ### Request Serialization Configuration
 
@@ -200,7 +200,7 @@ builder.Services.AddControllers()
         JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
 ```
 
-For detailed configuration documentation, see `Linger/Json/JsonDefaults.README.md`
+For detailed configuration documentation, see the `Linger.Json` package README.
 
 ### Custom Configuration
 
@@ -229,7 +229,6 @@ public class CustomHttpClient : HttpClientBase
             PropertyNameCaseInsensitive = true
         };
         options.Converters.Add(new DateTimeConverter());
-        options.Converters.Add(new JsonObjectConverter());
         return options;
     }
 }

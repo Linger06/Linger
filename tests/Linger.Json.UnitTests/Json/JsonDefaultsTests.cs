@@ -183,7 +183,7 @@ public class JsonDefaultsTests
         JsonDefaults.ApplyDefaultConfiguration(options);
 
         // Assert
-        Assert.True(options.Converters.Count >= 4);
+        Assert.True(options.Converters.Count >= 3);
     }
 
     [Fact]

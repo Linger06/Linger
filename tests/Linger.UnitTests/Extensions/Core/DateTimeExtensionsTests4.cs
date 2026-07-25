@@ -18,14 +18,6 @@ public partial class DateTimeExtensionsTests
         Assert.Equal(expected, date.LastDayOfMonth());
     }
 
-    [Fact]
-    public void FirstDayOfMonth_ShouldReturnFirstDay()
-    {
-        var date = new DateTime(2023, 10, 4);
-        var expected = new DateTime(2023, 10, 1);
-        Assert.Equal(expected, date.FirstDayOfMonth());
-    }
-
     [Theory]
     [InlineData(2023, 10, 5, TimeMode.Now, 2023, 10, 5, 0, 0, 0, 0)] // TimeMode.Now
     [InlineData(2023, 10, 5, TimeMode.Zero, 2023, 10, 5, 0, 0, 0, 0)] // TimeMode.Zero

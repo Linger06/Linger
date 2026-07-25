@@ -1,84 +1,26 @@
 #if !NETFRAMEWORK || NET462_OR_GREATER
-using System.Text.Json.Serialization;
-using Linger.Extensions.Core;
-
 namespace Linger.Extensions;
 
 /// <summary>
-/// Json extensions
+/// Extensions for converting <see cref="JsonElement"/> values to <see cref="DataTable"/> instances.
 /// </summary>
 public static class JsonExtensions
 {
     /// <summary>
-    /// Converts an object to a JSON string using the specified JsonSerializerOptions.
+    /// Converts a JSON array to a <see cref="DataTable"/> with inferred column types.
     /// </summary>
-    /// <param name="data">The object to serialize.</param>
-    /// <param name="jsonSerializerOptions">The options to use for serialization.</param>
-    /// <returns>A JSON string representation of the object.</returns>
-    /// <example>
-    /// <code>
-    /// var obj = new { Name = "John", Age = 30 };
-    /// var json = obj.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
-    /// // json: "{\n  \"Name\": \"John\",\n  \"Age\": 30\n}"
-    /// </code>
-    /// </example>
-    public static string ToJsonString(this object? data, JsonSerializerOptions? jsonSerializerOptions)
-    {
-        return JsonSerializer.Serialize(data, jsonSerializerOptions);
-    }
-
-    /// <summary>
-    /// Converts an object to a JSON string using default JsonSerializerOptions.
-    /// </summary>
-    /// <param name="data">The object to serialize.</param>
-    /// <returns>A JSON string representation of the object.</returns>
-    /// <example>
-    /// <code>
-    /// var obj = new { Name = "John", Age = 30 };
-    /// var json = obj.ToJsonString();
-    /// // json: "{\n  \"Name\": \"John\",\n  \"Age\": 30\n}"
-    /// </code>
-    /// </example>
-    public static string ToJsonString(this object? data)
-    {
-        var serializeOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            ReferenceHandler = ReferenceHandler.IgnoreCycles
-        };
-        return data.ToJsonString(serializeOptions);
-    }
-
-    /// <summary>
-    /// Deserializes a JSON string to an object of type T using the specified JsonSerializerOptions.
-    /// </summary>
-    /// <typeparam name="T">The type of the object.</typeparam>
-    /// <param name="value">The JSON string to deserialize.</param>
-    /// <param name="jsonSerializerOptions">The options to use for deserialization.</param>
-    /// <returns>The deserialized object.</returns>
-    /// <example>
-    /// <code>
-    /// var json = "{\"Name\":\"John\",\"Age\":30}";
-    /// var obj = json.Deserialize&lt;Person&gt;(new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-    /// // obj: Person { Name = "John", Age = 30 }
-    /// </code>
-    /// </example>
-    public static T? Deserialize<T>(this string value, JsonSerializerOptions? jsonSerializerOptions = null)
-    {
-        return JsonSerializer.Deserialize<T>(value, jsonSerializerOptions);
-    }
-
+    /// <param name="dataRoot">The JSON array to convert.</param>
+    /// <returns>A <see cref="DataTable"/> containing one row for each JSON object.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="dataRoot"/> is not a JSON array.</exception>
+    /// <exception cref="NotSupportedException">A JSON object or array is encountered as a column value.</exception>
     public static DataTable JsonElementToDataTable(this JsonElement dataRoot)
     {
         var dataTable = new DataTable();
 
-        var elements = new List<JsonElement>();
         var columnTypes = new Dictionary<string, Type>(StringComparer.Ordinal);
 
         foreach (JsonElement element in dataRoot.EnumerateArray())
         {
-            elements.Add(element);
-
             foreach (JsonProperty col in element.EnumerateObject())
             {
                 var inferredType = InferColumnType(col.Value);
@@ -102,13 +44,9 @@ public static class JsonExtensions
             dataTable.Columns.Add(dataColumn);
         }
 
-        foreach (JsonElement element in elements)
+        foreach (JsonElement element in dataRoot.EnumerateArray())
         {
             DataRow row = dataTable.NewRow();
-            foreach (DataColumn column in dataTable.Columns)
-            {
-                row[column] = DBNull.Value;
-            }
 
             foreach (JsonProperty col in element.EnumerateObject())
             {

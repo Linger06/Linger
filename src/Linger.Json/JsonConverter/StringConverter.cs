@@ -1,7 +1,6 @@
 #if !NETFRAMEWORK || NET462_OR_GREATER
 
 using System.Text.Json.Serialization;
-using Linger.Extensions.Core;
 
 namespace Linger.Json.JsonConverter;
 
@@ -59,7 +58,7 @@ public class JsonStringConverter : JsonConverter<string>
     /// <param name="options">The serializer options.</param>
     public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
     {
-        if (value.IsNull())
+        if (value is null)
         {
             writer.WriteNullValue();
         }

@@ -1,5 +1,3 @@
-using Linger.Json.JsonConverter;
-
 namespace Linger.Extensions.Core;
 
 public static partial class StringExtensions
@@ -24,25 +22,6 @@ public static partial class StringExtensions
         return value.Substring(0, atIndex);
 #endif
     }
-
-#if !NETFRAMEWORK || NET462_OR_GREATER
-    private static readonly JsonSerializerOptions s_readOptions = new()
-    {
-        WriteIndented = true,
-        Converters = { new DataTableJsonConverter() }
-    };
-
-    /// <summary>
-    /// Converts the specified JSON string to a DataTable.
-    /// </summary>
-    /// <param name="json">The JSON data.</param>
-    /// <returns>The DataTable representation of the JSON data.</returns>
-    public static DataTable? ToDataTable(this string json)
-    {
-        if (json.IsNullOrEmpty()) return null;
-        return JsonSerializer.Deserialize<DataTable>(json, s_readOptions);
-    }
-#endif
 
 #if !NET8_0_OR_GREATER
     public static bool StartsWith(this string value, char prefix)

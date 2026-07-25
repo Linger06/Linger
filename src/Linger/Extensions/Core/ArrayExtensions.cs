@@ -62,25 +62,6 @@ public static class ArrayExtensions
     }
 
     /// <summary>
-    /// Inserts a value at the end of the array.
-    /// </summary>
-    /// <typeparam name="T">The type of the elements in the array.</typeparam>
-    /// <param name="array">The array to insert the value into.</param>
-    /// <param name="value">The value to insert.</param>
-    /// <returns>A new array with the value inserted at the end.</returns>
-    /// <example>
-    /// <code>
-    /// int[] numbers = { 1, 2, 3 };
-    /// int[] newNumbers = numbers.Insert(4);
-    /// // newNumbers is { 1, 2, 3, 4 }
-    /// </code>
-    /// </example>
-    public static T[] Insert<T>(this T[] array, T value)
-    {
-        return array.Add(value);
-    }
-
-    /// <summary>
     /// Adds a value to the end of the array.
     /// </summary>
     /// <typeparam name="T">The type of the elements in the array.</typeparam>
@@ -223,7 +204,7 @@ public static class ArrayExtensions
             throw new ArgumentOutOfRangeException(nameof(startIndex), "The specified index is out of the array bounds.");
         }
 
-        if (startIndex + length > array.Length)
+        if (length < 0 || length > array.Length - startIndex)
         {
             throw new ArgumentOutOfRangeException(nameof(length), "The range at the specified index is out of the array bounds.");
         }

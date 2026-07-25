@@ -140,14 +140,6 @@ public partial class ArrayExtensionsTests
     }
 
     [Fact]
-    public void Insert_ValueAtEnd_ShouldReturnNewArray()
-    {
-        int[] numbers = { 1, 2, 3 };
-        var newNumbers = numbers.Insert(4);
-        Assert.Equal(new int[] { 1, 2, 3, 4 }, newNumbers);
-    }
-
-    [Fact]
     public void Add_ValueAtEnd_ShouldReturnNewArray()
     {
         int[] numbers = { 1, 2, 3 };
@@ -205,6 +197,14 @@ public partial class ArrayExtensionsTests
     {
         int[] numbers = { 1, 2, 3, 4, 5 };
         Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveRange(1, 5));
+    }
+
+    [Fact]
+    public void RemoveRange_NegativeLength_ShouldThrowArgumentOutOfRangeException()
+    {
+        int[] numbers = { 1, 2, 3, 4, 5 };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => numbers.RemoveRange(1, -1));
     }
 
     [Fact]
