@@ -2,7 +2,7 @@
 
 `Linger.Reflection` 是从 `Linger.Utils` 拆分出的可选反射与表达式树功能包，用于需要运行时元数据的业务场景。
 
-> 从 1.x 升级？请参阅 [2.0 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+> 从 1.x 升级？请参阅 [2.0 迁移指南](https://github.com/Linger06/Linger/blob/v2.0.0-preview.1/src/Linger/MIGRATION.zh-CN.md)。
 
 ## 安装
 

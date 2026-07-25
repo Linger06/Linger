@@ -2,7 +2,7 @@
 
 A unified, efficient, and extensible Excel operation framework that supports multiple Excel library implementations
 
-> Upgrading from 1.x? See the [2.0 migration guide](../Linger/MIGRATION.md).
+> Upgrading from 1.x? See the [2.0 migration guide](https://github.com/Linger06/Linger/blob/v2.0.0-preview.1/src/Linger/MIGRATION.md).
 
 ## 🚀 Features Overview
 

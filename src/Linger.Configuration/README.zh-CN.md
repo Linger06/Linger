@@ -2,7 +2,7 @@
 
 一个适用于 .NET 应用程序的轻量级配置辅助库。
 
-> 从 1.x 升级？请参阅 [2.0 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+> 从 1.x 升级？请参阅 [2.0 迁移指南](https://github.com/Linger06/Linger/blob/v2.0.0-preview.1/src/Linger/MIGRATION.zh-CN.md)。
 
 ## 概述
 

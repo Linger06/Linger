@@ -1,6 +1,6 @@
 # Linger.Utils
 
-[2.0.0-preview.1 迁移指南](MIGRATION.zh-CN.md)
+[2.0.0-preview.1 迁移指南](https://github.com/Linger06/Linger/blob/v2.0.0-preview.1/src/Linger/MIGRATION.zh-CN.md)
 
 一个功能丰富的 .NET 工具库，包含大量实用的扩展方法和帮助类，让您的日常开发工作更加轻松高效。反射、表达式树、属性元数据和动态查询能力已拆分至可选的 `Linger.Reflection` 包。
 

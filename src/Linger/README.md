@@ -1,6 +1,6 @@
 # Linger.Utils
 
-[Migration guide for 2.0.0-preview.1](MIGRATION.md)
+[Migration guide for 2.0.0-preview.1](https://github.com/Linger06/Linger/blob/v2.0.0-preview.1/src/Linger/MIGRATION.md)
 
 A comprehensive .NET utility library providing AOT-friendly extension methods and helper classes for everyday development tasks. Reflection, expression-tree, property metadata, and dynamic query APIs are provided by the optional `Linger.Reflection` package.
 
