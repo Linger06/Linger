@@ -23,7 +23,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="configuration">The configuration containing email settings</param>
-    [Obsolete("Use AddEmailService instead. This method will be removed in 2.0.")]
+    [Obsolete("Use AddEmailService instead. This method will be removed in 2.0.0.")]
     public static void ConfigureEmail(this IServiceCollection services, IConfiguration configuration)
     {
         AddEmailService(services, configuration);
@@ -34,7 +34,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <param name="services">The service collection</param>
     /// <param name="configuration">The configuration containing email settings</param>
-    [Obsolete("Use AddEmailService instead. This method will be removed in 2.0.")]
+    [Obsolete("Use AddEmailService instead. This method will be removed in 2.0.0.")]
     public static void ConfigureMailKit(this IServiceCollection services, IConfiguration configuration)
     {
         AddEmailService(services, configuration);

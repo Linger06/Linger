@@ -2,6 +2,8 @@
 
 A modern operation result handling library designed with a functional style approach, helping developers handle various operation results more elegantly. By using the Result pattern instead of exceptions, it enables more controllable and predictable error handling processes.
 
+> Upgrading from 1.6 to 2.0? See [Preparing for Linger 2.0](../Linger/MIGRATION.md).
+
 ## Features
 
 - Provides clear success/failure result representation

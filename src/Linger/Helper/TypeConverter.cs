@@ -217,7 +217,7 @@ public static class TypeConverter
         return result is not null;
     }
 
-    [Obsolete("Use TryConvert for runtime target types, or a type-specific conversion API. This API will be removed in 2.0.")]
+    [Obsolete("Use TryConvert for runtime target types, or a type-specific conversion API. This API will be removed in 2.0.0.")]
     public static object? ConvertTo(object? value, Type targetType)
     {
         ArgumentNullException.ThrowIfNull(targetType);
@@ -275,7 +275,7 @@ public static class TypeConverter
         return ConvertUsingFallback(value, sourceType, actualType);
     }
 
-    [Obsolete("Use TryConvert instead. This API will be removed in 2.0.")]
+    [Obsolete("Use TryConvert instead. This API will be removed in 2.0.0.")]
     public static bool TryConvertTo(object? value, Type targetType, out object? result)
     {
         ArgumentNullException.ThrowIfNull(targetType);

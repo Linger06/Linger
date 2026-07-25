@@ -10,7 +10,7 @@ public static class ErrorExtensions
     /// </summary>
     /// <param name="error">要转换的错误</param>
     /// <returns>等效的 ErrorObj</returns>
-    [Obsolete("ErrorObj is obsolete. This method will be removed in 2.0.")]
+    [Obsolete("ErrorObj is obsolete. This method will be removed in 2.0.0.")]
     public static ErrorObj ToErrorObj(this Error error)
     {
         var errorObj = new ErrorObj();
@@ -32,7 +32,7 @@ public static class ErrorExtensions
     /// </summary>
     /// <param name="errors">要转换的错误集合</param>
     /// <returns>包含所有错误信息的 ErrorObj</returns>
-    [Obsolete("ErrorObj is obsolete. This method will be removed in 2.0.")]
+    [Obsolete("ErrorObj is obsolete. This method will be removed in 2.0.0.")]
     public static ErrorObj ToErrorObj(this IEnumerable<Error> errors)
     {
         var errorObj = new ErrorObj();

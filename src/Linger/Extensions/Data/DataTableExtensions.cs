@@ -27,7 +27,7 @@ public static class DataTableExtensions
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This method performs synchronous in-memory work. Use a synchronous ToList<T>() overload instead. This API will be removed in 2.0.")]
+    [Obsolete("This method performs synchronous reflection-based work. Use an explicit mapper or factory overload, or add Linger.Reflection and use ToList<T>() after upgrading to 2.0.0. This API will be removed from Linger.Utils in 2.0.0.")]
     public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
         return Task.FromResult(dt.ToList<T>());
@@ -52,7 +52,7 @@ public static class DataTableExtensions
     /// });
     /// </code>
     /// </example>
-    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<DataRow, T>) instead. This API will be removed in 2.0.")]
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<DataRow, T>) instead. This API will be removed in 2.0.0.")]
     public static Task<List<T>> ToListAsync<T>(this DataTable dt, Func<DataRow, T> map)
     {
         ArgumentNullException.ThrowIfNull(dt);
@@ -83,7 +83,7 @@ public static class DataTableExtensions
     ///     });
     /// </code>
     /// </example>
-    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead. This API will be removed in 2.0.")]
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead. This API will be removed in 2.0.0.")]
     public static Task<List<T>> ToListAsync<T>(
         this DataTable dt,
         Func<T> factory,
@@ -938,7 +938,7 @@ public static class DataTableExtensions
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ToList<T>(DataTable?, Func<DataRow, T>) or ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead. This API will be removed in 2.0.")]
+    [Obsolete("This overload uses reflection and is not AOT-friendly. Use an explicit mapper or factory overload, or add Linger.Reflection and keep using ToList<T>() after upgrading to 2.0.0. This API will be removed from Linger.Utils in 2.0.0.")]
     public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000) where T : class, new()
     {
         if (dataTable?.Rows.Count == 0)

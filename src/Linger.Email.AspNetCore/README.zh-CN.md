@@ -1,5 +1,7 @@
 # Linger.Email.AspNetCore
 
+> 计划从 1.6 升级到 2.0？请参阅 [Linger 2.0 迁移准备](../Linger/MIGRATION.zh-CN.md)。
+
 ## 概述
 
 Linger.Email.AspNetCore 是 Linger.Email 的 ASP.NET Core 集成包。它为 Web 应用和后台服务提供依赖注入、配置绑定、日志集成以及便捷邮件服务包装。

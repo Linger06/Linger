@@ -69,7 +69,7 @@ public static class JwtServiceExtensions
         }
     }
 
-    [Obsolete("Use RefreshTokenResultAsync instead. This method will be removed in 2.0.")]
+    [Obsolete("Use RefreshTokenResultAsync instead. This method will be removed in 2.0.0.")]
     public static async Task<(bool Success, Token? NewToken)> TryRefreshTokenAsync(this IJwtService jwtService, Token token)
     {
         if (jwtService is IRefreshableJwtService refreshableService)

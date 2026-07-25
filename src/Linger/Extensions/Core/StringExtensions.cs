@@ -81,7 +81,7 @@ public static partial class StringExtensions
     /// // fruits: ["apple", "banana", "cherry"]
     /// </code>
     /// </example>
-    [Obsolete("Use SplitToList(value, symbol) instead. This API will be removed in 2.0.")]
+    [Obsolete("Use SplitToList(value, symbol) instead. This API will be removed in 2.0.0.")]
     public static IEnumerable<string> ToSplitList(this string value, char symbol = ',')
     {
         return value.SplitToList(symbol);
@@ -99,7 +99,7 @@ public static partial class StringExtensions
     /// // lines: ["line1", "line2", "line3"]
     /// </code>
     /// </example>
-    [Obsolete("Use SplitToArray(value, Environment.NewLine) instead. This API will be removed in 2.0.")]
+    [Obsolete("Use SplitToArray(value, Environment.NewLine) instead. This API will be removed in 2.0.0.")]
     public static string[] ToSplitArrayByCrlf(this string value)
     {
         return value.SplitToArray(Environment.NewLine);
@@ -118,7 +118,7 @@ public static partial class StringExtensions
     /// // fruits: ["apple", "banana", "cherry"]
     /// </code>
     /// </example>
-    [Obsolete("Use SplitToArray(value, symbol) instead. This API will be removed in 2.0.")]
+    [Obsolete("Use SplitToArray(value, symbol) instead. This API will be removed in 2.0.0.")]
     public static string[] ToSplitArray(this string value, char symbol = ',')
     {
         return value.SplitToArray(symbol);

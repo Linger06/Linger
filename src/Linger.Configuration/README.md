@@ -2,6 +2,8 @@
 
 A lightweight configuration helper library for .NET applications.
 
+> Upgrading from 1.6 to 2.0? See [Preparing for Linger 2.0](../Linger/MIGRATION.md).
+
 ## Overview
 
 Linger.Configuration provides utilities and extensions to simplify configuration management in .NET applications. It offers a consistent approach to access and bind configuration settings from various sources, with a focus on strongly-typed configuration.

@@ -18,7 +18,7 @@ public static class ArrayExtensions
     /// // Output: 1 2 3
     /// </code>
     /// </example>
-    [Obsolete("Use Array.ForEach(array, action) or the IEnumerable<T> ForEach extension instead. This API will be removed in 2.0.")]
+    [Obsolete("Use Array.ForEach(array, action) or the IEnumerable<T> ForEach extension instead. This API will be removed in 2.0.0.")]
     public static void ForEach<T>(this T[] array, Action<T> action)
     {
         ArgumentNullException.ThrowIfNull(action);
@@ -315,7 +315,7 @@ public static class ArrayExtensions
     /// // imageBase64String is "data:image/jpeg;base64,AQIDBAU="
     /// </code>
     /// </example>
-    [Obsolete("Use ToImageDataUri(value, mediaType) so the data URI contains the correct image media type. This API will be removed in 2.0.")]
+    [Obsolete("Use ToImageDataUri(value, mediaType) so the data URI contains the correct image media type. This API will be removed in 2.0.0.")]
     public static string ToImageBase64String(this byte[] value)
     {
         return value.ToImageDataUri("image/jpeg");
@@ -399,7 +399,7 @@ public static class ArrayExtensions
     /// // enumerable contains "one", "two", "three"
     /// </code>
     /// </example>
-    [Obsolete("Arrays already implement IEnumerable<string>. Use value ?? Array.Empty<string>() when null normalization is required. This API will be removed in 2.0.")]
+    [Obsolete("Arrays already implement IEnumerable<string>. Use value ?? Array.Empty<string>() when null normalization is required. This API will be removed in 2.0.0.")]
     public static IEnumerable<string> ToEnumerable(this string[]? value)
     {
         return value.IsNull() ? [] : new List<string>(value);
@@ -417,7 +417,7 @@ public static class ArrayExtensions
     /// // list contains "one", "two", "three"
     /// </code>
     /// </example>
-    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) for null-to-empty normalization, or Enumerable.ToList(value) for non-null arrays. This API will be removed in 2.0.")]
+    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) for null-to-empty normalization, or Enumerable.ToList(value) for non-null arrays. This API will be removed in 2.0.0.")]
     public static List<string> ToList(this string[]? value)
     {
         return new List<string>(value ?? []);
@@ -434,7 +434,7 @@ public static class ArrayExtensions
     /// List&lt;string&gt; result = new(values ?? Array.Empty&lt;string&gt;());
     /// </code>
     /// </example>
-    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) instead. This API will be removed in 2.0.")]
+    [Obsolete("Use new List<string>(value ?? Array.Empty<string>()) instead. This API will be removed in 2.0.0.")]
     public static List<string> ToListOrEmpty(this string[]? value)
     {
         return new List<string>(value ?? []);

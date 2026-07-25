@@ -82,6 +82,18 @@ Linger 1.6.0 是帮助应用从 1.x 平稳迁移到 2.0 的兼容版本。1.6.0
 特性访问、枚举元数据、基于反射的 DataTable 映射以及
 `IEnumerable<T>.ToDataTable`。
 
+| 1.6 原包 | 1.6 API | 2.0 替代方式 | 2.0 所在包 |
+| --- | --- | --- | --- |
+| `Linger.Utils` | `DataTable.ToListAsync<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` |
+| `Linger.Utils` | 基于反射的 `DataTable.ToList<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` |
+| `Linger.Utils` | `ObjectExtensions.ForIn` | `ForEachProperty` | `Linger.Reflection` |
+| `Linger.Utils` | `TypeExtensions.AttrValues<T>` | `AttrPropValues<T>` | `Linger.Reflection` |
+| `Linger.Utils` | `IQueryable.OrderByIf<T, TQueryable>` | `IQueryable.OrderByIf<T>(bool, string)` | `Linger.Reflection` |
+| `Linger.Utils` | 其他运行时元数据、表达式树及基于反射的映射 API | 保持相同 API | `Linger.Reflection` |
+
+接收映射器或工厂的 `DataTable.ToList<T>` 重载仍保留在 `Linger.Utils` 中。
+不需要运行时反射时，应优先迁移到这些重载。
+
 如果应用使用这些 API，升级到 2.0 时需要安装：
 
 ```bash

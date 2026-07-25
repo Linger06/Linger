@@ -4,8 +4,8 @@
 
 Linger 1.6.0 is a compatibility release for applications preparing to move
 from 1.x to 2.0. Existing public APIs remain available in 1.6.0. APIs marked
-with `Obsolete` have supported replacements and are scheduled for removal in
-2.0.
+with `Obsolete` have documented migration paths and are scheduled for removal
+in 2.0.
 
 ## Recommended process
 
@@ -86,6 +86,19 @@ In 2.0, runtime-reflection and expression-based APIs move from `Linger.Utils`
 to the optional `Linger.Reflection` package. This includes dynamic query
 ordering, expression helpers, runtime property and attribute access, enum
 metadata, reflection-based DataTable mapping, and `IEnumerable<T>.ToDataTable`.
+
+| 1.6 source package | 1.6 API | 2.0 replacement | 2.0 location |
+| --- | --- | --- | --- |
+| `Linger.Utils` | `DataTable.ToListAsync<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` |
+| `Linger.Utils` | Reflection-based `DataTable.ToList<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` |
+| `Linger.Utils` | `ObjectExtensions.ForIn` | `ForEachProperty` | `Linger.Reflection` |
+| `Linger.Utils` | `TypeExtensions.AttrValues<T>` | `AttrPropValues<T>` | `Linger.Reflection` |
+| `Linger.Utils` | `IQueryable.OrderByIf<T, TQueryable>` | `IQueryable.OrderByIf<T>(bool, string)` | `Linger.Reflection` |
+| `Linger.Utils` | Other runtime metadata, expression-tree, and reflection-based mapping APIs | Same API surface | `Linger.Reflection` |
+
+The mapper-based and factory-based `DataTable.ToList<T>` overloads remain in
+`Linger.Utils`. They are the preferred migration path when runtime reflection
+is unnecessary.
 
 Add the package when upgrading to 2.0 if the application uses those APIs:
 
