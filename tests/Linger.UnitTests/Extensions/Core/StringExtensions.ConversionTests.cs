@@ -357,17 +357,6 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        // Test backward compatibility - ensure old method still works
-        [Theory]
-        [MemberData(nameof(ToIntOrDefaultData))]
-        public void ToInt_BackwardCompatibility_ShouldReturnExpectedResult(string? value, int defaultValue, int expected)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToIntOrDefault(defaultValue);
-#pragma warning restore CS0618 // Type or member is obsolete
-            Assert.Equal(expected, result);
-        }
-
         public static TheoryData<string?, bool, long> TryToLongData()
         {
             return new TheoryData<string?, bool, long>
@@ -477,16 +466,6 @@ namespace Linger.UnitTests.Extensions.Core
         public void ToLongOrDefault_ShouldReturnExpectedResult(string? value, long defaultValue, long expected)
         {
             var result = value.ToLongOrDefault(defaultValue);
-            Assert.Equal(expected, result);
-        }
-
-        [Theory]
-        [MemberData(nameof(ToLongOrDefaultData))]
-        public void ToLong_BackwardCompatibility_ShouldReturnExpectedResult(string? value, long defaultValue, long expected)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToLongOrDefault(defaultValue);
-#pragma warning restore CS0618 // Type or member is obsolete
             Assert.Equal(expected, result);
         }
 
@@ -722,14 +701,5 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
-        [Theory]
-        [MemberData(nameof(ToBoolOrDefaultData))]
-        public void ToBool_BackwardCompatibility_ShouldReturnExpectedResult(string? value, bool defaultValue, bool expected)
-        {
-#pragma warning disable CS0618 // Type or member is obsolete
-            var result = value.ToBoolOrDefault(defaultValue);
-#pragma warning restore CS0618 // Type or member is obsolete
-            Assert.Equal(expected, result);
-        }
     }
 }

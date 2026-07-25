@@ -2,6 +2,8 @@
 
 A unified, efficient, and extensible Excel operation framework that supports multiple Excel library implementations
 
+> Upgrading from 1.x? See the [2.0 migration guide](../Linger/MIGRATION.md).
+
 ## 🚀 Features Overview
 
 - **Unified Interface** - Multiple underlying implementations, developers don't need to worry about specific details

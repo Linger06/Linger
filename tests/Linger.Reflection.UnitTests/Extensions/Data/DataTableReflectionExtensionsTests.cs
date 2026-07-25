@@ -1,8 +1,6 @@
 using System.Data;
 using Linger.Extensions.Data;
 
-#pragma warning disable CS0618 // Compatibility coverage for obsolete reflection-based mapping APIs.
-
 namespace Linger.UnitTests.Extensions.Data;
 
 public class DataTableReflectionExtensionsTests

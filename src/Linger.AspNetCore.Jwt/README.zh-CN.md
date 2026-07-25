@@ -2,6 +2,8 @@
 
 一个用于处理 JWT 认证并可选支持刷新令牌的 C# 辅助库，聚焦“简单集成 + 可扩展 + 安全实践”。
 
+> 从 1.x 升级？请参阅 [2.0 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 ## 目录
 - [核心特性](#核心特性)
 - [支持平台](#支持平台)
@@ -198,8 +200,6 @@ public class AuthController(IJwtService jwt, IUserService users) : ControllerBas
     }
 }
 ```
-
-> **💡 提示**: `TryRefreshTokenAsync` 已弃用，请使用 `RefreshTokenResultAsync` 替代。
 
 ### 备选方式 (使用异常处理)
 ```csharp

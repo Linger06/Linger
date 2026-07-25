@@ -2,6 +2,8 @@
 
 Linger.Results 是一个现代化的操作结果处理库，采用函数式风格设计，帮助开发者更优雅地处理各种操作结果。通过使用 Result 模式而非异常机制，可以实现更可控、可预测的错误处理流程。
 
+> 从 1.x 升级？请参阅 [2.0 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 ## 特点
 
 - 提供清晰的成功/失败结果表示
@@ -506,22 +508,17 @@ public Result<User> GetUser(int id, string token)
 
 MIT
 
-## 从 ExecuteResult 迁移
+## 从 1.x 结果类型迁移
 
-> ⚠️ **注意**: `ExecuteResult`、`ExecuteResult<T>` 和 `ErrorObj` 已被标记为过时，将在未来版本中删除。请迁移到 `Result` 和 `Result<T>`。
+`ExecuteResult`、`ExecuteResult<T>` 和 `ErrorObj` 已在 2.0 中删除。请改用
+`Result`、`Result<T>` 和 `Error`。
 
 ```csharp
-// 旧代码（已过时）
-var result = new ExecuteResult(true, "Success");
-var resultWithValue = new ExecuteResult<User>(user);
-
-// 新代码（推荐）
 var result = Result.Success();
 var resultWithValue = Result.Success(user);
 
-// 访问错误
-// 旧: result.Message
-// 新: result.FirstError.Message 或 result.Errors
+var message = result.FirstError.Message;
+var errors = result.Errors;
 ```
 
 ### FirstError 属性

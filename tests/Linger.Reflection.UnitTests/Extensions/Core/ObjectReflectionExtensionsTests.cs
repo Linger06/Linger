@@ -27,19 +27,6 @@ public class ObjectReflectionExtensionsTests
     }
 
     [Fact]
-    public void ForEachProperty_ShouldForwardToForEachProperty()
-    {
-        var value = new PropertyEnumerationTestModel { Name = "Linger" };
-        var properties = new Dictionary<string, object?>();
-
-#pragma warning disable CS0618 // Tests document the retained compatibility API.
-        value.ForEachProperty((name, propertyValue) => properties.Add(name, propertyValue));
-#pragma warning restore CS0618
-
-        Assert.Equal("Linger", properties[nameof(PropertyEnumerationTestModel.Name)]);
-    }
-
-    [Fact]
     public void GetPropertyInfo_ShouldReturnPropertyInfo_WhenPropertyExists()
     {
         var obj = new { Name = "John" };

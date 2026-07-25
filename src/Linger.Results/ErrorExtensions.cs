@@ -6,54 +6,6 @@
 public static class ErrorExtensions
 {
     /// <summary>
-    /// 将 Error 转换为 ErrorObj
-    /// </summary>
-    /// <param name="error">要转换的错误</param>
-    /// <returns>等效的 ErrorObj</returns>
-    [Obsolete("ErrorObj is obsolete. This method will be removed in a future version.")]
-    public static ErrorObj ToErrorObj(this Error error)
-    {
-        var errorObj = new ErrorObj();
-        if (!string.IsNullOrWhiteSpace(error.Message))
-        {
-            errorObj.Message.Add(error.Message);
-        }
-
-        if (!string.IsNullOrWhiteSpace(error.Code))
-        {
-            errorObj.Form[error.Code] = error.Message;
-        }
-
-        return errorObj;
-    }
-
-    /// <summary>
-    /// 将多个 Error 转换为单个 ErrorObj
-    /// </summary>
-    /// <param name="errors">要转换的错误集合</param>
-    /// <returns>包含所有错误信息的 ErrorObj</returns>
-    [Obsolete("ErrorObj is obsolete. This method will be removed in a future version.")]
-    public static ErrorObj ToErrorObj(this IEnumerable<Error> errors)
-    {
-        var errorObj = new ErrorObj();
-
-        foreach (var error in errors)
-        {
-            if (!string.IsNullOrWhiteSpace(error.Message))
-            {
-                errorObj.Message.Add(error.Message);
-            }
-
-            if (!string.IsNullOrWhiteSpace(error.Code))
-            {
-                errorObj.Form[error.Code] = error.Message;
-            }
-        }
-
-        return errorObj;
-    }
-
-    /// <summary>
     /// 将 Exception 转换为 Error
     /// </summary>
     /// <param name="exception">要转换的异常</param>

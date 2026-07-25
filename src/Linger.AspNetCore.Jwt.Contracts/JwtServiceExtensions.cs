@@ -32,7 +32,7 @@ public static class JwtServiceExtensions
     /// <exception cref="NotSupportedException">Thrown when the service does not support token refresh</exception>
     /// <exception cref="SecurityTokenException">Thrown when the refresh token is invalid or expired</exception>
     /// <remarks>
-    /// Consider using <see cref="TryRefreshTokenAsync"/> for better performance and cleaner error handling.
+    /// Consider using <see cref="RefreshTokenResultAsync"/> for result-based error handling.
     /// This method is suitable when you have a global exception handling middleware.
     /// </remarks>
     public static Task<Token> RefreshTokenAsync(this IJwtService jwtService, Token token)
@@ -69,22 +69,4 @@ public static class JwtServiceExtensions
         }
     }
 
-    [Obsolete("Use RefreshTokenResultAsync instead. This method will be removed in a future version.")]
-    public static async Task<(bool Success, Token? NewToken)> TryRefreshTokenAsync(this IJwtService jwtService, Token token)
-    {
-        if (jwtService is IRefreshableJwtService refreshableService)
-        {
-            try
-            {
-                var newToken = await refreshableService.RefreshTokenAsync(token).ConfigureAwait(false);
-                return (true, newToken);
-            }
-            catch (Exception)
-            {
-                return (false, null);
-            }
-        }
-
-        return (false, null);
-    }
 }

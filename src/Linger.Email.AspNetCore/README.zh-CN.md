@@ -1,5 +1,7 @@
 # Linger.Email.AspNetCore
 
+> 从 1.x 升级？请参阅 [2.0 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 ## 概述
 
 Linger.Email.AspNetCore 是 Linger.Email 的 ASP.NET Core 集成包。它为 Web 应用和后台服务提供依赖注入、配置绑定、日志集成以及便捷邮件服务包装。
@@ -61,8 +63,6 @@ builder.Services.AddEmailService(builder.Configuration);
 
 var app = builder.Build();
 ```
-
-> **注意**：旧的方法 `ConfigureEmail()` 和 `ConfigureMailKit()` 是迁移兼容别名。新代码请直接使用 `AddEmailService()`。
 
 ### 3. 在控制器中发送邮件
 

@@ -368,8 +368,9 @@ public class SqliteSpecificFeaturesTests : IDisposable
             try
             {
                 await retryHelper.ExecuteAsync(
-                    () =>
+                    cancellationToken =>
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (File.Exists(backupPath))
                         {
                             File.Delete(backupPath);

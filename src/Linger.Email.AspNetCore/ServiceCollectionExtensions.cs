@@ -18,25 +18,4 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// Registers and configures the ASP.NET Core email service integration.
-    /// </summary>
-    /// <param name="services">The service collection</param>
-    /// <param name="configuration">The configuration containing email settings</param>
-    [Obsolete("Use AddEmailService instead. This method will be removed in a future version.")]
-    public static void ConfigureEmail(this IServiceCollection services, IConfiguration configuration)
-    {
-        AddEmailService(services, configuration);
-    }
-
-    /// <summary>
-    /// Registers and configures the ASP.NET Core email service integration.
-    /// </summary>
-    /// <param name="services">The service collection</param>
-    /// <param name="configuration">The configuration containing email settings</param>
-    [Obsolete("Use AddEmailService instead. This method will be removed in a future version.")]
-    public static void ConfigureMailKit(this IServiceCollection services, IConfiguration configuration)
-    {
-        AddEmailService(services, configuration);
-    }
 }

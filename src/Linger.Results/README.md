@@ -2,6 +2,8 @@
 
 A modern operation result handling library designed with a functional style approach, helping developers handle various operation results more elegantly. By using the Result pattern instead of exceptions, it enables more controllable and predictable error handling processes.
 
+> Upgrading from 1.x? See the [2.0 migration guide](../Linger/MIGRATION.md).
+
 ## Features
 
 - Provides clear success/failure result representation
@@ -508,22 +510,17 @@ public Result<User> GetUser(int id, string token)
 
 MIT
 
-## Migration from ExecuteResult
+## Migration from 1.x result types
 
-> ⚠️ **Note**: `ExecuteResult`, `ExecuteResult<T>`, and `ErrorObj` are now obsolete and will be removed in a future version. Please migrate to `Result` and `Result<T>`.
+`ExecuteResult`, `ExecuteResult<T>`, and `ErrorObj` were removed in 2.0. Use
+`Result`, `Result<T>`, and `Error` instead.
 
 ```csharp
-// Old code (deprecated)
-var result = new ExecuteResult(true, "Success");
-var resultWithValue = new ExecuteResult<User>(user);
-
-// New code (recommended)
 var result = Result.Success();
 var resultWithValue = Result.Success(user);
 
-// Accessing errors
-// Old: result.Message
-// New: result.FirstError.Message or result.Errors
+var message = result.FirstError.Message;
+var errors = result.Errors;
 ```
 
 ### FirstError Property

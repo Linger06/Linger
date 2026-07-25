@@ -1,5 +1,7 @@
 # Linger.Email.AspNetCore
 
+> Upgrading from 1.x? See the [2.0 migration guide](../Linger/MIGRATION.md).
+
 ## Overview
 
 Linger.Email.AspNetCore is the ASP.NET Core integration package for Linger.Email. It adds dependency injection, configuration binding, logging, and convenience service wrappers for web applications and hosted services.
@@ -61,8 +63,6 @@ builder.Services.AddEmailService(builder.Configuration);
 
 var app = builder.Build();
 ```
-
-> **Note**: The older methods `ConfigureEmail()` and `ConfigureMailKit()` are obsolete migration shims. Use `AddEmailService()` for new code.
 
 ### 3. Use Email Service in Controllers
 

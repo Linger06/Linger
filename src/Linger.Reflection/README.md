@@ -2,6 +2,8 @@
 
 `Linger.Reflection` contains the optional runtime metadata and expression-tree features extracted from `Linger.Utils`.
 
+> Upgrading from 1.x? See the [2.0 migration guide](../Linger/MIGRATION.md).
+
 ## Installation
 
 ```bash

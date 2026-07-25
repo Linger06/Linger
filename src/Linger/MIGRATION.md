@@ -2,67 +2,79 @@
 
 [English](MIGRATION.md) | [中文](MIGRATION.zh-CN.md)
 
-This guide covers breaking API removals in `Linger.Utils` and
-`Linger.Reflection`. It is intended for applications upgrading from the
-previous API surface.
+This guide covers breaking API removals across Linger packages. It is intended
+for applications upgrading from the previous API surface.
 
 ## Direct replacements
 
-| Removed API | Replacement | Notes |
-| --- | --- | --- |
-| `DataTable.ToListAsync<T>(...)` | `DataTable.ToList<T>(...)` | The removed methods only wrapped synchronous work in `Task.FromResult`. |
-| `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | Accept and forward the supplied cancellation token. |
-| `JsonExtensions.Serialize<T>` | `ToJsonString(...)` | See the JSON behavior change below. |
-| `ObjectReflectionExtensions.ForIn` | `ForEachProperty` | Same property enumeration intent with a clearer name. |
-| `TypeExtensions.AttrValues<T>` | `AttrPropValues<T>` | `AttrValues<T>` was only an alias. |
-| `IQueryable.OrderByIf<T, TQueryable>` | `IQueryable.OrderByIf<T>(bool, string)` | Use the `IQueryable<T>` overload. |
-| `DecimalExtensions.ToRounding` | `Round` | Both use the library's conventional decimal rounding behavior. |
-| `byte[].ToImageBase64String` | `ToImageDataUri(mediaType)` | Specify the actual image media type. |
-| `string[].ToEnumerable` | Use the array directly, or `value ?? Array.Empty<string>()` | Arrays already implement `IEnumerable<string>`. |
-| `string[].ToList` and `ToListOrEmpty` | `new List<string>(value ?? Array.Empty<string>())` | Use `Enumerable.ToList()` when the array is known to be non-null. |
-| `string.ToSplitList(char)` | `SplitToList(char)` | The `ToSplitList(string)` regex overload remains available. |
-| `string.ToSplitArray(char)` | `SplitToArray(char)` | Uses a literal character delimiter. |
-| `string.ToSplitArrayByCrlf` | `SplitToArray(Environment.NewLine)` | Make the line delimiter explicit. |
-| `string.RemoveLastChar(string)` | `RemoveLastChar(char)` or `RemoveSuffixOnce(string, StringComparison)` | Choose a single character or an exact suffix operation. |
-| `PathExtensions.IsStrictAbsolutePath` | `Path.IsPathFullyQualified` | Apply the application's UNC policy explicitly. |
-| `int.ToFileSizeBytesString` | `FormatFileSize` | The new format is consistent with other file-size APIs. |
-| `FileInfoExtensions.Delete(IEnumerable<FileInfo>)` | `Delete(files, consolidateExceptions)` | Pass `false` to retain fail-fast behavior, or `true` to aggregate eligible failures. |
-| `FileInfoExtensions.GetVersionInfo` | `FileVersionInfo.GetVersionInfo(fileInfo.FullName)` | Apply any platform policy in the caller. |
-| `string.GetFileVersion` | `new FileInfo(filePath).GetFileVersion()` | The replacement validates the file path and file existence. |
-| `string.GetFilePath` | `Path.GetDirectoryName(path)` | Append a directory separator only when the caller requires one. |
-| `FileInfoExtensions.FileSize` | `GetFileSizeFormatted` | Available for both file paths and `FileInfo`. |
-| `GetFileNameNoExtension` | `Path.GetFileNameWithoutExtension` | Use `fileInfo.Name` for a `FileInfo` input. |
-| `GetExtensionNotDotString` | `Path.GetExtension(path).TrimStart('.')` | Uses the platform path API directly. |
-| `FileHelper.GetLineCount` | `File.ReadLines(path).Count()` | Prefer a dedicated streaming reader when further processing is required. |
-| `FileHelper.GetFileSize` | `filePath.GetFileSize()` | Uses the maintained file extension API. |
-| `FileHelper.GetDirectories` / `GetFileNames` boolean overloads | Overloads with `SearchOption` | Use `TopDirectoryOnly` or `AllDirectories` explicitly. |
-| `FileHelper.CreateDirectoryIfNotExists` | `Directory.CreateDirectory` | `Directory.CreateDirectory` is already idempotent. |
+| Source package | Removed API | Replacement | Replacement location | Notes |
+| --- | --- | --- | --- | --- |
+| `Linger.Utils` | `DataTable.ToListAsync<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` | Add a reference to `Linger.Reflection`; the removed method only wrapped synchronous reflection-based mapping in `Task.FromResult`. |
+| `Linger.Utils` | `DataTable.ToListAsync<T>(Func<DataRow, T>)` | `DataTable.ToList<T>(Func<DataRow, T>)` | `Linger.Utils` | The removed method only wrapped synchronous mapping in `Task.FromResult`. |
+| `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | Accept and forward the supplied cancellation token. |
+| `Linger.Utils` | `JsonExtensions.Serialize<T>` | `ToJsonString(...)` | `Linger.Utils` | See the JSON behavior change below. |
+| `Linger.Utils` | `ObjectExtensions.ForIn` | `ForEachProperty` | `Linger.Reflection` | Add a reference to `Linger.Reflection`; the replacement has the same property enumeration intent with a clearer name. |
+| `Linger.Utils` | `TypeExtensions.AttrValues<T>` | `AttrPropValues<T>` | `Linger.Reflection` | Add a reference to `Linger.Reflection`; `AttrValues<T>` was only an alias. |
+| `Linger.Utils` | `IQueryable.OrderByIf<T, TQueryable>` | `IQueryable.OrderByIf<T>(bool, string)` | `Linger.Reflection` | Add a reference to `Linger.Reflection` and use the `IQueryable<T>` overload. |
+| `Linger.Utils` | `DecimalExtensions.ToRounding` | `Round` | `Linger.Utils` | Both use the library's conventional decimal rounding behavior. |
+| `Linger.Utils` | `byte[].ToImageBase64String` | `ToImageDataUri(mediaType)` | `Linger.Utils` | Specify the actual image media type. |
+| `Linger.Utils` | `string[].ToEnumerable` | Use the array directly, or `value ?? Array.Empty<string>()` | .NET BCL | Arrays already implement `IEnumerable<string>`. |
+| `Linger.Utils` | `string[].ToList` and `ToListOrEmpty` | `new List<string>(value ?? Array.Empty<string>())` | .NET BCL | Use `Enumerable.ToList()` when the array is known to be non-null. |
+| `Linger.Utils` | `string.ToSplitList(char)` | `SplitToList(char)` | `Linger.Utils` | The `ToSplitList(string)` regex overload remains available. |
+| `Linger.Utils` | `string.ToSplitArray(char)` | `SplitToArray(char)` | `Linger.Utils` | Uses a literal character delimiter. |
+| `Linger.Utils` | `string.ToSplitArrayByCrlf` | `SplitToArray(Environment.NewLine)` | `Linger.Utils` | Make the line delimiter explicit. |
+| `Linger.Utils` | `string.RemoveLastChar(string)` | `RemoveLastChar(char)` or `RemoveSuffixOnce(string, StringComparison)` | `Linger.Utils` | Choose a single character or an exact suffix operation. |
+| `Linger.Utils` | `PathExtensions.IsStrictAbsolutePath` | `Path.IsPathFullyQualified` | .NET BCL | Apply the application's UNC policy explicitly. |
+| `Linger.Utils` | `int.ToFileSizeBytesString` | `FormatFileSize` | `Linger.Utils` | The new format is consistent with other file-size APIs. |
+| `Linger.Utils` | `FileInfoExtensions.Delete(IEnumerable<FileInfo>)` | `Delete(files, consolidateExceptions)` | `Linger.Utils` | Pass `false` to retain fail-fast behavior, or `true` to aggregate eligible failures. |
+| `Linger.Utils` | `FileInfoExtensions.GetVersionInfo` | `FileVersionInfo.GetVersionInfo(fileInfo.FullName)` | .NET BCL | Apply any platform policy in the caller. |
+| `Linger.Utils` | `string.GetFileVersion` | `new FileInfo(filePath).GetFileVersion()` | `Linger.Utils` | The replacement validates the file path and file existence. |
+| `Linger.Utils` | `string.GetFilePath` | `Path.GetDirectoryName(path)` | .NET BCL | Append a directory separator only when the caller requires one. |
+| `Linger.Utils` | `FileInfoExtensions.FileSize` | `GetFileSizeFormatted` | `Linger.Utils` | Available for both file paths and `FileInfo`. |
+| `Linger.Utils` | `GetFileNameNoExtension` | `Path.GetFileNameWithoutExtension` | .NET BCL | Use `fileInfo.Name` for a `FileInfo` input. |
+| `Linger.Utils` | `GetExtensionNotDotString` | `Path.GetExtension(path).TrimStart('.')` | .NET BCL | Uses the platform path API directly. |
+| `Linger.Utils` | `FileHelper.GetLineCount` | `File.ReadLines(path).Count()` | .NET BCL | Prefer a dedicated streaming reader when further processing is required. |
+| `Linger.Utils` | `FileHelper.GetFileSize` | `filePath.GetFileSize()` | `Linger.Utils` | Uses the maintained file extension API. |
+| `Linger.Utils` | `FileHelper.GetDirectories` / `GetFileNames` boolean overloads | Overloads with `SearchOption` | `Linger.Utils` | Use `TopDirectoryOnly` or `AllDirectories` explicitly. |
+| `Linger.Utils` | `FileHelper.CreateDirectoryIfNotExists` | `Directory.CreateDirectory` | .NET BCL | `Directory.CreateDirectory` is already idempotent. |
+
+## Other Linger packages
+
+| Source package | Removed API | Replacement | Replacement location | Notes |
+| --- | --- | --- | --- | --- |
+| `Linger.Configuration` | `AppSettingsHelper.CovertToObject<T>` | `ConvertToObject<T>` | `Linger.Configuration` | Corrects the method name typo. |
+| `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.TryRefreshTokenAsync` | `RefreshTokenResultAsync` | `Linger.AspNetCore.Jwt.Contracts` | The replacement also provides an error message. |
+| `Linger.Email.AspNetCore` | `ConfigureEmail` / `ConfigureMailKit` | `AddEmailService` | `Linger.Email.AspNetCore` | The replacement returns `IServiceCollection` for chaining. |
+| `Linger.Excel.Contracts` | `DataTableToFile` / `DataSetToFile` | `DataTableToExcel` / `DataSetToExcel` | `Linger.Excel.Contracts` | The replacement names match the Excel export operation. |
+| `Linger.Results` | `ExecuteResult`, `ExecuteResult<T>`, and `ResultCompat` | `Result` / `Result<T>` | `Linger.Results` | Replace the legacy result types and conversion helpers. |
+| `Linger.Results` | `ErrorObj` and `ToErrorObj` | `Error` and a caller-owned error collection | `Linger.Results` / application code | The legacy aggregation shape has no one-to-one replacement. |
 
 ## No one-to-one replacement
 
-| Removed API | Migration approach | Reason for removal |
-| --- | --- | --- |
-| `AesEncrypt` | Use `AesEncryptAuthenticated`. Existing legacy ciphertext can still be read by `AesDecrypt`. | AES-CBC encryption without authentication does not protect ciphertext integrity. |
-| `GuidCode.GetInt32UniqueCode` / `GetInt64UniqueCode` | Use `Guid.NewGuid()`; on .NET 9 or later, consider `Guid.CreateVersion7()` when time ordering is useful. | Truncating a GUID does not provide uniqueness. |
-| `object.IsNullOrEmpty` / `IsNotNullOrEmpty` | Use a type-specific check such as `string.IsNullOrEmpty`, collection count checks, or `Guid?` extensions. | Arbitrary objects do not have a well-defined empty state. |
-| `ToTarget<T>`, `TryToTarget<T>`, `ToTargetOrDefault<T>`, and `ToTargetOrNull<T>` | Use a specific `ToInt`, `TryToDateTime`, `TryToGuid`, and similar conversion API; for a runtime target type, use `TypeConverter.TryConvert`. | Generic conversion concealed supported types and failure semantics. |
-| `TypeConverter.ConvertTo`, `TryConvertTo`, and `TryConvertKnownType` | Use `TypeConverter.TryConvert`. | The retained API has an explicit, AOT-friendly scalar support boundary. |
-| `ToTree` | Build the hierarchy in the caller with an explicit node model, root rule, duplicate-key policy, and cycle handling. | The generic helper concealed essential tree-construction semantics. |
-| `FileHelper.DeleteFolderFiles` | Perform the required `Directory` and `File` operations in the caller. | The recursive delete-by-name behavior was too implicit for a general utility API. |
-| `ExtensionMethodSetting` defaults | Configure `Encoding`, `CultureInfo`, buffer sizes, and `JsonSerializerOptions` explicitly. Use `JsonDefaults.CreateRequestOptions`, `CreateResponseOptions`, or `ApplyDefaultConfiguration` for JSON. | Process-wide mutable defaults made behavior difficult to reason about. |
-| `DataContractJsonSerializer` helpers | Use `System.Text.Json.JsonSerializer` or `ToJsonString` / `Deserialize<T>`. | The project standardizes on `System.Text.Json`. |
-| `DeserializeDynamicJsonObject` | Use `JsonDocument`, `JsonElement`, or `JsonNode` according to the required mutability. | Dynamic JSON obscured schema and runtime failure modes. |
+| Source package | Removed API | Migration approach | Replacement location | Reason for removal |
+| --- | --- | --- | --- | --- |
+| `Linger.Utils` | `AesEncrypt` | Use `AesEncryptAuthenticated`. Existing legacy ciphertext can still be read by `AesDecrypt`. | `Linger.Utils` | AES-CBC encryption without authentication does not protect ciphertext integrity. |
+| `Linger.Utils` | `GuidCode.GetInt32UniqueCode` / `GetInt64UniqueCode` | Use `Guid.NewGuid()`; on .NET 9 or later, consider `Guid.CreateVersion7()` when time ordering is useful. | .NET BCL | Truncating a GUID does not provide uniqueness. |
+| `Linger.Utils` | `object.IsNullOrEmpty` / `IsNotNullOrEmpty` | Use a type-specific check such as `string.IsNullOrEmpty`, collection count checks, or `Guid?` extensions. | .NET BCL / `Linger.Utils` | Arbitrary objects do not have a well-defined empty state. |
+| `Linger.Utils` | `ToTarget<T>`, `TryToTarget<T>`, `ToTargetOrDefault<T>`, and `ToTargetOrNull<T>` | Use a specific `ToInt`, `TryToDateTime`, `TryToGuid`, and similar conversion API; for a runtime target type, use `TypeConverter.TryConvert`. | `Linger.Utils` | Generic conversion concealed supported types and failure semantics. |
+| `Linger.Utils` | `TypeConverter.ConvertTo`, `TryConvertTo`, and `TryConvertKnownType` | Use `TypeConverter.TryConvert`. | `Linger.Utils` | The retained API has an explicit, AOT-friendly scalar support boundary. |
+| `Linger.Utils` | `ToTree` | Build the hierarchy in the caller with an explicit node model, root rule, duplicate-key policy, and cycle handling. | Application code | The generic helper concealed essential tree-construction semantics. |
+| `Linger.Utils` | `FileHelper.DeleteFolderFiles` | Perform the required `Directory` and `File` operations in the caller. | .NET BCL / application code | The recursive delete-by-name behavior was too implicit for a general utility API. |
+| `Linger.Utils` | `ExtensionMethodSetting` defaults | Configure `Encoding`, `CultureInfo`, buffer sizes, and `JsonSerializerOptions` explicitly. Use `JsonDefaults.CreateRequestOptions`, `CreateResponseOptions`, or `ApplyDefaultConfiguration` for JSON. | .NET BCL / `Linger.Utils` | Process-wide mutable defaults made behavior difficult to reason about. |
+| `Linger.Utils` | `DataContractJsonSerializer` helpers | Use `System.Text.Json.JsonSerializer` or `ToJsonString` / `Deserialize<T>`. | .NET BCL / `Linger.Utils` | The project standardizes on `System.Text.Json`. |
+| `Linger.Utils` | `DeserializeDynamicJsonObject` | Use `JsonDocument`, `JsonElement`, or `JsonNode` according to the required mutability. | .NET BCL | Dynamic JSON obscured schema and runtime failure modes. |
 
 ## Behavioral changes
 
-- `ToJsonString(null)` returns the JSON literal `"null"`. The removed
+- **`Linger.Utils`**: `ToJsonString(null)` returns the JSON literal `"null"`. The removed
   `Serialize<T>` wrapper returned a C# `null` reference for a null input.
-- The removed `DataTable.ToListAsync` methods did not perform asynchronous
-  I/O. Calling `ToList` is synchronous and avoids a misleading async API.
-- String order expressions accept only `asc` or `desc` (case-insensitive).
+- **`Linger.Utils` -> `Linger.Utils` / `Linger.Reflection`**: The removed
+  `DataTable.ToListAsync` methods did not perform asynchronous I/O. Calling
+  `ToList` is synchronous and avoids a misleading async API.
+- **`Linger.Utils` -> `Linger.Reflection`**: String order expressions accept only `asc` or `desc` (case-insensitive).
   Invalid directions now throw `ArgumentException` rather than being treated
   as descending order.
-- `FileInfoExtensions.Delete` no longer has a default exception policy. Call
+- **`Linger.Utils`**: `FileInfoExtensions.Delete` no longer has a default exception policy. Call
   sites must choose fail-fast or consolidated exceptions explicitly.
 
 ## Examples

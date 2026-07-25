@@ -1,7 +1,5 @@
 ﻿using LingerDataTableExtensions = Linger.Extensions.Data.DataTableExtensions;
 
-#pragma warning disable CS0618 // Compatibility coverage for legacy async-named wrappers.
-
 namespace Linger.UnitTests;
 
 public partial class DataTableExtensionsTests

@@ -5,8 +5,6 @@ using System.Text;
 using Linger.Extensions.Core;
 using Linger.Extensions.IO;
 
-#pragma warning disable CS0618 // Compatibility overload coverage.
-
 namespace Linger.UnitTests.Extensions.IO;
 
 public class FileInfoExtensionsTests : IDisposable
