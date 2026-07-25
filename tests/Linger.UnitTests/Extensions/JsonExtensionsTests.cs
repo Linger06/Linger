@@ -50,6 +50,16 @@ public class JsonExtensionsTests
     }
 
     [Fact]
+    public void ToJsonString_WithNullObject_ReturnsJsonNullLiteral()
+    {
+        TestPerson? person = null;
+
+        var json = person.ToJsonString();
+
+        Assert.Equal("null", json);
+    }
+
+    [Fact]
     public void SerializeJson_Generic_SerializesObjectCorrectly()
     {
         // Arrange

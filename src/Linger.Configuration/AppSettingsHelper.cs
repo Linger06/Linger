@@ -72,7 +72,7 @@ public static class AppSettingsHelper
     /// <summary>
     /// Obsolete typo-compatible method. Please use ConvertToObject instead.
     /// </summary>
-    [Obsolete("Use ConvertToObject instead of CovertToObject. This method will be removed in a future release.", false)]
+    [Obsolete("Use ConvertToObject instead of CovertToObject. This method will be removed in 2.0.0.", false)]
     public static T? CovertToObject<T>() where T : class
     {
         return ConvertToObject<T>();

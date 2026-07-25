@@ -12,7 +12,7 @@ public static partial class FileInfoExtensions
     /// <summary>
     /// Deletes each file using the legacy fail-fast behavior.
     /// </summary>
-    [Obsolete("Use Delete(files, consolidateExceptions) and choose the exception behavior explicitly.")]
+    [Obsolete("Use Delete(files, consolidateExceptions) and choose the exception behavior explicitly. This API will be removed in 2.0.0.")]
     public static void Delete(this IEnumerable<FileInfo> files)
     {
         if (files == null) return;
@@ -26,6 +26,7 @@ public static partial class FileInfoExtensions
     /// <summary>
     /// Retrieves version metadata for a physical file.
     /// </summary>
+    [Obsolete("Use FileVersionInfo.GetVersionInfo(fileInfo.FullName) and apply an explicit platform policy. This API will be removed in 2.0.0.")]
     public static FileVersionInfo? GetVersionInfo(this FileInfo fileInfo)
     {
         ArgumentNullException.ThrowIfNull(fileInfo);
@@ -38,7 +39,7 @@ public static partial class FileInfoExtensions
     /// Gets the file version string from a path.
     /// Returns <see langword="null"/> on non-Windows platforms.
     /// </summary>
-    [Obsolete("Use new FileInfo(fileFullPath).GetFileVersion() instead.")]
+    [Obsolete("Use new FileInfo(fileFullPath).GetFileVersion() instead. This API will be removed in 2.0.0.")]
     public static string? GetFileVersion(this string fileFullPath)
     {
         if (string.IsNullOrWhiteSpace(fileFullPath)) return null;
@@ -50,7 +51,7 @@ public static partial class FileInfoExtensions
     /// <summary>
     /// Gets the directory portion of a file path and appends the native separator.
     /// </summary>
-    [Obsolete("Prefer Path.GetDirectoryName(filePath) and append a separator explicitly when needed.")]
+    [Obsolete("Prefer Path.GetDirectoryName(filePath) and append a separator explicitly when needed. This API will be removed in 2.0.0.")]
     public static string GetFilePath(this string filePath)
     {
         if (string.IsNullOrEmpty(filePath)) return string.Empty;
@@ -76,7 +77,7 @@ public static partial class FileInfoExtensions
     /// <exception cref="FileNotFoundException">
     /// Thrown when the target file does not exist.
     /// </exception>
-    [Obsolete("Use filePath.GetFileSizeFormatted() instead.")]
+    [Obsolete("Use filePath.GetFileSizeFormatted() instead. This API will be removed in 2.0.0.")]
     public static string FileSize(this string filePath)
     {
         // Guard against blank inputs before touching the file system.
@@ -104,7 +105,7 @@ public static partial class FileInfoExtensions
     /// <summary>
     /// Gets the formatted size string from a <see cref="FileInfo"/> instance.
     /// </summary>
-    [Obsolete("Use fileInfo.GetFileSizeFormatted() instead.")]
+    [Obsolete("Use fileInfo.GetFileSizeFormatted() instead. This API will be removed in 2.0.0.")]
     public static string FileSize(this FileInfo fileInfo)
     {
         ArgumentNullException.ThrowIfNull(fileInfo);
@@ -114,7 +115,7 @@ public static partial class FileInfoExtensions
     /// <summary>
     /// Gets the file name without its extension from a path.
     /// </summary>
-    [Obsolete("Use Path.GetFileNameWithoutExtension(filePath) instead.")]
+    [Obsolete("Use Path.GetFileNameWithoutExtension(filePath) instead. This API will be removed in 2.0.0.")]
     public static string GetFileNameNoExtension(this string filePath)
     {
         return Path.GetFileNameWithoutExtension(filePath);
@@ -123,7 +124,7 @@ public static partial class FileInfoExtensions
     /// <summary>
     /// Gets the file name without its extension from a <see cref="FileInfo"/> instance.
     /// </summary>
-    [Obsolete("Use Path.GetFileNameWithoutExtension(fileInfo.Name) instead.")]
+    [Obsolete("Use Path.GetFileNameWithoutExtension(fileInfo.Name) instead. This API will be removed in 2.0.0.")]
     public static string GetFileNameNoExtension(this FileInfo fileInfo)
     {
         ArgumentNullException.ThrowIfNull(fileInfo);
@@ -133,7 +134,7 @@ public static partial class FileInfoExtensions
     /// <summary>
     /// Gets the extension text without the leading dot.
     /// </summary>
-    [Obsolete("Use Path.GetExtension(filePath).TrimStart('.') instead.")]
+    [Obsolete("Use Path.GetExtension(filePath).TrimStart('.') instead. This API will be removed in 2.0.0.")]
     public static string GetExtensionNotDotString(this string filePath)
     {
         if (string.IsNullOrEmpty(filePath)) return string.Empty;

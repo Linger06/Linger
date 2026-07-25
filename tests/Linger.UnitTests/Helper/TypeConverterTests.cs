@@ -8,6 +8,33 @@ using Linger.Helper;
 public class TypeConverterTests
 {
     [Fact]
+    public void TryConvert_WithSupportedScalar_ReturnsConvertedValue()
+    {
+        var success = TypeConverter.TryConvert("123", typeof(int), out var result);
+
+        Assert.True(success);
+        Assert.Equal(123, result);
+    }
+
+    [Fact]
+    public void TryConvert_WithUnsupportedTarget_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvert("A", typeof(char), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TryConvert_WithCustomConvertibleTarget_ReturnsFalse()
+    {
+        var success = TypeConverter.TryConvert("https://example.com", typeof(Uri), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void ConvertTo_WithNullValue_ReturnsNull()
     {
         var result = TypeConverter.ConvertTo(null, typeof(int?));

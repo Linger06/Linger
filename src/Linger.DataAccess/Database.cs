@@ -422,7 +422,9 @@ public class Database(IProvider provider, string connectionString) : BaseDatabas
                 if (value is null or DBNull)
                     continue;
 
+#pragma warning disable CS0618 // Preserve custom TypeConverter support in the 1.x reflection mapper.
                 object? convertedValue = Linger.Helper.TypeConverter.ConvertTo(value, binding.Key.PropertyType);
+#pragma warning restore CS0618
                 binding.Key.SetValue(instance, convertedValue, null);
             }
 

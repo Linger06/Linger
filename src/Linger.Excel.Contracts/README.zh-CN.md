@@ -2,6 +2,8 @@
 
 一个统一、高效、可扩展的Excel操作框架，支持多种Excel库实现
 
+> 计划从 1.6 升级到 2.0？请参阅 [Linger 2.0 迁移准备](https://github.com/Linger06/Linger/blob/v1.6.0/src/Linger/MIGRATION.zh-CN.md)。
+
 ## 🚀 特性概览
 
 - **统一接口** - 多种底层实现，开发者无需关心具体细节

@@ -258,7 +258,7 @@ public static partial class StringExtensions
     /// "hello.txt".RemoveSuffixOnce(".txt") // => "hello"
     /// </code>
     /// </example>
-    [Obsolete("For single-character removal prefer RemoveLastChar(char). For multi-character exact suffix removal use RemoveSuffixOnce(string, StringComparison). The multi-character overload trims by character set (legacy).", false)]
+    [Obsolete("For single-character removal prefer RemoveLastChar(char). For multi-character exact suffix removal use RemoveSuffixOnce(string, StringComparison). The multi-character overload trims by character set (legacy). This API will be removed in 2.0.0.", false)]
     public static string RemoveLastChar(this string str, string character)
     {
         if (str.IsNullOrEmpty() || character.IsNullOrEmpty())

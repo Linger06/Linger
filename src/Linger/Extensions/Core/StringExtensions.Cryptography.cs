@@ -53,7 +53,7 @@ public static partial class StringExtensions
     /// }
     /// </code>
     /// </example>
-    [Obsolete("Unauthenticated AES-CBC encryption is retained for compatibility. Use AesEncryptAuthenticated instead.")]
+    [Obsolete("Unauthenticated AES-CBC encryption is retained for compatibility. Use AesEncryptAuthenticated instead. This API will be removed in 2.0.0.")]
     public static string AesEncrypt(this string input, string key)
     {
         if (string.IsNullOrEmpty(input))

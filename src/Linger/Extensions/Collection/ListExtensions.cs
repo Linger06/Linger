@@ -73,6 +73,7 @@ public static class ListExtensions
     /// // Output: Tree-structured list with root node having two children
     /// </code>
     /// </example>
+    [Obsolete("Build the hierarchy in application code with explicit root, duplicate-key, and cycle policies. This API will be removed in 2.0.0.")]
     public static List<T> ToTree<T>(this List<T> list, Func<T, T, bool> rootWhere, Func<T, T, bool> childsWhere, Action<T, IEnumerable<T>> addChilds, T entity = default!)
     {
         ArgumentNullException.ThrowIfNull(list);

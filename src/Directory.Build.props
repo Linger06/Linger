@@ -44,6 +44,16 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+
+    <None Include="MIGRATION.md" Condition="Exists('MIGRATION.md')">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+
+    <None Include="MIGRATION.zh-CN.md" Condition="Exists('MIGRATION.zh-CN.md')">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

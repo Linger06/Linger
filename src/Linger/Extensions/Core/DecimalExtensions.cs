@@ -152,7 +152,7 @@ public static class DecimalExtensions
     /// <returns>The rounded decimal value.</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="decimals"/> is outside the supported range.</exception>
     /// <remarks>Use <see cref="Round(decimal, int)"/> instead.</remarks>
-    [Obsolete("Use Round instead.")]
+    [Obsolete("Use Round instead. This API will be removed in 2.0.0.")]
     public static decimal ToRounding(this decimal value, int decimals)
     {
         return value.Round(decimals);

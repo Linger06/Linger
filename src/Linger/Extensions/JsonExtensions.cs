@@ -42,7 +42,7 @@ public static class JsonExtensions
     /// // json: "{\n  \"Name\": \"John\",\n  \"Age\": 30\n}"
     /// </code>
     /// </example>
-    public static string ToJsonString(this object data)
+    public static string ToJsonString(this object? data)
     {
         var serializeOptions = new JsonSerializerOptions
         {
@@ -65,7 +65,7 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
-    [Obsolete("DataContractJsonSerializer compatibility is deprecated. Use ToJsonString(value, jsonSerializerOptions) instead.")]
+    [Obsolete("DataContractJsonSerializer compatibility is deprecated. Use ToJsonString(value, jsonSerializerOptions) instead. This API will be removed in 2.0.0.")]
     public static string SerializeJson<T>(this T value)
     {
         return SerializeJsonCore(value);
@@ -85,7 +85,7 @@ public static class JsonExtensions
     /// // json: "{\"Name\":\"John\",\"Age\":30}"
     /// </code>
     /// </example>
-    [Obsolete("The Encoding parameter does not apply to a string result. Use ToJsonString(value, jsonSerializerOptions) instead.")]
+    [Obsolete("The Encoding parameter does not apply to a string result. Use ToJsonString(value, jsonSerializerOptions) instead. This API will be removed in 2.0.0.")]
     public static string SerializeJson<T>(this T value, Encoding encoding)
     {
         ArgumentNullException.ThrowIfNull(encoding);
@@ -119,7 +119,7 @@ public static class JsonExtensions
     /// // json: "{\n  \"Name\": \"John\",\n  \"Age\": 30\n}"
     /// </code>
     /// </example>
-    [Obsolete("Use ToJsonString(value, jsonSerializerOptions) instead.")]
+    [Obsolete("Use ToJsonString(value, jsonSerializerOptions) instead. This API will be removed in 2.0.0.")]
     public static string? Serialize<T>(this T value, JsonSerializerOptions? jsonSerializerOptions = null)
     {
         return value?.ToJsonString(jsonSerializerOptions);
@@ -138,7 +138,7 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    [Obsolete("DataContractJsonSerializer compatibility is deprecated. Use Deserialize<T>(value, jsonSerializerOptions) instead.")]
+    [Obsolete("DataContractJsonSerializer compatibility is deprecated. Use Deserialize<T>(value, jsonSerializerOptions) instead. This API will be removed in 2.0.0.")]
     public static T? DeserializeJson<T>(this string value)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
@@ -161,7 +161,7 @@ public static class JsonExtensions
     /// // obj: Person { Name = "John", Age = 30 }
     /// </code>
     /// </example>
-    [Obsolete("The Encoding parameter does not apply to a .NET string. Use Deserialize<T>(value, jsonSerializerOptions) instead.")]
+    [Obsolete("The Encoding parameter does not apply to a .NET string. Use Deserialize<T>(value, jsonSerializerOptions) instead. This API will be removed in 2.0.0.")]
     public static T? DeserializeJson<T>(this string value, Encoding encoding)
     {
         var serializer = new DataContractJsonSerializer(typeof(T));
@@ -202,6 +202,7 @@ public static class JsonExtensions
     /// // obj.Age: 30
     /// </code>
     /// </example>
+    [Obsolete("Use JsonDocument, JsonElement, or JsonNode instead. This API will be removed in 2.0.0.")]
     public static dynamic DeserializeDynamicJsonObject(this string data)
     {
         return new JsonTextAccessor(JsonSerializer.Deserialize<JsonElement>(data));
@@ -355,6 +356,7 @@ public static class JsonExtensions
     /// // accessor.Age: 30
     /// </code>
     /// </example>
+    [Obsolete("Use JsonDocument, JsonElement, or JsonNode instead. This type will be removed in 2.0.0.")]
     public class JsonTextAccessor(JsonElement content) : DynamicObject
     {
         /// <summary>

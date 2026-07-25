@@ -40,7 +40,7 @@ public static class IQueryableExtensions
     /// // sortedList is sorted by Name
     /// </code>
     /// </example>
-    [Obsolete("Use OrderByIf<T>(IQueryable<T>, bool, string) so query providers may return their own ordered query type.")]
+    [Obsolete("Use OrderByIf<T>(IQueryable<T>, bool, string). In 2.0.0, add Linger.Reflection to use this dynamic-query API. This API will be removed from Linger.Utils in 2.0.0.")]
     public static TQueryable OrderByIf<T, TQueryable>(this TQueryable query, bool condition, string sorting)
         where TQueryable : IQueryable<T>
     {

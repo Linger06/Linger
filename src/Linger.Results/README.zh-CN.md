@@ -2,6 +2,8 @@
 
 Linger.Results 是一个现代化的操作结果处理库，采用函数式风格设计，帮助开发者更优雅地处理各种操作结果。通过使用 Result 模式而非异常机制，可以实现更可控、可预测的错误处理流程。
 
+> 计划从 1.6 升级到 2.0？请参阅 [Linger 2.0 迁移准备](https://github.com/Linger06/Linger/blob/v1.6.0/src/Linger/MIGRATION.zh-CN.md)。
+
 ## 特点
 
 - 提供清晰的成功/失败结果表示

@@ -13,7 +13,7 @@ namespace Linger;
 /// Settings for extension methods.
 /// Provides immutable default configurations to ensure thread safety.
 /// </summary>
-[Obsolete("ExtensionMethodSetting is deprecated. For JSON-related configurations, use JsonDefaults from Linger.Json namespace instead.")]
+[Obsolete("ExtensionMethodSetting is deprecated. For JSON-related configurations, use JsonDefaults from Linger.Json namespace instead. This API will be removed in 2.0.0.")]
 public static class ExtensionMethodSetting
 {
     /// <summary>
@@ -53,7 +53,7 @@ public static class ExtensionMethodSetting
     /// To customize options, create a new JsonSerializerOptions instance based on this one.
     /// </summary>
     /// <value>The default JSON serializer options.</value>
-    [Obsolete("Use JsonDefaults.CreateResponseOptions() from Linger.Json namespace instead.")]
+    [Obsolete("Use JsonDefaults.CreateResponseOptions() from Linger.Json namespace instead. This API will be removed in 2.0.0.")]
     public static JsonSerializerOptions DefaultJsonSerializerOptions { get; }
 
     /// <summary>
@@ -62,10 +62,10 @@ public static class ExtensionMethodSetting
     /// To customize options, create a new JsonSerializerOptions instance based on this one.
     /// </summary>
     /// <value>The default JSON serializer options for POST requests.</value>
-    [Obsolete("Use JsonDefaults.CreateRequestOptions() from Linger.Json namespace instead.")]
+    [Obsolete("Use JsonDefaults.CreateRequestOptions() from Linger.Json namespace instead. This API will be removed in 2.0.0.")]
     public static JsonSerializerOptions DefaultRequestJsonOptions { get; }
 
-    [Obsolete("Use JsonDefaults.CreateRequestOptions() from Linger.Json namespace instead.")]
+    [Obsolete("Use JsonDefaults.CreateRequestOptions() from Linger.Json namespace instead. This API will be removed in 2.0.0.")]
     public static JsonSerializerOptions DefaultPostJsonOption => DefaultRequestJsonOptions;
 
     /// <summary>

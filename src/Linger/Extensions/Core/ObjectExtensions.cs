@@ -28,7 +28,7 @@ public static class ObjectExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static bool IsNotNull([NotNullWhen(true)] this object? value) => value is not null;
 
-    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition.")]
+    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition. This API will be removed in 2.0.0.")]
     public static bool IsNullOrEmpty([NotNullWhen(false)] this object? value)
     {
         if (value is null) return true;
@@ -38,7 +38,7 @@ public static class ObjectExtensions
         return string.IsNullOrEmpty(objectStr);
     }
 
-    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition.")]
+    [Obsolete("Use a type-specific null or empty check. Arbitrary objects do not have a consistent empty-state definition. This API will be removed in 2.0.0.")]
     public static bool IsNotNullOrEmpty([NotNullWhen(true)] this object? value)
     {
         if (value is null) return false;
@@ -111,7 +111,7 @@ public static class ObjectExtensions
     /// <param name="value">The object whose properties are enumerated.</param>
     /// <param name="action">The action to execute with each property name and value.</param>
     /// <remarks>Use <see cref="ForEachProperty"/> instead.</remarks>
-    [Obsolete]
+    [Obsolete("Use ForEachProperty instead. In 2.0.0, add Linger.Reflection to use this runtime-reflection API. This API will be removed from Linger.Utils in 2.0.0.")]
     public static void ForIn<T>(this T? value, Action<string, object?> action)
         where T : class
     {
@@ -719,6 +719,7 @@ public static class ObjectExtensions
     public static Guid? ToGuidOrNull(this object? value) => value.TryToGuid(out var r) ? r : null;
     public static Guid ToGuidOrDefault(this object? value, Guid defaultValue = default) => value.TryToGuid(out var r) ? r : defaultValue;
 
+    [Obsolete("Use a type-specific TryTo... method, or TypeConverter.TryConvert for a runtime target type. This API will be removed in 2.0.0.")]
     public static bool TryToTarget<T>(this object? value, [NotNullWhen(true)] out T? result)
     {
         result = default;
@@ -739,6 +740,7 @@ public static class ObjectExtensions
         return true;
     }
 
+    [Obsolete("Use a type-specific To... method. This API will be removed in 2.0.0.")]
     public static T ToTarget<T>(this object? value)
     {
         if (value is null || value is DBNull)
@@ -761,9 +763,11 @@ public static class ObjectExtensions
         return CastToTarget<T>(converted, targetType, underlyingType);
     }
 
+    [Obsolete("Use a type-specific To...OrDefault method. This API will be removed in 2.0.0.")]
     public static T ToTargetOrDefault<T>(this object? value, T defaultValue = default!)
         => value.TryToTarget<T>(out var result) ? result! : defaultValue;
 
+    [Obsolete("Use a type-specific To...OrNull method. This API will be removed in 2.0.0.")]
     public static T? ToTargetOrNull<T>(this object? value) where T : struct
         => value.TryToTarget<T>(out var result) ? result : null;
 

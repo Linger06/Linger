@@ -21,7 +21,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>操作结果</returns>
     /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
-    [Obsolete("Use the overload that accepts Func<CancellationToken, Task<T>> so cancellation reaches the operation.")]
+    [Obsolete("Use the overload that accepts Func<CancellationToken, Task<T>> so cancellation reaches the operation. This API will be removed in 2.0.0.")]
     public async Task<T> ExecuteAsync<T>(
         Func<Task<T>> operation,
         string? operationName = null,
@@ -77,7 +77,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>表示操作完成的任务</returns>
     /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
-    [Obsolete("Use the overload that accepts Func<CancellationToken, Task> so cancellation reaches the operation.")]
+    [Obsolete("Use the overload that accepts Func<CancellationToken, Task> so cancellation reaches the operation. This API will be removed in 2.0.0.")]
     public async Task ExecuteAsync(
         Func<Task> operation,
         string? operationName = null,

@@ -27,7 +27,7 @@ public static class DataTableExtensions
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This method performs synchronous in-memory work. Use a synchronous ToList<T>() overload instead.")]
+    [Obsolete("This method performs synchronous reflection-based work. Use an explicit mapper or factory overload, or add Linger.Reflection and use ToList<T>() after upgrading to 2.0.0. This API will be removed from Linger.Utils in 2.0.0.")]
     public static Task<List<T>?> ToListAsync<T>(this DataTable dt) where T : class, new()
     {
         return Task.FromResult(dt.ToList<T>());
@@ -52,7 +52,7 @@ public static class DataTableExtensions
     /// });
     /// </code>
     /// </example>
-    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<DataRow, T>) instead.")]
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<DataRow, T>) instead. This API will be removed in 2.0.0.")]
     public static Task<List<T>> ToListAsync<T>(this DataTable dt, Func<DataRow, T> map)
     {
         ArgumentNullException.ThrowIfNull(dt);
@@ -83,7 +83,7 @@ public static class DataTableExtensions
     ///     });
     /// </code>
     /// </example>
-    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
+    [Obsolete("This method performs synchronous in-memory work. Use ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead. This API will be removed in 2.0.0.")]
     public static Task<List<T>> ToListAsync<T>(
         this DataTable dt,
         Func<T> factory,
@@ -215,7 +215,7 @@ public static class DataTableExtensions
     {
         ArgumentNullException.ThrowIfNull(sourceTable);
         ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
-        return sourceTable.AsEnumerable().Sum(dr => dr[columnName].ToTargetOrDefault<double>());
+        return sourceTable.AsEnumerable().Sum(dr => dr[columnName].ToDoubleOrDefault());
     }
 
     /// <summary>
@@ -820,7 +820,7 @@ public static class DataTableExtensions
                 return;
             }
 
-            if (!Helper.TypeConverter.TryConvertTo(rawValue, typeof(TValue), out var convertedValue))
+            if (!Helper.TypeConverter.TryConvert(rawValue, typeof(TValue), out var convertedValue))
             {
                 return;
             }
@@ -938,7 +938,7 @@ public static class DataTableExtensions
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload ToList<T>(DataTable?, Func<DataRow, T>) for AOT/trimming scenarios.")]
 #endif
-    [Obsolete("This overload uses reflection and is not AOT-friendly. Use ToList<T>(DataTable?, Func<DataRow, T>) or ToList<T>(DataTable?, Func<T>, IReadOnlyDictionary<string, Action<T, object?>>) instead.")]
+    [Obsolete("This overload uses reflection and is not AOT-friendly. Use an explicit mapper or factory overload, or add Linger.Reflection and keep using ToList<T>() after upgrading to 2.0.0. This API will be removed from Linger.Utils in 2.0.0.")]
     public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000) where T : class, new()
     {
         if (dataTable?.Rows.Count == 0)
@@ -1056,7 +1056,9 @@ public static class DataTableExtensions
             return;
         }
 
+#pragma warning disable CS0618 // Preserve legacy custom TypeConverter behavior until this API is removed in 2.0.
         if (!Helper.TypeConverter.TryConvertTo(value, property.PropertyType, out var convertedValue))
+#pragma warning restore CS0618
         {
             throw new InvalidCastException(
                 $"[核心转换失败] 无法将输入值 '{value}' (类型: {value.GetType().Name}) 转换为属性 '{property.Name}' 所需的目标类型 {property.PropertyType.Name}。 " +
