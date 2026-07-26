@@ -7,15 +7,25 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Linger.EFCore;
 
+/// <summary>
+/// Provides value conversion helpers for Entity Framework Core properties.
+/// </summary>
 public static class PropertyBuilderExtensions
 {
+    /// <summary>
+    /// Configures JSON storage, structural comparison, and snapshotting for a reference type.
+    /// </summary>
+    /// <typeparam name="T">The property type.</typeparam>
+    /// <param name="propertyBuilder">The property builder.</param>
+    /// <param name="options">Optional JSON serializer options.</param>
+    /// <returns>The same property builder instance.</returns>
     public static PropertyBuilder<T?> HasJsonConversion<T>(this PropertyBuilder<T?> propertyBuilder, JsonSerializerOptions? options = null) where T : class, new()
     {
         ArgumentNullException.ThrowIfNull(propertyBuilder);
         options ??= new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
+            WriteIndented = false,
             AllowTrailingCommas = true,
             PropertyNameCaseInsensitive = true
         };
@@ -37,32 +47,20 @@ public static class PropertyBuilderExtensions
         return propertyBuilder;
     }
 
-    public static PropertyBuilder<T?> HasStringCollectionConversion<T>(this PropertyBuilder<T?> propertyBuilder, string separator = ";") where T : class, IEnumerable<string>
+    /// <summary>
+    /// Configures JSON storage, structural comparison, and snapshotting for a string collection.
+    /// </summary>
+    /// <typeparam name="TCollection">The string collection type.</typeparam>
+    /// <param name="propertyBuilder">The property builder.</param>
+    /// <returns>The same property builder instance.</returns>
+    public static PropertyBuilder<TCollection?> HasStringCollectionConversion<TCollection>(this PropertyBuilder<TCollection?> propertyBuilder) where TCollection : class, IEnumerable<string>
     {
-        var converter = new StringCollectionConverter<T>(separator);
-        var comparer = new StringCollectionComparer();
+        ArgumentNullException.ThrowIfNull(propertyBuilder);
+
+        var converter = new StringCollectionConverter<TCollection>();
+        var comparer = new StringCollectionComparer<TCollection>();
 
         propertyBuilder.HasConversion(converter, comparer);
         return propertyBuilder;
     }
-
-    //public static PropertyBuilder<DateTimeOffset?> HasDateTimeOffsetConversion(this PropertyBuilder<DateTimeOffset?> propertyBuilder)
-    //{
-    //    ArgumentNullException.ThrowIfNull(propertyBuilder);
-    //    var converter = new ValueConverter<DateTimeOffset?, DateTime?>
-    //    (
-    //        v => v.ToDateTime(),
-    //        v => v.ToDateTimeOffset()
-    //    );
-
-    //    var comparer = new ValueComparer<DateTimeOffset?>
-    //    (
-    //        (l, r) => l.Equals(r),
-    //        v => v.GetHashCode(),
-    //        v => v
-    //    );
-
-    //    propertyBuilder.HasConversion(converter, comparer);
-    //    return propertyBuilder;
-    //}
 }

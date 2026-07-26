@@ -46,6 +46,7 @@
     <Project Path="src/Linger/Linger.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Linger.Audit.UnitTests/Linger.Audit.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.Oracle.UnitTests/Linger.DataAccess.Oracle.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.Sqlite.UnitTests/Linger.DataAccess.Sqlite.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.SqlServer.UnitTests/Linger.DataAccess.SqlServer.UnitTests.csproj" />

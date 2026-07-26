@@ -361,6 +361,7 @@ public static partial class FileHelper
     /// <param name="destDirectory">The destination directory path.</param>
     /// <exception cref="ArgumentException">Thrown when srcDirectory or destDirectory is null or whitespace.</exception>
     /// <exception cref="DirectoryNotFoundException">Thrown when the source directory does not exist.</exception>
+    /// <exception cref="IOException">Thrown when the source directory contains a reparse point.</exception>
     /// <example>
     /// <code>
     /// FileHelper.CopyDir("C:\\source", "C:\\backup");
@@ -378,6 +379,8 @@ public static partial class FileHelper
         destDirectory = Path.GetFullPath(destDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar);
 
+        ThrowIfReparsePoint(srcDirectory);
+
         var pathComparison = Path.DirectorySeparatorChar == '\\'
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
@@ -392,6 +395,8 @@ public static partial class FileHelper
 
         foreach (var file in fileList)
         {
+            ThrowIfReparsePoint(file);
+
             var destFile = Path.Combine(destDirectory, Path.GetFileName(file));
 
             if (Directory.Exists(file))
@@ -402,6 +407,14 @@ public static partial class FileHelper
             {
                 File.Copy(file, destFile, true);
             }
+        }
+    }
+
+    private static void ThrowIfReparsePoint(string path)
+    {
+        if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"Copying reparse points is not supported: {path}");
         }
     }
 

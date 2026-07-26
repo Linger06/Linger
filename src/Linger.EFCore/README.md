@@ -47,7 +47,7 @@ public class Product
 
 protected override void OnModelCreating(ModelBuilder modelBuilder) 
 {
-    modelBuilder.Entity<Product>().Property(x => x.Tags).HasStringCollectionConversion(separator: ","); 
+    modelBuilder.Entity<Product>().Property(x => x.Tags).HasStringCollectionConversion();
 }
 ```
 
@@ -56,21 +56,21 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 
 ```csharp
 // Define your interface 
-public interface ISoftDelete { bool IsDeleted { get; set; } }
+public interface ISoftDelete { bool? IsDeleted { get; set; } }
 
 // Implement the interface in your entities 
 public class User : ISoftDelete 
 {
     public int Id { get; set; }
     public string Name { get; set; }
-    public bool IsDeleted { get; set; } 
+    public bool? IsDeleted { get; set; }
 }
 
 // Apply the filter in your DbContext 
 protected override void OnModelCreating(ModelBuilder modelBuilder) 
 { 
     // This will automatically filter out soft-deleted entities 
-    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => !e.IsDeleted); 
+    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => e.IsDeleted != true);
 }
 ```
 
@@ -90,7 +90,7 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // This will automatically filter entities by tenant
-        modelBuilder.ApplyGlobalFilters("TenantId", _currentTenantId);
+        modelBuilder.ApplyGlobalFilters("TenantId", () => _currentTenantId);
     }
 }
 ```

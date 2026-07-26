@@ -57,9 +57,7 @@ public class AppDbContext : DbContext
 public class CurrentUserProvider : IAuditUserProvider 
 { 
     // 可以从当前认证系统获取用户信息
-    public string? UserName => "张三"; 
-    
-    public string GetUser() => UserName ?? "匿名用户"; 
+    public string? GetUser() => "张三";
 }
 
 // 3. 注册服务和拦截器
@@ -172,10 +170,9 @@ public class AuditTrailEntry
     public string? EntityId { get; set; }
     public Dictionary<string, object>? OldValues { get; set; }
     public Dictionary<string, object>? NewValues { get; set; }
+    public Dictionary<string, object>? CurrentValuesSnapshot { get; set; }
     public List<string>? AffectedColumns { get; set; }
     public DateTimeOffset TimeStamp { get; set; }
-    public Dictionary<string, object>? Changes { get; set; }
-    public IEnumerable<PropertyEntry>? TempProperties { get; set; }
 }
 ```
 
@@ -185,6 +182,7 @@ public class AuditTrailEntry
 - 执行变更的用户名
 - 时间戳
 - 属性的旧值和新值
+- 当前非主键属性的完整快照
 - 已修改属性列表
 ```
 

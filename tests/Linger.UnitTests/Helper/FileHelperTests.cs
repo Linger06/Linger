@@ -388,6 +388,30 @@ public class FileHelperTests : IDisposable
         Assert.True(File.Exists(Path.Combine(destDir, "subDir", "subFile.txt")));
     }
 
+#if NET6_0_OR_GREATER
+    [Fact]
+    public void CopyDir_WithDirectoryReparsePoint_ThrowsIOException()
+    {
+        var sourceDir = CreateTestDirectory("sourceDir");
+        var linkedTargetDir = CreateTestDirectory("linkedTarget");
+        CreateTestFile(Path.Combine("linkedTarget", "outside.txt"), "content");
+        var linkPath = Path.Combine(sourceDir, "linkedDirectory");
+        var destDir = Path.Combine(_testDirectory, "destDir");
+        _createdDirectories.Add(destDir);
+
+        try
+        {
+            _ = Directory.CreateSymbolicLink(linkPath, linkedTargetDir);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            throw Xunit.Sdk.SkipException.ForSkip("The current environment does not allow creating directory symbolic links.");
+        }
+
+        Assert.Throws<IOException>(() => FileHelper.CopyDir(sourceDir, destDir));
+    }
+#endif
+
     [Fact]
     public void ClearDirectory_WithPopulatedDirectory_EmptiesDirectory()
     {

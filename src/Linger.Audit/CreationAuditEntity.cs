@@ -2,14 +2,27 @@ using Linger.Audit.Contracts;
 
 namespace Linger.Audit;
 
-public abstract class CreationAuditEntity<T> : CreationAuditEntity, IEntity<T>
+/// <summary>
+/// Represents an entity with creation audit information and a strongly typed identifier.
+/// </summary>
+/// <typeparam name="T">The identifier type.</typeparam>
+public abstract class CreationAuditEntity<T> : BaseEntity<T>, ICreationAuditEntity
 {
-    public T Id { get; set; } = default!;
+    /// <inheritdoc />
+    public string CreatorId { get; set; } = string.Empty;
+
+    /// <inheritdoc />
+    public DateTimeOffset CreationTime { get; set; }
 }
 
+/// <summary>
+/// Represents an entity with creation audit information.
+/// </summary>
 public abstract class CreationAuditEntity : BaseEntity, ICreationAuditEntity
 {
-    public string CreatorId { get; set; } = null!;
+    /// <inheritdoc />
+    public string CreatorId { get; set; } = string.Empty;
 
-    public DateTimeOffset CreationTime { get; set; } = DateTimeOffset.Now;
+    /// <inheritdoc />
+    public DateTimeOffset CreationTime { get; set; }
 }

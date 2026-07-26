@@ -89,7 +89,7 @@ public class Comment : CreationAuditEntity<Guid>
     public Guid ProductId { get; set; }
 
     // Inherited properties:
-    // public string? CreatorId { get; set; }
+    // public string CreatorId { get; set; }
     // public DateTimeOffset CreationTime { get; set; }
 }
 ```
@@ -107,7 +107,7 @@ public class User : FullAuditEntity<Guid>
 
     // Inherited properties:
     // Creation
-    // public string? CreatorId { get; set; }
+    // public string CreatorId { get; set; }
     // public DateTimeOffset CreationTime { get; set; }
 
     // Modification
@@ -232,7 +232,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             var parameter = Expression.Parameter(entityType.ClrType, "e");
             var property = Expression.PropertyOrField(parameter, nameof(ISoftDelete.IsDeleted));
-            var condition = Expression.Not(property);
+            var condition = Expression.NotEqual(property, Expression.Constant(true, typeof(bool?)));
             var lambda = Expression.Lambda(condition, parameter);
 
             modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
@@ -372,7 +372,7 @@ Base class that tracks creation information:
 ```csharp
 public abstract class CreationAuditEntity : ICreationAuditEntity
 {
-    public string? CreatorId { get; set; }
+    public string CreatorId { get; set; }
     public DateTimeOffset CreationTime { get; set; }
 }
 ```

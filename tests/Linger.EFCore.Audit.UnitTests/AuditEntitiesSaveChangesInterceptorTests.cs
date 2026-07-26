@@ -5,6 +5,7 @@ using Linger.EFCore.Audit.Interceptors;
 using Linger.Extensions.Core;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using System.Text.Json;
 
 public class AuditEntitiesSaveChangesInterceptorTests
 {
@@ -14,7 +15,6 @@ public class AuditEntitiesSaveChangesInterceptorTests
     public AuditEntitiesSaveChangesInterceptorTests()
     {
         _mockUserProvider = new Mock<IAuditUserProvider>();
-        _mockUserProvider.Setup(x => x.UserName).Returns("TestUser");
         _mockUserProvider.Setup(x => x.GetUser()).Returns("TestUser");
 
         var interceptor = new AuditEntitiesSaveChangesInterceptor(_mockUserProvider.Object);
@@ -75,9 +75,11 @@ public class AuditEntitiesSaveChangesInterceptorTests
         Assert.Equal(testEntity.Id.ToString(), auditEntry.EntityId);
         Assert.NotNull(auditEntry.OldValues);
         Assert.NotNull(auditEntry.NewValues);
+        Assert.NotNull(auditEntry.CurrentValuesSnapshot);
         Assert.Contains("Name", auditEntry.AffectedColumns!);
         Assert.Equal("Test", auditEntry.OldValues["Name"]);
         Assert.Equal("Updated", auditEntry.NewValues["Name"]);
+        Assert.Equal("Updated", auditEntry.CurrentValuesSnapshot["Name"]);
     }
 
     [Fact]
@@ -187,6 +189,38 @@ public class AuditEntitiesSaveChangesInterceptorTests
         Assert.Equal("Test", auditEntry.OldValues["Name"]);
     }
 
+    [Fact]
+    public async Task SavingChanges_WithGeneratedInMemoryKey_StoresEntityId()
+    {
+        var entity = new TestAuditEntity { Name = "Generated" };
+
+        _dbContext.TestEntities.Add(entity);
+        await _dbContext.SaveChangesAsync();
+
+        var auditEntry = await _dbContext.AuditTrails.AsNoTracking().SingleAsync();
+        Assert.True(entity.Id > 0);
+        Assert.Equal(entity.Id.ToString(), auditEntry.EntityId);
+    }
+
+    [Fact]
+    public async Task SavingChanges_WithCompositeKey_StoresAllKeyValues()
+    {
+        var entity = new CompositeAuditEntity
+        {
+            TenantId = 7,
+            RecordId = 42,
+            Name = "Composite"
+        };
+
+        _dbContext.CompositeEntities.Add(entity);
+        await _dbContext.SaveChangesAsync();
+
+        var auditEntry = await _dbContext.AuditTrails.AsNoTracking().SingleAsync();
+        using var entityId = JsonDocument.Parse(auditEntry.EntityId!);
+        Assert.Equal(7, entityId.RootElement.GetProperty(nameof(CompositeAuditEntity.TenantId)).GetInt32());
+        Assert.Equal(42, entityId.RootElement.GetProperty(nameof(CompositeAuditEntity.RecordId)).GetInt32());
+    }
+
 }
 
 public class TestDbContext : DbContext
@@ -197,12 +231,14 @@ public class TestDbContext : DbContext
 
     public DbSet<TestAuditEntity> TestEntities { get; set; } = null!;
     public DbSet<TestAuditEntityWithoutSoftDelete> TestEntitiesWithoutSoftDelete { get; set; } = null!;
+    public DbSet<CompositeAuditEntity> CompositeEntities { get; set; } = null!;
 
     public DbSet<AuditTrailEntry> AuditTrails { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.Entity<CompositeAuditEntity>().HasKey(entity => new { entity.TenantId, entity.RecordId });
         modelBuilder.ApplyAudit();
     }
 }
@@ -215,5 +251,12 @@ public class TestAuditEntity : FullAuditEntity<int>
 public class TestAuditEntityWithoutSoftDelete : AuditEntity
 {
     public int Id { get; set; }
+    public string Name { get; set; } = null!;
+}
+
+public class CompositeAuditEntity : AuditEntity
+{
+    public int TenantId { get; set; }
+    public int RecordId { get; set; }
     public string Name { get; set; } = null!;
 }

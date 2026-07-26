@@ -1,21 +1,23 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Linger.EFCore.Converters;
 
-public class StringCollectionConverter<T>(string separator = ";") : ValueConverter<T?, string>(
-        v => v != null ? string.Join(separator, v) : string.Empty,
-        v => (T)CreateCollection(v != null ? v.Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries) : Array.Empty<string>())
-        ) where T : class, IEnumerable<string>
+/// <summary>
+/// Converts string collection types to and from JSON.
+/// </summary>
+/// <typeparam name="TCollection">The collection type.</typeparam>
+public sealed class StringCollectionConverter<TCollection> : ValueConverter<TCollection?, string>
+    where TCollection : class, IEnumerable<string>
 {
-    private static IEnumerable<string> CreateCollection(string[] items)
+    /// <summary>
+    /// Initializes a new converter.
+    /// </summary>
+    /// <param name="options">Optional JSON serializer options.</param>
+    public StringCollectionConverter(JsonSerializerOptions? options = null)
+        : base(
+            value => JsonSerializer.Serialize(value, options),
+            value => JsonSerializer.Deserialize<TCollection>(value, options))
     {
-        if (typeof(T) == typeof(string[]))
-            return items;
-        if (typeof(T) == typeof(List<string>) || typeof(T) == typeof(ICollection<string>))
-            return items.ToList();
-        if (typeof(T) == typeof(IEnumerable<string>))
-            return items;
-
-        throw new ArgumentException($"Unsupported collection type: {typeof(T)}");
     }
 }

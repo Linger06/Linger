@@ -59,9 +59,7 @@ public class AppDbContext : DbContext
 public class CurrentUserProvider : IAuditUserProvider 
 { 
     // Can get user info from your authentication system
-    public string? UserName => "john.doe"; 
-    
-    public string GetUser() => UserName ?? "anonymous"; 
+    public string? GetUser() => "john.doe";
 }
 
 // 3. Register services and interceptor
@@ -171,10 +169,9 @@ public class AuditTrailEntry
     public string? EntityId { get; set; }
     public Dictionary<string, object>? OldValues { get; set; }
     public Dictionary<string, object>? NewValues { get; set; }
+    public Dictionary<string, object>? CurrentValuesSnapshot { get; set; }
     public List<string>? AffectedColumns { get; set; }
     public DateTimeOffset TimeStamp { get; set; }
-    public Dictionary<string, object>? Changes { get; set; }
-    public IEnumerable<PropertyEntry>? TempProperties { get; set; }
 }
 ```
 
@@ -184,6 +181,7 @@ The `AuditTrailEntry` captures:
 - Username performing the change
 - Timestamp
 - Old and new property values
+- Complete current non-key property value snapshot
 - List of modified columns
 
 ## 🔍 Automatic Tracking

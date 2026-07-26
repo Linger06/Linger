@@ -621,7 +621,7 @@ public static class DateTimeExtensions
             var targetWeekEnd = targetWeekStart.AddDays(7).AddMilliseconds(-1);
             return Tuple.Create(targetWeekStart, targetWeekEnd);
 #else
-        var targetWeekStart = firstWeekStartEndDay.Start.AddDays(7 * (weekNumber - 1));
+        var targetWeekStart = firstWeekStartEndDay.End.Date.AddDays(7 * (weekNumber - 2) + 1);
         var targetWeekEnd = targetWeekStart.AddDays(7).AddMilliseconds(-1);
         return (targetWeekStart, targetWeekEnd);
 #endif

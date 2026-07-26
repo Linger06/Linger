@@ -121,20 +121,20 @@ public async Task<ActionResult<PagedResult<ProductDto>>> GetProducts([FromQuery]
 ```csharp
 public interface ISoftDelete
 {
-    bool IsDeleted { get; set; }
+    bool? IsDeleted { get; set; }
 }
 
 public class Customer : ISoftDelete
 {
     public int Id { get; set; }
     public string Name { get; set; }
-    public bool IsDeleted { get; set; }
+    public bool? IsDeleted { get; set; }
 }
 
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     // 为所有实现 ISoftDelete 的实体应用全局过滤器
-    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => !e.IsDeleted);
+    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => e.IsDeleted != true);
 }
 ```
 
@@ -153,7 +153,7 @@ public class ApplicationDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // 自动按租户过滤实体
-        modelBuilder.ApplyGlobalFilters("TenantId", _currentTenantId);
+        modelBuilder.ApplyGlobalFilters("TenantId", () => _currentTenantId);
     }
 }
 ```
@@ -189,7 +189,7 @@ public interface IMultiTenant
 protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     // 应用软删除过滤器
-    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => !e.IsDeleted);
+    modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => e.IsDeleted != true);
     
     // 应用多租户过滤器
     var tenantId = _tenantService.GetCurrentTenantId();

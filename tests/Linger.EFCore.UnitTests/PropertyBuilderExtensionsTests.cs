@@ -155,32 +155,4 @@ public class PropertyBuilderExtensionsTests
         }
     }
 
-    [Theory]
-    [InlineData(";")]
-    [InlineData("|")]
-    [InlineData(",")]
-    public async Task HasArrayConversion_WithDifferentSeparators_ShouldWorkCorrectly(string separator)
-    {
-        // Arrange
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseInMemoryDatabase($"SeparatorTest_{separator}")
-            .Options;
-
-        var strings = new[] { "one", "two", "three" };
-        var entity = new TestEntity { StringEnumerable = strings };
-
-        // Act & Assert
-        await using (var context = new TestDbContext(options))
-        {
-            await context.TestEntities.AddAsync(entity);
-            await context.SaveChangesAsync();
-        }
-
-        await using (var context = new TestDbContext(options))
-        {
-            var loadedEntity = await context.TestEntities.SingleAsync();
-            Assert.NotNull(loadedEntity.StringEnumerable);
-            Assert.Equal(strings, loadedEntity.StringEnumerable);
-        }
-    }
 }

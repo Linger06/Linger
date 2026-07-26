@@ -339,6 +339,17 @@ public class DateTimeExtensionsTests7
     }
 
     [Fact]
+    public void GetStartEndDayOfWeek_FirstDayRuleWithPartialFirstWeek_ReturnsSecondCalendarWeek()
+    {
+        var culture = CultureInfo.InvariantCulture;
+
+        var (start, end) = DateTimeExtensions.GetStartEndDayOfWeek(2024, 2, culture);
+
+        Assert.Equal(new DateTime(2024, 1, 7), start);
+        Assert.Equal(new DateTime(2024, 1, 13, 23, 59, 59, 999), end);
+    }
+
+    [Fact]
     public void GetFirstEndDayOfWeek_CustomFirstDayOfWeek_ReturnsCorrectDates()
     {
         // Arrange
