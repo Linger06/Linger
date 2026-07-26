@@ -11,31 +11,6 @@ public interface ILocalFileSystem : IFileSystemOperations, IBatchFileSystemOpera
     string RootDirectoryPath { get; }
 
     /// <summary>
-    /// 检查根目录是否存在。
-    /// </summary>
-    /// <returns>如果根目录存在，则为 <c>true</c>；否则为 <c>false</c>。</returns>
-    bool Exists();
-
-    /// <summary>
-    /// 异步检查根目录是否存在。
-    /// </summary>
-    /// <param name="cancellationToken">用于取消操作的令牌。</param>
-    /// <returns>表示异步操作的任务，任务结果为 <c>true</c> 表示根目录存在；否则为 <c>false</c>。</returns>
-    Task<bool> ExistsAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 如果根目录不存在则创建它。
-    /// </summary>
-    void CreateIfNotExists();
-
-    /// <summary>
-    /// 异步创建根目录（如果不存在）。
-    /// </summary>
-    /// <param name="cancellationToken">用于取消操作的令牌。</param>
-    /// <returns>表示异步操作的任务。</returns>
-    Task CreateIfNotExistsAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// 上传流到本地文件系统，支持多种命名规则和冲突处理策略。
     /// </summary>
     /// <param name="inputStream">输入流。</param>

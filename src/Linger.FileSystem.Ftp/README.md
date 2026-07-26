@@ -24,7 +24,7 @@ dotnet add package Linger.FileSystem.Ftp
 
 ```csharp
 // Create settings for remote FTP system
-var settings = new RemoteSystemSetting
+var settings = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,
@@ -78,14 +78,6 @@ var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwr
 
 // Method 2: Upload local file to complete remote path
 result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
-
-// Method 3: Upload with separate directory and filename (convenient for dynamic naming)
-result = await ftpSystem.UploadFileAsync(
-    "C:/local/file.txt",           // Local file path
-    "/remote/directory",            // Remote directory
-    "custom-name.txt",              // Custom filename
-    overwrite: true
-);
 ```
 
 ## Integration with Dependency Injection
@@ -95,7 +87,7 @@ result = await ftpSystem.UploadFileAsync(
 public void ConfigureServices(IServiceCollection services)
 {
     services.AddSingleton<IFileSystemOperations>(provider => {
-        var settings = new RemoteSystemSetting
+        var settings = new FtpFileSystemOptions
         {
             Host = "ftp.example.com",
             Port = 21,
@@ -124,24 +116,20 @@ public void ConfigureServices(IServiceCollection services)
 ```csharp
 // Set working directory
 await ftpSystem.SetWorkingDirectoryAsync("/public_html");
-
-// Get current working directory
-var currentDir = await ftpSystem.GetWorkingDirectoryAsync();
-Console.WriteLine($"Current directory: {currentDir}");
 ```
 
 ### Directory Listing and Manipulation
 
 ```csharp
-// List directory contents
-var files = await ftpSystem.ListDirectoryAsync("/public_html");
+// List files
+var files = await ftpSystem.ListFilesAsync("/public_html");
 foreach (var file in files)
 {
-    Console.WriteLine($"File: {file.Name}, Size: {file.Size}, Modified: {file.Modified}");
+    Console.WriteLine($"File: {file}");
 }
 
 // Create directory
-await ftpSystem.CreateDirectoryAsync("/public_html/uploads");
+await ftpSystem.CreateDirectoryIfNotExistsAsync("/public_html/uploads");
 
 // Check if directory exists
 bool exists = await ftpSystem.DirectoryExistsAsync("/public_html/uploads");
@@ -209,7 +197,7 @@ The `BatchProgress` struct provides:
 ### Custom Connection Settings
 
 ```csharp
-var settings = new RemoteSystemSetting
+var settings = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,
@@ -242,7 +230,7 @@ var ftpSystem = new FtpFileSystem(settings, retryOptions);
 
 ### Concurrency for Batch Operations
 
-You can control parallelism for batch upload/download/delete via `RemoteSystemSetting.MaxDegreeOfParallelism`.
+You can control parallelism for batch upload/download/delete via `FtpFileSystemOptions.MaxDegreeOfParallelism`.
 
 Behavior:
 - `MaxDegreeOfParallelism = 1`: single connection, serial execution.
@@ -251,7 +239,7 @@ Behavior:
 Example:
 
 ```csharp
-var settings = new RemoteSystemSetting
+var settings = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,

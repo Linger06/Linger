@@ -25,7 +25,7 @@ dotnet add package Linger.FileSystem.Ftp
 
 ```csharp
 // 创建远程 FTP 系统设置
-var settings = new RemoteSystemSetting
+var settings = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,
@@ -74,10 +74,10 @@ await ftpSystem.DisconnectAsync();
 
 ### 配置并发开关
 
-在批量上传/下载/删除时，FTP 客户端支持通过 `RemoteSystemSetting.MaxDegreeOfParallelism` 控制并发度：
+在批量上传/下载/删除时，FTP 客户端支持通过 `FtpFileSystemOptions.MaxDegreeOfParallelism` 控制并发度：
 
 ```csharp
-var settings = new RemoteSystemSetting
+var settings = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,
@@ -172,7 +172,7 @@ var deleteResult = await ftp.DeleteFilesAsync(new[] { "/remote/old.txt" }, progr
 ### 并发与重试配置
 
 ```csharp
-var settings = new RemoteSystemSetting
+var settings = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,
@@ -203,21 +203,13 @@ var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwr
 
 // 方法 2: 上传本地文件到完整远程路径
 result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
-
-// 方法 3: 分别指定目录和文件名上传（便于动态命名）
-result = await ftpSystem.UploadFileAsync(
-    "C:/local/file.txt",           // 本地文件路径
-    "/remote/directory",            // 远程目录
-    "custom-name.txt",              // 自定义文件名
-    overwrite: true
-);
 ```
 
 ## 与依赖注入集成
 
 ```csharp
 builder.Services.AddSingleton<IRemoteFileSystem>(provider => {
-    var settings = new RemoteSystemSetting
+    var settings = new FtpFileSystemOptions
     {
         Host = "ftp.example.com",
         Port = 21,

@@ -10,7 +10,7 @@ namespace Linger.FileSystem;
 /// <list type="bullet">
 ///   <item><description>流式读写：<see cref="OpenReadAsync"/>、<see cref="OpenWriteAsync"/></description></item>
 ///   <item><description>文本读写：<see cref="GetReaderAsync"/>、<see cref="GetWriterAsync"/></description></item>
-///   <item><description>元数据查询：<see cref="IsDirectoryAsync"/>、<see cref="GetFileSizeAsync"/></description></item>
+///   <item><description>元数据查询：<see cref="GetFileSizeAsync"/></description></item>
 ///   <item><description>文件传输：<see cref="UploadAsync"/>、<see cref="DownloadToStreamAsync"/> 等</description></item>
 /// </list>
 /// <para>所有方法均支持 <see cref="CancellationToken"/>，可在长时间操作中安全取消。</para>
@@ -101,29 +101,6 @@ public interface IFileSystemOperations : IFileSystem
     /// </code>
     /// </example>
     Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, Encoding? encoding = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 异步判断指定路径是否为目录。
-    /// </summary>
-    /// <param name="directoryPath">要检查的路径（相对于根目录或绝对路径）。</param>
-    /// <param name="cancellationToken">用于取消操作的令牌。</param>
-    /// <returns>
-    /// 表示异步操作的任务，任务结果为 <c>true</c> 表示路径是一个已存在的目录；
-    /// <c>false</c> 表示路径不存在或不是目录。
-    /// </returns>
-    /// <exception cref="OperationCanceledException">当操作被取消时抛出。</exception>
-    /// <remarks>
-    /// <para>此方法可用于在执行文件操作前判断路径类型，避免对目录执行文件操作。</para>
-    /// </remarks>
-    /// <example>
-    /// <code>
-    /// if (await fileSystem.IsDirectoryAsync("data", cancellationToken))
-    /// {
-    ///     // 处理目录...
-    /// }
-    /// </code>
-    /// </example>
-    Task<bool> IsDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步获取文件大小（以字节为单位）。

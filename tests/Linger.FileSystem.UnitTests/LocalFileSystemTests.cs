@@ -31,29 +31,6 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public void Exists_WhenDirectoryExists_ReturnsTrue()
-        {
-            // Act
-            var result = _fileSystem.Exists();
-
-            // Assert
-            Assert.True(result);
-        }
-
-        [Fact]
-        public void CreateIfNotExists_CreatesDirectory()
-        {
-            // Arrange
-            Directory.Delete(_testRootPath, true);
-
-            // Act
-            _fileSystem.CreateIfNotExists();
-
-            // Assert
-            Assert.True(Directory.Exists(_testRootPath));
-        }
-
-        [Fact]
         public async Task DeleteAsync_WhenCanceled_ThrowsOperationCanceledException()
         {
             using var cancellation = new CancellationTokenSource();
@@ -333,6 +310,50 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
+        public void GetRealPath_WithSiblingPrefix_ThrowsArgumentException()
+        {
+            var siblingPath = Path.GetFullPath(_fileSystem.RootDirectoryPath + "-sibling");
+
+            Assert.Throws<ArgumentException>(() => _fileSystem.GetRealPath(Path.Combine(siblingPath, "file.txt")));
+        }
+
+        [Fact]
+        public void GetRealPath_WithParentTraversal_ThrowsArgumentException()
+        {
+            Assert.Throws<ArgumentException>(() => _fileSystem.GetRealPath(Path.Combine("..", "outside.txt")));
+        }
+
+#if NET6_0_OR_GREATER
+        [Fact]
+        public void GetRealPath_WithDirectoryReparsePoint_ThrowsIOException()
+        {
+            var targetPath = _testRootPath + "-target";
+            var linkPath = Path.Combine(_testRootPath, "linkedDirectory");
+            Directory.CreateDirectory(targetPath);
+
+            try
+            {
+                _ = Directory.CreateSymbolicLink(linkPath, targetPath);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+            {
+                Directory.Delete(targetPath, true);
+                throw Xunit.Sdk.SkipException.ForSkip("The current environment does not allow creating directory symbolic links.");
+            }
+
+            try
+            {
+                Assert.Throws<IOException>(() => _fileSystem.GetRealPath(Path.Combine("linkedDirectory", "outside.txt")));
+            }
+            finally
+            {
+                Directory.Delete(linkPath);
+                Directory.Delete(targetPath, true);
+            }
+        }
+#endif
+
+        [Fact]
         public async Task UploadAsync_WithSourceFilePathName_UploadsFile()
         {
             // Arrange
@@ -381,6 +402,37 @@ namespace Linger.FileSystem.Tests.Local
             Assert.NotNull(result);
             Assert.True(File.Exists(result.RelativeFilePath));
             Assert.Equal(content, File.ReadAllBytes(result.RelativeFilePath));
+        }
+
+        [Fact]
+        public async Task UploadAsync_AfterPartialFailure_RestoresInitialStreamPosition()
+        {
+            var content = Encoding.UTF8.GetBytes("xxTest Content");
+            using var stream = new PartialFailureStream(content, canSeek: true)
+            {
+                Position = 2
+            };
+
+            var result = await _fileSystem.UploadAsync(
+                stream,
+                "test.txt",
+                "container1",
+                namingRule: NamingRule.Md5);
+
+            Assert.Equal(content.Skip(2).ToArray(), File.ReadAllBytes(result.RelativeFilePath));
+        }
+
+        [Fact]
+        public async Task UploadAsync_WithNonSeekableStream_DoesNotRetryPartialTransfer()
+        {
+            var content = Encoding.UTF8.GetBytes("Test Content");
+            using var stream = new PartialFailureStream(content, canSeek: false);
+
+            await Assert.ThrowsAsync<IOException>(() => _fileSystem.UploadAsync(
+                stream,
+                "test.txt",
+                "container1",
+                namingRule: NamingRule.Md5));
         }
 
         [Fact]
@@ -641,44 +693,6 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task IsDirectoryAsync_WhenDirectoryExists_ReturnsTrue()
-        {
-            // Arrange
-            var dirPath = Path.Combine(_testRootPath, "testdir");
-            Directory.CreateDirectory(dirPath);
-
-            // Act
-            var result = await _fileSystem.IsDirectoryAsync("testdir");
-
-            // Assert
-            Assert.True(result);
-        }
-
-        [Fact]
-        public async Task IsDirectoryAsync_WhenDirectoryDoesNotExist_ReturnsFalse()
-        {
-            // Act
-            var result = await _fileSystem.IsDirectoryAsync("nonexistentdir");
-
-            // Assert
-            Assert.False(result);
-        }
-
-        [Fact]
-        public async Task IsDirectoryAsync_WhenPathIsFile_ReturnsFalse()
-        {
-            // Arrange
-            var filePath = Path.Combine(_testRootPath, "isfile.txt");
-            File.WriteAllText(filePath, "content");
-
-            // Act
-            var result = await _fileSystem.IsDirectoryAsync("isfile.txt");
-
-            // Assert
-            Assert.False(result);
-        }
-
-        [Fact]
         public async Task GetFileSizeAsync_WhenFileExists_ReturnsCorrectSize()
         {
             // Arrange
@@ -800,6 +814,92 @@ namespace Linger.FileSystem.Tests.Local
             {
                 _internalStream.Dispose();
             }
+            base.Dispose(disposing);
+        }
+    }
+
+    internal sealed class PartialFailureStream : Stream
+    {
+        private readonly MemoryStream _innerStream;
+        private readonly bool _canSeek;
+        private bool _hasReturnedPartialData;
+        private bool _hasFailed;
+
+        public PartialFailureStream(byte[] buffer, bool canSeek)
+        {
+            _innerStream = new MemoryStream(buffer);
+            _canSeek = canSeek;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => _canSeek;
+        public override bool CanWrite => false;
+        public override long Length => _innerStream.Length;
+
+        public override long Position
+        {
+            get => _innerStream.Position;
+            set
+            {
+                if (!_canSeek)
+                {
+                    throw new NotSupportedException();
+                }
+
+                _innerStream.Position = value;
+            }
+        }
+
+        public override void Flush()
+        {
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_hasReturnedPartialData && !_hasFailed)
+            {
+                _hasFailed = true;
+                throw new IOException("Simulated failure after a partial read.");
+            }
+
+            var bytesRead = _innerStream.Read(buffer, offset, _hasReturnedPartialData ? count : Math.Min(count, 3));
+            _hasReturnedPartialData = bytesRead > 0;
+
+            return bytesRead;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(Read(buffer, offset, count));
+        }
+
+        public override long Seek(long offset, SeekOrigin origin)
+        {
+            if (!_canSeek)
+            {
+                throw new NotSupportedException();
+            }
+
+            return _innerStream.Seek(offset, origin);
+        }
+
+        public override void SetLength(long value)
+        {
+            throw new NotSupportedException();
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            throw new NotSupportedException();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _innerStream.Dispose();
+            }
+
             base.Dispose(disposing);
         }
     }

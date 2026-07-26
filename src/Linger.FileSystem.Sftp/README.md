@@ -26,7 +26,7 @@ dotnet add package Linger.FileSystem.Sftp
 
 ```csharp
 // Create settings for remote SFTP system with password authentication
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
@@ -80,21 +80,13 @@ var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overw
 
 // Method 2: Upload local file to complete remote path
 result = await sftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
-
-// Method 3: Upload with separate directory and filename (convenient for dynamic naming)
-result = await sftpSystem.UploadFileAsync(
-    "C:/local/file.txt",           // Local file path
-    "/remote/directory",            // Remote directory
-    "custom-name.txt",              // Custom filename
-    overwrite: true
-);
 ```
 
 ### Using Certificate-based Authentication
 
 ```csharp
 // Create settings for remote SFTP system with certificate authentication
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
@@ -168,7 +160,7 @@ foreach (var dir in directories)
 ```csharp
 // Use the unified batch operations interface
 // Combine with concurrency to improve throughput
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
@@ -246,7 +238,7 @@ The `BatchProgress` struct provides:
 
 ### Concurrency
 
-Control parallelism for batch operations via `RemoteSystemSetting.MaxDegreeOfParallelism`:
+Control parallelism for batch operations via `SftpFileSystemOptions.MaxDegreeOfParallelism`:
 
 - `1`: single connection, serial execution (lower resource usage).
 - `>1`: independent `SftpClient` connection per task for thread safety and improved throughput.
@@ -255,7 +247,7 @@ Control parallelism for batch operations via `RemoteSystemSetting.MaxDegreeOfPar
 
 ```csharp
 // Advanced SFTP settings with custom configurations
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 2222, // Custom port
@@ -273,10 +265,7 @@ var settings = new RemoteSystemSetting
     {
         MaxRetryAttempts = 3,
         DelayMilliseconds = 1000
-    },
-    
-    // Encoding settings (if needed for special characters)
-    Encoding = Encoding.UTF8
+    }
 };
 
 // Enhanced retry configuration
@@ -391,15 +380,14 @@ Console.WriteLine($"Download completed: {totalBytes:N0} bytes total");
 #### Production Configuration
 
 ```csharp
-var productionSettings = new RemoteSystemSetting
+var productionSettings = new SftpFileSystemOptions
 {
     Host = "prod-sftp.company.com",
     Port = 22,
     UserName = "prod-user",
     CertificatePath = "/secure/certs/prod-key.pem",
     ConnectionTimeout = 15000,
-    OperationTimeout = 300000, // 5 minutes for large files
-    Encoding = Encoding.UTF8
+    OperationTimeout = 300000 // 5 minutes for large files
 };
 
 var productionRetry = new RetryOptions
@@ -414,15 +402,14 @@ var productionRetry = new RetryOptions
 #### Development Configuration
 
 ```csharp
-var devSettings = new RemoteSystemSetting
+var devSettings = new SftpFileSystemOptions
 {
     Host = "dev-sftp.company.com",
     Port = 22,
     UserName = "dev-user",
     Password = "dev-password",
     ConnectionTimeout = 10000,
-    OperationTimeout = 60000,
-    Encoding = Encoding.UTF8
+    OperationTimeout = 60000
 };
 
 var devRetry = new RetryOptions
@@ -440,7 +427,7 @@ var devRetry = new RetryOptions
 public void ConfigureServices(IServiceCollection services)
 {
     services.AddSingleton<IFileSystemOperations>(provider => {
-        var settings = new RemoteSystemSetting
+        var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",
             Port = 22,

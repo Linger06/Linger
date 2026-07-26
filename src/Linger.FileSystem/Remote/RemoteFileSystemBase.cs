@@ -19,7 +19,9 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// <summary>
     /// 服务器连接信息
     /// </summary>
-    protected readonly RemoteSystemSetting Setting;
+    protected readonly RemoteFileSystemOptions Options;
+
+    private readonly string _protocol;
 
     /// <summary>
     /// 服务器详情描述
@@ -34,19 +36,23 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// <summary>
     /// 初始化 <see cref="RemoteFileSystemBase"/> 的新实例。
     /// </summary>
-    /// <param name="setting">远程服务器连接设置。</param>
+    /// <param name="options">远程服务器连接选项。</param>
+    /// <param name="protocol">远程文件系统协议名称。</param>
     /// <param name="retryOptions">重试选项（可选）。</param>
     /// <param name="logger">日志记录器（可选）。</param>
-    /// <exception cref="ArgumentNullException">当 <paramref name="setting"/> 为 <c>null</c> 时抛出。</exception>
-    /// <exception cref="ArgumentException">当 <see cref="RemoteSystemSetting.Host"/> 为空时抛出。</exception>
-    protected RemoteFileSystemBase(RemoteSystemSetting setting, RetryOptions? retryOptions = null, ILogger? logger = null)
+    /// <exception cref="ArgumentNullException">当 <paramref name="options"/> 为 <c>null</c> 时抛出。</exception>
+    /// <exception cref="ArgumentException">当主机或协议名称为空时抛出。</exception>
+    protected RemoteFileSystemBase(RemoteFileSystemOptions options, string protocol, RetryOptions? retryOptions = null, ILogger? logger = null)
         : base(retryOptions, logger)
     {
-        Setting = setting ?? throw new ArgumentNullException(nameof(setting));
-        if (string.IsNullOrEmpty(setting.Host))
-            throw new ArgumentException($"Host cannot be null or empty: {nameof(setting.Host)}");
+        Options = options ?? throw new ArgumentNullException(nameof(options));
+        if (string.IsNullOrEmpty(options.Host))
+            throw new ArgumentException($"Host cannot be null or empty: {nameof(options.Host)}", nameof(options));
+        if (string.IsNullOrWhiteSpace(protocol))
+            throw new ArgumentException("Protocol cannot be null or empty.", nameof(protocol));
 
-        ServerDetailsString = FormatServerDetails();
+        _protocol = protocol;
+        ServerDetailsString = $"{protocol}://{options.UserName}@{options.Host}:{options.Port}";
         Logger.LogDebug("RemoteFileSystem initialized: {ServerDetails}", ServerDetailsString);
     }
 
@@ -55,15 +61,15 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// </summary>
     public override bool IsRemoteFileSystem => true;
 
-    protected virtual string FormatServerDetails()
-    {
-        return $"{Setting.Type}://{Setting.UserName}@{Setting.Host}:{Setting.Port}";
-    }
-
     #region IRemoteFileSystem 实现
     public abstract bool IsConnected();
     public abstract Task ConnectAsync();
+
+    /// <inheritdoc />
+    public abstract Task ConnectAsync(CancellationToken cancellationToken);
     public abstract Task DisconnectAsync();
+    public abstract Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default);
+    public abstract Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default);
     public abstract void Dispose();
 
     /// <summary>
@@ -81,7 +87,8 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         GC.SuppressFinalize(this);
     }
 
-    public virtual string ServerDetails() => ServerDetailsString;
+    /// <inheritdoc />
+    public virtual string ServerDetails => ServerDetailsString;
     #endregion
 
     /// <summary>
@@ -97,12 +104,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// // 执行文件操作...
     /// </code>
     /// </example>
-    protected async Task EnsureConnectedAsync()
+    protected async Task EnsureConnectedAsync(CancellationToken cancellationToken = default)
     {
         if (!IsConnected())
         {
             Logger.LogDebug("Connecting to {ServerDetails}...", ServerDetailsString);
-            await ConnectAsync().ConfigureAwait(false);
+            await ConnectAsync(cancellationToken).ConfigureAwait(false);
             Logger.LogDebug("Connected to {ServerDetails}", ServerDetailsString);
         }
     }
@@ -113,12 +120,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     protected FileSystemException CreateException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
         var message = $"""
-                          {operation} failed on {Setting.Host}:{Setting.Port}. 
+                          {operation} failed on {Options.Host}:{Options.Port}.
                           {(path is not null ? $"Path: {path}. " : string.Empty)}
-                          Type: {Setting.Type}, Method: {callerMethod}
+                          Type: {_protocol}, Method: {callerMethod}
                           """;
 
-        return new FileSystemException(operation, path, ServerDetails(), message, ex);
+        return new FileSystemException(operation, path, ServerDetails, message, ex);
     }
 
     /// <summary>
@@ -132,7 +139,9 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
             base.HandleException(operation, ex, path, callerMethod);
         }
 
-        throw CreateException(operation, ex, path, callerMethod);
+        var exception = CreateException(operation, ex, path, callerMethod);
+        Logger.LogError(ex, "{Message}", exception.Message);
+        throw exception;
     }
 
     #region IBatchFileSystemOperations 实现
@@ -180,11 +189,11 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>操作是否成功</returns>
     /// <remarks>
-    /// 当 <see cref="RemoteSystemSetting.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
+    /// 当 <see cref="RemoteFileSystemOptions.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
     /// </remarks>
     protected async Task<bool> ExecuteWithBatchRetryAsync(Func<Task<bool>> operation, CancellationToken cancellationToken)
     {
-        var retryOptions = Setting.BatchRetryOptions;
+        var retryOptions = Options.BatchRetryOptions;
         if (retryOptions is null)
         {
             return await operation().ConfigureAwait(false);
@@ -203,12 +212,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// <param name="operation">要执行的异步操作</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <remarks>
-    /// 当 <see cref="RemoteSystemSetting.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
+    /// 当 <see cref="RemoteFileSystemOptions.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
     /// 适用于抛出异常表示失败的操作。
     /// </remarks>
     protected async Task ExecuteWithBatchRetryAsync(Func<Task> operation, CancellationToken cancellationToken)
     {
-        var retryOptions = Setting.BatchRetryOptions;
+        var retryOptions = Options.BatchRetryOptions;
         if (retryOptions is null)
         {
             await operation().ConfigureAwait(false);

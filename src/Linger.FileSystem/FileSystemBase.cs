@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -33,6 +34,157 @@ public abstract class FileSystemBase : IFileSystemOperations
     {
         RetryHelper = new RetryHelper(retryOptions ?? new RetryOptions());
         Logger = logger ?? NullLogger.Instance;
+    }
+
+    /// <summary>
+    /// Executes a stream operation with retry when the stream can be restored safely.
+    /// </summary>
+    protected Task<T> ExecuteStreamOperationAsync<T>(
+        Stream stream,
+        Func<CancellationToken, Task<T>> operation,
+        string operationName,
+        bool restoreLength,
+        CancellationToken cancellationToken,
+        Func<Exception, bool>? shouldRetry = null)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(operation);
+
+        var canRestore = stream.CanSeek && (!restoreLength || stream.CanWrite);
+        var initialPosition = canRestore ? stream.Position : 0;
+        var initialLength = canRestore && restoreLength ? stream.Length : 0;
+
+        if (canRestore && restoreLength)
+        {
+            try
+            {
+                stream.SetLength(initialLength);
+                stream.Position = initialPosition;
+            }
+            catch (NotSupportedException)
+            {
+                canRestore = false;
+            }
+        }
+
+        return RetryHelper.ExecuteAsync(
+            async operationCancellationToken =>
+            {
+                if (canRestore)
+                {
+                    stream.Position = initialPosition;
+                    if (restoreLength)
+                    {
+                        stream.SetLength(initialLength);
+                        stream.Position = initialPosition;
+                    }
+                }
+
+                return await operation(operationCancellationToken).ConfigureAwait(false);
+            },
+            operationName,
+            exception => canRestore && (shouldRetry?.Invoke(exception) ?? true),
+            cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// Executes one batch item, records failures, and reports completion unless the operation is cancelled.
+    /// </summary>
+    protected static async Task ExecuteBatchItemAsync(
+        string filePath,
+        Func<Task> operation,
+        BatchOperationTracker tracker)
+    {
+        var reportCompletion = true;
+        try
+        {
+            await operation().ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            reportCompletion = false;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            tracker.AddFailure(filePath, ex.Message, ex);
+        }
+        finally
+        {
+            if (reportCompletion)
+            {
+                tracker.ReportCompleted(filePath);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Tracks batch operation results and progress consistently across file-system implementations.
+    /// </summary>
+    protected sealed class BatchOperationTracker
+    {
+        private readonly ConcurrentBag<string> _succeeded = [];
+        private readonly ConcurrentBag<BatchOperationFailure> _failed = [];
+        private readonly IProgress<BatchProgress>? _progress;
+        private readonly int _total;
+        private int _completed;
+
+        /// <summary>
+        /// Initializes a tracker for a batch operation.
+        /// </summary>
+        public BatchOperationTracker(int total, IProgress<BatchProgress>? progress)
+        {
+            _total = total;
+            _progress = progress;
+        }
+
+        /// <summary>
+        /// Records a successful file operation.
+        /// </summary>
+        public void AddSuccess(string filePath)
+        {
+            _succeeded.Add(filePath);
+        }
+
+        /// <summary>
+        /// Records a failed file operation.
+        /// </summary>
+        public void AddFailure(string filePath, string errorMessage, Exception? exception = null)
+        {
+            _failed.Add(new BatchOperationFailure(filePath, errorMessage, exception));
+        }
+
+        /// <summary>
+        /// Records an existing failure result.
+        /// </summary>
+        public void AddFailure(BatchOperationFailure failure)
+        {
+            ArgumentNullException.ThrowIfNull(failure);
+            _failed.Add(failure);
+        }
+
+        /// <summary>
+        /// Reports completion of one file operation.
+        /// </summary>
+        public void ReportCompleted(string filePath)
+        {
+            var completed = Interlocked.Increment(ref _completed);
+            _progress?.Report(new BatchProgress(completed, _total, filePath, _succeeded.Count, _failed.Count));
+        }
+
+        /// <summary>
+        /// Completes progress reporting and creates the batch result.
+        /// </summary>
+        public BatchOperationResult Complete()
+        {
+            _progress?.Report(new BatchProgress(_total, _total, string.Empty, _succeeded.Count, _failed.Count));
+
+            return new BatchOperationResult
+            {
+                SucceededFiles = _succeeded.ToList(),
+                FailedFiles = _failed.ToList()
+            };
+        }
     }
 
     /// <summary>
@@ -81,8 +233,6 @@ public abstract class FileSystemBase : IFileSystemOperations
     public abstract Task<StreamReader> GetReaderAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default);
 
     public abstract Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, Encoding? encoding = null, CancellationToken cancellationToken = default);
-
-    public abstract Task<bool> IsDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default);
 
     public abstract Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default);
 

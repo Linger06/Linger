@@ -26,7 +26,7 @@ dotnet add package Linger.FileSystem.Sftp
 
 ```csharp
 // 创建远程 SFTP 系统设置，使用密码认证
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
@@ -80,21 +80,13 @@ var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overw
 
 // 方法 2: 上传本地文件到完整远程路径
 result = await sftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
-
-// 方法 3: 分别指定目录和文件名上传（便于动态命名）
-result = await sftpSystem.UploadFileAsync(
-    "C:/local/file.txt",           // 本地文件路径
-    "/remote/directory",            // 远程目录
-    "custom-name.txt",              // 自定义文件名
-    overwrite: true
-);
 ```
 
 ### 使用证书认证
 
 ```csharp
 // 创建远程 SFTP 系统设置，使用证书认证
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
@@ -176,7 +168,7 @@ var localFiles = new[]
 
 // 使用统一的批量接口进行上传/下载/删除
 // 建议结合并发开关提升吞吐量
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
@@ -255,7 +247,7 @@ var deleteResult = await sftp.DeleteFilesAsync(filesToDelete, progress);
 
 ### 并发支持
 
-通过设置 `RemoteSystemSetting.MaxDegreeOfParallelism` 控制批量操作并发度：
+通过设置 `SftpFileSystemOptions.MaxDegreeOfParallelism` 控制批量操作并发度：
 
 - 值为 1：使用单连接串行执行，资源占用低，适合小规模任务；
 - 值大于 1：每个任务使用独立的 `SftpClient` 连接，避免线程安全问题并提高吞吐量。
@@ -265,7 +257,7 @@ var deleteResult = await sftp.DeleteFilesAsync(filesToDelete, progress);
 
 ```csharp
 // 使用自定义配置的高级 SFTP 设置
-var settings = new RemoteSystemSetting
+var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 2222, // 自定义端口
@@ -283,10 +275,7 @@ var settings = new RemoteSystemSetting
     {
         MaxRetryAttempts = 3,
         DelayMilliseconds = 1000
-    },
-    
-    // 编码设置（如果需要特殊字符支持）
-    Encoding = Encoding.UTF8
+    }
 };
 
 // 增强的重试配置
@@ -401,15 +390,14 @@ Console.WriteLine($"下载完成：总共 {totalBytes:N0} 字节");
 #### 生产环境配置
 
 ```csharp
-var productionSettings = new RemoteSystemSetting
+var productionSettings = new SftpFileSystemOptions
 {
     Host = "prod-sftp.company.com",
     Port = 22,
     UserName = "prod-user",
     CertificatePath = "/secure/certs/prod-key.pem",
     ConnectionTimeout = 15000,
-    OperationTimeout = 300000, // 大文件需要 5 分钟
-    Encoding = Encoding.UTF8
+    OperationTimeout = 300000 // 大文件需要 5 分钟
 };
 
 var productionRetry = new RetryOptions
@@ -424,15 +412,14 @@ var productionRetry = new RetryOptions
 #### 开发环境配置
 
 ```csharp
-var devSettings = new RemoteSystemSetting
+var devSettings = new SftpFileSystemOptions
 {
     Host = "dev-sftp.company.com",
     Port = 22,
     UserName = "dev-user",
     Password = "dev-password",
     ConnectionTimeout = 10000,
-    OperationTimeout = 60000,
-    Encoding = Encoding.UTF8
+    OperationTimeout = 60000
 };
 
 var devRetry = new RetryOptions
@@ -558,15 +545,14 @@ Console.WriteLine($"下载完成：总共 {totalBytes:N0} 字节");
 #### 生产环境配置
 
 ```csharp
-var productionSettings = new RemoteSystemSetting
+var productionSettings = new SftpFileSystemOptions
 {
     Host = "prod-sftp.company.com",
     Port = 22,
     UserName = "prod-user",
     CertificatePath = "/secure/certs/prod-key.pem",
     ConnectionTimeout = 15000,
-    OperationTimeout = 300000, // 大文件需要 5 分钟
-    Encoding = Encoding.UTF8
+    OperationTimeout = 300000 // 大文件需要 5 分钟
 };
 
 var productionRetry = new RetryOptions
@@ -581,15 +567,14 @@ var productionRetry = new RetryOptions
 #### 开发环境配置
 
 ```csharp
-var devSettings = new RemoteSystemSetting
+var devSettings = new SftpFileSystemOptions
 {
     Host = "dev-sftp.company.com",
     Port = 22,
     UserName = "dev-user",
     Password = "dev-password",
     ConnectionTimeout = 10000,
-    OperationTimeout = 60000,
-    Encoding = Encoding.UTF8
+    OperationTimeout = 60000
 };
 
 var devRetry = new RetryOptions
@@ -607,7 +592,7 @@ var devRetry = new RetryOptions
 public void ConfigureServices(IServiceCollection services)
 {
     services.AddSingleton<IFileSystemOperations>(provider => {
-        var settings = new RemoteSystemSetting
+        var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",
             Port = 22,

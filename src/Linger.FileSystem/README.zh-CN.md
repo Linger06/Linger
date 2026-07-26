@@ -152,16 +152,15 @@ Install-Package Linger.FileSystem.Ftp
 ```csharp
 using Linger.FileSystem.Ftp;
 
-var ftpSetting = new RemoteSystemSetting
+var ftpOptions = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,
     UserName = "username",
-    Password = "password",
-    Type = "FTP"
+    Password = "password"
 };
 
-var ftpFs = new FtpFileSystem(ftpSetting);
+var ftpFs = new FtpFileSystem(ftpOptions);
 var result = await ftpFs.UploadAsync(fileStream, "/public_html/test.txt", true);
 ```
 
@@ -180,16 +179,15 @@ Install-Package Linger.FileSystem.Sftp
 ```csharp
 using Linger.FileSystem.Sftp;
 
-var sftpSetting = new RemoteSystemSetting
+var sftpOptions = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
     UserName = "username",
-    Password = "password",
-    Type = "SFTP"
+    Password = "password"
 };
 
-var sftpFs = new SftpFileSystem(sftpSetting);
+var sftpFs = new SftpFileSystem(sftpOptions);
 var result = await sftpFs.UploadAsync(fileStream, "/home/user/test.txt", true);
 ```
 
@@ -250,11 +248,6 @@ bool exists = await fileSystem.DirectoryExistsAsync("uploads/images");
 // 创建目录
 await fileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
 
-// 判断路径是否为目录
-if (await fileSystem.IsDirectoryAsync("uploads/images"))
-{
-    Console.WriteLine("路径是一个目录");
-}
 ```
 
 ### 流工厂 API
@@ -296,6 +289,10 @@ else
 {
     Console.WriteLine("文件不存在");
 }
+
+// 可通过 IRemoteFileSystem 使用远程元数据和工作目录操作
+var lastModified = await remoteFileSystem.GetLastModifiedTimeAsync("uploads/document.pdf", cancellationToken);
+await remoteFileSystem.SetWorkingDirectoryAsync("uploads", cancellationToken);
 ```
 
 ## 配置选项
@@ -323,16 +320,15 @@ var options = new LocalFileSystemOptions
 var localFs = new LocalFileSystem(options);
 ```
 
-### 远程文件系统设置
+### 远程文件系统选项
 
 ```csharp
-var remoteSetting = new RemoteSystemSetting
+var ftpOptions = new FtpFileSystemOptions
 {
     Host = "example.com",                      // 主机地址
-    Port = 21,                                 // 端口 (FTP默认21，SFTP默认22)
+    Port = 21,                                 // FTP端口
     UserName = "username",                     // 用户名
     Password = "password",                     // 密码
-    Type = "FTP",                              // 类型: "FTP" 或 "SFTP"
     ConnectionTimeout = 30000,                 // 连接超时(毫秒)
     OperationTimeout = 60000,                  // 操作超时(毫秒)
     MaxDegreeOfParallelism = 4,                // 批量操作并发度
@@ -342,12 +338,12 @@ var remoteSetting = new RemoteSystemSetting
         MaxRetryAttempts = 3,
         DelayMilliseconds = 1000
     },
-    
-    // SFTP特定设置
-    CertificatePath = "",                      // 证书路径
-    CertificatePassphrase = ""                 // 证书口令
 };
 ```
+
+SFTP连接使用 `SftpFileSystemOptions`，它包含相同的通用连接属性，另外提供
+`CertificatePath` 和 `CertificatePassphrase`。`FtpFileSystemOptions` 另外提供
+FTP专用的 `Encoding` 属性。
 
 ## 高级功能
 

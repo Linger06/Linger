@@ -152,16 +152,15 @@ Basic usage example:
 ```csharp
 using Linger.FileSystem.Ftp;
 
-var ftpSetting = new RemoteSystemSetting
+var ftpOptions = new FtpFileSystemOptions
 {
     Host = "ftp.example.com",
     Port = 21,
     UserName = "username",
-    Password = "password",
-    Type = "FTP"
+    Password = "password"
 };
 
-var ftpFs = new FtpFileSystem(ftpSetting);
+var ftpFs = new FtpFileSystem(ftpOptions);
 var result = await ftpFs.UploadAsync(fileStream, "/public_html/test.txt", true);
 ```
 
@@ -180,16 +179,15 @@ Basic usage example:
 ```csharp
 using Linger.FileSystem.Sftp;
 
-var sftpSetting = new RemoteSystemSetting
+var sftpOptions = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
     Port = 22,
     UserName = "username",
-    Password = "password",
-    Type = "SFTP"
+    Password = "password"
 };
 
-var sftpFs = new SftpFileSystem(sftpSetting);
+var sftpFs = new SftpFileSystem(sftpOptions);
 var result = await sftpFs.UploadAsync(fileStream, "/home/user/test.txt", true);
 ```
 
@@ -250,11 +248,6 @@ bool exists = await fileSystem.DirectoryExistsAsync("uploads/images");
 // Create directory
 await fileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
 
-// Check if path is a directory
-if (await fileSystem.IsDirectoryAsync("uploads/images"))
-{
-    Console.WriteLine("Path is a directory");
-}
 ```
 
 ### Stream Factory API
@@ -296,6 +289,10 @@ else
 {
     Console.WriteLine("File not found");
 }
+
+// Remote metadata and working-directory operations are available through IRemoteFileSystem
+var lastModified = await remoteFileSystem.GetLastModifiedTimeAsync("uploads/document.pdf", cancellationToken);
+await remoteFileSystem.SetWorkingDirectoryAsync("uploads", cancellationToken);
 ```
 
 ## Configuration Options
@@ -323,16 +320,15 @@ var options = new LocalFileSystemOptions
 var localFs = new LocalFileSystem(options);
 ```
 
-### Remote File System Settings
+### Remote File System Options
 
 ```csharp
-var remoteSetting = new RemoteSystemSetting
+var ftpOptions = new FtpFileSystemOptions
 {
     Host = "example.com",                      // Host address
-    Port = 21,                                 // Port (FTP default 21, SFTP default 22)
+    Port = 21,                                 // FTP port
     UserName = "username",                     // Username
     Password = "password",                     // Password
-    Type = "FTP",                              // Type: "FTP" or "SFTP"
     ConnectionTimeout = 30000,                 // Connection timeout (milliseconds)
     OperationTimeout = 60000,                  // Operation timeout (milliseconds)
     MaxDegreeOfParallelism = 4,                // Batch operation concurrency
@@ -342,12 +338,12 @@ var remoteSetting = new RemoteSystemSetting
         MaxRetryAttempts = 3,
         DelayMilliseconds = 1000
     },
-    
-    // SFTP specific settings
-    CertificatePath = "",                      // Certificate path
-    CertificatePassphrase = ""                 // Certificate passphrase
 };
 ```
+
+Use `SftpFileSystemOptions` for SFTP connections. It has the same common
+connection properties and adds `CertificatePath` and `CertificatePassphrase`.
+`FtpFileSystemOptions` additionally exposes the FTP-only `Encoding` property.
 
 ## Advanced Features
 

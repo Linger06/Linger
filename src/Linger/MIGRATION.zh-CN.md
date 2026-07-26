@@ -58,6 +58,16 @@
 | `Linger.Excel.Contracts` | `DataTableToFile` / `DataSetToFile` | `DataTableToExcel` / `DataSetToExcel` | `Linger.Excel.Contracts` | 替代方法名称与 Excel 导出操作一致。 |
 | `Linger.Results` | `ExecuteResult`、`ExecuteResult<T>` 和 `ResultCompat` | `Result` / `Result<T>` | `Linger.Results` | 使用新结果类型，移除旧类型及转换帮助方法。 |
 | `Linger.Results` | `ErrorObj` 和 `ToErrorObj` | `Error` 以及由调用方维护的错误集合 | `Linger.Results` / 应用代码 | 旧的聚合对象没有一对一替代。 |
+| `Linger.FileSystem` | `ILocalFileSystem.Exists()` / `ExistsAsync()` | `DirectoryExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | 使用标准目录存在性 API。`LocalFileSystem` 还会在构造时创建配置的根目录。 |
+| `Linger.FileSystem` | `ILocalFileSystem.CreateIfNotExists()` / `CreateIfNotExistsAsync()` | `CreateDirectoryIfNotExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | 使用标准目录创建 API。 |
+| `Linger.FileSystem` | `IFileSystemOperations.IsDirectoryAsync(path)` | `DirectoryExistsAsync(path)` | `Linger.FileSystem` | 被删除的方法是完全别名。 |
+| `Linger.FileSystem` | `IRemoteFileSystem.ServerDetails()` | `IRemoteFileSystem.ServerDetails` | `Linger.FileSystem` | 服务器详情是缓存数据，现改为只读属性。 |
+| `Linger.FileSystem` | `RemoteSystemSetting` | `FtpFileSystemOptions` / `SftpFileSystemOptions` | `Linger.FileSystem.Ftp` / `Linger.FileSystem.Sftp` | 根据协议选择专用选项类型。`Type` 属性已删除，协议由具体实现确定。 |
+| `Linger.FileSystem.Ftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Ftp` | 调用上传 API 前先构造完整目标路径。 |
+| `Linger.FileSystem.Ftp` | `ListDirectoryAsync(...)` | `ListFilesAsync(...)` / `ListDirectoriesAsync(...)` | `Linger.FileSystem.Ftp` | 使用与协议无关的列表 API，不再使用 FluentFTP 特有的对象类型筛选。 |
+| `Linger.FileSystem.Sftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Sftp` | 调用上传 API 前先构造完整目标路径。 |
+| `Linger.FileSystem.Sftp` | `Connect()` / `Disconnect()` | `ConnectAsync()` / `DisconnectAsync()` | `Linger.FileSystem.Sftp` | 连接管理统一使用远程文件系统的异步契约。 |
+| `Linger.FileSystem.Sftp` | `SetRootAsWorkingDirectoryAsync()` | `SetWorkingDirectoryAsync("/")` | `Linger.FileSystem.Sftp` | 被删除的方法只负责传入根路径。 |
 
 ## 没有一对一替代
 

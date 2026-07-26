@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text;
 
 namespace Linger.FileSystem.Local;
@@ -6,10 +5,14 @@ namespace Linger.FileSystem.Local;
 /// <summary>
 /// 本地文件系统实现，提供对本地磁盘的文件操作支持。
 /// </summary>
-public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSystemOperations
+public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 {
     private readonly LocalFileSystemOptions _options;
     private readonly Encoding _defaultEncoding;
+    private readonly string _rootDirectoryFullPath;
+    private readonly StringComparison _pathComparison = Path.DirectorySeparatorChar == '\\'
+        ? StringComparison.OrdinalIgnoreCase
+        : StringComparison.Ordinal;
 
     /// <summary>
     /// 获取根目录路径。
@@ -27,11 +30,12 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         RootDirectoryPath = options.RootDirectoryPath;
+        _rootDirectoryFullPath = RootDirectoryPath.ToFullPath();
         _defaultEncoding = _options.TextEncoding;
 
         // 确保根目录存在
-        Directory.CreateDirectory(RootDirectoryPath);
-        Logger.LogDebug("LocalFileSystem initialized with root path: {RootPath}", RootDirectoryPath);
+        Directory.CreateDirectory(_rootDirectoryFullPath);
+        Logger.LogDebug("LocalFileSystem initialized with root path: {RootPath}", _rootDirectoryFullPath);
     }
 
     /// <summary>
@@ -50,41 +54,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     }
 
     // 这是本地文件系统，所以IsRemoteFileSystem保持为false (默认)
-
-    /// <summary>
-    /// 检查根目录是否存在
-    /// </summary>
-    public bool Exists()
-    {
-        return PathExtensions.Exists(RootDirectoryPath, false);
-    }
-
-    /// <summary>
-    /// 异步检查根目录是否存在
-    /// </summary>
-    public Task<bool> ExistsAsync(CancellationToken cancellationToken = default)
-    {
-        return DirectoryExistsAsync(RootDirectoryPath, cancellationToken);
-    }
-
-    /// <summary>
-    /// 如果根目录不存在则创建它
-    /// </summary>
-    public void CreateIfNotExists()
-    {
-        if (!PathExtensions.Exists(RootDirectoryPath, false))
-        {
-            Directory.CreateDirectory(RootDirectoryPath);
-        }
-    }
-
-    /// <summary>
-    /// 异步创建根目录（如果不存在）
-    /// </summary>
-    public Task CreateIfNotExistsAsync(CancellationToken cancellationToken = default)
-    {
-        return CreateDirectoryIfNotExistsAsync(RootDirectoryPath, cancellationToken);
-    }
 
     public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default)
     {
@@ -136,7 +105,8 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         var effectiveOverwrite = overwrite ?? _options.DefaultOverwrite;
         var effectiveUseSequencedName = useSequencedName ?? _options.DefaultUseSequencedName;
 
-        var result = await RetryHelper.ExecuteAsync(
+        var result = await ExecuteStreamOperationAsync(
+            inputStream,
             async operationCancellationToken => await UploadInternalAsync(
                 inputStream,
                 sourceFileName,
@@ -147,7 +117,8 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
                 effectiveUseSequencedName,
                 operationCancellationToken).ConfigureAwait(false),
             "文件上传",
-            ex => ex is not DuplicateFileException,
+            restoreLength: false,
+            shouldRetry: ex => ex is not DuplicateFileException,
             cancellationToken: cancellationToken).ConfigureAwait(false); // 文件重复异常不重试
 
         Logger.LogInformation("Upload completed: {FileName} -> {NewFileName}, Size: {Size}", sourceFileName, result.NewFileName ?? string.Empty, result.FileSize);
@@ -164,252 +135,302 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         bool useSequencedName = true,
         CancellationToken cancellationToken = default)
     {
-        // 优化: 使用流式处理 + 增量哈希计算，避免将整个文件加载到内存
-        // 1. 对于 Md5 命名规则，需要先计算哈希才能确定文件名
-        // 2. 对于其他命名规则，可以直接流式写入
-
-        string sourceHashData;
-        long totalBytes = 0;
-        string? filePath = null;
-        string? relativeFilePath = null;
-
-        switch (namingRule)
+        var writeResult = namingRule switch
         {
-            case NamingRule.Md5:
-                {
-                    // Md5 命名需要先计算哈希，但使用流式处理减少内存占用
-                    using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
-                    var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
+            NamingRule.Md5 => await UploadWithMd5NameAsync(
+                inputStream,
+                sourceFileName,
+                containerName,
+                destPath,
+                overwrite,
+                cancellationToken).ConfigureAwait(false),
+            NamingRule.Uuid or NamingRule.Normal => await UploadWithSelectedNameAsync(
+                inputStream,
+                sourceFileName,
+                containerName,
+                destPath,
+                namingRule,
+                overwrite,
+                useSequencedName,
+                cancellationToken).ConfigureAwait(false),
+            _ => throw new ArgumentOutOfRangeException(nameof(namingRule), namingRule, "Unsupported naming rule.")
+        };
 
-                    // 临时文件路径，用于先写入数据
-                    var tempPath = Path.Combine(Path.GetTempPath(), $"upload_{Guid.NewGuid():N}.tmp");
+        var fileInfo = new FileInfo(writeResult.FullFilePath);
+        await ValidateFileAsync(fileInfo, writeResult.HashData, writeResult.Length, cancellationToken).ConfigureAwait(false);
 
-                    try
-                    {
-                        var tempFileStream = File.Create(tempPath);
-#if NET8_0_OR_GREATER
-                        await using (tempFileStream.ConfigureAwait(false))
-#else
-                        using (tempFileStream)
-#endif
-                        {
-                            int bytesRead;
-#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                            while ((bytesRead = await inputStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-                            {
-                                // 同时写入临时文件和更新哈希
-                                await tempFileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
-#else
-                            while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
-                            {
-                                // 同时写入临时文件和更新哈希
-                                await tempFileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
-#endif
-                                md5.AppendData(buffer, 0, bytesRead);
-                                totalBytes += bytesRead;
-                            }
-                        }
-
-                        // 获取哈希值
-                        sourceHashData = md5.GetHashAndReset().ToMd5HashCode();
-
-                        // 使用哈希值生成文件路径
-                        var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
-                        var fileExtension = Path.GetExtension(sourceFileName);
-                        var fileName = $"{fileNameWithoutExtension}-{sourceHashData}{fileExtension}";
-                        filePath = Path.Combine(containerName, destPath, fileName);
-                        relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
-
-                        // 确保目录存在
-                        CreateParentDirectory(relativeFilePath);
-
-                        // 对于 MD5 命名，目标文件名是确定的：不允许覆盖时直接按重复文件处理
-                        if (!overwrite && File.Exists(relativeFilePath))
-                        {
-                            throw new DuplicateFileException();
-                        }
-
-                        // 将临时文件移动到最终位置
-#if NET5_0_OR_GREATER
-                        try
-                        {
-                            File.Move(tempPath, relativeFilePath, overwrite);
-                        }
-                        catch (IOException) when (!overwrite && File.Exists(relativeFilePath))
-                        {
-                            throw new DuplicateFileException();
-                        }
-#else
-                        if (overwrite && File.Exists(relativeFilePath))
-                        {
-                            File.Delete(relativeFilePath);
-                        }
-                        try
-                        {
-                            File.Move(tempPath, relativeFilePath);
-                        }
-                        catch (IOException) when (!overwrite && File.Exists(relativeFilePath))
-                        {
-                            throw new DuplicateFileException();
-                        }
-#endif
-                    }
-                    finally
-                    {
-                        System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
-
-                        // 确保临时文件在异常时被清理
-                        try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { /* 忽略清理失败 */ }
-                    }
-                    break;
-                }
-
-            case NamingRule.Uuid:
-            case NamingRule.Normal:
-                {
-                    // Uuid 和 Normal 命名规则：可以直接流式写入目标文件
-                    var fileExtension = Path.GetExtension(sourceFileName);
-
-                    if (namingRule == NamingRule.Uuid)
-                    {
-                        filePath = GenerateUuidBasedPath(containerName, destPath, fileExtension);
-                    }
-                    else // NamingRule.Normal
-                    {
-                        var basePath = Path.Combine(containerName, destPath);
-                        filePath = GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, RootDirectoryPath);
-                    }
-
-                    relativeFilePath = Path.Combine(RootDirectoryPath, filePath);
-
-                    // 确保目录存在
-                    CreateParentDirectory(relativeFilePath);
-
-                    using var md5 = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
-                    var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
-
-                    try
-                    {
-                        var fileStream = File.Create(relativeFilePath);
-#if NET8_0_OR_GREATER
-                        await using (fileStream.ConfigureAwait(false))
-#else
-                        using (fileStream)
-#endif
-                        {
-                            int bytesRead;
-#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
-                            while ((bytesRead = await inputStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
-                            {
-                                // 同时写入文件和更新哈希
-                                await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
-#else
-                            while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
-                            {
-                                // 同时写入文件和更新哈希
-                                await fileStream.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
-#endif
-                                md5.AppendData(buffer, 0, bytesRead);
-                                totalBytes += bytesRead;
-                            }
-                        }
-
-                        // 获取哈希值用于验证
-                        sourceHashData = md5.GetHashAndReset().ToMd5HashCode();
-                    }
-                    finally
-                    {
-                        System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
-                    }
-                    break;
-                }
-
-            default:
-                throw new ArgumentOutOfRangeException(nameof(namingRule), namingRule, "不支持的命名规则");
-        }
-
-        // 验证文件完整性（可选，配置项控制是否需要重新读取文件验证）
-        var fileInfo = new FileInfo(relativeFilePath);
-
-        if (_options.ValidationLevel != FileValidationLevel.None)
-        {
-            // 根据验证级别进行校验
-#if NET8_0_OR_GREATER
-            await ValidateFileAsync(fileInfo, sourceHashData, totalBytes).ConfigureAwait(false);
-#else
-            ValidateFile(fileInfo, sourceHashData, totalBytes);
-#endif
-        }
-
-        // 构建上传信息
         return new UploadedInfo
         {
-            HashData = sourceHashData,
+            HashData = writeResult.HashData,
             FileName = sourceFileName,
             NewFileName = fileInfo.Name,
-            FilePath = filePath,
-            RelativeFilePath = relativeFilePath,
+            FilePath = writeResult.FilePath,
+            RelativeFilePath = Path.Combine(RootDirectoryPath, writeResult.FilePath),
             FullFilePath = fileInfo.FullName,
-            FileSize = totalBytes.FormatFileSize(),
+            FileSize = writeResult.Length.FormatFileSize(),
             Length = fileInfo.Length
         };
     }
 
-    private
+    private async Task<UploadWriteResult> UploadWithMd5NameAsync(
+        Stream inputStream,
+        string sourceFileName,
+        string containerName,
+        string destPath,
+        bool overwrite,
+        CancellationToken cancellationToken)
+    {
+        var requestedDirectory = Path.Combine(containerName, destPath);
+        var destinationDirectory = string.IsNullOrEmpty(requestedDirectory)
+            ? _rootDirectoryFullPath
+            : GetRealPath(requestedDirectory);
+        Directory.CreateDirectory(destinationDirectory);
+        var tempPath = Path.Combine(destinationDirectory, $".upload-{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            var copyResult = await CopyAndHashToFileAsync(inputStream, tempPath, cancellationToken).ConfigureAwait(false);
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
+            var fileName = $"{fileNameWithoutExtension}-{copyResult.HashData}{Path.GetExtension(sourceFileName)}";
+            var filePath = Path.Combine(containerName, destPath, fileName);
+            var fullFilePath = GetRealPath(filePath);
+
+            MoveUploadedFile(tempPath, fullFilePath, overwrite);
+
+            return new UploadWriteResult(filePath, fullFilePath, copyResult.HashData, copyResult.Length);
+        }
+        finally
+        {
+            TryDeleteFile(tempPath);
+        }
+    }
+
+    private async Task<UploadWriteResult> UploadWithSelectedNameAsync(
+        Stream inputStream,
+        string sourceFileName,
+        string containerName,
+        string destPath,
+        NamingRule namingRule,
+        bool overwrite,
+        bool useSequencedName,
+        CancellationToken cancellationToken)
+    {
+        var basePath = Path.Combine(containerName, destPath);
+        var filePath = namingRule == NamingRule.Uuid
+            ? GenerateUuidBasedPath(containerName, destPath, Path.GetExtension(sourceFileName))
+            : GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, _rootDirectoryFullPath);
+        var fullFilePath = GetRealPath(filePath);
+        CreateParentDirectory(fullFilePath);
+        var completed = false;
+
+        try
+        {
+            var copyResult = await CopyAndHashToFileAsync(inputStream, fullFilePath, cancellationToken).ConfigureAwait(false);
+            completed = true;
+
+            return new UploadWriteResult(filePath, fullFilePath, copyResult.HashData, copyResult.Length);
+        }
+        finally
+        {
+            if (!completed)
+            {
+                TryDeleteFile(fullFilePath);
+            }
+        }
+    }
+
+    private async Task<(string HashData, long Length)> CopyAndHashToFileAsync(
+        Stream inputStream,
+        string destinationFilePath,
+        CancellationToken cancellationToken)
+    {
+        using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
+        var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
+        long totalBytes = 0;
+
+        try
+        {
+            var destinationStream = new FileStream(
+                destinationFilePath,
+                FileMode.Create,
+                FileAccess.Write,
+                FileShare.None,
+                _options.UploadBufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+
 #if NET8_0_OR_GREATER
-       async Task ValidateFileAsync
+            await using (destinationStream.ConfigureAwait(false))
 #else
-        void ValidateFile
+            using (destinationStream)
 #endif
-     // 根据配置的验证级别进行文件验证
-     (FileInfo fileInfo, string sourceHashData, long expectedSize)
+            {
+#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+                int bytesRead;
+                while ((bytesRead = await inputStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    await destinationStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken).ConfigureAwait(false);
+#else
+                int bytesRead;
+                while ((bytesRead = await inputStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    await destinationStream.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
+#endif
+                    hash.AppendData(buffer, 0, bytesRead);
+                    totalBytes += bytesRead;
+                }
+            }
+
+            return (hash.GetHashAndReset().ToMd5HashCode(), totalBytes);
+        }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private async Task ValidateFileAsync(
+        FileInfo fileInfo,
+        string sourceHashData,
+        long expectedSize,
+        CancellationToken cancellationToken)
     {
         if (_options.ValidationLevel == FileValidationLevel.None)
-            return;
-
-        // 验证文件大小（SizeOnly 和 Full 都会执行）
-        if (expectedSize > 0)
         {
-            fileInfo.Refresh(); // 确保获取最新的文件信息
-            if (fileInfo.Length != expectedSize)
-            {
-                var ex = new InvalidOperationException($"File validation failed: Size mismatch for {fileInfo.FullName}. Expected: {expectedSize}, Actual: {fileInfo.Length}");
-
-                if (_options.CleanupOnValidationFailure)
-                {
-                    try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
-                }
-
-                throw ex;
-            }
+            return;
         }
 
-        // 如果是 SizeOnly，不需要验证 MD5
-        if (_options.ValidationLevel == FileValidationLevel.SizeOnly)
-            return;
+        fileInfo.Refresh();
+        if (fileInfo.Length != expectedSize)
+        {
+            CleanupInvalidFile(fileInfo.FullName);
+            throw new InvalidOperationException($"File validation failed: Size mismatch for {fileInfo.FullName}. Expected: {expectedSize}, Actual: {fileInfo.Length}");
+        }
 
-        // Full 级别：验证文件 MD5
-        var stream = fileInfo.OpenRead();
+        if (_options.ValidationLevel == FileValidationLevel.SizeOnly)
+        {
+            return;
+        }
+
+        var uploadedFileHash = await ComputeFileHashAsync(fileInfo.FullName, cancellationToken).ConfigureAwait(false);
+        if (!string.Equals(uploadedFileHash, sourceHashData, StringComparison.Ordinal))
+        {
+            CleanupInvalidFile(fileInfo.FullName);
+            throw new InvalidOperationException($"File validation failed: MD5 hash mismatch for {fileInfo.FullName}");
+        }
+    }
+
+    private async Task<string> ComputeFileHashAsync(string filePath, CancellationToken cancellationToken)
+    {
+        using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
+        var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.DownloadBufferSize);
+
+        try
+        {
+            var stream = new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                _options.DownloadBufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
 
 #if NET8_0_OR_GREATER
-        await using (stream.ConfigureAwait(false))
+            await using (stream.ConfigureAwait(false))
 #else
-        using (stream)
+            using (stream)
 #endif
-        {
-            var uploadedFileHash = stream.ComputeHashMd5();
-            if (uploadedFileHash != sourceHashData)
             {
-                var ex = new InvalidOperationException($"File validation failed: MD5 hash mismatch for {fileInfo.FullName}");
-
-                if (_options.CleanupOnValidationFailure)
+                int bytesRead;
+#if NET8_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+                while ((bytesRead = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
+#else
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+#endif
                 {
-                    try { File.Delete(fileInfo.FullName); } catch { /* 忽略清理失败 */ }
+                    hash.AppendData(buffer, 0, bytesRead);
                 }
-
-                throw ex;
             }
+
+            return hash.GetHashAndReset().ToMd5HashCode();
         }
+        finally
+        {
+            System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+        }
+    }
+
+    private void CleanupInvalidFile(string filePath)
+    {
+        if (_options.CleanupOnValidationFailure)
+        {
+            TryDeleteFile(filePath);
+        }
+    }
+
+    private void TryDeleteFile(string filePath)
+    {
+        try
+        {
+            FileHelper.DeleteFileIfExists(filePath);
+        }
+        catch (IOException ex)
+        {
+            Logger.LogWarning(ex, "Failed to clean up file: {FilePath}", filePath);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Logger.LogWarning(ex, "Failed to clean up file: {FilePath}", filePath);
+        }
+    }
+
+    private static void MoveUploadedFile(string sourcePath, string destinationPath, bool overwrite)
+    {
+        CreateParentDirectory(destinationPath);
+        if (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException();
+        }
+
+#if NET5_0_OR_GREATER
+        try
+        {
+            File.Move(sourcePath, destinationPath, overwrite);
+        }
+        catch (IOException) when (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException();
+        }
+#else
+        if (overwrite)
+        {
+            FileHelper.DeleteFileIfExists(destinationPath);
+        }
+
+        try
+        {
+            File.Move(sourcePath, destinationPath);
+        }
+        catch (IOException) when (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException();
+        }
+#endif
+    }
+
+    private readonly struct UploadWriteResult
+    {
+        public UploadWriteResult(string filePath, string fullFilePath, string hashData, long length)
+        {
+            FilePath = filePath;
+            FullFilePath = fullFilePath;
+            HashData = hashData;
+            Length = length;
+        }
+
+        public string FilePath { get; }
+        public string FullFilePath { get; }
+        public string HashData { get; }
+        public long Length { get; }
     }
 
     public async Task<UploadedInfo> UploadAsync(string sourceFilePathName, string containerName, string destPath = "", NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
@@ -435,11 +456,12 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         while (true)
         {
             var fileName = $"{Guid.NewGuid():N}{fileExtension}";
-            var fullPath = Path.Combine(RootDirectoryPath, containerName, destPath, fileName);
+            var relativePath = Path.Combine(containerName, destPath, fileName);
+            var fullPath = GetRealPath(relativePath);
 
             if (!File.Exists(fullPath))
             {
-                return Path.Combine(containerName, destPath, fileName);
+                return relativePath;
             }
         }
     }
@@ -717,22 +739,47 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
     /// <exception cref="ArgumentException">当路径试图走出根目录时抛出</exception>
     public string GetRealPath(string filePath)
     {
-        if (filePath.StartsWith(RootDirectoryPath))
-        {
-            return filePath;
-        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        filePath = Path.Combine(RootDirectoryPath, filePath);
+        var fullPath = filePath.ToFullPath(_rootDirectoryFullPath);
+        var isRoot = string.Equals(fullPath, _rootDirectoryFullPath, _pathComparison);
+        var rootWithSeparator = _rootDirectoryFullPath.EndsWith(Path.DirectorySeparatorChar)
+            ? _rootDirectoryFullPath
+            : _rootDirectoryFullPath + Path.DirectorySeparatorChar;
 
         // 防止路径穿越攻击（如 "../../etc/passwd"）
-        var fullPath = Path.GetFullPath(filePath);
-        var rootFull = Path.GetFullPath(RootDirectoryPath + Path.DirectorySeparatorChar);
-        if (!fullPath.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
+        if (!isRoot && !fullPath.StartsWith(rootWithSeparator, _pathComparison))
         {
             throw new ArgumentException($"Path traversal detected. The path '{filePath}' is outside the root directory.", nameof(filePath));
         }
 
-        return filePath;
+        ThrowIfPathContainsReparsePoint(fullPath);
+
+        return fullPath;
+    }
+
+    private void ThrowIfPathContainsReparsePoint(string fullPath)
+    {
+        var relativePath = _rootDirectoryFullPath.GetRelativePath(fullPath);
+        if (relativePath == ".")
+        {
+            return;
+        }
+
+        var currentPath = _rootDirectoryFullPath;
+        foreach (var segment in relativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            currentPath = Path.Combine(currentPath, segment);
+            if (!File.Exists(currentPath) && !Directory.Exists(currentPath))
+            {
+                break;
+            }
+
+            if ((File.GetAttributes(currentPath) & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException($"Access through reparse points is not supported: {currentPath}");
+            }
+        }
     }
 
     public override Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default)
@@ -798,13 +845,6 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         cancellationToken.ThrowIfCancellationRequested();
         var stream = await OpenWriteAsync(filePath, overwrite, cancellationToken).ConfigureAwait(false);
         return new StreamWriter(stream, encoding ?? _defaultEncoding, _options.UploadBufferSize, false);
-    }
-
-    public override Task<bool> IsDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var realPath = GetRealPath(directoryPath);
-        return Task.FromResult(PathExtensions.Exists(realPath, false));
     }
 
     public override Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
@@ -963,87 +1003,23 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         var destDir = GetRealPath(remoteDirectory);
         Directory.CreateDirectory(destDir);
 
-        var succeeded = new ConcurrentBag<string>();
-        var failed = new ConcurrentBag<BatchOperationFailure>();
-        var total = paths.Count;
-        var completed = 0;
-
-        if (_options.MaxDegreeOfParallelism > 1)
-        {
-            using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
-            var tasks = paths.Select(async sourcePath =>
+        return await ExecuteLocalBatchAsync(
+            paths,
+            sourcePath =>
             {
-                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-                try
-                {
-                    if (!File.Exists(sourcePath))
-                    {
-                        failed.Add(new BatchOperationFailure(sourcePath, "本地文件不存在"));
-                        return;
-                    }
-
-                    var fileName = Path.GetFileName(sourcePath);
-                    var destPath = Path.Combine(destDir, fileName);
-
-                    try
-                    {
-                        File.Copy(sourcePath, destPath, overwrite);
-                        succeeded.Add(sourcePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        failed.Add(new BatchOperationFailure(sourcePath, ex.Message, ex));
-                    }
-                }
-                finally
-                {
-                    semaphore.Release();
-                    var currentCompleted = Interlocked.Increment(ref completed);
-                    progress?.Report(new BatchProgress(currentCompleted, total, sourcePath, succeeded.Count, failed.Count));
-                }
-            }).ToArray();
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-        }
-        else
-        {
-            foreach (var sourcePath in paths)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 if (!File.Exists(sourcePath))
                 {
-                    failed.Add(new BatchOperationFailure(sourcePath, "本地文件不存在"));
-                    var c1 = Interlocked.Increment(ref completed);
-                    progress?.Report(new BatchProgress(c1, total, sourcePath, succeeded.Count, failed.Count));
-                    continue;
+                    return new BatchOperationFailure(sourcePath, "本地文件不存在");
                 }
 
                 var fileName = Path.GetFileName(sourcePath);
                 var destPath = Path.Combine(destDir, fileName);
+                File.Copy(sourcePath, destPath, overwrite);
 
-                try
-                {
-                    File.Copy(sourcePath, destPath, overwrite);
-                    succeeded.Add(sourcePath);
-                }
-                catch (Exception ex)
-                {
-                    failed.Add(new BatchOperationFailure(sourcePath, ex.Message, ex));
-                }
-
-                var c2 = Interlocked.Increment(ref completed);
-                progress?.Report(new BatchProgress(c2, total, sourcePath, succeeded.Count, failed.Count));
-            }
-        }
-
-        progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
-
-        return new BatchOperationResult
-        {
-            SucceededFiles = succeeded.ToList(),
-            FailedFiles = failed.ToList()
-        };
+                return null;
+            },
+            progress,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1071,89 +1047,24 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
 
         Directory.CreateDirectory(localDirectory);
 
-        var succeeded = new ConcurrentBag<string>();
-        var failed = new ConcurrentBag<BatchOperationFailure>();
-        var total = paths.Count;
-        var completed = 0;
-
-        if (_options.MaxDegreeOfParallelism > 1)
-        {
-            using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
-            var tasks = paths.Select(async remotePath =>
+        return await ExecuteLocalBatchAsync(
+            paths,
+            remotePath =>
             {
-                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-                try
-                {
-                    var sourcePath = GetRealPath(remotePath);
-                    if (!File.Exists(sourcePath))
-                    {
-                        failed.Add(new BatchOperationFailure(remotePath, "源文件不存在"));
-                        return;
-                    }
-
-                    var fileName = Path.GetFileName(sourcePath);
-                    var destPath = Path.Combine(localDirectory, fileName);
-
-                    try
-                    {
-                        File.Copy(sourcePath, destPath, overwrite);
-                        succeeded.Add(remotePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        failed.Add(new BatchOperationFailure(remotePath, ex.Message, ex));
-                    }
-                }
-                finally
-                {
-                    semaphore.Release();
-                    var currentCompleted = Interlocked.Increment(ref completed);
-                    progress?.Report(new BatchProgress(currentCompleted, total, remotePath, succeeded.Count, failed.Count));
-                }
-            }).ToArray();
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-        }
-        else
-        {
-            foreach (var remotePath in paths)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 var sourcePath = GetRealPath(remotePath);
                 if (!File.Exists(sourcePath))
                 {
-                    failed.Add(new BatchOperationFailure(remotePath, "源文件不存在"));
-                    var c1 = Interlocked.Increment(ref completed);
-                    progress?.Report(new BatchProgress(c1, total, remotePath, succeeded.Count, failed.Count));
-                    continue;
+                    return new BatchOperationFailure(remotePath, "源文件不存在");
                 }
 
                 var fileName = Path.GetFileName(sourcePath);
                 var destPath = Path.Combine(localDirectory, fileName);
+                File.Copy(sourcePath, destPath, overwrite);
 
-                try
-                {
-                    File.Copy(sourcePath, destPath, overwrite);
-                    succeeded.Add(remotePath);
-                }
-                catch (Exception ex)
-                {
-                    failed.Add(new BatchOperationFailure(remotePath, ex.Message, ex));
-                }
-
-                var c2 = Interlocked.Increment(ref completed);
-                progress?.Report(new BatchProgress(c2, total, remotePath, succeeded.Count, failed.Count));
-            }
-        }
-
-        progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
-
-        return new BatchOperationResult
-        {
-            SucceededFiles = succeeded.ToList(),
-            FailedFiles = failed.ToList()
-        };
+                return null;
+            },
+            progress,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1170,75 +1081,87 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
             return BatchOperationResult.Empty;
         }
 
-        var succeeded = new ConcurrentBag<string>();
-        var failed = new ConcurrentBag<BatchOperationFailure>();
-        var total = paths.Count;
-        var completed = 0;
-
-        if (_options.MaxDegreeOfParallelism > 1)
-        {
-            using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
-            var tasks = paths.Select(async filePath =>
+        return await ExecuteLocalBatchAsync(
+            paths,
+            filePath =>
             {
-                await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-                try
-                {
-                    var realPath = GetRealPath(filePath);
-                    try
-                    {
-                        if (File.Exists(realPath))
-                        {
-                            File.Delete(realPath);
-                        }
-                        succeeded.Add(filePath);
-                    }
-                    catch (Exception ex)
-                    {
-                        failed.Add(new BatchOperationFailure(filePath, ex.Message, ex));
-                    }
-                }
-                finally
-                {
-                    semaphore.Release();
-                    var currentCompleted = Interlocked.Increment(ref completed);
-                    progress?.Report(new BatchProgress(currentCompleted, total, filePath, succeeded.Count, failed.Count));
-                }
-            }).ToArray();
-
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-        }
-        else
-        {
-            foreach (var filePath in paths)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
                 var realPath = GetRealPath(filePath);
-                try
+                if (File.Exists(realPath))
                 {
-                    if (File.Exists(realPath))
-                    {
-                        File.Delete(realPath);
-                    }
-                    succeeded.Add(filePath);
-                }
-                catch (Exception ex)
-                {
-                    failed.Add(new BatchOperationFailure(filePath, ex.Message, ex));
+                    File.Delete(realPath);
                 }
 
-                var c = Interlocked.Increment(ref completed);
-                progress?.Report(new BatchProgress(c, total, filePath, succeeded.Count, failed.Count));
+                return null;
+            },
+            progress,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<BatchOperationResult> ExecuteLocalBatchAsync(
+        IReadOnlyList<string> filePaths,
+        Func<string, BatchOperationFailure?> operation,
+        IProgress<BatchProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var tracker = new BatchOperationTracker(filePaths.Count, progress);
+
+        void Execute(string filePath)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                var failure = operation(filePath);
+                if (failure is null)
+                {
+                    tracker.AddSuccess(filePath);
+                }
+                else
+                {
+                    tracker.AddFailure(failure);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                tracker.AddFailure(filePath, ex.Message, ex);
+            }
+            finally
+            {
+                tracker.ReportCompleted(filePath);
             }
         }
 
-        progress?.Report(new BatchProgress(total, total, string.Empty, succeeded.Count, failed.Count));
-
-        return new BatchOperationResult
+        if (_options.MaxDegreeOfParallelism <= 1)
         {
-            SucceededFiles = succeeded.ToList(),
-            FailedFiles = failed.ToList()
-        };
+            foreach (var filePath in filePaths)
+            {
+                Execute(filePath);
+            }
+
+            return tracker.Complete();
+        }
+
+        using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
+        var tasks = filePaths.Select(async filePath =>
+        {
+            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                Execute(filePath);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        return tracker.Complete();
     }
 
     /// <summary>
