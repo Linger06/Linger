@@ -12,12 +12,10 @@ namespace Linger.Ldap.Novell;
 /// LDAP client implementation using Novell.Directory.Ldap provider.
 /// Provides cross-platform LDAP connectivity.
 /// </summary>
-public sealed class Ldap : ILdap, IDisposable
+public sealed class Ldap : ILdap
 {
     private readonly LdapConfig _ldapConfig;
-    private readonly LdapConnection _ldapConn;
     private readonly ILogger<Ldap> _logger;
-    private bool _disposed;
 
     private const string DefaultUserSearchFilterTemplate = "(&(objectClass=person)(|(uid={0})(sAMAccountName={0})(userPrincipalName={0})(mail={0})(cn={0})(displayName={0})))";
 
@@ -38,7 +36,6 @@ public sealed class Ldap : ILdap, IDisposable
         }
 
         _ldapConfig = ldapConfig;
-        _ldapConn = new LdapConnection { SecureSocketLayer = _ldapConfig.Security };
         _logger = logger ?? NullLogger<Ldap>.Instance;
     }
 
@@ -74,7 +71,8 @@ public sealed class Ldap : ILdap, IDisposable
     /// <returns>Collection of matching users</returns>
     public async Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
-        if (!await ConnectAsync(ldapCredentials).ConfigureAwait(false))
+        using var ldapConnection = CreateConnection();
+        if (!await ConnectAsync(ldapConnection, ldapCredentials, cancellationToken).ConfigureAwait(false))
         {
             _logger.LogWarning("Failed to connect to LDAP server when searching users by filter");
             return [];
@@ -90,7 +88,7 @@ public sealed class Ldap : ILdap, IDisposable
                 ? BuildUserSearchFilter(string.Empty, exactMatch: false)
                 : filter;
 
-            ILdapSearchResults? lsc = await _ldapConn.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, effectiveFilter, _ldapConfig.Attributes, false, cancellationToken).ConfigureAwait(false);
+            ILdapSearchResults? lsc = await ldapConnection.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, effectiveFilter, _ldapConfig.Attributes, false, cancellationToken).ConfigureAwait(false);
             while (await lsc.HasMoreAsync(cancellationToken).ConfigureAwait(false))
             {
                 LdapEntry? nextEntry;
@@ -114,29 +112,24 @@ public sealed class Ldap : ILdap, IDisposable
         }
         finally
         {
-            Disconnect();
+            Disconnect(ldapConnection);
         }
     }
 
     public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+        ArgumentException.ThrowIfNullOrEmpty(password);
+
         _logger.LogDebug("Validating user {UserName} against LDAP", userName);
 
-        var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
-        var adUserInfo = await FindUserAsync(userName, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
-
-        if (adUserInfo is null) return (false, null);
-
-        // Connect and bind directly with the user's DN + password to validate credentials,
-        // avoiding unnecessary bind with config credentials.
+        using var ldapConnection = CreateConnection();
         try
         {
             var port = _ldapConfig.Security ? LdapConnection.DefaultSslPort : LdapConnection.DefaultPort;
-            await _ldapConn.ConnectAsync(_ldapConfig.Url, port, cancellationToken).ConfigureAwait(false);
-            await _ldapConn.BindAsync(adUserInfo.Dn, password, cancellationToken).ConfigureAwait(false);
+            await ldapConnection.ConnectAsync(_ldapConfig.Url, port, cancellationToken).ConfigureAwait(false);
+            await ldapConnection.BindAsync(BuildBindUserName(userName), password, cancellationToken).ConfigureAwait(false);
             _logger.LogDebug("User {UserName} validated successfully", userName);
-
-            return (_ldapConn.Bound, adUserInfo);
         }
         catch (LdapException ex)
         {
@@ -146,34 +139,53 @@ public sealed class Ldap : ILdap, IDisposable
         }
         finally
         {
-            Disconnect();
+            Disconnect(ldapConnection);
+        }
+
+        try
+        {
+            var adUserInfo = await FindUserAsync(
+                userName,
+                searchBase: searchBase,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            return (true, adUserInfo);
+        }
+        catch (LdapException ex)
+        {
+            _logger.LogWarning(ex, "User {UserName} authenticated, but LDAP user information could not be retrieved", userName);
+
+            return (true, null);
         }
     }
 
-    public bool IsConnected() => _ldapConn.Connected;
-
-    public async Task<bool> ConnectAsync(LdapCredentials? ldapCredentials = null)
+    private async Task<bool> ConnectAsync(
+        LdapConnection ldapConnection,
+        LdapCredentials? ldapCredentials,
+        CancellationToken cancellationToken)
     {
-        if (_ldapConn.Connected) return true;
-
         try
         {
             var port = _ldapConfig.Security ? LdapConnection.DefaultSslPort : LdapConnection.DefaultPort;
             _logger.LogDebug("Connecting to LDAP server {Url}:{Port}", _ldapConfig.Url, port);
 
-            await _ldapConn.ConnectAsync(_ldapConfig.Url, port).ConfigureAwait(false);
+            await ldapConnection.ConnectAsync(_ldapConfig.Url, port, cancellationToken).ConfigureAwait(false);
 
             if (ldapCredentials is not null)
             {
-                await BindCredentialsAsync(ldapCredentials).ConfigureAwait(false);
+                await BindCredentialsAsync(ldapConnection, ldapCredentials, cancellationToken).ConfigureAwait(false);
             }
             else if (_ldapConfig.Credentials is not null)
             {
-                await BindCredentialsAsync(_ldapConfig.Credentials).ConfigureAwait(false);
+                await BindCredentialsAsync(ldapConnection, _ldapConfig.Credentials, cancellationToken).ConfigureAwait(false);
             }
 
             _logger.LogDebug("Successfully connected to LDAP server {Url}", _ldapConfig.Url);
             return true;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -182,7 +194,10 @@ public sealed class Ldap : ILdap, IDisposable
         }
     }
 
-    private async Task BindCredentialsAsync(LdapCredentials credentials)
+    private async Task BindCredentialsAsync(
+        LdapConnection ldapConnection,
+        LdapCredentials credentials,
+        CancellationToken cancellationToken)
     {
         var userId = credentials.BindDn;
         var password = credentials.BindCredentials;
@@ -190,13 +205,18 @@ public sealed class Ldap : ILdap, IDisposable
         if (userId.IsNotNullOrEmpty() && password.IsNotNullOrEmpty())
         {
             var bindUserName = BuildBindUserName(userId);
-            await _ldapConn.BindAsync(bindUserName, password).ConfigureAwait(false);
+            await ldapConnection.BindAsync(bindUserName, password, cancellationToken).ConfigureAwait(false);
         }
         else
         {
-            await _ldapConn.BindAsync(null, null).ConfigureAwait(false);
+            await ldapConnection.BindAsync(null, null, cancellationToken).ConfigureAwait(false);
         }
     }
+
+    private LdapConnection CreateConnection() => new()
+    {
+        SecureSocketLayer = _ldapConfig.Security
+    };
 
     private string BuildUserSearchFilter(string userName, bool exactMatch)
     {
@@ -300,14 +320,11 @@ public sealed class Ldap : ILdap, IDisposable
         return escapedValue.ToString();
     }
 
-    /// <summary>
-    /// Disconnects from the LDAP server.
-    /// </summary>
-    public void Disconnect()
+    private static void Disconnect(LdapConnection ldapConnection)
     {
-        if (_ldapConn.Connected)
+        if (ldapConnection.Connected)
         {
-            _ldapConn.Disconnect();
+            ldapConnection.Disconnect();
         }
     }
 
@@ -320,19 +337,4 @@ public sealed class Ldap : ILdap, IDisposable
     /// <returns>True if user exists; otherwise, false</returns>
     public async Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default) => await FindUserAsync(userName, searchBase: searchBase, cancellationToken: cancellationToken).ConfigureAwait(false) is not null;
 
-    /// <summary>
-    /// Releases resources used by the <see cref="Ldap"/>.
-    /// </summary>
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        Disconnect();
-        _ldapConn.Dispose();
-        _disposed = true;
-        GC.SuppressFinalize(this);
-    }
 }

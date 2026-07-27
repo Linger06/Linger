@@ -68,6 +68,7 @@
 | `Linger.FileSystem.Sftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Sftp` | 调用上传 API 前先构造完整目标路径。 |
 | `Linger.FileSystem.Sftp` | `Connect()` / `Disconnect()` | `ConnectAsync()` / `DisconnectAsync()` | `Linger.FileSystem.Sftp` | 连接管理统一使用远程文件系统的异步契约。 |
 | `Linger.FileSystem.Sftp` | `SetRootAsWorkingDirectoryAsync()` | `SetWorkingDirectoryAsync("/")` | `Linger.FileSystem.Sftp` | 被删除的方法只负责传入根路径。 |
+| `Linger.Ldap.Novell` | `ConnectAsync(...)`、`Disconnect()`、`IsConnected()` 和 `IDisposable` | 无需替代，直接调用 `ILdap` 操作。 | `Linger.Ldap.Novell` | 每次操作现在会独立创建、绑定和释放连接，避免并发调用共享凭据或相互断开连接。 |
 
 ## 没有一对一替代
 

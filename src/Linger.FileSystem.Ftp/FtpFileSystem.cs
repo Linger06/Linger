@@ -21,7 +21,6 @@ public class FtpFileSystem : RemoteFileSystemBase
 {
     private const string Protocol = "FTP";
     private const char FtpPathSeparator = '/';
-    private const string FtpRootPath = "/";
     private readonly FtpFileSystemOptions _options;
 
     /// <summary>
@@ -85,11 +84,18 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task ConnectAsync(CancellationToken cancellationToken)
     {
-        if (!Client.IsConnected)
+        try
         {
-            Logger.LogInformation("Connecting to FTP server: {Host}:{Port}", Options.Host, Options.Port);
-            await Client.AutoConnect(cancellationToken).ConfigureAwait(false);
-            Logger.LogInformation("Connected to FTP server: {Host}:{Port}", Options.Host, Options.Port);
+            if (!Client.IsConnected)
+            {
+                Logger.LogInformation("Connecting to FTP server: {Host}:{Port}", Options.Host, Options.Port);
+                await Client.AutoConnect(cancellationToken).ConfigureAwait(false);
+                Logger.LogInformation("Connected to FTP server: {Host}:{Port}", Options.Host, Options.Port);
+            }
+        }
+        catch (Exception ex)
+        {
+            HandleException("Connect", ex);
         }
     }
 
@@ -491,11 +497,17 @@ public class FtpFileSystem : RemoteFileSystemBase
     /// </summary>
     public override async Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
+
         await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!string.IsNullOrWhiteSpace(directoryPath) && await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
-                await Client.SetWorkingDirectory(directoryPath, cancellationToken).ConfigureAwait(false);
+            if (!await DirectoryExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
+            {
+                throw new DirectoryNotFoundException($"Remote directory not found: {directoryPath}");
+            }
+
+            await Client.SetWorkingDirectory(directoryPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -839,42 +851,18 @@ public class FtpFileSystem : RemoteFileSystemBase
         {
             return await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false);
         }
-        catch
+        catch (OperationCanceledException)
         {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Unable to get FTP file size: {FilePath}", filePath);
+
             return 0;
         }
     }
 
-    private static string BuildRemoteFilePath(string destinationDirectory, string fileName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
-
-        // 规范化文件名: 移除路径分隔符
-        var sanitizedFileName = fileName.Replace('\\', FtpPathSeparator).Trim(FtpPathSeparator);
-        if (string.IsNullOrWhiteSpace(sanitizedFileName))
-        {
-            throw new ArgumentException("File name cannot be empty after sanitization.", nameof(fileName));
-        }
-
-        // 如果目录为空,直接返回文件名
-        if (string.IsNullOrWhiteSpace(destinationDirectory))
-        {
-            return sanitizedFileName;
-        }
-
-        // 规范化目录路径
-        var normalizedDirectory = destinationDirectory.Replace('\\', FtpPathSeparator).Trim();
-
-        // 处理根目录的特殊情况
-        return normalizedDirectory switch
-        {
-            "" => sanitizedFileName,
-            FtpRootPath => $"{FtpRootPath}{sanitizedFileName}",
-            _ => normalizedDirectory.EndsWith(FtpPathSeparator)
-                ? $"{normalizedDirectory}{sanitizedFileName}"
-                : $"{normalizedDirectory}{FtpPathSeparator}{sanitizedFileName}"
-        };
-    }
     #endregion
 
     #region 流工厂与元数据方法
@@ -972,8 +960,14 @@ public class FtpFileSystem : RemoteFileSystemBase
 
             return await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false);
         }
-        catch
+        catch (OperationCanceledException)
         {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Unable to get FTP file size: {FilePath}", filePath);
+
             return null;
         }
     }

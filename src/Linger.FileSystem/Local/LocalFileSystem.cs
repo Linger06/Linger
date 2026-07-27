@@ -189,7 +189,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
         try
         {
-            var copyResult = await CopyAndHashToFileAsync(inputStream, tempPath, cancellationToken).ConfigureAwait(false);
+            var copyResult = await CopyAndHashToFileAsync(
+                inputStream,
+                tempPath,
+                FileMode.Create,
+                cancellationToken).ConfigureAwait(false);
             var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
             var fileName = $"{fileNameWithoutExtension}-{copyResult.HashData}{Path.GetExtension(sourceFileName)}";
             var filePath = Path.Combine(containerName, destPath, fileName);
@@ -221,38 +225,32 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             : GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, _rootDirectoryFullPath);
         var fullFilePath = GetRealPath(filePath);
         CreateParentDirectory(fullFilePath);
-        var completed = false;
+        var copyResult = await CopyAndHashToFileAsync(
+            inputStream,
+            fullFilePath,
+            overwrite ? FileMode.Create : FileMode.CreateNew,
+            cancellationToken).ConfigureAwait(false);
 
-        try
-        {
-            var copyResult = await CopyAndHashToFileAsync(inputStream, fullFilePath, cancellationToken).ConfigureAwait(false);
-            completed = true;
-
-            return new UploadWriteResult(filePath, fullFilePath, copyResult.HashData, copyResult.Length);
-        }
-        finally
-        {
-            if (!completed)
-            {
-                TryDeleteFile(fullFilePath);
-            }
-        }
+        return new UploadWriteResult(filePath, fullFilePath, copyResult.HashData, copyResult.Length);
     }
 
     private async Task<(string HashData, long Length)> CopyAndHashToFileAsync(
         Stream inputStream,
         string destinationFilePath,
+        FileMode fileMode,
         CancellationToken cancellationToken)
     {
         using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
         var buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(_options.UploadBufferSize);
         long totalBytes = 0;
+        FileStream? destinationStream = null;
+        var completed = false;
 
         try
         {
-            var destinationStream = new FileStream(
+            destinationStream = new FileStream(
                 destinationFilePath,
-                FileMode.Create,
+                fileMode,
                 FileAccess.Write,
                 FileShare.None,
                 _options.UploadBufferSize,
@@ -280,10 +278,17 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 }
             }
 
+            completed = true;
+
             return (hash.GetHashAndReset().ToMd5HashCode(), totalBytes);
         }
         finally
         {
+            if (!completed && destinationStream is not null)
+            {
+                TryDeleteFile(destinationFilePath);
+            }
+
             System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
         }
     }
@@ -602,14 +607,20 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                     throw new FileNotFoundException("源文件不存在", realSourcePath);
                 }
 
-                var destFilePath = await GetUniqueDestFilePathAsync(
+                var destFilePath = GetUniqueDestFilePath(
                     localDestinationPath,
                     overwrite,
                     useSequencedName,
-                    operationCancellationToken).ConfigureAwait(false);
+                    operationCancellationToken);
 
                 var sourceStream = File.OpenRead(realSourcePath);
-                var destStream = File.Create(destFilePath);
+                var destStream = new FileStream(
+                    destFilePath,
+                    overwrite ? FileMode.Create : FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    _options.DownloadBufferSize,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
 
 #if NET8_0_OR_GREATER
                 await using (sourceStream.ConfigureAwait(false))
@@ -664,7 +675,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     }
 
     /// <summary>
-    /// 异步获取唯一的目标文件路径（确保目录存在）
+    /// 获取唯一的目标文件路径并确保其父目录存在。
     /// </summary>
     /// <param name="destFileName">目标文件名（可以包含相对路径）</param>
     /// <param name="overwrite">是否允许覆盖已存在的文件</param>
@@ -672,17 +683,15 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <returns>返回唯一的目标文件路径，如果需要会自动生成序号</returns>
     /// <exception cref="DuplicateFileException">当文件已存在且不允许覆盖和序号命名时抛出</exception>
     /// <remarks>
-    /// <para>此方法是 <see cref="GetDestFilePath(string, string, bool, bool, string)"/> 的异步包装版本，提供以下额外功能：</para>
+    /// <para>此方法基于 <see cref="GetDestFilePath(string, string, bool, bool, string)"/> 处理命名冲突，并使用调用方提供的本地目标路径。</para>
     /// <list type="bullet">
     /// <item><description>自动创建目标目录（如果不存在）</description></item>
     /// <item><description>支持相对路径的文件名参数</description></item>
-    /// <item><description>异步操作，避免阻塞UI线程</description></item>
     /// </list>
     /// <para>处理逻辑：</para>
     /// <list type="number">
     /// <item><description>调用 <see cref="GetDestFilePath(string, string, bool, bool, string)"/> 获取唯一路径</description></item>
     /// <item><description>提取目标路径中的目录部分</description></item>
-    /// <item><description>如果目录不存在，异步创建目录</description></item>
     /// <item><description>返回最终的文件路径</description></item>
     /// </list>
     /// <para>此方法主要用于下载操作，确保目标文件可以被成功创建。</para>
@@ -690,21 +699,21 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// <example>
     /// <code>
     /// // 基本使用 - 仅文件名
-    /// var path1 = await GetUniqueDestFilePathAsync("document.pdf", false, true);
+    /// var path1 = GetUniqueDestFilePath("document.pdf", false, true);
     /// // 如果document.pdf存在，可能返回: "document[1].pdf"
     ///
     /// // 包含相对路径的文件名
-    /// var path2 = await GetUniqueDestFilePathAsync("downloads\\document.pdf", false, true);
+    /// var path2 = GetUniqueDestFilePath("downloads\\document.pdf", false, true);
     /// // 会自动创建downloads目录，如果文件存在可能返回: "downloads\\document[1].pdf"
     ///
     /// // 允许覆盖的情况
-    /// var path3 = await GetUniqueDestFilePathAsync("temp\\file.txt", true, false);
+    /// var path3 = GetUniqueDestFilePath("temp\\file.txt", true, false);
     /// // 返回: "temp\\file.txt"，会创建temp目录并允许覆盖
     ///
     /// // 严格模式
     /// try
     /// {
-    ///     var path4 = await GetUniqueDestFilePathAsync("existing.txt", false, false);
+    ///     var path4 = GetUniqueDestFilePath("existing.txt", false, false);
     /// }
     /// catch (DuplicateFileException)
     /// {
@@ -712,23 +721,26 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// }
     /// </code>
     /// </example>
-    private async Task<string> GetUniqueDestFilePathAsync(string destFileName, bool overwrite, bool useSequencedName, CancellationToken cancellationToken = default)
+    private static string GetUniqueDestFilePath(string destFileName, bool overwrite, bool useSequencedName, CancellationToken cancellationToken = default)
     {
-        // 调用静态方法获取唯一的文件路径
-        // 使用空字符串作为destPath，因为destFileName可能已包含相对路径
-        var destFilePath = GetDestFilePath(string.Empty, destFileName, overwrite, useSequencedName);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        // 提取路径中的目录部分，为后续的目录创建做准备
-        var directory = Path.GetDirectoryName(destFilePath);
-
-        // 如果存在目录路径且目录不存在，则异步创建目录
-        if (!string.IsNullOrEmpty(directory))
+        var fullDestinationPath = Path.GetFullPath(destFileName);
+        var directory = Path.GetDirectoryName(fullDestinationPath);
+        if (string.IsNullOrEmpty(directory))
         {
-            await CreateDirectoryIfNotExistsAsync(directory, cancellationToken).ConfigureAwait(false);
+            throw new ArgumentException("Destination path must include a directory.", nameof(destFileName));
         }
 
-        // 返回已确保目录存在的唯一文件路径
-        return destFilePath;
+        Directory.CreateDirectory(directory);
+
+        var destinationFilePath = GetDestFilePath(
+            directory,
+            Path.GetFileName(fullDestinationPath),
+            overwrite,
+            useSequencedName);
+
+        return destinationFilePath;
     }
 
     /// <summary>
@@ -1145,21 +1157,17 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             return tracker.Complete();
         }
 
-        using var semaphore = new SemaphoreSlim(_options.MaxDegreeOfParallelism, _options.MaxDegreeOfParallelism);
-        var tasks = filePaths.Select(async filePath =>
+        var queue = new System.Collections.Concurrent.ConcurrentQueue<string>(filePaths);
+        var workerCount = Math.Min(_options.MaxDegreeOfParallelism, filePaths.Count);
+        var workers = Enumerable.Range(0, workerCount).Select(_ => Task.Run(() =>
         {
-            await semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
+            while (queue.TryDequeue(out var filePath))
             {
                 Execute(filePath);
             }
-            finally
-            {
-                semaphore.Release();
-            }
-        });
+        }));
 
-        await Task.WhenAll(tasks).ConfigureAwait(false);
+        await Task.WhenAll(workers).ConfigureAwait(false);
 
         return tracker.Complete();
     }

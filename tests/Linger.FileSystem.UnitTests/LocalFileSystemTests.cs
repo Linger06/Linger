@@ -83,13 +83,34 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(sourcePath, sourceContent);
 
             // Act
+            var requestedDestinationPath = Path.Combine(_testRootPath, "downloads", "dest.txt");
             var destPath = await _fileSystem.DownloadAsync(
                 "source.txt",
-                "dest.txt");
+                requestedDestinationPath);
 
             // Assert
+            Assert.Equal(Path.GetFullPath(requestedDestinationPath), destPath);
             Assert.True(File.Exists(destPath));
             Assert.Equal(sourceContent, File.ReadAllText(destPath));
+        }
+
+        [Fact]
+        public async Task DownloadAsync_WhenDestinationExistsAndOverwriteIsFalse_DoesNotReplaceFile()
+        {
+            var sourcePath = Path.Combine(_testRootPath, "source.txt");
+            var destinationPath = Path.Combine(_testRootPath, "downloads", "dest.txt");
+            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
+            File.WriteAllText(sourcePath, "source content");
+            File.WriteAllText(destinationPath, "existing content");
+
+            await Assert.ThrowsAsync<DuplicateFileException>(() =>
+                _fileSystem.DownloadAsync(
+                    "source.txt",
+                    destinationPath,
+                    overwrite: false,
+                    useSequencedName: false));
+
+            Assert.Equal("existing content", File.ReadAllText(destinationPath));
         }
 
         [Fact]

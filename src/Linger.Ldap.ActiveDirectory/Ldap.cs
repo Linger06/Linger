@@ -211,15 +211,31 @@ public class Ldap : ILdap
     /// <returns>Returns True of user is valid</returns>
     public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+        ArgumentException.ThrowIfNullOrEmpty(password);
+
         _logger.LogDebug("Validating user {UserName} against Active Directory", userName);
         using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials: null, searchBase: searchBase);
         var result = principalContext.ValidateCredentials(userName, password);
         if (result)
         {
             _logger.LogDebug("User {UserName} validated successfully", userName);
-            var ldapCredentials = new LdapCredentials { BindDn = userName, BindCredentials = password };
-            var adUserInfo = await FindUserAsync(userName, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
-            return (true, adUserInfo);
+
+            try
+            {
+                var adUserInfo = await FindUserAsync(
+                    userName,
+                    searchBase: searchBase,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                return (true, adUserInfo);
+            }
+            catch (DirectoryServicesCOMException ex)
+            {
+                _logger.LogWarning(ex, "User {UserName} authenticated, but Active Directory user information could not be retrieved", userName);
+
+                return (true, null);
+            }
         }
 
         _logger.LogDebug("User {UserName} validation failed", userName);

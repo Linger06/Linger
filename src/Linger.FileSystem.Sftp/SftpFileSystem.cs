@@ -19,7 +19,6 @@ public class SftpFileSystem : RemoteFileSystemBase
 {
     private const string Protocol = "SFTP";
     private const char SftpPathSeparator = '/';
-    private const string SftpRootPath = "/";
     private readonly SftpFileSystemOptions _options;
 
     /// <summary>
@@ -90,11 +89,18 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// <inheritdoc />
     public override async Task ConnectAsync(CancellationToken cancellationToken)
     {
-        if (Client is { IsConnected: false })
+        try
         {
-            Logger.LogInformation("Connecting to SFTP server: {Host}:{Port}", Options.Host, Options.Port);
-            await Client.ConnectAsync(cancellationToken).ConfigureAwait(false);
-            Logger.LogInformation("Connected to SFTP server: {Host}:{Port}", Options.Host, Options.Port);
+            if (Client is { IsConnected: false })
+            {
+                Logger.LogInformation("Connecting to SFTP server: {Host}:{Port}", Options.Host, Options.Port);
+                await Client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+                Logger.LogInformation("Connected to SFTP server: {Host}:{Port}", Options.Host, Options.Port);
+            }
+        }
+        catch (Exception ex)
+        {
+            HandleException("Connect", ex);
         }
     }
 
@@ -380,7 +386,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                 {
                     using var fileStream = new FileStream(
                         localDestinationPath,
-                        FileMode.Create,
+                        overwrite ? FileMode.Create : FileMode.CreateNew,
                         FileAccess.Write,
                         FileShare.None,
                         4096,
@@ -629,7 +635,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
                 using var fileStream = new FileStream(
                     localPath,
-                    FileMode.Create,
+                    overwrite ? FileMode.Create : FileMode.CreateNew,
                     FileAccess.Write,
                     FileShare.None,
                     4096,
@@ -728,6 +734,8 @@ public class SftpFileSystem : RemoteFileSystemBase
     /// </summary>
     public override async Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
+
         await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -877,43 +885,6 @@ public class SftpFileSystem : RemoteFileSystemBase
 
             return 0;
         }
-    }
-
-    /// <summary>
-    /// 构建远程文件路径
-    /// </summary>
-    /// <param name="destinationDirectory">目标目录</param>
-    /// <param name="fileName">文件</param>
-    /// <returns>完整的远程文件路径</returns>
-    private static string BuildRemoteFilePath(string destinationDirectory, string fileName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
-
-        // 规范化文件名：移除路径分隔符
-        var sanitizedFileName = fileName.Replace('\\', SftpPathSeparator).Trim(SftpPathSeparator);
-        if (string.IsNullOrWhiteSpace(sanitizedFileName))
-        {
-            throw new ArgumentException("File name cannot be empty after sanitization.", nameof(fileName));
-        }
-
-        // 如果目录为空，直接返回文件名
-        if (string.IsNullOrWhiteSpace(destinationDirectory))
-        {
-            return sanitizedFileName;
-        }
-
-        // 规范化目录路径
-        var normalizedDirectory = destinationDirectory.Replace('\\', SftpPathSeparator).Trim();
-
-        // 处理根目录的特殊情况
-        return normalizedDirectory switch
-        {
-            "" => sanitizedFileName,
-            SftpRootPath => $"{SftpRootPath}{sanitizedFileName}",
-            _ => normalizedDirectory.EndsWith(SftpPathSeparator)
-                ? $"{normalizedDirectory}{sanitizedFileName}"
-                : $"{normalizedDirectory}{SftpPathSeparator}{sanitizedFileName}"
-        };
     }
 
     #endregion

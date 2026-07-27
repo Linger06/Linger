@@ -83,6 +83,8 @@ if (isValid && userInfo is not null)
 }
 ```
 
+认证结果只由 `ValidateCredentials` 决定。用户信息会使用配置的查询凭据单独获取；如果查询不可用或没有权限，方法会返回 `IsValid = true` 和 `userInfo = null`。
+
 ### 查询单个用户
 
 ```csharp

@@ -52,7 +52,7 @@ var config = new LdapConfig
     ]
 };
 
-using var ldap = new Ldap(config);
+var ldap = new Ldap(config);
 ```
 
 ## Usage
@@ -68,6 +68,8 @@ if (isValid && userInfo is not null)
     Console.WriteLine($"Email: {userInfo.Email}");
 }
 ```
+
+Authentication is determined by the user bind. User information is queried separately with the configured search credentials. If that query is unavailable or unauthorized, the method returns `IsValid = true` and `userInfo = null`.
 
 ### Find a Single User
 

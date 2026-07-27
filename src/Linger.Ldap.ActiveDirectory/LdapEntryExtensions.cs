@@ -26,26 +26,17 @@ public static class LdapEntryExtensions
 
         if (userPrincipal.GetUnderlyingObject() is not DirectoryEntry directoryEntry) return null;
 
-        var userInfo = new AdUserInfo
-        {
-            // 基本标识信息 - 优先使用 UserPrincipal 中的属性
-            SamAccountName = userPrincipal.SamAccountName,
-            DisplayName = userPrincipal.DisplayName,
-            Upn = userPrincipal.UserPrincipalName,
-            Name = userPrincipal.Name,
-            Dn = userPrincipal.DistinguishedName,
-
-            // 个人信息 - 优先使用 UserPrincipal 中的属性
-            FirstName = userPrincipal.GivenName,
-            LastName = userPrincipal.Surname,
-            Description = userPrincipal.Description
-        };
-
-        // 使用 DirectoryEntry 填充其余属性
-        MapContactInfo(userInfo, directoryEntry);
-        MapOrganizationInfo(userInfo, directoryEntry);
-        MapAddressInfo(userInfo, directoryEntry);
-        MapSystemInfo(userInfo, directoryEntry);
+        var userInfo = CreateUserInfo(
+            propertyName => GetPropertyValue(directoryEntry, propertyName),
+            propertyName => GetPropertyValues(directoryEntry, propertyName));
+        userInfo.SamAccountName = userPrincipal.SamAccountName;
+        userInfo.DisplayName = userPrincipal.DisplayName;
+        userInfo.Upn = userPrincipal.UserPrincipalName;
+        userInfo.Name = userPrincipal.Name;
+        userInfo.Dn = userPrincipal.DistinguishedName;
+        userInfo.FirstName = userPrincipal.GivenName;
+        userInfo.LastName = userPrincipal.Surname;
+        userInfo.Description = userPrincipal.Description;
 
         // 安全信息使用 UserPrincipal 特有的方法
         MapSpecialUserPrincipalProperties(userInfo, userPrincipal);
@@ -67,43 +58,6 @@ public static class LdapEntryExtensions
         try
         {
             return entry.Properties[propertyName].Value?.ToString();
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string? GetMultiValueProperty(DirectoryEntry entry, string propertyName, string separator)
-    {
-        try
-        {
-            var prop = entry.Properties[propertyName];
-            if (prop.Count == 0) return null;
-
-            var values = new List<string>();
-            foreach (var value in prop)
-            {
-                if (value?.ToString() is { } strValue)
-                {
-                    values.Add(strValue);
-                }
-            }
-
-            return values.Count > 0 ? string.Join(separator, values) : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
-    private static string[]? GetMemberOf(DirectoryEntry entry)
-    {
-        try
-        {
-            var memberOf = entry.Properties[LdapUserType.MemberOf];
-            return memberOf.Count > 0 ? memberOf.Cast<string>().ToArray() : null;
         }
         catch
         {
@@ -162,119 +116,181 @@ public static class LdapEntryExtensions
         }
     }
 
+    /// <summary>
+    /// Converts Active Directory search results to user information without issuing additional directory queries.
+    /// </summary>
+    /// <param name="resultCollection">The search results to convert.</param>
+    /// <returns>The converted user information.</returns>
     public static List<AdUserInfo> ToAdUsersInfo(this SearchResultCollection resultCollection)
     {
         var userList = new List<AdUserInfo>();
 
         foreach (SearchResult result in resultCollection)
         {
-            using var entry = new DirectoryEntry(result.Path);
-            var userInfo = entry.ToAdUserInfo();
+            var userInfo = CreateUserInfo(
+                propertyName => GetPropertyValue(result, propertyName),
+                propertyName => GetPropertyValues(result, propertyName));
+            MapSearchResultSecurityInfo(userInfo, result);
             userList.Add(userInfo);
         }
 
         return userList;
     }
 
+    private static string? GetPropertyValue(SearchResult result, string propertyName)
+    {
+        var values = result.Properties[propertyName];
+
+        return values.Count > 0 ? values[0]?.ToString() : null;
+    }
+
+    private static string[]? GetPropertyValues(SearchResult result, string propertyName)
+    {
+        var values = result.Properties[propertyName];
+        if (values.Count == 0)
+        {
+            return null;
+        }
+
+        return values
+            .Cast<object>()
+            .Select(value => value.ToString())
+            .Where(value => value is not null)
+            .Cast<string>()
+            .ToArray();
+    }
+
+    private static void MapSearchResultSecurityInfo(AdUserInfo userInfo, SearchResult result)
+    {
+        var userAccountControlValue = GetPropertyValue(result, LdapUserType.UserAccountControl);
+        if (!int.TryParse(userAccountControlValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var userAccountControl))
+        {
+            SetDefaultSecurityInfo(userInfo);
+            return;
+        }
+
+        var isDisabled = IsAccountDisabled(userAccountControl);
+        var accountExpires = GetAccountExpirationDate(GetPropertyValue(result, LdapUserType.AccountExpires) ?? string.Empty);
+        var isExpired = accountExpires?.Date <= DateTime.Now.Date;
+        userInfo.Status = GetAccountStatus(isDisabled, isLocked: false, isExpired);
+        userInfo.AccountExpires = accountExpires?.ToString(CultureInfo.InvariantCulture);
+
+        var pwdLastSet = GetPropertyValue(result, LdapUserType.PwdLastSet);
+        if (!long.TryParse(pwdLastSet, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lastSetValue))
+        {
+            userInfo.PwdLastSet = pwdLastSet is null ? PasswordStatus.Unknown : PasswordStatus.InvalidFormat;
+            userInfo.PwdExpirationLeftDays = PasswordStatus.Unknown;
+            return;
+        }
+
+        if (lastSetValue == 0)
+        {
+            userInfo.PwdLastSet = PasswordStatus.NeverChanged;
+        }
+        else
+        {
+            try
+            {
+                userInfo.PwdLastSet = DateTime.FromFileTime(lastSetValue).ToString(CultureInfo.InvariantCulture);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                userInfo.PwdLastSet = PasswordStatus.InvalidFormat;
+            }
+        }
+
+        userInfo.PwdExpirationLeftDays = (userAccountControl & UserAccountControl.PasswordNeverExpires) != 0
+            ? PasswordStatus.NeverExpires
+            : PasswordStatus.UnableToCalculate;
+    }
+
+    /// <summary>
+    /// Converts an Active Directory entry to user information.
+    /// </summary>
+    /// <param name="entry">The directory entry to convert.</param>
+    /// <returns>The converted user information.</returns>
     public static AdUserInfo ToAdUserInfo(this DirectoryEntry entry)
     {
-        var userInfo = new AdUserInfo();
-
-        // 基本标识信息
-        MapIdentificationInfo(userInfo, entry);
-
-        // 个人信息
-        MapPersonalInfo(userInfo, entry);
-
-        // 联系信息
-        MapContactInfo(userInfo, entry);
-
-        // 组织信息
-        MapOrganizationInfo(userInfo, entry);
-
-        // 地址信息
-        MapAddressInfo(userInfo, entry);
-
-        // 系统信息
-        MapSystemInfo(userInfo, entry);
-
-        // 安全信息
+        var userInfo = CreateUserInfo(
+            propertyName => GetPropertyValue(entry, propertyName),
+            propertyName => GetPropertyValues(entry, propertyName));
         MapSecurityInfo(userInfo, entry);
 
         return userInfo;
     }
 
-    private static void MapIdentificationInfo(AdUserInfo userInfo, DirectoryEntry entry)
+    private static AdUserInfo CreateUserInfo(
+        Func<string, string?> getValue,
+        Func<string, string[]?> getValues)
     {
-        userInfo.SamAccountName = GetPropertyValue(entry, LdapUserType.SamAccountName);
-        userInfo.DisplayName = GetPropertyValue(entry, LdapUserType.DisplayName);
-        userInfo.Upn = GetPropertyValue(entry, LdapUserType.Upn);
-        userInfo.Name = GetPropertyValue(entry, LdapUserType.Name);
-        userInfo.Dn = GetPropertyValue(entry, LdapUserType.Dn);
-    }
+        var exMailboxDb = getValue(LdapUserType.ExMailboxDb);
+        var userInfo = new AdUserInfo
+        {
+            SamAccountName = getValue(LdapUserType.SamAccountName),
+            DisplayName = getValue(LdapUserType.DisplayName),
+            Upn = getValue(LdapUserType.Upn),
+            Name = getValue(LdapUserType.Name),
+            Dn = getValue(LdapUserType.Dn),
+            FirstName = getValue(LdapUserType.FirstName),
+            LastName = getValue(LdapUserType.LastName),
+            Description = getValue(LdapUserType.Description),
+            Initials = getValue(LdapUserType.Initials),
+            Email = getValue(LdapUserType.Email),
+            LyncAddress = getValue(LdapUserType.LyncAddress),
+            ProxyAddresses = JoinValues(getValues(LdapUserType.ProxyAddresses), " ^ "),
+            WebPage = getValue(LdapUserType.WebPage),
+            TelephoneNumber = getValue(LdapUserType.TelephoneNumber),
+            Mobile = getValue(LdapUserType.Mobile),
+            HomePhone = getValue(LdapUserType.HomePhone),
+            Pager = getValue(LdapUserType.Pager),
+            Fax = getValue(LdapUserType.Fax),
+            IpPhone = getValue(LdapUserType.IpPhone),
+            OtherTelephone = JoinValues(getValues(LdapUserType.OtherTelephone), "^"),
+            Company = getValue(LdapUserType.Company),
+            Department = getValue(LdapUserType.Department),
+            Title = getValue(LdapUserType.Title),
+            Manager = getValue(LdapUserType.Manager),
+            EmployeeId = getValue(LdapUserType.EmployeeId),
+            EmployeeNumber = getValue(LdapUserType.EmployeeNumber),
+            Office = getValue(LdapUserType.Office),
+            Street = getValue(LdapUserType.Street),
+            PostOfficeBox = getValue(LdapUserType.PostOfficeBox),
+            City = getValue(LdapUserType.City),
+            State = getValue(LdapUserType.State),
+            PostalCode = getValue(LdapUserType.PostalCode),
+            Country = getValue(LdapUserType.Country),
+            UserWorkstations = getValue(LdapUserType.UserWorkstations),
+            ProfilePath = getValue(LdapUserType.ProfilePath),
+            HomeDrive = getValue(LdapUserType.HomeDrive),
+            HomeDirectory = getValue(LdapUserType.HomeDirectory),
+            ExMailboxDb = exMailboxDb,
+            ExtensionAttribute1 = getValue(LdapUserType.ExtensionAttribute1),
+            UserType = exMailboxDb is not null ? "UserMailbox" : "User",
+            MemberOf = getValues(LdapUserType.MemberOf)
+        };
 
-    private static void MapPersonalInfo(AdUserInfo userInfo, DirectoryEntry entry)
-    {
-        userInfo.FirstName = GetPropertyValue(entry, LdapUserType.FirstName);
-        userInfo.LastName = GetPropertyValue(entry, LdapUserType.LastName);
-        userInfo.Description = GetPropertyValue(entry, LdapUserType.Description);
-        userInfo.Initials = GetPropertyValue(entry, LdapUserType.Initials);
-    }
-
-    private static void MapContactInfo(AdUserInfo userInfo, DirectoryEntry entry)
-    {
-        // 电子邮件相关
-        userInfo.Email = GetPropertyValue(entry, LdapUserType.Email);
-        userInfo.LyncAddress = GetPropertyValue(entry, LdapUserType.LyncAddress);
-        userInfo.ProxyAddresses = GetMultiValueProperty(entry, LdapUserType.ProxyAddresses, " ^ ");
-        userInfo.WebPage = GetPropertyValue(entry, LdapUserType.WebPage);
-
-        // 电话号码
-        userInfo.TelephoneNumber = GetPropertyValue(entry, LdapUserType.TelephoneNumber);
-        userInfo.Mobile = GetPropertyValue(entry, LdapUserType.Mobile);
-        userInfo.HomePhone = GetPropertyValue(entry, LdapUserType.HomePhone);
-        userInfo.Pager = GetPropertyValue(entry, LdapUserType.Pager);
-        userInfo.Fax = GetPropertyValue(entry, LdapUserType.Fax);
-        userInfo.IpPhone = GetPropertyValue(entry, LdapUserType.IpPhone);
-        userInfo.OtherTelephone = GetMultiValueProperty(entry, LdapUserType.OtherTelephone, "^");
-    }
-
-    private static void MapOrganizationInfo(AdUserInfo userInfo, DirectoryEntry entry)
-    {
-        userInfo.Company = GetPropertyValue(entry, LdapUserType.Company);
-        userInfo.Department = GetPropertyValue(entry, LdapUserType.Department);
-        userInfo.Title = GetPropertyValue(entry, LdapUserType.Title);
-        userInfo.Manager = GetPropertyValue(entry, LdapUserType.Manager);
-        userInfo.EmployeeId = GetPropertyValue(entry, LdapUserType.EmployeeId);
-        userInfo.EmployeeNumber = GetPropertyValue(entry, LdapUserType.EmployeeNumber);
-        userInfo.Office = GetPropertyValue(entry, LdapUserType.Office);
-    }
-
-    private static void MapAddressInfo(AdUserInfo userInfo, DirectoryEntry entry)
-    {
-        userInfo.Street = GetPropertyValue(entry, LdapUserType.Street);
-        userInfo.PostOfficeBox = GetPropertyValue(entry, LdapUserType.PostOfficeBox);
-        userInfo.City = GetPropertyValue(entry, LdapUserType.City);
-        userInfo.State = GetPropertyValue(entry, LdapUserType.State);
-        userInfo.PostalCode = GetPropertyValue(entry, LdapUserType.PostalCode);
-        userInfo.Country = GetPropertyValue(entry, LdapUserType.Country);
-    }
-
-    private static void MapSystemInfo(AdUserInfo userInfo, DirectoryEntry entry)
-    {
-        userInfo.UserWorkstations = GetPropertyValue(entry, LdapUserType.UserWorkstations);
-        userInfo.ProfilePath = GetPropertyValue(entry, LdapUserType.ProfilePath);
-        userInfo.HomeDrive = GetPropertyValue(entry, LdapUserType.HomeDrive);
-        userInfo.HomeDirectory = GetPropertyValue(entry, LdapUserType.HomeDirectory);
-        userInfo.ExMailboxDb = GetPropertyValue(entry, LdapUserType.ExMailboxDb);
-        userInfo.ExtensionAttribute1 = GetPropertyValue(entry, LdapUserType.ExtensionAttribute1);
-        userInfo.UserType = GetPropertyValue(entry, LdapUserType.ExMailboxDb) is not null ? "UserMailbox" : "User";
-        userInfo.MemberOf = GetMemberOf(entry);    // 添加 MemberOf 属性映射
-
-        var createdDate = GetPropertyValue(entry, LdapUserType.WhenCreated);
-        if (createdDate is not null && DateTime.TryParse(createdDate, out var whenCreated))
+        var createdDate = getValue(LdapUserType.WhenCreated);
+        if (DateTime.TryParse(createdDate, out var whenCreated))
         {
             userInfo.WhenCreated = whenCreated.ToLocalTime();
+        }
+
+        return userInfo;
+    }
+
+    private static string? JoinValues(string[]? values, string separator) =>
+        values is { Length: > 0 } ? string.Join(separator, values) : null;
+
+    private static string[]? GetPropertyValues(DirectoryEntry entry, string propertyName)
+    {
+        try
+        {
+            var values = entry.Properties[propertyName];
+            return values.Count > 0 ? values.Cast<object>().Select(value => value.ToString()!).ToArray() : null;
+        }
+        catch
+        {
+            return null;
         }
     }
 

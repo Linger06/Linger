@@ -83,6 +83,8 @@ if (isValid && userInfo is not null)
 }
 ```
 
+Authentication is determined by `ValidateCredentials`. User information is queried separately with the configured search credentials. If that query is unavailable or unauthorized, the method returns `IsValid = true` and `userInfo = null`.
+
 ### Find a Single User
 
 ```csharp
