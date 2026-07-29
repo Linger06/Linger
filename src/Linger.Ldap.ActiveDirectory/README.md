@@ -10,9 +10,9 @@ An Active Directory focused LDAP client implementation based on System.Directory
 - Optional `Attributes` projection to limit returned fields
 - LDAPS support via `LdapConfig.Security`
 - Configurable `SearchFilter` for `FindUserAsync` and `GetUsersAsync`
-- Cross-provider advanced query via `ILdap.SearchUsersByFilterAsync`
+- Cross-provider advanced query via `ILdapClient.SearchUsersByFilterAsync`
 - Optional domain controller auto-discovery when `LdapConfig.Url` is empty
-- Convenience constructor overloads (`new Ldap()` / `new Ldap(logger)`) for auto-filling defaults (especially `SearchBase`)
+- Convenience constructor overloads (`new AdLdapClient()` / `new AdLdapClient(logger)`) for auto-filling defaults (especially `SearchBase`)
 
 ## Supported Frameworks
 
@@ -55,16 +55,16 @@ var config = new LdapConfig
     ]
 };
 
-var ldap = new Ldap(config);
+var ldap = new AdLdapClient(config);
 ```
 
 ### Convenience Creation with Auto Defaults
 
 ```csharp
-var ldap = new Ldap();
+var ldap = new AdLdapClient();
 
 // With custom logger
-var ldapWithLogger = new Ldap(logger);
+var ldapWithLogger = new AdLdapClient(logger);
 ```
 
 When `SearchBase` is empty, the convenience constructor overloads infer it from `Domain` (for example, `example.com` -> `DC=example,DC=com`) and then fall back to the current domain distinguished name.
@@ -126,7 +126,7 @@ var usersInOu = await ldap.GetUsersAsync(
 ### Advanced Filter Search (Cross-Provider)
 
 ```csharp
-ILdap ldapContract = ldap;
+ILdapClient ldapContract = ldap;
 
 var users = await ldapContract.SearchUsersByFilterAsync(
     "(&(objectClass=person)(department=IT)(mail=*))",
@@ -148,13 +148,15 @@ var properties = entry.Properties;
 - When `Security = true`, the client uses LDAPS (`LDAPS://`) and secure bind options.
 - `SearchFilter` is used by both `FindUserAsync` and `GetUsersAsync`; using `{0}` placeholder is recommended.
 - `SearchUsersByFilterAsync` provides provider-agnostic advanced raw-filter queries.
+- Blank usernames and raw filters are rejected to prevent accidental full-directory searches.
+- Cancellation is observed before and after synchronous `System.DirectoryServices` calls, but an in-flight directory query cannot be interrupted.
 - If `SearchFilter` format is invalid, the implementation falls back to a default user filter.
 - Input value in user search is escaped before building LDAP filter to reduce malformed/injection risk.
 - Bind username normalization supports existing `domain\\user`, UPN (`user@domain`), and full DN forms.
 - If `LdapConfig.Url` is empty, Active Directory provider attempts domain controller auto-discovery.
 - Convenience constructor overloads can auto-fill missing `Domain` and `SearchBase` defaults.
 
-## Key User Properties (AdUserInfo)
+## Key User Properties (LdapUserInfo)
 
 - `DisplayName`, `SamAccountName`, `Upn`, `Dn`
 - `Email`, `TelephoneNumber`, `Mobile`, `Department`, `Title`

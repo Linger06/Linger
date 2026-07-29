@@ -3,7 +3,11 @@ namespace Linger.Ldap.Contracts;
 /// <summary>
 /// Represents low-level LDAP operations
 /// </summary>
-public interface ILdap
+/// <remarks>
+/// Cancellation behavior depends on the provider. Providers with native asynchronous LDAP APIs can cancel
+/// in-flight operations; providers backed by synchronous directory APIs observe cancellation at operation boundaries.
+/// </remarks>
+public interface ILdapClient
 {
     /// <summary>
     /// Validates user credentials against LDAP directory
@@ -13,7 +17,8 @@ public interface ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if credentials are valid; otherwise, false</returns>
-    Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default);
+    /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is blank or <paramref name="password"/> is empty.</exception>
+    Task<(bool IsValid, LdapUserInfo? LdapUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Finds a user in LDAP directory
@@ -23,7 +28,8 @@ public interface ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>User information if found; otherwise, null</returns>
-    Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
+    /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is blank.</exception>
+    Task<LdapUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Gets users by keyword or identity.
@@ -33,7 +39,8 @@ public interface ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
+    /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is blank.</exception>
+    Task<IEnumerable<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Searches users by a raw LDAP filter.
@@ -43,7 +50,8 @@ public interface ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
+    /// <exception cref="ArgumentException">Thrown when <paramref name="filter"/> is blank.</exception>
+    Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Checks if user exists in LDAP directory
@@ -52,5 +60,6 @@ public interface ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user exists; otherwise, false</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is blank.</exception>
     Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default);
 }

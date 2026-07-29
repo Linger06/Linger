@@ -10,9 +10,9 @@
 - 支持 `Attributes` 属性投影，按需返回字段
 - 通过 `LdapConfig.Security` 启用 LDAPS
 - `FindUserAsync` 与 `GetUsersAsync` 使用可配置 `SearchFilter`
-- 通过 `ILdap.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
+- 通过 `ILdapClient.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
 - 当 `LdapConfig.Url` 为空时可自动发现域控制器
-- 提供构造函数重载便捷入口（`new Ldap()` / `new Ldap(logger)`），可自动补齐默认值（尤其 `SearchBase`）
+- 提供构造函数重载便捷入口（`new AdLdapClient()` / `new AdLdapClient(logger)`），可自动补齐默认值（尤其 `SearchBase`）
 
 ## 支持的框架
 
@@ -55,16 +55,16 @@ var config = new LdapConfig
     ]
 };
 
-var ldap = new Ldap(config);
+var ldap = new AdLdapClient(config);
 ```
 
 ### 便捷创建（自动补齐默认值）
 
 ```csharp
-var ldap = new Ldap();
+var ldap = new AdLdapClient();
 
 // 使用自定义 logger
-var ldapWithLogger = new Ldap(logger);
+var ldapWithLogger = new AdLdapClient(logger);
 ```
 
 当 `SearchBase` 为空时，便捷构造函数重载会优先根据 `Domain` 推断（例如 `example.com` -> `DC=example,DC=com`），再回退到当前域的 `distinguishedName`。
@@ -126,7 +126,7 @@ var usersInOu = await ldap.GetUsersAsync(
 ### 高级过滤查询（跨提供者统一）
 
 ```csharp
-ILdap ldapContract = ldap;
+ILdapClient ldapContract = ldap;
 
 var users = await ldapContract.SearchUsersByFilterAsync(
     "(&(objectClass=person)(department=IT)(mail=*))",
@@ -148,13 +148,15 @@ var properties = entry.Properties;
 - 当 `Security = true` 时，客户端使用 LDAPS（`LDAPS://`）和安全绑定选项。
 - `SearchFilter` 会用于 `FindUserAsync` 与 `GetUsersAsync`，建议使用 `{0}` 占位符。
 - `SearchUsersByFilterAsync` 可用于跨提供者统一的原始过滤器高级查询。
+- 空白用户名和原始过滤器会被拒绝，避免意外执行全目录查询。
+- 取消会在同步 `System.DirectoryServices` 调用前后生效，但无法中断已经开始的目录查询。
 - 若 `SearchFilter` 格式错误，内部会回退到默认用户过滤模板。
 - 查询输入值会在构建 LDAP 过滤器前转义，降低格式破坏和注入风险。
 - 绑定用户名会先规范化：已是 `domain\\user`、UPN（`user@domain`）或完整 DN 时不会重复拼接域前缀。
 - 当 `LdapConfig.Url` 为空时，ActiveDirectory 实现会尝试自动发现域控制器。
 - 便捷构造函数重载可自动补齐缺失的 `Domain` 与 `SearchBase` 默认值。
 
-## 常用用户属性（AdUserInfo）
+## 常用用户属性（LdapUserInfo）
 
 - `DisplayName`、`SamAccountName`、`Upn`、`Dn`
 - `Email`、`TelephoneNumber`、`Mobile`、`Department`、`Title`

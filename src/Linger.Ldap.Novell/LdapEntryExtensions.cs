@@ -8,16 +8,16 @@ namespace Linger.Ldap.Novell;
 public static class LdapEntryExtensions
 {
     /// <summary>
-    /// Converts an LdapEntry to an AdUserInfo object
+    /// Converts an LdapEntry to an LdapUserInfo object
     /// </summary>
     /// <param name="user">The LdapEntry to convert</param>
-    /// <returns>An AdUserInfo object or null if the attribute set is null</returns>
-    public static AdUserInfo? ToAdUser(this LdapEntry user)
+    /// <returns>An LdapUserInfo object or null if the attribute set is null</returns>
+    public static LdapUserInfo? ToLdapUserInfo(this LdapEntry user)
     {
         var attributeSet = user.GetAttributeSet();
         if (attributeSet is null) return null;
 
-        var userInfo = new AdUserInfo();
+        var userInfo = new LdapUserInfo();
 
         // 基本标识信息
         MapIdentificationInfo(userInfo, attributeSet);
@@ -43,7 +43,7 @@ public static class LdapEntryExtensions
         return userInfo;
     }
 
-    private static void MapIdentificationInfo(AdUserInfo userInfo, LdapAttributeSet attributeSet)
+    private static void MapIdentificationInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
     {
         userInfo.SamAccountName = GetAttributeValue(attributeSet, LdapUserType.SamAccountName);
         userInfo.DisplayName = GetAttributeValue(attributeSet, LdapUserType.DisplayName);
@@ -52,7 +52,7 @@ public static class LdapEntryExtensions
         userInfo.Dn = GetAttributeValue(attributeSet, LdapUserType.Dn);
     }
 
-    private static void MapPersonalInfo(AdUserInfo userInfo, LdapAttributeSet attributeSet)
+    private static void MapPersonalInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
     {
         userInfo.FirstName = GetAttributeValue(attributeSet, LdapUserType.FirstName);
         userInfo.LastName = GetAttributeValue(attributeSet, LdapUserType.LastName);
@@ -60,7 +60,7 @@ public static class LdapEntryExtensions
         userInfo.Description = GetAttributeValue(attributeSet, LdapUserType.Description);
     }
 
-    private static void MapContactInfo(AdUserInfo userInfo, LdapAttributeSet attributeSet)
+    private static void MapContactInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
     {
         // 电子邮件相关
         userInfo.Email = GetAttributeValue(attributeSet, LdapUserType.Email);
@@ -77,7 +77,7 @@ public static class LdapEntryExtensions
         userInfo.IpPhone = GetAttributeValue(attributeSet, LdapUserType.IpPhone);
     }
 
-    private static void MapOrganizationInfo(AdUserInfo userInfo, LdapAttributeSet attributeSet)
+    private static void MapOrganizationInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
     {
         userInfo.Company = GetAttributeValue(attributeSet, LdapUserType.Company);
         userInfo.Department = GetAttributeValue(attributeSet, LdapUserType.Department);
@@ -88,7 +88,7 @@ public static class LdapEntryExtensions
         userInfo.Office = GetAttributeValue(attributeSet, LdapUserType.Office);
     }
 
-    private static void MapAddressInfo(AdUserInfo userInfo, LdapAttributeSet attributeSet)
+    private static void MapAddressInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
     {
         userInfo.Street = GetAttributeValue(attributeSet, LdapUserType.Street);
         userInfo.PostOfficeBox = GetAttributeValue(attributeSet, LdapUserType.PostOfficeBox);
@@ -98,7 +98,7 @@ public static class LdapEntryExtensions
         userInfo.Country = GetAttributeValue(attributeSet, LdapUserType.Country);
     }
 
-    private static void MapSystemInfo(AdUserInfo userInfo, LdapAttributeSet attributeSet)
+    private static void MapSystemInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
     {
         userInfo.UserWorkstations = GetAttributeValue(attributeSet, LdapUserType.UserWorkstations);
         userInfo.ProfilePath = GetAttributeValue(attributeSet, LdapUserType.ProfilePath);
@@ -106,7 +106,7 @@ public static class LdapEntryExtensions
         userInfo.HomeDirectory = GetAttributeValue(attributeSet, LdapUserType.HomeDirectory);
         userInfo.ExMailboxDb = GetAttributeValue(attributeSet, LdapUserType.ExMailboxDb);
         userInfo.ExtensionAttribute1 = GetAttributeValue(attributeSet, LdapUserType.ExtensionAttribute1);
-        userInfo.UserType = attributeSet.ContainsKey("homeMDB") ? "UserMailbox" : "User";
+        userInfo.UserType = attributeSet.ContainsKey(LdapUserType.ExMailboxDb) ? "UserMailbox" : "User";
         userInfo.MemberOf = GetMemberOf(attributeSet);
 
         if (attributeSet.ContainsKey(LdapUserType.WhenCreated))
@@ -115,7 +115,7 @@ public static class LdapEntryExtensions
         }
     }
 
-    private static void MapSecurityInfo(AdUserInfo userInfo, LdapAttributeSet attributeSet)
+    private static void MapSecurityInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
     {
         userInfo.Status = GetStatus(attributeSet);
         userInfo.PwdLastSet = GetPwdLastSet(attributeSet);

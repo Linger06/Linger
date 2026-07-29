@@ -8,7 +8,7 @@ A cross-platform LDAP client implementation based on Novell.Directory.Ldap.
 - Async user authentication and lookup APIs
 - LDAPS support via `LdapConfig.Security`
 - Configurable `SearchFilter` for `FindUserAsync` and `GetUsersAsync`
-- Cross-provider advanced query via `ILdap.SearchUsersByFilterAsync`
+- Cross-provider advanced query via `ILdapClient.SearchUsersByFilterAsync`
 - Optional `Attributes` projection to limit returned fields
 - Built-in LDAP filter value escaping for safer search input
 
@@ -52,7 +52,7 @@ var config = new LdapConfig
     ]
 };
 
-var ldap = new Ldap(config);
+var ldap = new NovellLdapClient(config);
 ```
 
 ## Usage
@@ -112,7 +112,7 @@ var usersInOu = await ldap.GetUsersAsync(
 ### Advanced Filter Search (Cross-Provider)
 
 ```csharp
-ILdap ldapContract = ldap;
+ILdapClient ldapContract = ldap;
 
 var users = await ldapContract.SearchUsersByFilterAsync(
     "(&(objectClass=person)(department=IT)(mail=*))",
@@ -125,12 +125,13 @@ var users = await ldapContract.SearchUsersByFilterAsync(
 - When `Security = true`, the client uses SSL and connects with default LDAPS port (`636`).
 - `SearchFilter` is used by both `FindUserAsync` and `GetUsersAsync`; using `{0}` placeholder is recommended.
 - `SearchUsersByFilterAsync` provides provider-agnostic advanced raw-filter queries.
+- Blank usernames and raw filters are rejected to prevent accidental full-directory searches.
 - If `SearchFilter` format is invalid, the implementation falls back to a default user filter.
 - Input value in user search is escaped before building LDAP filter to reduce malformed/injection risk.
 - Bind username normalization supports existing `domain\\user`, UPN (`user@domain`), and full DN forms.
 - `Attributes` can be used to reduce payload and improve query performance.
 
-## Key User Properties (AdUserInfo)
+## Key User Properties (LdapUserInfo)
 
 - `DisplayName`, `SamAccountName`, `Upn`, `Dn`
 - `Email`, `TelephoneNumber`, `Mobile`, `Department`, `Title`

@@ -15,9 +15,9 @@ Linger.Ldap.Contracts defines provider-agnostic abstractions so application code
 
 ## What This Package Contains
 
-- `ILdap` interface for core LDAP operations
+- `ILdapClient` interface for core LDAP operations
 - `LdapConfig` and `LdapCredentials` configuration models
-- `AdUserInfo` unified user profile model
+- `LdapUserInfo` unified user profile model
 
 ## ASP.NET Core Integration
 
@@ -33,8 +33,8 @@ public void ConfigureServices(IServiceCollection services)
     services.Configure<LdapConfig>(Configuration.GetSection("LdapConfig"));
 
     // Choose exactly one provider implementation
-    services.AddScoped<ILdap, Linger.Ldap.ActiveDirectory.Ldap>();
-    // services.AddScoped<ILdap, Linger.Ldap.Novell.Ldap>();
+    services.AddScoped<ILdapClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
+    // services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
 }
 ```
 
@@ -71,9 +71,9 @@ public void ConfigureServices(IServiceCollection services)
 ```csharp
 public class AuthenticationService
 {
-    private readonly ILdap _ldap;
+    private readonly ILdapClient _ldap;
 
-    public AuthenticationService(ILdap ldap)
+    public AuthenticationService(ILdapClient ldap)
     {
         _ldap = ldap;
     }
@@ -104,14 +104,14 @@ public class AuthenticationService
 ```csharp
 public class UserService
 {
-    private readonly ILdap _ldap;
+    private readonly ILdapClient _ldap;
 
-    public UserService(ILdap ldap)
+    public UserService(ILdapClient ldap)
     {
         _ldap = ldap;
     }
 
-    public async Task<AdUserInfo?> GetUserInfoAsync(
+    public async Task<LdapUserInfo?> GetUserInfoAsync(
         string username,
         CancellationToken cancellationToken = default)
     {
@@ -120,7 +120,7 @@ public class UserService
             cancellationToken: cancellationToken);
     }
 
-    public async Task<IEnumerable<AdUserInfo>> SearchUsersAsync(
+    public async Task<IEnumerable<LdapUserInfo>> SearchUsersAsync(
         string searchTerm,
         CancellationToken cancellationToken = default)
     {
@@ -169,11 +169,13 @@ var users = await _ldap.SearchUsersByFilterAsync(
 
 ## Cancellation Support
 
-All asynchronous LDAP operations support `CancellationToken` for timeout control and request cancellation.
+All asynchronous LDAP operations accept `CancellationToken`. The Novell provider forwards cancellation to its native asynchronous LDAP calls. The Active Directory provider is backed by synchronous `System.DirectoryServices` APIs: it observes cancellation before and after those calls, but cannot interrupt an LDAP query already in progress.
+
+`FindUserAsync` and `GetUsersAsync` reject blank usernames, and `SearchUsersByFilterAsync` rejects blank filters. Use an explicit raw LDAP filter when a broad query is intentional.
 
 ```csharp
 public async Task<bool> ValidateUserWithTimeoutAsync(
-    ILdap ldap,
+    ILdapClient ldap,
     string username,
     string password,
     int timeoutSeconds = 5)
@@ -199,27 +201,27 @@ public async Task<bool> ValidateUserWithTimeoutAsync(
 ## Core Interface
 
 ```csharp
-public interface ILdap
+public interface ILdapClient
 {
-    Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(
+    Task<(bool IsValid, LdapUserInfo? LdapUserInfo)> ValidateUserAsync(
         string userName,
         string password,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<AdUserInfo?> FindUserAsync(
+    Task<LdapUserInfo?> FindUserAsync(
         string userName,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<AdUserInfo>> GetUsersAsync(
+    Task<IEnumerable<LdapUserInfo>> GetUsersAsync(
         string userName,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(
+    Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(
         string filter,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
@@ -249,7 +251,7 @@ public class LdapConfig
 }
 ```
 
-### AdUserInfo (Commonly Used Fields)
+### LdapUserInfo (Commonly Used Fields)
 
 - `DisplayName`
 - `SamAccountName`

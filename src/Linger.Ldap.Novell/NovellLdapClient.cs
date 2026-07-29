@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using Linger.Extensions.Core;
 using Linger.Ldap.Contracts;
 using Microsoft.Extensions.Logging;
@@ -12,21 +10,21 @@ namespace Linger.Ldap.Novell;
 /// LDAP client implementation using Novell.Directory.Ldap provider.
 /// Provides cross-platform LDAP connectivity.
 /// </summary>
-public sealed class Ldap : ILdap
+public sealed class NovellLdapClient : ILdapClient
 {
     private readonly LdapConfig _ldapConfig;
-    private readonly ILogger<Ldap> _logger;
+    private readonly ILogger<NovellLdapClient> _logger;
 
     private const string DefaultUserSearchFilterTemplate = "(&(objectClass=person)(|(uid={0})(sAMAccountName={0})(userPrincipalName={0})(mail={0})(cn={0})(displayName={0})))";
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Ldap"/> class.
+    /// Initializes a new instance of the <see cref="NovellLdapClient"/> class.
     /// </summary>
     /// <param name="ldapConfig">The LDAP configuration.</param>
     /// <param name="logger">Optional logger instance. If null, <see cref="NullLogger{T}"/> is used.</param>
     /// <exception cref="ArgumentNullException">Thrown when ldapConfig is null.</exception>
     /// <exception cref="ArgumentException">Thrown when ldapConfig.Url is null or empty.</exception>
-    public Ldap(LdapConfig ldapConfig, ILogger<Ldap>? logger = null)
+    public NovellLdapClient(LdapConfig ldapConfig, ILogger<NovellLdapClient>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(ldapConfig);
 
@@ -36,11 +34,13 @@ public sealed class Ldap : ILdap
         }
 
         _ldapConfig = ldapConfig;
-        _logger = logger ?? NullLogger<Ldap>.Instance;
+        _logger = logger ?? NullLogger<NovellLdapClient>.Instance;
     }
 
-    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<LdapUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+
         _logger.LogDebug("Finding user {UserName} in LDAP", userName);
 
         var searchFilter = BuildUserSearchFilter(userName, exactMatch: true);
@@ -55,8 +55,10 @@ public sealed class Ldap : ILdap
         return user;
     }
 
-    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+
         var searchFilter = BuildUserSearchFilter(userName, exactMatch: false);
         return await SearchUsersByFilterAsync(searchFilter, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
     }
@@ -69,8 +71,10 @@ public sealed class Ldap : ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    public async Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filter);
+
         using var ldapConnection = CreateConnection();
         if (!await ConnectAsync(ldapConnection, ldapCredentials, cancellationToken).ConfigureAwait(false))
         {
@@ -80,15 +84,11 @@ public sealed class Ldap : ILdap
 
         try
         {
-            var ldapEntries = new List<LdapEntry>();
+            var users = new List<LdapUserInfo>();
 
             // Use provided searchBase or fall back to config's SearchBase
             var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
-            var effectiveFilter = filter.IsNullOrWhiteSpace()
-                ? BuildUserSearchFilter(string.Empty, exactMatch: false)
-                : filter;
-
-            ILdapSearchResults? lsc = await ldapConnection.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, effectiveFilter, _ldapConfig.Attributes, false, cancellationToken).ConfigureAwait(false);
+            ILdapSearchResults? lsc = await ldapConnection.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, filter, _ldapConfig.Attributes, false, cancellationToken).ConfigureAwait(false);
             while (await lsc.HasMoreAsync(cancellationToken).ConfigureAwait(false))
             {
                 LdapEntry? nextEntry;
@@ -98,17 +98,17 @@ public sealed class Ldap : ILdap
                 }
                 catch (LdapException ex)
                 {
-                    _logger.LogWarning(ex, "Error retrieving LDAP entry while searching users by filter {Filter}, skipping entry", effectiveFilter);
+                    _logger.LogWarning(ex, "Error retrieving LDAP entry while searching users by filter {Filter}, skipping entry", filter);
                     continue;
                 }
-                ldapEntries.Add(nextEntry);
+
+                if (nextEntry.ToLdapUserInfo() is { } user)
+                {
+                    users.Add(user);
+                }
             }
 
-            return ldapEntries
-                .Select(entry => entry.ToAdUser())
-                .Where(user => user is not null)
-                .Cast<AdUserInfo>()
-                .ToList();
+            return users;
         }
         finally
         {
@@ -116,7 +116,7 @@ public sealed class Ldap : ILdap
         }
     }
 
-    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<(bool IsValid, LdapUserInfo? LdapUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userName);
         ArgumentException.ThrowIfNullOrEmpty(password);
@@ -220,105 +220,18 @@ public sealed class Ldap : ILdap
 
     private string BuildUserSearchFilter(string userName, bool exactMatch)
     {
-        var normalizedUserName = userName ?? string.Empty;
-
-        if (!exactMatch)
+        var filter = LdapHelper.BuildUserSearchFilter(userName, exactMatch, _ldapConfig.SearchFilter, DefaultUserSearchFilterTemplate, out var usedFallback);
+        if (usedFallback)
         {
-            if (normalizedUserName.IsNullOrWhiteSpace())
-            {
-                normalizedUserName = "*";
-            }
-            else if (normalizedUserName.IndexOf('*') < 0)
-            {
-                normalizedUserName += "*";
-            }
-        }
-
-        var escapedUserName = EscapeLdapFilterValue(normalizedUserName, preserveAsterisk: !exactMatch);
-        return BuildConfiguredSearchFilter(escapedUserName);
-    }
-
-    private string BuildConfiguredSearchFilter(string escapedUserName)
-    {
-        if (_ldapConfig.SearchFilter.IsNullOrWhiteSpace())
-        {
-            return string.Format(CultureInfo.InvariantCulture, DefaultUserSearchFilterTemplate, escapedUserName);
-        }
-
-        try
-        {
-            if (_ldapConfig.SearchFilter.Contains("{0}", StringComparison.Ordinal))
-            {
-                return string.Format(CultureInfo.InvariantCulture, _ldapConfig.SearchFilter, escapedUserName);
-            }
-
-            return _ldapConfig.SearchFilter;
-        }
-        catch (FormatException ex)
-        {
-            _logger.LogWarning(ex,
+            _logger.LogWarning(
                 "Invalid LDAP SearchFilter format: {SearchFilter}. Falling back to default filter.",
                 _ldapConfig.SearchFilter);
-            return string.Format(CultureInfo.InvariantCulture, DefaultUserSearchFilterTemplate, escapedUserName);
         }
+
+        return filter;
     }
 
-    private string? BuildBindUserName(string? bindDn)
-    {
-        if (bindDn.IsNullOrWhiteSpace())
-        {
-            return bindDn;
-        }
-
-        if (bindDn.Contains('\\') || bindDn.Contains('@') || bindDn.Contains('='))
-        {
-            return bindDn;
-        }
-
-        if (_ldapConfig.Domain.IsNullOrWhiteSpace())
-        {
-            return bindDn;
-        }
-
-        return $@"{_ldapConfig.Domain}\{bindDn}";
-    }
-
-    private static string EscapeLdapFilterValue(string value, bool preserveAsterisk)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var escapedValue = new StringBuilder(value.Length);
-
-        foreach (var character in value)
-        {
-            switch (character)
-            {
-                case '\\':
-                    escapedValue.Append("\\5c");
-                    break;
-                case '*':
-                    escapedValue.Append(preserveAsterisk ? "*" : "\\2a");
-                    break;
-                case '(':
-                    escapedValue.Append("\\28");
-                    break;
-                case ')':
-                    escapedValue.Append("\\29");
-                    break;
-                case '\0':
-                    escapedValue.Append("\\00");
-                    break;
-                default:
-                    escapedValue.Append(character);
-                    break;
-            }
-        }
-
-        return escapedValue.ToString();
-    }
+    private string? BuildBindUserName(string? bindDn) => LdapHelper.BuildBindUserName(bindDn, _ldapConfig.Domain);
 
     private static void Disconnect(LdapConnection ldapConnection)
     {

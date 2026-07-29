@@ -1,7 +1,6 @@
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
 using System.DirectoryServices.ActiveDirectory;
-using System.Globalization;
 using System.Text;
 #if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
@@ -16,64 +15,69 @@ namespace Linger.Ldap.ActiveDirectory;
 #if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
 #endif
-public class Ldap : ILdap
+public class AdLdapClient : ILdapClient
 {
     private readonly LdapConfig _ldapConfig;
-    private readonly ILogger<Ldap> _logger;
-    private readonly string _url;
+    private readonly ILogger<AdLdapClient> _logger;
+
+    // 惰性解析：域控自动发现是网络 I/O，不在构造函数中执行，避免拖慢或阻断 DI 容器启动
+    private readonly Lazy<string> _url;
 
     private const string DefaultUserSearchFilterTemplate = "(&(objectCategory=person)(objectClass=user)(|(samAccountName={0})(userPrincipalName={0})(mail={0})(displayName={0})))";
-    private const string DefaultUserDirectorySearcherFilter = "(&(objectCategory=person)(objectClass=user))";
     private const string LdapSchemePrefix = "LDAP://";
     private const string LdapsSchemePrefix = "LDAPS://";
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Ldap"/> class with inferred defaults.
+    /// Initializes a new instance of the <see cref="AdLdapClient"/> class with inferred defaults.
     /// </summary>
     /// <remarks>
     /// Missing values are auto-filled, including <see cref="LdapConfig.Domain"/> and <see cref="LdapConfig.SearchBase"/>.
     /// </remarks>
-    public Ldap()
+    public AdLdapClient()
         : this(BuildConfigWithDefaults(), logger: null)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Ldap"/> class with inferred defaults and a custom logger.
+    /// Initializes a new instance of the <see cref="AdLdapClient"/> class with inferred defaults and a custom logger.
     /// </summary>
     /// <param name="logger">Optional logger instance. If null, <see cref="NullLogger{T}"/> is used.</param>
     /// <remarks>
     /// Missing values are auto-filled, including <see cref="LdapConfig.Domain"/> and <see cref="LdapConfig.SearchBase"/>.
     /// </remarks>
-    public Ldap(ILogger<Ldap>? logger)
+    public AdLdapClient(ILogger<AdLdapClient>? logger)
         : this(BuildConfigWithDefaults(), logger)
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Ldap"/> class.
-    /// If <see cref="LdapConfig.Url"/> is not configured, the domain controller will be automatically discovered.
+    /// Initializes a new instance of the <see cref="AdLdapClient"/> class.
+    /// If <see cref="LdapConfig.Url"/> is not configured, the domain controller will be automatically
+    /// discovered on first use (not during construction).
     /// </summary>
     /// <param name="ldapConfig">The LDAP configuration.</param>
     /// <param name="logger">Optional logger instance. If null, <see cref="NullLogger{T}"/> is used.</param>
     /// <exception cref="ArgumentNullException">Thrown when ldapConfig is null.</exception>
-    public Ldap(LdapConfig ldapConfig, ILogger<Ldap>? logger = null)
+    public AdLdapClient(LdapConfig ldapConfig, ILogger<AdLdapClient>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(ldapConfig);
-        _logger = logger ?? NullLogger<Ldap>.Instance;
+        _logger = logger ?? NullLogger<AdLdapClient>.Instance;
         _ldapConfig = ldapConfig;
 
-        // 如果 Url 为空，自动发现域控制器，只在构造时执行一次
-        if (ldapConfig.Url.IsNullOrEmpty())
-        {
-            _logger.LogInformation("LDAP Url not configured, attempting automatic domain controller discovery");
-            _url = GetDomainController();
-            _logger.LogInformation("Discovered domain controller: {DomainController}", _url);
-        }
-        else
-        {
-            _url = ldapConfig.Url;
-        }
+        _url = new Lazy<string>(
+            () =>
+            {
+                if (!_ldapConfig.Url.IsNullOrEmpty())
+                {
+                    return _ldapConfig.Url;
+                }
+
+                _logger.LogInformation("LDAP Url not configured, attempting automatic domain controller discovery");
+                var domainController = GetDomainController();
+                _logger.LogInformation("Discovered domain controller: {DomainController}", domainController);
+                return domainController;
+            },
+            LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>
@@ -84,8 +88,10 @@ public class Ldap : ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Returns the user information if found; otherwise, null</returns>
-    public async Task<AdUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<LdapUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+
         _logger.LogDebug("Finding user {UserName} in Active Directory", userName);
 
         var searchFilter = BuildUserSearchFilter(userName, exactMatch: true);
@@ -136,29 +142,42 @@ public class Ldap : ILdap
     /// <returns>Returns the PrincipalContext object</returns>
     private PrincipalContext GetPrincipalContext(LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
-        if (ldapCredentials is null)
-        {
-            if (_ldapConfig.Credentials.IsNotNull() && _ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && _ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
-            {
-                ldapCredentials = _ldapConfig.Credentials;
-            }
-        }
+        ldapCredentials = ResolveCredentials(ldapCredentials);
 
         var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
-        var contextOptions = ContextOptions.SimpleBind;
 
-        if (_ldapConfig.Security)
-        {
-            contextOptions |= ContextOptions.SecureSocketLayer;
-        }
+        // Negotiate（Kerberos/NTLM）避免 SimpleBind 的明文密码传输；
+        // Signing/Sealing 与 SecureSocketLayer 互斥，仅在非 SSL 时启用。
+        var contextOptions = _ldapConfig.Security
+            ? ContextOptions.Negotiate | ContextOptions.SecureSocketLayer
+            : ContextOptions.Negotiate | ContextOptions.Signing | ContextOptions.Sealing;
 
         if (ldapCredentials is null)
         {
-            return new PrincipalContext(ContextType.Domain, _url, effectiveSearchBase, contextOptions);
+            return new PrincipalContext(ContextType.Domain, _url.Value, effectiveSearchBase, contextOptions);
         }
 
-        return new PrincipalContext(ContextType.Domain, _url, effectiveSearchBase, contextOptions,
+        return new PrincipalContext(ContextType.Domain, _url.Value, effectiveSearchBase, contextOptions,
             BuildBindUserName(ldapCredentials.BindDn), ldapCredentials.BindCredentials);
+    }
+
+    /// <summary>
+    /// Falls back to the configured credentials when none are supplied explicitly.
+    /// </summary>
+    private LdapCredentials? ResolveCredentials(LdapCredentials? ldapCredentials)
+    {
+        if (ldapCredentials is not null)
+        {
+            return ldapCredentials;
+        }
+
+        var configured = _ldapConfig.Credentials;
+        if (configured is not null && configured.BindDn.IsNotNullOrEmpty() && configured.BindCredentials.IsNotNullOrEmpty())
+        {
+            return configured;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -169,8 +188,10 @@ public class Ldap : ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    public async Task<IEnumerable<AdUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+
         var searchFilter = BuildUserSearchFilter(userName, exactMatch: false);
         return await SearchUsersByFilterAsync(searchFilter, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
     }
@@ -182,10 +203,12 @@ public class Ldap : ILdap
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <returns>Collection of matching users</returns>
-    public IEnumerable<AdUserInfo> SearchUsersByFilter(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
+    public IEnumerable<LdapUserInfo> SearchUsersByFilter(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filter);
+
         using var collection = SearchUserEntriesByFilterCore(filter, ldapCredentials, searchBase);
-        return collection.ToAdUsersInfo();
+        return collection.ToLdapUsersInfo();
     }
 
     /// <summary>
@@ -196,9 +219,17 @@ public class Ldap : ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    public async Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
-        return await Task.Run(() => SearchUsersByFilter(filter, ldapCredentials, searchBase), cancellationToken).ConfigureAwait(false);
+        ArgumentException.ThrowIfNullOrWhiteSpace(filter);
+
+        return await Task.Run(
+            () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return SearchUsersByFilter(filter, ldapCredentials, searchBase);
+            },
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -209,14 +240,16 @@ public class Ldap : ILdap
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Returns True of user is valid</returns>
-    public async Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<(bool IsValid, LdapUserInfo? LdapUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userName);
         ArgumentException.ThrowIfNullOrEmpty(password);
+        cancellationToken.ThrowIfCancellationRequested();
 
         _logger.LogDebug("Validating user {UserName} against Active Directory", userName);
         using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials: null, searchBase: searchBase);
-        var result = principalContext.ValidateCredentials(userName, password);
+        var result = principalContext.ValidateCredentials(BuildBindUserName(userName), password);
+        cancellationToken.ThrowIfCancellationRequested();
         if (result)
         {
             _logger.LogDebug("User {UserName} validated successfully", userName);
@@ -249,19 +282,13 @@ public class Ldap : ILdap
     public static string GetDomainController()
     {
         var directoryContext = new DirectoryContext(DirectoryContextType.Domain);
-        var domainController = DomainController.FindOne(directoryContext);
+        using var domainController = DomainController.FindOne(directoryContext);
         return domainController.ToString();
     }
 
-    private SearchResultCollection SearchUserEntriesByFilterCore(string? filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
+    private SearchResultCollection SearchUserEntriesByFilterCore(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
-        if (ldapCredentials is null)
-        {
-            if (_ldapConfig.Credentials.IsNotNull() && _ldapConfig.Credentials.BindDn.IsNotNullOrEmpty() && _ldapConfig.Credentials.BindCredentials.IsNotNullOrEmpty())
-            {
-                ldapCredentials = _ldapConfig.Credentials;
-            }
-        }
+        ldapCredentials = ResolveCredentials(ldapCredentials);
 
         using DirectoryEntry directoryEntry = CreateDirectoryEntry(ldapCredentials, searchBase);
         using DirectorySearcher directorySearcher = new(directoryEntry);
@@ -277,9 +304,7 @@ public class Ldap : ILdap
         }
 
         // 构建搜索过滤器
-        directorySearcher.Filter = filter.IsNullOrWhiteSpace()
-            ? DefaultUserDirectorySearcherFilter
-            : filter;
+        directorySearcher.Filter = filter;
 
         var userCollection = directorySearcher.FindAll();
         return userCollection;
@@ -306,10 +331,12 @@ public class Ldap : ILdap
 
     private string BuildLdapPath(string? searchBase)
     {
-        var protocolPrefix = _ldapConfig.Security ? LdapsSchemePrefix : LdapSchemePrefix;
-        var normalizedServer = _url.IsNullOrWhiteSpace()
+        // ADSI 只识别 "LDAP://" 提供程序前缀（没有 "LDAPS:" 提供程序）；
+        // SSL 由 AuthenticationTypes.SecureSocketsLayer 启用，而不是通过路径前缀。
+        var server = _url.Value;
+        var normalizedServer = server.IsNullOrWhiteSpace()
             ? string.Empty
-            : _url.Trim();
+            : server.Trim();
 
         if (normalizedServer.StartsWith(LdapSchemePrefix, StringComparison.OrdinalIgnoreCase))
         {
@@ -324,10 +351,10 @@ public class Ldap : ILdap
 
         if (searchBase.IsNullOrWhiteSpace())
         {
-            return $"{protocolPrefix}{normalizedServer}";
+            return $"{LdapSchemePrefix}{normalizedServer}";
         }
 
-        return $"{protocolPrefix}{normalizedServer}/{searchBase}";
+        return $"{LdapSchemePrefix}{normalizedServer}/{searchBase}";
     }
 
     private static LdapConfig BuildConfigWithDefaults()
@@ -431,105 +458,18 @@ public class Ldap : ILdap
 
     private string BuildUserSearchFilter(string userName, bool exactMatch)
     {
-        var normalizedUserName = userName ?? string.Empty;
-
-        if (!exactMatch)
+        var filter = LdapHelper.BuildUserSearchFilter(userName, exactMatch, _ldapConfig.SearchFilter, DefaultUserSearchFilterTemplate, out var usedFallback);
+        if (usedFallback)
         {
-            if (normalizedUserName.IsNullOrWhiteSpace())
-            {
-                normalizedUserName = "*";
-            }
-            else if (normalizedUserName.IndexOf('*') < 0)
-            {
-                normalizedUserName += "*";
-            }
-        }
-
-        var escapedUserName = EscapeLdapFilterValue(normalizedUserName, preserveAsterisk: !exactMatch);
-        return BuildConfiguredSearchFilter(escapedUserName);
-    }
-
-    private string BuildConfiguredSearchFilter(string escapedUserName)
-    {
-        if (_ldapConfig.SearchFilter.IsNullOrWhiteSpace())
-        {
-            return string.Format(CultureInfo.InvariantCulture, DefaultUserSearchFilterTemplate, escapedUserName);
-        }
-
-        try
-        {
-            if (_ldapConfig.SearchFilter.Contains("{0}"))
-            {
-                return string.Format(CultureInfo.InvariantCulture, _ldapConfig.SearchFilter, escapedUserName);
-            }
-
-            return _ldapConfig.SearchFilter;
-        }
-        catch (FormatException ex)
-        {
-            _logger.LogWarning(ex,
+            _logger.LogWarning(
                 "Invalid LDAP SearchFilter format: {SearchFilter}. Falling back to default filter.",
                 _ldapConfig.SearchFilter);
-            return string.Format(CultureInfo.InvariantCulture, DefaultUserSearchFilterTemplate, escapedUserName);
         }
+
+        return filter;
     }
 
-    private string? BuildBindUserName(string? bindDn)
-    {
-        if (bindDn.IsNullOrWhiteSpace())
-        {
-            return bindDn;
-        }
-
-        if (bindDn.Contains('\\') || bindDn.Contains('@') || bindDn.Contains('='))
-        {
-            return bindDn;
-        }
-
-        if (_ldapConfig.Domain.IsNullOrWhiteSpace())
-        {
-            return bindDn;
-        }
-
-        return $@"{_ldapConfig.Domain}\{bindDn}";
-    }
-
-    private static string EscapeLdapFilterValue(string value, bool preserveAsterisk)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        var escapedValue = new StringBuilder(value.Length);
-
-        foreach (var character in value)
-        {
-            switch (character)
-            {
-                case '\\':
-                    escapedValue.Append("\\5c");
-                    break;
-                case '*':
-                    escapedValue.Append(preserveAsterisk ? "*" : "\\2a");
-                    break;
-                case '(':
-                    escapedValue.Append("\\28");
-                    break;
-                case ')':
-                    escapedValue.Append("\\29");
-                    break;
-                case '\0':
-                    escapedValue.Append("\\00");
-                    break;
-                default:
-                    escapedValue.Append(character);
-                    break;
-            }
-        }
-
-        return escapedValue.ToString();
-    }
+    private string? BuildBindUserName(string? bindDn) => LdapHelper.BuildBindUserName(bindDn, _ldapConfig.Domain);
 
     /// <summary>
     /// Checks if user exists in LDAP directory

@@ -69,7 +69,13 @@ for applications upgrading from the previous API surface.
 | `Linger.FileSystem.Sftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Sftp` | Construct the complete destination path before calling the upload API. |
 | `Linger.FileSystem.Sftp` | `Connect()` / `Disconnect()` | `ConnectAsync()` / `DisconnectAsync()` | `Linger.FileSystem.Sftp` | Connection management now uses the common asynchronous remote-file-system contract. |
 | `Linger.FileSystem.Sftp` | `SetRootAsWorkingDirectoryAsync()` | `SetWorkingDirectoryAsync("/")` | `Linger.FileSystem.Sftp` | The removed method only supplied the root path. |
-| `Linger.Ldap.Novell` | `ConnectAsync(...)`, `Disconnect()`, `IsConnected()`, and `IDisposable` | No replacement is required. Call `ILdap` operations directly. | `Linger.Ldap.Novell` | Each operation now creates, binds, and disposes its own connection so concurrent calls cannot share credentials or disconnect each other. |
+| `Linger.Ldap.Novell` | `ConnectAsync(...)`, `Disconnect()`, `IsConnected()`, and `IDisposable` | No replacement is required. Call `ILdapClient` operations directly. | `Linger.Ldap.Novell` | Each operation now creates, binds, and disposes its own connection so concurrent calls cannot share credentials or disconnect each other. |
+| `Linger.Ldap.Contracts` | `ILdap` | `ILdapClient` | `Linger.Ldap.Contracts` | Renamed so the contract states what it represents: a client for a directory server. |
+| `Linger.Ldap.Contracts` | `AdUserInfo` | `LdapUserInfo` | `Linger.Ldap.Contracts` | The model is provider-agnostic and is not limited to Active Directory. |
+| `Linger.Ldap.ActiveDirectory` | `Ldap` | `AdLdapClient` | `Linger.Ldap.ActiveDirectory` | The previous name collided with the `Linger.Ldap` namespace and with the Novell implementation of the same name. |
+| `Linger.Ldap.ActiveDirectory` | `UserPrincipal.ToAdUser()`, `DirectoryEntry.ToAdUserInfo()`, `SearchResultCollection.ToAdUsersInfo()` | `ToLdapUserInfo()`, `ToLdapUserInfo()`, `ToLdapUsersInfo()` | `Linger.Ldap.ActiveDirectory` | Renamed to match `LdapUserInfo`. |
+| `Linger.Ldap.Novell` | `Ldap` | `NovellLdapClient` | `Linger.Ldap.Novell` | The previous name collided with the `Linger.Ldap` namespace and with the Active Directory implementation of the same name. |
+| `Linger.Ldap.Novell` | `LdapEntry.ToAdUser()` | `LdapEntry.ToLdapUserInfo()` | `Linger.Ldap.Novell` | Renamed to match `LdapUserInfo`. |
 
 ## No one-to-one replacement
 

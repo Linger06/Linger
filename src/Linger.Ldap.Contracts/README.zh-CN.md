@@ -15,9 +15,9 @@ Linger.Ldap.Contracts 定义了与具体 LDAP 提供程序无关的抽象层。�
 
 ## 包含内容
 
-- `ILdap`：LDAP 核心操作接口
+- `ILdapClient`：LDAP 核心操作接口
 - `LdapConfig`、`LdapCredentials`：连接配置模型
-- `AdUserInfo`：统一用户信息模型
+- `LdapUserInfo`：统一用户信息模型
 
 ## ASP.NET Core 集成
 
@@ -33,8 +33,8 @@ public void ConfigureServices(IServiceCollection services)
     services.Configure<LdapConfig>(Configuration.GetSection("LdapConfig"));
 
     // 二选一：只注册一个具体实现
-    services.AddScoped<ILdap, Linger.Ldap.ActiveDirectory.Ldap>();
-    // services.AddScoped<ILdap, Linger.Ldap.Novell.Ldap>();
+    services.AddScoped<ILdapClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
+    // services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
 }
 ```
 
@@ -71,9 +71,9 @@ public void ConfigureServices(IServiceCollection services)
 ```csharp
 public class AuthenticationService
 {
-    private readonly ILdap _ldap;
+    private readonly ILdapClient _ldap;
 
-    public AuthenticationService(ILdap ldap)
+    public AuthenticationService(ILdapClient ldap)
     {
         _ldap = ldap;
     }
@@ -104,14 +104,14 @@ public class AuthenticationService
 ```csharp
 public class UserService
 {
-    private readonly ILdap _ldap;
+    private readonly ILdapClient _ldap;
 
-    public UserService(ILdap ldap)
+    public UserService(ILdapClient ldap)
     {
         _ldap = ldap;
     }
 
-    public async Task<AdUserInfo?> GetUserInfoAsync(
+    public async Task<LdapUserInfo?> GetUserInfoAsync(
         string username,
         CancellationToken cancellationToken = default)
     {
@@ -120,7 +120,7 @@ public class UserService
             cancellationToken: cancellationToken);
     }
 
-    public async Task<IEnumerable<AdUserInfo>> SearchUsersAsync(
+    public async Task<IEnumerable<LdapUserInfo>> SearchUsersAsync(
         string searchTerm,
         CancellationToken cancellationToken = default)
     {
@@ -169,11 +169,13 @@ var users = await _ldap.SearchUsersByFilterAsync(
 
 ## 取消操作支持
 
-所有异步 LDAP 操作都支持 `CancellationToken`，适用于超时控制和请求取消。
+所有异步 LDAP 操作都接受 `CancellationToken`。Novell 提供程序会将取消传递到原生异步 LDAP 调用；Active Directory 提供程序依赖同步的 `System.DirectoryServices` API，只能在调用前后响应取消，无法中断已经开始的 LDAP 查询。
+
+`FindUserAsync` 和 `GetUsersAsync` 会拒绝空白用户名，`SearchUsersByFilterAsync` 会拒绝空白过滤器。如果确实需要宽泛查询，请显式传入原始 LDAP 过滤器。
 
 ```csharp
 public async Task<bool> ValidateUserWithTimeoutAsync(
-    ILdap ldap,
+    ILdapClient ldap,
     string username,
     string password,
     int timeoutSeconds = 5)
@@ -199,27 +201,27 @@ public async Task<bool> ValidateUserWithTimeoutAsync(
 ## 核心接口
 
 ```csharp
-public interface ILdap
+public interface ILdapClient
 {
-    Task<(bool IsValid, AdUserInfo? AdUserInfo)> ValidateUserAsync(
+    Task<(bool IsValid, LdapUserInfo? LdapUserInfo)> ValidateUserAsync(
         string userName,
         string password,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<AdUserInfo?> FindUserAsync(
+    Task<LdapUserInfo?> FindUserAsync(
         string userName,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<AdUserInfo>> GetUsersAsync(
+    Task<IEnumerable<LdapUserInfo>> GetUsersAsync(
         string userName,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<AdUserInfo>> SearchUsersByFilterAsync(
+    Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(
         string filter,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
@@ -249,7 +251,7 @@ public class LdapConfig
 }
 ```
 
-### AdUserInfo 常用字段
+### LdapUserInfo 常用字段
 
 - `DisplayName`
 - `SamAccountName`

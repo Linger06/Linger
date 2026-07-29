@@ -16,11 +16,11 @@ namespace Linger.Ldap.ActiveDirectory;
 public static class LdapEntryExtensions
 {
     /// <summary>
-    /// Converts a UserPrincipal to an AdUserInfo object
+    /// Converts a UserPrincipal to an LdapUserInfo object
     /// </summary>
     /// <param name="userPrincipal">The UserPrincipal to convert</param>
-    /// <returns>An AdUserInfo object or null if input is null</returns>
-    public static AdUserInfo? ToAdUser(this UserPrincipal userPrincipal)
+    /// <returns>An LdapUserInfo object or null if input is null</returns>
+    public static LdapUserInfo? ToLdapUserInfo(this UserPrincipal userPrincipal)
     {
         if (userPrincipal is null) return null;
 
@@ -44,7 +44,7 @@ public static class LdapEntryExtensions
         return userInfo;
     }
 
-    private static void MapSpecialUserPrincipalProperties(AdUserInfo userInfo, UserPrincipal user)
+    private static void MapSpecialUserPrincipalProperties(LdapUserInfo userInfo, UserPrincipal user)
     {
         // 处理只能从 UserPrincipal 获取的属性
         userInfo.Status = GetUserStatus(user);
@@ -98,10 +98,8 @@ public static class LdapEntryExtensions
             var maxPwdAge = (long?)de.Properties["maxPwdAge"].Value;
             if (!maxPwdAge.HasValue || maxPwdAge.Value == 0) return null;
 
-            // 转换为天数（去掉负号并转换为天数）
-            // 使用decimal确保精确计算
-            const decimal TicksPerDay = 864000000000M; // 24 * 60 * 60 * 10000000 (一天的 100 纳秒数)
-            var maxPwdAgeDays = Math.Abs(maxPwdAge.Value) / TicksPerDay;
+            // 转换为天数（去掉负号并转换为天数），使用decimal确保精确计算
+            var maxPwdAgeDays = Math.Abs(maxPwdAge.Value) / TimeConstants.TicksPerDay;
 
             // 计算剩余天数
             var expirationDate = lastSet.Value.AddDays((double)maxPwdAgeDays);
@@ -121,9 +119,9 @@ public static class LdapEntryExtensions
     /// </summary>
     /// <param name="resultCollection">The search results to convert.</param>
     /// <returns>The converted user information.</returns>
-    public static List<AdUserInfo> ToAdUsersInfo(this SearchResultCollection resultCollection)
+    public static List<LdapUserInfo> ToLdapUsersInfo(this SearchResultCollection resultCollection)
     {
-        var userList = new List<AdUserInfo>();
+        var userList = new List<LdapUserInfo>();
 
         foreach (SearchResult result in resultCollection)
         {
@@ -160,7 +158,7 @@ public static class LdapEntryExtensions
             .ToArray();
     }
 
-    private static void MapSearchResultSecurityInfo(AdUserInfo userInfo, SearchResult result)
+    private static void MapSearchResultSecurityInfo(LdapUserInfo userInfo, SearchResult result)
     {
         var userAccountControlValue = GetPropertyValue(result, LdapUserType.UserAccountControl);
         if (!int.TryParse(userAccountControlValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var userAccountControl))
@@ -176,27 +174,11 @@ public static class LdapEntryExtensions
         userInfo.AccountExpires = accountExpires?.ToString(CultureInfo.InvariantCulture);
 
         var pwdLastSet = GetPropertyValue(result, LdapUserType.PwdLastSet);
-        if (!long.TryParse(pwdLastSet, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lastSetValue))
+        var lastSetValue = SetPwdLastSet(userInfo, pwdLastSet);
+        if (lastSetValue is null)
         {
-            userInfo.PwdLastSet = pwdLastSet is null ? PasswordStatus.Unknown : PasswordStatus.InvalidFormat;
             userInfo.PwdExpirationLeftDays = PasswordStatus.Unknown;
             return;
-        }
-
-        if (lastSetValue == 0)
-        {
-            userInfo.PwdLastSet = PasswordStatus.NeverChanged;
-        }
-        else
-        {
-            try
-            {
-                userInfo.PwdLastSet = DateTime.FromFileTime(lastSetValue).ToString(CultureInfo.InvariantCulture);
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                userInfo.PwdLastSet = PasswordStatus.InvalidFormat;
-            }
         }
 
         userInfo.PwdExpirationLeftDays = (userAccountControl & UserAccountControl.PasswordNeverExpires) != 0
@@ -205,11 +187,47 @@ public static class LdapEntryExtensions
     }
 
     /// <summary>
+    /// Parses the raw pwdLastSet value into <see cref="LdapUserInfo.PwdLastSet"/>.
+    /// Returns the parsed file-time value, or null when it could not be interpreted.
+    /// </summary>
+    private static long? SetPwdLastSet(LdapUserInfo userInfo, string? pwdLastSet)
+    {
+        if (pwdLastSet is null)
+        {
+            userInfo.PwdLastSet = PasswordStatus.Unknown;
+            return null;
+        }
+
+        if (!long.TryParse(pwdLastSet, NumberStyles.Integer, CultureInfo.InvariantCulture, out var lastSetValue))
+        {
+            userInfo.PwdLastSet = PasswordStatus.InvalidFormat;
+            return null;
+        }
+
+        if (lastSetValue == 0)
+        {
+            userInfo.PwdLastSet = PasswordStatus.NeverChanged;
+            return lastSetValue;
+        }
+
+        try
+        {
+            userInfo.PwdLastSet = DateTime.FromFileTime(lastSetValue).ToString(CultureInfo.InvariantCulture);
+            return lastSetValue;
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            userInfo.PwdLastSet = PasswordStatus.InvalidFormat;
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Converts an Active Directory entry to user information.
     /// </summary>
     /// <param name="entry">The directory entry to convert.</param>
     /// <returns>The converted user information.</returns>
-    public static AdUserInfo ToAdUserInfo(this DirectoryEntry entry)
+    public static LdapUserInfo ToLdapUserInfo(this DirectoryEntry entry)
     {
         var userInfo = CreateUserInfo(
             propertyName => GetPropertyValue(entry, propertyName),
@@ -219,12 +237,12 @@ public static class LdapEntryExtensions
         return userInfo;
     }
 
-    private static AdUserInfo CreateUserInfo(
+    private static LdapUserInfo CreateUserInfo(
         Func<string, string?> getValue,
         Func<string, string[]?> getValues)
     {
         var exMailboxDb = getValue(LdapUserType.ExMailboxDb);
-        var userInfo = new AdUserInfo
+        var userInfo = new LdapUserInfo
         {
             SamAccountName = getValue(LdapUserType.SamAccountName),
             DisplayName = getValue(LdapUserType.DisplayName),
@@ -294,7 +312,7 @@ public static class LdapEntryExtensions
         }
     }
 
-    private static void MapSecurityInfo(AdUserInfo userInfo, DirectoryEntry entry)
+    private static void MapSecurityInfo(LdapUserInfo userInfo, DirectoryEntry entry)
     {
         try
         {
@@ -353,10 +371,10 @@ public static class LdapEntryExtensions
     private static string GetAccountStatus(bool isDisabled, bool isLocked, bool isExpired)
     {
         var status = new List<string>();
-        if (isDisabled) status.Add("Disabled");
-        if (isLocked) status.Add("Locked");
-        if (isExpired) status.Add("Expired");
-        return status.Count > 0 ? string.Join("&", status) : "Enabled";
+        if (isDisabled) status.Add(AccountStatus.Disabled);
+        if (isLocked) status.Add(AccountStatus.Locked);
+        if (isExpired) status.Add(AccountStatus.Expired);
+        return status.Count > 0 ? string.Join("&", status) : AccountStatus.Enabled;
     }
 
     private static string? GetAccountExpiresDate(DirectoryEntry entry)
@@ -369,32 +387,20 @@ public static class LdapEntryExtensions
         return null;
     }
 
-    private static void GetPasswordInfo(AdUserInfo userInfo, DirectoryEntry entry, int userAccountControl)
+    private static void GetPasswordInfo(LdapUserInfo userInfo, DirectoryEntry entry, int userAccountControl)
     {
         var pwdLastSet = GetPropertyValue(entry, LdapUserType.PwdLastSet);
-
-        if (pwdLastSet is null)
+        var lastSetValue = SetPwdLastSet(userInfo, pwdLastSet);
+        if (lastSetValue is null)
         {
-            userInfo.PwdLastSet = PasswordStatus.Unknown;
             userInfo.PwdExpirationLeftDays = PasswordStatus.Unknown;
             return;
         }
-
-        if (!long.TryParse(pwdLastSet, out var lastSetValue))
-        {
-            userInfo.PwdLastSet = PasswordStatus.InvalidFormat;
-            userInfo.PwdExpirationLeftDays = PasswordStatus.Unknown;
-            return;
-        }
-
-        userInfo.PwdLastSet = lastSetValue == 0
-            ? PasswordStatus.NeverChanged
-            : DateTime.FromFileTime(lastSetValue).ToString(CultureInfo.InvariantCulture);
 
         userInfo.PwdExpirationLeftDays =
             (userAccountControl & UserAccountControl.PasswordNeverExpires) != 0
                 ? PasswordStatus.NeverExpires
-                : GetPasswordExpirationInfo(entry, lastSetValue);
+                : GetPasswordExpirationInfo(entry, lastSetValue.Value);
     }
 
     private static string GetPasswordExpirationInfo(DirectoryEntry entry, long lastSetValue)
@@ -424,11 +430,11 @@ public static class LdapEntryExtensions
         }
     }
 
-    private static void SetDefaultSecurityInfo(AdUserInfo userInfo)
+    private static void SetDefaultSecurityInfo(LdapUserInfo userInfo)
     {
-        userInfo.Status = "Unknown";
-        userInfo.PwdLastSet = "Unknown";
-        userInfo.PwdExpirationLeftDays = "Unknown";
+        userInfo.Status = AccountStatus.Unknown;
+        userInfo.PwdLastSet = PasswordStatus.Unknown;
+        userInfo.PwdExpirationLeftDays = PasswordStatus.Unknown;
         userInfo.AccountExpires = null;
     }
 

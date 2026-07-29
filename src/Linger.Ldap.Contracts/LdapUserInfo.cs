@@ -1,6 +1,11 @@
-﻿namespace Linger.Ldap.Contracts;
+namespace Linger.Ldap.Contracts;
 
-public class AdUserInfo
+/// <summary>
+/// Provider-agnostic LDAP user information.
+/// Some properties (e.g. <see cref="SamAccountName"/>, <see cref="ExtensionAttribute1"/>) only have values
+/// when the directory is Active Directory; generic LDAP servers leave them null.
+/// </summary>
+public class LdapUserInfo
 {
     public string? DisplayName { get; set; }
     public string? SamAccountName { get; set; }
@@ -36,12 +41,8 @@ public class AdUserInfo
     public string? PwdLastSet { get; set; }
     public string? LyncAddress { get; set; }
     public string? ProxyAddresses { get; set; }
-
     public string? ProfilePath { get; set; }
-
-    //public string LogonScript { get; set; }
     public string? HomeDrive { get; set; }
-
     public string? HomeDirectory { get; set; }
     public string? Dn { get; set; }
     public string? ExtensionAttribute1 { get; set; }

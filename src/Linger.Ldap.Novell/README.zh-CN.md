@@ -8,7 +8,7 @@
 - 异步用户认证与查询 API
 - 通过 `LdapConfig.Security` 启用 LDAPS
 - `FindUserAsync` 与 `GetUsersAsync` 使用可配置 `SearchFilter`
-- 通过 `ILdap.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
+- 通过 `ILdapClient.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
 - 支持 `Attributes` 属性投影，按需返回字段
 - 内置 LDAP 过滤值转义，降低过滤器拼接风险
 
@@ -52,7 +52,7 @@ var config = new LdapConfig
     ]
 };
 
-var ldap = new Ldap(config);
+var ldap = new NovellLdapClient(config);
 ```
 
 ## 使用示例
@@ -112,7 +112,7 @@ var usersInOu = await ldap.GetUsersAsync(
 ### 高级过滤查询（跨提供者统一）
 
 ```csharp
-ILdap ldapContract = ldap;
+ILdapClient ldapContract = ldap;
 
 var users = await ldapContract.SearchUsersByFilterAsync(
     "(&(objectClass=person)(department=IT)(mail=*))",
@@ -125,12 +125,13 @@ var users = await ldapContract.SearchUsersByFilterAsync(
 - 当 `Security = true` 时，客户端启用 SSL 并使用默认 LDAPS 端口（`636`）。
 - `SearchFilter` 会用于 `FindUserAsync` 与 `GetUsersAsync`，建议使用 `{0}` 作为查询值占位符。
 - `SearchUsersByFilterAsync` 可用于跨提供者统一的原始过滤器高级查询。
+- 空白用户名和原始过滤器会被拒绝，避免意外执行全目录查询。
 - 若 `SearchFilter` 格式错误，内部会回退到默认用户过滤模板。
 - 查询输入值会在构建 LDAP 过滤器前进行转义，降低格式破坏和注入风险。
 - 绑定用户名会先规范化：已是 `domain\\user`、UPN（`user@domain`）或完整 DN 时不会重复拼接域前缀。
 - `Attributes` 可用于减少返回字段，提升查询性能。
 
-## 常用用户属性（AdUserInfo）
+## 常用用户属性（LdapUserInfo）
 
 - `DisplayName`、`SamAccountName`、`Upn`、`Dn`
 - `Email`、`TelephoneNumber`、`Mobile`、`Department`、`Title`

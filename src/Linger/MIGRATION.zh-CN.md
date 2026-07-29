@@ -68,7 +68,13 @@
 | `Linger.FileSystem.Sftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Sftp` | 调用上传 API 前先构造完整目标路径。 |
 | `Linger.FileSystem.Sftp` | `Connect()` / `Disconnect()` | `ConnectAsync()` / `DisconnectAsync()` | `Linger.FileSystem.Sftp` | 连接管理统一使用远程文件系统的异步契约。 |
 | `Linger.FileSystem.Sftp` | `SetRootAsWorkingDirectoryAsync()` | `SetWorkingDirectoryAsync("/")` | `Linger.FileSystem.Sftp` | 被删除的方法只负责传入根路径。 |
-| `Linger.Ldap.Novell` | `ConnectAsync(...)`、`Disconnect()`、`IsConnected()` 和 `IDisposable` | 无需替代，直接调用 `ILdap` 操作。 | `Linger.Ldap.Novell` | 每次操作现在会独立创建、绑定和释放连接，避免并发调用共享凭据或相互断开连接。 |
+| `Linger.Ldap.Novell` | `ConnectAsync(...)`、`Disconnect()`、`IsConnected()` 和 `IDisposable` | 无需替代，直接调用 `ILdapClient` 操作。 | `Linger.Ldap.Novell` | 每次操作现在会独立创建、绑定和释放连接，避免并发调用共享凭据或相互断开连接。 |
+| `Linger.Ldap.Contracts` | `ILdap` | `ILdapClient` | `Linger.Ldap.Contracts` | 重命名以准确表达契约含义：连接目录服务器的客户端。 |
+| `Linger.Ldap.Contracts` | `AdUserInfo` | `LdapUserInfo` | `Linger.Ldap.Contracts` | 该模型与提供者无关，并不局限于 Active Directory。 |
+| `Linger.Ldap.ActiveDirectory` | `Ldap` | `AdLdapClient` | `Linger.Ldap.ActiveDirectory` | 原名称与 `Linger.Ldap` 命名空间冲突，且与 Novell 实现同名。 |
+| `Linger.Ldap.ActiveDirectory` | `UserPrincipal.ToAdUser()`、`DirectoryEntry.ToAdUserInfo()`、`SearchResultCollection.ToAdUsersInfo()` | `ToLdapUserInfo()`、`ToLdapUserInfo()`、`ToLdapUsersInfo()` | `Linger.Ldap.ActiveDirectory` | 与 `LdapUserInfo` 保持一致。 |
+| `Linger.Ldap.Novell` | `Ldap` | `NovellLdapClient` | `Linger.Ldap.Novell` | 原名称与 `Linger.Ldap` 命名空间冲突，且与 Active Directory 实现同名。 |
+| `Linger.Ldap.Novell` | `LdapEntry.ToAdUser()` | `LdapEntry.ToLdapUserInfo()` | `Linger.Ldap.Novell` | 与 `LdapUserInfo` 保持一致。 |
 
 ## 没有一对一替代
 
