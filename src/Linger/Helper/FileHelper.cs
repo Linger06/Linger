@@ -206,22 +206,17 @@ public static partial class FileHelper
     /// Gets extended metadata for an existing file, including hash, paths, and size information.
     /// </summary>
     /// <param name="fullFileName">The target file path, absolute or relative.</param>
-    /// <param name="relativeTo">The base directory used to compute the relative path. Defaults to the current working directory.</param>
     /// <returns>
     /// An <see cref="ExtendedFileInfo"/> instance when the file exists and the path is valid; otherwise <see langword="null"/>.
     /// </returns>
-    public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName, string? relativeTo = null)
+    public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName)
     {
         if (string.IsNullOrEmpty(fullFileName))
             return null;
 
-        string basePath = relativeTo is { Length: > 0 }
-            ? relativeTo
-            : Directory.GetCurrentDirectory();
-
         try
         {
-            string absolutePath = fullFileName.ToFullPath();
+            string absolutePath = Path.GetFullPath(fullFileName);
 
             if (!PathExtensions.Exists(absolutePath, checkAsFile: true))
                 return null;
@@ -238,7 +233,6 @@ public static partial class FileHelper
             {
                 HashData = strHashData,
                 FileName = file.Name,
-                RelativeFilePath = basePath.GetRelativePath(absolutePath),
                 FullFilePath = file.FullName,
                 FileSize = file.Length.FormatFileSize(),
                 Length = file.Length
@@ -249,7 +243,6 @@ public static partial class FileHelper
             return null;
         }
     }
-
     #endregion
 
     /// <summary>

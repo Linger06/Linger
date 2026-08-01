@@ -4,7 +4,9 @@
 #if NETSTANDARD2_0 || NETSTANDARD2_1 || NETCOREAPP2_0_OR_GREATER || NET451_OR_GREATER
 using System.ComponentModel;
 
+#pragma warning disable IDE0161 
 namespace System.Runtime.CompilerServices
+#pragma warning restore IDE0161 
 {
     [EditorBrowsable(EditorBrowsableState.Never)]
     internal static class IsExternalInit { }

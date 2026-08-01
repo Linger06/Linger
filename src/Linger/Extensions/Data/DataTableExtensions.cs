@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Reflection;
 using Linger.Extensions.Core;
 using Linger.Helper;

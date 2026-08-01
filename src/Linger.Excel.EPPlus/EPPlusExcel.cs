@@ -1,8 +1,6 @@
 using System.Data;
 using System.Reflection;
 using Linger.Excel.Contracts;
-using Linger.Extensions.Core;
-using Linger.Extensions.Data;
 using Microsoft.Extensions.Logging;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;

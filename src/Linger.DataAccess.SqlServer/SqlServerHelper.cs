@@ -172,60 +172,6 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     }
 
     /// <summary>
-    /// 检查指定SQL查询是否返回数据
-    /// </summary>
-    /// <param name="sql">SQL查询语句</param>
-    /// <returns>如果有数据返回 true，否则返回 false</returns>
-    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
-    /// <example>
-    /// <code>
-    /// // 检查用户是否存在
-    /// var userExists = helper.Exists("SELECT COUNT(*) FROM Users WHERE Id = 1");
-    ///
-    /// // 检查表中是否有数据
-    /// var hasData = helper.Exists("SELECT COUNT(*) FROM Products WHERE Price > 100");
-    ///
-    /// // 检查特定条件的记录是否存在
-    /// var hasActiveUsers = helper.Exists("SELECT COUNT(*) FROM Users WHERE Status = 'Active' AND LastLogin > '2024-01-01'");
-    /// </code>
-    /// </example>
-    public bool Exists(string sql)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
-
-        var count = FindCountBySql(sql);
-        return count > 0;
-    }
-
-    /// <summary>
-    /// 检查指定SQL查询是否返回数据（异步版本）
-    /// </summary>
-    /// <param name="sql">SQL查询语句</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>如果有数据返回 true，否则返回 false</returns>
-    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
-    /// <example>
-    /// <code>
-    /// // 异步检查用户是否存在
-    /// var userExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Users WHERE Email = 'user@example.com'");
-    ///
-    /// // 异步检查订单是否存在
-    /// var orderExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Orders WHERE OrderDate &gt;= DATEADD(day, -30, GETDATE())");
-    ///
-    /// // 使用取消令牌的异步检查
-    /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-    /// var hasExpiredSessions = await helper.ExistsAsync("SELECT COUNT(*) FROM UserSessions WHERE ExpiryDate t&lt; GETDATE()", cts.Token);
-    /// </code>
-    /// </example>
-    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
-
-        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
-        return count > 0;
-    }
-
-    /// <summary>
     /// 使用 SQL Server 特有的 BulkCopy 进行批量插入
     /// </summary>
     /// <param name="dt">数据表</param>

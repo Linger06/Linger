@@ -458,19 +458,6 @@ public class FileHelperTests : IDisposable
     }
 
     [Fact]
-    public void GetExistingFileInfo_WithRelativeBasePath_ComputesRelativePath()
-    {
-        var baseDirectory = CreateTestDirectory("relativeBase");
-        var nestedFileName = Path.Combine("relativeBase", "nested.txt");
-        var filePath = CreateTestFile(nestedFileName, "content");
-
-        var fileInfo = FileHelper.GetExistingFileInfo(filePath, baseDirectory);
-
-        Assert.NotNull(fileInfo);
-        Assert.Equal(Path.GetFileName(nestedFileName), fileInfo!.RelativeFilePath);
-    }
-
-    [Fact]
     public void GetExistingFileInfo_WithRelativeFilePath_UsesCurrentDirectory()
     {
         var originalCurrentDirectory = Environment.CurrentDirectory;
