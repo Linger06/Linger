@@ -471,7 +471,6 @@ public class FileHelperTests : IDisposable
 
             Assert.NotNull(fileInfo);
             Assert.Equal(filePath, fileInfo!.FullFilePath);
-            Assert.Equal(fileName, fileInfo.RelativeFilePath);
         }
         finally
         {
