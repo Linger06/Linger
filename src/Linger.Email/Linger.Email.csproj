@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">    
     <PropertyGroup>
         <TargetFrameworks>net10.0;net9.0;net8.0;netstandard2.0</TargetFrameworks>
-        <Version>1.6.1</Version>
+        <Version>1.6.2</Version>
         <Description>
             Framework-agnostic email sending library built on MailKit.
             Provides SMTP transport, message composition, attachment handling, and asynchronous sending across multiple .NET frameworks.
