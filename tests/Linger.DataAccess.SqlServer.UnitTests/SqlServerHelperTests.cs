@@ -1,452 +1,153 @@
-using System.Collections.Generic;
 using System.Data;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Linger.DataAccess.SqlServer.UnitTests;
 
-/// <summary>
-/// SqlServerHelper 单元测试类 - 仅测试不涉及数据库连接的逻辑
-/// </summary>
 public class SqlServerHelperTests
 {
-    private const string TestConnectionString = "Server=(localdb)\\mssqllocaldb;Database=TestDb;Trusted_Connection=true;";
+    private const string ConnectionString =
+        "Server=localhost;Database=TestDb;Integrated Security=true;TrustServerCertificate=true;";
 
     [Fact]
     public void Constructor_WithValidConnectionString_ShouldCreateInstance()
     {
-        // Arrange & Act
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var helper = new SqlServerHelper(ConnectionString);
 
-        // Assert
-        Assert.NotNull(sqlHelper);
+        Assert.NotNull(helper);
+        Assert.IsAssignableFrom<IDatabase>(helper);
+        Assert.IsAssignableFrom<IBulkInsert>(helper);
     }
 
     [Fact]
-    public void AddByBulkCopy_WithNullTable_ShouldThrowArgumentNullException()
+    public void BulkInsert_WithNullTable_ShouldThrowArgumentNullException()
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var helper = new SqlServerHelper(ConnectionString);
 
-        // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => sqlHelper.AddByBulkCopy(null!, "TestTable"));
+        Assert.Throws<ArgumentNullException>(() => helper.BulkInsert(null!, "dbo.Users"));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void BulkInsert_WithInvalidTableName_ShouldThrowArgumentException(string? tableName)
+    {
+        var helper = new SqlServerHelper(ConnectionString);
+        var table = new DataTable();
+
+        Assert.ThrowsAny<ArgumentException>(() => helper.BulkInsert(table, tableName!));
+    }
+
+    [Theory]
+    [InlineData("dbo.")]
+    [InlineData(".Users")]
+    [InlineData("dbo..Users")]
+    [InlineData("dbo.Users;DROP TABLE Users")]
+    public void BulkInsert_WithUnsafeTableName_ShouldThrowArgumentException(string tableName)
+    {
+        var helper = new SqlServerHelper(ConnectionString);
+        var table = new DataTable();
+
+        Assert.Throws<ArgumentException>(() => helper.BulkInsert(table, tableName));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void BulkInsert_WithInvalidBatchSize_ShouldThrowArgumentOutOfRangeException(int batchSize)
+    {
+        var helper = new SqlServerHelper(ConnectionString);
+        var table = new DataTable();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            helper.BulkInsert(table, "dbo.Users", batchSize));
     }
 
     [Fact]
-    public void AddByBulkCopy_WithEmptyTableName_ShouldThrowArgumentException()
+    public void BulkInsert_WithNegativeTimeout_ShouldThrowArgumentOutOfRangeException()
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var dataTable = CreateTestDataTable();
+        var helper = new SqlServerHelper(ConnectionString);
+        var table = new DataTable();
 
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, ""));
-        Assert.Equal("tableName", ex.ParamName);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            helper.BulkInsert(table, "dbo.Users", timeout: -1));
     }
 
     [Fact]
-    public void AddByBulkCopy_WithWhitespaceTableName_ShouldThrowArgumentException()
+    public void BulkInsert_WithEmptyTable_ShouldReturnZeroWithoutOpeningConnection()
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var dataTable = CreateTestDataTable();
+        IBulkInsert helper = new SqlServerHelper(ConnectionString);
+        var table = new DataTable();
 
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.AddByBulkCopy(dataTable, "   "));
-        Assert.Equal("tableName", ex.ParamName);
+        var result = helper.BulkInsert(table, "dbo.Users", batchSize: 250, timeout: 0);
+
+        Assert.Equal(0, result);
     }
 
     [Fact]
-    public void AddByBulkCopy_WithEmptyDataTable_ShouldReturnWithoutError()
+    public async Task BulkInsertAsync_WithEmptyTable_ShouldReturnZeroWithoutOpeningConnection()
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var emptyTable = new DataTable();
+        IBulkInsert helper = new SqlServerHelper(ConnectionString);
+        var table = new DataTable();
 
-        // Act & Assert (should not throw)
-        sqlHelper.AddByBulkCopy(emptyTable, "TestTable");
+        var result = await helper.BulkInsertAsync(table, "dbo.Users", batchSize: 250, timeout: 0);
+
+        Assert.Equal(0, result);
     }
 
-    [Fact]
-    public void GetMaxId_WithEmptyFieldName_ShouldThrowArgumentException()
+    [Theory]
+    [InlineData(null, "Users")]
+    [InlineData("", "Users")]
+    [InlineData("Id", null)]
+    [InlineData("Id", "")]
+    [InlineData("dbo.Id", "Users")]
+    [InlineData("Id", "dbo.")]
+    public void GetMaxId_WithInvalidIdentifier_ShouldThrowArgumentException(string? fieldName,
+        string? tableName)
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var helper = new SqlServerHelper(ConnectionString);
 
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.GetMaxId("", "TestTable"));
-        Assert.Equal("fieldName", ex.ParamName);
+        Assert.ThrowsAny<ArgumentException>(() => helper.GetMaxId(fieldName!, tableName!));
     }
 
-    [Fact]
-    public void GetMaxId_WithNullFieldName_ShouldThrowArgumentException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void TableExists_WithInvalidTableName_ShouldThrowArgumentException(string? tableName)
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var helper = new SqlServerHelper(ConnectionString);
 
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentNullException>(() => sqlHelper.GetMaxId(null!, "TestTable"));
-        Assert.Equal("fieldName", ex.ParamName);
+        Assert.ThrowsAny<ArgumentException>(() => helper.TableExists(tableName!));
     }
 
-    [Fact]
-    public void GetMaxId_WithEmptyTableName_ShouldThrowArgumentException()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void FindCountBySql_WithInvalidSql_ShouldThrowArgumentException(string? sql)
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var helper = new SqlServerHelper(ConnectionString);
 
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.GetMaxId("Id", ""));
-        Assert.Equal("tableName", ex.ParamName);
-    }
-
-    [Fact]
-    public void GetMaxId_WithNullTableName_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentNullException>(() => sqlHelper.GetMaxId("Id", null!));
-        Assert.Equal("tableName", ex.ParamName);
-    }
-
-    [Fact]
-    public void Exists_WithEmptySql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.Exists(""));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public void Exists_WithNullSql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentNullException>(() => sqlHelper.Exists(null!));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public void Exists_WithWhitespaceSql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.Exists("   "));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task AddByBulkCopyAsync_WithNullTable_ShouldThrowArgumentNullException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        await Assert.ThrowsAsync<System.ArgumentNullException>(() =>
-            sqlHelper.AddByBulkCopyAsync(null!, "TestTable"));
-    }
-
-    [Fact]
-    public async Task AddByBulkCopyAsync_WithEmptyTableName_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var dataTable = CreateTestDataTable();
-
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
-            sqlHelper.AddByBulkCopyAsync(dataTable, ""));
-        Assert.Equal("tableName", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task GetMaxIdAsync_WithEmptyFieldName_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
-            sqlHelper.GetMaxIdAsync("", "TestTable"));
-        Assert.Equal("fieldName", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task GetMaxIdAsync_WithEmptyTableName_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
-            sqlHelper.GetMaxIdAsync("Id", ""));
-        Assert.Equal("tableName", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task ExistsAsync_WithEmptySql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
-            sqlHelper.ExistsAsync(""));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task ExistsAsync_WithNullSql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<System.ArgumentNullException>(() =>
-            sqlHelper.ExistsAsync(null!));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        using var cts = new System.Threading.CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exQuery = await Record.ExceptionAsync(() =>
-            sqlHelper.QueryAsync("SELECT 1", cancellationToken: cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exQuery);
-    }
-
-    [Fact]
-    public async Task QueryTableAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        using var cts = new System.Threading.CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exQueryTable = await Record.ExceptionAsync(() =>
-            sqlHelper.QueryTableAsync("SELECT 1", cancellationToken: cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exQueryTable);
+        Assert.ThrowsAny<ArgumentException>(() => helper.FindCountBySql(sql!));
     }
 
     [Fact]
     public void QueryInBatches_WithEmptyParameters_ShouldReturnEmptyDataTable()
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
+        var helper = new SqlServerHelper(ConnectionString);
 
-        // Act
-        var result = sqlHelper.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", new List<string>());
+        DataTable result = helper.QueryInBatches("SELECT 1 WHERE 1 IN ({0})", []);
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.Rows.Count);
+        Assert.Empty(result.Rows);
+        Assert.Empty(result.Columns);
     }
 
     [Fact]
-    public async Task QueryInBatchesAsync_WithCancellationToken_ShouldSupportCancellation()
+    public void CommandTimeout_WithNegativeValue_ShouldThrowArgumentOutOfRangeException()
     {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var parameters = new List<string> { "1" };
-        using var cts = new System.Threading.CancellationTokenSource();
-        cts.Cancel();
+        var helper = new SqlServerHelper(ConnectionString);
 
-        // Act & Assert
-        var exBatch = await Record.ExceptionAsync(() =>
-            sqlHelper.QueryInBatchesAsync("SELECT * FROM users WHERE id IN ({0})", parameters, cancellationToken: cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exBatch);
-    }
-
-    [Fact]
-    public void QueryInBatchesRaw_WithEmptyValues_ShouldReturnEmptyDataTable()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act
-        var result = sqlHelper.QueryInBatchesRaw("SELECT * FROM users WHERE id IN ({0})", new List<string>());
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.Rows.Count);
-    }
-
-    [Fact]
-    public async Task QueryInBatchesRawAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var values = new List<string> { "1" };
-        using var cts = new System.Threading.CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exRawBatch = await Record.ExceptionAsync(() =>
-            sqlHelper.QueryInBatchesRawAsync("SELECT * FROM users WHERE id IN ({0})", values, cancellationToken: cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exRawBatch);
-    }
-
-    [Fact]
-    public void BulkInsert_WithEmptyDataTable_ShouldReturnFalse()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var emptyTable = CreateTestDataTable();
-
-        // Act
-        var result = sqlHelper.BulkInsert(emptyTable);
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void BulkInsert_WithNullDataTable_ShouldReturnFalse()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act
-        var result = sqlHelper.BulkInsert(null!);
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void BulkInsert_WhenReferencedAsIDatabase_ShouldUseSqlServerOverride()
-    {
-        // Arrange
-        Linger.DataAccess.IDatabase database = new SqlServerHelper(TestConnectionString);
-
-        // Act
-        var result = database.BulkInsert(null!);
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void BulkInsert_WhenReferencedAsDatabase_ShouldUseSqlServerOverride()
-    {
-        // Arrange
-        Linger.DataAccess.Database database = new SqlServerHelper(TestConnectionString);
-
-        // Act
-        var result = database.BulkInsert(null!);
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Theory]
-    [InlineData(500)]
-    [InlineData(1000)]
-    [InlineData(2000)]
-    public void AddByBulkCopy_WithCustomBatchSize_ShouldAcceptValidBatchSizes(int batchSize)
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var emptyTable = CreateTestDataTable();
-
-        // Act & Assert (should not throw for empty table)
-        sqlHelper.AddByBulkCopy(emptyTable, "TestTable", batchSize);
-    }
-
-    [Theory]
-    [InlineData(30)]
-    [InlineData(60)]
-    [InlineData(120)]
-    public void AddByBulkCopy_WithCustomTimeout_ShouldAcceptValidTimeouts(int timeout)
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var emptyTable = CreateTestDataTable();
-
-        // Act & Assert (should not throw for empty table)
-        sqlHelper.AddByBulkCopy(emptyTable, "TestTable", timeout: timeout);
-    }
-
-    private static DataTable CreateTestDataTable()
-    {
-        var table = new DataTable("TestUsers");
-        table.Columns.Add("Id", typeof(int));
-        table.Columns.Add("Name", typeof(string));
-        table.Columns.Add("Email", typeof(string));
-        return table;
-    }
-}
-
-/// <summary>
-/// 性能和边界测试类
-/// </summary>
-public class SqlServerHelperPerformanceTests
-{
-    private const string TestConnectionString = "Server=(localdb)\\mssqllocaldb;Database=TestDb;Trusted_Connection=true;";
-
-    [Fact]
-    public void CreateDataTable_WithLargeDataSet_ShouldHandleMemoryEfficiently()
-    {
-        // Arrange
-        const int rowCount = 10000;
-        var table = new DataTable("LargeTable");
-        table.Columns.Add("Id", typeof(int));
-        table.Columns.Add("Data", typeof(string));
-
-        // Act
-        for (int i = 0; i < rowCount; i++)
-        {
-            table.Rows.Add(i, $"TestData_{i}");
-        }
-
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Assert
-        Assert.Equal(rowCount, table.Rows.Count);
-
-        // Verify empty table doesn't cause issues
-        table.Clear();
-        sqlHelper.AddByBulkCopy(table, "TestTable"); // Should not throw
-
-        var result = sqlHelper.BulkInsert(table);
-        Assert.False(result); // Empty table should return false
-    }
-
-    [Fact]
-    public async Task ConcurrentAsyncOperations_ShouldNotCauseDeadlock()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var tasks = new List<Task>();
-
-        // Act - Create multiple async parameter validation tasks
-        for (int i = 0; i < 10; i++)
-        {
-            tasks.Add(Task.Run(async () =>
-            {
-                var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
-                    sqlHelper.ExistsAsync("")).ConfigureAwait(false);
-                Assert.Equal("sql", ex.ParamName);
-            }));
-        }
-
-        // Assert
-        await Task.WhenAll(tasks); // Should complete without deadlock
+        Assert.Throws<ArgumentOutOfRangeException>(() => helper.CommandTimeout = -1);
     }
 }

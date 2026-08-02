@@ -1,20 +1,9 @@
-﻿# Linger.DataAccess.Oracle
+# Linger.DataAccess.Oracle
 
-Oracle database access library with enhanced security and batch processing.
+[Migration guide for 2.0](../Linger.DataAccess/MIGRATION.md)
 
-## Features
-
-- Security-first parameterized queries
-- Intelligent batch processing (implemented in core Linger.DataAccess)
-- Async/await with CancellationToken
-- Comprehensive operations & provider-specific helpers
-
-## Supported .NET Versions
-
-- .NET 10.0
-- .NET 9.0
-- .NET 8.0
-- .NET Framework 4.7.2+
+Oracle provider for `Linger.DataAccess`. Common query, mapping, transaction, and batch-query behavior comes from
+the core `Database` class; this helper configures `OracleClientFactory` and the `:` parameter prefix.
 
 ## Installation
 
@@ -22,53 +11,24 @@ Oracle database access library with enhanced security and batch processing.
 dotnet add package Linger.DataAccess.Oracle
 ```
 
-## Basic Usage
+## Usage
 
 ```csharp
 using Linger.DataAccess.Oracle;
+using Oracle.ManagedDataAccess.Client;
 
-var oracle = new OracleHelper("Data Source=localhost:1521/XE;User Id=hr;Password=password;");
+using var database = new OracleHelper(connectionString);
 
-// Parameterized query
-var users = await oracle.QueryAsync<User>("SELECT * FROM users WHERE department = :dept", new OracleParameter(":dept", "IT"));
+bool hasUser = await database.HasRowsAsync(
+    "SELECT 1 FROM USERS WHERE EMAIL = :email",
+    [new OracleParameter(":email", email)],
+    cancellationToken);
 
-// Batch query (delegates to core; default batchSize = 1000)
-var ids = Enumerable.Range(1, 6000).Select(i => i.ToString()).ToList();
-var dt = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", ids);
-
-// Existence check
-bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email", new OracleParameter(":email", "user@example.com"));
+List<User> users = await database.FindListBySqlAsync(
+    "SELECT ID, NAME FROM USERS WHERE DEPARTMENT = :department",
+    record => new User(record.GetInt32(0), record.GetString(1)),
+    [new OracleParameter(":department", "IT")],
+    cancellationToken);
 ```
 
-## Oracle Notes
-
-- Parameter prefix uses ':' (e.g., :dept)
-- For very large IN lists you may tune batchSize (core default 1000)
-- Use parameterized versions for safety; Raw variants only for trusted numeric IDs
-
-## Async Implementation ✅
-
-All async methods use **true asynchronous I/O**:
-
-```csharp
-// ✅ TRUE ASYNC - Uses ADO.NET async APIs
-public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
-{
-    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
-    return count > 0;
-}
-```
-
-**Benefits for Oracle database operations:**
-- **Network-bound operations** release threads during database calls
-- Supports **thousands of concurrent connections** efficiently
-- Full cancellation support for long-running queries
-- Optimal for distributed and high-traffic applications
-
-## Best Practices
-
-- **Use async methods** for all database operations - True async ensures optimal performance
-- **Always pass CancellationToken** for query timeout and cancellation control
-- Always prefer parameterized SQL
-- Tune batchSize only if statement length limits are hit
-- Handle CancellationToken for long-running queries
+Use parameterized SQL for all values. `QueryInBatches` automatically uses Oracle-style parameter names.

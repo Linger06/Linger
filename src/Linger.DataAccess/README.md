@@ -1,224 +1,99 @@
-﻿# Linger.DataAccess
+# Linger.DataAccess
 
-A core data access library that provides database abstraction and common database operations.
+[Migration guide for 2.0](MIGRATION.md)
 
-## Features
+Provider-neutral ADO.NET execution, connection/transaction lifetime management, and common query semantics.
 
-- **Database Abstraction**: Provider-agnostic database access
-- **CRUD Operations**: Complete Create, Read, Update, Delete operations
-- **Async Support**: Full async/await support for modern applications
-- **Multiple Data Types**: Support for DataTable, DataSet, and entity objects
-- **Transaction Support**: Built-in transaction management
-- **SQL Builder**: Helper for dynamic SQL generation
-- **Bulk Operations**: Interface for high-performance bulk data insertion
-- **Batch Query**: Large parameter list splitting (default batchSize = 1000) with parameterized & raw variants
+## Target frameworks
 
-## Supported .NET Versions
-
-- .NET 10.0
-- .NET 9.0
-- .NET 8.0
-- .NET Framework 4.7.2+
-
-## Installation
-
-This library is typically not installed directly, but is automatically referenced when installing specific database implementation packages:
-
-```bash
-# For SQL Server
-dotnet add package Linger.DataAccess.SqlServer
-
-# For Oracle Database
-dotnet add package Linger.DataAccess.Oracle
-
-# For SQLite
-dotnet add package Linger.DataAccess.Sqlite
-```
-
-## Core Interfaces
-
-### IDatabase
-High-frequency interface groups (most commonly used):
-
-- Execute commands: `ExecuteBySql(...)`, `ExecuteByProc(...)`
-- Query table/dataset: `Query(...)`, `QueryTable(...)`, `QueryAsync(...)`, `QueryTableAsync(...)`
-- List/entity mapping: `FindListBySql<T>(...)`, `FindEntityBySql<T>(...)`
-- Scalar helpers: `FindCountBySql(...)`, `FindMaxBySql(...)`
-- Batch query for huge `IN` lists: `QueryInBatches(...)`, `QueryInBatchesAsync(...)`
-
-Complete API reference (source of truth):
-
-- `IDatabase`: [IDatabase.cs](IDatabase.cs)
-- `IBaseDatabase`: [IBaseDatabase.cs](IBaseDatabase.cs)
-- `Database` implementation: [Database.cs](Database.cs)
-
-### IProvider
-Database provider abstraction for different database engines.
-
-- Provider contract: [IProvider.cs](IProvider.cs)
-- Low-level execution base: [BaseDatabase.cs](BaseDatabase.cs)
-
-## Basic Usage
-
-```csharp
-using Linger.DataAccess;
-
-// Execute queries
-var users = database.FindListBySql<User>("SELECT * FROM Users WHERE Active = 1");
-var userTable = await database.FindTableBySqlAsync("SELECT * FROM Users");
-
-// Batch query (IDs split automatically, default batchSize 1000)
-var ids = Enumerable.Range(1, 5000).Select(i => i.ToString()).ToList();
-var dt = database.QueryInBatches("SELECT * FROM Users WHERE Id IN ({0})", ids);
-
-// Custom batch size
-var dt500 = database.QueryInBatches("SELECT * FROM Users WHERE Id IN ({0})", ids, 500);
-
-// Raw version (trusted numeric IDs only)
-var dtRaw = database.QueryInBatchesRaw("SELECT * FROM Users WHERE Id IN ({0})", ids, 800, quote: false);
-
-// Async parameterized version
-var dtAsync = await database.QueryInBatchesAsync("SELECT * FROM Users WHERE Id IN ({0})", ids, 750);
-
-// Execute commands
-int affected = database.ExecuteBySql("UPDATE Users SET LastLogin = GETDATE()");
-
-// Count operations
-int userCount = await database.FindCountBySqlAsync("SELECT COUNT(*) FROM Users");
-```
-
-## Batch Query
-
-When dealing with very large IN lists (thousands of IDs) a single SQL statement may exceed length limits or degrade performance. The batch query helpers automatically split the list and concatenate the results.
-
-```csharp
-// Parameterized (safe)
-var result = database.QueryInBatches(
-    "SELECT * FROM Orders WHERE OrderId IN ({0})",
-    orderIds); // default batchSize = 1000
-
-// Raw (only for trusted constant values)
-var resultRaw = database.QueryInBatchesRaw(
-    "SELECT * FROM Orders WHERE OrderId IN ({0})",
-    orderIds, 500, quote: false);
-```
-
-Guidelines:
-- Use {0} in sql where the batch placeholder will be injected.
-- Prefer parameterized methods for security (prevents SQL injection).
-- Raw methods are only for fully trusted data (e.g., internally generated numeric IDs).
-- Adjust batchSize to balance network round-trips and SQL size limits.
-
-Return Type:
-- All batch methods merge rows into a single DataTable preserving schema of the first non-empty batch.
-
-## Transaction Contract
-
-When calling low-level transaction overloads in `BaseDatabase` / `IBaseDatabase`:
-
-- `transaction.Connection` must be attached and non-null.
-- Detached/disposed transactions are rejected with `ArgumentNullException`.
-- The connection used by transaction overloads comes from `transaction.Connection`.
-
-```csharp
-// Correct: transaction is attached to the same open connection
-using var conn = provider.CreateConnection(connString);
-conn.Open();
-using var tx = conn.BeginTransaction();
-_ = baseDatabase.ExecuteNonQuery(tx, CommandType.Text, "UPDATE Users SET Active = 1 WHERE Id = @Id", param);
-
-// Invalid: detached transaction -> throws ArgumentNullException
-// _ = baseDatabase.ExecuteNonQuery(detachedTx, CommandType.Text, "UPDATE ...", param);
-```
+- .NET 10
+- .NET 9
+- .NET 8
+- .NET Framework 4.7.2
 
 ## Architecture
 
-This library provides the foundation for database-specific implementations:
+- `BaseDatabase`: commands, connections, transactions, cancellation, and parameter ownership.
+- `Database`: datasets, tables, entity/list mapping, counts, batch queries, and parameterized batch transactions.
+- Provider helpers: only provider-specific capabilities.
 
-- **Linger.DataAccess.SqlServer** - SQL Server implementation
-- **Linger.DataAccess.Oracle** - Oracle Database implementation  
-- **Linger.DataAccess.Sqlite** - SQLite implementation
-
-## Key Components
-
-### Database Class
-Base implementation of `IDatabase` interface providing common database operations.
-
-### BaseDatabase Class
-Core database functionality including connection management and parameter handling.
-
-### SqlBuilder Class
-Helper utility for building dynamic SQL queries safely.
-
-## Async/Await Best Practices
-
-### True Async Implementation ✅
-
-All async methods in this library use **true asynchronous I/O** operations, not `Task.Run` wrappers:
+`Database` accepts a standard `DbProviderFactory`; there is no custom provider abstraction.
 
 ```csharp
-// ✅ TRUE ASYNC - Releases thread during I/O
-public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
+using Linger.DataAccess;
+using Microsoft.Data.SqlClient;
+
+using var database = new Database(SqlClientFactory.Instance, connectionString);
+```
+
+## Queries
+
+```csharp
+DataSet allResults = database.Query("SELECT * FROM Users; SELECT * FROM Roles");
+DataTable users = database.QueryTable(
+    "SELECT * FROM Users WHERE Active = @active",
+    new SqlParameter("@active", true));
+
+List<User> mapped = database.FindListBySql<User>("SELECT Id, Name FROM Users");
+List<User> asyncMapped = await database.FindListBySqlAsync(
+    "SELECT Id, Name FROM Users",
+    record => new User(record.GetInt32(0), record.GetString(1)),
+    cancellationToken: cancellationToken);
+```
+
+`DataSet` and `DataTable` materialization is intentionally synchronous because the BCL fill APIs are synchronous.
+For asynchronous work, use `FindListBySqlAsync` or `ExecuteReaderAsync` and consume the reader directly.
+
+## Existence and counts
+
+```csharp
+bool hasRow = database.HasRows(
+    "SELECT 1 FROM Users WHERE Email = @email",
+    new SqlParameter("@email", email));
+
+int count = await database.FindCountBySqlAsync(
+    "SELECT COUNT(*) FROM Users WHERE Active = @active",
+    [new SqlParameter("@active", true)],
+    cancellationToken);
+```
+
+Use `HasRows` for row existence and `FindCountBySql` when the numeric count is needed.
+
+## Parameterized batch transactions
+
+```csharp
+var statements = new[]
 {
-    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
-    return count > 0;
-}
+    new SqlStatement("UPDATE Accounts SET Balance = Balance - @amount WHERE Id = @id",
+        new SqlParameter("@amount", 100), new SqlParameter("@id", 1)),
+    new SqlStatement("UPDATE Accounts SET Balance = Balance + @amount WHERE Id = @id",
+        new SqlParameter("@amount", 100), new SqlParameter("@id", 2)),
+};
 
-// ❌ PSEUDO-ASYNC (Not used in this library)
-// Task.Run just wraps synchronous blocking code
-public Task<bool> BadExistsAsync(string sql)
+int[] affected = await database.ExecuteTransactionAsync(statements, cancellationToken);
+```
+
+The transaction is committed only when every statement succeeds. Failure rolls back and rethrows the original
+error. Do not call this API while an ambient transaction started by `BeginTrans` is active.
+
+## Large `IN` queries
+
+```csharp
+DataTable result = database.QueryInBatches(
+    "SELECT * FROM Orders WHERE OrderId IN ({0})",
+    orderIds,
+    batchSize: 500);
+```
+
+Values are parameterized and split into batches. The first batch defines the returned `DataTable` schema.
+
+## Optional capabilities
+
+Provider-specific features are exposed as capability interfaces. SQL Server implements `IBulkInsert`:
+
+```csharp
+if (database is IBulkInsert bulkInsert)
 {
-    return Task.Run(() => FindCountBySql(sql)); // Wastes thread pool threads
+    await bulkInsert.BulkInsertAsync(table, "dbo.Users", cancellationToken: cancellationToken);
 }
 ```
-
-### Performance Benefits
-
-| Metric | Synchronous | Pseudo-Async (Task.Run) | True Async ✅ |
-|--------|-------------|------------------------|---------------|
-| **Thread Usage** | 1 thread blocked | 1 thread pool thread | 0 threads during I/O |
-| **Concurrency** | ~Thousands | ~Thousands | ~Tens of thousands |
-| **Memory** | ~1MB per thread | ~1MB per thread | ~Few KB per task |
-| **Scalability** | Limited | Limited | Excellent |
-| **Cancellation** | Not supported | Only before start | During I/O operation |
-
-### Usage Recommendations
-
-```csharp
-// ✅ DO: Use async methods for I/O operations
-var users = await database.FindTableBySqlAsync("SELECT * FROM Users");
-var count = await database.FindCountBySqlAsync("SELECT COUNT(*) FROM Orders");
-
-// ✅ DO: Use ConfigureAwait(false) in library code (already done internally)
-var result = await database.QueryAsync(sql).ConfigureAwait(false);
-
-// ✅ DO: Support cancellation tokens
-var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-var data = await database.QueryTableAsync(sql, null, cts.Token);
-
-// ❌ DON'T: Mix sync and async (use one or the other)
-var badResult = database.FindTableBySqlAsync(sql).Result; // Can deadlock!
-```
-
-### High Concurrency Scenarios
-
-For applications handling thousands of concurrent requests:
-
-```csharp
-// ✅ Scales to tens of thousands of concurrent operations
-var tasks = Enumerable.Range(1, 10000)
-    .Select(id => database.FindTableBySqlAsync($"SELECT * FROM Orders WHERE Id = {id}"))
-    .ToList();
-
-var results = await Task.WhenAll(tasks); // Minimal thread usage
-```
-
-## Best Practices
-
-- **Use parameterized queries** to prevent SQL injection
-- **Use batch query helpers** for large IN lists instead of manual concatenation
-- **Implement proper disposal patterns** with `using` statements
-- **Use async methods for I/O intensive operations** - All async methods use true async I/O
-- **Always pass CancellationToken** to async methods for proper cancellation support
-- **Use ConfigureAwait(false)** in library code (already done internally)
-- **Choose appropriate database-specific implementations** for optimal performance

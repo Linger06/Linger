@@ -1,20 +1,9 @@
 # Linger.DataAccess.Oracle
 
-一个安全且功能丰富的 Oracle 数据访问库，适配企业级场景。
+[2.0 迁移指南](../Linger.DataAccess/MIGRATION.zh-CN.md)
 
-## 特性
-
-- 参数化查询防止 SQL 注入
-- 分批查询能力由核心库提供（默认每批 1000，可自定义）
-- 完整异步支持 (CancellationToken)
-- 兼容多框架
-
-## 支持的 .NET 版本
-
-- .NET 10.0
-- .NET 9.0
-- .NET 8.0
-- .NET Framework 4.7.2+
+`Linger.DataAccess` 的 Oracle 实现。通用查询、映射、事务和分批查询由核心 `Database` 提供；本 Helper
+负责配置 `OracleClientFactory` 和 `:` 参数前缀。
 
 ## 安装
 
@@ -22,53 +11,24 @@
 dotnet add package Linger.DataAccess.Oracle
 ```
 
-## 基本用法
+## 使用
 
 ```csharp
 using Linger.DataAccess.Oracle;
+using Oracle.ManagedDataAccess.Client;
 
-var oracle = new OracleHelper("Data Source=localhost:1521/XE;User Id=hr;Password=password;");
+using var database = new OracleHelper(connectionString);
 
-// 参数化查询
-var users = await oracle.QueryAsync<User>("SELECT * FROM users WHERE department = :dept", new OracleParameter(":dept", "IT"));
+bool hasUser = await database.HasRowsAsync(
+    "SELECT 1 FROM USERS WHERE EMAIL = :email",
+    [new OracleParameter(":email", email)],
+    cancellationToken);
 
-// 分批查询（委托核心实现）
-var ids = Enumerable.Range(1, 6000).Select(i => i.ToString()).ToList();
-var dt = oracle.QueryInBatches("SELECT * FROM users WHERE id IN ({0})", ids);
-
-// 存在性检查
-bool exists = await oracle.ExistsAsync("SELECT 1 FROM users WHERE email = :email", new OracleParameter(":email", "user@example.com"));
+List<User> users = await database.FindListBySqlAsync(
+    "SELECT ID, NAME FROM USERS WHERE DEPARTMENT = :department",
+    record => new User(record.GetInt32(0), record.GetString(1)),
+    [new OracleParameter(":department", "IT")],
+    cancellationToken);
 ```
 
-## Oracle 说明
-
-- 参数前缀使用 ':'
-- 极大 IN 列表可调整 batchSize（核心默认 1000）
-- 优先使用参数化方法；Raw 版本仅用于可信数字 ID
-
-## 异步实现 ✅
-
-所有异步方法均使用**真正的异步 I/O**：
-
-```csharp
-// ✅ 真正异步 - 使用 ADO.NET 异步 API
-public async Task<bool> ExistsAsync(string sql, CancellationToken ct = default)
-{
-    var count = await FindCountBySqlAsync(sql).ConfigureAwait(false);
-    return count > 0;
-}
-```
-
-**Oracle 数据库操作的优势：**
-- **网络密集型操作**在数据库调用期间释放线程
-- 高效支持**数千个并发连接**
-- 长时间运行查询的完整取消支持
-- 最适合分布式和高流量应用程序
-
-## 最佳实践
-
-- **所有数据库操作使用异步方法** - 真正的异步确保最佳性能
-- **始终传递 CancellationToken** 用于查询超时和取消控制
-- 始终使用参数化防注入
-- 仅在需要时调小或调大 batchSize
-- 合理传递 CancellationToken
+所有值都应通过参数传入。`QueryInBatches` 会自动使用 Oracle 风格的参数名。

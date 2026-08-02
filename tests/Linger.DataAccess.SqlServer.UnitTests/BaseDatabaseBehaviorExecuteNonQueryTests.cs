@@ -1,6 +1,5 @@
 using System.Data;
 using System.Data.Common;
-using Moq;
 using Xunit;
 
 namespace Linger.DataAccess.SqlServer.UnitTests;
@@ -10,14 +9,9 @@ public class BaseDatabaseBehaviorExecuteNonQueryTests
     [Fact]
     public void ExecuteNonQuery_WithAttachedTransaction_ShouldUseTransactionConnection()
     {
-        var provider = new Mock<IProvider>(MockBehavior.Strict);
-        var attachedConnection = new RecordingDbConnection("Attached-Conn");
-
-        provider
-            .Setup(x => x.CreateCommand())
-            .Returns(() => new RecordingDbCommand(3));
-
-        var database = new TestableBaseDatabase(provider.Object, "Fallback-Conn");
+        var attachedConnection = new RecordingDbConnection("Attached-Conn", () => new RecordingDbCommand(3));
+        var factory = new RecordingDbProviderFactory();
+        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
         var attachedTransaction = BaseDatabaseBehaviorTestSupport.CreateAttachedTransaction(attachedConnection);
 
         var affectedRows = database.ExecuteNonQuery(
@@ -28,22 +22,17 @@ public class BaseDatabaseBehaviorExecuteNonQueryTests
 
         Assert.Equal(3, affectedRows);
         Assert.Equal(1, attachedConnection.OpenCallCount);
-        provider.Verify(x => x.CreateConnection("Fallback-Conn"), Times.Never);
-        provider.Verify(x => x.CreateCommand(), Times.Once);
-        provider.VerifyNoOtherCalls();
+        Assert.Equal(0, factory.CreateConnectionCallCount);
+        Assert.Equal(0, factory.CreateCommandCallCount);
+        Assert.Equal(1, attachedConnection.CreateCommandCallCount);
     }
 
     [Fact]
     public async Task ExecuteNonQueryAsync_WithAttachedTransaction_ShouldUseTransactionConnection()
     {
-        var provider = new Mock<IProvider>(MockBehavior.Strict);
-        var attachedConnection = new RecordingDbConnection("Attached-Conn");
-
-        provider
-            .Setup(x => x.CreateCommand())
-            .Returns(() => new RecordingDbCommand(5));
-
-        var database = new TestableBaseDatabase(provider.Object, "Fallback-Conn");
+        var attachedConnection = new RecordingDbConnection("Attached-Conn", () => new RecordingDbCommand(5));
+        var factory = new RecordingDbProviderFactory();
+        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
         var attachedTransaction = BaseDatabaseBehaviorTestSupport.CreateAttachedTransaction(attachedConnection);
 
         var affectedRows = await database.ExecuteNonQueryAsync(
@@ -55,34 +44,36 @@ public class BaseDatabaseBehaviorExecuteNonQueryTests
 
         Assert.Equal(5, affectedRows);
         Assert.Equal(1, attachedConnection.OpenCallCount);
-        provider.Verify(x => x.CreateConnection("Fallback-Conn"), Times.Never);
-        provider.Verify(x => x.CreateCommand(), Times.Once);
-        provider.VerifyNoOtherCalls();
+        Assert.Equal(0, factory.CreateConnectionCallCount);
+        Assert.Equal(0, factory.CreateCommandCallCount);
+        Assert.Equal(1, attachedConnection.CreateCommandCallCount);
     }
 
     [Fact]
     public void ExecuteNonQuery_WithDetachedTransaction_ShouldThrowArgumentNullException()
     {
-        var provider = new Mock<IProvider>(MockBehavior.Strict);
-        var database = new TestableBaseDatabase(provider.Object, "Fallback-Conn");
+        var factory = new RecordingDbProviderFactory();
+        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
         var detachedTransaction = BaseDatabaseBehaviorTestSupport.CreateDetachedTransaction();
 
         _ = Assert.Throws<ArgumentNullException>(() =>
             database.ExecuteNonQuery(detachedTransaction, CommandType.Text, "UPDATE demo SET value = 1", Array.Empty<DbParameter>()));
 
-        provider.VerifyNoOtherCalls();
+        Assert.Equal(0, factory.CreateConnectionCallCount);
+        Assert.Equal(0, factory.CreateCommandCallCount);
     }
 
     [Fact]
     public async Task ExecuteNonQueryAsync_WithDetachedTransaction_ShouldThrowArgumentNullException()
     {
-        var provider = new Mock<IProvider>(MockBehavior.Strict);
-        var database = new TestableBaseDatabase(provider.Object, "Fallback-Conn");
+        var factory = new RecordingDbProviderFactory();
+        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
         var detachedTransaction = BaseDatabaseBehaviorTestSupport.CreateDetachedTransaction();
 
         _ = await Assert.ThrowsAsync<ArgumentNullException>(() =>
             database.ExecuteNonQueryAsync(detachedTransaction, CommandType.Text, "UPDATE demo SET value = 2", Array.Empty<DbParameter>(), CancellationToken.None));
 
-        provider.VerifyNoOtherCalls();
+        Assert.Equal(0, factory.CreateConnectionCallCount);
+        Assert.Equal(0, factory.CreateCommandCallCount);
     }
 }

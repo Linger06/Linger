@@ -8,45 +8,14 @@ namespace Linger.DataAccess.SqlServer;
 /// SQL Server 数据库帮助类，提供 SQL Server 特有的功能
 /// </summary>
 /// <param name="connectionString">数据库连接字符串</param>
-public class SqlServerHelper(string connectionString) : Database(new SqlServerProvider(), connectionString)
+/// <remarks>
+/// 通用查询、执行、事务与存在性检查由 <see cref="Database"/> 提供；
+/// 由于 <c>SqlParameter[]</c> 可协变为 <c>DbParameter[]</c>，直接传入 <see cref="SqlParameter"/> 即可，
+/// 无需本类再重复声明参数重载。
+/// </remarks>
+public class SqlServerHelper(string connectionString)
+    : Database(SqlClientFactory.Instance, connectionString), IBulkInsert
 {
-    /// <summary>
-    /// 执行 SQL 查询并返回 DataTable（与 Oracle/SqliteHelper 风格一致）
-    /// </summary>
-    /// <param name="sql">SQL 查询语句</param>
-    /// <param name="parameters">可选参数</param>
-    /// <returns>查询结果 DataTable</returns>
-    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
-    /// <example>
-    /// <code>
-    /// var dt = helper.Query("SELECT * FROM Users WHERE Id = @Id", new SqlParameter("@Id", 1));
-    /// </code>
-    /// </example>
-    public DataTable Query(string sql, params SqlParameter[] parameters)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
-        return QueryTable(sql, parameters);
-    }
-
-    /// <summary>
-    /// 异步执行 SQL 查询并返回 DataTable（与 Oracle/SqliteHelper 风格一致）
-    /// </summary>
-    /// <param name="sql">SQL 查询语句</param>
-    /// <param name="parameters">可选参数</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>查询结果 DataTable</returns>
-    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
-    /// <example>
-    /// <code>
-    /// var dt = await helper.QueryAsync("SELECT * FROM Users WHERE Name = @Name", new SqlParameter("@Name", "张三"));
-    /// </code>
-    /// </example>
-    public Task<DataTable> QueryAsync(string sql, SqlParameter[]? parameters = null, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
-        return QueryTableAsync(sql, parameters, cancellationToken);
-    }
-
     /// <summary>
     /// 海量数据插入方法
     /// (调用该方法需要注意，DataTable中的字段名称必须和数据库中的字段名称一一对应)
@@ -55,24 +24,32 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <param name="tableName">目标数据表的名称</param>
     /// <param name="batchSize">批处理大小，默认为 1000</param>
     /// <param name="timeout">超时时间（秒），默认为 100</param>
-    /// <exception cref="ArgumentNullException">当 table 或 tableName 为空时抛出</exception>
-    /// <exception cref="ArgumentException">当 table 没有数据行时抛出</exception>
-    public void AddByBulkCopy(DataTable table, string tableName, int batchSize = 1000, int timeout = 100)
+    /// <returns>写入的行数</returns>
+    /// <exception cref="ArgumentNullException">当 table 为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当 tableName 为空或包含非法字符时抛出</exception>
+    public int BulkInsert(DataTable table, string tableName, int batchSize = 1000, int timeout = 100)
     {
-        ArgumentNullException.ThrowIfNull(table, nameof(table));
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+        ArgumentOutOfRangeException.ThrowIfNegative(timeout);
+
+        // 目标表名会被直接拼进 BulkCopy 语句，必须与 GetMaxId 一样校验
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+        var destinationTableName = QuoteQualifiedName(tableName, nameof(tableName));
 
         if (table.Rows.Count == 0)
         {
-            return;
+            return 0;
         }
 
         using var bulk = new SqlBulkCopy(ConnString);
         bulk.BatchSize = batchSize;
         bulk.BulkCopyTimeout = timeout;
-        bulk.DestinationTableName = tableName;
+        bulk.DestinationTableName = destinationTableName;
 
         bulk.WriteToServer(table);
+        return table.Rows.Count;
     }
 
     /// <summary>
@@ -83,57 +60,62 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// <param name="batchSize">批处理大小，默认为 1000</param>
     /// <param name="timeout">超时时间（秒），默认为 100</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>异步任务</returns>
-    /// <exception cref="ArgumentNullException">当 table 或 tableName 为空时抛出</exception>
-    /// <exception cref="ArgumentException">当 table 没有数据行时抛出</exception>
-    public async Task AddByBulkCopyAsync(DataTable table, string tableName, int batchSize = 1000, int timeout = 100,
-        CancellationToken cancellationToken = default)
+    /// <returns>写入的行数</returns>
+    /// <exception cref="ArgumentNullException">当 table 为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当 tableName 为空或包含非法字符时抛出</exception>
+    public async Task<int> BulkInsertAsync(DataTable table, string tableName, int batchSize = 1000,
+        int timeout = 100, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(table, nameof(table));
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+        ArgumentOutOfRangeException.ThrowIfNegative(timeout);
+
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+        var destinationTableName = QuoteQualifiedName(tableName, nameof(tableName));
 
         if (table.Rows.Count == 0)
         {
-            return;
+            return 0;
         }
 
         using var bulk = new SqlBulkCopy(ConnString);
         bulk.BatchSize = batchSize;
         bulk.BulkCopyTimeout = timeout;
-        bulk.DestinationTableName = tableName;
+        bulk.DestinationTableName = destinationTableName;
 
         await bulk.WriteToServerAsync(table, cancellationToken).ConfigureAwait(false);
+        return table.Rows.Count;
     }
 
     /// <summary>
     /// 获取指定字段的最大值并加1，通常用于生成下一个ID
     /// </summary>
     /// <param name="fieldName">字段名称</param>
-    /// <param name="tableName">表名称</param>
-    /// <returns>最大值加1，如果没有数据则返回1，如果字段不是数值类型则返回null</returns>
+    /// <param name="tableName">表名称，可含 schema（如 <c>dbo.Users</c>）</param>
+    /// <returns>最大值加 1；空表返回 1</returns>
     /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
-    public int? GetMaxId(string fieldName, string tableName)
+    /// <remarks>
+    /// 并发下不保证唯一，仅适合单写入者场景；需要强保证请使用 IDENTITY 或 SEQUENCE。
+    /// </remarks>
+    public int GetMaxId(string fieldName, string tableName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
+        ArgumentException.ThrowIfNullOrWhiteSpace(fieldName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
 
-        ValidateSqlIdentifier(fieldName, nameof(fieldName));
+        ValidateSqlIdentifier(fieldName, nameof(fieldName), allowQualifier: false);
         ValidateSqlIdentifier(tableName, nameof(tableName));
 
         try
         {
-            var sql = $"SELECT MAX([{fieldName}]) + 1 FROM [{tableName}]";
-            var obj = FindMaxBySql(sql);
+            // SQL 只取 MAX，「+1」统一由 C# 完成：空表时数据库稳定返回 NULL，加一次即可
+            var sql = $"SELECT MAX([{fieldName}]) FROM {QuoteQualifiedName(tableName, nameof(tableName))}";
+            var obj = ExecuteScalar(CommandType.Text, sql);
 
-            // 1. 如果 obj 是 null 或 DBNull，ToIntOrNull() 会安全返回 null
-            // 2. 如果 obj 是 long/decimal/string 等数字类型，ToIntOrNull() 会尝试解析为合法的 int?
-            int? maxId = obj.ToIntOrNull();
-
-            // 如果 maxId 是 null（说明是空表），则返回 1；否则返回最大值 + 1
-            return (maxId ?? 0) + 1;
+            return (obj.ToIntOrNull() ?? 0) + 1;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException))
         {
             throw new InvalidOperationException($"获取表 {tableName} 字段 {fieldName} 的最大值时发生错误", ex);
         }
@@ -143,197 +125,89 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// 获取指定字段的最大值并加1（异步版本）
     /// </summary>
     /// <param name="fieldName">字段名称</param>
-    /// <param name="tableName">表名称</param>
+    /// <param name="tableName">表名称，可含 schema（如 <c>dbo.Users</c>）</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>最大值加1，如果没有数据则返回1，如果字段不是数值类型则返回null</returns>
+    /// <returns>最大值加 1；空表返回 1</returns>
     /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
-    public async Task<int?> GetMaxIdAsync(string fieldName, string tableName, CancellationToken cancellationToken = default)
+    /// <inheritdoc cref="GetMaxId(string, string)" path="/remarks"/>
+    public async Task<int> GetMaxIdAsync(string fieldName, string tableName,
+        CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(fieldName, nameof(fieldName));
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName, nameof(tableName));
+        ArgumentException.ThrowIfNullOrWhiteSpace(fieldName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
 
-        ValidateSqlIdentifier(fieldName, nameof(fieldName));
+        ValidateSqlIdentifier(fieldName, nameof(fieldName), allowQualifier: false);
         ValidateSqlIdentifier(tableName, nameof(tableName));
 
         try
         {
-            // 修正：去掉 SQL 里的 "+ 1"，让数据库只纯粹算 MAX。这样空表时数据库稳定返回 NULL，由 C# 完美接管
-            var sql = $"SELECT MAX([{fieldName}]) FROM [{tableName}]";
-            var obj = await ExecuteScalarAsync(CommandType.Text, sql, cancellationToken).ConfigureAwait(false);
+            var sql = $"SELECT MAX([{fieldName}]) FROM {QuoteQualifiedName(tableName, nameof(tableName))}";
+            var obj = await ExecuteScalarAsync(CommandType.Text, sql, null, cancellationToken)
+                .ConfigureAwait(false);
 
-            // 1. 如果 obj 是 null 或 DBNull，ToIntOrNull() 会安全返回 null
-            // 2. 如果 obj 是 long/decimal/string 等数字类型，ToIntOrNull() 会尝试解析为合法的 int?
-            int? maxId = obj.ToIntOrNull();
-
-            // 如果 maxId 是 null（说明是空表），则返回 1；否则返回最大值 + 1
-            return (maxId ?? 0) + 1;
+            return (obj.ToIntOrNull() ?? 0) + 1;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException))
         {
             throw new InvalidOperationException($"获取表 {tableName} 字段 {fieldName} 的最大值时发生错误", ex);
         }
     }
 
     /// <summary>
-    /// 检查指定SQL查询是否返回数据
+    /// 判断表是否存在
     /// </summary>
-    /// <param name="sql">SQL查询语句</param>
-    /// <returns>如果有数据返回 true，否则返回 false</returns>
-    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
-    /// <example>
-    /// <code>
-    /// // 检查用户是否存在
-    /// var userExists = helper.Exists("SELECT COUNT(*) FROM Users WHERE Id = 1");
-    ///
-    /// // 检查表中是否有数据
-    /// var hasData = helper.Exists("SELECT COUNT(*) FROM Products WHERE Price > 100");
-    ///
-    /// // 检查特定条件的记录是否存在
-    /// var hasActiveUsers = helper.Exists("SELECT COUNT(*) FROM Users WHERE Status = 'Active' AND LastLogin > '2024-01-01'");
-    /// </code>
-    /// </example>
-    public bool Exists(string sql)
+    /// <param name="tableName">表名称，可含 schema（如 <c>dbo.Users</c>）</param>
+    /// <returns>存在返回 true</returns>
+    /// <exception cref="ArgumentException">当 tableName 为空时抛出</exception>
+    /// <remarks>
+    /// 含 schema 时按 <c>TABLE_SCHEMA</c> + <c>TABLE_NAME</c> 精确匹配；
+    /// 不含时仅按表名匹配，任意 schema 下同名表都算存在。
+    /// </remarks>
+    public bool TableExists(string tableName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
 
-        var count = FindCountBySql(sql);
-        return count > 0;
+        (var sql, SqlParameter[] parameters) = BuildTableExistsQuery(tableName);
+        return HasRows(sql, parameters);
     }
 
     /// <summary>
-    /// 检查指定SQL查询是否返回数据（异步版本）
+    /// 判断表是否存在（异步版本）
     /// </summary>
-    /// <param name="sql">SQL查询语句</param>
+    /// <param name="tableName">表名称，可含 schema（如 <c>dbo.Users</c>）</param>
     /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>如果有数据返回 true，否则返回 false</returns>
-    /// <exception cref="ArgumentException">当 sql 为空时抛出</exception>
-    /// <example>
-    /// <code>
-    /// // 异步检查用户是否存在
-    /// var userExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Users WHERE Email = 'user@example.com'");
-    ///
-    /// // 异步检查订单是否存在
-    /// var orderExists = await helper.ExistsAsync("SELECT COUNT(*) FROM Orders WHERE OrderDate &gt;= DATEADD(day, -30, GETDATE())");
-    ///
-    /// // 使用取消令牌的异步检查
-    /// using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-    /// var hasExpiredSessions = await helper.ExistsAsync("SELECT COUNT(*) FROM UserSessions WHERE ExpiryDate t&lt; GETDATE()", cts.Token);
-    /// </code>
-    /// </example>
-    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
+    /// <returns>存在返回 true</returns>
+    /// <exception cref="ArgumentException">当 tableName 为空时抛出</exception>
+    /// <inheritdoc cref="TableExists(string)" path="/remarks"/>
+    public Task<bool> TableExistsAsync(string tableName, CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql, nameof(sql));
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
 
-        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
-        return count > 0;
+        (var sql, SqlParameter[] parameters) = BuildTableExistsQuery(tableName);
+        return HasRowsAsync(sql, parameters, cancellationToken);
     }
 
     /// <summary>
-    /// 使用 SQL Server 特有的 BulkCopy 进行批量插入
+    /// 按是否含 schema 构造存在性查询：<c>dbo.Users</c> 只匹配 dbo 下的 Users，
+    /// 裸表名 <c>Users</c> 匹配任意 schema——原实现把 schema 削掉再查，
+    /// 会让 <c>sales.Users</c> 的存在使 <c>dbo.Users</c> 误报为存在。
     /// </summary>
-    /// <param name="dt">数据表</param>
-    /// <returns>当存在可插入数据时返回 true，否则返回 false</returns>
-    public override bool BulkInsert(DataTable dt)
+    private static (string Sql, SqlParameter[] Parameters) BuildTableExistsQuery(string tableName)
     {
-        if (dt?.Rows.Count > 0)
+        var separator = tableName.LastIndexOf('.');
+        if (separator < 0)
         {
-            AddByBulkCopy(dt, dt.TableName);
-            return true;
-        }
-        return false;
-    }
-
-    /// <summary>
-    ///     执行SQL语句，返回影响的记录数
-    /// </summary>
-    /// <param name="sqlString">SQL语句</param>
-    /// <returns>影响的记录数</returns>
-    public int ExecuteSql(string sqlString)
-    {
-        using var connection = new SqlConnection(ConnString);
-        using var cmd = new SqlCommand(sqlString, connection);
-        try
-        {
-            connection.Open();
-            var rows = cmd.ExecuteNonQuery();
-            return rows;
-        }
-        catch (SqlException)
-        {
-            connection.Close();
-            throw;
-        }
-    }
-
-    /// <summary>
-    ///     执行一条计算查询结果语句，返回查询结果（object）。
-    /// </summary>
-    /// <param name="sqlString">计算查询结果语句</param>
-    /// <returns>查询结果（object）</returns>
-    public object? GetSingle(string sqlString)
-    {
-        using var connection = new SqlConnection(ConnString);
-        using var cmd = new SqlCommand(sqlString, connection);
-        try
-        {
-            connection.Open();
-            var obj = cmd.ExecuteScalar();
-            if (obj.IsNullOrDbNull())
-            {
-                return null;
-            }
-
-            return obj;
-        }
-        catch (SqlException)
-        {
-            connection.Close();
-            throw;
-        }
-    }
-
-    /// <summary>
-    ///     执行查询语句，返回SqlDataReader ( 注意：调用该方法后，一定要对SqlDataReader进行Close )
-    /// </summary>
-    /// <param name="strSql">查询语句</param>
-    /// <returns>SqlDataReader</returns>
-    public SqlDataReader ExecuteReader(string strSql)
-    {
-        var connection = new SqlConnection(ConnString);
-        var cmd = new SqlCommand(strSql, connection);
-        connection.Open();
-        SqlDataReader myReader = cmd.ExecuteReader(CommandBehavior.CloseConnection);
-        return myReader;
-    }
-
-    /// <summary>
-    ///     执行查询语句，返回DataSet
-    /// </summary>
-    /// <param name="sqlString">查询语句</param>
-    /// <param name="times">超时时间(秒)</param>
-    /// <returns>DataSet</returns>
-    public DataSet Query(string sqlString, int? times = null)
-    {
-        using var connection = new SqlConnection(ConnString);
-        var ds = new DataSet();
-        try
-        {
-            connection.Open();
-            var command = new SqlDataAdapter(sqlString, connection);
-            if (times != null)
-            {
-                command.SelectCommand.CommandTimeout = (int)times;
-            }
-
-            _ = command.Fill(ds, "ds");
-        }
-        catch
-        {
-            throw;
+            return ("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = @tableName",
+                [new SqlParameter("@tableName", tableName)]);
         }
 
-        return ds;
+        // net472 无 System.Range，用 Substring 保持多目标一致
+        var schema = tableName.Substring(0, separator);
+        var name = tableName.Substring(separator + 1);
+
+        return ("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = @tableName",
+            [new SqlParameter("@schema", schema), new SqlParameter("@tableName", name)]);
     }
 
     /// <summary>
@@ -341,12 +215,13 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
     /// </summary>
     /// <param name="identifier">要验证的标识符</param>
     /// <param name="paramName">参数名称</param>
+    /// <param name="allowQualifier">是否允许点号限定（如 <c>dbo.Users</c>）。字段名应传 false。</param>
     /// <exception cref="ArgumentException">当标识符包含非法字符时抛出</exception>
-    private static void ValidateSqlIdentifier(string identifier, string paramName)
+    private static void ValidateSqlIdentifier(string identifier, string paramName, bool allowQualifier = true)
     {
-        // 允许字母、数字、下划线、点号（用于 schema.table）和中文字符
+        // 允许字母、数字、下划线和中文字符；点号仅在限定名（schema.table）中允许
         // 不允许：空格、特殊字符、SQL 关键字符（如引号、分号等）
-        if (identifier.Any(c => !char.IsLetterOrDigit(c) && c != '_' && c != '.'))
+        if (identifier.Any(c => !char.IsLetterOrDigit(c) && c != '_' && (c != '.' || !allowQualifier)))
         {
             throw new ArgumentException($"标识符 '{identifier}' 包含非法字符。只允许字母、数字、下划线和点号。", paramName);
         }
@@ -359,5 +234,25 @@ public class SqlServerHelper(string connectionString) : Database(new SqlServerPr
         {
             throw new ArgumentException($"标识符 '{identifier}' 包含非法的 SQL 注释或分隔符。", paramName);
         }
+    }
+
+    /// <summary>
+    /// 把可含 schema 的名称逐段加方括号：<c>dbo.Users</c> → <c>[dbo].[Users]</c>。
+    /// </summary>
+    /// <remarks>
+    /// 整体包一层 <c>[dbo.Users]</c> 是错的——SQL Server 会把它当成一张名叫「dbo.Users」的表。
+    /// 调用前必须已通过 <see cref="ValidateSqlIdentifier"/>，本方法只负责切分与引用，
+    /// 额外拦截空段（如 <c>dbo.</c>、<c>.Users</c>、<c>a..b</c>），它们逐段引用后会产生 <c>[]</c>。
+    /// </remarks>
+    /// <exception cref="ArgumentException">名称中存在空段时抛出</exception>
+    private static string QuoteQualifiedName(string qualifiedName, string paramName)
+    {
+        var parts = qualifiedName.Split('.');
+        if (parts.Any(string.IsNullOrEmpty))
+        {
+            throw new ArgumentException($"名称 '{qualifiedName}' 含有空段。", paramName);
+        }
+
+        return string.Join(".", parts.Select(p => $"[{p}]"));
     }
 }

@@ -1,85 +1,136 @@
 using System.Data;
 using System.Data.Common;
-using System.Text;
 
 namespace Linger.DataAccess;
 
 /// <summary>
-///     Database interface.
+///     面向业务的数据库操作契约。
 /// </summary>
-public interface IDatabase : IDisposable
+/// <remarks>
+/// 继承 <see cref="IBaseDatabase"/>，因此同一实例既能开启事务、又能把该事务传给带事务参数的重载；
+/// 不带事务参数的方法在 <see cref="IBaseDatabase.BeginTrans"/> 之后会自动加入环境事务。
+/// 批量插入等能力性 API 不在本接口中，请检测 <see cref="IBulkInsert"/>。
+/// </remarks>
+public interface IDatabase : IBaseDatabase
 {
-    bool BulkInsert(DataTable dt);
+    #region 通用查询
 
-    int ExecuteBySql(string sql);
-    int ExecuteBySql(string sql, DbParameter[] parameters);
-    int ExecuteBySql(string sql, DbTransaction transaction);
-    int ExecuteBySql(string sql, DbParameter[] parameters, DbTransaction transaction);
-    int ExecuteBySql(StringBuilder sql);
-    int ExecuteBySql(StringBuilder sql, DbTransaction transaction);
-    int ExecuteBySql(StringBuilder sql, DbParameter[] parameters);
-    int ExecuteBySql(StringBuilder sql, DbParameter[] parameters, DbTransaction transaction);
-
-    int ExecuteByProc(string procName);
-    int ExecuteByProc(string procName, DbTransaction transaction);
-    int ExecuteByProc(string procName, DbParameter[] parameters);
-    int ExecuteByProc(string procName, DbParameter[] parameters, DbTransaction transaction);
-
+    /// <summary>执行查询并返回 <see cref="DataSet"/>（含全部结果集）。</summary>
+    /// <remarks>
+    /// DataSet / DataTable 查询只有同步版本：BCL 的填充 API 全为同步，
+    /// 异步场景请用 <c>ExecuteReaderAsync</c> 自行读取。存储过程版本见 <see cref="FindDataSetByProc"/>。
+    /// </remarks>
     DataSet Query(string sql, params DbParameter[] parameters);
+
+    /// <summary>执行查询并返回首个结果集的 <see cref="DataTable"/>。</summary>
+    /// <remarks>存储过程版本见 <see cref="FindTableByProc"/>。</remarks>
     DataTable QueryTable(string sql, params DbParameter[] parameters);
-    Task<DataSet> QueryAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
-    Task<DataTable> QueryTableAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
 
+    #endregion
+
+    #region 批量事务执行
+
+    /// <summary>在单个事务中依次执行多条参数化 SQL：全部成功则提交，任一条失败则整体回滚并抛出原异常。</summary>
+    /// <remarks>自带连接与事务；处于环境事务中时抛 <see cref="InvalidOperationException"/>，避免与之死锁。</remarks>
+    int[] ExecuteTransaction(IEnumerable<SqlStatement> statements);
+
+    /// <summary>在单个事务中依次执行多条参数化 SQL（异步）：全部成功则提交，任一条失败则整体回滚并抛出原异常。</summary>
+    /// <inheritdoc cref="ExecuteTransaction(IEnumerable{SqlStatement})" path="/remarks"/>
+    Task<int[]> ExecuteTransactionAsync(IEnumerable<SqlStatement> statements,
+        CancellationToken cancellationToken = default);
+
+    #endregion
+
+    #region 存在性检查
+
+    /// <summary>判断查询是否返回任何行，不解释列值。</summary>
+    bool HasRows(string sql, params DbParameter[] parameters);
+
+    /// <summary>判断查询是否返回任何行（异步），不解释列值。</summary>
+    Task<bool> HasRowsAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
+
+    #endregion
+
+    #region 执行SQL语句与存储过程
+
+    /// <summary>执行SQL语句，返回受影响行数。</summary>
+    int ExecuteBySql(string sql, params DbParameter[] parameters);
+
+    /// <summary>执行SQL语句（异步），返回受影响行数。</summary>
+    Task<int> ExecuteBySqlAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
+
+    /// <summary>在指定事务中执行SQL语句。</summary>
+    int ExecuteBySql(string sql, DbTransaction transaction, params DbParameter[] parameters);
+
+    /// <summary>在指定事务中执行SQL语句（异步）。</summary>
+    Task<int> ExecuteBySqlAsync(string sql, DbTransaction transaction, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
+
+    /// <summary>执行存储过程，返回受影响行数。</summary>
+    int ExecuteByProc(string procName, params DbParameter[] parameters);
+
+    /// <summary>执行存储过程（异步），返回受影响行数。</summary>
+    Task<int> ExecuteByProcAsync(string procName, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
+
+    /// <summary>在指定事务中执行存储过程。</summary>
+    int ExecuteByProc(string procName, DbTransaction transaction, params DbParameter[] parameters);
+
+    #endregion
+
+    #region 查询实体与列表
+
+    /// <summary>查询数据列表、按同名属性映射并返回 List。</summary>
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
 #endif
-    List<T> FindListBySql<T>(string sql);
-    List<T> FindListBySql<T>(string sql, Func<IDataRecord, T> map);
+    List<T> FindListBySql<T>(string sql, params DbParameter[] parameters);
+
+    /// <summary>查询数据列表、使用指定映射函数返回 List。</summary>
+    List<T> FindListBySql<T>(string sql, Func<IDataRecord, T> map, params DbParameter[] parameters);
+
+    /// <summary>异步查询数据列表、按同名属性映射并返回 List。</summary>
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
 #endif
-    List<T> FindListBySql<T>(string sql, DbParameter[] parameters);
-    List<T> FindListBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map);
+    Task<List<T>> FindListBySqlAsync<T>(string sql, DbParameter[]? parameters = null,
+        CancellationToken cancellationToken = default);
 
-    DataTable FindTableBySql(string sql);
-    Task<DataTable> FindTableBySqlAsync(string sql);
-    Task<DataTable> FindTableBySqlAsync(string sql, CancellationToken cancellationToken);
-    Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters);
-    Task<DataTable> FindTableBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken);
-    DataTable FindTableBySql(string sql, DbParameter[] parameters);
-    DataTable FindTableByProc(string procName);
-    DataTable FindTableByProc(string procName, DbParameter[] parameters);
+    /// <summary>异步查询数据列表、使用指定映射函数返回 List。</summary>
+    Task<List<T>> FindListBySqlAsync<T>(string sql, Func<IDataRecord, T> map,
+        DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
 
-    DataSet FindDataSetBySql(string sql);
-    Task<DataSet> FindDataSetBySqlAsync(string sql);
-    DataSet FindDataSetBySql(string sql, DbParameter[] parameters);
-    Task<DataSet> FindDataSetBySqlAsync(string sql, DbParameter[] parameters);
-    DataSet FindDataSetByProc(string procName);
-    DataSet FindDataSetByProc(string procName, DbParameter[] parameters);
+    /// <summary>查询对象、按同名属性映射并返回实体。</summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
+#endif
+    T? FindEntityBySql<T>(string sql, params DbParameter[] parameters);
 
+    /// <summary>查询对象、使用指定映射函数返回实体。</summary>
+    T? FindEntityBySql<T>(string sql, Func<IDataRecord, T> map, params DbParameter[] parameters);
+
+    #endregion
+
+    #region 存储过程查询 DataTable / DataSet
+
+    // SQL 文本版本见上方 Query / QueryTable，此处只有存储过程版本。
+
+    /// <summary>执行存储过程、返回 DataTable。</summary>
+    DataTable FindTableByProc(string procName, params DbParameter[] parameters);
+
+    /// <summary>执行存储过程、返回 DataSet。</summary>
+    DataSet FindDataSetByProc(string procName, params DbParameter[] parameters);
+
+    #endregion
+
+    #region 计数与分批
+
+    /// <summary>执行计数查询并返回条数；无行或 NULL 时为 0。</summary>
+    int FindCountBySql(string sql, params DbParameter[] parameters);
+
+    /// <summary>执行计数查询并返回条数（异步）；无行或 NULL 时为 0。</summary>
+    Task<int> FindCountBySqlAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
+
+    /// <summary>把过长的取值列表拆成多个批次参数化查询。</summary>
     DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000);
-    Task<DataTable> QueryInBatchesAsync(string sql, List<string> parameters, int batchSize = 1000, CancellationToken cancellationToken = default);
-    DataTable QueryInBatchesRaw(string sql, List<string> values, int batchSize = 1000, bool quote = true);
-    Task<DataTable> QueryInBatchesRawAsync(string sql, List<string> values, int batchSize = 1000, bool quote = true, CancellationToken cancellationToken = default);
 
-#if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
-#endif
-    T? FindEntityBySql<T>(string sql);
-    T? FindEntityBySql<T>(string sql, Func<IDataRecord, T> map);
-#if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map records. Use the mapper overload for AOT/trimming scenarios.")]
-#endif
-    T? FindEntityBySql<T>(string sql, DbParameter[] parameters);
-    T? FindEntityBySql<T>(string sql, DbParameter[] parameters, Func<IDataRecord, T> map);
-
-    int FindCountBySql(string sql);
-    Task<int> FindCountBySqlAsync(string sql, CancellationToken cancellationToken = default);
-    int FindCountBySql(string sql, DbParameter[] parameters);
-    Task<int> FindCountBySqlAsync(string sql, DbParameter[] parameters, CancellationToken cancellationToken = default);
-
-    object? FindMaxBySql(string sql);
-    object? FindMaxBySql(string sql, DbParameter[] parameters);
-    Task<object?> FindMaxBySqlAsync(string sql);
-    Task<object?> FindMaxBySqlAsync(string sql, DbParameter[] parameters);
+    #endregion
 }

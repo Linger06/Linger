@@ -4,945 +4,246 @@ using Xunit;
 
 namespace Linger.DataAccess.Sqlite.UnitTests;
 
-/// <summary>
-/// SQLite数据库操作助手类的单元测试
-/// </summary>
-public class SqliteHelperTests : IDisposable
+public sealed class SqliteHelperTests : IDisposable
 {
-    private readonly string _testDbPath;
-    private readonly SqliteHelper _fileHelper;
-    private bool _isInitialized;
+    private readonly string _testDirectory;
+    private readonly string _databasePath;
+    private readonly SqliteHelper _helper;
 
     public SqliteHelperTests()
     {
-        try
-        {
-            // 创建临时文件数据库用于测试
-            _testDbPath = Path.GetTempFileName();
-            File.Delete(_testDbPath); // 删除临时文件，让SQLite创建
-            _testDbPath = Path.ChangeExtension(_testDbPath, ".db");
-            _fileHelper = SqliteHelper.CreateFileDatabase(_testDbPath);
-
-            // 安全地初始化测试数据
-            InitializeTestData();
-            _isInitialized = true;
-        }
-        catch (Exception ex)
-        {
-            // 清理资源
-            _fileHelper?.Dispose();
-            _isInitialized = false;
-            throw new InvalidOperationException($"测试环境初始化失败: {ex.Message}", ex);
-        }
-    }
-
-    private void InitializeTestData()
-    {
-        // 在文件数据库中创建测试表和数据
-        _fileHelper.ExecuteBySql(@"
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                email TEXT,
-                age INTEGER,
-                active INTEGER DEFAULT 1,
-                created_date TEXT DEFAULT CURRENT_TIMESTAMP
-            )");
-
-        _fileHelper.ExecuteBySql(@"
-            INSERT INTO users (name, email, age, active) VALUES 
-            ('Alice', 'alice@test.com', 25, 1),
-            ('Bob', 'bob@test.com', 30, 1),
-            ('Charlie', 'charlie@test.com', 35, 0),
-            ('David', 'david@test.com', 28, 1),
-            ('Eve', 'eve@test.com', 32, 1)");
-
-        // 创建产品测试表
-        _fileHelper.ExecuteBySql(@"
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                category TEXT,
-                price REAL,
-                stock INTEGER DEFAULT 0
-            )");
-
-        _fileHelper.ExecuteBySql(@"
-            INSERT INTO products (name, category, price, stock) VALUES 
-            ('Laptop', 'Electronics', 999.99, 10),
-            ('Phone', 'Electronics', 599.99, 25),
-            ('Book', 'Education', 19.99, 100),
-            ('Chair', 'Furniture', 149.99, 5)");
-
-        // 创建另一张测试表用于存在性测试
-        _fileHelper.ExecuteBySql(@"
-            CREATE TABLE IF NOT EXISTS test_table (
-                id INTEGER PRIMARY KEY,
-                name TEXT
-            )");
-
-        // 创建文档表用于测试（替代FTS5）
-        _fileHelper.ExecuteBySql(@"
-            CREATE TABLE IF NOT EXISTS documents (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT,
-                content TEXT
-            )");
-
-        _fileHelper.ExecuteBySql(@"
-            INSERT INTO documents (title, content) VALUES 
-            ('Document 1', 'This is the content of document 1'),
-            ('Document 2', 'This contains different text for searching'),
-            ('Report', 'Annual report with financial data')");
+        _testDirectory = Path.Combine(Path.GetTempPath(), $"Linger.Sqlite.{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_testDirectory);
+        _databasePath = Path.Combine(_testDirectory, "test.db");
+        _helper = SqliteHelper.CreateFileDatabase(_databasePath);
+        _helper.ExecuteBySql(
+            "CREATE TABLE products (Id INTEGER PRIMARY KEY AUTOINCREMENT, Name TEXT NOT NULL, Price REAL NOT NULL)");
+        _helper.ExecuteBySql("INSERT INTO products (Name, Price) VALUES (@name, @price)",
+            new SQLiteParameter("@name", "Apple"), new SQLiteParameter("@price", 3.5));
+        _helper.ExecuteBySql("INSERT INTO products (Name, Price) VALUES (@name, @price)",
+            new SQLiteParameter("@name", "Banana"), new SQLiteParameter("@price", 2.25));
     }
 
     public void Dispose()
     {
-        _fileHelper?.Dispose();
+        _helper.Dispose();
+        SQLiteConnection.ClearAllPools();
 
-        // 清理测试文件
-        if (File.Exists(_testDbPath))
+        if (Directory.Exists(_testDirectory))
         {
-            try
-            {
-                File.Delete(_testDbPath);
-            }
-            catch
-            {
-                // 忽略删除错误
-            }
+            Directory.Delete(_testDirectory, recursive: true);
         }
     }
-
-    #region 静态工厂方法测试
 
     [Fact]
     public void CreateFileDatabase_WithValidPath_ShouldCreateInstance()
     {
-        // Arrange
-        var tempPath = Path.GetTempFileName();
-        File.Delete(tempPath);
-        tempPath = Path.ChangeExtension(tempPath, ".db");
+        var path = Path.Combine(_testDirectory, "other.db");
+        using var helper = SqliteHelper.CreateFileDatabase(path);
 
-        try
-        {
-            // Act
-            using var helper = SqliteHelper.CreateFileDatabase(tempPath);
-
-            // Assert
-            Assert.NotNull(helper);
-            // 验证实例创建成功即可
-        }
-        finally
-        {
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
-        }
+        Assert.NotNull(helper);
     }
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    public void CreateFileDatabase_WithInvalidPath_ShouldThrowException(string? filePath)
+    public void CreateFileDatabase_WithInvalidPath_ShouldThrowArgumentException(string? path)
     {
-        // Act & Assert
-        if (filePath is null)
-        {
-            Assert.Throws<System.ArgumentNullException>(() => SqliteHelper.CreateFileDatabase(filePath!));
-        }
-        else
-        {
-            Assert.Throws<System.ArgumentException>(() => SqliteHelper.CreateFileDatabase(filePath));
-        }
-    }
-
-    #endregion
-
-    #region 分页查询测试
-
-    [Fact]
-    public void Page_WithValidParameters_ShouldReturnResults()
-    {
-        // Arrange
-        var userIds = new List<string> { "1", "2", "3" };
-        const string sql = "SELECT * FROM users WHERE id IN ({0})";
-
-        // Act
-        var result = _fileHelper.QueryInBatches(sql, userIds);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.True(result.Rows.Count > 0);
+        Assert.ThrowsAny<ArgumentException>(() => SqliteHelper.CreateFileDatabase(path!));
     }
 
     [Fact]
-    public void Page_WithLargeParameterList_ShouldHandleBatching()
+    public void Query_ShouldReturnAllResultSets()
     {
-        // Arrange
-        var largeList = new List<string>();
-        for (int i = 1; i <= 2500; i++)
-        {
-            largeList.Add(i.ToString());
-        }
-        const string sql = "SELECT COUNT(*) as total FROM users WHERE id NOT IN ({0})";
+        DataSet result = _helper.Query("SELECT Id, Name FROM products ORDER BY Id; SELECT COUNT(*) AS Total FROM products;");
 
-        // Act
-        var result = _fileHelper.QueryInBatches(sql, largeList);
-
-        // Assert
-        Assert.NotNull(result);
-        // 由于我们的测试数据只有5条记录，所有记录都应该被返回
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Page_WithInvalidSql_ShouldThrowException(string? sql)
-    {
-        // Arrange
-        var parameters = new List<string> { "1", "2" };
-
-        // Act & Assert
-        if (sql is null)
-        {
-            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.QueryInBatches(sql!, parameters));
-        }
-        else
-        {
-            Assert.Throws<System.ArgumentException>(() => _fileHelper.QueryInBatches(sql, parameters));
-        }
+        Assert.Equal(2, result.Tables.Count);
+        Assert.Equal(2, result.Tables[0].Rows.Count);
+        Assert.Equal(2L, result.Tables[1].Rows[0]["Total"]);
     }
 
     [Fact]
-    public void Page_WithNullParameters_ShouldThrowArgumentNullException()
+    public void QueryTable_WithParameters_ShouldReturnMatchingRows()
     {
-        // Arrange
-        const string sql = "SELECT * FROM users WHERE id IN ({0})";
+        DataTable result = _helper.QueryTable("SELECT Name, Price FROM products WHERE Price > @price",
+            new SQLiteParameter("@price", 3));
 
-        // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => _fileHelper.QueryInBatches(sql, null!));
+        DataRow row = Assert.Single(result.Rows.Cast<DataRow>());
+        Assert.Equal("Apple", row["Name"]);
     }
 
     [Fact]
-    public async Task PageAsync_WithValidParameters_ShouldReturnResults()
+    public void HasRows_WithMatchingQuery_ShouldReturnTrue()
     {
-        // Arrange
-        var userIds = new List<string> { "1", "2" };
-        const string sql = "SELECT * FROM users WHERE id IN ({0})";
+        var result = _helper.HasRows("SELECT 1 FROM products WHERE Name = @name",
+            new SQLiteParameter("@name", "Apple"));
 
-        // Act
-        var result = await _fileHelper.QueryInBatchesAsync(sql, userIds);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.True(result.Rows.Count > 0);
-    }
-
-    [Fact]
-    public async Task PageAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var userIds = new List<string> { "1", "2" };
-        const string sql = "SELECT * FROM users WHERE id IN ({0})";
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exPage = await Record.ExceptionAsync(() => _fileHelper.QueryInBatchesAsync(sql, userIds, cancellationToken: cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exPage);
-    }
-
-    #endregion
-
-    #region 存在性检查测试
-
-    [Fact]
-    public void Exists_WithValidQuery_ShouldReturnTrue()
-    {
-        // Arrange
-        const string sql = "SELECT COUNT(*) FROM users WHERE active = 1";
-
-        // Act
-        var result = _fileHelper.Exists(sql);
-
-        // Assert
         Assert.True(result);
     }
 
     [Fact]
-    public void Exists_WithParameterizedQuery_ShouldReturnCorrectResult()
+    public void FindCountBySql_WithParameters_ShouldReturnCount()
     {
-        // Arrange
-        const string sql = "SELECT COUNT(*) FROM users WHERE name = @name";
-        var parameter = new SQLiteParameter("@name", "Alice");
+        var result = _helper.FindCountBySql("SELECT COUNT(*) FROM products WHERE Price >= @price",
+            new SQLiteParameter("@price", 2));
 
-        // Act
-        var result = _fileHelper.Exists(sql, parameter);
-
-        // Assert
-        Assert.True(result);
+        Assert.Equal(2, result);
     }
 
     [Fact]
-    public void Exists_WithNonExistentData_ShouldReturnFalse()
+    public void FindListBySql_WithMapper_ShouldReturnValues()
     {
-        // Arrange
-        const string sql = "SELECT COUNT(*) FROM users WHERE name = @name";
-        var parameter = new SQLiteParameter("@name", "NonExistentUser");
+        List<string> result = _helper.FindListBySql("SELECT Name FROM products ORDER BY Id",
+            static record => record.GetString(0));
 
-        // Act
-        var result = _fileHelper.Exists(sql, parameter);
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Exists_WithInvalidSql_ShouldThrowException(string? sql)
-    {
-        // Act & Assert
-        if (sql is null)
-        {
-            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Exists(sql!));
-        }
-        else
-        {
-            Assert.Throws<System.ArgumentException>(() => _fileHelper.Exists(sql));
-        }
+        Assert.Equal(["Apple", "Banana"], result);
     }
 
     [Fact]
-    public async Task ExistsAsync_WithValidQuery_ShouldReturnTrue()
+    public async Task FindListBySqlAsync_WithMapper_ShouldReturnValues()
     {
-        // Arrange
-        const string sql = "SELECT COUNT(*) FROM users WHERE active = 1";
+        List<string> result = await _helper.FindListBySqlAsync("SELECT Name FROM products ORDER BY Id",
+            static record => record.GetString(0));
 
-        // Act
-        var result = await _fileHelper.ExistsAsync(sql);
-
-        // Assert
-        Assert.True(result);
+        Assert.Equal(["Apple", "Banana"], result);
     }
 
     [Fact]
-    public async Task ExistsAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        const string sql = "SELECT COUNT(*) FROM users";
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exExists = await Record.ExceptionAsync(() => _fileHelper.ExistsAsync(sql, cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exExists);
-    }
-
-    #endregion
-
-    #region 查询方法测试
-
-    [Fact]
-    public void Query_WithSimpleSelect_ShouldReturnDataSet()
-    {
-        // Arrange
-        const string sql = "SELECT * FROM users WHERE active = 1";
-
-        // Act
-        var result = _fileHelper.Query(sql);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.True(result.Tables.Count > 0);
-        Assert.True(result.Tables[0].Rows.Count > 0);
-    }
-
-    [Fact]
-    public void Query_WithParameterizedQuery_ShouldReturnCorrectResults()
-    {
-        // Arrange
-        const string sql = "SELECT * FROM users WHERE age > @minAge AND active = @active";
-        var parameters = new SQLiteParameter[]
-        {
-            new("@minAge", 25),
-            new("@active", 1)
-        };
-
-        // Act
-        var result = _fileHelper.Query(sql, parameters);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.True(result.Tables.Count > 0);
-        var table = result.Tables[0];
-        Assert.True(table.Rows.Count > 0);
-
-        // 验证返回的数据符合条件
-        foreach (DataRow row in table.Rows)
-        {
-            Assert.True(Convert.ToInt32(row["age"]) > 25);
-            Assert.Equal(1, Convert.ToInt32(row["active"]));
-        }
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void Query_WithInvalidSql_ShouldThrowException(string? sql)
-    {
-        // Act & Assert
-        if (sql is null)
-        {
-            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.Query(sql!));
-        }
-        else
-        {
-            Assert.Throws<System.ArgumentException>(() => _fileHelper.Query(sql));
-        }
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithValidSql_ShouldReturnDataSet()
-    {
-        // Arrange
-        const string sql = "SELECT * FROM users WHERE active = 1";
-
-        // Act
-        var result = await _fileHelper.QueryAsync(sql);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.True(result.Tables.Count > 0);
-        Assert.True(result.Tables[0].Rows.Count > 0);
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithDuplicateColumnNames_ShouldReturnUniqueColumnNames()
-    {
-        const string sql = "SELECT 1 AS value, 2 AS value";
-
-        var result = await _fileHelper.QueryAsync(sql);
-
-        Assert.NotNull(result);
-        Assert.Equal(1, result.Tables.Count);
-
-        var table = result.Tables[0];
-        Assert.Equal(2, table.Columns.Count);
-        Assert.Equal("value", table.Columns[0].ColumnName);
-        Assert.Equal("value_2", table.Columns[1].ColumnName);
-        Assert.NotEqual(table.Columns[0].ColumnName, table.Columns[1].ColumnName);
-        Assert.Equal("1", table.Rows[0][0].ToString());
-        Assert.Equal("2", table.Rows[0][1].ToString());
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithEmptyResultSet_ShouldPreserveSchema()
-    {
-        const string sql = "SELECT id, name FROM users WHERE 1 = 0";
-
-        var result = await _fileHelper.QueryAsync(sql);
-
-        Assert.NotNull(result);
-        Assert.Equal(1, result.Tables.Count);
-
-        var table = result.Tables[0];
-        Assert.Equal(2, table.Columns.Count);
-        Assert.Equal("id", table.Columns[0].ColumnName);
-        Assert.Equal("name", table.Columns[1].ColumnName);
-        Assert.Equal(0, table.Rows.Count);
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithMultipleResultSets_ShouldReturnAllResultSets()
-    {
-        const string sql = "SELECT 1 AS one; SELECT 'two' AS two;";
-
-        var result = await _fileHelper.QueryAsync(sql);
-
-        Assert.NotNull(result);
-        Assert.True(result.Tables.Count >= 2);
-        Assert.Equal("1", result.Tables[0].Rows[0][0].ToString());
-        Assert.Equal("two", result.Tables[1].Rows[0][0].ToString());
-    }
-
-    [Fact]
-    public async Task QueryAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        const string sql = "SELECT * FROM users";
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exQuery = await Record.ExceptionAsync(() => _fileHelper.QueryAsync(sql, cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exQuery);
-    }
-
-    [Fact]
-    public async Task QueryTableAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        const string sql = "SELECT * FROM users";
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exQueryTable = await Record.ExceptionAsync(() => _fileHelper.QueryTableAsync(sql, cancellationToken: cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exQueryTable);
-    }
-
-    [Fact]
-    public void QueryInBatchesRaw_WithEmptyValues_ShouldReturnEmptyDataTable()
-    {
-        // Arrange
-        const string sql = "SELECT * FROM users WHERE id IN ({0})";
-
-        // Act
-        var result = _fileHelper.QueryInBatchesRaw(sql, new List<string>());
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(0, result.Rows.Count);
-    }
-
-    [Fact]
-    public async Task QueryInBatchesRawAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        const string sql = "SELECT * FROM users WHERE id IN ({0})";
-        var values = new List<string> { "1" };
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exRaw = await Record.ExceptionAsync(() => _fileHelper.QueryInBatchesRawAsync(sql, values, cancellationToken: cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exRaw);
-    }
-
-    #endregion
-
-    #region SQLite特有功能测试
-
-    [Fact]
-    public void VacuumDatabase_ShouldReturnTrue()
-    {
-        // Act
-        var result = _fileHelper.VacuumDatabase();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void AnalyzeDatabase_ShouldReturnTrue()
-    {
-        // Act
-        var result = _fileHelper.AnalyzeDatabase();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void GetDatabaseSize_ShouldReturnPositiveValue()
-    {
-        // Act
-        var size = _fileHelper.GetDatabaseSize();
-
-        // Assert
-        Assert.True(size > 0);
-    }
-
-    [Fact]
-    public void CheckIntegrity_ShouldReturnOk()
-    {
-        // Act
-        var result = _fileHelper.CheckIntegrity();
-
-        // Assert
-        Assert.Equal("ok", result.ToLower());
-    }
-
-    [Fact]
-    public void GetTableNames_ShouldReturnTableList()
-    {
-        // Act
-        var tables = _fileHelper.GetTableNames();
-
-        // Assert
-        Assert.NotNull(tables);
-        Assert.Contains("products", tables);
-    }
-
-    [Fact]
-    public void TableExists_WithExistingTable_ShouldReturnTrue()
-    {
-        // Act
-        var exists = _fileHelper.TableExists("products");
-
-        // Assert
-        Assert.True(exists);
-    }
-
-    [Fact]
-    public void TableExists_WithNonExistingTable_ShouldReturnFalse()
-    {
-        // Act
-        var exists = _fileHelper.TableExists("non_existing_table");
-
-        // Assert
-        Assert.False(exists);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void TableExists_WithInvalidTableName_ShouldThrowException(string? tableName)
-    {
-        // Act & Assert
-        if (tableName is null)
-        {
-            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.TableExists(tableName!));
-        }
-        else
-        {
-            Assert.Throws<System.ArgumentException>(() => _fileHelper.TableExists(tableName));
-        }
-    }
-
-    #endregion
-
-    #region 备份和恢复测试
-
-    [Fact]
-    public void BackupDatabase_WithValidPath_ShouldReturnTrue()
-    {
-        // Arrange
-        var backupPath = Path.GetTempFileName();
-        File.Delete(backupPath);
-        backupPath = Path.ChangeExtension(backupPath, ".db");
-
-        try
-        {
-            // Act
-            var result = _fileHelper.BackupDatabase(backupPath);
-
-            // Assert
-            Assert.True(result);
-            Assert.True(File.Exists(backupPath));
-        }
-        finally
-        {
-            if (File.Exists(backupPath))
-                File.Delete(backupPath);
-        }
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void BackupDatabase_WithInvalidPath_ShouldThrowException(string? backupPath)
-    {
-        // Act & Assert
-        if (backupPath is null)
-        {
-            Assert.Throws<System.ArgumentNullException>(() => _fileHelper.BackupDatabase(backupPath!));
-        }
-        else
-        {
-            Assert.Throws<System.ArgumentException>(() => _fileHelper.BackupDatabase(backupPath));
-        }
-    }
-
-    [Fact]
-    public async Task BackupDatabaseAsync_WithValidPath_ShouldReturnTrue()
-    {
-        // Arrange
-        var backupPath = Path.GetTempFileName();
-        File.Delete(backupPath);
-        backupPath = Path.ChangeExtension(backupPath, ".db");
-
-        try
-        {
-            // Act
-            var result = await _fileHelper.BackupDatabaseAsync(backupPath);
-
-            // Assert
-            Assert.True(result);
-            Assert.True(File.Exists(backupPath));
-        }
-        finally
-        {
-            if (File.Exists(backupPath))
-                File.Delete(backupPath);
-        }
-    }
-
-    [Fact]
-    public async Task BackupDatabaseAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var backupPath = Path.GetTempFileName();
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exBackup = await Record.ExceptionAsync(() => _fileHelper.BackupDatabaseAsync(backupPath, cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exBackup);
-    }
-
-    #endregion
-
-    #region 事务处理测试
-
-    [Fact]
-    public void ExecuteInTransaction_WithValidStatements_ShouldReturnTrue()
-    {
-        // Arrange
-        var statements = new[]
-        {
-            "INSERT INTO products (name, category, price, stock) VALUES ('Test Product 1', 'Test', 10.00, 1)",
-            "INSERT INTO products (name, category, price, stock) VALUES ('Test Product 2', 'Test', 20.00, 2)",
-            "UPDATE products SET stock = stock + 10 WHERE category = 'Test'"
-        };
-
-        // Act
-        var result = _fileHelper.ExecuteInTransaction(statements);
-
-        // Assert
-        Assert.True(result);
-
-        // 验证数据是否正确插入
-        var verifyResult = _fileHelper.Query("SELECT COUNT(*) as count FROM products WHERE category = 'Test'");
-        Assert.Equal(2, Convert.ToInt32(verifyResult.Tables[0].Rows[0]["count"]));
-    }
-
-    [Fact]
-    public void ExecuteInTransaction_WithNullStatements_ShouldThrowArgumentNullException()
-    {
-        // Act & Assert
-        Assert.Throws<System.ArgumentNullException>(() => _fileHelper.ExecuteInTransaction(null!));
-    }
-
-    [Fact]
-    public void ExecuteInTransaction_WithEmptyStatements_ShouldReturnTrue()
-    {
-        // Arrange
-        var statements = Array.Empty<string>();
-
-        // Act
-        var result = _fileHelper.ExecuteInTransaction(statements);
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public async Task ExecuteInTransactionAsync_WithValidStatements_ShouldReturnTrue()
-    {
-        // Arrange
-        var statements = new[]
-        {
-            "INSERT INTO products (name, category, price, stock) VALUES ('Async Product 1', 'AsyncTest', 15.00, 5)",
-            "INSERT INTO products (name, category, price, stock) VALUES ('Async Product 2', 'AsyncTest', 25.00, 10)"
-        };
-
-        // Act
-        var result = await _fileHelper.ExecuteInTransactionAsync(statements);
-
-        // Assert
-        Assert.True(result);
-
-        // 验证数据是否正确插入
-        var verifyResult = _fileHelper.Query("SELECT COUNT(*) as count FROM products WHERE category = 'AsyncTest'");
-        Assert.Equal(2, Convert.ToInt32(verifyResult.Tables[0].Rows[0]["count"]));
-    }
-
-    [Fact]
-    public async Task ExecuteInTransactionAsync_WithCancellationToken_ShouldSupportCancellation()
-    {
-        // Arrange
-        var statements = new[] { "SELECT 1" };
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        var exTran = await Record.ExceptionAsync(() => _fileHelper.ExecuteInTransactionAsync(statements, cts.Token));
-        Assert.IsAssignableFrom<OperationCanceledException>(exTran);
-    }
-
-    #endregion
-
-    #region SQL注入防护测试
-
-    [Fact]
-    public void ParameterizedQuery_ShouldPreventSqlInjection()
-    {
-        // Arrange
-        const string maliciousInput = "'; DROP TABLE users; --";
-        const string sql = "SELECT * FROM users WHERE name = @name";
-        var parameter = new SQLiteParameter("@name", maliciousInput);
-
-        // Act - 执行参数化查询（恶意输入应被安全处理）
-        var result = _fileHelper.Query(sql, parameter);
-
-        // Assert
-        Assert.NotNull(result);
-        // 表应该仍然存在（没有被删除）
-        var tableCheck = _fileHelper.Query("SELECT name FROM sqlite_master WHERE type='table' AND name='users'");
-        Assert.True(tableCheck.Tables[0].Rows.Count > 0);
-    }
-
-    [Fact]
-    public void SQLiteParameter_Construction_ShouldCreateValidParameters()
-    {
-        // Arrange & Act
-        var stringParam = new SQLiteParameter("@name", "test");
-        var intParam = new SQLiteParameter("@age", 25);
-        var doubleParam = new SQLiteParameter("@price", 99.99);
-        var dateParam = new SQLiteParameter("@date", DateTime.Now);
-        var nullParam = new SQLiteParameter("@optional", DBNull.Value);
-
-        // Assert
-        Assert.Equal("@name", stringParam.ParameterName);
-        Assert.Equal("test", stringParam.Value);
-
-        Assert.Equal("@age", intParam.ParameterName);
-        Assert.Equal(25, intParam.Value);
-
-        Assert.Equal("@price", doubleParam.ParameterName);
-        Assert.Equal(99.99, doubleParam.Value);
-
-        Assert.Equal("@date", dateParam.ParameterName);
-        Assert.IsType<DateTime>(dateParam.Value);
-
-        Assert.Equal("@optional", nullParam.ParameterName);
-        Assert.Equal(DBNull.Value, nullParam.Value);
-    }
-
-    [Fact]
-    public void FindListBySql_WithoutMapper_MapsWritableProperties()
-    {
-        const string sql = "SELECT id, name, age FROM users ORDER BY id";
-
-        List<UserRecord> result = _fileHelper.FindListBySql<UserRecord>(sql);
-
-        Assert.Equal(5, result.Count);
-        Assert.Equal(1, result[0].Id);
-        Assert.Equal("Alice", result[0].Name);
-        Assert.Equal(25, result[0].Age);
-    }
-
-    [Fact]
-    public void FindEntityBySql_WithoutMapperAndWithParameters_MapsRecord()
-    {
-        const string sql = "SELECT id, name, age FROM users WHERE name = @name";
-        SQLiteParameter[] parameters = [new SQLiteParameter("@name", "Bob")];
-
-        UserRecord? result = _fileHelper.FindEntityBySql<UserRecord>(sql, parameters);
-
-        Assert.NotNull(result);
-        Assert.Equal(2, result.Id);
-        Assert.Equal("Bob", result.Name);
-        Assert.Equal(30, result.Age);
-    }
-
-    [Fact]
-    public void FindListBySql_WithMapper_UsesExplicitMapping()
-    {
-        const string sql = "SELECT name FROM users ORDER BY id";
-
-        List<string> result = _fileHelper.FindListBySql(sql, record => record["name"].ToString()!);
-
-        Assert.Equal(["Alice", "Bob", "Charlie", "David", "Eve"], result);
-    }
-
-    [Fact]
-    public void FindListBySql_WithNullMapper_ValidatesBeforeExecutingSql()
-    {
-        Func<IDataRecord, UserRecord> map = null!;
-
-        Assert.Throws<ArgumentNullException>(() =>
-            _fileHelper.FindListBySql("not valid sql", map));
-    }
-
-    [Fact]
-    public async Task FindTableBySqlAsync_WhenCanceled_ThrowsOperationCanceledException()
+    public async Task FindListBySqlAsync_WhenCanceled_ShouldThrowOperationCanceledException()
     {
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            _fileHelper.FindTableBySqlAsync("SELECT * FROM users", cancellation.Token));
+            _helper.FindListBySqlAsync("SELECT Name FROM products", static record => record.GetString(0),
+                cancellationToken: cancellation.Token));
     }
 
     [Fact]
-    public void FindEntityBySql_WithoutMapperAndNoRows_ReturnsDefault()
+    public void FindListBySql_WithoutMapper_ShouldMapWritableProperties()
     {
-        const string sql = "SELECT id, name, age FROM users WHERE 1 = 0";
+        List<ProductRecord> result = _helper.FindListBySql<ProductRecord>(
+            "SELECT Id, Name, Price FROM products ORDER BY Id");
 
-        UserRecord? result = _fileHelper.FindEntityBySql<UserRecord>(sql);
-
-        Assert.Null(result);
-    }
-
-    #endregion
-
-    #region Count query tests
-
-    [Fact]
-    public void FindCountBySql_WithValidCount_ShouldReturnCount()
-    {
-        var result = _fileHelper.FindCountBySql("SELECT COUNT(*) FROM users");
-
-        Assert.Equal(5, result);
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Apple", result[0].Name);
+        Assert.Equal(2.25, result[1].Price);
     }
 
     [Fact]
-    public void FindCountBySql_WithNonIntegerResult_ShouldThrowFormatException()
+    public async Task FindListBySqlAsync_WithoutMapper_ShouldMapWritableProperties()
     {
-        Assert.Throws<FormatException>(() =>
-            _fileHelper.FindCountBySql("SELECT 'not-a-count'"));
+        List<ProductRecord> result = await _helper.FindListBySqlAsync<ProductRecord>(
+            "SELECT Id, Name, Price FROM products ORDER BY Id");
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("Banana", result[1].Name);
     }
 
     [Fact]
-    public async Task FindCountBySqlAsync_WithNonIntegerResult_ShouldThrowFormatException()
+    public void QueryInBatches_WithValues_ShouldMergeResults()
     {
-        await Assert.ThrowsAsync<FormatException>(() =>
-            _fileHelper.FindCountBySqlAsync("SELECT 'not-a-count'"));
+        DataTable result = _helper.QueryInBatches(
+            "SELECT Id, Name FROM products WHERE Name IN ({0}) ORDER BY Id",
+            ["Apple", "Banana"], batchSize: 1);
+
+        Assert.Equal(2, result.Rows.Count);
     }
 
     [Fact]
-    public void FindCountBySql_WithParametersAndNonIntegerResult_ShouldThrowFormatException()
+    public void ExecuteTransaction_WithParameterizedStatements_ShouldCommitAllStatements()
     {
-        SQLiteParameter[] parameters = [new SQLiteParameter("@value", "not-a-count")];
+        var statements = new[]
+        {
+            new SqlStatement("INSERT INTO products (Name, Price) VALUES (@name, @price)",
+                new SQLiteParameter("@name", "Cherry"), new SQLiteParameter("@price", 5)),
+            new SqlStatement("UPDATE products SET Price = @price WHERE Name = @name",
+                new SQLiteParameter("@price", 4), new SQLiteParameter("@name", "Apple")),
+        };
 
-        Assert.Throws<FormatException>(() =>
-            _fileHelper.FindCountBySql("SELECT @value", parameters));
+        int[] affected = _helper.ExecuteTransaction(statements);
+
+        Assert.Equal([1, 1], affected);
+        Assert.Equal(3, _helper.FindCountBySql("SELECT COUNT(*) FROM products"));
     }
 
     [Fact]
-    public async Task FindCountBySqlAsync_WithParametersAndNonIntegerResult_ShouldThrowFormatException()
+    public void ExecuteTransaction_WhenStatementFails_ShouldRollbackAllStatements()
     {
-        SQLiteParameter[] parameters = [new SQLiteParameter("@value", "not-a-count")];
+        var statements = new[]
+        {
+            new SqlStatement("INSERT INTO products (Name, Price) VALUES (@name, @price)",
+                new SQLiteParameter("@name", "Cherry"), new SQLiteParameter("@price", 5)),
+            new SqlStatement("INSERT INTO missing_table (Name) VALUES (@name)",
+                new SQLiteParameter("@name", "Failure")),
+        };
 
-        await Assert.ThrowsAsync<FormatException>(() =>
-            _fileHelper.FindCountBySqlAsync("SELECT @value", parameters));
+        Assert.Throws<SQLiteException>(() => _helper.ExecuteTransaction(statements));
+        Assert.Equal(0, _helper.FindCountBySql("SELECT COUNT(*) FROM products WHERE Name = 'Cherry'"));
     }
 
-    #endregion
-
-    private sealed class UserRecord
+    [Fact]
+    public async Task ExecuteTransactionAsync_WithParameterizedStatements_ShouldCommitAllStatements()
     {
-        public int Id { get; set; }
-        public string? Name { get; set; }
-        public int? Age { get; set; }
+        var statements = new[]
+        {
+            new SqlStatement("INSERT INTO products (Name, Price) VALUES (@name, @price)",
+                new SQLiteParameter("@name", "Cherry"), new SQLiteParameter("@price", 5)),
+        };
+
+        int[] affected = await _helper.ExecuteTransactionAsync(statements);
+
+        Assert.Equal([1], affected);
+    }
+
+    [Fact]
+    public void ExecuteTransaction_WithNullStatement_ShouldThrowArgumentNullException()
+    {
+        var statements = new SqlStatement[]
+        {
+            null!,
+        };
+
+        Assert.Throws<ArgumentNullException>(() => _helper.ExecuteTransaction(statements));
+    }
+
+    [Fact]
+    public void SqlStatement_WithNullParameterArray_ShouldThrowArgumentNullException()
+    {
+        Assert.Throws<ArgumentNullException>(() => new SqlStatement("SELECT 1", null!));
+    }
+
+    [Fact]
+    public void SqlStatement_WithNoParameters_ShouldUseEmptyParameterArray()
+    {
+        var statement = new SqlStatement("SELECT 1");
+
+        Assert.Empty(statement.Parameters);
+    }
+
+    [Fact]
+    public void ExecuteTransaction_WithParameterlessStatement_ShouldExecute()
+    {
+        var statement = new SqlStatement("INSERT INTO products (Name, Price) VALUES ('Cherry', 5)");
+
+        int[] affected = _helper.ExecuteTransaction([statement]);
+
+        Assert.Equal([1], affected);
+    }
+
+    [Fact]
+    public void CommandTimeout_WithNegativeValue_ShouldThrowArgumentOutOfRangeException()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => _helper.CommandTimeout = -1);
+    }
+
+    private sealed class ProductRecord
+    {
+        public long Id { get; set; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public double Price { get; set; }
     }
 }

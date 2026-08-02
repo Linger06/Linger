@@ -4,94 +4,293 @@ using Linger.Helper;
 
 namespace Linger.DataAccess;
 
-public class BaseDatabase : IBaseDatabase
+/// <summary>
+/// 低层数据库执行基类：负责连接/事务生命周期与 ADO.NET 命令执行。
+/// </summary>
+/// <remarks>
+/// <para>
+/// 环境事务（ambient transaction）：调用 <see cref="BeginTrans"/> 后，本实例上所有
+/// <b>未显式指定连接或事务</b> 的执行方法都会自动复用该事务的连接，直到
+/// <see cref="Commit"/> / <see cref="Rollback"/> / <see cref="Close"/> 结束事务。
+/// </para>
+/// <para>
+/// 显式传入 <see cref="DbConnection"/> 或 <see cref="DbTransaction"/> 的重载始终使用调用方给定的上下文，
+/// 不受环境事务影响。
+/// </para>
+/// <para>本类型不是线程安全的：一个实例同一时刻只应被一个逻辑操作流使用。</para>
+/// <para>
+/// 声明为 abstract：本类只提供执行原语，面向业务的查询语义（<c>Query</c>、<c>FindListBySql</c> 等）
+/// 全在 <see cref="Database"/> 上。直接实例化拿到的是一个功能残缺的对象，请使用
+/// <see cref="Database"/> 或各数据库的 Helper。
+/// </para>
+/// </remarks>
+public abstract class BaseDatabase : IBaseDatabase
 {
-    #region 构造函数
+    /// <summary>
+    /// ADO.NET 提供程序工厂，如 <c>SqlClientFactory.Instance</c>、<c>SQLiteFactory.Instance</c>。
+    /// </summary>
+    protected readonly DbProviderFactory Factory;
 
-    protected readonly IProvider Provider;
     private bool _disposed;
+    private int? _commandTimeout;
 
     protected string ConnString { get; set; }
 
-    public BaseDatabase(IProvider provider, string strConnection)
+    /// <summary>
+    /// 命令超时时间（秒）。为 null 时使用驱动默认值。
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">设置为负数时抛出。</exception>
+    public int? CommandTimeout
     {
-        ArgumentNullException.ThrowIfNull(provider);
+        get => _commandTimeout;
+        set
+        {
+            if (value < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, null);
+            }
+
+            _commandTimeout = value;
+        }
+    }
+
+    protected BaseDatabase(DbProviderFactory factory, string strConnection)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
         ArgumentException.ThrowIfNullOrWhiteSpace(strConnection);
 
-        Provider = provider;
+        Factory = factory;
         ConnString = strConnection;
     }
 
     /// <summary>
-    /// 数据库连接对象
+    /// 创建并配置一个未打开的连接。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="DbProviderFactory.CreateConnection"/> 契约上可返回 null（基类默认实现即返回 null），
+    /// 故在此统一收敛为异常，避免 null 扩散到各调用点。
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">工厂不支持创建连接时抛出。</exception>
+    protected DbConnection CreateConnection()
+    {
+        DbConnection connection = Factory.CreateConnection()
+            ?? throw new InvalidOperationException(
+                $"'{Factory.GetType().FullName}' did not provide a {nameof(DbConnection)}.");
+
+        connection.ConnectionString = ConnString;
+        return connection;
+    }
+
+    /// <summary>
+    /// 环境事务所使用的连接对象。
     /// </summary>
     private DbConnection? Connection { get; set; }
 
-    protected bool IsConnected { get; set; }
-
     /// <summary>
-    /// 事务对象
+    /// 环境事务对象。
     /// </summary>
     private DbTransaction? Trans { get; set; }
+
     /// <summary>
-    /// 是否已在事务之中
+    /// 是否处于环境事务之中。
     /// </summary>
-    public bool InTransaction { get; private set; }
+    public bool InTransaction => Trans is not null;
+
+    #region 事务
+
     /// <summary>
-    /// 事务开始
+    /// 开启环境事务。重复调用返回同一个事务对象。
     /// </summary>
-    /// <returns></returns>
+    /// <remarks>
+    /// 开启后，本实例上不带连接/事务参数的执行方法会自动加入该事务。
+    /// </remarks>
     public DbTransaction BeginTrans()
     {
-        if (!InTransaction)
+        ThrowIfDisposed();
+
+        if (Trans is not null)
         {
-            Connection = Provider.CreateConnection(ConnString);
-            if (Connection.State == ConnectionState.Closed)
-            {
-                Connection.Open();
-            }
-            InTransaction = true;
-            Trans = Connection.BeginTransaction();
+            return Trans;
         }
-        return Trans!;
+
+        DbConnection conn = CreateConnection();
+        try
+        {
+            if (conn.State != ConnectionState.Open)
+            {
+                conn.Open();
+            }
+
+            Connection = conn;
+            Trans = conn.BeginTransaction();
+            return Trans;
+        }
+        catch
+        {
+            // 开启失败不留下半初始化状态
+            Connection = null;
+            Trans = null;
+            conn.Dispose();
+            throw;
+        }
     }
+
     /// <summary>
-    /// 提交事务
+    /// 开启环境事务（异步）。
+    /// </summary>
+    public async Task<DbTransaction> BeginTransAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+
+        if (Trans is not null)
+        {
+            return Trans;
+        }
+
+        DbConnection conn = CreateConnection();
+        try
+        {
+            if (conn.State != ConnectionState.Open)
+            {
+                await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            Connection = conn;
+            Trans = await DbCompat.BeginTransactionAsync(conn, cancellationToken).ConfigureAwait(false);
+            return Trans;
+        }
+        catch
+        {
+            Connection = null;
+            Trans = null;
+            conn.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 提交环境事务。不在事务中时为空操作。
     /// </summary>
     public void Commit()
     {
-        if (InTransaction)
+        DbTransaction? trans = Trans;
+        if (trans is null)
         {
-            InTransaction = false;
-            Trans!.Commit();
-            Close();
+            return;
+        }
+
+        try
+        {
+            trans.Commit();
+        }
+        finally
+        {
+            ClearTransactionState();
         }
     }
+
     /// <summary>
-    /// 回滚事务
+    /// 提交环境事务（异步）。不在事务中时为空操作。
+    /// </summary>
+    public async Task CommitAsync(CancellationToken cancellationToken = default)
+    {
+        DbTransaction? trans = Trans;
+        if (trans is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await DbCompat.CommitAsync(trans, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ClearTransactionState();
+        }
+    }
+
+    /// <summary>
+    /// 回滚环境事务。不在事务中时为空操作。
     /// </summary>
     public void Rollback()
     {
-        if (InTransaction)
+        DbTransaction? trans = Trans;
+        if (trans is null)
         {
-            InTransaction = false;
-            Trans!.Rollback();
-            Close();
+            return;
+        }
+
+        try
+        {
+            trans.Rollback();
+        }
+        finally
+        {
+            ClearTransactionState();
         }
     }
+
     /// <summary>
-    /// 关闭数据库连接
+    /// 回滚环境事务（异步）。不在事务中时为空操作。
     /// </summary>
+    public async Task RollbackAsync(CancellationToken cancellationToken = default)
+    {
+        DbTransaction? trans = Trans;
+        if (trans is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await DbCompat.RollbackAsync(trans, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            ClearTransactionState();
+        }
+    }
+
+    /// <summary>
+    /// 关闭环境事务所用的连接。若事务尚未结束，先回滚。
+    /// </summary>
+    /// <remarks>
+    /// 回滚失败不会抛出（本方法也走 <see cref="Dispose()"/> 路径，在那里抛异常会掩盖调用方的原始异常），
+    /// 但会写入 <see cref="System.Diagnostics.Trace"/>：连接已断时数据库侧通常已自行回滚，
+    /// 静默丢弃则让「事务到底有没有生效」无从判断。
+    /// </remarks>
     public void Close()
     {
-        if (Connection != null)
+        // 未提交即关闭视为放弃：显式回滚，避免依赖驱动的隐式行为
+        if (Trans is not null)
+        {
+            try
+            {
+                Trans.Rollback();
+            }
+            catch (Exception rollbackError)
+            {
+                System.Diagnostics.Trace.TraceWarning(
+                    "{0}.Close: rolling back the ambient transaction failed: {1}",
+                    GetType().FullName, rollbackError);
+            }
+        }
+
+        ClearTransactionState();
+    }
+
+    private void ClearTransactionState()
+    {
+        Trans?.Dispose();
+        Trans = null;
+
+        if (Connection is not null)
         {
             Connection.Close();
             Connection.Dispose();
+            Connection = null;
         }
-        Trans?.Dispose();
-        Connection = null;
-        Trans = null;
     }
 
     public void Dispose()
@@ -107,847 +306,569 @@ public class BaseDatabase : IBaseDatabase
 
         if (disposing)
         {
-            Connection?.Dispose();
-            Trans?.Dispose();
+            // 未结束的事务在释放时回滚，而不是听任驱动处置
+            Close();
         }
 
         _disposed = true;
     }
 
+    /// <summary>
+    /// 已释放后继续使用则抛出异常。
+    /// </summary>
+    /// <remarks>
+    /// 释放后本实例只剩连接字符串，仍能「正常」新建连接执行命令，环境事务却已被回滚清空——
+    /// 于是本该在事务里的写入会各自自动提交。宁可抛异常，也不要静默地把事务语义换掉。
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">实例已被释放。</exception>
+    protected void ThrowIfDisposed()
+    {
+#if NET8_0_OR_GREATER
+        ObjectDisposedException.ThrowIf(_disposed, this);
+#else
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(GetType().FullName);
+        }
+#endif
+    }
+
     #endregion
 
+    #region 执行上下文解析
+
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    /// 一次执行所使用的连接与事务，以及该连接是否由本次执行拥有。
     /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns></returns>
+    private readonly struct ExecutionContext(DbConnection connection, DbTransaction? transaction, bool ownsConnection)
+    {
+        internal DbConnection Connection { get; } = connection;
+        internal DbTransaction? Transaction { get; } = transaction;
+
+        /// <summary>为 true 时连接由本次执行创建，需由本次执行负责释放。</summary>
+        internal bool OwnsConnection { get; } = ownsConnection;
+    }
+
+    /// <summary>
+    /// 解析执行上下文：显式连接 &gt; 环境事务 &gt; 新建连接。
+    /// </summary>
+    private ExecutionContext ResolveContext(DbConnection? connection, DbTransaction? transaction)
+    {
+        ThrowIfDisposed();
+
+        if (connection is not null)
+        {
+            return new ExecutionContext(connection, transaction, ownsConnection: false);
+        }
+
+        if (transaction is not null)
+        {
+            DbConnection? txConn = transaction.Connection;
+            txConn.EnsureIsNotNull();
+            return new ExecutionContext(txConn, transaction, ownsConnection: false);
+        }
+
+        // 环境事务：让不带参数的调用自动加入 BeginTrans 开启的事务
+        if (Trans is not null && Connection is not null)
+        {
+            return new ExecutionContext(Connection, Trans, ownsConnection: false);
+        }
+
+        return new ExecutionContext(CreateConnection(), null, ownsConnection: true);
+    }
+
+    #endregion
+
+    #region ExecuteNonQuery
+
+    /// <summary>
+    /// 执行命令并返回受影响行数。处于环境事务中时自动加入该事务。
+    /// </summary>
+    /// <param name="cmdType">命令类型（文本或存储过程）</param>
+    /// <param name="cmdText">SQL 文本或存储过程名</param>
+    /// <param name="parameters">命令参数</param>
     public int ExecuteNonQuery(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        using DbConnection conn = Provider.CreateConnection(ConnString);
-        return ExecuteNonQueryInternal(conn, null, cmdType, cmdText, parameters);
+        return ExecuteNonQueryCore(null, null, cmdType, cmdText, parameters);
     }
 
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns></returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return ExecuteNonQueryAsync(cmdType, cmdText, parameters, CancellationToken.None);
-    }
-
-    public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        using DbConnection conn = Provider.CreateConnection(ConnString);
-        return await ExecuteNonQueryInternalAsync(conn, null, cmdType, cmdText, parameters, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns></returns>
-    public int ExecuteNonQuery(CommandType cmdType, string cmdText)
-    {
-        using DbConnection conn = Provider.CreateConnection(ConnString);
-        return ExecuteNonQueryInternal(conn, null, cmdType, cmdText, null);
-    }
-
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText,
+    /// <inheritdoc cref="ExecuteNonQuery(CommandType, string, DbParameter[])"/>
+    public Task<int> ExecuteNonQueryAsync(CommandType cmdType, string cmdText, DbParameter[]? parameters = null,
         CancellationToken cancellationToken = default)
     {
-        using DbConnection conn = Provider.CreateConnection(ConnString);
-        return await ExecuteNonQueryInternalAsync(conn, null, cmdType, cmdText, null, cancellationToken)
-            .ConfigureAwait(false);
+        return ExecuteNonQueryCoreAsync(null, null, cmdType, cmdText, parameters, cancellationToken);
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    /// 在指定连接上执行命令并返回受影响行数。
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns></returns>
     public int ExecuteNonQuery(DbConnection connection, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        return ExecuteNonQueryInternal(connection, null, cmdType, cmdText, parameters);
+        ArgumentNullException.ThrowIfNull(connection);
+        return ExecuteNonQueryCore(connection, null, cmdType, cmdText, parameters);
+    }
+
+    /// <inheritdoc cref="ExecuteNonQuery(DbConnection, CommandType, string, DbParameter[])"/>
+    public Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText,
+        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        return ExecuteNonQueryCoreAsync(connection, null, cmdType, cmdText, parameters, cancellationToken);
     }
 
     /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
+    /// 在事务上下文中执行命令并返回受影响行数。
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns></returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return ExecuteNonQueryAsync(connection, cmdType, cmdText, parameters, CancellationToken.None);
-    }
-
-    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        return await ExecuteNonQueryInternalAsync(connection, null, cmdType, cmdText, parameters,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns></returns>
-    public int ExecuteNonQuery(DbConnection connection, CommandType cmdType, string cmdText)
-    {
-        return ExecuteNonQueryInternal(connection, null, cmdType, cmdText, null);
-    }
-
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
-    {
-        return await ExecuteNonQueryInternalAsync(connection, null, cmdType, cmdText, null, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
     /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    /// <returns></returns>
     public int ExecuteNonQuery(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        DbConnection? conn = transaction.Connection;
-        conn.EnsureIsNotNull();
-        return ExecuteNonQueryInternal(conn, transaction, cmdType, cmdText, parameters);
+        ArgumentNullException.ThrowIfNull(transaction);
+        return ExecuteNonQueryCore(null, transaction, cmdType, cmdText, parameters);
     }
 
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    /// <returns></returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    /// <inheritdoc cref="ExecuteNonQuery(DbTransaction, CommandType, string, DbParameter[])"/>
+    public Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText,
+        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
     {
-        return ExecuteNonQueryAsync(transaction, cmdType, cmdText, parameters, CancellationToken.None);
+        ArgumentNullException.ThrowIfNull(transaction);
+        return ExecuteNonQueryCoreAsync(null, transaction, cmdType, cmdText, parameters, cancellationToken);
     }
 
-    public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        DbConnection? conn = transaction.Connection;
-        conn.EnsureIsNotNull();
-        return await ExecuteNonQueryInternalAsync(conn, transaction, cmdType, cmdText, parameters,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    /// <returns></returns>
-    public int ExecuteNonQuery(DbTransaction transaction, CommandType cmdType, string cmdText)
-    {
-        DbConnection? conn = transaction.Connection;
-        conn.EnsureIsNotNull();
-        return ExecuteNonQueryInternal(conn, transaction, cmdType, cmdText, null);
-    }
-
-    /// <summary>
-    ///     执行 SQL 语句，并返回受影响的行数。
-    /// </summary>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    /// <returns></returns>
-    public async Task<int> ExecuteNonQueryAsync(DbTransaction transaction, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
-    {
-        DbConnection? conn = transaction.Connection;
-        conn.EnsureIsNotNull();
-        return await ExecuteNonQueryInternalAsync(conn, transaction, cmdType, cmdText, null, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
-    /// </summary>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    /// <returns>返回SqlDataReader对象</returns>
-    public IDataReader ExecuteReader(DbTransaction transaction, CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
-    {
-        DbConnection? conn = transaction.Connection;
-        conn.EnsureIsNotNull();
-        return ExecuteReaderInternal(conn, transaction, cmdType, cmdText, parameters);
-    }
-
-    /// <summary>
-    ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
-    /// </summary>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText"> 存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    /// <returns>返回SqlDataReader对象</returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return ExecuteReaderAsync(transaction, cmdType, cmdText, parameters, CancellationToken.None);
-    }
-
-    public async Task<IDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        DbConnection? conn = transaction.Connection;
-        conn.EnsureIsNotNull();
-        return await ExecuteReaderInternalAsync(conn, transaction, cmdType, cmdText, parameters, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回SqlDataReader对象</returns>
-    public IDataReader ExecuteReader(CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return ExecuteReaderInternal(null, null, cmdType, cmdText, parameters);
-    }
-
-    /// <summary>
-    ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回SqlDataReader对象</returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return ExecuteReaderAsync(cmdType, cmdText, parameters, CancellationToken.None);
-    }
-
-    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        return await ExecuteReaderInternalAsync(null, null, cmdType, cmdText, parameters, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回SqlDataReader对象</returns>
-    public IDataReader ExecuteReader(CommandType cmdType, string cmdText)
-    {
-        return ExecuteReaderInternal(null, null, cmdType, cmdText, null);
-    }
-
-    /// <summary>
-    ///     使用提供的参数，执行有结果集返回的数据库操作命令、并返回SqlDataReader对象
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>返回SqlDataReader对象</returns>
-    public async Task<IDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
-    {
-        return await ExecuteReaderInternalAsync(null, null, cmdType, cmdText, null, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    private int ExecuteNonQueryInternal(DbConnection connection, DbTransaction? transaction, CommandType cmdType,
+    private int ExecuteNonQueryCore(DbConnection? connection, DbTransaction? transaction, CommandType cmdType,
         string cmdText, DbParameter[]? parameters)
     {
-        using DbCommand cmd = Provider.CreateCommand();
-        PrepareCommand(cmd, connection, transaction, cmdType, cmdText, parameters);
-        var affectedRows = cmd.ExecuteNonQuery();
-        cmd.Parameters.Clear();
-        return affectedRows;
+        ExecutionContext context = ResolveContext(connection, transaction);
+        try
+        {
+            using DbCommand cmd = context.Connection.CreateCommand();
+            try
+            {
+                PrepareCommand(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters);
+                return cmd.ExecuteNonQuery();
+            }
+            finally
+            {
+                ReleaseParameters(cmd);
+            }
+        }
+        finally
+        {
+            DisposeIfOwned(context);
+        }
     }
 
-    private async Task<int> ExecuteNonQueryInternalAsync(DbConnection connection, DbTransaction? transaction,
+    private async Task<int> ExecuteNonQueryCoreAsync(DbConnection? connection, DbTransaction? transaction,
         CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
     {
-        using DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var affectedRows = await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return affectedRows;
-    }
-
-    private IDataReader ExecuteReaderInternal(DbConnection? connection, DbTransaction? transaction,
-        CommandType cmdType, string cmdText, DbParameter[]? parameters)
-    {
-        // 当调用方未传连接时，由当前方法创建并通过 CloseConnection 交给 reader 生命周期释放。
-        var ownsConnection = connection is null;
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = connection ?? Provider.CreateConnection(ConnString);
+        ExecutionContext context = ResolveContext(connection, transaction);
         try
         {
-            PrepareCommand(cmd, conn, transaction, cmdType, cmdText, parameters);
-            var commandBehavior = ownsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
-            IDataReader reader = cmd.ExecuteReader(commandBehavior);
-            cmd.Parameters.Clear();
-            return reader;
-        }
-        catch (Exception)
-        {
-            if (ownsConnection)
+            using DbCommand cmd = context.Connection.CreateCommand();
+            try
             {
-                conn.Close();
+                await PrepareCommandAsync(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters,
+                    cancellationToken).ConfigureAwait(false);
+                return await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
-
-            cmd.Dispose();
-            throw;
-        }
-    }
-
-    private async Task<IDataReader> ExecuteReaderInternalAsync(DbConnection? connection,
-        DbTransaction? transaction, CommandType cmdType, string cmdText, DbParameter[]? parameters,
-        CancellationToken cancellationToken)
-    {
-        // 异步路径与同步一致：仅在内部创建连接时使用 CloseConnection 绑定 reader 生命周期。
-        var ownsConnection = connection is null;
-        DbCommand cmd = Provider.CreateCommand();
-        DbConnection conn = connection ?? Provider.CreateConnection(ConnString);
-        try
-        {
-            await PrepareCommandAsync(cmd, conn, transaction, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
-            var commandBehavior = ownsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
-            IDataReader reader = await cmd.ExecuteReaderAsync(commandBehavior, cancellationToken)
-                .ConfigureAwait(false);
-            cmd.Parameters.Clear();
-            return reader;
-        }
-        catch (Exception)
-        {
-            if (ownsConnection)
+            finally
             {
-                await CloseConnectionAsync(conn).ConfigureAwait(false);
+                ReleaseParameters(cmd);
             }
-
-            cmd.Dispose();
-            throw;
+        }
+        finally
+        {
+            await DisposeIfOwnedAsync(context).ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    ///     查询数据填充到数据集DataSet中
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">命令文本</param>
-    /// <param name="parameters">sql语句对应参数</param>
-    /// <returns>数据集DataSet对象</returns>
-    public DataSet GetDataSet(CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return FillDataSet(cmdType, cmdText, parameters);
-    }
+    #endregion
+
+    #region ExecuteScalar
 
     /// <summary>
-    ///     查询数据填充到数据集DataSet中
+    /// 执行命令并返回首行首列。处于环境事务中时自动加入该事务。
     /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">命令文本</param>
-    /// <param name="parameters">sql语句对应参数</param>
-    /// <returns>数据集DataSet对象</returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return FillDataSetAsync(cmdType, cmdText, parameters, CancellationToken.None);
-    }
-
-    public Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        return FillDataSetAsync(cmdType, cmdText, parameters, cancellationToken);
-    }
-
-    /// <summary>
-    ///     查询数据填充到数据集DataSet中
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">命令文本</param>
-    /// <returns>数据集DataSet对象</returns>
-    public DataSet GetDataSet(CommandType cmdType, string cmdText)
-    {
-        return FillDataSet(cmdType, cmdText, null);
-    }
-
-    /// <summary>
-    ///     查询数据填充到数据集DataSet中
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">命令文本</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>数据集DataSet对象</returns>
-    public Task<DataSet> GetDataSetAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
-    {
-        return FillDataSetAsync(cmdType, cmdText, null, cancellationToken);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
     public object? ExecuteScalar(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        using DbConnection connection = Provider.CreateConnection(ConnString);
-        return ExecuteScalarInternal(connection, null, cmdType, cmdText, parameters);
+        return ExecuteScalarCore(null, null, cmdType, cmdText, parameters);
+    }
+
+    /// <inheritdoc cref="ExecuteScalar(CommandType, string, DbParameter[])"/>
+    public Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, DbParameter[]? parameters = null,
+        CancellationToken cancellationToken = default)
+    {
+        return ExecuteScalarCoreAsync(null, null, cmdType, cmdText, parameters, cancellationToken);
     }
 
     /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    /// 在指定连接上执行命令并返回首行首列。
     /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return ExecuteScalarAsync(cmdType, cmdText, parameters, CancellationToken.None);
-    }
-
-    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        using DbConnection connection = Provider.CreateConnection(ConnString);
-        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, parameters, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public object? ExecuteScalar(CommandType cmdType, string cmdText)
-    {
-        using DbConnection connection = Provider.CreateConnection(ConnString);
-        return ExecuteScalarInternal(connection, null, cmdType, cmdText, null);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
-    {
-        using DbConnection connection = Provider.CreateConnection(ConnString);
-        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, null, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
     public object? ExecuteScalar(DbConnection connection, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        return ExecuteScalarInternal(connection, null, cmdType, cmdText, parameters);
+        ArgumentNullException.ThrowIfNull(connection);
+        return ExecuteScalarCore(connection, null, cmdType, cmdText, parameters);
+    }
+
+    /// <inheritdoc cref="ExecuteScalar(DbConnection, CommandType, string, DbParameter[])"/>
+    public Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText,
+        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        return ExecuteScalarCoreAsync(connection, null, cmdType, cmdText, parameters, cancellationToken);
     }
 
     /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    /// 在事务上下文中执行命令并返回首行首列。
     /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, params DbParameter[] parameters)
-    {
-        return ExecuteScalarAsync(connection, cmdType, cmdText, parameters, CancellationToken.None);
-    }
-
-    // 数组 + CancellationToken (token 放在最后) — 实际实现
-    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
-    {
-        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, parameters, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public object? ExecuteScalar(DbConnection connection, CommandType cmdType, string cmdText)
-    {
-        return ExecuteScalarInternal(connection, null, cmdType, cmdText, null);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(DbConnection connection, CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
-    {
-        return await ExecuteScalarInternalAsync(connection, null, cmdType, cmdText, null, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="connection">数据库连接对象</param>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public object? ExecuteScalar(DbConnection connection, DbTransaction transaction, CommandType cmdType,
-        string cmdText)
-    {
-        return ExecuteScalarInternal(connection, transaction, cmdType, cmdText, null);
-    }
-
-    private object? ExecuteScalarInternal(DbConnection connection, DbTransaction? transaction, CommandType cmdType,
-        string cmdText, DbParameter[]? parameters)
-    {
-        using DbCommand cmd = Provider.CreateCommand();
-        PrepareCommand(cmd, connection, transaction, cmdType, cmdText, parameters);
-        var value = cmd.ExecuteScalar();
-        cmd.Parameters.Clear();
-        return value;
-    }
-
-    private async Task<object?> ExecuteScalarInternalAsync(DbConnection connection, DbTransaction? transaction,
-        CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
-    {
-        using DbCommand cmd = Provider.CreateCommand();
-        await PrepareCommandAsync(cmd, connection, transaction, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
-        var value = await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
-        cmd.Parameters.Clear();
-        return value;
-    }
-
-    private DataSet FillDataSet(CommandType cmdType, string cmdText, DbParameter[]? parameters)
-    {
-        using DbCommand cmd = Provider.CreateCommand();
-        using DbConnection conn = Provider.CreateConnection(ConnString);
-
-        PrepareCommand(cmd, conn, null, cmdType, cmdText, parameters);
-
-        using DbDataAdapter dataAdapter = Provider.CreateDataAdapter(cmd);
-        var dataSet = new DataSet();
-        _ = dataAdapter.Fill(dataSet);
-        return dataSet;
-    }
-
-    private async Task<DataSet> FillDataSetAsync(CommandType cmdType, string cmdText, DbParameter[]? parameters,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        using DbCommand cmd = Provider.CreateCommand();
-        using DbConnection conn = Provider.CreateConnection(ConnString);
-
-        await PrepareCommandAsync(cmd, conn, null, cmdType, cmdText, parameters, cancellationToken: cancellationToken).ConfigureAwait(false);
-        return await ReadDataSetAsync(cmd, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async Task<DataSet> ReadDataSetAsync(DbCommand cmd, CancellationToken cancellationToken)
-    {
-        using DbDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        var dataSet = new DataSet();
-
-        do
-        {
-            if (reader.FieldCount <= 0)
-            {
-                continue;
-            }
-
-            var table = CreateDataTable(reader, dataSet.Tables.Count);
-            await PopulateTableRowsAsync(reader, table, cancellationToken).ConfigureAwait(false);
-            dataSet.Tables.Add(table);
-        } while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false));
-
-        return dataSet;
-    }
-
-    private static DataTable CreateDataTable(DbDataReader reader, int tableIndex)
-    {
-        var tableName = tableIndex == 0 ? "Table" : $"Table{tableIndex}";
-        var table = new DataTable(tableName);
-        var usedColumnNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        for (var columnIndex = 0; columnIndex < reader.FieldCount; columnIndex++)
-        {
-            var baseColumnName = reader.GetName(columnIndex);
-            if (string.IsNullOrWhiteSpace(baseColumnName))
-            {
-                baseColumnName = $"Column{columnIndex + 1}";
-            }
-
-            var columnName = baseColumnName;
-            var duplicateSuffix = 2;
-            while (!usedColumnNames.Add(columnName))
-            {
-                columnName = $"{baseColumnName}_{duplicateSuffix}";
-                duplicateSuffix++;
-            }
-
-            Type columnType;
-            try
-            {
-                columnType = reader.GetFieldType(columnIndex);
-            }
-            catch
-            {
-                columnType = typeof(object);
-            }
-
-            if (columnType == typeof(DBNull) || columnType == typeof(void))
-            {
-                columnType = typeof(object);
-            }
-
-            if (Nullable.GetUnderlyingType(columnType) is Type underlyingType)
-            {
-                columnType = underlyingType;
-            }
-
-            table.Columns.Add(columnName, columnType);
-        }
-
-        return table;
-    }
-
-    private static async Task PopulateTableRowsAsync(DbDataReader reader, DataTable table,
-        CancellationToken cancellationToken)
-    {
-        var fieldCount = reader.FieldCount;
-        var values = new object[fieldCount];
-
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
-        {
-            _ = reader.GetValues(values);
-            var row = table.NewRow();
-
-            for (var columnIndex = 0; columnIndex < fieldCount; columnIndex++)
-            {
-                row[columnIndex] = values[columnIndex] ?? DBNull.Value;
-            }
-
-            table.Rows.Add(row);
-        }
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="conn">数据库连接对象</param>
-    /// <param name="transaction">事务对象</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    public async Task<object?> ExecuteScalarAsync(DbConnection conn, DbTransaction transaction,
-        CommandType cmdType, string cmdText, CancellationToken cancellationToken = default)
-    {
-        return await ExecuteScalarInternalAsync(conn, transaction, cmdType, cmdText, null, cancellationToken)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
-    /// </summary>
-    /// <param name="transaction">事务</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
     public object? ExecuteScalar(DbTransaction transaction, CommandType cmdType, string cmdText,
         params DbParameter[] parameters)
     {
-        DbConnection? conn = transaction.Connection;
+        ArgumentNullException.ThrowIfNull(transaction);
+        return ExecuteScalarCore(null, transaction, cmdType, cmdText, parameters);
+    }
 
-        conn.EnsureIsNotNull();
-        return ExecuteScalarInternal(conn, transaction, cmdType, cmdText, parameters);
+    /// <inheritdoc cref="ExecuteScalar(DbTransaction, CommandType, string, DbParameter[])"/>
+    public Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType, string cmdText,
+        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(transaction);
+        return ExecuteScalarCoreAsync(null, transaction, cmdType, cmdText, parameters, cancellationToken);
+    }
+
+    private object? ExecuteScalarCore(DbConnection? connection, DbTransaction? transaction, CommandType cmdType,
+        string cmdText, DbParameter[]? parameters)
+    {
+        ExecutionContext context = ResolveContext(connection, transaction);
+        try
+        {
+            using DbCommand cmd = context.Connection.CreateCommand();
+            try
+            {
+                PrepareCommand(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters);
+                return cmd.ExecuteScalar();
+            }
+            finally
+            {
+                ReleaseParameters(cmd);
+            }
+        }
+        finally
+        {
+            DisposeIfOwned(context);
+        }
+    }
+
+    private async Task<object?> ExecuteScalarCoreAsync(DbConnection? connection, DbTransaction? transaction,
+        CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
+    {
+        ExecutionContext context = ResolveContext(connection, transaction);
+        try
+        {
+            using DbCommand cmd = context.Connection.CreateCommand();
+            try
+            {
+                await PrepareCommandAsync(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters,
+                    cancellationToken).ConfigureAwait(false);
+                return await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                ReleaseParameters(cmd);
+            }
+        }
+        finally
+        {
+            await DisposeIfOwnedAsync(context).ConfigureAwait(false);
+        }
+    }
+
+    #endregion
+
+    #region ExecuteReader
+
+    /// <summary>
+    /// 执行查询并返回数据读取器。处于环境事务中时自动加入该事务。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 返回的读取器持有（在内部新建连接时）连接的生命周期，调用方必须释放它。
+    /// </para>
+    /// <para>
+    /// <b>参数不可复用</b>：读取器要在方法返回后继续使用命令，命令上的参数因此无法归还。
+    /// 传给本方法的 <see cref="DbParameter"/> 实例不要再交给其它命令——
+    /// 部分驱动（如 <c>Microsoft.Data.SqlClient</c>）会因参数已归属其它集合而抛
+    /// <see cref="ArgumentException"/>。需要复用同一批参数时请为每次调用新建参数对象，
+    /// 或改用会归还参数的方法（<c>ExecuteNonQuery</c> / <c>ExecuteScalar</c> / <c>GetDataSet</c>
+    /// 以及 <see cref="Database"/> 上的物化型查询，如 <c>QueryTable</c>、<c>FindListBySql</c>）。
+    /// </para>
+    /// </remarks>
+    public DbDataReader ExecuteReader(CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteReaderCore(null, null, cmdType, cmdText, parameters);
+    }
+
+    /// <inheritdoc cref="ExecuteReader(CommandType, string, DbParameter[])"/>
+    public Task<DbDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText,
+        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
+    {
+        return ExecuteReaderCoreAsync(null, null, cmdType, cmdText, parameters, cancellationToken);
     }
 
     /// <summary>
-    ///     依靠数据库连接字符串strConnection,
-    ///     使用所提供参数，执行返回首行首列命令
+    /// 在事务上下文中执行查询并返回数据读取器。
     /// </summary>
-    /// <param name="transaction">事务</param>
-    /// <param name="cmdType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="cmdText">存储过程名称或者T-SQL命令行</param>
-    /// <param name="parameters">执行命令所需的sql语句对应参数</param>
-    /// <returns>返回一个对象，使用Convert.To{Type}将该对象转换成想要的数据类型。</returns>
-    // 便捷重载：支持 params，不传 CancellationToken
-    public Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
+    public DbDataReader ExecuteReader(DbTransaction transaction, CommandType cmdType, string cmdText,
+        params DbParameter[] parameters)
     {
-        return ExecuteScalarAsync(transaction, cmdType, cmdText, parameters, CancellationToken.None);
+        ArgumentNullException.ThrowIfNull(transaction);
+        return ExecuteReaderCore(null, transaction, cmdType, cmdText, parameters);
     }
 
-    public async Task<object?> ExecuteScalarAsync(DbTransaction transaction, CommandType cmdType,
-        string cmdText, DbParameter[] parameters, CancellationToken cancellationToken)
+    /// <inheritdoc cref="ExecuteReader(DbTransaction, CommandType, string, DbParameter[])"/>
+    public Task<DbDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText,
+        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
     {
-        DbConnection? conn = transaction.Connection;
-        conn.EnsureIsNotNull();
-        return await ExecuteScalarInternalAsync(conn, transaction, cmdType, cmdText, parameters, cancellationToken)
-            .ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(transaction);
+        return ExecuteReaderCoreAsync(null, transaction, cmdType, cmdText, parameters, cancellationToken);
     }
+
+    private DbDataReader ExecuteReaderCore(DbConnection? connection, DbTransaction? transaction, CommandType cmdType,
+        string cmdText, DbParameter[]? parameters)
+    {
+        ExecutionContext context = ResolveContext(connection, transaction);
+        DbCommand cmd = context.Connection.CreateCommand();
+        try
+        {
+            PrepareCommand(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters);
+
+            // 内部新建的连接交由 reader 生命周期关闭；调用方/环境事务的连接不能被 reader 关掉
+            var behavior = context.OwnsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
+            return cmd.ExecuteReader(behavior);
+        }
+        catch
+        {
+            // 失败时归还参数，否则调用方的 DbParameter 会被这条已废弃的命令永久占用
+            ReleaseParameters(cmd);
+            cmd.Dispose();
+            DisposeIfOwned(context);
+            throw;
+        }
+    }
+
+    private async Task<DbDataReader> ExecuteReaderCoreAsync(DbConnection? connection, DbTransaction? transaction,
+        CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
+    {
+        ExecutionContext context = ResolveContext(connection, transaction);
+        DbCommand cmd = context.Connection.CreateCommand();
+        try
+        {
+            await PrepareCommandAsync(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters,
+                cancellationToken).ConfigureAwait(false);
+
+            var behavior = context.OwnsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
+            return await cmd.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // 失败时归还参数，否则调用方的 DbParameter 会被这条已废弃的命令永久占用
+            ReleaseParameters(cmd);
+            cmd.Dispose();
+            await DisposeIfOwnedAsync(context).ConfigureAwait(false);
+            throw;
+        }
+    }
+
+    #endregion
+
+    #region ExecuteReader（内部消费）
 
     /// <summary>
-    ///     为即将执行准备一个命令
+    /// 执行查询，把读取器交给 <paramref name="read"/> 消费并返回其结果。
     /// </summary>
-    /// <param name="cmd">SqlCommand对象</param>
-    /// <param name="conn">SqlConnection对象</param>
-    /// <param name="transaction">DbTransaction对象</param>
-    /// <param name="commandType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="commandText">存储过程名称或者T-SQL命令行, e.g. Select * from Products</param>
-    /// <param name="parameters">SqlParameters to use in the command</param>
-    /// <param name="times">超时时间 秒</param>
-    protected void PrepareCommand(DbCommand cmd, DbConnection conn, DbTransaction? transaction, CommandType commandType,
-        string commandText, DbParameter[]? parameters, int? times = null)
+    /// <remarks>
+    /// 与把 <see cref="DbDataReader"/> 交出去的 <see cref="ExecuteReader(CommandType, string, DbParameter[])"/> 不同，
+    /// 读取器在本方法内部用完即关，参数因此能在 finally 中归还，调用方的 <see cref="DbParameter"/> 可复用。
+    /// 「执行完立即物化结果」的查询（DataTable、List、实体、存在性检查）都应走这条路径，
+    /// 否则同一批参数在 <c>Query</c> 后可复用、在 <c>QueryTable</c> 后却不可复用，调用方无从预期。
+    /// </remarks>
+    protected TResult ExecuteReader<TResult>(CommandType cmdType, string cmdText, DbParameter[]? parameters,
+        Func<DbDataReader, TResult> read)
     {
+        ExecutionContext context = ResolveContext(null, null);
+        try
+        {
+            using DbCommand cmd = context.Connection.CreateCommand();
+            try
+            {
+                PrepareCommand(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters);
+                using DbDataReader reader = cmd.ExecuteReader();
+                return read(reader);
+            }
+            finally
+            {
+                // reader 已在上面的 using 中关闭，此处可安全归还参数
+                ReleaseParameters(cmd);
+            }
+        }
+        finally
+        {
+            DisposeIfOwned(context);
+        }
+    }
+
+    /// <inheritdoc cref="ExecuteReader{TResult}(CommandType, string, DbParameter[], Func{DbDataReader, TResult})"/>
+    protected async Task<TResult> ExecuteReaderAsync<TResult>(CommandType cmdType, string cmdText,
+        DbParameter[]? parameters, Func<DbDataReader, CancellationToken, Task<TResult>> read,
+        CancellationToken cancellationToken)
+    {
+        ExecutionContext context = ResolveContext(null, null);
+        try
+        {
+            using DbCommand cmd = context.Connection.CreateCommand();
+            try
+            {
+                await PrepareCommandAsync(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters,
+                    cancellationToken).ConfigureAwait(false);
+                using DbDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+                return await read(reader, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                ReleaseParameters(cmd);
+            }
+        }
+        finally
+        {
+            await DisposeIfOwnedAsync(context).ConfigureAwait(false);
+        }
+    }
+
+    #endregion
+
+    #region GetDataSet
+
+    /// <summary>
+    /// 执行查询并把全部结果集填充到 <see cref="DataSet"/>。
+    /// </summary>
+    /// <remarks>
+    /// 只有同步版本：BCL 的 DataSet/DataTable 填充 API 全为同步，异步化只能手写逐行循环，
+    /// 不值得为此增加复杂度。异步场景请用 <see cref="ExecuteReaderAsync(CommandType, string, DbParameter[], CancellationToken)"/>。
+    /// </remarks>
+    public DataSet GetDataSet(CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    {
+        return ExecuteReader(cmdType, cmdText, parameters, DataSetReader.Read);
+    }
+
+    #endregion
+
+    #region 命令准备
+
+    /// <summary>
+    /// 准备命令：绑定连接、事务、文本、超时与参数，并确保连接已打开。
+    /// </summary>
+    protected void PrepareCommand(DbCommand cmd, DbConnection conn, DbTransaction? transaction,
+        CommandType commandType, string commandText, DbParameter[]? parameters)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commandText);
+
         if (conn.State != ConnectionState.Open)
         {
             conn.Open();
         }
 
-        cmd.Connection = conn;
-        cmd.CommandText = commandText;
-
-        if (times != null)
-        {
-            cmd.CommandTimeout = (int)times;
-        }
-
-        if (transaction != null)
-        {
-            cmd.Transaction = transaction;
-        }
-
-        cmd.CommandType = commandType;
-        if (parameters != null)
-        {
-            cmd.Parameters.AddRange(parameters);
-        }
+        ApplyCommand(cmd, conn, transaction, commandType, commandText, parameters);
     }
 
     /// <summary>
-    ///     为即将执行准备一个命令
+    /// 准备命令（异步）。
     /// </summary>
-    /// <param name="cmd">SqlCommand对象</param>
-    /// <param name="conn">SqlConnection对象</param>
-    /// <param name="transaction">DbTransaction对象</param>
-    /// <param name="commandType">执行命令的类型（存储过程或T-SQL，等等）</param>
-    /// <param name="commandText">存储过程名称或者T-SQL命令行, e.g. Select * from Products</param>
-    /// <param name="parameters">SqlParameters to use in the command</param>
-    /// <param name="times">超时时间 秒</param>
     protected async Task PrepareCommandAsync(DbCommand cmd, DbConnection conn, DbTransaction? transaction,
-        CommandType commandType,
-        string commandText, DbParameter[]? parameters, int? times = null,
+        CommandType commandType, string commandText, DbParameter[]? parameters,
         CancellationToken cancellationToken = default)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(commandText);
+
         if (conn.State != ConnectionState.Open)
         {
             await conn.OpenAsync(cancellationToken).ConfigureAwait(false);
         }
 
+        ApplyCommand(cmd, conn, transaction, commandType, commandText, parameters);
+    }
+
+    /// <summary>
+    /// 把参数从命令上摘下来，让调用方的 <see cref="DbParameter"/> 实例可以再次使用。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 部分驱动（如 <c>Microsoft.Data.SqlClient</c>）会记录参数的归属集合，
+    /// 同一个 <see cref="DbParameter"/> 被加入第二个集合时抛
+    /// <see cref="ArgumentException"/>（"另一个 SqlParameterCollection 中已包含 SqlParameter"）。
+    /// <b>该归属关系不会因 <c>cmd.Dispose()</c> 而解除</b>，只有 <c>Parameters.Clear()</c> 能解除，
+    /// 所以必须放在 <c>finally</c> 里：只在成功路径清理的话，一次失败就会让调用方的参数数组永久不可复用，
+    /// 重试逻辑随之失效。
+    /// </para>
+    /// <para>
+    /// 清理不会丢失输出参数的值：<c>Value</c> 存在 <see cref="DbParameter"/> 对象自身上，
+    /// 命令执行完毕后再移出集合不影响已回填的值。
+    /// </para>
+    /// </remarks>
+    private static void ReleaseParameters(DbCommand cmd)
+    {
+        // Dispose 之后访问 Parameters 会抛 ObjectDisposedException（SQLite 即如此），
+        // 而本方法总在命令仍存活时调用，因此无需额外防护。
+        if (cmd.Parameters.Count > 0)
+        {
+            cmd.Parameters.Clear();
+        }
+    }
+
+    private void ApplyCommand(DbCommand cmd, DbConnection conn, DbTransaction? transaction, CommandType commandType,
+        string commandText, DbParameter[]? parameters)
+    {
         cmd.Connection = conn;
         cmd.CommandText = commandText;
+        cmd.CommandType = commandType;
 
-        if (times != null)
+        if (CommandTimeout.HasValue)
         {
-            cmd.CommandTimeout = (int)times;
+            cmd.CommandTimeout = CommandTimeout.Value;
         }
 
-        if (transaction != null)
+        if (transaction is not null)
         {
             cmd.Transaction = transaction;
         }
 
-        cmd.CommandType = commandType;
-        if (parameters != null)
+        if (parameters is { Length: > 0 })
         {
             cmd.Parameters.AddRange(parameters);
         }
     }
 
-    private static Task CloseConnectionAsync(DbConnection conn)
+    #endregion
+
+    #region 释放
+
+    private static void DisposeIfOwned(ExecutionContext context)
     {
-#if NET472 || NETSTANDARD2_0
-        conn.Close();
-        return Task.CompletedTask;
-#else
-        return conn.CloseAsync();
-#endif
+        if (context.OwnsConnection)
+        {
+            context.Connection.Dispose();
+        }
     }
+
+    private static Task DisposeIfOwnedAsync(ExecutionContext context)
+    {
+        return context.OwnsConnection
+            ? DbCompat.DisposeAsync(context.Connection)
+            : Task.CompletedTask;
+    }
+
+    #endregion
 }

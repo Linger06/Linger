@@ -26,22 +26,55 @@ internal static class BaseDatabaseBehaviorTestSupport
 
 internal sealed class TestableBaseDatabase : BaseDatabase
 {
-    public TestableBaseDatabase(IProvider provider, string connectionString)
-        : base(provider, connectionString)
+    public TestableBaseDatabase(DbProviderFactory factory, string connectionString)
+        : base(factory, connectionString)
     {
+    }
+}
+
+internal sealed class RecordingDbProviderFactory : DbProviderFactory
+{
+    private readonly Func<DbCommand> _createCommand;
+    private readonly Func<DbConnection> _createConnection;
+
+    public RecordingDbProviderFactory(Func<DbCommand>? createCommand = null,
+        Func<DbConnection>? createConnection = null)
+    {
+        _createCommand = createCommand ?? (() => new RecordingDbCommand(0));
+        _createConnection = createConnection ?? (() => new RecordingDbConnection("Factory-Conn"));
+    }
+
+    public int CreateCommandCallCount { get; private set; }
+
+    public int CreateConnectionCallCount { get; private set; }
+
+    public override DbCommand CreateCommand()
+    {
+        CreateCommandCallCount++;
+        return _createCommand();
+    }
+
+    public override DbConnection CreateConnection()
+    {
+        CreateConnectionCallCount++;
+        return _createConnection();
     }
 }
 
 internal sealed class RecordingDbConnection : DbConnection
 {
+    private readonly Func<DbCommand> _createCommand;
     private ConnectionState _state = ConnectionState.Closed;
 
-    public RecordingDbConnection(string connectionString)
+    public RecordingDbConnection(string connectionString, Func<DbCommand>? createCommand = null)
     {
         ConnectionString = connectionString;
+        _createCommand = createCommand ?? (() => new RecordingDbCommand(0));
     }
 
     public int OpenCallCount { get; private set; }
+
+    public int CreateCommandCallCount { get; private set; }
 
     public CancellationToken LastOpenCancellationToken { get; private set; }
 
@@ -85,7 +118,10 @@ internal sealed class RecordingDbConnection : DbConnection
 
     protected override DbCommand CreateDbCommand()
     {
-        return new RecordingDbCommand(0) { Connection = this };
+        CreateCommandCallCount++;
+        DbCommand command = _createCommand();
+        command.Connection = this;
+        return command;
     }
 }
 

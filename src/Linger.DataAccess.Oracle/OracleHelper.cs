@@ -1,9 +1,28 @@
-using System.Data;
 using Oracle.ManagedDataAccess.Client;
 
 namespace Linger.DataAccess.Oracle;
 
-public class OracleHelper(string connectionString) : Database(new OracleProvider(), connectionString)
+/// <summary>
+/// Oracle 数据库帮助类。
+/// </summary>
+/// <param name="connectionString">数据库连接字符串</param>
+/// <remarks>
+/// <para>
+/// 查询、执行、事务、存在性检查与批量事务均由 <see cref="Database"/> 提供。
+/// 由于 <c>OracleParameter[]</c> 可协变为 <c>DbParameter[]</c>，
+/// 直接把 <see cref="OracleParameter"/> 传给基类方法即可，本类不再重复声明参数重载。
+/// </para>
+/// <para>本类仅覆盖 Oracle 特有的参数前缀（<c>:</c>）。</para>
+/// </remarks>
+/// <example>
+/// <code>
+/// using var helper = new OracleHelper(connectionString);
+///
+/// var exists = helper.HasRows("SELECT 1 FROM USERS WHERE ID = :id", new OracleParameter(":id", 1));
+/// var ds = helper.Query("SELECT * FROM USERS WHERE DEPT = :dept", new OracleParameter(":dept", "IT"));
+/// </code>
+/// </example>
+public class OracleHelper(string connectionString) : Database(OracleClientFactory.Instance, connectionString)
 {
     /// <summary>
     ///     获取Oracle参数名称（使用: 前缀）
@@ -13,139 +32,5 @@ public class OracleHelper(string connectionString) : Database(new OracleProvider
     protected override string GetParameterName(int index)
     {
         return $":param{index}";
-    }
-
-    /// <summary>
-    ///     检查数据是否存在
-    /// </summary>
-    /// <param name="sql">SQL查询语句</param>
-    /// <returns>如果存在返回true，否则返回false</returns>
-    /// <exception cref="ArgumentNullException">当sql为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public bool Exists(string sql)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-
-        var count = FindCountBySql(sql);
-        return count > 0;
-    }
-
-    /// <summary>
-    ///     检查数据是否存在（参数化查询版本）
-    /// </summary>
-    /// <param name="sql">SQL查询语句</param>
-    /// <param name="parameters">SQL参数</param>
-    /// <returns>如果存在返回true，否则返回false</returns>
-    /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public bool Exists(string sql, params OracleParameter[] parameters)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        ArgumentNullException.ThrowIfNull(parameters);
-
-        var count = FindCountBySql(sql, parameters);
-        return count > 0;
-    }
-
-    /// <summary>
-    ///     异步检查数据是否存在
-    /// </summary>
-    /// <param name="sql">SQL查询语句</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>如果存在返回true，否则返回false</returns>
-    /// <exception cref="ArgumentNullException">当sql为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public async Task<bool> ExistsAsync(string sql, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-
-        var count = await FindCountBySqlAsync(sql, cancellationToken).ConfigureAwait(false);
-        return count > 0;
-    }
-
-    /// <summary>
-    ///     异步检查数据是否存在（参数化查询版本）
-    /// </summary>
-    /// <param name="sql">SQL查询语句</param>
-    /// <param name="parameters">SQL参数</param>
-    /// <returns>如果存在返回true，否则返回false</returns>
-    /// <exception cref="ArgumentNullException">当sql或parameters为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sql为空字符串时抛出</exception>
-    public Task<bool> ExistsAsync(string sql, params OracleParameter[] parameters)
-    {
-        return ExistsAsync(sql, parameters, CancellationToken.None);
-    }
-
-    public async Task<bool> ExistsAsync(string sql, OracleParameter[] parameters, CancellationToken cancellationToken)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        ArgumentNullException.ThrowIfNull(parameters);
-
-        var count = await FindCountBySqlAsync(sql, parameters, cancellationToken).ConfigureAwait(false);
-        return count > 0;
-    }
-
-    /// <summary>
-    ///     执行查询语句，返回DataSet
-    /// </summary>
-    /// <param name="sqlString">查询语句</param>
-    /// <returns>DataSet</returns>
-    /// <exception cref="ArgumentNullException">当sqlString为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
-    public DataSet Query(string sqlString)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
-        return base.Query(sqlString);
-    }
-
-    /// <summary>
-    ///     执行查询语句，返回DataSet （参数化查询版本）
-    /// </summary>
-    /// <param name="sqlString">查询语句</param>
-    /// <param name="parameters">SQL参数</param>
-    /// <returns>DataSet</returns>
-    /// <exception cref="ArgumentNullException">当sqlString或parameters为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
-    public DataSet Query(string sqlString, params OracleParameter[] parameters)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
-        ArgumentNullException.ThrowIfNull(parameters);
-        return base.Query(sqlString, parameters);
-    }
-
-    /// <summary>
-    ///     异步执行查询语句，返回DataSet
-    /// </summary>
-    /// <param name="sqlString">查询语句</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>DataSet</returns>
-    /// <exception cref="ArgumentNullException">当sqlString为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
-    public Task<DataSet> QueryAsync(string sqlString, CancellationToken cancellationToken = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
-        return base.QueryAsync(sqlString, null, cancellationToken);
-    }
-
-    /// <summary>
-    ///     异步执行查询语句，返回DataSet （参数化查询版本）
-    /// </summary>
-    /// <param name="sqlString">查询语句</param>
-    /// <param name="parameters">SQL参数</param>
-    /// <returns>DataSet</returns>
-    /// <exception cref="ArgumentNullException">当sqlString或parameters为null时抛出</exception>
-    /// <exception cref="ArgumentException">当sqlString为空字符串时抛出</exception>
-    public Task<DataSet> QueryAsync(string sqlString, params OracleParameter[] parameters)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
-        ArgumentNullException.ThrowIfNull(parameters);
-        return base.QueryAsync(sqlString, parameters, CancellationToken.None);
-    }
-
-    public Task<DataSet> QueryAsync(string sqlString, OracleParameter[] parameters, CancellationToken cancellationToken)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sqlString);
-        ArgumentNullException.ThrowIfNull(parameters);
-        return base.QueryAsync(sqlString, parameters, cancellationToken);
     }
 }
