@@ -133,3 +133,23 @@ List<Person> people = table.ToList(row => new Person
 string ciphertext = plaintext.AesEncryptAuthenticated(key);
 string plaintext = ciphertext.AesDecrypt(key);
 ```
+
+### 向上回溯多级目录
+
+`GetParentDirectory(levels)` 到达文件系统根目录会停住，而 `Path.GetDirectoryName`
+越过根目录后返回 `null`。因此直接链式调用 BCL 而不做判空，在 `levels` 超过实际
+层级深度时会出错。需要显式夹取：
+
+```csharp
+static string GetAncestor(string path, int levels)
+{
+    var current = Path.GetFullPath(path);
+    for (var i = 0; i < levels; i++)
+    {
+        var parent = Path.GetDirectoryName(current);
+        if (parent is null) break;   // 已到根目录，停止
+        current = parent;
+    }
+    return current;
+}
+```

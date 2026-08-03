@@ -510,18 +510,6 @@ string messyPath = @"temp\\folder//file.txt\";
 string normalized = PathHelper.CleanAndNormalizePureString(messyPath, preserveEndingSeparator: false);
 // Result: duplicate separators are removed and trailing separators follow the selected policy
 
-// Get relative path - use the BCL directly
-string basePath = @"C:\Projects\MyApp";
-string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string relative = Path.GetRelativePath(basePath, targetPath);
-// Result: "src\Components\Button.cs" (Windows) or "src/Components/Button.cs" (Unix)
-
-// Resolve absolute path - use the BCL directly
-string workingDir = @"C:\Projects";
-string relativePath = @"MyApp\src\file.txt";
-string absolutePath = Path.GetFullPath(relativePath, workingDir);
-// Result: "C:\Projects\MyApp\src\file.txt"
-
 // Check for invalid path characters
 string suspiciousPath = "file<name>.txt";
 bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // Windows: true; Unix: false
@@ -530,13 +518,6 @@ bool hasInvalidChars = suspiciousPath.ContainsInvalidPathChars(); // Windows: tr
 string filePath = @"C:\temp\data.txt";
 bool fileExists = PathExtensions.Exists(filePath, checkAsFile: true); // Check as file
 bool dirExists = PathExtensions.Exists(filePath, checkAsFile: false); // Check as directory
-
-// Get parent directory path - use the BCL directly
-string deepPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string? parentDir = Path.GetDirectoryName(deepPath);
-// Result: "C:\Projects\MyApp\src\Components"
-string? grandParentDir = Path.GetDirectoryName(parentDir);
-// Result: "C:\Projects\MyApp\src"
 ```
 
 ## API Standardization & Type Safety

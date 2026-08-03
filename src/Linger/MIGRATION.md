@@ -136,3 +136,24 @@ List<Person> people = table.ToList(row => new Person
 string ciphertext = plaintext.AesEncryptAuthenticated(key);
 string plaintext = ciphertext.AesDecrypt(key);
 ```
+
+### Walking up several directory levels
+
+`GetParentDirectory(levels)` stopped at the filesystem root, while
+`Path.GetDirectoryName` returns `null` once it passes the root. Chaining the
+BCL call without a null check therefore breaks when `levels` exceeds the
+actual depth. Clamp explicitly:
+
+```csharp
+static string GetAncestor(string path, int levels)
+{
+    var current = Path.GetFullPath(path);
+    for (var i = 0; i < levels; i++)
+    {
+        var parent = Path.GetDirectoryName(current);
+        if (parent is null) break;   // already at the root, stop here
+        current = parent;
+    }
+    return current;
+}
+```
