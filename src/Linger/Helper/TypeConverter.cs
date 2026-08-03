@@ -84,39 +84,39 @@ public static class TypeConverter
         switch (Type.GetTypeCode(actualType))
         {
             case TypeCode.String:
-            {
-                return TryConvertToString(value, out result);
-            }
+                {
+                    return TryConvertToString(value, out result);
+                }
             case TypeCode.Int16:
-            {
-                var succeeded = value.TryToShort(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToShort(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Int32:
-            {
-                var succeeded = value.TryToInt(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToInt(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Int64:
-            {
-                var succeeded = value.TryToLong(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToLong(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Decimal:
-            {
-                var succeeded = value.TryToDecimal(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToDecimal(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Double:
-            {
-                var succeeded = value.TryToDouble(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToDouble(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Single:
-            {
-                var succeeded = value.TryToFloat(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToFloat(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Byte:
                 return TryConvertNumeric(value, static (input, provider) => Convert.ToByte(input, provider), out result);
             case TypeCode.SByte:
@@ -128,25 +128,25 @@ public static class TypeConverter
             case TypeCode.UInt64:
                 return TryConvertNumeric(value, static (input, provider) => Convert.ToUInt64(input, provider), out result);
             case TypeCode.Boolean:
-            {
-                var succeeded = value.TryToBool(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToBool(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.DateTime:
-            {
-                var succeeded = value.TryToDateTime(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToDateTime(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Object when actualType == typeof(Guid):
-            {
-                var succeeded = value.TryToGuid(out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = value.TryToGuid(out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             case TypeCode.Object when actualType == typeof(TimeSpan):
-            {
-                var succeeded = TryConvertToTimeSpan(value, out var converted);
-                return SetResult(succeeded, converted, out result);
-            }
+                {
+                    var succeeded = TryConvertToTimeSpan(value, out var converted);
+                    return SetResult(succeeded, converted, out result);
+                }
             default:
                 result = null;
                 return false;

@@ -1,4 +1,3 @@
-using System.Collections;
 using Linger.Extensions.Core;
 
 namespace Linger.Extensions.Data;

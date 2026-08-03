@@ -173,19 +173,14 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToLong(out var result)) return result;
 
-        switch (value)
+        return value switch
         {
-            case string str:
-                return str.ToLong();
-            case decimal dec:
-                return dec.ToLong();
-            case double db:
-                return ConvertToWholeNumberOrThrow(db, long.MinValue, long.MaxValue, nameof(Double), "Int64", static x => (long)x);
-            case float fl:
-                return ConvertToWholeNumberOrThrow(fl, long.MinValue, long.MaxValue, nameof(Single), "Int64", static x => (long)x);
-        }
-
-        return Convert.ToInt64(value, CultureInfo.InvariantCulture);
+            string str => str.ToLong(),
+            decimal dec => dec.ToLong(),
+            double db => ConvertToWholeNumberOrThrow(db, long.MinValue, long.MaxValue, nameof(Double), "Int64", static x => (long)x),
+            float fl => ConvertToWholeNumberOrThrow(fl, long.MinValue, long.MaxValue, nameof(Single), "Int64", static x => (long)x),
+            _ => Convert.ToInt64(value, CultureInfo.InvariantCulture),
+        };
     }
 
     public static long? ToLongOrNull(this object? value) => value.TryToLong(out var r) ? r : null;
