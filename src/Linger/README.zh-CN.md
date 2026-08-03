@@ -567,16 +567,16 @@ string messyPath = @"temp\\folder//file.txt\";
 string normalized = PathHelper.CleanAndNormalizePureString(messyPath, preserveEndingSeparator: false);
 // 结果会移除重复分隔符，并按当前平台规范处理路径分隔符与末尾分隔符
 
-// 获取相对路径 - 从基础路径到目标路径的相对路径
+// 获取相对路径 - 改用 BCL
 string basePath = @"C:\Projects\MyApp";
 string targetPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string relative = PathExtensions.GetRelativePath(basePath, targetPath);
+string relative = Path.GetRelativePath(basePath, targetPath);
 // 结果: "src\Components\Button.cs" (Windows) 或 "src/Components/Button.cs" (Unix)
 
-// 解析绝对路径 - 将相对路径转换为绝对路径
+// 解析绝对路径 - 改用 BCL
 string workingDir = @"C:\Projects";
 string relativePath = @"MyApp\src\file.txt";
-string absolutePath = PathExtensions.ToFullPath(relativePath, workingDir);
+string absolutePath = Path.GetFullPath(relativePath, workingDir);
 // 结果: "C:\Projects\MyApp\src\file.txt"
 
 // 检查路径中的非法字符
@@ -588,11 +588,11 @@ string filePath = @"C:\temp\data.txt";
 bool fileExists = PathExtensions.Exists(filePath, checkAsFile: true); // 检查文件
 bool dirExists = PathExtensions.Exists(filePath, checkAsFile: false); // 检查目录
 
-// 获取父目录路径
+// 获取父目录路径 - 改用 BCL
 string deepPath = @"C:\Projects\MyApp\src\Components\Button.cs";
-string parentDir = PathExtensions.GetParentDirectory(deepPath, levels: 1);
+string? parentDir = Path.GetDirectoryName(deepPath);
 // 结果: "C:\Projects\MyApp\src\Components"
-string grandParentDir = PathExtensions.GetParentDirectory(deepPath, levels: 2);
+string? grandParentDir = Path.GetDirectoryName(parentDir);
 // 结果: "C:\Projects\MyApp\src"
 ```
 

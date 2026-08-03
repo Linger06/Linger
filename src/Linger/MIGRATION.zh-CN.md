@@ -35,6 +35,10 @@
 | `Linger.Utils` | `string.ToSplitArrayByCrlf` | `SplitToArray(Environment.NewLine)` | `Linger.Utils` | 显式指定换行分隔符。 |
 | `Linger.Utils` | `string.RemoveLastChar(string)` | `RemoveLastChar(char)` 或 `RemoveSuffixOnce(string, StringComparison)` | `Linger.Utils` | 根据需求选择单字符删除或精确后缀删除。 |
 | `Linger.Utils` | `PathExtensions.IsStrictAbsolutePath` | `Path.IsPathFullyQualified` | .NET BCL | UNC 路径策略应由调用方明确处理。 |
+| `Linger.Utils` | `PathExtensions.ToFullPath` | `Path.GetFullPath(path)` 或 `Path.GetFullPath(path, basePath)` | .NET BCL | 末尾分隔符策略由调用方处理；netstandard2.0 请改用 `Path.GetFullPath(Path.Combine(basePath, path))`。 |
+| `Linger.Utils` | `PathExtensions.GetRelativePath` | `Path.GetRelativePath` | .NET BCL | 相同路径时 BCL 返回 `"."`，与原实现一致。 |
+| `Linger.Utils` | `PathExtensions.GetParentDirectory(levels)` | 按层级调用 `Path.GetDirectoryName` | .NET BCL | BCL 到达根目录时返回 `null`，原实现返回根目录本身。 |
+| `Linger.Utils` | `FileHelper.GetExistingFileInfo(string, string?)` | `GetExistingFileInfo(string)` | `Linger.Utils` | 不再计算 `RelativeFilePath`，需要时请自行调用 `Path.GetRelativePath`。 |
 | `Linger.Utils` | `int.ToFileSizeBytesString` | `FormatFileSize` | `Linger.Utils` | 新格式与其他文件大小 API 保持一致。 |
 | `Linger.Utils` | `FileInfoExtensions.Delete(IEnumerable<FileInfo>)` | `Delete(files, consolidateExceptions)` | `Linger.Utils` | 传入 `false` 保留遇错即停行为，传入 `true` 汇总符合条件的异常。 |
 | `Linger.Utils` | `FileInfoExtensions.GetVersionInfo` | `FileVersionInfo.GetVersionInfo(fileInfo.FullName)` | .NET BCL | 平台兼容策略由调用方处理。 |

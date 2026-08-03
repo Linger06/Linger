@@ -38,44 +38,6 @@ public static class PathHelper
         ex is IOException;
 
     /// <summary>
-    /// Determines whether a path is fully qualified without relying on APIs unavailable to older target frameworks.
-    /// </summary>
-    internal static bool IsPathFullyQualified(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-        {
-            return false;
-        }
-
-#if NETCOREAPP2_1_OR_GREATER || NET5_0_OR_GREATER || NET
-        return Path.IsPathFullyQualified(path);
-#else
-        if (PlatformSeparator == '/')
-        {
-            return path[0] == '/';
-        }
-
-        if (path.StartsWith(@"\\?\", StringComparison.Ordinal) ||
-            path.StartsWith(@"\\.\", StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        if (path.Length >= 3 &&
-            char.IsLetter(path[0]) &&
-            path[1] == ':' &&
-            (path[2] == '\\' || path[2] == '/'))
-        {
-            return true;
-        }
-
-        return path.Length >= 2 &&
-               (path[0] == '\\' || path[0] == '/') &&
-               (path[1] == '\\' || path[1] == '/');
-#endif
-    }
-
-    /// <summary>
     /// Rewrites alternate separators to the native separator.
     /// </summary>
     internal static string StandardizePathSeparators(string path)
@@ -249,66 +211,6 @@ public static class PathHelper
         }
 
         return trimmedPath.Length > minLength ? trimmedPath : path;
-    }
-
-    /// <summary>
-    /// Splits a path into non-empty segments.
-    /// </summary>
-    internal static string[] SplitPath(string path)
-    {
-        if (string.IsNullOrEmpty(path))
-            return Array.Empty<string>();
-
-#if NET
-        // Newer targets can also trim segment whitespace during split.
-        return path.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-#else
-        return path.Split(PathSeparators, StringSplitOptions.RemoveEmptyEntries);
-#endif
-    }
-
-    /// <summary>
-    /// Computes a relative path for target frameworks that do not provide <c>Path.GetRelativePath</c>.
-    /// </summary>
-    internal static string GetRelativePathFallback(string relativeTo, string path)
-    {
-        string? relativeToRoot = Path.GetPathRoot(relativeTo);
-        string? pathRoot = Path.GetPathRoot(path);
-
-        if (string.IsNullOrEmpty(relativeToRoot) ||
-            string.IsNullOrEmpty(pathRoot) ||
-            !string.Equals(relativeToRoot, pathRoot, PathComparison))
-        {
-            return path;
-        }
-
-        string[] relativeToSegments = SplitPath(relativeTo.Substring(relativeToRoot.Length));
-        string[] pathSegments = SplitPath(path.Substring(pathRoot.Length));
-        var commonSegmentCount = 0;
-
-        while (commonSegmentCount < relativeToSegments.Length &&
-               commonSegmentCount < pathSegments.Length &&
-               string.Equals(relativeToSegments[commonSegmentCount], pathSegments[commonSegmentCount], PathComparison))
-        {
-            commonSegmentCount++;
-        }
-
-        var resultSegments = new List<string>(
-            relativeToSegments.Length - commonSegmentCount + pathSegments.Length - commonSegmentCount);
-
-        for (var i = commonSegmentCount; i < relativeToSegments.Length; i++)
-        {
-            resultSegments.Add("..");
-        }
-
-        for (var i = commonSegmentCount; i < pathSegments.Length; i++)
-        {
-            resultSegments.Add(pathSegments[i]);
-        }
-
-        return resultSegments.Count == 0
-            ? "."
-            : string.Join(SingleSeparator, resultSegments);
     }
 
     /// <summary>

@@ -10,6 +10,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     private readonly LocalFileSystemOptions _options;
     private readonly Encoding _defaultEncoding;
     private readonly string _rootDirectoryFullPath;
+    private readonly string _rootDirectoryPrefix;
     private readonly StringComparison _pathComparison = Path.DirectorySeparatorChar == '\\'
         ? StringComparison.OrdinalIgnoreCase
         : StringComparison.Ordinal;
@@ -30,7 +31,10 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         RootDirectoryPath = options.RootDirectoryPath;
-        _rootDirectoryFullPath = RootDirectoryPath.ToFullPath();
+        _rootDirectoryFullPath = Path.GetFullPath(RootDirectoryPath);
+        _rootDirectoryPrefix = _rootDirectoryFullPath.EndsWith(Path.DirectorySeparatorChar)
+            ? _rootDirectoryFullPath
+            : _rootDirectoryFullPath + Path.DirectorySeparatorChar;
         _defaultEncoding = _options.TextEncoding;
 
         // 确保根目录存在
@@ -753,14 +757,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        var fullPath = filePath.ToFullPath(_rootDirectoryFullPath);
+        var fullPath = Path.GetFullPath(Path.Combine(_rootDirectoryFullPath, filePath));
         var isRoot = string.Equals(fullPath, _rootDirectoryFullPath, _pathComparison);
-        var rootWithSeparator = _rootDirectoryFullPath.EndsWith(Path.DirectorySeparatorChar)
-            ? _rootDirectoryFullPath
-            : _rootDirectoryFullPath + Path.DirectorySeparatorChar;
 
         // 防止路径穿越攻击（如 "../../etc/passwd"）
-        if (!isRoot && !fullPath.StartsWith(rootWithSeparator, _pathComparison))
+        if (!isRoot && !fullPath.StartsWith(_rootDirectoryPrefix, _pathComparison))
         {
             throw new ArgumentException($"Path traversal detected. The path '{filePath}' is outside the root directory.", nameof(filePath));
         }
@@ -772,12 +773,13 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
     private void ThrowIfPathContainsReparsePoint(string fullPath)
     {
-        var relativePath = _rootDirectoryFullPath.GetRelativePath(fullPath);
-        if (relativePath == ".")
+        if (string.Equals(fullPath, _rootDirectoryFullPath, _pathComparison))
         {
             return;
         }
 
+        // GetRealPath 已验证 fullPath 位于根目录之下，因此可以直接截取相对部分。
+        var relativePath = fullPath.Substring(_rootDirectoryPrefix.Length);
         var currentPath = _rootDirectoryFullPath;
         foreach (var segment in relativePath.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries))
         {
