@@ -63,30 +63,43 @@ public static partial class StringExtensions
     /// <returns>The URL with the appended query string.</returns>
     public static string AppendQuery(this string self, string query)
     {
+        ArgumentNullException.ThrowIfNull(self);
+
         if (string.IsNullOrEmpty(query))
         {
             return self;
         }
 
-#if NET6_0_OR_GREATER
-        var hasQuery = self.Contains('?');
-        var separator = hasQuery ? '&' : '?';
-        var totalLength = self.Length + 1 + query.Length;
-
-        return string.Create(totalLength, (self, separator, query), (span, state) =>
+        var queryStart = 0;
+        while (queryStart < query.Length && (query[queryStart] == '?' || query[queryStart] == '&'))
         {
-            state.self.AsSpan().CopyTo(span);
-            var position = state.self.Length;
-            span[position++] = state.separator;
-            state.query.AsSpan().CopyTo(span[position..]);
-        });
-#else
-        var sb = new StringBuilder(self.Length + query.Length + 1);
-        sb.Append(self);
-        sb.Append(self.Contains('?') ? '&' : '?');
-        sb.Append(query);
-        return sb.ToString();
-#endif
+            queryStart++;
+        }
+
+        if (queryStart == query.Length)
+        {
+            return self;
+        }
+
+        var fragmentStart = self.IndexOf('#');
+        if (fragmentStart < 0)
+        {
+            fragmentStart = self.Length;
+        }
+
+        var hasQuery = self.IndexOf('?', 0, fragmentStart) >= 0;
+        var hasTrailingSeparator = fragmentStart > 0
+            && (self[fragmentStart - 1] == '?' || self[fragmentStart - 1] == '&');
+        var separator = hasQuery
+            ? hasTrailingSeparator ? string.Empty : "&"
+            : "?";
+
+        var builder = new StringBuilder(self.Length + query.Length + separator.Length);
+        builder.Append(self, 0, fragmentStart);
+        builder.Append(separator);
+        builder.Append(query, queryStart, query.Length - queryStart);
+        builder.Append(self, fragmentStart, self.Length - fragmentStart);
+        return builder.ToString();
     }
 
     /// <summary>
@@ -102,26 +115,7 @@ public static partial class StringExtensions
             return self;
         }
 
-        var estimatedCapacity = self.Length + (data.Count * 20) + 10;
-        var sb = new StringBuilder(estimatedCapacity);
-        sb.Append(self);
-        sb.Append(self.Contains('?') ? '&' : '?');
-
-        var isFirst = true;
-        foreach (DictionaryEntry item in data)
-        {
-            if (!isFirst)
-            {
-                sb.Append('&');
-            }
-
-            sb.Append(Uri.EscapeDataString(item.Key?.ToString() ?? string.Empty));
-            sb.Append('=');
-            sb.Append(Uri.EscapeDataString(item.Value?.ToString() ?? string.Empty));
-            isFirst = false;
-        }
-
-        return sb.ToString();
+        return AppendQuery(self, EnumerateQueryParameters(data), data.Count);
     }
 
     /// <summary>
@@ -137,25 +131,17 @@ public static partial class StringExtensions
             return self;
         }
 
-        var estimatedCapacity = self.Length + (data.Count * 20) + 10;
+        return AppendQuery(self, data, data.Count);
+    }
+
+    private static string AppendQuery(
+        string self,
+        IEnumerable<KeyValuePair<string, string>> data,
+        int count)
+    {
+        var estimatedCapacity = (count * 20) + 10;
         var sb = new StringBuilder(estimatedCapacity);
-        sb.Append(self);
-        sb.Append(self.Contains('?') ? '&' : '?');
 
-#if NET5_0_OR_GREATER
-        for (var i = 0; i < data.Count; i++)
-        {
-            if (i > 0)
-            {
-                sb.Append('&');
-            }
-
-            var item = data[i];
-            sb.Append(Uri.EscapeDataString(item.Key ?? string.Empty));
-            sb.Append('=');
-            sb.Append(Uri.EscapeDataString(item.Value ?? string.Empty));
-        }
-#else
         var isFirst = true;
         foreach (var item in data)
         {
@@ -169,8 +155,17 @@ public static partial class StringExtensions
             sb.Append(Uri.EscapeDataString(item.Value ?? string.Empty));
             isFirst = false;
         }
-#endif
 
-        return sb.ToString();
+        return self.AppendQuery(sb.ToString());
+    }
+
+    private static IEnumerable<KeyValuePair<string, string>> EnumerateQueryParameters(IDictionary data)
+    {
+        foreach (DictionaryEntry item in data)
+        {
+            yield return new KeyValuePair<string, string>(
+                item.Key?.ToString() ?? string.Empty,
+                item.Value?.ToString() ?? string.Empty);
+        }
     }
 }

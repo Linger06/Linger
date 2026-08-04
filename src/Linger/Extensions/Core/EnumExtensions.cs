@@ -16,12 +16,16 @@ public static class EnumExtensions
     public static T GetEnum<T>(this string itemName) where T : struct, Enum
     {
         if (string.IsNullOrEmpty(itemName))
+        {
             throw new ArgumentException("Enum name cannot be null or empty", nameof(itemName));
-#if NET9_0_OR_GREATER
-        return Enum.Parse<T>(itemName, true);
-#else
-        return (T)Enum.Parse(typeof(T), itemName, true);
-#endif
+        }
+
+        if (!Helper.EnumConversionHelper.TryConvertToEnum(itemName, typeof(T), out var result))
+        {
+            throw new ArgumentException($"Value '{itemName}' is not valid for enum {typeof(T).Name}", nameof(itemName));
+        }
+
+        return (T)result!;
     }
 
     /// <summary>
@@ -30,6 +34,7 @@ public static class EnumExtensions
     /// <typeparam name="T">The type of the enum.</typeparam>
     /// <param name="itemName">The name of the enum value.</param>
     /// <returns>The enum value.</returns>
+    [Obsolete("Use GetEnum<T>() instead.")]
     public static T ToEnum<T>(this string itemName) where T : struct, Enum
     {
         return itemName.GetEnum<T>();
@@ -44,10 +49,12 @@ public static class EnumExtensions
     /// <exception cref="InvalidOperationException">Thrown when the value is not valid for the enum type.</exception>
     public static T GetEnum<T>(this int itemValue) where T : struct, Enum
     {
-        if (!Enum.IsDefined(typeof(T), itemValue))
+        if (!Helper.EnumConversionHelper.TryConvertToEnum(itemValue, typeof(T), out var result))
+        {
             throw new InvalidOperationException($"Value {itemValue} is not defined for enum {typeof(T).Name}");
+        }
 
-        return (T)Enum.ToObject(typeof(T), itemValue);
+        return (T)result!;
     }
 
     /// <summary>
@@ -75,10 +82,18 @@ public static class EnumExtensions
     public static bool TryGetEnum<T>(this string? itemName, out T value) where T : struct, Enum
     {
         value = default;
-        if (string.IsNullOrEmpty(itemName))
+        if (itemName is null || itemName.Length == 0)
+        {
             return false;
+        }
 
-        return Enum.TryParse(itemName, true, out value);
+        if (!Helper.EnumConversionHelper.TryConvertToEnum(itemName, typeof(T), out var result))
+        {
+            return false;
+        }
+
+        value = (T)result!;
+        return true;
     }
 
     /// <summary>
@@ -92,10 +107,12 @@ public static class EnumExtensions
     {
         value = default;
 
-        if (!Enum.IsDefined(typeof(T), itemValue))
+        if (!Helper.EnumConversionHelper.TryConvertToEnum(itemValue, typeof(T), out var result))
+        {
             return false;
+        }
 
-        value = (T)Enum.ToObject(typeof(T), itemValue);
+        value = (T)result!;
         return true;
     }
 

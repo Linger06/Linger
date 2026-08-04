@@ -75,14 +75,40 @@ public static class DateTimeExtensions
             TimeUnit.Minutes => (dateTime1 - date2).TotalMinutes,
             TimeUnit.Seconds => (dateTime1 - date2).TotalSeconds,
             TimeUnit.Milliseconds => (dateTime1 - date2).TotalMilliseconds,
-            TimeUnit.Months => (dateTime1.Year - date2.Year) * 12 + dateTime1.Month - date2.Month +
-                             (dateTime1.Day >= date2.Day ? 0 : -1),
-            TimeUnit.Years => dateTime1.Year - date2.Year +
-                            ((dateTime1.Month > date2.Month ||
-                             (dateTime1.Month == date2.Month && dateTime1.Day >= date2.Day)) ? 0 : -1),
+            TimeUnit.Months => GetCompleteMonthDifference(dateTime1, date2),
+            TimeUnit.Years => GetCompleteYearDifference(dateTime1, date2),
             _ => 0
         };
+
         return abs ? Math.Abs(dateDiff) : dateDiff;
+    }
+
+    private static int GetCompleteMonthDifference(DateTime dateTime1, DateTime dateTime2)
+    {
+        var sign = dateTime1 >= dateTime2 ? 1 : -1;
+        var earlier = sign > 0 ? dateTime2 : dateTime1;
+        var later = sign > 0 ? dateTime1 : dateTime2;
+        var months = (later.Year - earlier.Year) * 12 + later.Month - earlier.Month;
+        if (earlier.AddMonths(months) > later)
+        {
+            months--;
+        }
+
+        return sign * months;
+    }
+
+    private static int GetCompleteYearDifference(DateTime dateTime1, DateTime dateTime2)
+    {
+        var sign = dateTime1 >= dateTime2 ? 1 : -1;
+        var earlier = sign > 0 ? dateTime2 : dateTime1;
+        var later = sign > 0 ? dateTime1 : dateTime2;
+        var years = later.Year - earlier.Year;
+        if (earlier.AddYears(years) > later)
+        {
+            years--;
+        }
+
+        return sign * years;
     }
 
     /// <summary>

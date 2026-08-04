@@ -256,15 +256,28 @@ public partial class DataTableExtensionsTests
     }
 
     [Fact]
-    public void CreateColumnSetter_WithUnsupportedValue_PreservesTargetValue()
+    public void CreateColumnSetter_WithUnsupportedValue_ThrowsConversionException()
     {
         var original = new Uri("https://original.example");
         var target = new UriTarget { Value = original };
         var setter = LingerDataTableExtensions.CreateColumnSetter<UriTarget, Uri>((x, v) => x.Value = v);
 
-        setter(target, "https://replacement.example");
+        var exception = Assert.Throws<InvalidOperationException>(() => setter(target, "https://replacement.example"));
 
         Assert.Same(original, target.Value);
+        Assert.Contains(nameof(Uri), exception.Message);
+    }
+
+    [Fact]
+    public void Paging_WithOverflowingOffset_ReturnsEmptyClone()
+    {
+        var table = CreateTestDataTable();
+
+        var result = table.Paging(int.MaxValue, 2);
+
+        Assert.NotNull(result);
+        Assert.Empty(result.Rows);
+        Assert.Equal(table.Columns.Count, result.Columns.Count);
     }
 
     [Fact]
@@ -432,6 +445,32 @@ public partial class DataTableExtensionsTests
         Assert.Equal("Jane", result.Rows[1]["Name"]);
         Assert.Equal(3, result.Rows[2]["Int_2"]);
         Assert.Equal("Doe", result.Rows[2]["Name_2"]);
+    }
+
+    [Fact]
+    public void Join_WithDuplicateRightKeys_ReturnsEveryMatchingPair()
+    {
+        var left = new DataTable();
+        left.Columns.Add("Key", typeof(int));
+        left.Columns.Add("LeftValue", typeof(string));
+        left.Rows.Add(1, "left");
+
+        var right = new DataTable();
+        right.Columns.Add("Key", typeof(int));
+        right.Columns.Add("RightValue", typeof(string));
+        right.Rows.Add(1, "right-1");
+        right.Rows.Add(1, "right-2");
+
+        var result = left.Join(
+            right,
+            new[] { left.Columns["Key"]! },
+            new[] { right.Columns["Key"]! },
+            includeLeftJoin: false,
+            includeRightJoin: false);
+
+        Assert.Equal(2, result.Rows.Count);
+        Assert.Equal("right-1", result.Rows[0]["RightValue"]);
+        Assert.Equal("right-2", result.Rows[1]["RightValue"]);
     }
 
     private sealed class UriTarget

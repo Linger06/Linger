@@ -144,6 +144,32 @@ public partial class DateTimeExtensionsTests
         Assert.Equal(expected, result);
     }
 
+    [Theory]
+    [InlineData(TimeUnit.Months, 1)]
+    [InlineData(TimeUnit.Years, 0)]
+    public void GetDateDifference_WithAbsoluteCalendarUnits_IsSymmetric(TimeUnit unit, double expected)
+    {
+        var earlier = new DateTime(2024, 1, 15);
+        var later = new DateTime(2024, 3, 14);
+
+        var forward = earlier.GetDateDifference(later, unit, abs: true);
+        var reverse = later.GetDateDifference(earlier, unit, abs: true);
+
+        Assert.Equal(expected, forward);
+        Assert.Equal(expected, reverse);
+    }
+
+    [Fact]
+    public void GetDateDifference_WithMonthEnd_ReturnsCompleteMonth()
+    {
+        var januaryEnd = new DateTime(2024, 1, 31);
+        var februaryEnd = new DateTime(2024, 2, 29);
+
+        var result = februaryEnd.GetDateDifference(januaryEnd, TimeUnit.Months);
+
+        Assert.Equal(1, result);
+    }
+
 
 
     [Fact]

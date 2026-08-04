@@ -276,12 +276,20 @@ public static partial class DataTableExtensions
         {
             return dt.Clone();
         }
+
         DataTable result = dt.Clone();
-        IEnumerable<DataRow> rows = dt.AsEnumerable().Skip((pageIndex - 1) * pageSize).Take(pageSize);
+        long offset = ((long)pageIndex - 1) * pageSize;
+        if (offset > int.MaxValue)
+        {
+            return result;
+        }
+
+        IEnumerable<DataRow> rows = dt.AsEnumerable().Skip((int)offset).Take(pageSize);
         foreach (DataRow item in rows)
         {
             result.ImportRow(item);
         }
+
         return result;
     }
 

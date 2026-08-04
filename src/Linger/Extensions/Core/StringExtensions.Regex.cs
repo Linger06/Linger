@@ -9,15 +9,11 @@ public static partial class StringExtensions
     private const string Ipv4RegexPattern = @"^((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})(\.((2(5[0-5]|[0-4]\d))|[0-1]?\d{1,2})){3}$";
 #endif
     private const string DomainRegexPattern = @"^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?$";
-    private const string UrlRegexPattern = @"^https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]";
     private const string EmailRegexPattern = @"^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*$";
     private const string MultipleMailRegexPattern = @"^((?:(?:[a-zA-Z0-9_\-\.]+)@(?:(?:\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(?:(?:[a-zA-Z0-9\-]+\.)+))(?:[a-zA-Z]{2,4}|[0-9]{1,3})(?:\]?)(?:\s*;\s*|\s*$))+)$";
     #endregion
 
 #if NET8_0_OR_GREATER
-    [GeneratedRegex(UrlRegexPattern)]
-    private static partial Regex GeneratedUrlRegex();
-
     [GeneratedRegex(DomainRegexPattern)]
     private static partial Regex GeneratedDomainRegex();
 
@@ -34,8 +30,6 @@ public static partial class StringExtensions
     private static Regex GetIpv4Regex() => GeneratedIpv4Regex();
 #endif
 
-    private static Regex GetUrlRegex() => GeneratedUrlRegex();
-
     private static Regex GetDomainRegex() => GeneratedDomainRegex();
 
     private static Regex GetEmailRegex() => GeneratedEmailRegex();
@@ -44,13 +38,10 @@ public static partial class StringExtensions
 #else
     private static readonly Regex s_ipv4Regex = new(Ipv4RegexPattern, RegexOptions.Compiled);
     private static readonly Regex s_domainRegex = new(DomainRegexPattern, RegexOptions.Compiled);
-    private static readonly Regex s_urlRegex = new(UrlRegexPattern, RegexOptions.Compiled);
     private static readonly Regex s_emailRegex = new(EmailRegexPattern, RegexOptions.Compiled);
     private static readonly Regex s_multipleMailRegex = new(MultipleMailRegexPattern, RegexOptions.Compiled);
 
     private static Regex GetIpv4Regex() => s_ipv4Regex;
-
-    private static Regex GetUrlRegex() => s_urlRegex;
 
     private static Regex GetDomainRegex() => s_domainRegex;
 
@@ -146,9 +137,14 @@ public static partial class StringExtensions
     /// bool no1 = "ftp://example.com".IsUrl();      // false
     /// </code>
     /// </example>
-    public static bool IsUrl(this string input)
+    [Obsolete("Use Uri.TryCreate(input, UriKind.Absolute, out var uri) and validate the HTTP/HTTPS scheme instead.")]
+    public static bool IsUrl(this string? input)
     {
-        return input is not null && GetUrlRegex().IsMatch(input);
+        return input is not null
+            && Uri.TryCreate(input, UriKind.Absolute, out var uri)
+            && uri.Host.Length > 0
+            && (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase)
+                || uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>

@@ -631,6 +631,9 @@ public partial class StringExtensionsTests
     [InlineData("http://example.com/src/test.html", true)]
     [InlineData("http://example.com/src/test.2.0.0.zip", true)]
     [InlineData("http://example.com/src/test.html?id=1", true)]
+    [InlineData("https://example.com/path#section", true)]
+    [InlineData("https://example.com invalid", false)]
+    [InlineData("https://example.com<script>", false)]
     [InlineData("hhhhhttps://example.com", false)]
     [InlineData("invalid_url", false)]
     [InlineData("", false)]
@@ -1011,6 +1014,10 @@ public partial class StringExtensionsTests
     [Theory]
     [InlineData("http://example.com", "id=123", "http://example.com?id=123")]
     [InlineData("http://example.com?param=value", "id=123", "http://example.com?param=value&id=123")]
+    [InlineData("http://example.com/path#section", "id=123", "http://example.com/path?id=123#section")]
+    [InlineData("http://example.com/path?param=value#section", "id=123", "http://example.com/path?param=value&id=123#section")]
+    [InlineData("http://example.com?", "id=123", "http://example.com?id=123")]
+    [InlineData("http://example.com", "?id=123", "http://example.com?id=123")]
     [InlineData("", "id=123", "?id=123")]
     public void AppendQuery_StringOverload_ShouldReturnExpectedResult(string self, string query, string expected)
     {

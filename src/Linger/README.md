@@ -429,7 +429,7 @@ public enum Status
 
 // String to enum
 string statusName = "Active";
-Status status = statusName.GetEnum<Status>(); // or statusName.ToEnum<Status>()
+Status status = statusName.GetEnum<Status>();
 
 // Integer to enum
 int statusValue = 1;

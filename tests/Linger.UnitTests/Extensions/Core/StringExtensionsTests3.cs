@@ -101,6 +101,20 @@ public partial class StringExtensionsTests
         Assert.Equal("http://example.com?filter=a%26b&user%20name=hello%20world", result);
     }
 
+    [Fact]
+    public void AppendQuery_Dictionary_ShouldInsertQueryBeforeFragment()
+    {
+        var url = "http://example.com/path#section";
+        var data = new Dictionary<string, string>
+        {
+            ["id"] = "123"
+        };
+
+        var result = url.AppendQuery(data);
+
+        Assert.Equal("http://example.com/path?id=123#section", result);
+    }
+
     [Theory]
     [InlineData("http://example.com", "param1=value1&param2=value2&", "http://example.com?param1=value1&param2=value2")]
     [InlineData("http://example.com?existing=param", "param1=value1&param2=value2&", "http://example.com?existing=param&param1=value1&param2=value2")]

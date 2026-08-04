@@ -76,6 +76,21 @@ public class EnumExtensionsTests
     }
 
     [Fact]
+    public void GetEnum_ThrowsExceptionForUndefinedNumericString()
+    {
+        Assert.Throws<ArgumentException>(() => "999".GetEnum<TestEnum>());
+    }
+
+    [Fact]
+    public void TryGetEnum_FailsForUndefinedNumericString()
+    {
+        var ok = "999".TryGetEnum<TestEnum>(out var value);
+
+        Assert.False(ok);
+        Assert.Equal(default, value);
+    }
+
+    [Fact]
     public void ToEnum_ReturnsCorrectEnumForString()
     {
         var itemName = "ValueTwo";

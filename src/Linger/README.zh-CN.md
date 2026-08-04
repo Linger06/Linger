@@ -478,7 +478,7 @@ public enum Status
 
 // 字符串转枚举
 string statusName = "Active";
-Status status = statusName.GetEnum<Status>(); // 或 statusName.ToEnum<Status>()
+Status status = statusName.GetEnum<Status>();
 
 // 整数转枚举
 int statusValue = 1;

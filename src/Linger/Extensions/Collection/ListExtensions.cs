@@ -20,6 +20,7 @@ public static class ListExtensions
     /// // Output: [3, 4]
     /// </code>
     /// </example>
+    [Obsolete("Use the IEnumerable<T>.Paging overload instead.")]
     public static IEnumerable<T> Paging<T>(this List<T>? list, int pageIndex, int pageSize)
     {
         return ((IEnumerable<T>?)list).Paging(pageIndex, pageSize);

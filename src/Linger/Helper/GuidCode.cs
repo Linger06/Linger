@@ -58,6 +58,7 @@ public static class GuidCode
     /// Creates a new version 7 GUID.
     /// </summary>
     /// <returns>A new version 7 GUID.</returns>
+    [Obsolete("Use Guid.CreateVersion7() instead.")]
     public static Guid CreateVersion7()
     {
         return Guid.CreateVersion7();

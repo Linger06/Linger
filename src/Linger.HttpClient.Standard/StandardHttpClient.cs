@@ -176,7 +176,7 @@ public class StandardHttpClient : HttpClientBase, IDisposable
                 var queryString = HttpClientBase.BuildQueryString(queryParams);
                 if (!string.IsNullOrEmpty(queryString))
                 {
-                    url = url.Contains('?') ? $"{url}&{queryString}" : $"{url}?{queryString}";
+                    url = url.AppendQuery(queryString);
                     _logger.LogDebug("[{RequestId}] Query parameters added: {QueryString}", requestId, queryString);
                 }
             }

@@ -218,26 +218,48 @@ public static partial class DataTableExtensions
         ValidateJoinColumns(left, leftCols, nameof(leftCols), nameof(left));
         ValidateJoinColumns(right, rightCols, nameof(rightCols), nameof(right));
 
-        using DataSet ds = new();
-        ds.Tables.AddRange([left.Copy(), right.Copy()]);
-        var leftRelationCols = ResolveJoinColumns(ds.Tables[0], leftCols);
-        var rightRelationCols = ResolveJoinColumns(ds.Tables[1], rightCols);
         var result = CreateJoinResultTable(left, right);
-
-        DataRelation leftRelation = new("rLeft", leftRelationCols, rightRelationCols, false);
-        ds.Relations.Add(leftRelation);
+        var rightLookup = BuildJoinLookup(right, rightCols);
+        HashSet<DataRow>? matchedRightRows = includeRightJoin ? new() : null;
 
         result.BeginLoadData();
-        LoadLeftJoinRows(result, ds.Tables[0], leftRelation, includeLeftJoin);
-
-        if (includeRightJoin)
+        try
         {
-            DataRelation rightRelation = new("rRight", rightRelationCols, leftRelationCols, false);
-            ds.Relations.Add(rightRelation);
-            LoadUnmatchedRightRows(result, ds.Tables[1], rightRelation);
-        }
+            foreach (DataRow leftRow in left.Rows)
+            {
+                var key = GetJoinKey(leftRow, leftCols);
+                if (key is not null && rightLookup.TryGetValue(key, out var rightRows))
+                {
+                    foreach (var rightRow in rightRows)
+                    {
+                        matchedRightRows?.Add(rightRow);
+                        LoadMatchedJoinRow(result, leftRow, rightRow);
+                    }
 
-        result.EndLoadData();
+                    continue;
+                }
+
+                if (includeLeftJoin)
+                {
+                    LoadUnmatchedLeftRow(result, leftRow);
+                }
+            }
+
+            if (matchedRightRows is not null)
+            {
+                foreach (DataRow rightRow in right.Rows)
+                {
+                    if (!matchedRightRows.Contains(rightRow))
+                    {
+                        LoadUnmatchedRightRow(result, rightRow);
+                    }
+                }
+            }
+        }
+        finally
+        {
+            result.EndLoadData();
+        }
 
         return result;
     }
@@ -257,15 +279,44 @@ public static partial class DataTableExtensions
         }
     }
 
-    private static DataColumn[] ResolveJoinColumns(DataTable table, DataColumn[] sourceColumns)
+    private static Dictionary<object?[], List<DataRow>> BuildJoinLookup(DataTable table, DataColumn[] columns)
     {
-        var result = new DataColumn[sourceColumns.Length];
-        for (var i = 0; i < sourceColumns.Length; i++)
+        var lookup = new Dictionary<object?[], List<DataRow>>(ColumnValueArrayComparer.Instance);
+        foreach (DataRow row in table.Rows)
         {
-            result[i] = table.Columns[sourceColumns[i].ColumnName]!;
+            var key = GetJoinKey(row, columns);
+            if (key is null)
+            {
+                continue;
+            }
+
+            if (!lookup.TryGetValue(key, out var rows))
+            {
+                rows = [];
+                lookup.Add(key, rows);
+            }
+
+            rows.Add(row);
         }
 
-        return result;
+        return lookup;
+    }
+
+    private static object?[]? GetJoinKey(DataRow row, DataColumn[] columns)
+    {
+        var key = new object?[columns.Length];
+        for (var i = 0; i < columns.Length; i++)
+        {
+            var value = row[columns[i].ColumnName];
+            if (value is DBNull)
+            {
+                return null;
+            }
+
+            key[i] = value;
+        }
+
+        return key;
     }
 
     private static DataTable CreateJoinResultTable(DataTable left, DataTable right)
@@ -290,63 +341,33 @@ public static partial class DataTableExtensions
         return result;
     }
 
-    private static void LoadLeftJoinRows(
-        DataTable result,
-        DataTable left,
-        DataRelation relation,
-        bool includeUnmatchedRows)
-    {
-        foreach (DataRow leftRow in left.Rows)
-        {
-            var rightRows = leftRow.GetChildRows(relation);
-            if (rightRows.Length == 0)
-            {
-                if (includeUnmatchedRows)
-                {
-                    LoadUnmatchedLeftRow(result, leftRow);
-                }
-
-                continue;
-            }
-
-            foreach (var rightRow in rightRows)
-            {
-                LoadMatchedJoinRow(result, leftRow, rightRow);
-            }
-        }
-    }
-
     private static void LoadMatchedJoinRow(DataTable result, DataRow leftRow, DataRow rightRow)
     {
-        var leftValues = leftRow.ItemArray;
-        var rightValues = rightRow.ItemArray;
-        var joinedValues = new object[leftValues.Length + rightValues.Length];
-        Array.Copy(leftValues, 0, joinedValues, 0, leftValues.Length);
-        Array.Copy(rightValues, 0, joinedValues, leftValues.Length, rightValues.Length);
+        var joinedValues = new object[result.Columns.Count];
+        CopyRowValues(leftRow, joinedValues, 0);
+        CopyRowValues(rightRow, joinedValues, leftRow.Table.Columns.Count);
         result.LoadDataRow(joinedValues, true);
     }
 
     private static void LoadUnmatchedLeftRow(DataTable result, DataRow leftRow)
     {
-        var leftValues = leftRow.ItemArray;
         var joinedValues = new object[result.Columns.Count];
-        Array.Copy(leftValues, 0, joinedValues, 0, leftValues.Length);
+        CopyRowValues(leftRow, joinedValues, 0);
         result.LoadDataRow(joinedValues, true);
     }
 
-    private static void LoadUnmatchedRightRows(DataTable result, DataTable right, DataRelation relation)
+    private static void LoadUnmatchedRightRow(DataTable result, DataRow rightRow)
     {
-        foreach (DataRow rightRow in right.Rows)
-        {
-            if (rightRow.GetChildRows(relation).Length != 0)
-            {
-                continue;
-            }
+        var joinedValues = new object[result.Columns.Count];
+        CopyRowValues(rightRow, joinedValues, result.Columns.Count - rightRow.Table.Columns.Count);
+        result.LoadDataRow(joinedValues, true);
+    }
 
-            var rightValues = rightRow.ItemArray;
-            var joinedValues = new object[result.Columns.Count];
-            Array.Copy(rightValues, 0, joinedValues, joinedValues.Length - rightValues.Length, rightValues.Length);
-            result.LoadDataRow(joinedValues, true);
+    private static void CopyRowValues(DataRow row, object[] target, int targetOffset)
+    {
+        for (var i = 0; i < row.Table.Columns.Count; i++)
+        {
+            target[targetOffset + i] = row[i];
         }
     }
 
@@ -433,7 +454,8 @@ public static partial class DataTableExtensions
 
             if (!Helper.TypeConverter.TryConvert(rawValue, typeof(TValue), out var convertedValue))
             {
-                return;
+                throw new InvalidOperationException(
+                    $"Value of type '{rawValue.GetType().FullName}' cannot be converted to '{typeof(TValue).FullName}'.");
             }
 
             if (convertedValue is null)
