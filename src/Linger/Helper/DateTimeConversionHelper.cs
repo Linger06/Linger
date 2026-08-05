@@ -28,12 +28,17 @@ internal static class DateTimeConversionHelper
             return true;
         }
 
-        return DateTime.TryParseExact(
-            trimmed,
-            s_extraFormats,
-            CultureInfo.InvariantCulture,
-            ParseStyles,
-            out result);
+        if (DateTime.TryParseExact(
+                trimmed,
+                s_extraFormats,
+                CultureInfo.InvariantCulture,
+                ParseStyles,
+                out result))
+        {
+            return true;
+        }
+
+        return DateTime.TryParse(trimmed, CultureInfo.CurrentCulture, ParseStyles, out result);
     }
 
     public static DateTime ParseStringToDateTime(string value)

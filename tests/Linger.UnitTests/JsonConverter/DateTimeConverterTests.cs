@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Linger.Json.JsonConverter;
 using Xunit.v3;
@@ -84,6 +85,26 @@ public class DateTimeConverterTests
         
         // Assert
         Assert.Equal(new DateTime(2025, 4, 11, 14, 30, 45), result);
+    }
+
+    [Fact]
+    public void DateTimeConverter_Read_WithZhCnCulture_ReturnsDateTime()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("zh-CN");
+            var json = "\"2024/1/15 下午 3:04:05\"";
+
+            var result = JsonSerializer.Deserialize<DateTime>(json, _options);
+
+            Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), result);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     [Fact]
