@@ -39,7 +39,9 @@ for applications upgrading from the previous API surface.
 | `Linger.Utils` | `PathExtensions.ToFullPath` | `Path.GetFullPath(path)` or `Path.GetFullPath(path, basePath)` | .NET BCL | Trailing separator policy moves to the caller; on netstandard2.0 use `Path.GetFullPath(Path.Combine(basePath, path))`. |
 | `Linger.Utils` | `PathExtensions.GetRelativePath` | `Path.GetRelativePath` | .NET BCL | The BCL also returns `"."` for identical paths. |
 | `Linger.Utils` | `PathExtensions.GetParentDirectory(levels)` | Call `Path.GetDirectoryName` once per level | .NET BCL | The BCL returns `null` at the root; the old helper returned the root itself. |
-| `Linger.Utils` | `FileHelper.GetExistingFileInfo(string, string?)` | `GetExistingFileInfo(string)` | `Linger.Utils` | `RelativeFilePath` is no longer computed; call `Path.GetRelativePath` when you need it. |
+| `Linger.Utils` | `FileHelper.GetExistingFileInfo(...)` | `new FileInfo(path)` | .NET BCL / `Linger.Utils` | Open the file and call `ComputeHashMd5()` only when a content fingerprint is required. |
+| `Linger.Utils` | `ExtendedFileInfo` | `UploadedInfo` or an application-specific DTO | `Linger.FileSystem` / application code | Use `UploadedInfo` for upload results; otherwise define a model matching the application's metadata needs. |
+| `Linger.Utils` | `BaseFileInfo` | `UploadedInfo` or an application-specific DTO | `Linger.FileSystem` / application code | The generic base type had no independent behavior or meaningful polymorphic use. |
 | `Linger.Utils` | `int.ToFileSizeBytesString` | `FormatFileSize` | `Linger.Utils` | The new format is consistent with other file-size APIs. |
 | `Linger.Utils` | `FileInfoExtensions.Delete(IEnumerable<FileInfo>)` | `Delete(files, consolidateExceptions)` | `Linger.Utils` | Pass `false` to retain fail-fast behavior, or `true` to aggregate eligible failures. |
 | `Linger.Utils` | `FileInfoExtensions.GetVersionInfo` | `FileVersionInfo.GetVersionInfo(fileInfo.FullName)` | .NET BCL | Apply any platform policy in the caller. |
