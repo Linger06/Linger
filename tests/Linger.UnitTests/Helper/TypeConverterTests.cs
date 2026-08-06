@@ -1,3 +1,4 @@
+using System.Globalization;
 using Linger.Helper;
 
 namespace Linger.UnitTests.Helper;
@@ -81,6 +82,26 @@ public class TypeConverterTests
     public void TryConvert_StringToDateTime_ReturnsConvertedValue()
     {
         AssertConversion("2024-01-15", new DateTime(2024, 1, 15));
+    }
+
+    [Fact]
+    public void TryConvert_ZhCnDateTimeString_UsesCurrentCultureFallback()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("zh-CN");
+
+            var success = TypeConverter.TryConvert("2024/1/15 下午 3:04:05", typeof(DateTime), out var result);
+
+            Assert.True(success);
+            Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), result);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     [Fact]

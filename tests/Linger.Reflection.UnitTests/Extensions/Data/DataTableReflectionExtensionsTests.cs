@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using Linger.Extensions.Data;
 
 namespace Linger.UnitTests.Extensions.Data;
@@ -40,6 +41,29 @@ public class DataTableReflectionExtensionsTests
         Assert.True(item.Enabled);
         Assert.Equal(RowStatus.Active, item.Status);
         Assert.Equal(createdAt.Date, item.CreatedAt.Date);
+    }
+
+    [Fact]
+    public void ToList_WithZhCnDateTimeString_UsesCurrentCultureFallback()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("zh-CN");
+            var table = new DataTable();
+            table.Columns.Add("CreatedAt", typeof(string));
+            table.Rows.Add("2024/1/15 下午 3:04:05");
+
+            List<SpecialTypesModel>? result = table.ToList<SpecialTypesModel>();
+
+            SpecialTypesModel item = Assert.Single(result!);
+            Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), item.CreatedAt);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     [Fact]
