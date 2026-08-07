@@ -85,7 +85,7 @@ public class TypeConverterTests
     }
 
     [Fact]
-    public void TryConvert_ZhCnDateTimeString_UsesCurrentCultureFallback()
+    public void TryConvert_ZhCnDateTimeString_ReturnsFalse()
     {
         var originalCulture = CultureInfo.CurrentCulture;
 
@@ -95,8 +95,8 @@ public class TypeConverterTests
 
             var success = TypeConverter.TryConvert("2024/1/15 下午 3:04:05", typeof(DateTime), out var result);
 
-            Assert.True(success);
-            Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), result);
+            Assert.False(success);
+            Assert.Null(result);
         }
         finally
         {

@@ -44,7 +44,7 @@ public class DataTableReflectionExtensionsTests
     }
 
     [Fact]
-    public void ToList_WithZhCnDateTimeString_UsesCurrentCultureFallback()
+    public void ToList_WithZhCnDateTimeString_ThrowsInvalidCastException()
     {
         var originalCulture = CultureInfo.CurrentCulture;
 
@@ -55,15 +55,27 @@ public class DataTableReflectionExtensionsTests
             table.Columns.Add("CreatedAt", typeof(string));
             table.Rows.Add("2024/1/15 下午 3:04:05");
 
-            List<SpecialTypesModel>? result = table.ToList<SpecialTypesModel>();
+            InvalidCastException exception = Assert.Throws<InvalidCastException>(() => table.ToList<SpecialTypesModel>());
 
-            SpecialTypesModel item = Assert.Single(result!);
-            Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), item.CreatedAt);
+            Assert.Contains("CreatedAt", exception.Message, StringComparison.Ordinal);
         }
         finally
         {
             CultureInfo.CurrentCulture = originalCulture;
         }
+    }
+
+    [Fact]
+    public void ToList_WithInvariantDateTimeString_MapsDateTime()
+    {
+        var table = new DataTable();
+        table.Columns.Add("CreatedAt", typeof(string));
+        table.Rows.Add("2024/1/15 15:04:05");
+
+        List<SpecialTypesModel>? result = table.ToList<SpecialTypesModel>();
+
+        SpecialTypesModel item = Assert.Single(result!);
+        Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), item.CreatedAt);
     }
 
     [Fact]

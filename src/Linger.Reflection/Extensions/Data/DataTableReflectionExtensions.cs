@@ -114,8 +114,8 @@ public static class DataTableReflectionExtensions
         if (!TypeConverter.TryConvert(value, property.PropertyType, out object? convertedValue))
         {
             throw new InvalidCastException(
-                $"[核心转换失败] 无法将输入值 '{value}' (类型: {value.GetType().Name}) 转换为属性 '{property.Name}' 所需的目标类型 {property.PropertyType.Name}。 " +
-                $"当前系统的运行时 Culture 是: '{CultureInfo.CurrentCulture.Name}'。");
+                $"[核心转换失败] 无法将输入值 '{value}' (类型: {value.GetType().Name}) 转换为属性 '{property.Name}' 所需的目标类型 {property.PropertyType.Name}。" +
+                "请提供目标类型可直接接收的值，或在映射前显式转换。");
         }
 
         if (convertedValue is null && property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) is null)
