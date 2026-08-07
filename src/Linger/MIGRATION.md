@@ -63,6 +63,9 @@ for applications upgrading from the previous API surface.
 | `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.TryRefreshTokenAsync` | `RefreshTokenResultAsync` | `Linger.AspNetCore.Jwt.Contracts` | The replacement also provides an error message. |
 | `Linger.Email.AspNetCore` | `ConfigureEmail` / `ConfigureMailKit` | `AddEmailService` | `Linger.Email.AspNetCore` | The replacement returns `IServiceCollection` for chaining. |
 | `Linger.Excel.Contracts` | `DataTableToFile` / `DataSetToFile` | `DataTableToExcel` / `DataSetToExcel` | `Linger.Excel.Contracts` | The replacement names match the Excel export operation. |
+| `Linger.Excel.Contracts` | Excel import extensions accepting `Func<DataRow, T>` | `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` accepting `Func<ExcelRow, T>` | `Linger.Excel.Contracts` | The replacement maps worksheet rows directly and no longer creates an intermediate `DataTable`. Use `ExcelRow.Get<T>(columnName)` for typed access. |
+| `Linger.Excel.Contracts` | Excel import extensions accepting `Func<T>` and `columnSetters` | `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` accepting `Func<ExcelRow, T>` | `Linger.Excel.Contracts` | Construct and populate the target object in one mapper delegate. The general `DataTable` factory/setter overloads remain available for callers that already have a `DataTable`. |
+| `Linger.Excel.Contracts` | Custom `IExcelService` implementations | Implement the collection-export overloads accepting `ExcelExportColumn<T>` | `Linger.Excel.Contracts` | Explicit-column export is now part of the service contract and writes directly to worksheets without creating an intermediate `DataTable`. |
 | `Linger.Results` | `ExecuteResult`, `ExecuteResult<T>`, and `ResultCompat` | `Result` / `Result<T>` | `Linger.Results` | Replace the legacy result types and conversion helpers. |
 | `Linger.Results` | `ErrorObj` and `ToErrorObj` | `Error` and a caller-owned error collection | `Linger.Results` / application code | The legacy aggregation shape has no one-to-one replacement. |
 | `Linger.FileSystem` | `ILocalFileSystem.Exists()` / `ExistsAsync()` | `DirectoryExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | Use the standard directory-existence API. `LocalFileSystem` also creates its configured root directory during construction. |
@@ -108,6 +111,14 @@ for applications upgrading from the previous API surface.
   as descending order.
 - **`Linger.Utils`**: `FileInfoExtensions.Delete` no longer has a default exception policy. Call
   sites must choose fail-fast or consolidated exceptions explicitly.
+- **`Linger.Excel.Contracts`**: Excel-to-`DataTable` imports now infer each column's common CLR type
+  and preserve values such as numbers, booleans, and `DateTime` instead of coercing every non-null
+  cell to `string`. Empty or mixed-type columns use `object`. Call `Convert.ToString` explicitly when
+  text output is required.
+- **`Linger.Json`**: `DataTableJsonConverter` serializes values in `object` columns according to each
+  value's runtime type, so numbers and booleans remain JSON numbers and booleans. When JSON values
+  of incompatible token types share a column, deserialization uses an `object` column and preserves
+  each token's corresponding .NET value type.
 
 ## Examples
 

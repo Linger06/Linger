@@ -277,6 +277,44 @@ public class DataTableJsonConverterTests
     }
 
     [Fact]
+    public void Serialize_ObjectColumn_UsesRuntimeValueTypes()
+    {
+        var dataTable = new DataTable();
+        dataTable.Columns.Add("Value", typeof(object));
+        dataTable.Rows.Add(42);
+        dataTable.Rows.Add(true);
+        dataTable.Rows.Add(new DateTime(2024, 1, 15, 15, 4, 5));
+        dataTable.Rows.Add("text");
+
+        var json = JsonSerializer.Serialize(dataTable, _options);
+
+        Assert.Equal(
+            "[{\"Value\":42},{\"Value\":true},{\"Value\":\"2024-01-15T15:04:05\"},{\"Value\":\"text\"}]",
+            json);
+    }
+
+    [Fact]
+    public void SerializeAndDeserialize_MixedObjectColumn_PreservesJsonValueTypes()
+    {
+        var source = new DataTable();
+        source.Columns.Add("Value", typeof(object));
+        source.Rows.Add(42);
+        source.Rows.Add(true);
+        source.Rows.Add(DBNull.Value);
+        source.Rows.Add("text");
+
+        var json = JsonSerializer.Serialize(source, _options);
+        var result = JsonSerializer.Deserialize<DataTable>(json, _options);
+
+        Assert.NotNull(result);
+        Assert.Equal(typeof(object), result.Columns["Value"]!.DataType);
+        Assert.Equal(42L, Assert.IsType<long>(result.Rows[0]["Value"]));
+        Assert.True(Assert.IsType<bool>(result.Rows[1]["Value"]));
+        Assert.Equal(DBNull.Value, result.Rows[2]["Value"]);
+        Assert.Equal("text", Assert.IsType<string>(result.Rows[3]["Value"]));
+    }
+
+    [Fact]
     public void Deserialize_JsonArray_CreatesDataTable()
     {
         var json = "[{\"Name\":\"John Doe\",\"Age\":30},{\"Name\":\"Linger\",\"Age\":25}]";

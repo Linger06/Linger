@@ -33,6 +33,18 @@ public interface IExcelService
     List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
 
     /// <summary>
+    /// 使用行映射委托将 Excel 文件转换为对象列表。
+    /// </summary>
+    /// <typeparam name="T">目标对象类型。</typeparam>
+    /// <param name="filePath">Excel 文件路径。</param>
+    /// <param name="map">将当前 Excel 行映射为目标对象的委托。</param>
+    /// <param name="sheetName">工作表名称。</param>
+    /// <param name="headerRowIndex">列名所在行号。</param>
+    /// <param name="addEmptyRow">是否保留空行。</param>
+    /// <returns>映射后的对象列表；导入失败时返回 <see langword="null"/>。</returns>
+    List<T>? ExcelToList<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
     /// 将Excel文件转换为DataSet(所有工作表)
     /// </summary>
     /// <param name="filePath">Excel文件路径</param>
@@ -94,6 +106,19 @@ public interface IExcelService
     List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
+    /// 使用行映射委托将 Excel 流转换为对象列表。
+    /// </summary>
+    /// <typeparam name="T">目标对象类型。</typeparam>
+    /// <param name="stream">Excel 流。</param>
+    /// <param name="map">将当前 Excel 行映射为目标对象的委托。</param>
+    /// <param name="sheetName">工作表名称。</param>
+    /// <param name="headerRowIndex">列名所在行号。</param>
+    /// <param name="addEmptyRow">是否保留空行。</param>
+    /// <param name="cancellationToken">协作式取消令牌。</param>
+    /// <returns>映射后的对象列表；导入失败时返回 <see langword="null"/>。</returns>
+    List<T>? StreamToList<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 将Stream转换为DataSet(所有工作表)
     /// </summary>
     /// <param name="stream">要转换的Stream</param>
@@ -146,6 +171,19 @@ public interface IExcelService
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
+    /// 异步使用行映射委托将 Excel 文件转换为对象列表。
+    /// </summary>
+    /// <typeparam name="T">目标对象类型。</typeparam>
+    /// <param name="filePath">Excel 文件路径。</param>
+    /// <param name="map">将当前 Excel 行映射为目标对象的委托。</param>
+    /// <param name="sheetName">工作表名称。</param>
+    /// <param name="headerRowIndex">列名所在行号。</param>
+    /// <param name="addEmptyRow">是否保留空行。</param>
+    /// <param name="cancellationToken">协作式取消令牌。</param>
+    /// <returns>映射后的对象列表；导入失败时返回 <see langword="null"/>。</returns>
+    Task<List<T>?> ExcelToListAsync<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 异步将Excel文件转换为DataSet(所有工作表)
     /// </summary>
     Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
@@ -174,6 +212,19 @@ public interface IExcelService
     /// 异步将Stream转换为对象列表
     /// </summary>
     Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
+
+    /// <summary>
+    /// 异步使用行映射委托将 Excel 流转换为对象列表。
+    /// </summary>
+    /// <typeparam name="T">目标对象类型。</typeparam>
+    /// <param name="stream">Excel 流。</param>
+    /// <param name="map">将当前 Excel 行映射为目标对象的委托。</param>
+    /// <param name="sheetName">工作表名称。</param>
+    /// <param name="headerRowIndex">列名所在行号。</param>
+    /// <param name="addEmptyRow">是否保留空行。</param>
+    /// <param name="cancellationToken">协作式取消令牌。</param>
+    /// <returns>映射后的对象列表；导入失败时返回 <see langword="null"/>。</returns>
+    Task<List<T>?> StreamToListAsync<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Stream转换为DataSet(所有工作表)
@@ -215,9 +266,32 @@ public interface IExcelService
     string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "") where T : class;
 
     /// <summary>
+    /// 使用显式列定义将对象集合导出为 Excel 文件。
+    /// </summary>
+    /// <typeparam name="T">源数据类型。</typeparam>
+    /// <param name="items">要导出的对象集合。</param>
+    /// <param name="columns">显式列定义集合。</param>
+    /// <param name="fullFileName">目标文件完整路径。</param>
+    /// <param name="sheetsName">工作表名称。</param>
+    /// <param name="title">标题。</param>
+    /// <returns>导出的文件路径。</returns>
+    string CollectionToExcel<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "");
+
+    /// <summary>
     /// 对象集合转 Excel 内存流
     /// </summary>
     MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = ExcelOptions.DefaultSheetName, string title = "") where T : class;
+
+    /// <summary>
+    /// 使用显式列定义将对象集合导出为 Excel 内存流。
+    /// </summary>
+    /// <typeparam name="T">源数据类型。</typeparam>
+    /// <param name="items">要导出的对象集合。</param>
+    /// <param name="columns">显式列定义集合。</param>
+    /// <param name="sheetsName">工作表名称。</param>
+    /// <param name="title">标题。</param>
+    /// <returns>包含导出内容的内存流。</returns>
+    MemoryStream CollectionToMemoryStream<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string sheetsName = ExcelOptions.DefaultSheetName, string title = "");
 
     /// <summary>
     /// 数据表格转 Excel 内存流
@@ -233,6 +307,19 @@ public interface IExcelService
     /// 异步将对象集合导出为Excel文件
     /// </summary>
     Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default) where T : class;
+
+    /// <summary>
+    /// 使用显式列定义异步将对象集合导出为 Excel 文件。
+    /// </summary>
+    /// <typeparam name="T">源数据类型。</typeparam>
+    /// <param name="items">要导出的对象集合。</param>
+    /// <param name="columns">显式列定义集合。</param>
+    /// <param name="fullFileName">目标文件完整路径。</param>
+    /// <param name="sheetsName">工作表名称。</param>
+    /// <param name="title">标题。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>导出的文件路径。</returns>
+    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 创建Excel模板

@@ -185,7 +185,9 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             return;
         }
 
-        var actualType = Nullable.GetUnderlyingType(valueType) ?? valueType;
+        var actualType = valueType == typeof(object)
+            ? value.GetType()
+            : Nullable.GetUnderlyingType(valueType) ?? valueType;
         switch (Type.GetTypeCode(actualType))
         {
             case TypeCode.DateTime:
@@ -642,6 +644,32 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                         property.PropertyType,
                         styleCache);
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// 使用显式列定义直接写入集合数据行。
+    /// </summary>
+    protected override void ProcessCollectionRows<T>(ISheet worksheet, IReadOnlyList<T> items,
+        IReadOnlyList<ExcelExportColumn<T>> columns, int startRowIndex)
+    {
+        var workbook = worksheet.Workbook;
+        var styleCache = new Dictionary<Type, ICellStyle>();
+
+        for (var rowIndex = 0; rowIndex < items.Count; rowIndex++)
+        {
+            var dataRow = worksheet.CreateRow(rowIndex + startRowIndex + 1);
+            for (var columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+            {
+                var column = columns[columnIndex];
+                WriteValueToCell(
+                    workbook,
+                    dataRow,
+                    columnIndex,
+                    GetExportValue(column, items[rowIndex]),
+                    column.DataType,
+                    styleCache);
             }
         }
     }

@@ -17,7 +17,7 @@ public static class JsonExtensions
     {
         var dataTable = new DataTable();
 
-        var columnTypes = new Dictionary<string, Type>(StringComparer.Ordinal);
+        var columnTypes = new Dictionary<string, Type?>(StringComparer.Ordinal);
 
         foreach (JsonElement element in dataRoot.EnumerateArray())
         {
@@ -37,7 +37,7 @@ public static class JsonExtensions
 
         foreach (var columnType in columnTypes)
         {
-            var dataColumn = new DataColumn(columnType.Key, columnType.Value)
+            var dataColumn = new DataColumn(columnType.Key, columnType.Value ?? typeof(object))
             {
                 AllowDBNull = true
             };
@@ -59,7 +59,7 @@ public static class JsonExtensions
         return dataTable;
     }
 
-    private static Type InferColumnType(this JsonElement jsonElement)
+    private static Type? InferColumnType(this JsonElement jsonElement)
     {
         switch (jsonElement.ValueKind)
         {
@@ -77,7 +77,7 @@ public static class JsonExtensions
                 return typeof(bool);
             case JsonValueKind.Null:
             case JsonValueKind.Undefined:
-                return typeof(object);
+                return null;
             case JsonValueKind.Object:
             case JsonValueKind.Array:
                 throw new NotSupportedException();
@@ -86,19 +86,19 @@ public static class JsonExtensions
         }
     }
 
-    private static Type MergeColumnType(Type currentType, Type candidateType)
+    private static Type? MergeColumnType(Type? currentType, Type? candidateType)
     {
-        if (currentType == candidateType)
+        if (currentType is null)
+        {
+            return candidateType;
+        }
+
+        if (candidateType is null || currentType == candidateType)
         {
             return currentType;
         }
 
         if (currentType == typeof(object))
-        {
-            return candidateType;
-        }
-
-        if (candidateType == typeof(object))
         {
             return currentType;
         }

@@ -133,9 +133,9 @@ namespace Linger.Excel.Tests
         }
 
         [Fact]
-        public async Task StreamToListAsync_WithFactoryAndColumnSetters_ReadsAndConvertsToObjects()
+        public async Task StreamToListAsync_WithMapper_ReadsAndConvertsToObjects()
         {
-            await AssertStreamToListAsyncWithFactoryAndColumnSetters(GetExcelService(), "Npoi");
+            await AssertStreamToListAsyncWithMapper(GetExcelService(), "Npoi");
         }
 
         [Fact]

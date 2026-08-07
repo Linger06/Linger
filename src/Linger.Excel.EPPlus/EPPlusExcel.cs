@@ -423,6 +423,22 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     }
 
     /// <summary>
+    /// 使用显式列定义直接写入集合数据行。
+    /// </summary>
+    protected override void ProcessCollectionRows<T>(ExcelWorksheet worksheet, IReadOnlyList<T> items,
+        IReadOnlyList<ExcelExportColumn<T>> columns, int startRowIndex)
+    {
+        for (var rowIndex = 0; rowIndex < items.Count; rowIndex++)
+        {
+            for (var columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+            {
+                var cell = worksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
+                WriteValueToCell(cell, GetExportValue(columns[columnIndex], items[rowIndex]));
+            }
+        }
+    }
+
+    /// <summary>
     /// 应用工作表格式化
     /// </summary>
     protected override void ApplyWorksheetFormatting(ExcelWorksheet worksheet, int rowCount, int columnCount)

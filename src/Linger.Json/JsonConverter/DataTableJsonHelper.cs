@@ -87,17 +87,27 @@ public static class DataTableJsonHelper
 
     private static Action<Utf8JsonWriter, string, object> CreateWriteAction(Type columnType)
     {
-        if (columnType.IsEnum)
+        if (columnType == typeof(object))
+        {
+            return WriteRuntimeValue;
+        }
+
+        return CreateTypedWriteAction(columnType);
+    }
+
+    private static Action<Utf8JsonWriter, string, object> CreateTypedWriteAction(Type valueType)
+    {
+        if (valueType.IsEnum)
         {
             return static (writer, key, value) => writer.WriteString(key, value.ToString());
         }
 
-        if (columnType == typeof(Guid))
+        if (valueType == typeof(Guid))
         {
             return static (writer, key, value) => writer.WriteString(key, (Guid)value);
         }
 
-        return Type.GetTypeCode(columnType) switch
+        return Type.GetTypeCode(valueType) switch
         {
             TypeCode.Boolean => static (writer, key, value) => writer.WriteBoolean(key, (bool)value),
             TypeCode.Byte => static (writer, key, value) => writer.WriteNumber(key, (byte)value),
@@ -114,6 +124,11 @@ public static class DataTableJsonHelper
             TypeCode.DateTime => static (writer, key, value) => writer.WriteString(key, (DateTime)value),
             _ => static (writer, key, value) => writer.WriteString(key, value.ToString() ?? string.Empty)
         };
+    }
+
+    private static void WriteRuntimeValue(Utf8JsonWriter writer, string key, object value)
+    {
+        CreateTypedWriteAction(value.GetType())(writer, key, value);
     }
 }
 #endif

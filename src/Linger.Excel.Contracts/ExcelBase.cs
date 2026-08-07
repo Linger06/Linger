@@ -33,6 +33,18 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
+    /// 使用行映射委托将 Excel 文件转换为对象列表。
+    /// </summary>
+    public override List<T>? ExcelToList<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+
+        return ImportFile(
+            filePath,
+            stream => StreamToList(stream, map, sheetName, headerRowIndex, addEmptyRow));
+    }
+
+    /// <summary>
     /// 将Excel文件转换为DataSet(所有工作表)
     /// </summary>
     public override DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false)
@@ -103,13 +115,25 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// 对象集合转 Excel 文件
     /// </summary>
 #if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads in ExcelExtensions.")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads.")]
 #endif
     public override string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
     {
         using var ms = CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
         ms.ToFile(fullFileName);
+        return fullFileName;
+    }
+
+    /// <summary>
+    /// 使用显式列定义将对象集合导出为 Excel 文件。
+    /// </summary>
+    public override string CollectionToExcel<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName,
+        string sheetsName = "Sheet1", string title = "")
+    {
+        using var ms = CollectionToMemoryStream(items, columns, sheetsName, title);
+        ms.ToFile(fullFileName);
+
         return fullFileName;
     }
 
@@ -185,6 +209,111 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// </summary>
     public override DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
+        return ImportFromStream(
+            stream,
+            sheetName,
+            cancellationToken,
+            worksheet =>
+            {
+                if (!Options.EnablePerformanceMonitoring)
+                {
+                    return ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
+                }
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger.LogInformation(
+                        "从Excel流导入到DataTable[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                        dataTable.Rows.Count,
+                        dataTable.Columns.Count,
+                        sw.ElapsedMilliseconds);
+                }
+
+                return dataTable;
+            });
+    }
+
+    /// <summary>
+    /// 将Stream转换为对象列表（新方法）
+    /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. For AOT/trimming scenarios, use the ExcelRow mapper overload.")]
+#endif
+    public override List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
+    {
+        return ImportFromStream(
+            stream,
+            sheetName,
+            cancellationToken,
+            worksheet =>
+            {
+                if (!Options.EnablePerformanceMonitoring)
+                {
+                    return ImportWorksheetToList<T>(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
+                }
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var result = ImportWorksheetToList<T>(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger.LogInformation(
+                        "从Excel流导入到List[行数:{RowCount}]耗时: {ElapsedMilliseconds}ms",
+                        result.Count,
+                        sw.ElapsedMilliseconds);
+                }
+
+                return result;
+            });
+    }
+
+    /// <summary>
+    /// 使用行映射委托将 Excel 流转换为对象列表。
+    /// </summary>
+    public override List<T>? StreamToList<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+
+        return ImportFromStream(
+            stream,
+            sheetName,
+            cancellationToken,
+            worksheet =>
+            {
+                if (!Options.EnablePerformanceMonitoring)
+                {
+                    return ImportWorksheetToList(worksheet, map, headerRowIndex, addEmptyRow, cancellationToken);
+                }
+
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var result = ImportWorksheetToList(worksheet, map, headerRowIndex, addEmptyRow, cancellationToken);
+                sw.Stop();
+
+                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+                {
+                    Logger.LogInformation(
+                        "从Excel流使用行映射导入到List[行数:{RowCount}]耗时: {ElapsedMilliseconds}ms",
+                        result.Count,
+                        sw.ElapsedMilliseconds);
+                }
+
+                return result;
+            });
+    }
+
+    private TResult? ImportFromStream<TResult>(
+        Stream stream,
+        string? sheetName,
+        CancellationToken cancellationToken,
+        Func<TWorksheet, TResult> import)
+        where TResult : class
+    {
+        ArgumentNullException.ThrowIfNull(import);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (IsStreamEmpty(stream))
@@ -194,20 +323,17 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
 
         TWorkbook? workbook = null;
-
         try
         {
-            // 打开Excel工作簿
             workbook = OpenWorkbook(stream, cancellationToken);
-            if (workbook == null)
+            if (workbook is null)
             {
                 Logger.LogWarning("无法打开Excel工作簿");
                 return null;
             }
 
-            // 获取工作表
             var worksheet = GetWorksheet(workbook, sheetName);
-            if (worksheet == null)
+            if (worksheet is null)
             {
                 Logger.LogWarning("工作表不存在: {SheetName}", sheetName ?? "默认");
                 return null;
@@ -219,110 +345,15 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                 return null;
             }
 
-            DataTable? dataTable;
-            if (Options.EnablePerformanceMonitoring)
-            {
-                var sw = System.Diagnostics.Stopwatch.StartNew();
-
-                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
-
-                sw.Stop();
-                if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-                {
-                    Logger.LogInformation(
-                        "从Excel流导入到DataTable[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
-                        dataTable?.Rows.Count ?? 0,
-                        dataTable?.Columns.Count ?? 0,
-                        sw.ElapsedMilliseconds);
-                }
-            }
-            else
-            {
-                dataTable = ImportFromWorksheet(worksheet, headerRowIndex, addEmptyRow, cancellationToken);
-            }
-
-            return dataTable;
+            return import(worksheet);
         }
         finally
         {
-            // 确保释放资源
-            if (workbook != null)
+            if (workbook is not null)
             {
                 CloseWorkbook(workbook);
             }
         }
-    }
-
-    /// <summary>
-    /// 将Stream转换为对象列表（新方法）
-    /// </summary>
-#if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. For AOT/trimming scenarios, use the mapper/factory import overloads in ExcelExtensions.")]
-#endif
-    public override List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
-    {
-        // 首先转换为DataTable
-        var dataTable = StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
-        if (dataTable == null)
-        {
-            return null;
-        }
-
-        // 然后将DataTable转换为对象列表
-        var result = new List<T>(dataTable.Rows.Count);
-        var properties = typeof(T).GetProperties().Where(p => p.CanWrite).ToArray();
-
-        // 创建属性映射
-        var propertyMapping = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
-        foreach (var prop in properties)
-        {
-            // 检查是否有ExcelColumn特性
-            var excelAttr = prop.GetCustomAttribute<ExcelColumnAttribute>();
-            if (excelAttr != null && excelAttr.ColumnName.IsNotNullOrWhiteSpace())
-            {
-                propertyMapping[excelAttr.ColumnName] = prop;
-            }
-
-            // 同时添加属性名称映射
-            propertyMapping[prop.Name] = prop;
-        }
-
-        // 创建列到属性的映射
-        var columnToProperty = new Dictionary<int, PropertyInfo>();
-        for (var i = 0; i < dataTable.Columns.Count; i++)
-        {
-            var columnName = dataTable.Columns[i].ColumnName;
-            if (propertyMapping.TryGetValue(columnName, out var property))
-            {
-                columnToProperty[i] = property;
-            }
-        }
-
-        // 转换每行数据
-        foreach (DataRow row in dataTable.Rows)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            T item = Activator.CreateInstance<T>();
-
-            foreach (var kvp in columnToProperty)
-            {
-                var columnIndex = kvp.Key;
-                PropertyInfo property = kvp.Value;
-
-                if (!row.IsNull(columnIndex))
-                {
-                    var value = row[columnIndex];
-                    if (TypeConverter.TryConvert(value, property.PropertyType, out var convertedValue) && convertedValue is not null)
-                    {
-                        property.SetValue(item, convertedValue);
-                    }
-                }
-            }
-
-            result.Add(item);
-        }
-
-        return result;
     }
 
     /// <summary>
@@ -533,7 +564,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// 对象集合转 Excel 内存流（新方法）
     /// </summary>
 #if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads in ExcelExtensions.")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads.")]
 #endif
     public override MemoryStream CollectionToMemoryStream<T>(
         List<T> list,
@@ -566,6 +597,44 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         else
         {
             result = ExportCollection(list, sheetsName, title, action, styleAction);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 使用显式列定义将对象集合直接导出为 Excel 内存流。
+    /// </summary>
+    public override MemoryStream CollectionToMemoryStream<T>(
+        IEnumerable<T> items,
+        IEnumerable<ExcelExportColumn<T>> columns,
+        string sheetsName = "Sheet1",
+        string title = "")
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(columns);
+
+        var itemList = items as IReadOnlyList<T> ?? items.ToList();
+        var columnList = columns as IReadOnlyList<ExcelExportColumn<T>> ?? columns.ToList();
+        ValidateExplicitExportColumns(columnList);
+        ValidateExportOptions();
+
+        if (!Options.EnablePerformanceMonitoring)
+        {
+            return ExportCollection(itemList, columnList, sheetsName, title);
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var result = ExportCollection(itemList, columnList, sheetsName, title);
+        sw.Stop();
+
+        if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
+        {
+            Logger.LogInformation(
+                "使用显式列导出列表到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                itemList.Count,
+                columnList.Count,
+                sw.ElapsedMilliseconds);
         }
 
         return result;
@@ -663,6 +732,36 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
     }
 
+    private MemoryStream ExportCollection<T>(
+        IReadOnlyList<T> items,
+        IReadOnlyList<ExcelExportColumn<T>> columns,
+        string sheetsName,
+        string title)
+    {
+        var workbook = CreateWorkbook();
+        try
+        {
+            var worksheet = CreateWorksheet(workbook, sheetsName);
+            var columnNames = columns.Select(static column => column.Header).ToArray();
+
+            var startRowIndex = 0;
+            if (title.IsNotNullOrEmpty())
+            {
+                startRowIndex += ApplyTitle(worksheet, title, columnNames.Length);
+            }
+
+            CreateHeaderRowCore(worksheet, columnNames, startRowIndex);
+            ProcessCollectionRows(worksheet, items, columns, startRowIndex);
+            ApplyWorksheetFormatting(worksheet, items.Count + startRowIndex + 1, columnNames.Length);
+
+            return SaveWorkbookToStream(workbook);
+        }
+        finally
+        {
+            CloseWorkbook(workbook);
+        }
+    }
+
     /// <summary>
     /// 导出DataTable到Excel
     /// </summary>
@@ -713,6 +812,23 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         ValidateHexColor(styleOptions.HeaderStyle.FontColor);
     }
 
+    private static void ValidateExplicitExportColumns<T>(IReadOnlyList<ExcelExportColumn<T>> columns)
+    {
+        if (columns.Count == 0)
+        {
+            throw new ArgumentException("至少需要一个导出列。", nameof(columns));
+        }
+
+        var headers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var column in columns)
+        {
+            if (!headers.Add(column.Header))
+            {
+                throw new ArgumentException($"存在重复的导出列名: '{column.Header}'。", nameof(columns));
+            }
+        }
+    }
+
     private static void ValidateHexColor(string? color)
     {
         if (color is null || color.Length == 0)
@@ -748,6 +864,31 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         return GetExportColumns(properties)
             .Select(column => column.Property)
             .ToArray();
+    }
+
+    /// <summary>
+    /// 获取显式导出列的值，并按列类型进行转换。
+    /// </summary>
+    protected static object? GetExportValue<T>(ExcelExportColumn<T> column, T item)
+    {
+        var value = column.ValueSelector(item);
+        if (value is null or DBNull)
+        {
+            return null;
+        }
+
+        if (column.DataType == typeof(object) || column.DataType.IsInstanceOfType(value))
+        {
+            return value;
+        }
+
+        if (TypeConverter.TryConvert(value, column.DataType, out var convertedValue))
+        {
+            return convertedValue;
+        }
+
+        throw new InvalidOperationException(
+            $"导出列 '{column.Header}' 的值无法从 {value.GetType().FullName} 转换为 {column.DataType.FullName}。");
     }
 
     /// <summary>
@@ -885,59 +1026,342 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     private DataTable ImportFromWorksheet(TWorksheet worksheet, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
     {
         var dataTable = new DataTable(GetSheetName(worksheet));
+        var definition = PrepareWorksheetImport(worksheet, headerRowIndex, cancellationToken);
+        if (definition is null)
+        {
+            return dataTable;
+        }
 
-        // 估计列数
+        // DataColumn 在写入行前必须确定类型；先扫描工作表可避免为类型推断额外缓存整张表。
+        var columnTypes = InferColumnTypes(
+            worksheet,
+            definition.HeaderMappings,
+            definition.StartRow,
+            definition.EndRow,
+            cancellationToken);
+
+        foreach (var mapping in definition.HeaderMappings)
+        {
+            dataTable.Columns.Add(mapping.Value, columnTypes[mapping.Key]);
+        }
+
+        ReadWorksheetRows(
+            worksheet,
+            definition,
+            addEmptyRow,
+            cancellationToken,
+            values => dataTable.Rows.Add(values));
+
+        return dataTable;
+    }
+
+    private List<T> ImportWorksheetToList<T>(
+        TWorksheet worksheet,
+        int headerRowIndex,
+        bool addEmptyRow,
+        CancellationToken cancellationToken)
+        where T : class, new()
+    {
+        var definition = PrepareWorksheetImport(worksheet, headerRowIndex, cancellationToken);
+        if (definition is null)
+        {
+            return [];
+        }
+
+        var propertyMappings = CreateColumnPropertyMappings<T>(definition.HeaderMappings);
+        var estimatedRowCount = Math.Max(0, definition.EndRow - definition.StartRow + 1);
+        var result = new List<T>(estimatedRowCount);
+
+        ReadWorksheetRows(
+            worksheet,
+            definition,
+            addEmptyRow,
+            cancellationToken,
+            values =>
+            {
+                var item = new T();
+                foreach (var mapping in propertyMappings)
+                {
+                    var value = values[mapping.Key];
+                    if (value is not DBNull &&
+                        TypeConverter.TryConvert(value, mapping.Value.PropertyType, out var convertedValue) &&
+                        convertedValue is not null)
+                    {
+                        mapping.Value.SetValue(item, convertedValue);
+                    }
+                }
+
+                result.Add(item);
+            });
+
+        return result;
+    }
+
+    private List<T> ImportWorksheetToList<T>(
+        TWorksheet worksheet,
+        Func<ExcelRow, T> map,
+        int headerRowIndex,
+        bool addEmptyRow,
+        CancellationToken cancellationToken)
+    {
+        var definition = PrepareWorksheetImport(worksheet, headerRowIndex, cancellationToken);
+        if (definition is null)
+        {
+            return [];
+        }
+
+        var columnIndexes = new Dictionary<string, int>(definition.HeaderMappings.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var mapping in definition.HeaderMappings)
+        {
+            columnIndexes.Add(mapping.Value, mapping.Key);
+        }
+
+        var estimatedRowCount = Math.Max(0, definition.EndRow - definition.StartRow + 1);
+        var result = new List<T>(estimatedRowCount);
+
+        ReadWorksheetRows(
+            worksheet,
+            definition,
+            addEmptyRow,
+            cancellationToken,
+            values => result.Add(map(new ExcelRow(columnIndexes, values))));
+
+        return result;
+    }
+
+    private WorksheetImportDefinition? PrepareWorksheetImport(
+        TWorksheet worksheet,
+        int headerRowIndex,
+        CancellationToken cancellationToken)
+    {
         var columnCount = EstimateColumnCount(worksheet);
         if (columnCount <= 0)
         {
             Logger.LogWarning("工作表为空或无法确定列数");
-            return dataTable;
+            return null;
         }
 
-        // 获取表头映射
         var headerMappings = ExtractRawHeaderMappings(worksheet, headerRowIndex);
         var normalizedHeaderMappings = NormalizeHeaderMappings(headerMappings, columnCount, headerRowIndex);
-
-        // 添加列
-        foreach (var mapping in normalizedHeaderMappings)
-        {
-            dataTable.Columns.Add(mapping.Value);
-        }
-
-        // 获取数据行范围 - 这里的startRow和endRow将使用各实现类的原生索引格式
         var startRow = GetDataStartRow(worksheet, headerRowIndex);
         var endRow = GetDataEndRow(worksheet);
 
-        // 读取数据行
-        for (var rowNum = startRow; rowNum <= endRow; rowNum++)
+        return new WorksheetImportDefinition(
+            normalizedHeaderMappings,
+            startRow,
+            endRow);
+    }
+
+    private void ReadWorksheetRows(
+        TWorksheet worksheet,
+        WorksheetImportDefinition definition,
+        bool addEmptyRow,
+        CancellationToken cancellationToken,
+        Action<object[]> addRow)
+    {
+        ArgumentNullException.ThrowIfNull(addRow);
+
+        for (var rowNum = definition.StartRow; rowNum <= definition.EndRow; rowNum++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            DataRow row = dataTable.NewRow();
+            var values = new object[definition.HeaderMappings.Count];
             var hasValue = false;
 
-            foreach (var mapping in normalizedHeaderMappings)
+            foreach (var mapping in definition.HeaderMappings)
             {
-                var colIndex = mapping.Key;
-
-                // GetCellValue期望接收原生索引格式 - rowNum已由GetDataStartRow转换，colIndex无需转换
-                var cellValue = GetCellValue(worksheet, rowNum, colIndex);
-
-                // 设置行值
-                if (cellValue != DBNull.Value)
-                {
-                    row[mapping.Value] = cellValue;
-                    hasValue = true;
-                }
+                var cellValue = GetCellValue(worksheet, rowNum, mapping.Key);
+                values[mapping.Key] = cellValue;
+                hasValue |= cellValue is not DBNull;
             }
 
-            // 只添加有数据的行，除非指定了添加空行
             if (hasValue || addEmptyRow)
             {
-                dataTable.Rows.Add(row);
+                addRow(values);
+            }
+        }
+    }
+
+    private static Dictionary<int, PropertyInfo> CreateColumnPropertyMappings<T>(
+        IReadOnlyDictionary<int, string> headerMappings)
+    {
+        var propertyLookup = new Dictionary<string, PropertyInfo>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in typeof(T).GetProperties().Where(static property => property.CanWrite))
+        {
+            var excelAttribute = property.GetCustomAttribute<ExcelColumnAttribute>();
+            if (excelAttribute is not null && excelAttribute.ColumnName.IsNotNullOrWhiteSpace())
+            {
+                propertyLookup[excelAttribute.ColumnName] = property;
+            }
+
+            propertyLookup[property.Name] = property;
+        }
+
+        var propertyMappings = new Dictionary<int, PropertyInfo>();
+        foreach (var mapping in headerMappings)
+        {
+            if (propertyLookup.TryGetValue(mapping.Value, out var property))
+            {
+                propertyMappings[mapping.Key] = property;
             }
         }
 
-        return dataTable;
+        return propertyMappings;
+    }
+
+    private sealed class WorksheetImportDefinition(
+        IReadOnlyDictionary<int, string> headerMappings,
+        int startRow,
+        int endRow)
+    {
+        public IReadOnlyDictionary<int, string> HeaderMappings { get; } = headerMappings;
+
+        public int StartRow { get; } = startRow;
+
+        public int EndRow { get; } = endRow;
+    }
+
+    private Dictionary<int, Type> InferColumnTypes(
+        TWorksheet worksheet,
+        IReadOnlyDictionary<int, string> headerMappings,
+        int startRow,
+        int endRow,
+        CancellationToken cancellationToken)
+    {
+        var inferredTypes = new Dictionary<int, Type?>(headerMappings.Count);
+        foreach (var mapping in headerMappings)
+        {
+            inferredTypes[mapping.Key] = null;
+        }
+
+        for (var rowNum = startRow; rowNum <= endRow; rowNum++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            foreach (var mapping in headerMappings)
+            {
+                var columnIndex = mapping.Key;
+                if (inferredTypes[columnIndex] == typeof(object))
+                {
+                    continue;
+                }
+
+                var cellValue = GetCellValue(worksheet, rowNum, columnIndex);
+                if (cellValue is DBNull)
+                {
+                    continue;
+                }
+
+                var valueType = GetSupportedColumnType(cellValue.GetType());
+                inferredTypes[columnIndex] = MergeColumnTypes(inferredTypes[columnIndex], valueType);
+            }
+        }
+
+        var columnTypes = new Dictionary<int, Type>(inferredTypes.Count);
+        foreach (var inferredType in inferredTypes)
+        {
+            columnTypes[inferredType.Key] = inferredType.Value ?? typeof(object);
+        }
+
+        return columnTypes;
+    }
+
+    private static Type GetSupportedColumnType(Type valueType)
+    {
+        if (valueType == typeof(Guid) || valueType == typeof(TimeSpan) || valueType == typeof(byte[]))
+        {
+            return valueType;
+        }
+
+        return Type.GetTypeCode(valueType) switch
+        {
+            TypeCode.Boolean or
+            TypeCode.Byte or
+            TypeCode.SByte or
+            TypeCode.Int16 or
+            TypeCode.UInt16 or
+            TypeCode.Int32 or
+            TypeCode.UInt32 or
+            TypeCode.Int64 or
+            TypeCode.UInt64 or
+            TypeCode.Single or
+            TypeCode.Double or
+            TypeCode.Decimal or
+            TypeCode.Char or
+            TypeCode.String or
+            TypeCode.DateTime => valueType,
+            _ => typeof(object)
+        };
+    }
+
+    private static Type MergeColumnTypes(Type? currentType, Type valueType)
+    {
+        if (currentType is null || currentType == valueType)
+        {
+            return valueType;
+        }
+
+        if (currentType == typeof(object) || valueType == typeof(object))
+        {
+            return typeof(object);
+        }
+
+        return IsNumericType(currentType) && IsNumericType(valueType)
+            ? GetCommonNumericType(currentType, valueType)
+            : typeof(object);
+    }
+
+    private static bool IsNumericType(Type type)
+    {
+        return Type.GetTypeCode(type) is
+            TypeCode.Byte or
+            TypeCode.SByte or
+            TypeCode.Int16 or
+            TypeCode.UInt16 or
+            TypeCode.Int32 or
+            TypeCode.UInt32 or
+            TypeCode.Int64 or
+            TypeCode.UInt64 or
+            TypeCode.Single or
+            TypeCode.Double or
+            TypeCode.Decimal;
+    }
+
+    private static Type GetCommonNumericType(Type leftType, Type rightType)
+    {
+        if (leftType == typeof(double) || rightType == typeof(double) ||
+            leftType == typeof(float) || rightType == typeof(float))
+        {
+            return typeof(double);
+        }
+
+        if (leftType == typeof(decimal) || rightType == typeof(decimal))
+        {
+            return typeof(decimal);
+        }
+
+        if (leftType == typeof(ulong) || rightType == typeof(ulong))
+        {
+            return IsSignedIntegralType(leftType) || IsSignedIntegralType(rightType)
+                ? typeof(decimal)
+                : typeof(ulong);
+        }
+
+        if (leftType == typeof(long) || rightType == typeof(long) ||
+            leftType == typeof(uint) || rightType == typeof(uint))
+        {
+            return typeof(long);
+        }
+
+        return typeof(int);
+    }
+
+    private static bool IsSignedIntegralType(Type type)
+    {
+        return Type.GetTypeCode(type) is
+            TypeCode.SByte or
+            TypeCode.Int16 or
+            TypeCode.Int32 or
+            TypeCode.Int64;
     }
 
     /// <summary>
@@ -1099,6 +1523,12 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// 处理集合数据行
     /// </summary>
     protected abstract void ProcessCollectionRows<T>(TWorksheet worksheet, List<T> list, PropertyInfo[] properties, int startRowIndex) where T : class;
+
+    /// <summary>
+    /// 使用显式列定义处理集合数据行。
+    /// </summary>
+    protected abstract void ProcessCollectionRows<T>(TWorksheet worksheet, IReadOnlyList<T> items,
+        IReadOnlyList<ExcelExportColumn<T>> columns, int startRowIndex);
 
     /// <summary>
     /// 应用工作表格式化

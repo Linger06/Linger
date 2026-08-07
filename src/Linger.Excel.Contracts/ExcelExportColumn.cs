@@ -61,7 +61,7 @@ public sealed class ExcelExportColumn<T> : ExcelColumnInfo
     public Func<T, object?> ValueSelector { get; }
 
     /// <summary>
-    /// DataTable 列类型。
+    /// 目标单元格类型。
     /// </summary>
     public Type DataType => PropertyType;
 

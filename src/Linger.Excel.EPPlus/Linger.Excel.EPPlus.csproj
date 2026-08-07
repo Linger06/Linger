@@ -11,7 +11,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Magicodes.IE.EPPlus" Version="2.8.4" />
+    <PackageReference Include="Magicodes.IE.EPPlus" Version="2.9.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net472'">
+    <PackageReference Include="System.Text.Encodings.Web" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>

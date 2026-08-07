@@ -136,6 +136,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     public abstract List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
 
     /// <summary>
+    /// 使用行映射委托将 Excel 文件转换为对象列表。
+    /// </summary>
+    public abstract List<T>? ExcelToList<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
+
+    /// <summary>
     /// 将Stream转换为DataTable（推荐 - 同步版本）
     /// </summary>
     public abstract DataTable? StreamToDataTable(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
@@ -159,6 +164,11 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     public abstract List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
+    /// 使用行映射委托将 Excel 流转换为对象列表。
+    /// </summary>
+    public abstract List<T>? StreamToList<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 将Stream转换为对象列表（推荐 - 异步版本）
     /// </summary>
     /// <remarks>
@@ -169,6 +179,21 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         return await ExecuteImportAsync(
             cancellationToken,
             () => StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken)).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 异步使用行映射委托将 Excel 流转换为对象列表。
+    /// </summary>
+    /// <remarks>
+    /// 取消采用协作式检查，不能强制中断底层提供方的同步解析阶段。
+    /// </remarks>
+    public virtual async Task<List<T>?> StreamToListAsync<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+
+        return await ExecuteImportAsync(
+            cancellationToken,
+            () => StreamToList(stream, map, sheetName, headerRowIndex, addEmptyRow, cancellationToken)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -292,10 +317,22 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
 
     /// <summary>
+    /// 使用显式列定义将对象集合导出为 Excel 文件。
+    /// </summary>
+    public abstract string CollectionToExcel<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName,
+        string sheetsName = ExcelOptions.DefaultSheetName, string title = "");
+
+    /// <summary>
     /// 对象集合转 Excel 内存流（推荐）
     /// </summary>
     public abstract MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
+
+    /// <summary>
+    /// 使用显式列定义将对象集合导出为 Excel 内存流。
+    /// </summary>
+    public abstract MemoryStream CollectionToMemoryStream<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns,
+        string sheetsName = ExcelOptions.DefaultSheetName, string title = "");
 
     /// <summary>
     /// 数据表格转 Excel 内存流（推荐）
@@ -326,6 +363,19 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         return await ImportFileAsync(
             filePath,
             stream => StreamToListAsync<T>(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 异步使用行映射委托将 Excel 文件转换为对象列表。
+    /// </summary>
+    public virtual async Task<List<T>?> ExcelToListAsync<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+
+        return await ImportFileAsync(
+            filePath,
+            stream => StreamToListAsync(stream, map, sheetName, headerRowIndex, addEmptyRow, cancellationToken),
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -394,7 +444,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// 异步将对象集合导出为Excel文件（推荐）
     /// </summary>
 #if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method flows through reflection-based collection export. For AOT/trimming scenarios, use the explicit-column export overloads in ExcelExtensions.")]
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method flows through reflection-based collection export. For AOT/trimming scenarios, use the explicit-column export overloads.")]
 #endif
     public virtual async Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default) where T : class
@@ -407,6 +457,19 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         }
 
         await ms.ToFileAsync(fullFileName, cancellationToken).ConfigureAwait(false);
+        return fullFileName;
+    }
+
+    /// <summary>
+    /// 使用显式列定义异步将对象集合导出为 Excel 文件。
+    /// </summary>
+    public virtual async Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName,
+        string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var ms = CollectionToMemoryStream(items, columns, sheetsName, title);
+        await ms.ToFileAsync(fullFileName, cancellationToken).ConfigureAwait(false);
+
         return fullFileName;
     }
 

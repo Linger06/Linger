@@ -127,31 +127,29 @@ public class ExcelReportService
 
 ### 4. AOT 友好导入
 
-当你希望在对象物化阶段避免反射时，可以使用这些导入扩展重载：
+当你希望在对象物化阶段避免反射时，可以使用接收 `ExcelRow` 的导入重载：
 
 ```csharp
 using Linger.Excel.Contracts;
-using Linger.Extensions.Data;
 
 var users = excelService.ExcelToList(
     filePath,
     row => new User
     {
-        Id = Convert.ToInt32(row["Id"]),
-        Name = row["Name"]?.ToString() ?? string.Empty
+        Id = row.Get<int>("Id"),
+        Name = row.Get<string>("Name") ?? string.Empty
     });
 
 var imported = await excelService.ExcelToListAsync(
     filePath,
-    () => new ImportUser("excel"),
-    new Dictionary<string, Action<ImportUser, object?>>
+    row => new ImportUser("excel")
     {
-        ["Id"] = DataTableExtensions.CreateColumnSetter<ImportUser, int>((user, value) => user.Id = value),
-        ["Name"] = DataTableExtensions.CreateColumnSetter<ImportUser, string?>((user, value) => user.Name = value)
+        Id = row.Get<int>("Id"),
+        Name = row.Get<string>("Name")
     });
 ```
 
-这些重载会先把 Excel 导入为 `DataTable`，再复用现有的 AOT 友好 `DataTable` 映射 API。
+这些重载会直接读取并映射工作表行，不会创建中间 `DataTable`。列名访问不区分大小写，空单元格会作为 `null` 返回。
 
 ### 导入返回值与异常语义
 
@@ -198,7 +196,7 @@ await excelService.CollectionToExcelAsync(users, columns, filePath, "Users");
 using var template = excelService.CreateExcelTemplate(columns, "Users");
 ```
 
-这些重载会先根据显式列定义构造 `DataTable`，再复用现有的 `DataTable` 导出管线，因此不需要属性反射。
+这些重载会直接调用列选择器并写入工作表，不使用属性反射，也不会创建中间 `DataTable`。输入不是列表时只会物化对象引用，以便提供准确的行数和工作表格式范围。
 
 ## 📝 核心接口
 
@@ -217,7 +215,9 @@ public interface IExcelService
     
     // 导入单个工作表为对象列表
     List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    List<T>? ExcelToList<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
+    List<T>? StreamToList<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
     // 导入整个工作簿为 DataSet (支持多种重载)
     DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -231,6 +231,7 @@ public interface IExcelService
     // 异步导入 - 异步打开文件，并隔离同步提供方解析
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<List<T>?> ExcelToListAsync<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
@@ -238,6 +239,7 @@ public interface IExcelService
     // 异步 Stream 处理 - 虚拟方法,子类可覆盖以提供真正的异步
     Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<List<T>?> StreamToListAsync<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
@@ -250,14 +252,17 @@ public interface IExcelService
     string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
     string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet");
     string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    string CollectionToExcel<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "");
     
     // 导出为内存流
     MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "") where T : class;
+    MemoryStream CollectionToMemoryStream<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string sheetsName = "Sheet1", string title = "");
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
     
     // 异步导出
     Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
     Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "");
     
     // 创建模板
     MemoryStream CreateExcelTemplate<T>() where T : class, new();

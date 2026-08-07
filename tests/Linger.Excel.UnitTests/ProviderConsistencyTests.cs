@@ -31,6 +31,63 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
+    public void IExcelService_ExplicitColumnExport_IsPartOfServiceContract()
+    {
+        Assert.Contains(
+            typeof(IExcelService).GetMethods(),
+            method => method.Name == nameof(IExcelService.CollectionToExcel) &&
+                      method.GetParameters().Any(parameter =>
+                          parameter.ParameterType.IsGenericType &&
+                          parameter.ParameterType.GetGenericArguments().Any(argument =>
+                              argument.IsGenericType &&
+                              argument.GetGenericTypeDefinition() == typeof(ExcelExportColumn<>))));
+    }
+
+    [Fact]
+    public void CollectionToMemoryStream_WithExplicitColumn_ConvertsValueToDeclaredTypeAcrossProviders()
+    {
+        var columns = new[]
+        {
+            new ExcelExportColumn<int>("Value", value => value, typeof(string))
+        };
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.CollectionToMemoryStream([42], columns);
+            var imported = provider.Service.StreamToDataTable(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal("42", Assert.Single(imported.Rows.Cast<DataRow>())["Value"]);
+        }
+    }
+
+    [Fact]
+    public void CollectionToMemoryStream_WithNoExplicitColumns_ThrowsArgumentExceptionAcrossProviders()
+    {
+        foreach (var provider in CreateProviders())
+        {
+            Assert.Throws<ArgumentException>(() =>
+                provider.Service.CollectionToMemoryStream(Array.Empty<int>(), Array.Empty<ExcelExportColumn<int>>()));
+        }
+    }
+
+    [Fact]
+    public void CollectionToMemoryStream_WithDuplicateExplicitColumns_ThrowsArgumentExceptionAcrossProviders()
+    {
+        var columns = new[]
+        {
+            new ExcelExportColumn<int>("Value", value => value),
+            new ExcelExportColumn<int>("value", value => value)
+        };
+
+        foreach (var provider in CreateProviders())
+        {
+            Assert.Throws<ArgumentException>(() =>
+                provider.Service.CollectionToMemoryStream([42], columns));
+        }
+    }
+
+    [Fact]
     public void ExcelToDataTable_WithTitleAndHeaderRowIndexZero_UsesUniformSchemaAcrossProviders()
     {
         var sourceData = new DataTable("ConsistencyData");
@@ -81,6 +138,193 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
         Assert.Equal("导出标题", baseline.Columns[0].ColumnName);
         Assert.Equal("Column2", baseline.Columns[1].ColumnName);
         Assert.Equal(3, baseline.Rows.Count);
+    }
+
+    [Fact]
+    public void StreamToDataTable_PreservesNativeCellValueTypesAcrossProviders()
+    {
+        var sourceData = new DataTable("TypedData");
+        sourceData.Columns.Add("Id", typeof(int));
+        sourceData.Columns.Add("Name", typeof(string));
+        sourceData.Columns.Add("CreatedAt", typeof(DateTime));
+        sourceData.Columns.Add("Amount", typeof(decimal));
+        sourceData.Columns.Add("Enabled", typeof(bool));
+        sourceData.Rows.Add(42, "Alice", new DateTime(2024, 1, 15, 15, 4, 5), 123.5m, true);
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+
+            var imported = provider.Service.StreamToDataTable(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal(typeof(int), imported.Columns["Id"]!.DataType);
+            Assert.Equal(typeof(string), imported.Columns["Name"]!.DataType);
+            Assert.Equal(typeof(DateTime), imported.Columns["CreatedAt"]!.DataType);
+            Assert.Equal(typeof(double), imported.Columns["Amount"]!.DataType);
+            Assert.Equal(typeof(bool), imported.Columns["Enabled"]!.DataType);
+            var row = Assert.Single(imported.Rows.Cast<DataRow>());
+            Assert.IsType<int>(row["Id"]);
+            Assert.IsType<string>(row["Name"]);
+            Assert.IsType<DateTime>(row["CreatedAt"]);
+            Assert.IsType<double>(row["Amount"]);
+            Assert.IsType<bool>(row["Enabled"]);
+        }
+    }
+
+    [Fact]
+    public void StreamToDataTable_WithMixedColumn_FallsBackToObjectAcrossProviders()
+    {
+        var sourceData = new DataTable("MixedData");
+        sourceData.Columns.Add("Value", typeof(object));
+        sourceData.Rows.Add(new DateTime(2024, 1, 15, 15, 4, 5));
+        sourceData.Rows.Add("text");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+
+            var imported = provider.Service.StreamToDataTable(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal(typeof(object), imported.Columns["Value"]!.DataType);
+            Assert.IsType<DateTime>(imported.Rows[0]["Value"]);
+            Assert.IsType<string>(imported.Rows[1]["Value"]);
+        }
+    }
+
+    [Fact]
+    public void StreamToDataTable_InfersCommonNumericAndEmptyColumnTypesAcrossProviders()
+    {
+        var sourceData = new DataTable("InferredData");
+        sourceData.Columns.Add("Integral", typeof(object));
+        sourceData.Columns.Add("Fractional", typeof(object));
+        sourceData.Columns.Add("Empty", typeof(object));
+        sourceData.Columns.Add("Marker", typeof(string));
+        sourceData.Rows.Add(42, 10, DBNull.Value, "A");
+        sourceData.Rows.Add(5_000_000_000L, 1.5, DBNull.Value, "B");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+
+            var imported = provider.Service.StreamToDataTable(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal(typeof(long), imported.Columns["Integral"]!.DataType);
+            Assert.Equal(typeof(double), imported.Columns["Fractional"]!.DataType);
+            Assert.Equal(typeof(object), imported.Columns["Empty"]!.DataType);
+            Assert.Equal(typeof(string), imported.Columns["Marker"]!.DataType);
+            Assert.Equal(42L, Assert.IsType<long>(imported.Rows[0]["Integral"]));
+            Assert.Equal(1.5, Assert.IsType<double>(imported.Rows[1]["Fractional"]));
+            Assert.Equal(DBNull.Value, imported.Rows[0]["Empty"]);
+        }
+    }
+
+    [Fact]
+    public void StreamToList_WithEmptyRow_HonorsAddEmptyRowAcrossProviders()
+    {
+        var sourceData = new DataTable("Rows");
+        sourceData.Columns.Add("Value", typeof(string));
+        sourceData.Rows.Add("A");
+        sourceData.Rows.Add(DBNull.Value);
+        sourceData.Rows.Add("B");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var streamWithoutEmptyRow = provider.Service.DataTableToMemoryStream(sourceData);
+            var rowsWithoutEmptyRow = provider.Service.StreamToList<DirectImportRow>(
+                streamWithoutEmptyRow,
+                addEmptyRow: false);
+
+            using var streamWithEmptyRow = provider.Service.DataTableToMemoryStream(sourceData);
+            var rowsWithEmptyRow = provider.Service.StreamToList<DirectImportRow>(
+                streamWithEmptyRow,
+                addEmptyRow: true);
+
+            Assert.NotNull(rowsWithoutEmptyRow);
+            Assert.Equal(["A", "B"], rowsWithoutEmptyRow.Select(static row => row.Value));
+            Assert.NotNull(rowsWithEmptyRow);
+            Assert.Equal(["A", null, "B"], rowsWithEmptyRow.Select(static row => row.Value));
+        }
+    }
+
+    [Fact]
+    public void StreamToList_WithMapper_ProvidesCaseInsensitiveColumnAccessAcrossProviders()
+    {
+        var sourceData = new DataTable("Rows");
+        sourceData.Columns.Add("Id", typeof(int));
+        sourceData.Columns.Add("Name", typeof(string));
+        sourceData.Rows.Add(7, "Alice");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+            var rows = provider.Service.StreamToList(
+                stream,
+                row =>
+                {
+                    Assert.Equal(2, row.ColumnCount);
+                    Assert.True(row.ContainsColumn("id"));
+                    Assert.Equal(1, row.GetOrdinal("NAME"));
+                    Assert.Equal("Alice", row[1]);
+
+                    return row.Get<int>("ID");
+                });
+
+            Assert.Equal(7, Assert.Single(rows!));
+        }
+    }
+
+    [Fact]
+    public void StreamToList_WithMapper_NormalizesEmptyCellsAcrossProviders()
+    {
+        var sourceData = new DataTable("Rows");
+        sourceData.Columns.Add("Value", typeof(string));
+        sourceData.Columns.Add("Marker", typeof(string));
+        sourceData.Rows.Add(DBNull.Value, "A");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+            var rows = provider.Service.StreamToList(
+                stream,
+                row =>
+                {
+                    Assert.True(row.IsNull("Value"));
+                    Assert.Null(row["Value"]);
+                    Assert.True(row.TryGet<string>("Value", out var value));
+
+                    return value;
+                },
+                addEmptyRow: true);
+
+            Assert.Null(Assert.Single(rows!));
+        }
+    }
+
+    [Fact]
+    public void StreamToList_WithMapper_ReportsConversionFailureAcrossProviders()
+    {
+        var sourceData = new DataTable("Rows");
+        sourceData.Columns.Add("Value", typeof(string));
+        sourceData.Rows.Add("not-a-number");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+            var rows = provider.Service.StreamToList(
+                stream,
+                row =>
+                {
+                    Assert.False(row.TryGet<int>("Value", out _));
+                    Assert.Throws<InvalidCastException>(() => row.Get<int>("Value"));
+
+                    return row["Value"];
+                });
+
+            Assert.Equal("not-a-number", Assert.Single(rows!));
+        }
     }
 
     [Fact]
@@ -270,13 +514,18 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
             using var stream = new CancellationOnFirstReadStream(excelStream, cancellationTokenSource);
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                provider.Service.StreamToListAsync(stream, row => row.Field<int>("Id"), cancellationToken: cancellationTokenSource.Token));
+                provider.Service.StreamToListAsync(stream, row => row.Get<int>("Id"), cancellationToken: cancellationTokenSource.Token));
         }
     }
 
     private static MemoryStream CreateInvalidExcelStream()
     {
         return new MemoryStream([0x00, 0x01, 0x02, 0x03]);
+    }
+
+    private sealed class DirectImportRow
+    {
+        public string? Value { get; set; }
     }
 
     private class NonSeekableReadStream(Stream stream) : Stream

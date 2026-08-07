@@ -127,31 +127,29 @@ public class ExcelReportService
 
 ### 4. AOT-Friendly Imports
 
-Use the import extension overloads when you want to avoid reflection during object materialization:
+Use the import overloads accepting `ExcelRow` when you want to avoid reflection during object materialization:
 
 ```csharp
 using Linger.Excel.Contracts;
-using Linger.Extensions.Data;
 
 var users = excelService.ExcelToList(
     filePath,
     row => new User
     {
-        Id = Convert.ToInt32(row["Id"]),
-        Name = row["Name"]?.ToString() ?? string.Empty
+        Id = row.Get<int>("Id"),
+        Name = row.Get<string>("Name") ?? string.Empty
     });
 
 var imported = await excelService.ExcelToListAsync(
     filePath,
-    () => new ImportUser("excel"),
-    new Dictionary<string, Action<ImportUser, object?>>
+    row => new ImportUser("excel")
     {
-        ["Id"] = DataTableExtensions.CreateColumnSetter<ImportUser, int>((user, value) => user.Id = value),
-        ["Name"] = DataTableExtensions.CreateColumnSetter<ImportUser, string?>((user, value) => user.Name = value)
+        Id = row.Get<int>("Id"),
+        Name = row.Get<string>("Name")
     });
 ```
 
-These overloads first import Excel into a `DataTable`, then reuse the existing AOT-friendly `DataTable` mapping APIs.
+These overloads read and map worksheet rows directly without creating an intermediate `DataTable`. Column-name lookup is case-insensitive, and empty cells are returned as `null`.
 
 ### Import result and exception semantics
 
@@ -198,7 +196,7 @@ await excelService.CollectionToExcelAsync(users, columns, filePath, "Users");
 using var template = excelService.CreateExcelTemplate(columns, "Users");
 ```
 
-These overloads build a `DataTable` from explicit column definitions and then reuse the existing `DataTable` export pipeline, so no property reflection is required.
+These overloads invoke the column selectors and write directly to the worksheet. They use no property reflection and create no intermediate `DataTable`. When the input is not already a list, only the object references are materialized so the exporter can determine the row count and formatting range.
 
 ## 📝 Core Interfaces
 
@@ -217,7 +215,9 @@ public interface IExcelService
     
     // Import single worksheet as object list
     List<T>? ExcelToList<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    List<T>? ExcelToList<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
+    List<T>? StreamToList<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
     // Import entire workbook as DataSet (multiple overloads)
     DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
@@ -231,6 +231,7 @@ public interface IExcelService
     // Async imports - async file opening plus synchronous provider parsing isolation
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<List<T>?> ExcelToListAsync<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
@@ -238,6 +239,7 @@ public interface IExcelService
     // Async Stream processing - Virtual methods, subclasses can override for true async
     Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
+    Task<List<T>?> StreamToListAsync<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
     Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
@@ -250,14 +252,17 @@ public interface IExcelService
     string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
     string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet");
     string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    string CollectionToExcel<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "");
     
     // Export to memory stream
     MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "") where T : class;
+    MemoryStream CollectionToMemoryStream<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string sheetsName = "Sheet1", string title = "");
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
     
     // Async exports
     Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
     Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
+    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "");
     
     // Create template
     MemoryStream CreateExcelTemplate<T>() where T : class, new();

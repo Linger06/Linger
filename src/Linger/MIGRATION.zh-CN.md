@@ -62,6 +62,9 @@
 | `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.TryRefreshTokenAsync` | `RefreshTokenResultAsync` | `Linger.AspNetCore.Jwt.Contracts` | 替代方法同时提供错误消息。 |
 | `Linger.Email.AspNetCore` | `ConfigureEmail` / `ConfigureMailKit` | `AddEmailService` | `Linger.Email.AspNetCore` | 替代方法返回 `IServiceCollection`，可继续链式调用。 |
 | `Linger.Excel.Contracts` | `DataTableToFile` / `DataSetToFile` | `DataTableToExcel` / `DataSetToExcel` | `Linger.Excel.Contracts` | 替代方法名称与 Excel 导出操作一致。 |
+| `Linger.Excel.Contracts` | 接收 `Func<DataRow, T>` 的 Excel 导入扩展 | 接收 `Func<ExcelRow, T>` 的 `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` | `Linger.Excel.Contracts` | 替代方法直接映射工作表行，不再创建中间 `DataTable`。可使用 `ExcelRow.Get<T>(columnName)` 进行强类型访问。 |
+| `Linger.Excel.Contracts` | 接收 `Func<T>` 和 `columnSetters` 的 Excel 导入扩展 | 接收 `Func<ExcelRow, T>` 的 `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` | `Linger.Excel.Contracts` | 在同一个映射委托中创建并填充目标对象。已经持有 `DataTable` 的调用方仍可使用通用工厂/setter 重载。 |
+| `Linger.Excel.Contracts` | 自定义 `IExcelService` 实现 | 实现接收 `ExcelExportColumn<T>` 的集合导出重载 | `Linger.Excel.Contracts` | 显式列导出现在是正式服务契约，并直接写入工作表，不再构造中间 `DataTable`。 |
 | `Linger.Results` | `ExecuteResult`、`ExecuteResult<T>` 和 `ResultCompat` | `Result` / `Result<T>` | `Linger.Results` | 使用新结果类型，移除旧类型及转换帮助方法。 |
 | `Linger.Results` | `ErrorObj` 和 `ToErrorObj` | `Error` 以及由调用方维护的错误集合 | `Linger.Results` / 应用代码 | 旧的聚合对象没有一对一替代。 |
 | `Linger.FileSystem` | `ILocalFileSystem.Exists()` / `ExistsAsync()` | `DirectoryExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | 使用标准目录存在性 API。`LocalFileSystem` 还会在构造时创建配置的根目录。 |
@@ -105,6 +108,12 @@
   `ArgumentException`，不再被静默视为降序。
 - **`Linger.Utils`**：`FileInfoExtensions.Delete` 不再提供默认异常处理策略。调用方必须明确选择
   遇错即停或汇总异常。
+- **`Linger.Excel.Contracts`**：Excel 导入 `DataTable` 时会推断每列的公共 CLR 类型，保留数值、布尔值和
+  `DateTime` 等值，不再把所有非空单元格强制转换为 `string`；空列或混合类型列使用 `object`。需要文本时
+  请显式调用 `Convert.ToString`。
+- **`Linger.Json`**：`DataTableJsonConverter` 现在根据 `object` 列中每个值的运行时类型进行序列化，
+  数值和布尔值会继续输出为 JSON 数值和布尔值。反序列化时，如果同一列包含不兼容的 JSON token
+  类型，则使用 `object` 列并保留各 token 对应的 .NET 值类型。
 
 ## 示例
 

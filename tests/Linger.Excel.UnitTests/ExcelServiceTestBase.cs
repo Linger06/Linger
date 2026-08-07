@@ -240,11 +240,11 @@ namespace Linger.Excel.Tests
                 filePath,
                 row => new ImportedPerson
                 {
-                    Id = Convert.ToInt32(row["Id"]),
-                    Name = row["Name"]?.ToString() ?? string.Empty,
-                    Birthday = Convert.ToDateTime(row["Birthday"]),
-                    Salary = Convert.ToDecimal(row["Salary"]),
-                    IsActive = Convert.ToBoolean(row["IsActive"])
+                    Id = row.Get<int>("Id"),
+                    Name = row.Get<string>("Name") ?? string.Empty,
+                    Birthday = row.Get<DateTime>("Birthday"),
+                    Salary = row.Get<decimal>("Salary"),
+                    IsActive = row.Get<bool>("IsActive")
                 },
                 headerRowIndex: 1);
 
@@ -262,25 +262,22 @@ namespace Linger.Excel.Tests
             }
         }
 
-        protected async Task AssertStreamToListAsyncWithFactoryAndColumnSetters(IExcelService service, string filePrefix)
+        protected async Task AssertStreamToListAsyncWithMapper(IExcelService service, string filePrefix)
         {
             var sourceData = GenerateTestDataTable(5);
-            var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotFactory.xlsx");
+            var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotMapperAsync.xlsx");
 
-            service.DataTableToExcel(sourceData, filePath, "测试表", $"{filePrefix} AOT Factory 导入测试");
-
-            var columnSetters = new Dictionary<string, Action<ImportedPersonWithSource, object?>>
-            {
-                ["Id"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<ImportedPersonWithSource, int>((person, value) => person.Id = value),
-                ["Name"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<ImportedPersonWithSource, string?>((person, value) => person.Name = value),
-                ["IsActive"] = Linger.Extensions.Data.DataTableExtensions.CreateColumnSetter<ImportedPersonWithSource, bool>((person, value) => person.IsActive = value)
-            };
+            service.DataTableToExcel(sourceData, filePath, "测试表", $"{filePrefix} AOT Mapper 异步导入测试");
 
             using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
             var importedList = await service.StreamToListAsync(
                 stream,
-                () => new ImportedPersonWithSource(filePrefix),
-                columnSetters,
+                row => new ImportedPersonWithSource(filePrefix)
+                {
+                    Id = row.Get<int>("Id"),
+                    Name = row.Get<string>("Name"),
+                    IsActive = row.Get<bool>("IsActive")
+                },
                 sheetName: "测试表",
                 headerRowIndex: 1);
 
