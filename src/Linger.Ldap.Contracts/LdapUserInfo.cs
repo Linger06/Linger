@@ -40,7 +40,7 @@ public class LdapUserInfo
     public string? EmployeeNumber { get; set; }
     public string? PwdLastSet { get; set; }
     public string? LyncAddress { get; set; }
-    public string? ProxyAddresses { get; set; }
+    public string[]? ProxyAddresses { get; set; }
     public string? ProfilePath { get; set; }
     public string? HomeDrive { get; set; }
     public string? HomeDirectory { get; set; }
@@ -49,7 +49,7 @@ public class LdapUserInfo
     public string? Initials { get; set; }
     public string? ExMailboxDb { get; set; }
     public string[]? MemberOf { get; set; }
-    public string? OtherTelephone { get; set; }
+    public string[]? OtherTelephone { get; set; }
     public string? Status { get; set; }
     public string? AccountExpires { get; set; }
     public string? PwdExpirationLeftDays { get; set; }

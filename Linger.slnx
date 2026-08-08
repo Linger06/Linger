@@ -55,6 +55,7 @@
     <Project Path="tests/Linger.Excel.UnitTests/Linger.Excel.UnitTests.csproj" />
     <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" />
     <Project Path="tests/Linger.Json.UnitTests/Linger.Json.UnitTests.csproj" />
+    <Project Path="tests/Linger.Ldap.UnitTests/Linger.Ldap.UnitTests.csproj" />
     <Project Path="tests/Linger.HttpClient.UnitTests/Linger.HttpClient.UnitTests.csproj" />
     <Project Path="tests/Linger.Results.UnitTests/Linger.Results.UnitTests.csproj" />
     <Project Path="tests/Linger.Reflection.UnitTests/Linger.Reflection.UnitTests.csproj" />

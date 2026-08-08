@@ -10,6 +10,7 @@ A cross-platform LDAP client implementation based on Novell.Directory.Ldap.
 - Configurable `SearchFilter` for `FindUserAsync` and `GetUsersAsync`
 - Cross-provider advanced query via `ILdapClient.SearchUsersByFilterAsync`
 - Optional `Attributes` projection to limit returned fields
+- Configurable `MaxResults` limit for each query
 - Built-in LDAP filter value escaping for safer search input
 
 ## Supported Frameworks
@@ -37,6 +38,7 @@ var config = new LdapConfig
     SearchBase = "DC=example,DC=com",
     SearchFilter = "(&(objectClass=person)(|(uid={0})(sAMAccountName={0})(mail={0})))",
     Security = true,
+    MaxResults = 1000,
     Credentials = new LdapCredentials
     {
         BindDn = "serviceAccount",
@@ -54,6 +56,8 @@ var config = new LdapConfig
 
 var ldap = new NovellLdapClient(config);
 ```
+
+For dependency injection, register `LdapConfig` with `services.Configure<LdapConfig>(...)` and `NovellLdapClient` as the `ILdapClient` implementation. The client consumes `IOptions<LdapConfig>` directly.
 
 ## Usage
 
@@ -130,13 +134,18 @@ var users = await ldapContract.SearchUsersByFilterAsync(
 - Input value in user search is escaped before building LDAP filter to reduce malformed/injection risk.
 - Bind username normalization supports existing `domain\\user`, UPN (`user@domain`), and full DN forms.
 - `Attributes` can be used to reduce payload and improve query performance.
+- `MaxResults` must be greater than zero and limits each query; the default is `1000`.
+- Configuration is snapshotted during client construction. Changes to the original `LdapConfig`, credentials, or attributes require a new client.
+- Search-operation connection, TLS, bind, and server failures throw exceptions. An empty list only means that no users matched.
 
 ## Key User Properties (LdapUserInfo)
 
 - `DisplayName`, `SamAccountName`, `Upn`, `Dn`
 - `Email`, `TelephoneNumber`, `Mobile`, `Department`, `Title`
 - `Company`, `Manager`, `WhenCreated`, `Status`, `PwdLastSet`
-- `MemberOf`, `ProfilePath`, `HomeDirectory`, `ExtensionAttribute1`
+- `MemberOf`, `ProxyAddresses`, `OtherTelephone`, `ProfilePath`, `HomeDirectory`, `ExtensionAttribute1`
+
+`MemberOf`, `ProxyAddresses`, and `OtherTelephone` preserve LDAP multi-values as string arrays.
 
 ## Dependencies
 

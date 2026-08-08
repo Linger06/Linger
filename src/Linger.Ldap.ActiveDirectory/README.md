@@ -12,7 +12,8 @@ An Active Directory focused LDAP client implementation based on System.Directory
 - Configurable `SearchFilter` for `FindUserAsync` and `GetUsersAsync`
 - Cross-provider advanced query via `ILdapClient.SearchUsersByFilterAsync`
 - Optional domain controller auto-discovery when `LdapConfig.Url` is empty
-- Convenience constructor overloads (`new AdLdapClient()` / `new AdLdapClient(logger)`) for auto-filling defaults (especially `SearchBase`)
+- Parameterless construction for the current Windows domain
+- Configurable `MaxResults` limit for each query
 
 ## Supported Frameworks
 
@@ -40,6 +41,7 @@ var config = new LdapConfig
     SearchBase = "DC=example,DC=com",
     SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))",
     Security = true,
+    MaxResults = 1000,
     Credentials = new LdapCredentials
     {
         BindDn = "serviceAccount",
@@ -58,16 +60,15 @@ var config = new LdapConfig
 var ldap = new AdLdapClient(config);
 ```
 
-### Convenience Creation with Auto Defaults
+For the current Windows domain, configuration is optional:
 
 ```csharp
 var ldap = new AdLdapClient();
-
-// With custom logger
-var ldapWithLogger = new AdLdapClient(logger);
 ```
 
-When `SearchBase` is empty, the convenience constructor overloads infer it from `Domain` (for example, `example.com` -> `DC=example,DC=com`) and then fall back to the current domain distinguished name.
+The parameterless constructor performs no network I/O. It uses the current Windows identity and discovers a domain controller when the first LDAP operation starts.
+
+For dependency injection, register `LdapConfig` with `services.Configure<LdapConfig>(...)` and `AdLdapClient` as the `ILdapClient` implementation. The client consumes `IOptions<LdapConfig>` directly.
 
 ## Usage
 
@@ -133,19 +134,11 @@ var users = await ldapContract.SearchUsersByFilterAsync(
     searchBase: "DC=example,DC=com");
 ```
 
-### Active Directory Specific: Get DirectoryEntry
-
-```csharp
-using var entry = ldap.GetEntryByUsername("alice");
-var nativeObject = entry.NativeObject;
-var properties = entry.Properties;
-```
-
 ## Notes
 
 - This implementation is intended for Windows environments using `System.DirectoryServices`.
 - In .NET 5+, the implementation is marked with `[SupportedOSPlatform("windows")]`.
-- When `Security = true`, the client uses LDAPS (`LDAPS://`) and secure bind options.
+- When `Security = true`, the client enables `AuthenticationTypes.SecureSocketsLayer` on the ADSI connection.
 - `SearchFilter` is used by both `FindUserAsync` and `GetUsersAsync`; using `{0}` placeholder is recommended.
 - `SearchUsersByFilterAsync` provides provider-agnostic advanced raw-filter queries.
 - Blank usernames and raw filters are rejected to prevent accidental full-directory searches.
@@ -154,14 +147,19 @@ var properties = entry.Properties;
 - Input value in user search is escaped before building LDAP filter to reduce malformed/injection risk.
 - Bind username normalization supports existing `domain\\user`, UPN (`user@domain`), and full DN forms.
 - If `LdapConfig.Url` is empty, Active Directory provider attempts domain controller auto-discovery.
-- Convenience constructor overloads can auto-fill missing `Domain` and `SearchBase` defaults.
+- The parameterless constructor leaves `SearchBase` empty and searches from the discovered server root. `SearchBase` is not inferred; use configured construction to restrict the search scope.
+- `MaxResults` must be greater than zero and limits each query; the default is `1000`.
+- Configuration is snapshotted during client construction. Changes to the original `LdapConfig`, credentials, or attributes require a new client.
+- Search-operation connection, bind, and directory-server failures throw exceptions. An empty list only means that no users matched.
 
 ## Key User Properties (LdapUserInfo)
 
 - `DisplayName`, `SamAccountName`, `Upn`, `Dn`
 - `Email`, `TelephoneNumber`, `Mobile`, `Department`, `Title`
 - `Company`, `Manager`, `WhenCreated`, `Status`, `PwdLastSet`
-- `MemberOf`, `ProfilePath`, `HomeDirectory`, `ExtensionAttribute1`
+- `MemberOf`, `ProxyAddresses`, `OtherTelephone`, `ProfilePath`, `HomeDirectory`, `ExtensionAttribute1`
+
+`MemberOf`, `ProxyAddresses`, and `OtherTelephone` preserve LDAP multi-values as string arrays.
 
 ## Dependencies
 

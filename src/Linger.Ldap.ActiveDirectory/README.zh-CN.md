@@ -12,7 +12,8 @@
 - `FindUserAsync` 与 `GetUsersAsync` 使用可配置 `SearchFilter`
 - 通过 `ILdapClient.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
 - 当 `LdapConfig.Url` 为空时可自动发现域控制器
-- 提供构造函数重载便捷入口（`new AdLdapClient()` / `new AdLdapClient(logger)`），可自动补齐默认值（尤其 `SearchBase`）
+- 支持通过无参构造使用当前 Windows 域
+- 支持通过 `MaxResults` 限制每次查询的结果数量
 
 ## 支持的框架
 
@@ -40,6 +41,7 @@ var config = new LdapConfig
     SearchBase = "DC=example,DC=com",
     SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))",
     Security = true,
+    MaxResults = 1000,
     Credentials = new LdapCredentials
     {
         BindDn = "serviceAccount",
@@ -58,16 +60,15 @@ var config = new LdapConfig
 var ldap = new AdLdapClient(config);
 ```
 
-### 便捷创建（自动补齐默认值）
+使用当前 Windows 域时，可以省略配置：
 
 ```csharp
 var ldap = new AdLdapClient();
-
-// 使用自定义 logger
-var ldapWithLogger = new AdLdapClient(logger);
 ```
 
-当 `SearchBase` 为空时，便捷构造函数重载会优先根据 `Domain` 推断（例如 `example.com` -> `DC=example,DC=com`），再回退到当前域的 `distinguishedName`。
+无参构造本身不会执行网络 I/O。客户端使用当前 Windows 身份，并在首次 LDAP 操作开始时发现域控制器。
+
+使用依赖注入时，通过 `services.Configure<LdapConfig>(...)` 注册配置，并将 `AdLdapClient` 注册为 `ILdapClient` 实现。客户端可直接接收 `IOptions<LdapConfig>`。
 
 ## 使用示例
 
@@ -133,19 +134,11 @@ var users = await ldapContract.SearchUsersByFilterAsync(
     searchBase: "DC=example,DC=com");
 ```
 
-### Active Directory 专有：获取 DirectoryEntry
-
-```csharp
-using var entry = ldap.GetEntryByUsername("alice");
-var nativeObject = entry.NativeObject;
-var properties = entry.Properties;
-```
-
 ## 注意事项
 
 - 该实现面向 Windows 环境，依赖 `System.DirectoryServices`。
 - 在 .NET 5+ 下实现带有 `[SupportedOSPlatform("windows")]` 标注。
-- 当 `Security = true` 时，客户端使用 LDAPS（`LDAPS://`）和安全绑定选项。
+- 当 `Security = true` 时，客户端在 ADSI 连接上启用 `AuthenticationTypes.SecureSocketsLayer`。
 - `SearchFilter` 会用于 `FindUserAsync` 与 `GetUsersAsync`，建议使用 `{0}` 占位符。
 - `SearchUsersByFilterAsync` 可用于跨提供者统一的原始过滤器高级查询。
 - 空白用户名和原始过滤器会被拒绝，避免意外执行全目录查询。
@@ -154,14 +147,19 @@ var properties = entry.Properties;
 - 查询输入值会在构建 LDAP 过滤器前转义，降低格式破坏和注入风险。
 - 绑定用户名会先规范化：已是 `domain\\user`、UPN（`user@domain`）或完整 DN 时不会重复拼接域前缀。
 - 当 `LdapConfig.Url` 为空时，ActiveDirectory 实现会尝试自动发现域控制器。
-- 便捷构造函数重载可自动补齐缺失的 `Domain` 与 `SearchBase` 默认值。
+- 无参构造会保持 `SearchBase` 为空，并从发现的服务器根节点开始查询。客户端不会推断 `SearchBase`；如需限制查询范围，应使用配置构造。
+- `MaxResults` 必须大于零，用于限制每次查询的结果数量，默认值为 `1000`。
+- Client 构造时会生成配置快照。修改原始 `LdapConfig`、凭据或属性列表后，需要创建新的 Client 才会生效。
+- 搜索操作中的连接、绑定和目录服务器故障会抛出异常。空列表只表示没有匹配用户。
 
 ## 常用用户属性（LdapUserInfo）
 
 - `DisplayName`、`SamAccountName`、`Upn`、`Dn`
 - `Email`、`TelephoneNumber`、`Mobile`、`Department`、`Title`
 - `Company`、`Manager`、`WhenCreated`、`Status`、`PwdLastSet`
-- `MemberOf`、`ProfilePath`、`HomeDirectory`、`ExtensionAttribute1`
+- `MemberOf`、`ProxyAddresses`、`OtherTelephone`、`ProfilePath`、`HomeDirectory`、`ExtensionAttribute1`
+
+`MemberOf`、`ProxyAddresses` 和 `OtherTelephone` 会以字符串数组保留 LDAP 多值属性。
 
 ## 依赖项
 

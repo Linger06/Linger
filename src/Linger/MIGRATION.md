@@ -88,7 +88,8 @@ for applications upgrading from the previous API surface.
 | `Linger.Ldap.Contracts` | `ILdap` | `ILdapClient` | `Linger.Ldap.Contracts` | Renamed so the contract states what it represents: a client for a directory server. |
 | `Linger.Ldap.Contracts` | `AdUserInfo` | `LdapUserInfo` | `Linger.Ldap.Contracts` | The model is provider-agnostic and is not limited to Active Directory. |
 | `Linger.Ldap.ActiveDirectory` | `Ldap` | `AdLdapClient` | `Linger.Ldap.ActiveDirectory` | The previous name collided with the `Linger.Ldap` namespace and with the Novell implementation of the same name. |
-| `Linger.Ldap.ActiveDirectory` | `UserPrincipal.ToAdUser()`, `DirectoryEntry.ToAdUserInfo()`, `SearchResultCollection.ToAdUsersInfo()` | `ToLdapUserInfo()`, `ToLdapUserInfo()`, `ToLdapUsersInfo()` | `Linger.Ldap.ActiveDirectory` | Renamed to match `LdapUserInfo`. |
+| `Linger.Ldap.Contracts` | `Task<IEnumerable<LdapUserInfo>>` search results | `Task<IReadOnlyList<LdapUserInfo>>` | `Linger.Ldap.Contracts` | Search operations materialize results before disposing provider resources, so the contract now states that behavior. |
+| `Linger.Ldap.Contracts` | String-delimited `ProxyAddresses` / `OtherTelephone` | `string[]?` properties | `Linger.Ldap.Contracts` | LDAP multi-value attributes are preserved without provider-specific delimiters. |
 | `Linger.Ldap.Novell` | `Ldap` | `NovellLdapClient` | `Linger.Ldap.Novell` | The previous name collided with the `Linger.Ldap` namespace and with the Active Directory implementation of the same name. |
 | `Linger.Ldap.Novell` | `LdapEntry.ToAdUser()` | `LdapEntry.ToLdapUserInfo()` | `Linger.Ldap.Novell` | Renamed to match `LdapUserInfo`. |
 
@@ -106,6 +107,9 @@ for applications upgrading from the previous API surface.
 | `Linger.Utils` | `ExtensionMethodSetting` defaults | Configure `Encoding`, `CultureInfo`, buffer sizes, and `JsonSerializerOptions` explicitly. Use `JsonDefaults.CreateRequestOptions`, `CreateResponseOptions`, or `ApplyDefaultConfiguration` for JSON. | .NET BCL / `Linger.Json` | Process-wide mutable defaults made behavior difficult to reason about. |
 | `Linger.Utils` | Other `DataContractJsonSerializer` helpers | Use `System.Text.Json.JsonSerializer`. | .NET BCL | The project standardizes on `System.Text.Json`. |
 | `Linger.Utils` | `DeserializeDynamicJsonObject` and `JsonTextAccessor` | Use `JsonDocument`, `JsonElement`, or `JsonNode` according to the required mutability. | .NET BCL | Dynamic JSON obscured schema and runtime failure modes. |
+| `Linger.Ldap.ActiveDirectory` | Logger-only `AdLdapClient` constructor | Use the parameterless constructor for the current Windows domain, or register `LdapConfig` with options when a custom logger and explicit configuration are required. | `Linger.Ldap.ActiveDirectory` | A logger alone does not express connection or search configuration. |
+| `Linger.Ldap.ActiveDirectory` | `GetEntryByUsername` | Use `FindUserAsync` for the provider-independent user model. Use `System.DirectoryServices` directly when native ADSI access is required. | `Linger.Ldap.ActiveDirectory` / application code | Returning provider resources exposed ownership and disposal concerns outside the client contract. |
+| `Linger.Ldap.ActiveDirectory` | Public `UserPrincipal`, `DirectoryEntry`, and `SearchResultCollection` mapping extensions | Use `ILdapClient` search operations. | `Linger.Ldap.Contracts` | Three mapping paths duplicated behavior and returned inconsistent account-security details. |
 
 ## Behavioral changes
 

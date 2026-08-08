@@ -10,6 +10,7 @@
 - `FindUserAsync` 与 `GetUsersAsync` 使用可配置 `SearchFilter`
 - 通过 `ILdapClient.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
 - 支持 `Attributes` 属性投影，按需返回字段
+- 支持通过 `MaxResults` 限制每次查询的结果数量
 - 内置 LDAP 过滤值转义，降低过滤器拼接风险
 
 ## 支持的框架
@@ -37,6 +38,7 @@ var config = new LdapConfig
     SearchBase = "DC=example,DC=com",
     SearchFilter = "(&(objectClass=person)(|(uid={0})(sAMAccountName={0})(mail={0})))",
     Security = true,
+    MaxResults = 1000,
     Credentials = new LdapCredentials
     {
         BindDn = "serviceAccount",
@@ -54,6 +56,8 @@ var config = new LdapConfig
 
 var ldap = new NovellLdapClient(config);
 ```
+
+使用依赖注入时，通过 `services.Configure<LdapConfig>(...)` 注册配置，并将 `NovellLdapClient` 注册为 `ILdapClient` 实现。客户端可直接接收 `IOptions<LdapConfig>`。
 
 ## 使用示例
 
@@ -130,13 +134,18 @@ var users = await ldapContract.SearchUsersByFilterAsync(
 - 查询输入值会在构建 LDAP 过滤器前进行转义，降低格式破坏和注入风险。
 - 绑定用户名会先规范化：已是 `domain\\user`、UPN（`user@domain`）或完整 DN 时不会重复拼接域前缀。
 - `Attributes` 可用于减少返回字段，提升查询性能。
+- `MaxResults` 必须大于零，用于限制每次查询的结果数量，默认值为 `1000`。
+- Client 构造时会生成配置快照。修改原始 `LdapConfig`、凭据或属性列表后，需要创建新的 Client 才会生效。
+- 搜索操作中的连接、TLS、绑定和服务器故障会抛出异常。空列表只表示没有匹配用户。
 
 ## 常用用户属性（LdapUserInfo）
 
 - `DisplayName`、`SamAccountName`、`Upn`、`Dn`
 - `Email`、`TelephoneNumber`、`Mobile`、`Department`、`Title`
 - `Company`、`Manager`、`WhenCreated`、`Status`、`PwdLastSet`
-- `MemberOf`、`ProfilePath`、`HomeDirectory`、`ExtensionAttribute1`
+- `MemberOf`、`ProxyAddresses`、`OtherTelephone`、`ProfilePath`、`HomeDirectory`、`ExtensionAttribute1`
+
+`MemberOf`、`ProxyAddresses` 和 `OtherTelephone` 会以字符串数组保留 LDAP 多值属性。
 
 ## 依赖项
 

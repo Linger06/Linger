@@ -65,7 +65,7 @@ public static class LdapEntryExtensions
         // 电子邮件相关
         userInfo.Email = GetAttributeValue(attributeSet, LdapUserType.Email);
         userInfo.LyncAddress = GetAttributeValue(attributeSet, LdapUserType.LyncAddress);
-        userInfo.ProxyAddresses = GetAttributeValue(attributeSet, LdapUserType.ProxyAddresses);
+        userInfo.ProxyAddresses = GetAttributeValues(attributeSet, LdapUserType.ProxyAddresses);
         userInfo.WebPage = GetAttributeValue(attributeSet, LdapUserType.WebPage);
 
         // 电话号码相关
@@ -75,6 +75,7 @@ public static class LdapEntryExtensions
         userInfo.Pager = GetAttributeValue(attributeSet, LdapUserType.Pager);
         userInfo.Fax = GetAttributeValue(attributeSet, LdapUserType.Fax);
         userInfo.IpPhone = GetAttributeValue(attributeSet, LdapUserType.IpPhone);
+        userInfo.OtherTelephone = GetAttributeValues(attributeSet, LdapUserType.OtherTelephone);
     }
 
     private static void MapOrganizationInfo(LdapUserInfo userInfo, LdapAttributeSet attributeSet)
@@ -126,11 +127,16 @@ public static class LdapEntryExtensions
         return attributeSet.ContainsKey(attributeName) ? attributeSet.GetAttribute(attributeName).StringValue : null;
     }
 
+    private static string[]? GetAttributeValues(LdapAttributeSet attributeSet, string attributeName)
+    {
+        return attributeSet.ContainsKey(attributeName)
+            ? attributeSet.GetAttribute(attributeName).StringValueArray
+            : null;
+    }
+
     private static string[]? GetMemberOf(LdapAttributeSet attributeSet)
     {
-        return attributeSet.ContainsKey(LdapUserType.MemberOf)
-            ? attributeSet.GetAttribute(LdapUserType.MemberOf).StringValueArray
-            : null;
+        return GetAttributeValues(attributeSet, LdapUserType.MemberOf);
     }
 
     private static DateTime? ParseWhenCreated(LdapAttribute? attribute)

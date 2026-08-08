@@ -13,7 +13,7 @@ public static class LdapHelper
     /// </summary>
     /// <param name="userName">Raw user input (keyword or identity).</param>
     /// <param name="exactMatch">When false, a trailing wildcard is appended if none is present and user-supplied asterisks are preserved.</param>
-    /// <param name="configuredTemplate">Optional configured filter template containing "{0}". A template without "{0}" is returned as-is.</param>
+    /// <param name="configuredTemplate">Optional configured filter template containing "{0}". Invalid templates fall back to <paramref name="defaultTemplate"/>.</param>
     /// <param name="defaultTemplate">Default filter template containing "{0}", used when no template is configured or the configured one is invalid.</param>
     /// <param name="usedFallback">True when the configured template was invalid and the default template was used instead.</param>
     /// <returns>The LDAP filter expression.</returns>
@@ -36,7 +36,8 @@ public static class LdapHelper
 
         if (configuredTemplate!.IndexOf("{0}", StringComparison.Ordinal) < 0)
         {
-            return configuredTemplate;
+            usedFallback = true;
+            return string.Format(CultureInfo.InvariantCulture, defaultTemplate, escapedValue);
         }
 
         try
@@ -120,5 +121,47 @@ public static class LdapHelper
         }
 
         return $@"{domain}\{bindDn}";
+    }
+
+    /// <summary>
+    /// Validates provider-independent LDAP configuration values.
+    /// </summary>
+    /// <param name="ldapConfig">The LDAP configuration.</param>
+    public static void ValidateConfig(LdapConfig ldapConfig)
+    {
+#if NETSTANDARD2_0
+        if (ldapConfig is null)
+        {
+            throw new ArgumentNullException(nameof(ldapConfig));
+        }
+#else
+        ArgumentNullException.ThrowIfNull(ldapConfig);
+#endif
+
+        if (ldapConfig.MaxResults <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(ldapConfig), ldapConfig.MaxResults, "MaxResults must be greater than zero.");
+        }
+
+        ValidateCredentials(ldapConfig.Credentials);
+    }
+
+    /// <summary>
+    /// Validates that bind credentials are either complete or omitted for anonymous binding.
+    /// </summary>
+    /// <param name="credentials">The credentials to validate.</param>
+    public static void ValidateCredentials(LdapCredentials? credentials)
+    {
+        if (credentials is null)
+        {
+            return;
+        }
+
+        var hasBindDn = !string.IsNullOrWhiteSpace(credentials.BindDn);
+        var hasPassword = !string.IsNullOrEmpty(credentials.BindCredentials);
+        if (hasBindDn != hasPassword)
+        {
+            throw new ArgumentException("BindDn and BindCredentials must both be provided, or both omitted for anonymous binding.", nameof(credentials));
+        }
     }
 }

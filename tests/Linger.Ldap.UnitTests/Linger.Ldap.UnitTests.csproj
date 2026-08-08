@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Linger.Ldap.Contracts\Linger.Ldap.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Linger.Ldap.Novell\Linger.Ldap.Novell.csproj" />
+    <ProjectReference Include="..\..\src\Linger.Ldap.ActiveDirectory\Linger.Ldap.ActiveDirectory.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

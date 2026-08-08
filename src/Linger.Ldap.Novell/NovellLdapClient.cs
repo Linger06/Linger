@@ -2,6 +2,7 @@ using Linger.Extensions.Core;
 using Linger.Ldap.Contracts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Novell.Directory.Ldap;
 
 namespace Linger.Ldap.Novell;
@@ -26,15 +27,26 @@ public sealed class NovellLdapClient : ILdapClient
     /// <exception cref="ArgumentException">Thrown when ldapConfig.Url is null or empty.</exception>
     public NovellLdapClient(LdapConfig ldapConfig, ILogger<NovellLdapClient>? logger = null)
     {
-        ArgumentNullException.ThrowIfNull(ldapConfig);
+        var configSnapshot = new LdapConfig(ldapConfig);
+        LdapHelper.ValidateConfig(configSnapshot);
 
-        if (ldapConfig.Url.IsNullOrEmpty())
+        if (configSnapshot.Url.IsNullOrEmpty())
         {
             throw new ArgumentException("Url is required for Novell LDAP provider. Unlike ActiveDirectory, automatic domain controller discovery is not available.", nameof(ldapConfig));
         }
 
-        _ldapConfig = ldapConfig;
+        _ldapConfig = configSnapshot;
         _logger = logger ?? NullLogger<NovellLdapClient>.Instance;
+    }
+
+    /// <summary>
+    /// Initializes a new instance from configured options.
+    /// </summary>
+    /// <param name="ldapOptions">The LDAP options.</param>
+    /// <param name="logger">Optional logger instance.</param>
+    public NovellLdapClient(IOptions<LdapConfig> ldapOptions, ILogger<NovellLdapClient>? logger = null)
+        : this(ldapOptions?.Value ?? throw new ArgumentNullException(nameof(ldapOptions)), logger)
+    {
     }
 
     public async Task<LdapUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
@@ -55,7 +67,7 @@ public sealed class NovellLdapClient : ILdapClient
         return user;
     }
 
-    public async Task<IEnumerable<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userName);
 
@@ -71,16 +83,12 @@ public sealed class NovellLdapClient : ILdapClient
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    public async Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filter);
 
         using var ldapConnection = CreateConnection();
-        if (!await ConnectAsync(ldapConnection, ldapCredentials, cancellationToken).ConfigureAwait(false))
-        {
-            _logger.LogWarning("Failed to connect to LDAP server when searching users by filter");
-            return [];
-        }
+        await ConnectAsync(ldapConnection, ldapCredentials, cancellationToken).ConfigureAwait(false);
 
         try
         {
@@ -89,18 +97,9 @@ public sealed class NovellLdapClient : ILdapClient
             // Use provided searchBase or fall back to config's SearchBase
             var effectiveSearchBase = searchBase ?? _ldapConfig.SearchBase;
             ILdapSearchResults? lsc = await ldapConnection.SearchAsync(effectiveSearchBase, LdapConnection.ScopeSub, filter, _ldapConfig.Attributes, false, cancellationToken).ConfigureAwait(false);
-            while (await lsc.HasMoreAsync(cancellationToken).ConfigureAwait(false))
+            while (users.Count < _ldapConfig.MaxResults && await lsc.HasMoreAsync(cancellationToken).ConfigureAwait(false))
             {
-                LdapEntry? nextEntry;
-                try
-                {
-                    nextEntry = await lsc.NextAsync(cancellationToken).ConfigureAwait(false);
-                }
-                catch (LdapException ex)
-                {
-                    _logger.LogWarning(ex, "Error retrieving LDAP entry while searching users by filter {Filter}, skipping entry", filter);
-                    continue;
-                }
+                var nextEntry = await lsc.NextAsync(cancellationToken).ConfigureAwait(false);
 
                 if (nextEntry.ToLdapUserInfo() is { } user)
                 {
@@ -131,7 +130,7 @@ public sealed class NovellLdapClient : ILdapClient
             await ldapConnection.BindAsync(BuildBindUserName(userName), password, cancellationToken).ConfigureAwait(false);
             _logger.LogDebug("User {UserName} validated successfully", userName);
         }
-        catch (LdapException ex)
+        catch (LdapException ex) when (ex.ResultCode == LdapException.InvalidCredentials)
         {
             _logger.LogDebug(ex, "User {UserName} validation failed", userName);
 
@@ -159,39 +158,25 @@ public sealed class NovellLdapClient : ILdapClient
         }
     }
 
-    private async Task<bool> ConnectAsync(
+    private async Task ConnectAsync(
         LdapConnection ldapConnection,
         LdapCredentials? ldapCredentials,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            var port = _ldapConfig.Security ? LdapConnection.DefaultSslPort : LdapConnection.DefaultPort;
-            _logger.LogDebug("Connecting to LDAP server {Url}:{Port}", _ldapConfig.Url, port);
+        var credentials = ldapCredentials ?? _ldapConfig.Credentials;
+        LdapHelper.ValidateCredentials(credentials);
 
-            await ldapConnection.ConnectAsync(_ldapConfig.Url, port, cancellationToken).ConfigureAwait(false);
+        var port = _ldapConfig.Security ? LdapConnection.DefaultSslPort : LdapConnection.DefaultPort;
+        _logger.LogDebug("Connecting to LDAP server {Url}:{Port}", _ldapConfig.Url, port);
 
-            if (ldapCredentials is not null)
-            {
-                await BindCredentialsAsync(ldapConnection, ldapCredentials, cancellationToken).ConfigureAwait(false);
-            }
-            else if (_ldapConfig.Credentials is not null)
-            {
-                await BindCredentialsAsync(ldapConnection, _ldapConfig.Credentials, cancellationToken).ConfigureAwait(false);
-            }
+        await ldapConnection.ConnectAsync(_ldapConfig.Url, port, cancellationToken).ConfigureAwait(false);
 
-            _logger.LogDebug("Successfully connected to LDAP server {Url}", _ldapConfig.Url);
-            return true;
-        }
-        catch (OperationCanceledException)
+        if (credentials is not null)
         {
-            throw;
+            await BindCredentialsAsync(ldapConnection, credentials, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to connect to LDAP server {Url}", _ldapConfig.Url);
-            return false;
-        }
+
+        _logger.LogDebug("Successfully connected to LDAP server {Url}", _ldapConfig.Url);
     }
 
     private async Task BindCredentialsAsync(

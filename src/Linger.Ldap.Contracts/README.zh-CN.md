@@ -48,6 +48,7 @@ public void ConfigureServices(IServiceCollection services)
     "SearchBase": "DC=example,DC=com",
     "SearchFilter": "(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})))",
     "Security": true,
+    "MaxResults": 1000,
     "Credentials": {
       "BindDn": "serviceaccount",
       "BindCredentials": "password"
@@ -120,7 +121,7 @@ public class UserService
             cancellationToken: cancellationToken);
     }
 
-    public async Task<IEnumerable<LdapUserInfo>> SearchUsersAsync(
+    public async Task<IReadOnlyList<LdapUserInfo>> SearchUsersAsync(
         string searchTerm,
         CancellationToken cancellationToken = default)
     {
@@ -215,13 +216,13 @@ public interface ILdapClient
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<LdapUserInfo>> GetUsersAsync(
+    Task<IReadOnlyList<LdapUserInfo>> GetUsersAsync(
         string userName,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(
+    Task<IReadOnlyList<LdapUserInfo>> SearchUsersByFilterAsync(
         string filter,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
@@ -248,8 +249,11 @@ public class LdapConfig
     public string SearchBase { get; set; } = null!;
     public string SearchFilter { get; set; } = null!;
     public string[]? Attributes { get; set; }
+    public int MaxResults { get; set; } = 1000;
 }
 ```
+
+提供者会在 Client 构造时生成独立的 `LdapConfig` 快照，包括 `Credentials` 和 `Attributes`。之后修改原始配置不会影响已有 Client；需要应用新配置时，应创建新的 Client。
 
 ### LdapUserInfo 常用字段
 
@@ -261,7 +265,15 @@ public class LdapConfig
 - `Department`
 - `Title`
 - `MemberOf`
+- `ProxyAddresses`
+- `OtherTelephone`
 - `Status`
+
+`MemberOf`、`ProxyAddresses` 和 `OtherTelephone` 均为字符串数组，因为 LDAP 可能为这些属性返回多个值。
+
+## 错误语义
+
+无效参数和配置会在使用前被拒绝。搜索操作中的连接、TLS、绑定和目录服务器故障会以异常形式向上传递；空结果仅表示查询已成功完成但没有匹配用户。凭据无效时，认证返回 `IsValid = false`。认证成功后，如果独立的用户信息查询失败，提供者可以返回 `IsValid = true` 且用户信息为空。
 
 ## 实现包
 

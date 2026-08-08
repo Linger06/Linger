@@ -40,7 +40,7 @@ public interface ILdapClient
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is blank.</exception>
-    Task<IEnumerable<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Searches users by a raw LDAP filter.
@@ -51,7 +51,7 @@ public interface ILdapClient
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="filter"/> is blank.</exception>
-    Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Checks if user exists in LDAP directory

@@ -87,7 +87,8 @@
 | `Linger.Ldap.Contracts` | `ILdap` | `ILdapClient` | `Linger.Ldap.Contracts` | 重命名以准确表达契约含义：连接目录服务器的客户端。 |
 | `Linger.Ldap.Contracts` | `AdUserInfo` | `LdapUserInfo` | `Linger.Ldap.Contracts` | 该模型与提供者无关，并不局限于 Active Directory。 |
 | `Linger.Ldap.ActiveDirectory` | `Ldap` | `AdLdapClient` | `Linger.Ldap.ActiveDirectory` | 原名称与 `Linger.Ldap` 命名空间冲突，且与 Novell 实现同名。 |
-| `Linger.Ldap.ActiveDirectory` | `UserPrincipal.ToAdUser()`、`DirectoryEntry.ToAdUserInfo()`、`SearchResultCollection.ToAdUsersInfo()` | `ToLdapUserInfo()`、`ToLdapUserInfo()`、`ToLdapUsersInfo()` | `Linger.Ldap.ActiveDirectory` | 与 `LdapUserInfo` 保持一致。 |
+| `Linger.Ldap.Contracts` | 查询返回 `Task<IEnumerable<LdapUserInfo>>` | `Task<IReadOnlyList<LdapUserInfo>>` | `Linger.Ldap.Contracts` | 提供者资源释放前会完成结果实体化，新契约直接表达这一行为。 |
+| `Linger.Ldap.Contracts` | 使用分隔字符串表示 `ProxyAddresses` / `OtherTelephone` | `string[]?` 属性 | `Linger.Ldap.Contracts` | LDAP 多值属性不再依赖提供者特定的分隔符。 |
 | `Linger.Ldap.Novell` | `Ldap` | `NovellLdapClient` | `Linger.Ldap.Novell` | 原名称与 `Linger.Ldap` 命名空间冲突，且与 Active Directory 实现同名。 |
 | `Linger.Ldap.Novell` | `LdapEntry.ToAdUser()` | `LdapEntry.ToLdapUserInfo()` | `Linger.Ldap.Novell` | 与 `LdapUserInfo` 保持一致。 |
 
@@ -105,6 +106,9 @@
 | `Linger.Utils` | `ExtensionMethodSetting` 中的默认值 | 显式配置 `Encoding`、`CultureInfo`、缓冲区大小和 `JsonSerializerOptions`。JSON 可使用 `JsonDefaults.CreateRequestOptions`、`CreateResponseOptions` 或 `ApplyDefaultConfiguration`。 | .NET BCL / `Linger.Json` | 进程级可变默认值会使行为难以推断。 |
 | `Linger.Utils` | 其他 `DataContractJsonSerializer` 相关帮助方法 | 使用 `System.Text.Json.JsonSerializer`。 | .NET BCL | 项目统一采用 `System.Text.Json`。 |
 | `Linger.Utils` | `DeserializeDynamicJsonObject` 和 `JsonTextAccessor` | 根据是否需要可变 JSON，使用 `JsonDocument`、`JsonElement` 或 `JsonNode`。 | .NET BCL | 动态 JSON 隐藏了数据结构和运行时失败方式。 |
+| `Linger.Ldap.ActiveDirectory` | `AdLdapClient` 仅 Logger 的构造函数 | 当前 Windows 域使用无参构造；需要自定义 Logger 和显式配置时，通过 Options 注册 `LdapConfig`。 | `Linger.Ldap.ActiveDirectory` | 仅提供 Logger 无法表达连接和查询配置。 |
+| `Linger.Ldap.ActiveDirectory` | `GetEntryByUsername` | 常规用户查询使用 `FindUserAsync`；确需原生 ADSI 时由应用直接使用 `System.DirectoryServices`。 | `Linger.Ldap.ActiveDirectory` / 应用代码 | 返回提供者资源会把所有权和释放责任泄露到客户端契约之外。 |
+| `Linger.Ldap.ActiveDirectory` | 面向 `UserPrincipal`、`DirectoryEntry` 和 `SearchResultCollection` 的公开映射扩展 | 使用 `ILdapClient` 查询操作。 | `Linger.Ldap.Contracts` | 三套映射路径存在重复，并会返回不一致的账户安全信息。 |
 
 ## 行为变化
 

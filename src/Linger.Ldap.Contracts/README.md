@@ -48,6 +48,7 @@ public void ConfigureServices(IServiceCollection services)
     "SearchBase": "DC=example,DC=com",
     "SearchFilter": "(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})))",
     "Security": true,
+    "MaxResults": 1000,
     "Credentials": {
       "BindDn": "serviceaccount",
       "BindCredentials": "password"
@@ -120,7 +121,7 @@ public class UserService
             cancellationToken: cancellationToken);
     }
 
-    public async Task<IEnumerable<LdapUserInfo>> SearchUsersAsync(
+    public async Task<IReadOnlyList<LdapUserInfo>> SearchUsersAsync(
         string searchTerm,
         CancellationToken cancellationToken = default)
     {
@@ -215,13 +216,13 @@ public interface ILdapClient
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<LdapUserInfo>> GetUsersAsync(
+    Task<IReadOnlyList<LdapUserInfo>> GetUsersAsync(
         string userName,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
         CancellationToken cancellationToken = default);
 
-    Task<IEnumerable<LdapUserInfo>> SearchUsersByFilterAsync(
+    Task<IReadOnlyList<LdapUserInfo>> SearchUsersByFilterAsync(
         string filter,
         LdapCredentials? ldapCredentials = null,
         string? searchBase = null,
@@ -248,8 +249,11 @@ public class LdapConfig
     public string SearchBase { get; set; } = null!;
     public string SearchFilter { get; set; } = null!;
     public string[]? Attributes { get; set; }
+    public int MaxResults { get; set; } = 1000;
 }
 ```
+
+Providers take an independent snapshot of `LdapConfig`, including `Credentials` and `Attributes`, during client construction. Later changes to the source configuration do not affect an existing client; create a new client to apply new configuration.
 
 ### LdapUserInfo (Commonly Used Fields)
 
@@ -261,7 +265,15 @@ public class LdapConfig
 - `Department`
 - `Title`
 - `MemberOf`
+- `ProxyAddresses`
+- `OtherTelephone`
 - `Status`
+
+`MemberOf`, `ProxyAddresses`, and `OtherTelephone` are string arrays because LDAP can return multiple values for these attributes.
+
+## Error Behavior
+
+Invalid arguments and configuration are rejected before use. Search-operation connection, TLS, bind, and directory-server failures are surfaced as exceptions; an empty result means that the query completed successfully without matching users. Credential validation returns `IsValid = false` for invalid credentials. After successful authentication, a provider can return `IsValid = true` with no profile when the separate profile lookup fails.
 
 ## Supported Implementations
 
