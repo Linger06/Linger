@@ -347,15 +347,11 @@ public static partial class StringExtensions
     /// <exception cref="FormatException">Thrown when the input string is not in scientific notation.</exception>
     public static decimal ToDecimalForScientificNotation(this string input)
     {
-        decimal dData;
-        if (input.IsScientificNotation())
-        {
-            dData = Convert.ToDecimal(decimal.Parse(input, NumberStyles.Float, CultureInfo.InvariantCulture));
-        }
-        else
+        if (!input.IsScientificNotation())
         {
             throw new FormatException(nameof(input));
         }
-        return dData;
+
+        return decimal.Parse(input, NumberStyles.Float, CultureInfo.InvariantCulture);
     }
 }

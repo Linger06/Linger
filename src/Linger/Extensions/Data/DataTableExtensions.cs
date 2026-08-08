@@ -60,6 +60,8 @@ public static partial class DataTableExtensions
     /// DataTable result = table.Find("ColumnName = 'Value'");
     /// </code>
     /// </example>
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode(
+        "The filter expression may reference members that are removed by trimming.")]
     public static DataTable Find(this DataTable sourceTable, string condition)
     {
         DataRow[] foundRows = sourceTable.Select(condition);
@@ -120,11 +122,31 @@ public static partial class DataTableExtensions
     /// double sum = table.Sum("ColumnName");
     /// </code>
     /// </example>
+    /// <exception cref="InvalidCastException">A non-null column value cannot be converted to <see cref="double"/>.</exception>
     public static double Sum(this DataTable sourceTable, string columnName)
     {
         ArgumentNullException.ThrowIfNull(sourceTable);
         ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
-        return sourceTable.AsEnumerable().Sum(dr => dr[columnName].ToDoubleOrDefault());
+
+        var sum = 0d;
+        for (var rowIndex = 0; rowIndex < sourceTable.Rows.Count; rowIndex++)
+        {
+            var value = sourceTable.Rows[rowIndex][columnName];
+            if (value is DBNull)
+            {
+                continue;
+            }
+
+            if (!value.TryToDouble(out var convertedValue))
+            {
+                throw new InvalidCastException(
+                    $"Value in column '{columnName}' at row {rowIndex} cannot be converted to Double.");
+            }
+
+            sum += convertedValue;
+        }
+
+        return sum;
     }
 
     /// <summary>
@@ -140,24 +162,46 @@ public static partial class DataTableExtensions
     /// DataTable combinedTable = table1.Combine(table2);
     /// </code>
     /// </example>
+    /// <exception cref="ArgumentException">The tables do not have matching column names and types.</exception>
     public static DataTable Combine(this DataTable dataTable1, DataTable dataTable2)
     {
-        DataTable newDataTable = dataTable1.Clone();
+        ArgumentNullException.ThrowIfNull(dataTable1);
+        ArgumentNullException.ThrowIfNull(dataTable2);
+        ValidateCompatibleTableSchema(dataTable1, dataTable2);
 
-        var obj = new object[newDataTable.Columns.Count];
-        for (var i = 0; i < dataTable1.Rows.Count; i++)
+        DataTable newDataTable = dataTable1.Clone();
+        foreach (DataRow row in dataTable1.Rows)
         {
-            dataTable1.Rows[i].ItemArray.CopyTo(obj, 0);
-            _ = newDataTable.Rows.Add(obj);
+            newDataTable.Rows.Add(row.ItemArray);
         }
 
-        for (var i = 0; i < dataTable2.Rows.Count; i++)
+        foreach (DataRow row in dataTable2.Rows)
         {
-            dataTable2.Rows[i].ItemArray.CopyTo(obj, 0);
-            _ = newDataTable.Rows.Add(obj);
+            newDataTable.Rows.Add(row.ItemArray);
         }
 
         return newDataTable;
+    }
+
+    private static void ValidateCompatibleTableSchema(DataTable dataTable1, DataTable dataTable2)
+    {
+        if (dataTable1.Columns.Count != dataTable2.Columns.Count)
+        {
+            throw new ArgumentException("The tables must have the same number of columns.", nameof(dataTable2));
+        }
+
+        for (var i = 0; i < dataTable1.Columns.Count; i++)
+        {
+            var leftColumn = dataTable1.Columns[i];
+            var rightColumn = dataTable2.Columns[i];
+            if (!string.Equals(leftColumn.ColumnName, rightColumn.ColumnName, StringComparison.Ordinal)
+                || leftColumn.DataType != rightColumn.DataType)
+            {
+                throw new ArgumentException(
+                    $"Column {i} must have the same name and data type in both tables.",
+                    nameof(dataTable2));
+            }
+        }
     }
 
     /// <summary>
@@ -215,6 +259,21 @@ public static partial class DataTableExtensions
     public static DataTable Join(this DataTable left, DataTable right, DataColumn[] leftCols, DataColumn[] rightCols,
         bool includeLeftJoin, bool includeRightJoin)
     {
+        ArgumentNullException.ThrowIfNull(left);
+        ArgumentNullException.ThrowIfNull(right);
+        ArgumentNullException.ThrowIfNull(leftCols);
+        ArgumentNullException.ThrowIfNull(rightCols);
+
+        if (leftCols.Length == 0)
+        {
+            throw new ArgumentException("At least one join column is required.", nameof(leftCols));
+        }
+
+        if (leftCols.Length != rightCols.Length)
+        {
+            throw new ArgumentException("The left and right join column counts must match.", nameof(rightCols));
+        }
+
         ValidateJoinColumns(left, leftCols, nameof(leftCols), nameof(left));
         ValidateJoinColumns(right, rightCols, nameof(rightCols), nameof(right));
 

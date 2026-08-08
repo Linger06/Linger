@@ -16,7 +16,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <typeparam name="T">The result type.</typeparam>
     /// <param name="operation">The operation to execute.</param>
     /// <param name="operationName">The operation name used in errors.</param>
-    /// <param name="shouldRetry">Determines whether an exception is retryable.</param>
+    /// <param name="shouldRetry">Determines whether an exception is retryable. When omitted, exceptions are not retried.</param>
     /// <param name="operationExpr">The caller expression for <paramref name="operation"/>.</param>
     /// <param name="cancellationToken">The cancellation token forwarded to the operation.</param>
     /// <returns>The operation result.</returns>
@@ -44,7 +44,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// </summary>
     /// <param name="operation">The operation to execute.</param>
     /// <param name="operationName">The operation name used in errors.</param>
-    /// <param name="shouldRetry">Determines whether an exception is retryable.</param>
+    /// <param name="shouldRetry">Determines whether an exception is retryable. When omitted, exceptions are not retried.</param>
     /// <param name="operationExpr">The caller expression for <paramref name="operation"/>.</param>
     /// <param name="cancellationToken">The cancellation token forwarded to the operation.</param>
     /// <returns>A task representing the operation.</returns>
@@ -76,7 +76,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// </summary>
     /// <param name="operation">要执行的操作</param>
     /// <param name="operationName">操作名称（用于异常信息）</param>
-    /// <param name="shouldRetry">判断是否应该重试的函数</param>
+    /// <param name="shouldRetry">判断是否应该重试的函数；未提供时不重试。</param>
     /// <param name="operationExpr"></param>
     /// <exception cref="OutOfRetryCountException">超过重试次数时抛出</exception>
     public void Execute(
@@ -92,7 +92,6 @@ public sealed class RetryHelper(RetryOptions? options = null)
         // 这里不接受 CancellationToken，保持 API 简洁；如需取消请使用 ExecuteAsync。
         _options.Validate();
         Exception? lastException = null;
-        shouldRetry ??= _ => true;
 
         var start = DateTime.UtcNow;
         for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
@@ -110,7 +109,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
                 }
 
                 lastException = ex;
-                if (!shouldRetry(ex))
+                if (shouldRetry?.Invoke(ex) != true)
                 {
                     ExceptionDispatchInfo.Capture(ex).Throw();
                 }
@@ -148,7 +147,6 @@ public sealed class RetryHelper(RetryOptions? options = null)
         cancellationToken.ThrowIfCancellationRequested();
 
         Exception? lastException = null;
-        shouldRetry ??= _ => true;
 
         var start = DateTime.UtcNow;
         for (var retry = 0; retry < _options.MaxRetryAttempts; retry++)
@@ -170,7 +168,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
                 lastException = ex;
 
                 // 如果异常类型不需要重试，直接将原始异常重新抛出
-                if (!shouldRetry(ex))
+                if (shouldRetry?.Invoke(ex) != true)
                 {
                     // 保留原始异常的堆栈信息
                     ExceptionDispatchInfo.Capture(ex).Throw();

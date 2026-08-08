@@ -318,6 +318,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                     return status == FtpStatus.Success;
                 },
                 "Upload file",
+                _ => true,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
@@ -428,7 +429,9 @@ public class FtpFileSystem : RemoteFileSystemBase
 
                     return status == FtpStatus.Success;
                 },
-                "Download file", cancellationToken: cancellationToken).ConfigureAwait(false);
+                "Download file",
+                _ => true,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件失败: {remoteFilePath}");
@@ -460,7 +463,9 @@ public class FtpFileSystem : RemoteFileSystemBase
                     await Client.DeleteFile(filePath, operationCancellationToken).ConfigureAwait(false);
                     return true;
                 },
-                "Delete file", cancellationToken: cancellationToken).ConfigureAwait(false);
+                "Delete file",
+                _ => true,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return FileOperationResult.CreateSuccess(filePath);
         }

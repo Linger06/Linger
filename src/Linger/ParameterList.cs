@@ -11,7 +11,6 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// </summary>
     public ParameterList()
     {
-        Parameters = [];
     }
 
     /// <summary>
@@ -44,9 +43,9 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     }
 
     /// <summary>
-    /// Gets or sets the parameters.
+    /// Gets the parameters.
     /// </summary>
-    public Dictionary<string, object> Parameters { get; set; }
+    public Dictionary<string, object> Parameters { get; } = [];
 
     /// <summary>
     /// Gets or sets the value associated with the specified key.

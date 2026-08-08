@@ -147,7 +147,8 @@ public static class ExcelExtensions
             await fs.FlushAsync(operationCancellationToken).ConfigureAwait(false);
 
             return fullFileName;
-        }, "导出数据表到Excel文件", cancellationToken: cancellationToken).ConfigureAwait(false);
+        }, "导出数据表到Excel文件", shouldRetry: exception => exception is IOException,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -200,7 +201,8 @@ public static class ExcelExtensions
             await fs.FlushAsync(operationCancellationToken).ConfigureAwait(false);
 
             return fullFileName;
-        }, "导出对象集合到Excel文件", cancellationToken: cancellationToken).ConfigureAwait(false);
+        }, "导出对象集合到Excel文件", shouldRetry: exception => exception is IOException,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
 }

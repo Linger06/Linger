@@ -15,6 +15,19 @@ public static partial class StringExtensions
     private const int AesTagSize = 32;
     private const int AesDerivedKeySize = 64;
     private const int AesPbkdf2Iterations = 100_000;
+#if NETSTANDARD2_0
+    private static readonly System.Reflection.MethodInfo? s_pbkdf2Sha256Method =
+        typeof(Rfc2898DeriveBytes).GetMethod(
+            "Pbkdf2",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+            binder: null,
+            types: new[] { typeof(string), typeof(byte[]), typeof(int), typeof(HashAlgorithmName), typeof(int) },
+            modifiers: null);
+
+    private static readonly System.Reflection.ConstructorInfo? s_pbkdf2Sha256Constructor =
+        typeof(Rfc2898DeriveBytes).GetConstructor(
+            new[] { typeof(string), typeof(byte[]), typeof(int), typeof(HashAlgorithmName) });
+#endif
 
     // DES 加密方法已被移除，因为 DES 算法不安全。
     // 新代码应使用 AesEncryptAuthenticated 和 AesDecryptAuthenticated。
@@ -252,6 +265,27 @@ public static partial class StringExtensions
 #if NETSTANDARD2_0
     private static byte[] DeriveAesKeysSha256Portable(string password, byte[] salt)
     {
+        if (s_pbkdf2Sha256Method is not null)
+        {
+            return (byte[])s_pbkdf2Sha256Method.Invoke(
+                obj: null,
+                parameters: new object[]
+                {
+                    password,
+                    salt,
+                    AesPbkdf2Iterations,
+                    HashAlgorithmName.SHA256,
+                    AesDerivedKeySize
+                })!;
+        }
+
+        if (s_pbkdf2Sha256Constructor is not null)
+        {
+            using var deriveBytes = (Rfc2898DeriveBytes)s_pbkdf2Sha256Constructor.Invoke(
+                new object[] { password, salt, AesPbkdf2Iterations, HashAlgorithmName.SHA256 });
+            return deriveBytes.GetBytes(AesDerivedKeySize);
+        }
+
         byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
         byte[] saltBlock = new byte[salt.Length + sizeof(int)];
         Buffer.BlockCopy(salt, 0, saltBlock, 0, salt.Length);

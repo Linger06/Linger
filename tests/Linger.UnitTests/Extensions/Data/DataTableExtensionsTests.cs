@@ -347,6 +347,33 @@ public partial class DataTableExtensionsTests
     }
 
     [Fact]
+    public void Sum_WithInvalidValue_ThrowsInvalidCastException()
+    {
+        var table = new DataTable();
+        table.Columns.Add("Value", typeof(object));
+        table.Rows.Add(1.5d);
+        table.Rows.Add("invalid");
+
+        var exception = Assert.Throws<InvalidCastException>(() => table.Sum("Value"));
+
+        Assert.Contains("Value", exception.Message);
+        Assert.Contains("1", exception.Message);
+    }
+
+    [Fact]
+    public void Sum_WithDbNull_IgnoresNullValues()
+    {
+        var table = new DataTable();
+        table.Columns.Add("Value", typeof(object));
+        table.Rows.Add(1.5d);
+        table.Rows.Add(DBNull.Value);
+
+        var result = table.Sum("Value");
+
+        Assert.Equal(1.5d, result);
+    }
+
+    [Fact]
     public void Combine_ReturnsCombinedDataTable()
     {
         DataTable? table1 = CreateTestDataTable();
@@ -356,6 +383,52 @@ public partial class DataTableExtensionsTests
 
         Assert.NotNull(result);
         Assert.Equal(4, result.Rows.Count);
+    }
+
+    [Fact]
+    public void Combine_WithDifferentColumnCounts_ThrowsArgumentException()
+    {
+        var table1 = new DataTable();
+        table1.Columns.Add("Id", typeof(int));
+        table1.Columns.Add("Name", typeof(string));
+        table1.Rows.Add(1, "existing");
+
+        var table2 = new DataTable();
+        table2.Columns.Add("Id", typeof(int));
+        table2.Rows.Add(2);
+
+        var exception = Assert.Throws<ArgumentException>(() => table1.Combine(table2));
+
+        Assert.Equal("dataTable2", exception.ParamName);
+    }
+
+    [Fact]
+    public void Combine_WithDifferentColumnTypes_ThrowsArgumentException()
+    {
+        var table1 = new DataTable();
+        table1.Columns.Add("Id", typeof(int));
+
+        var table2 = new DataTable();
+        table2.Columns.Add("Id", typeof(string));
+
+        var exception = Assert.Throws<ArgumentException>(() => table1.Combine(table2));
+
+        Assert.Equal("dataTable2", exception.ParamName);
+    }
+
+    [Fact]
+    public void Combine_WithUnchangedSourceRows_CreatesAddedRows()
+    {
+        var table1 = new DataTable();
+        table1.Columns.Add("Id", typeof(int));
+        table1.Rows.Add(1);
+        table1.AcceptChanges();
+
+        var table2 = table1.Clone();
+
+        var result = table1.Combine(table2);
+
+        Assert.Equal(DataRowState.Added, result.Rows[0].RowState);
     }
 
     [Fact]
@@ -471,6 +544,26 @@ public partial class DataTableExtensionsTests
         Assert.Equal(2, result.Rows.Count);
         Assert.Equal("right-1", result.Rows[0]["RightValue"]);
         Assert.Equal("right-2", result.Rows[1]["RightValue"]);
+    }
+
+    [Fact]
+    public void Join_WithDifferentKeyColumnCounts_ThrowsArgumentException()
+    {
+        var left = new DataTable();
+        left.Columns.Add("Id", typeof(int));
+        left.Columns.Add("Code", typeof(string));
+
+        var right = new DataTable();
+        right.Columns.Add("Id", typeof(int));
+
+        var exception = Assert.Throws<ArgumentException>(() => left.Join(
+            right,
+            new[] { left.Columns["Id"]!, left.Columns["Code"]! },
+            new[] { right.Columns["Id"]! },
+            includeLeftJoin: false,
+            includeRightJoin: false));
+
+        Assert.Equal("rightCols", exception.ParamName);
     }
 
     private sealed class UriTarget

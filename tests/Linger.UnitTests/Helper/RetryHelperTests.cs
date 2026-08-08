@@ -43,6 +43,30 @@ public class RetryHelperTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithoutShouldRetry_ShouldNotRetry()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1
+        };
+        var retryHelper = new RetryHelper(options);
+        var exception = new InvalidOperationException("Test exception");
+        var attemptCount = 0;
+
+        var actualException = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            retryHelper.ExecuteAsync<int>(_ =>
+            {
+                attemptCount++;
+                throw exception;
+            }));
+
+        Assert.Same(exception, actualException);
+        Assert.Equal(1, attemptCount);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithFailingOperationThatExceedsRetries_ShouldThrowOutOfRetryCountException()
     {
         // Arrange
@@ -54,7 +78,8 @@ public class RetryHelperTests
             {
                 await retryHelper.ExecuteAsync<int>(
                     _ => throw new InvalidOperationException("Test exception"),
-                    "TestOperation");
+                    "TestOperation",
+                    _ => true);
             });
 
         Assert.Contains("已达到最大重试次数", exception.Message);
@@ -91,7 +116,8 @@ public class RetryHelperTests
             {
                 await retryHelper.ExecuteAsync(
                     _ => throw new InvalidOperationException("Test exception"),
-                    "TestOperation");
+                    "TestOperation",
+                    _ => true);
             });
 
         Assert.Contains("已达到最大重试次数", exception.Message);
@@ -120,7 +146,7 @@ public class RetryHelperTests
             }
             await Task.Delay(1);
             return 42;
-        }, "TestOperation");
+        }, "TestOperation", _ => true);
 
         // Assert
         Assert.Equal(42, result);
@@ -224,7 +250,7 @@ public class RetryHelperTests
             }
             await Task.Delay(1);
             return 42;
-        }, "TestOperation");
+        }, "TestOperation", _ => true);
 
         // Assert
         Assert.Equal(42, result);
@@ -249,7 +275,8 @@ public class RetryHelperTests
                         attemptCount++;
                         throw new InvalidOperationException("Test exception");
                     },
-                    "TestOperation");
+                    "TestOperation",
+                    _ => true);
             });
 
         Assert.Equal(1, attemptCount);
@@ -299,7 +326,7 @@ public class RetryHelperTests
             }
             await Task.Delay(1);
             return 42;
-        }, "TestOperation");
+        }, "TestOperation", _ => true);
 
         // Assert
         Assert.Equal(42, result);
@@ -339,7 +366,7 @@ public class RetryHelperTests
                 }
 
                 await Task.Delay(1);
-            }, "TestOperation");
+            }, "TestOperation", _ => true);
 
         // Assert
         Assert.Equal(5, attemptCount);
@@ -358,7 +385,9 @@ public class RetryHelperTests
 
         // Act
         var ex = await Assert.ThrowsAsync<OutOfRetryCountException>(async () =>
-            await retryHelper.ExecuteAsync<int>(_ => throw new InvalidOperationException("fail"))
+            await retryHelper.ExecuteAsync<int>(
+                _ => throw new InvalidOperationException("fail"),
+                shouldRetry: _ => true)
         );
 
         // Assert: message should contain part of the lambda expression text

@@ -395,7 +395,9 @@ public class SftpFileSystem : RemoteFileSystemBase
 
                     return true;
                 },
-                "Download file", cancellationToken: cancellationToken).ConfigureAwait(false);
+                "Download file",
+                _ => true,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var fileInfo = new FileInfo(localDestinationPath);
             return FileOperationResult.CreateSuccess(remoteFilePath, localDestinationPath, fileInfo.Length);

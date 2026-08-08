@@ -45,7 +45,7 @@ public class RetryHelperSyncTests
             {
                 throw new InvalidOperationException("fail once");
             }
-        });
+        }, shouldRetry: _ => true);
 
         Assert.Equal(2, attempts);
     }
@@ -70,7 +70,7 @@ public class RetryHelperSyncTests
             {
                 attempts++;
                 throw new InvalidOperationException("always fail");
-            });
+            }, shouldRetry: _ => true);
         });
 
         // 应执行到最大次数
@@ -101,6 +101,31 @@ public class RetryHelperSyncTests
         });
 
         Assert.IsType<InvalidOperationException>(ex);
+        Assert.Equal(1, attempts);
+    }
+
+    [Fact]
+    public void Execute_WithoutShouldRetry_DoesNotRetry()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1,
+            UseExponentialBackoff = false,
+            Jitter = 0
+        };
+        var retry = new RetryHelper(options);
+        var exception = new InvalidOperationException("fail");
+        var attempts = 0;
+
+        var actualException = Assert.Throws<InvalidOperationException>(() => retry.Execute(() =>
+        {
+            attempts++;
+            throw exception;
+        }));
+
+        Assert.Same(exception, actualException);
         Assert.Equal(1, attempts);
     }
 }

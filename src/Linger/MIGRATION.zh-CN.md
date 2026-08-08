@@ -12,7 +12,9 @@
 | `Linger.Utils` | 基于反射的 `DataTable.ToList<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` | 需要引用 `Linger.Reflection`。不需要运行时反射时，请使用 `Linger.Utils` 中的映射器或工厂重载。 |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<DataRow, T>)` | `DataTable.ToList<T>(Func<DataRow, T>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `DataTable.ToList<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
-| `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | 接收并向实际操作传递取消令牌。 |
+| `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | 接收并向实际操作传递取消令牌。省略 `shouldRetry` 时不再重试所有异常；需要重试时必须显式传入谓词。 |
+| `Linger.Utils` | 为 `ParameterList.Parameters` 整体赋值 | 修改 `Parameters` 集合，或调用 `SetValue`、`Add`、`Remove`、`Clear` | `Linger.Utils` | 字典引用已改为只读，不能再整体替换或设为 `null`。 |
+| `Linger.Utils` | `GuidCode.NewDateGuid` | `Guid.NewGuid().ToString("N")`；.NET 9+ 可使用 `Guid.CreateVersion7().ToString("N")` | .NET BCL | 被删除的 10 位标识只有 4 位 Base36 随机字符，无法可靠保证唯一。短业务码必须配合唯一约束和冲突重试。 |
 | `Linger.Utils` | `JsonExtensions.Serialize<T>` / `SerializeJson<T>(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | 旧实现使用 `DataContractJsonSerializer`。 |
 | `Linger.Utils` | `JsonExtensions.DeserializeJson<T>(...)` | `JsonSerializer.Deserialize<T>(...)` | .NET BCL | 旧实现使用 `DataContractJsonSerializer`。 |
 | `Linger.Utils` | `JsonExtensions.ToJsonString(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | 包装方法没有增加序列化能力，且无法保证 Native AOT 兼容性。 |
@@ -125,6 +127,7 @@ var result = await retryHelper.ExecuteAsync(
     {
         return await client.GetStringAsync(uri, cancellationToken);
     },
+    shouldRetry: exception => exception is HttpRequestException or TimeoutException,
     cancellationToken: cancellationToken);
 ```
 

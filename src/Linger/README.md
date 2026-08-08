@@ -389,9 +389,8 @@ bool isNotNullOrEmpty = nullableGuid.IsNotNullOrEmpty(); // Check if neither nul
 long longValue = guid.ToInt64(); // Convert to Int64
 int intValue = guid.ToInt32(); // Convert to Int32
 
-// GuidCode helper class - Generate unique identifiers
-string uniqueId = GuidCode.NewId; // DateTime + GUID based unique ID
-string dateGuid = GuidCode.NewDateGuid; // Short date-based unique ID
+// GuidCode helper class - Generate a date/time-prefixed identifier
+string id = GuidCode.NewId;
 
 // .NET 9+ feature: V7 GUID generation and timestamp extraction
 #if NET9_0_OR_GREATER
@@ -484,20 +483,26 @@ CancellationToken cancellationToken = GetCancellationToken();
 var result = await retryHelper.ExecuteAsync(
     ct => SomeOperationThatMightFail(ct),
     "Operation Name",
+    shouldRetry: exception => exception is HttpRequestException or TimeoutException,
     cancellationToken: cancellationToken
 );
 
-// Or use default options
+// Or use default delay options with an explicit exception policy
 var defaultRetryHelper = new RetryHelper();
 var result2 = await defaultRetryHelper.ExecuteAsync(
     ct => AnotherOperationThatMightFail(ct),
     "Another Operation Name",
+    shouldRetry: exception => exception is TimeoutException,
     cancellationToken: cancellationToken
 );
 
 // Synchronous variant
-defaultRetryHelper.Execute(() => DoSomething());
+defaultRetryHelper.Execute(
+    () => DoSomething(),
+    shouldRetry: exception => exception is IOException);
 ```
+
+When `shouldRetry` is omitted, the original exception is rethrown without retrying.
 
 ### Path Operations
 

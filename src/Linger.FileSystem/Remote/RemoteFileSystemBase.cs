@@ -203,6 +203,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         return await helper.ExecuteAsync(
             _ => operation(),
             "batch operation",
+            _ => true,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -228,6 +229,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         await helper.ExecuteAsync(
             _ => operation(),
             "batch operation",
+            _ => true,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 

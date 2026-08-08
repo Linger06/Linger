@@ -204,5 +204,24 @@ namespace System.Diagnostics.CodeAnalysis
         /// <summary>Gets field or property member names.</summary>
         public string[] Members { get; }
     }
+
+    /// <summary>Indicates that a member requires unreferenced code and may break when trimming.</summary>
+    [AttributeUsage(AttributeTargets.Class | AttributeTargets.Constructor | AttributeTargets.Method,
+        Inherited = false)]
+    public sealed class RequiresUnreferencedCodeAttribute : Attribute
+    {
+        /// <summary>Initializes the attribute with a description of the trimming requirement.</summary>
+        /// <param name="message">A message describing the trimming requirement.</param>
+        public RequiresUnreferencedCodeAttribute(string message)
+        {
+            Message = message;
+        }
+
+        /// <summary>Gets the message describing the trimming requirement.</summary>
+        public string Message { get; }
+
+        /// <summary>Gets or sets an optional URL containing more information.</summary>
+        public string? Url { get; set; }
+    }
 #endif
 }

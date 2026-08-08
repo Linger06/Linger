@@ -6,7 +6,7 @@ namespace Linger.UnitTests.Helper;
 public class GuidCodeTests
 {
     [Fact]
-    public void NewId_ShouldGenerateUniqueIds()
+    public void NewId_ShouldGenerateDifferentIds()
     {
         // Arrange & Act
         var id1 = GuidCode.NewId;
@@ -14,7 +14,7 @@ public class GuidCodeTests
 
         // Assert
         Assert.NotEqual(id1, id2);
-        Assert.Equal(31, id1.Length); // 24 for date + 10 for guid
+        Assert.Equal(31, id1.Length); // 21 for date/time + 10 for GUID suffix
         Assert.Equal(31, id2.Length);
     }
 
@@ -27,30 +27,6 @@ public class GuidCodeTests
 
         // Assert
         Assert.StartsWith(dateTimePrefix, id);
-    }
-
-    [Fact]
-    public void NewDateGuid_ShouldGenerateUniqueIds()
-    {
-        // Arrange & Act
-        var id1 = GuidCode.NewDateGuid;
-        var id2 = GuidCode.NewDateGuid;
-
-        // Assert
-        Assert.NotEqual(id1, id2);
-        Assert.Equal(10, id1.Length); // 6 for date + 4 for guid
-        Assert.Equal(10, id2.Length);
-    }
-
-    [Fact]
-    public void NewDateGuid_ShouldStartWithCurrentDate()
-    {
-        // Arrange & Act
-        var id = GuidCode.NewDateGuid;
-        var datePrefix = DateTime.Now.ToString("yyMMdd");
-
-        // Assert
-        Assert.StartsWith(datePrefix, id);
     }
 
     [Fact]

@@ -438,9 +438,8 @@ bool isNotNullOrEmpty = nullableGuid.IsNotNullOrEmpty(); // 检查是否既不�
 long longValue = guid.ToInt64(); // 转换为 Int64
 int intValue = guid.ToInt32(); // 转换为 Int32
 
-// GuidCode 工具类 - 生成唯一标识符
-string uniqueId = GuidCode.NewId; // 基于日期时间 + GUID 的唯一 ID
-string dateGuid = GuidCode.NewDateGuid; // 短日期格式的唯一 ID
+// GuidCode 工具类 - 生成带日期时间前缀的标识符
+string id = GuidCode.NewId;
 
 // .NET 9+ 功能：V7 GUID 生成和时间戳提取
 #if NET9_0_OR_GREATER
@@ -544,17 +543,21 @@ CancellationToken cancellationToken = GetCancellationToken();
 var result = await retryHelper.ExecuteAsync(
     ct => SomeOperationThatMightFail(ct),
     "网络请求",
+    shouldRetry: exception => exception is HttpRequestException or TimeoutException,
     cancellationToken: cancellationToken
 );
 
-// 使用默认重试策略
+// 使用默认延迟配置，并显式指定可重试异常
 var defaultRetryHelper = new RetryHelper();
 var result2 = await defaultRetryHelper.ExecuteAsync(
     ct => AnotherOperationThatMightFail(ct),
     "数据库操作",
+    shouldRetry: exception => exception is TimeoutException,
     cancellationToken: cancellationToken
 );
 ```
+
+省略 `shouldRetry` 时不会重试，而是直接重新抛出原始异常。
 
 ### 路径操作
 

@@ -13,7 +13,9 @@ for applications upgrading from the previous API surface.
 | `Linger.Utils` | Reflection-based `DataTable.ToList<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` | Add a reference to `Linger.Reflection`. Use the mapper or factory overloads in `Linger.Utils` when runtime reflection is unnecessary. |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<DataRow, T>)` | `DataTable.ToList<T>(Func<DataRow, T>)` | `Linger.Utils` | The removed method only wrapped synchronous mapping in `Task.FromResult`. |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `DataTable.ToList<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `Linger.Utils` | The removed method only wrapped synchronous mapping in `Task.FromResult`. |
-| `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | Accept and forward the supplied cancellation token. |
+| `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | Accept and forward the supplied cancellation token. An omitted `shouldRetry` no longer retries every exception; pass an explicit predicate to enable retries. |
+| `Linger.Utils` | Assigning `ParameterList.Parameters` | Mutate `Parameters` or call `SetValue`, `Add`, `Remove`, or `Clear` | `Linger.Utils` | The dictionary reference is now read-only and can no longer be replaced or set to `null`. |
+| `Linger.Utils` | `GuidCode.NewDateGuid` | `Guid.NewGuid().ToString("N")`, or `Guid.CreateVersion7().ToString("N")` on .NET 9+ | .NET BCL | The removed 10-character value had only four Base36 random characters and could not provide reliable uniqueness. Short business codes require a unique constraint and collision retry. |
 | `Linger.Utils` | `JsonExtensions.Serialize<T>` / `SerializeJson<T>(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | The legacy implementation used `DataContractJsonSerializer`. |
 | `Linger.Utils` | `JsonExtensions.DeserializeJson<T>(...)` | `JsonSerializer.Deserialize<T>(...)` | .NET BCL | The legacy implementation used `DataContractJsonSerializer`. |
 | `Linger.Utils` | `JsonExtensions.ToJsonString(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | The wrapper added no serialization capability and could not guarantee Native AOT compatibility. |
@@ -130,6 +132,7 @@ var result = await retryHelper.ExecuteAsync(
     {
         return await client.GetStringAsync(uri, cancellationToken);
     },
+    shouldRetry: exception => exception is HttpRequestException or TimeoutException,
     cancellationToken: cancellationToken);
 ```
 
