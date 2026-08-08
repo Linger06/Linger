@@ -17,14 +17,16 @@ public sealed class RetryHelper(RetryOptions? options = null)
     /// <param name="operation">The operation to execute.</param>
     /// <param name="operationName">The operation name used in errors.</param>
     /// <param name="shouldRetry">Determines whether an exception is retryable. When omitted, exceptions are not retried.</param>
+    /// <param name="shouldRetryResult">Determines whether a returned result should trigger another attempt.</param>
     /// <param name="operationExpr">The caller expression for <paramref name="operation"/>.</param>
     /// <param name="cancellationToken">The cancellation token forwarded to the operation.</param>
-    /// <returns>The operation result.</returns>
+    /// <returns>The first accepted result, or the last result when all result-based attempts are exhausted.</returns>
     /// <exception cref="OutOfRetryCountException">Thrown after all attempts fail.</exception>
     public async Task<T> ExecuteAsync<T>(
         Func<CancellationToken, Task<T>> operation,
         string? operationName = null,
         Func<Exception, bool>? shouldRetry = null,
+        Func<T, bool>? shouldRetryResult = null,
         [System.Runtime.CompilerServices.CallerArgumentExpression(nameof(operation))] string? operationExpr = null,
         CancellationToken cancellationToken = default)
     {
@@ -36,6 +38,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
             () => operation(cancellationToken),
             operationName,
             shouldRetry,
+            shouldRetryResult,
             cancellationToken).ConfigureAwait(false);
     }
 
@@ -68,7 +71,8 @@ public sealed class RetryHelper(RetryOptions? options = null)
             },
             operationName,
             shouldRetry,
-            cancellationToken).ConfigureAwait(false);
+            shouldRetryResult: null,
+            cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -139,6 +143,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
         Func<Task<T>> operation,
         string operationName,
         Func<Exception, bool>? shouldRetry,
+        Func<T, bool>? shouldRetryResult,
         CancellationToken cancellationToken)
     {
         // 提前验证配置，确保无效参数尽早抛出（含 MaxRetryAttempts 等）
@@ -153,9 +158,10 @@ public sealed class RetryHelper(RetryOptions? options = null)
         {
             // Per-attempt early cancellation (in addition to delay points) for responsiveness.
             cancellationToken.ThrowIfCancellationRequested();
+            T result;
             try
             {
-                return await operation().ConfigureAwait(false);
+                result = await operation().ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -181,18 +187,33 @@ public sealed class RetryHelper(RetryOptions? options = null)
                     continue;
                 }
 
-                // 每次重试前再次检查取消状态
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // 计算延迟时间
-                var delayMs = CalculateDelayWithJitter(retry);
-                await Task.Delay(delayMs, cancellationToken).ConfigureAwait(false);
+                await DelayBeforeRetryAsync(retry, cancellationToken).ConfigureAwait(false);
+                continue;
             }
+
+            if (shouldRetryResult?.Invoke(result) != true)
+            {
+                return result;
+            }
+
+            if (retry == _options.MaxRetryAttempts - 1)
+            {
+                return result;
+            }
+
+            await DelayBeforeRetryAsync(retry, cancellationToken).ConfigureAwait(false);
         }
 
         var elapsed = DateTime.UtcNow - start;
         // 如果所有重试都失败，抛出统一的异常
         throw new OutOfRetryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetryAttempts}, 耗时: {elapsed.TotalMilliseconds:N0} ms", lastException);
+    }
+
+    private Task DelayBeforeRetryAsync(int retryAttempt, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Task.Delay(CalculateDelayWithJitter(retryAttempt), cancellationToken);
     }
 
     private int CalculateDelayWithJitter(int retryAttempt)

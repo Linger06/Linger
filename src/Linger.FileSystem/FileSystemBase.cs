@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
 using System.Text;
@@ -45,7 +44,8 @@ public abstract class FileSystemBase : IFileSystemOperations
         string operationName,
         bool restoreLength,
         CancellationToken cancellationToken,
-        Func<Exception, bool>? shouldRetry = null)
+        Func<Exception, bool>? shouldRetry = null,
+        Func<T, bool>? shouldRetryResult = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(operation);
@@ -83,7 +83,10 @@ public abstract class FileSystemBase : IFileSystemOperations
                 return await operation(operationCancellationToken).ConfigureAwait(false);
             },
             operationName,
-            exception => canRestore && (shouldRetry?.Invoke(exception) ?? true),
+            shouldRetry: exception => canRestore && (shouldRetry?.Invoke(exception) ?? true),
+            shouldRetryResult: shouldRetryResult is null
+                ? null
+                : result => canRestore && shouldRetryResult(result),
             cancellationToken: cancellationToken);
     }
 
@@ -95,27 +98,59 @@ public abstract class FileSystemBase : IFileSystemOperations
         Func<Task> operation,
         BatchOperationTracker tracker)
     {
-        var reportCompletion = true;
         try
         {
             await operation().ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
-            reportCompletion = false;
             throw;
         }
         catch (Exception ex)
         {
             tracker.AddFailure(filePath, ex.Message, ex);
         }
-        finally
+    }
+
+    /// <summary>
+    /// 检测会映射到同一目标路径的批量输入。
+    /// </summary>
+    protected static BatchOperationResult? CreateDuplicateTargetResult(
+        IReadOnlyCollection<string> sourcePaths,
+        Func<string, string> targetPathSelector,
+        StringComparer comparer,
+        IProgress<BatchProgress>? progress = null)
+    {
+        var mappings = sourcePaths
+            .Select(sourcePath => (SourcePath: sourcePath, TargetPath: targetPathSelector(sourcePath)))
+            .ToList();
+        var duplicateTargets = new HashSet<string>(mappings
+            .GroupBy(mapping => mapping.TargetPath, comparer)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key), comparer);
+        if (duplicateTargets.Count == 0)
         {
-            if (reportCompletion)
-            {
-                tracker.ReportCompleted(filePath);
-            }
+            return null;
         }
+
+        var failures = mappings
+            .Select(mapping => new BatchOperationFailure(
+                mapping.SourcePath,
+                duplicateTargets.Contains(mapping.TargetPath)
+                    ? $"多个输入映射到同一目标路径: {mapping.TargetPath}"
+                    : "批量操作未执行，因为其他输入存在目标路径冲突。"))
+            .ToList();
+        for (var index = 0; index < failures.Count; index++)
+        {
+            progress?.Report(new BatchProgress(
+                index + 1,
+                failures.Count,
+                failures[index].FilePath,
+                0,
+                index + 1));
+        }
+
+        return new BatchOperationResult { FailedFiles = failures };
     }
 
     /// <summary>
@@ -123,9 +158,10 @@ public abstract class FileSystemBase : IFileSystemOperations
     /// </summary>
     protected sealed class BatchOperationTracker
     {
-        private readonly ConcurrentBag<string> _succeeded = [];
-        private readonly ConcurrentBag<BatchOperationFailure> _failed = [];
+        private readonly List<string> _succeeded = [];
+        private readonly List<BatchOperationFailure> _failed = [];
         private readonly IProgress<BatchProgress>? _progress;
+        private readonly object _gate = new();
         private readonly int _total;
         private int _completed;
 
@@ -143,7 +179,12 @@ public abstract class FileSystemBase : IFileSystemOperations
         /// </summary>
         public void AddSuccess(string filePath)
         {
-            _succeeded.Add(filePath);
+            lock (_gate)
+            {
+                _succeeded.Add(filePath);
+                var progress = CreateProgressSnapshot(filePath);
+                _progress?.Report(progress);
+            }
         }
 
         /// <summary>
@@ -151,7 +192,7 @@ public abstract class FileSystemBase : IFileSystemOperations
         /// </summary>
         public void AddFailure(string filePath, string errorMessage, Exception? exception = null)
         {
-            _failed.Add(new BatchOperationFailure(filePath, errorMessage, exception));
+            AddFailure(new BatchOperationFailure(filePath, errorMessage, exception));
         }
 
         /// <summary>
@@ -160,16 +201,12 @@ public abstract class FileSystemBase : IFileSystemOperations
         public void AddFailure(BatchOperationFailure failure)
         {
             ArgumentNullException.ThrowIfNull(failure);
-            _failed.Add(failure);
-        }
-
-        /// <summary>
-        /// Reports completion of one file operation.
-        /// </summary>
-        public void ReportCompleted(string filePath)
-        {
-            var completed = Interlocked.Increment(ref _completed);
-            _progress?.Report(new BatchProgress(completed, _total, filePath, _succeeded.Count, _failed.Count));
+            lock (_gate)
+            {
+                _failed.Add(failure);
+                var progress = CreateProgressSnapshot(failure.FilePath);
+                _progress?.Report(progress);
+            }
         }
 
         /// <summary>
@@ -177,13 +214,21 @@ public abstract class FileSystemBase : IFileSystemOperations
         /// </summary>
         public BatchOperationResult Complete()
         {
-            _progress?.Report(new BatchProgress(_total, _total, string.Empty, _succeeded.Count, _failed.Count));
-
-            return new BatchOperationResult
+            lock (_gate)
             {
-                SucceededFiles = _succeeded.ToList(),
-                FailedFiles = _failed.ToList()
-            };
+                return new BatchOperationResult
+                {
+                    SucceededFiles = [.. _succeeded],
+                    FailedFiles = [.. _failed]
+                };
+            }
+        }
+
+        private BatchProgress CreateProgressSnapshot(string filePath)
+        {
+            var completed = Interlocked.Increment(ref _completed);
+
+            return new BatchProgress(completed, _total, filePath, _succeeded.Count, _failed.Count);
         }
     }
 
@@ -201,6 +246,11 @@ public abstract class FileSystemBase : IFileSystemOperations
     protected virtual void HandleException(string operation, Exception ex, string? path = null, [CallerMemberName] string callerMethod = "")
     {
         if (ex is OperationCanceledException)
+        {
+            ExceptionDispatchInfo.Capture(ex).Throw();
+        }
+
+        if (ex is FileSystemException)
         {
             ExceptionDispatchInfo.Capture(ex).Throw();
         }
@@ -238,7 +288,27 @@ public abstract class FileSystemBase : IFileSystemOperations
 
     public abstract Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default);
 
-    public abstract Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public virtual async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(localFilePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
+
+        if (!File.Exists(localFilePath))
+        {
+            return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
+        }
+
+        using var fileStream = new FileStream(
+            localFilePath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            4096,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+        return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
+    }
 
     public abstract Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default);
 

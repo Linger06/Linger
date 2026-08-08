@@ -74,7 +74,7 @@ public class LocalFileSystemOptions
     ///   <item><description><see cref="FileValidationLevel.Full"/>: 完整验证：大小 + MD5 哈希（最安全，有额外 I/O 开销）</description></item>
     /// </list>
     /// </remarks>
-    public FileValidationLevel ValidationLevel { get; set; } = FileValidationLevel.Full;
+    public FileValidationLevel ValidationLevel { get; set; } = FileValidationLevel.SizeOnly;
 
     /// <summary>
     /// 验证失败时是否自动清理文件

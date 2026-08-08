@@ -6,6 +6,8 @@ namespace Linger.FileSystem.Remote;
 /// <remarks>
 /// <para>此接口扩展了 <see cref="IFileSystemOperations"/> 和 <see cref="IBatchFileSystemOperations"/>，添加了远程连接管理功能。</para>
 /// <para>实现类应支持 <see cref="IAsyncDisposable"/> 以便正确释放异步资源。</para>
+/// <para>远程实现通常在实例内复用一个有状态客户端。不要在同一实例上并发执行非批量操作，
+/// 也不要在其他操作运行期间调用 <see cref="SetWorkingDirectoryAsync"/>。</para>
 /// </remarks>
 public interface IRemoteFileSystem : IFileSystemOperations, IBatchFileSystemOperations, IDisposable, IAsyncDisposable
 {

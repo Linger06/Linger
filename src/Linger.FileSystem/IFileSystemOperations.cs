@@ -14,6 +14,8 @@ namespace Linger.FileSystem;
 ///   <item><description>文件传输：<see cref="UploadAsync"/>、<see cref="DownloadToStreamAsync"/> 等</description></item>
 /// </list>
 /// <para>所有方法均支持 <see cref="CancellationToken"/>，可在长时间操作中安全取消。</para>
+/// <para>文件不存在、目标冲突等预期业务条件通过 <see cref="FileOperationResult"/> 表达；
+/// 参数错误、取消以及非预期的 I/O 或连接故障通过异常表达。</para>
 /// </remarks>
 public interface IFileSystemOperations : IFileSystem
 {

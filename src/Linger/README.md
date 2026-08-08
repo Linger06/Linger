@@ -496,13 +496,23 @@ var result2 = await defaultRetryHelper.ExecuteAsync(
     cancellationToken: cancellationToken
 );
 
+// Retry an unsuccessful result without converting it to an exception
+var uploaded = await retryHelper.ExecuteAsync(
+    ct => TryUploadAsync(ct),
+    "Upload",
+    shouldRetry: exception => exception is IOException,
+    shouldRetryResult: success => !success,
+    cancellationToken: cancellationToken
+);
+
 // Synchronous variant
 defaultRetryHelper.Execute(
     () => DoSomething(),
     shouldRetry: exception => exception is IOException);
 ```
 
-When `shouldRetry` is omitted, the original exception is rethrown without retrying.
+When `shouldRetry` is omitted, the original exception is rethrown without retrying. When result-based retries are
+exhausted, `ExecuteAsync` returns the last result.
 
 ### Path Operations
 

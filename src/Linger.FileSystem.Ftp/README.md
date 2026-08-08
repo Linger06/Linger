@@ -62,7 +62,8 @@ var downloadResult = await ftpSystem.DownloadFileAsync("/remote/path/file.txt", 
 
 if (downloadResult.Success)
 {
-    Console.WriteLine($"Downloaded {downloadResult.FileSize} bytes");
+    var downloadedBytes = await ftpSystem.GetFileSizeAsync("/remote/path/file.txt");
+    Console.WriteLine($"Downloaded {downloadedBytes} bytes");
 }
 
 // Disconnect when done
@@ -86,7 +87,7 @@ result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file
 // In your startup class
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddSingleton<IFileSystemOperations>(provider => {
+    services.AddTransient<IFileSystemOperations>(provider => {
         var settings = new FtpFileSystemOptions
         {
             Host = "ftp.example.com",
@@ -108,6 +109,10 @@ public void ConfigureServices(IServiceCollection services)
     });
 }
 ```
+
+`FtpFileSystem` keeps one client connection per instance. Do not invoke non-batch operations concurrently on the
+same instance or mutate its working directory while another operation is running. Batch methods create independent
+clients when parallelism is greater than one.
 
 ## Advanced Features
 
@@ -263,7 +268,7 @@ Console.WriteLine($"Uploaded: {result.SucceededFiles.Count}, Failed: {result.Fai
 
 ```csharp
 // Get file size
-long fileSize = await ftpSystem.GetFileSizeAsync("/remote/file.txt");
+long? fileSize = await ftpSystem.GetFileSizeAsync("/remote/file.txt");
 
 // Get file last modified time
 DateTime modTime = await ftpSystem.GetModifiedTimeAsync("/remote/file.txt");

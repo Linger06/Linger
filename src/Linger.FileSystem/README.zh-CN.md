@@ -29,7 +29,7 @@ dotnet add package Linger.FileSystem.Sftp
 - **支持多种文件系统**: 包括本地文件系统、FTP和SFTP
 - **异步操作**: 所有操作都支持异步方法，适用于现代应用程序开发
 - **自动重试**: 内置重试机制，可以配置重试次数和延迟，提高操作可靠性
-- **连接管理**: 自动处理远程文件系统的连接和断开
+- **连接管理**: 按需自动连接，并复用连接直到文件系统实例被释放
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
 - **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理，支持任意大小文件
 - **批量操作进度报告**: 通过 `IProgress<BatchProgress>` 实时跟踪批量上传、下载和删除操作的进度
@@ -214,6 +214,8 @@ result = await fileSystem.UploadAsync(
     cts.Token);
 ```
 
+`FileOperationResult` 不包含文件大小；需要大小元数据时请调用 `GetFileSizeAsync`。
+
 ### 文件下载
 
 ```csharp
@@ -306,7 +308,7 @@ var options = new LocalFileSystemOptions
     DefaultNamingRule = NamingRule.Md5,        // 默认命名规则: Md5、Uuid、Normal
     DefaultOverwrite = false,                  // 是否默认覆盖同名文件
     DefaultUseSequencedName = true,            // 文件名冲突时是否使用序号命名
-    ValidationLevel = FileValidationLevel.Full, // 验证级别: None(不验证)、SizeOnly(仅大小)、Full(完整)
+    ValidationLevel = FileValidationLevel.SizeOnly, // 验证级别: None(不验证)、SizeOnly(仅大小)、Full(完整)
     CleanupOnValidationFailure = true,         // 验证失败时是否清理文件
     UploadBufferSize = 81920,                  // 上传缓冲区大小
     DownloadBufferSize = 81920,                // 下载缓冲区大小
@@ -361,7 +363,7 @@ FTP专用的 `Encoding` 属性。
 
 ```csharp
 // 使用高级上传功能（指定命名规则）
-var uploadedInfo = await localFs.UploadAsync(
+var uploadedInfo = await localFs.UploadWithNamingAsync(
     stream,
     "source-file.txt",  // 源文件名
     "container1",       // 容器名
@@ -370,6 +372,12 @@ var uploadedInfo = await localFs.UploadAsync(
     false,              // 是否覆盖
     true                // 是否使用序号命名
 );
+
+var uploadedFileInfo = await localFs.UploadFileWithNamingAsync(
+    "source-file.txt",
+    "container1",
+    "images",
+    NamingRule.Uuid);
 
 // 访问上传后的信息
 Console.WriteLine($"文件哈希: {uploadedInfo.HashData}");
@@ -446,7 +454,7 @@ public class FileUploadService
         }
         catch (OperationCanceledException)
         {
-            return FileOperationResult.Failure("上传因超时而取消");
+            return FileOperationResult.CreateFailure("上传因超时而取消");
         }
     }
     
@@ -646,7 +654,7 @@ ILocalFileSystem    IRemoteFileSystem
 
 2. **远程系统连接管理**:
    - 使用 `EnsureConnectedAsync()` 自动管理连接
-   - 自动连接、操作、关闭的生命周期管理
+   - 按需自动连接；连接保持到实例被释放
 
 ## 贡献
 

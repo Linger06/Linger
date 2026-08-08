@@ -48,7 +48,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "test.txt",
                 "container1",
@@ -58,6 +58,69 @@ namespace Linger.FileSystem.Tests.Local
             Assert.NotNull(result);
             Assert.True(File.Exists(result.RelativeFilePath));
             Assert.Equal("test.txt", result.FileName);
+        }
+
+        [Fact]
+        public async Task UploadAsync_ThroughCommonInterface_PreservesDestinationPath()
+        {
+            IFileSystemOperations fileSystem = _fileSystem;
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes("content"));
+
+            var result = await fileSystem.UploadAsync(stream, "uploads/exact-name.txt");
+
+            Assert.True(result.Success);
+            Assert.Equal(Path.Combine("uploads", "exact-name.txt"), result.FilePath);
+            Assert.True(File.Exists(Path.Combine(_testRootPath, "uploads", "exact-name.txt")));
+        }
+
+        [Fact]
+        public async Task UploadFileAsync_ThroughCommonInterface_UsesSharedFileAdapter()
+        {
+            IFileSystemOperations fileSystem = _fileSystem;
+            var sourcePath = Path.Combine(_testRootPath, "source.txt");
+            await File.WriteAllTextAsync(sourcePath, "content");
+
+            var result = await fileSystem.UploadFileAsync(sourcePath, "uploads/copied.txt");
+
+            Assert.True(result.Success);
+            Assert.Equal("content", await File.ReadAllTextAsync(Path.Combine(_testRootPath, "uploads", "copied.txt")));
+        }
+
+        [Fact]
+        public async Task UploadAsync_ThroughCommonInterface_WhenDestinationExists_ReturnsFailureWithoutSequencing()
+        {
+            var destinationPath = Path.Combine(_testRootPath, "existing.txt");
+            File.WriteAllText(destinationPath, "original");
+            IFileSystemOperations fileSystem = _fileSystem;
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes("replacement"));
+
+            var result = await fileSystem.UploadAsync(stream, "existing.txt");
+
+            Assert.False(result.Success);
+            Assert.Equal("original", File.ReadAllText(destinationPath));
+            Assert.Single(Directory.EnumerateFiles(_testRootPath));
+        }
+
+        [Fact]
+        public void LocalFileSystemOptions_DefaultValidationLevel_IsSizeOnly()
+        {
+            var options = new LocalFileSystemOptions();
+
+            Assert.Equal(FileValidationLevel.SizeOnly, options.ValidationLevel);
+        }
+
+        [Fact]
+        public async Task UploadAsync_WhenSourceReadFails_PreservesExistingFile()
+        {
+            var destinationPath = Path.Combine(_testRootPath, "existing.txt");
+            File.WriteAllText(destinationPath, "original");
+            IFileSystemOperations fileSystem = _fileSystem;
+            using var stream = new FailingAsyncReadStream();
+
+            await Assert.ThrowsAsync<OutOfRetryCountException>(() =>
+                fileSystem.UploadAsync(stream, "existing.txt", overwrite: true));
+
+            Assert.Equal("original", File.ReadAllText(destinationPath));
         }
 
         [Fact]
@@ -142,7 +205,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "test.txt",
                 "container1",
@@ -196,7 +259,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
             // Act & Assert
-            await _fileSystem.UploadAsync(
+            await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "test.txt",
                 "container1",
@@ -204,7 +267,7 @@ namespace Linger.FileSystem.Tests.Local
 
             stream.Position = 0;
             await Assert.ThrowsAsync<DuplicateFileException>(() =>
-                _fileSystem.UploadAsync(
+                _fileSystem.UploadWithNamingAsync(
                     stream,
                     "test.txt",
                     "container1",
@@ -222,13 +285,13 @@ namespace Linger.FileSystem.Tests.Local
             using var stream2 = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
             // Act
-            await _fileSystem.UploadAsync(
+            await _fileSystem.UploadWithNamingAsync(
                 stream1,
                 "test.txt",
                 "container1",
                 namingRule: NamingRule.Normal);
 
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream2,
                 "test.txt",
                 "container1",
@@ -247,14 +310,10 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task DownloadToStreamAsync_WithNullStream_ReturnsFailureResult()
+        public async Task DownloadToStreamAsync_WithNullStream_ThrowsArgumentNullException()
         {
-            // Act
-            var result = await _fileSystem.DownloadToStreamAsync("test.txt", null!);
-
-            // Assert
-            Assert.False(result.Success);
-            Assert.NotNull(result.ErrorMessage);
+            await Assert.ThrowsAsync<ArgumentNullException>(() =>
+                _fileSystem.DownloadToStreamAsync("test.txt", null!));
         }
 
         [Fact]
@@ -265,7 +324,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "test.txt",
                 "container1",
@@ -285,7 +344,7 @@ namespace Linger.FileSystem.Tests.Local
 
             // Act & Assert
             await Assert.ThrowsAsync<System.ArgumentException>(() =>
-                _fileSystem.UploadAsync(stream, "", "container1"));
+                _fileSystem.UploadWithNamingAsync(stream, "", "container1"));
         }
 
         [Fact]
@@ -298,13 +357,13 @@ namespace Linger.FileSystem.Tests.Local
             using var stream2 = new MemoryStream(Encoding.UTF8.GetBytes(content2));
 
             // Act
-            await _fileSystem.UploadAsync(
+            await _fileSystem.UploadWithNamingAsync(
                 stream1,
                 "test.txt",
                 "container1",
                 namingRule: NamingRule.Normal);
 
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream2,
                 "test.txt",
                 "container1",
@@ -383,7 +442,7 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(sourceFilePath, sourceContent);
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadFileWithNamingAsync(
                 sourceFilePath,
                 "container1",
                 namingRule: NamingRule.Md5);
@@ -400,7 +459,7 @@ namespace Linger.FileSystem.Tests.Local
         {
             // Act & Assert
             await Assert.ThrowsAsync<FileNotFoundException>(() =>
-                _fileSystem.UploadAsync(
+                _fileSystem.UploadFileWithNamingAsync(
                     "nonexistent.txt",
                     "container1"));
         }
@@ -413,7 +472,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new FailingStream(content, 1); // 第一次失败，第二次成功
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "test.txt",
                 "container1",
@@ -434,7 +493,7 @@ namespace Linger.FileSystem.Tests.Local
                 Position = 2
             };
 
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "test.txt",
                 "container1",
@@ -449,7 +508,7 @@ namespace Linger.FileSystem.Tests.Local
             var content = Encoding.UTF8.GetBytes("Test Content");
             using var stream = new PartialFailureStream(content, canSeek: false);
 
-            await Assert.ThrowsAsync<IOException>(() => _fileSystem.UploadAsync(
+            await Assert.ThrowsAsync<IOException>(() => _fileSystem.UploadWithNamingAsync(
                 stream,
                 "test.txt",
                 "container1",
@@ -465,7 +524,7 @@ namespace Linger.FileSystem.Tests.Local
 
             // Act & Assert
             await Assert.ThrowsAsync<OutOfRetryCountException>(() =>
-                _fileSystem.UploadAsync(
+                _fileSystem.UploadWithNamingAsync(
                     stream,
                     "test.txt",
                     "container1",
@@ -482,7 +541,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new MemoryStream(largeContent);
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "large.bin",
                 "container1",
@@ -502,7 +561,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new MemoryStream();
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 "empty.txt",
                 "container1",
@@ -531,7 +590,7 @@ namespace Linger.FileSystem.Tests.Local
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
 
             // Act
-            var result = await _fileSystem.UploadAsync(
+            var result = await _fileSystem.UploadWithNamingAsync(
                 stream,
                 fileName,
                 containerName,
@@ -755,6 +814,14 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         #endregion
+    }
+
+    internal sealed class FailingAsyncReadStream : MemoryStream
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            return ValueTask.FromException<int>(new IOException("Simulated read failure."));
+        }
     }
 
     public class FailingStream : Stream

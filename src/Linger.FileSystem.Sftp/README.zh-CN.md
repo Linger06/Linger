@@ -64,7 +64,8 @@ var downloadResult = await sftpSystem.DownloadFileAsync("/remote/path/file.txt",
 
 if (downloadResult.Success)
 {
-    Console.WriteLine($"已下载 {downloadResult.FileSize} 字节");
+    var downloadedBytes = await sftpSystem.GetFileSizeAsync("/remote/path/file.txt");
+    Console.WriteLine($"已下载 {downloadedBytes} 字节");
 }
 
 // 完成后断开连接
@@ -591,7 +592,7 @@ var devRetry = new RetryOptions
 // 在您的启动类中
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddSingleton<IFileSystemOperations>(provider => {
+    services.AddTransient<IFileSystemOperations>(provider => {
         var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",
@@ -613,6 +614,9 @@ public void ConfigureServices(IServiceCollection services)
     });
 }
 ```
+
+`SftpFileSystem` 的每个实例持有一个客户端连接。不要在同一实例上并发执行非批量操作，也不要在其他操作
+运行期间修改工作目录。批量并发度大于 1 时，每个 worker 会创建独立客户端。
 
 ## 最佳实践
 

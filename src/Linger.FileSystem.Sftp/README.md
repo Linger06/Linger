@@ -64,7 +64,8 @@ var downloadResult = await sftpSystem.DownloadFileAsync("/remote/path/file.txt",
 
 if (downloadResult.Success)
 {
-    Console.WriteLine($"Downloaded {downloadResult.FileSize} bytes");
+    var downloadedBytes = await sftpSystem.GetFileSizeAsync("/remote/path/file.txt");
+    Console.WriteLine($"Downloaded {downloadedBytes} bytes");
 }
 
 // Disconnect when done
@@ -426,7 +427,7 @@ var devRetry = new RetryOptions
 // In your startup class
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddSingleton<IFileSystemOperations>(provider => {
+    services.AddTransient<IFileSystemOperations>(provider => {
         var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",
@@ -448,6 +449,10 @@ public void ConfigureServices(IServiceCollection services)
     });
 }
 ```
+
+`SftpFileSystem` keeps one client connection per instance. Do not invoke non-batch operations concurrently on the
+same instance or mutate its working directory while another operation is running. Batch methods create independent
+clients when parallelism is greater than one.
 
 ## Best Practices
 

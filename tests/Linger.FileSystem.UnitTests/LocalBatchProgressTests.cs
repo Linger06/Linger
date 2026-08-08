@@ -66,11 +66,10 @@ public class LocalBatchProgressTests : IDisposable
         // Act
         await _fs.UploadFilesAsync(files, "dst", overwrite: true, progress);
 
-        // Assert: should have 4 reports (3 files + 1 final)
-        Assert.True(progressReports.Count >= 3, $"Expected at least 3 progress reports, got {progressReports.Count}");
+        Assert.Equal(3, progressReports.Count);
 
         // Verify completed counts are accurate (1, 2, 3, ...)
-        for (var i = 0; i < progressReports.Count - 1; i++)
+        for (var i = 0; i < progressReports.Count; i++)
         {
             Assert.True(progressReports[i].Completed >= i + 1,
                 $"Report {i}: Expected Completed >= {i + 1}, got {progressReports[i].Completed}");
@@ -114,12 +113,13 @@ public class LocalBatchProgressTests : IDisposable
         await parallelFs.UploadFilesAsync(files, "dst", overwrite: true, progress);
 
         // Assert: Each report should have Completed > 0 (reported after completion)
-        Assert.True(progressReports.Count >= 10, $"Expected at least 10 progress reports, got {progressReports.Count}");
+        Assert.Equal(10, progressReports.Count);
 
-        foreach (var report in progressReports.Where(r => !string.IsNullOrEmpty(r.CurrentFile)))
+        foreach (var report in progressReports)
         {
             Assert.True(report.Completed > 0,
                 $"Progress for {report.CurrentFile} should have Completed > 0, got {report.Completed}");
+            Assert.Equal(report.Completed, report.Succeeded + report.Failed);
         }
 
         // Verify final report
@@ -145,7 +145,7 @@ public class LocalBatchProgressTests : IDisposable
         await _fs.DownloadFilesAsync(new[] { "d0.txt", "d1.txt", "d2.txt" }, outDir, overwrite: true, progress);
 
         // Assert
-        Assert.True(progressReports.Count >= 3, $"Expected at least 3 progress reports, got {progressReports.Count}");
+        Assert.Equal(3, progressReports.Count);
 
         var final = progressReports[progressReports.Count - 1];
         Assert.Equal(3, final.Total);
@@ -168,7 +168,7 @@ public class LocalBatchProgressTests : IDisposable
         await _fs.DeleteFilesAsync(new[] { "del0.txt", "del1.txt", "del2.txt" }, progress);
 
         // Assert
-        Assert.True(progressReports.Count >= 3, $"Expected at least 3 progress reports, got {progressReports.Count}");
+        Assert.Equal(3, progressReports.Count);
 
         var final = progressReports[progressReports.Count - 1];
         Assert.Equal(3, final.Total);
@@ -190,7 +190,7 @@ public class LocalBatchProgressTests : IDisposable
         await _fs.UploadFilesAsync(new[] { existingFile, missingFile }, "dst", overwrite: true, progress);
 
         // Assert: Both files should be reported (1 success, 1 failure)
-        Assert.True(progressReports.Count >= 2, $"Expected at least 2 progress reports, got {progressReports.Count}");
+        Assert.Equal(2, progressReports.Count);
 
         var final = progressReports[progressReports.Count - 1];
         Assert.Equal(2, final.Total);

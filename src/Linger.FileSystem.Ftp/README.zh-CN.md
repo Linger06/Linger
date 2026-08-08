@@ -63,7 +63,8 @@ var downloadResult = await ftpSystem.DownloadFileAsync("/remote/path/file.txt", 
 
 if (downloadResult.Success)
 {
-    Console.WriteLine($"已下载 {downloadResult.FileSize} 字节");
+    var downloadedBytes = await ftpSystem.GetFileSizeAsync("/remote/path/file.txt");
+    Console.WriteLine($"已下载 {downloadedBytes} 字节");
 }
 
 // 完成后断开连接
@@ -208,7 +209,7 @@ result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file
 ## 与依赖注入集成
 
 ```csharp
-builder.Services.AddSingleton<IRemoteFileSystem>(provider => {
+builder.Services.AddTransient<IRemoteFileSystem>(provider => {
     var settings = new FtpFileSystemOptions
     {
         Host = "ftp.example.com",
@@ -229,6 +230,9 @@ builder.Services.AddSingleton<IRemoteFileSystem>(provider => {
     return new FtpFileSystem(settings, retryOptions);
 });
 ```
+
+`FtpFileSystem` 的每个实例持有一个客户端连接。不要在同一实例上并发执行非批量操作，也不要在其他操作
+运行期间修改工作目录。批量并发度大于 1 时，每个 worker 会创建独立客户端。
 
 ## 最佳实践
 

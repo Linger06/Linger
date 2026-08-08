@@ -13,6 +13,10 @@
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<DataRow, T>)` | `DataTable.ToList<T>(Func<DataRow, T>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `DataTable.ToList<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
 | `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | 接收并向实际操作传递取消令牌。省略 `shouldRetry` 时不再重试所有异常；需要重试时必须显式传入谓词。 |
+| `Linger.Utils` | 不支持结果策略的 `RetryHelper.ExecuteAsync<T>` | `ExecuteAsync<T>(..., shouldRetryResult: ...)` | `Linger.Utils` | 泛型 API 现在可直接重试失败结果；达到最大次数后返回最后一次结果。公共签名已变化，调用方需要重新编译。 |
+| `Linger.FileSystem` | `FileOperationResult.FileSize` | `GetFileSizeAsync(...)` | `Linger.FileSystem` | 操作结果不再携带大小元数据，仅在需要时查询。 |
+| `Linger.FileSystem` | `FileOperationResult.FullFilePath` / `FileHash` | `UploadedInfo.FullFilePath` / `HashData` | `Linger.FileSystem.Local` | 实现特有元数据仅由本地命名上传 API 返回。 |
+| `Linger.FileSystem` | 本地命名版 `UploadAsync(...)` 重载 | `UploadWithNamingAsync(...)` 或 `UploadFileWithNamingAsync(...)` | `Linger.FileSystem.Local` | 公共 `UploadAsync` 现在仅表示从流上传到指定路径。 |
 | `Linger.Utils` | 为 `ParameterList.Parameters` 整体赋值 | 修改 `Parameters` 集合，或调用 `SetValue`、`Add`、`Remove`、`Clear` | `Linger.Utils` | 字典引用已改为只读，不能再整体替换或设为 `null`。 |
 | `Linger.Utils` | `GuidCode.NewDateGuid` | `Guid.NewGuid().ToString("N")`；.NET 9+ 可使用 `Guid.CreateVersion7().ToString("N")` | .NET BCL | 被删除的 10 位标识只有 4 位 Base36 随机字符，无法可靠保证唯一。短业务码必须配合唯一约束和冲突重试。 |
 | `Linger.Utils` | `JsonExtensions.Serialize<T>` / `SerializeJson<T>(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | 旧实现使用 `DataContractJsonSerializer`。 |

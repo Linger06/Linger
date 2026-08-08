@@ -23,6 +23,82 @@ public class RetryHelperTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithRetryableResult_RetriesUntilResultSucceeds()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1,
+            UseExponentialBackoff = false,
+            Jitter = 0
+        };
+        var retryHelper = new RetryHelper(options);
+        var attempts = 0;
+
+        var result = await retryHelper.ExecuteAsync(
+            _ => Task.FromResult(++attempts == 3),
+            shouldRetryResult: success => !success,
+            operationName: "ResultOperation");
+
+        Assert.True(result);
+        Assert.Equal(3, attempts);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenAllResultsAreRetryable_ReturnsLastResult()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1,
+            UseExponentialBackoff = false,
+            Jitter = 0
+        };
+        var retryHelper = new RetryHelper(options);
+        var attempts = 0;
+
+        var result = await retryHelper.ExecuteAsync(
+            _ =>
+            {
+                attempts++;
+                return Task.FromResult(false);
+            },
+            shouldRetryResult: success => !success,
+            operationName: "ResultOperation");
+
+        Assert.False(result);
+        Assert.Equal(3, attempts);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithResultPolicyAndPermanentException_DoesNotRetry()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1
+        };
+        var retryHelper = new RetryHelper(options);
+        var attempts = 0;
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            retryHelper.ExecuteAsync<bool>(
+                _ =>
+                {
+                    attempts++;
+                    throw new UnauthorizedAccessException("Access denied.");
+                },
+                shouldRetryResult: success => !success,
+                operationName: "ResultOperation",
+                shouldRetry: _ => false));
+
+        Assert.Equal(1, attempts);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithFailingOperationThatShouldNotRetry_ShouldThrowOriginalException()
     {
         // Arrange
@@ -186,6 +262,7 @@ public class RetryHelperTests
                             return 42;
                         },
                 "TestOperation",
+                null,
                 null,
                 null,
                 cts.Token);

@@ -22,7 +22,17 @@ public interface ILocalFileSystem : IFileSystemOperations, IBatchFileSystemOpera
     /// <param name="useSequencedName">文件冲突时是否使用序号命名。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>上传结果信息。</returns>
-    Task<UploadedInfo> UploadAsync(
+    /// <example>
+    /// <code>
+    /// using var stream = File.OpenRead("avatar.png");
+    /// var result = await fileSystem.UploadWithNamingAsync(
+    ///     stream,
+    ///     "avatar.png",
+    ///     "users",
+    ///     namingRule: NamingRule.Uuid);
+    /// </code>
+    /// </example>
+    Task<UploadedInfo> UploadWithNamingAsync(
         Stream inputStream,
         string sourceFileName,
         string containerName = "",
@@ -31,4 +41,5 @@ public interface ILocalFileSystem : IFileSystemOperations, IBatchFileSystemOpera
         bool? overwrite = null,
         bool? useSequencedName = null,
         CancellationToken cancellationToken = default);
+
 }

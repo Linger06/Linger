@@ -555,9 +555,19 @@ var result2 = await defaultRetryHelper.ExecuteAsync(
     shouldRetry: exception => exception is TimeoutException,
     cancellationToken: cancellationToken
 );
+
+// 直接重试失败结果，无需将其转换为异常
+var uploaded = await retryHelper.ExecuteAsync(
+    ct => TryUploadAsync(ct),
+    "上传",
+    shouldRetry: exception => exception is IOException,
+    shouldRetryResult: success => !success,
+    cancellationToken: cancellationToken
+);
 ```
 
-省略 `shouldRetry` 时不会重试，而是直接重新抛出原始异常。
+省略 `shouldRetry` 时不会重试，而是直接重新抛出原始异常。按结果重试达到最大次数后，
+`ExecuteAsync` 返回最后一次结果。
 
 ### 路径操作
 

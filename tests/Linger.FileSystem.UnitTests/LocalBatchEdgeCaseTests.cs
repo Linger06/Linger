@@ -149,6 +149,41 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
+        public async Task UploadFilesAsync_WhenSourcesHaveSameFileName_RejectsBatchWithoutWritingTarget()
+        {
+            var firstDirectory = Path.Combine(_root, "first");
+            var secondDirectory = Path.Combine(_root, "second");
+            var thirdDirectory = Path.Combine(_root, "third");
+            Directory.CreateDirectory(firstDirectory);
+            Directory.CreateDirectory(secondDirectory);
+            Directory.CreateDirectory(thirdDirectory);
+            var firstSource = Path.Combine(firstDirectory, "same.txt");
+            var secondSource = Path.Combine(secondDirectory, "same.txt");
+            var thirdSource = Path.Combine(thirdDirectory, "unique.txt");
+            File.WriteAllText(firstSource, "first");
+            File.WriteAllText(secondSource, "second");
+            File.WriteAllText(thirdSource, "third");
+            var progressReports = new List<BatchProgress>();
+            var progress = new SynchronousProgress<BatchProgress>(progressReports.Add);
+
+            var result = await _fs.UploadFilesAsync(
+                new[] { firstSource, secondSource, thirdSource },
+                "dst",
+                overwrite: true,
+                progress);
+
+            Assert.Equal(0, result.SuccessCount);
+            Assert.Equal(3, result.FailureCount);
+            Assert.All(result.FailedFiles.Take(2), failure =>
+                Assert.Contains("多个输入映射到同一目标路径", failure.ErrorMessage));
+            Assert.Contains("批量操作未执行", result.FailedFiles[2].ErrorMessage);
+            Assert.Equal(3, progressReports.Count);
+            Assert.All(progressReports, report => Assert.Equal(report.Completed, report.Failed));
+            Assert.False(File.Exists(Path.Combine(_root, "dst", "same.txt")));
+            Assert.False(File.Exists(Path.Combine(_root, "dst", "unique.txt")));
+        }
+
+        [Fact]
         public async Task DownloadFilesAsync_MissingRemoteFile_ReportsFailure()
         {
             var outDir = Path.Combine(_root, "out");

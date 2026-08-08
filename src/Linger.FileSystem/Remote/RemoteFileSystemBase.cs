@@ -16,6 +16,8 @@ namespace Linger.FileSystem.Remote;
 /// </remarks>
 public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
 {
+    private readonly SemaphoreSlim _connectionGate = new(1, 1);
+
     /// <summary>
     /// 服务器连接信息
     /// </summary>
@@ -82,9 +84,15 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
             return;
 
         Logger.LogDebug("Disposing remote file system: {ServerDetails}", ServerDetailsString);
-        await DisconnectAsync().ConfigureAwait(false);
-        Dispose();
-        GC.SuppressFinalize(this);
+        try
+        {
+            await DisconnectAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            Dispose();
+            GC.SuppressFinalize(this);
+        }
     }
 
     /// <inheritdoc />
@@ -106,11 +114,24 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// </example>
     protected async Task EnsureConnectedAsync(CancellationToken cancellationToken = default)
     {
-        if (!IsConnected())
+        if (IsConnected())
         {
-            Logger.LogDebug("Connecting to {ServerDetails}...", ServerDetailsString);
-            await ConnectAsync(cancellationToken).ConfigureAwait(false);
-            Logger.LogDebug("Connected to {ServerDetails}", ServerDetailsString);
+            return;
+        }
+
+        await _connectionGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (!IsConnected())
+            {
+                Logger.LogDebug("Connecting to {ServerDetails}...", ServerDetailsString);
+                await ConnectAsync(cancellationToken).ConfigureAwait(false);
+                Logger.LogDebug("Connected to {ServerDetails}", ServerDetailsString);
+            }
+        }
+        finally
+        {
+            _connectionGate.Release();
         }
     }
 
@@ -139,9 +160,65 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
             base.HandleException(operation, ex, path, callerMethod);
         }
 
+        if (ex is FileSystemException)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(ex).Throw();
+        }
+
         var exception = CreateException(operation, ex, path, callerMethod);
         Logger.LogError(ex, "{Message}", exception.Message);
         throw exception;
+    }
+
+    /// <summary>
+    /// 将同目录临时文件提交到目标路径。
+    /// </summary>
+    protected static void CommitTemporaryFile(string sourcePath, string destinationPath, bool overwrite)
+    {
+        if (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException(destinationPath);
+        }
+
+#if NET5_0_OR_GREATER
+        try
+        {
+            File.Move(sourcePath, destinationPath, overwrite);
+        }
+        catch (IOException) when (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException(destinationPath);
+        }
+#else
+        if (!overwrite)
+        {
+            try
+            {
+                File.Move(sourcePath, destinationPath);
+            }
+            catch (IOException) when (File.Exists(destinationPath))
+            {
+                throw new DuplicateFileException(destinationPath);
+            }
+
+            return;
+        }
+
+        if (File.Exists(destinationPath))
+        {
+            File.Replace(sourcePath, destinationPath, null);
+            return;
+        }
+
+        try
+        {
+            File.Move(sourcePath, destinationPath);
+        }
+        catch (IOException) when (File.Exists(destinationPath))
+        {
+            File.Replace(sourcePath, destinationPath, null);
+        }
+#endif
     }
 
     #region IBatchFileSystemOperations 实现
@@ -203,7 +280,8 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         return await helper.ExecuteAsync(
             _ => operation(),
             "batch operation",
-            _ => true,
+            shouldRetry: IsBatchRetryableException,
+            shouldRetryResult: success => !success,
             cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
@@ -229,8 +307,25 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         await helper.ExecuteAsync(
             _ => operation(),
             "batch operation",
-            _ => true,
+            IsBatchRetryableException,
             cancellationToken: cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 判断批量操作异常是否适合重试。
+    /// </summary>
+    /// <param name="exception">操作抛出的异常。</param>
+    /// <returns><see langword="true"/> 表示该故障可能是暂时性的。</returns>
+    protected virtual bool IsBatchRetryableException(Exception exception)
+    {
+        return exception is not (
+            ArgumentException or
+            UnauthorizedAccessException or
+            FileNotFoundException or
+            DirectoryNotFoundException or
+            DuplicateFileException or
+            NotSupportedException or
+            ObjectDisposedException);
     }
 
     #endregion

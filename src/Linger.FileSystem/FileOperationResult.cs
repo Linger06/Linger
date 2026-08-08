@@ -5,7 +5,7 @@
 /// </summary>
 /// <remarks>
 /// <para>此类使用不可变模式设计，所有属性在创建后不可修改。</para>
-/// <para>请使用 <see cref="CreateSuccess(string, string?, long, string?)"/> 或 <see cref="CreateFailure(string, Exception?)"/> 工厂方法创建实例。</para>
+/// <para>请使用 <see cref="CreateSuccess(string)"/> 或 <see cref="CreateFailure(string, Exception?)"/> 工厂方法创建实例。</para>
 /// </remarks>
 public class FileOperationResult
 {
@@ -30,37 +30,16 @@ public class FileOperationResult
     public string? FilePath { get; init; }
 
     /// <summary>
-    /// 完整文件路径（本地文件系统适用）
-    /// </summary>
-    public string? FullFilePath { get; init; }
-
-    /// <summary>
-    /// 文件大小（字节）
-    /// </summary>
-    public long FileSize { get; init; }
-
-    /// <summary>
-    /// 文件哈希值（如MD5）
-    /// </summary>
-    public string? FileHash { get; init; }
-
-    /// <summary>
     /// 创建成功的操作结果
     /// </summary>
     /// <param name="filePath">文件路径</param>
-    /// <param name="fullFilePath">完整文件路径（可选）</param>
-    /// <param name="fileSize">文件大小（字节）</param>
-    /// <param name="fileHash">文件哈希值（可选）</param>
     /// <returns>表示成功的操作结果</returns>
-    public static FileOperationResult CreateSuccess(string filePath, string? fullFilePath = null, long fileSize = 0, string? fileHash = null)
+    public static FileOperationResult CreateSuccess(string filePath)
     {
         return new FileOperationResult
         {
             Success = true,
-            FilePath = filePath,
-            FullFilePath = fullFilePath,
-            FileSize = fileSize,
-            FileHash = fileHash
+            FilePath = filePath
         };
     }
 

@@ -29,7 +29,7 @@ dotnet add package Linger.FileSystem.Sftp
 - **Multiple File System Support**: Including local file system, FTP, and SFTP
 - **Asynchronous Operations**: All operations support async methods, suitable for modern application development
 - **Automatic Retry**: Built-in retry mechanism with configurable retry count and delay for improved operation reliability
-- **Connection Management**: Automatic handling of remote file system connections and disconnections
+- **Connection Management**: Automatic connection on demand, with reuse until the file-system instance is disposed
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
 - **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing, supporting files of any size
 - **Batch Operation Progress**: Real-time progress tracking via `IProgress<BatchProgress>` for batch upload, download, and delete operations
@@ -214,6 +214,8 @@ result = await fileSystem.UploadAsync(
     cts.Token);
 ```
 
+`FileOperationResult` does not include file size. Call `GetFileSizeAsync` when size metadata is needed.
+
 ### File Download
 
 ```csharp
@@ -306,7 +308,7 @@ var options = new LocalFileSystemOptions
     DefaultNamingRule = NamingRule.Md5,        // Default naming rule: Md5, Uuid, Normal
     DefaultOverwrite = false,                  // Whether to overwrite files with same name by default
     DefaultUseSequencedName = true,            // Whether to use sequence naming on file name conflicts
-    ValidationLevel = FileValidationLevel.Full, // Validation level: None, SizeOnly, Full
+    ValidationLevel = FileValidationLevel.SizeOnly, // Validation level: None, SizeOnly, Full
     CleanupOnValidationFailure = true,         // Whether to cleanup files on validation failure
     UploadBufferSize = 81920,                  // Upload buffer size
     DownloadBufferSize = 81920,                // Download buffer size
@@ -361,7 +363,7 @@ The local file system supports three file naming rules:
 
 ```csharp
 // Use advanced upload functionality (with naming rule)
-var uploadedInfo = await localFs.UploadAsync(
+var uploadedInfo = await localFs.UploadWithNamingAsync(
     stream,
     "source-file.txt",  // Source file name
     "container1",       // Container name
@@ -370,6 +372,12 @@ var uploadedInfo = await localFs.UploadAsync(
     false,              // Whether to overwrite
     true                // Whether to use sequence naming
 );
+
+var uploadedFileInfo = await localFs.UploadFileWithNamingAsync(
+    "source-file.txt",
+    "container1",
+    "images",
+    NamingRule.Uuid);
 
 // Access uploaded information
 Console.WriteLine($"File hash: {uploadedInfo.HashData}");
@@ -446,7 +454,7 @@ public class FileUploadService
         }
         catch (OperationCanceledException)
         {
-            return FileOperationResult.Failure("Upload cancelled due to timeout");
+            return FileOperationResult.CreateFailure("Upload cancelled due to timeout");
         }
     }
     
@@ -646,7 +654,7 @@ This library uses the following design patterns:
 
 2. **Remote System Connection Management**:
    - Uses `EnsureConnectedAsync()` for automatic connection management
-   - Automatic connection, operation, and disconnection lifecycle management
+   - Automatic connection on demand; the connection remains open until the instance is disposed
 
 ## Contributing
 

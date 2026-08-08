@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using FluentFTP;
+using FluentFTP.Exceptions;
 using Linger.Extensions.Core;
 using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Remote;
@@ -120,23 +121,6 @@ public class FtpFileSystem : RemoteFileSystemBase
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>
-    /// 异步释放 FTP 客户端资源
-    /// </summary>
-    public override async ValueTask DisposeAsync()
-    {
-        if (Disposed)
-            return;
-
-        await DisconnectAsync().ConfigureAwait(false);
-
-        if (!Client.IsDisposed)
-            Client.Dispose();
-
-        Disposed = true;
-        GC.SuppressFinalize(this);
-    }
-
     #endregion
 
     #region 文件操作基本方法
@@ -243,98 +227,38 @@ public class FtpFileSystem : RemoteFileSystemBase
                 return FileOperationResult.CreateFailure($"远程文件已存在: {destinationFilePath}");
             }
 
-            // 执行上传
             var result = await ExecuteStreamOperationAsync(
                 inputStream,
                 async operationCancellationToken =>
                 {
-                    var status = await Client.UploadStream(
+                    return await UploadStreamAtomicallyAsync(
+                        Client,
                         inputStream,
                         destinationFilePath,
-                        overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
-                        createRemoteDir: true,
-                        token: operationCancellationToken).ConfigureAwait(false);
-
-                    return status == FtpStatus.Success;
+                        overwrite,
+                        operationCancellationToken).ConfigureAwait(false);
                 },
                 "Upload file",
                 restoreLength: false,
+                shouldRetry: IsBatchRetryableException,
+                shouldRetryResult: success => !success,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
-
             if (!result)
             {
-                Logger.LogWarning("FTP Upload failed: {Destination}", destinationFilePath);
                 return FileOperationResult.CreateFailure($"上传文件失败: {destinationFilePath}");
             }
 
-            var fileSize = await TryGetFileSizeAsync(destinationFilePath, cancellationToken).ConfigureAwait(false);
-            Logger.LogInformation("FTP Upload completed: {Destination}, Size: {Size} bytes", destinationFilePath, fileSize);
+            Logger.LogInformation("FTP Upload completed: {Destination}", destinationFilePath);
 
-            return FileOperationResult.CreateSuccess(destinationFilePath, null, fileSize);
+            return FileOperationResult.CreateSuccess(destinationFilePath);
+        }
+        catch (DuplicateFileException ex)
+        {
+            return FileOperationResult.CreateFailure($"远程文件已存在: {destinationFilePath}", ex);
         }
         catch (Exception ex)
         {
             HandleException("Upload file", ex, $"Destination: {destinationFilePath}");
-            return default; // 不会执行，HandleException 始终抛出异常
-        }
-    }
-
-    /// <summary>
-    /// 将本地文件上传到 FTP 服务器并返回操作结果。
-    /// </summary>
-    /// <param name="localFilePath">要上传的本地文件完整路径。</param>
-    /// <param name="destinationFilePath">FTP 目标文件路径，包含文件名</param>
-    /// <param name="overwrite">当目标文件已存在时是否覆盖。</param>
-    /// <param name="cancellationToken">用于取消上传操作的标记。</param>
-    /// <returns>返回包含上传结果的 <see cref="FileOperationResult"/>。</returns>
-    /// <example>
-    /// <code>
-    /// var result = await ftpFileSystem.UploadFileAsync("C:/backup/data.json", "/remote/backup/data.json", overwrite: false);
-    /// if (!result.Success) { logger.LogWarning(result.ErrorMessage); }
-    /// </code>
-    /// </example>
-    public override async Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
-    {
-        if (!File.Exists(localFilePath))
-        {
-            return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
-        }
-
-        ArgumentException.ThrowIfNullOrEmpty(destinationFilePath);
-
-        await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            var result = await RetryHelper.ExecuteAsync(
-                async operationCancellationToken =>
-                {
-                    var status = await Client.UploadFile(
-                        localFilePath,
-                        destinationFilePath,
-                        overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
-                        createRemoteDir: true,
-                        token: operationCancellationToken).ConfigureAwait(false);
-
-                    return status == FtpStatus.Success;
-                },
-                "Upload file",
-                _ => true,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            if (!result)
-            {
-                return FileOperationResult.CreateFailure($"上传文件失败: {destinationFilePath}");
-            }
-
-            var fileInfo = new FileInfo(localFilePath);
-            return FileOperationResult.CreateSuccess(destinationFilePath, null, fileInfo.Length);
-        }
-        catch (Exception ex)
-        {
-            HandleException(
-                "Upload file",
-                ex,
-                $"Local: {localFilePath}, FileName: {destinationFilePath}");
             return default; // 不会执行，HandleException 始终抛出异常
         }
     }
@@ -352,28 +276,25 @@ public class FtpFileSystem : RemoteFileSystemBase
                 return FileOperationResult.CreateFailure($"文件不存在: {remoteFilePath}");
             }
 
-            // 使用AsyncFtpClient执行下载
             var result = await ExecuteStreamOperationAsync(
                 outputStream,
                 async operationCancellationToken =>
                 {
-                    var status = await Client.DownloadStream(
+                    return await Client.DownloadStream(
                         outputStream,
                         remoteFilePath,
                         token: operationCancellationToken).ConfigureAwait(false);
-
-                    return status;
                 },
                 "Download to stream",
                 restoreLength: true,
+                shouldRetry: IsBatchRetryableException,
+                shouldRetryResult: success => !success,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件到流失败: {remoteFilePath}");
 
-            var fileSize = await TryGetFileSizeAsync(remoteFilePath, cancellationToken).ConfigureAwait(false);
-
-            return FileOperationResult.CreateSuccess(remoteFilePath, null, fileSize);
+            return FileOperationResult.CreateSuccess(remoteFilePath);
         }
         catch (Exception ex)
         {
@@ -417,27 +338,18 @@ public class FtpFileSystem : RemoteFileSystemBase
                 return FileOperationResult.CreateFailure($"目标文件已存在: {localDestinationPath}");
             }
 
-            // 执行下载
-            var result = await RetryHelper.ExecuteAsync(
-                async operationCancellationToken =>
-                {
-                    var status = await Client.DownloadFile(
-                        localDestinationPath,
-                        remoteFilePath,
-                        overwrite ? FtpLocalExists.Overwrite : FtpLocalExists.Skip,
-                        token: operationCancellationToken).ConfigureAwait(false);
-
-                    return status == FtpStatus.Success;
-                },
-                "Download file",
-                _ => true,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+            var result = await DownloadFileAtomicallyAsync(
+                Client,
+                remoteFilePath,
+                localDestinationPath,
+                overwrite,
+                useBatchRetry: false,
+                cancellationToken).ConfigureAwait(false);
 
             if (!result)
                 return FileOperationResult.CreateFailure($"下载文件失败: {remoteFilePath}");
 
-            var fileInfo = new FileInfo(localDestinationPath);
-            return FileOperationResult.CreateSuccess(remoteFilePath, localDestinationPath, fileInfo.Length);
+            return FileOperationResult.CreateSuccess(remoteFilePath);
         }
         catch (Exception ex)
         {
@@ -464,7 +376,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                     return true;
                 },
                 "Delete file",
-                _ => true,
+                IsBatchRetryableException,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return FileOperationResult.CreateSuccess(filePath);
@@ -536,6 +448,16 @@ public class FtpFileSystem : RemoteFileSystemBase
 
         Logger.LogDebug("FTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
 
+        var duplicateResult = CreateDuplicateTargetResult(
+            filePaths,
+            localPath => $"{remoteDirectory.TrimEnd(FtpPathSeparator)}{FtpPathSeparator}{Path.GetFileName(localPath)}",
+            StringComparer.Ordinal,
+            progress);
+        if (duplicateResult is not null)
+        {
+            return duplicateResult;
+        }
+
         var tracker = new BatchOperationTracker(filePaths.Count, progress);
 
         async Task UploadFileAsync(AsyncFtpClient client, string localPath)
@@ -548,16 +470,22 @@ public class FtpFileSystem : RemoteFileSystemBase
 
             var fileName = Path.GetFileName(localPath);
             var remotePath = $"{remoteDirectory.TrimEnd(FtpPathSeparator)}{FtpPathSeparator}{fileName}";
+            using var fileStream = new FileStream(
+                localPath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.Read,
+                4096,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
             var success = await ExecuteWithBatchRetryAsync(async () =>
             {
-                var status = await client.UploadFile(
-                    localPath,
+                fileStream.Position = 0;
+                return await UploadStreamAtomicallyAsync(
+                    client,
+                    fileStream,
                     remotePath,
-                    overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
-                    createRemoteDir: true,
-                    token: cancellationToken).ConfigureAwait(false);
-
-                return status == FtpStatus.Success;
+                    overwrite,
+                    cancellationToken).ConfigureAwait(false);
             }, cancellationToken).ConfigureAwait(false);
 
             if (success)
@@ -587,7 +515,6 @@ public class FtpFileSystem : RemoteFileSystemBase
                 degree,
                 UploadFileAsync,
                 (localPath, ex) => tracker.AddFailure(localPath, ex.Message, ex),
-                tracker.ReportCompleted,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -616,22 +543,29 @@ public class FtpFileSystem : RemoteFileSystemBase
         if (!Directory.Exists(localDirectory))
             Directory.CreateDirectory(localDirectory);
 
+        var duplicateResult = CreateDuplicateTargetResult(
+            filePaths,
+            remotePath => Path.Combine(localDirectory, Path.GetFileName(remotePath)),
+            Path.DirectorySeparatorChar == '\\' ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal,
+            progress);
+        if (duplicateResult is not null)
+        {
+            return duplicateResult;
+        }
+
         var tracker = new BatchOperationTracker(filePaths.Count, progress);
 
         async Task DownloadFileAsync(AsyncFtpClient client, string remotePath)
         {
             var fileName = Path.GetFileName(remotePath);
             var localPath = Path.Combine(localDirectory, fileName);
-            var success = await ExecuteWithBatchRetryAsync(async () =>
-            {
-                var status = await client.DownloadFile(
-                    localPath,
-                    remotePath,
-                    overwrite ? FtpLocalExists.Overwrite : FtpLocalExists.Skip,
-                    token: cancellationToken).ConfigureAwait(false);
-
-                return status == FtpStatus.Success;
-            }, cancellationToken).ConfigureAwait(false);
+            var success = await DownloadFileAtomicallyAsync(
+                client,
+                remotePath,
+                localPath,
+                overwrite,
+                useBatchRetry: true,
+                cancellationToken).ConfigureAwait(false);
 
             if (success)
             {
@@ -660,7 +594,6 @@ public class FtpFileSystem : RemoteFileSystemBase
                 degree,
                 DownloadFileAsync,
                 (remotePath, ex) => tracker.AddFailure(remotePath, ex.Message, ex),
-                tracker.ReportCompleted,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -716,7 +649,6 @@ public class FtpFileSystem : RemoteFileSystemBase
                 degree,
                 DeleteFileAsync,
                 (filePath, ex) => tracker.AddFailure(filePath, ex.Message, ex),
-                tracker.ReportCompleted,
                 cancellationToken).ConfigureAwait(false);
         }
 
@@ -780,7 +712,6 @@ public class FtpFileSystem : RemoteFileSystemBase
         int degree,
         Func<AsyncFtpClient, string, Task> operation,
         Action<string, Exception> onError,
-        Action<string> onCompleted,
         CancellationToken cancellationToken)
     {
         var queue = new ConcurrentQueue<string>(filePaths);
@@ -798,7 +729,6 @@ public class FtpFileSystem : RemoteFileSystemBase
                         break;
                     }
 
-                    var shouldReportCompletion = true;
                     try
                     {
                         if (!client.IsConnected)
@@ -810,19 +740,11 @@ public class FtpFileSystem : RemoteFileSystemBase
                     }
                     catch (OperationCanceledException)
                     {
-                        shouldReportCompletion = false;
                         throw;
                     }
                     catch (Exception ex)
                     {
                         onError(filePath, ex);
-                    }
-                    finally
-                    {
-                        if (shouldReportCompletion)
-                        {
-                            onCompleted(filePath);
-                        }
                     }
                 }
             }
@@ -834,9 +756,13 @@ public class FtpFileSystem : RemoteFileSystemBase
                     {
                         await client.Disconnect().ConfigureAwait(false);
                     }
-                    catch
+                    catch (FtpException ex)
                     {
-                        // Cleanup must not hide the operation result.
+                        Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
+                    }
+                    catch (IOException ex)
+                    {
+                        Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
                     }
                 }
 
@@ -847,24 +773,161 @@ public class FtpFileSystem : RemoteFileSystemBase
         await Task.WhenAll(workers).ConfigureAwait(false);
     }
 
-    /// <summary>
-    /// 安全地获取文件大小,失败时返回 0
-    /// </summary>
-    private async Task<long> TryGetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
+    private async Task<long> GetRequiredFileSizeAsync(string filePath, CancellationToken cancellationToken)
+    {
+        var fileSize = await Client.GetFileSize(
+            filePath,
+            defaultValue: -1,
+            token: cancellationToken).ConfigureAwait(false);
+        if (fileSize < 0)
+        {
+            throw new IOException($"Unable to get FTP file size: {filePath}");
+        }
+
+        return fileSize;
+    }
+
+    private async Task<bool> UploadStreamAtomicallyAsync(
+        AsyncFtpClient client,
+        Stream inputStream,
+        string destinationFilePath,
+        bool overwrite,
+        CancellationToken cancellationToken)
+    {
+        var separatorIndex = destinationFilePath.LastIndexOf(FtpPathSeparator);
+        var remoteDirectory = separatorIndex >= 0
+            ? destinationFilePath.Substring(0, separatorIndex + 1)
+            : string.Empty;
+        var temporaryPath = $"{remoteDirectory}.upload-{Guid.NewGuid():N}.tmp";
+
+        try
+        {
+            var status = await client.UploadStream(
+                inputStream,
+                temporaryPath,
+                FtpRemoteExists.Overwrite,
+                createRemoteDir: true,
+                token: cancellationToken).ConfigureAwait(false);
+            if (status != FtpStatus.Success)
+            {
+                return false;
+            }
+
+            var moved = await client.MoveFile(
+                temporaryPath,
+                destinationFilePath,
+                overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
+                cancellationToken).ConfigureAwait(false);
+            if (!moved)
+            {
+                if (!overwrite && await client.FileExists(destinationFilePath, cancellationToken).ConfigureAwait(false))
+                {
+                    throw new DuplicateFileException(destinationFilePath);
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+        finally
+        {
+            await TryDeleteTemporaryFileAsync(client, temporaryPath, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task TryDeleteTemporaryFileAsync(
+        AsyncFtpClient client,
+        string temporaryPath,
+        CancellationToken cancellationToken)
     {
         try
         {
-            return await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false);
+            if (await client.FileExists(temporaryPath, cancellationToken).ConfigureAwait(false))
+            {
+                await client.DeleteFile(temporaryPath, cancellationToken).ConfigureAwait(false);
+            }
         }
-        catch (OperationCanceledException)
+        catch (FtpException ex)
         {
-            throw;
+            Logger.LogWarning(ex, "Failed to clean up temporary FTP upload: {FilePath}", temporaryPath);
         }
-        catch (Exception ex)
+        catch (IOException ex)
         {
-            Logger.LogDebug(ex, "Unable to get FTP file size: {FilePath}", filePath);
+            Logger.LogWarning(ex, "Failed to clean up temporary FTP upload: {FilePath}", temporaryPath);
+        }
+    }
 
-            return 0;
+    /// <inheritdoc />
+    protected override bool IsBatchRetryableException(Exception exception)
+    {
+        if (exception is FtpCommandException commandException)
+        {
+            return commandException.CompletionCode.StartsWith("4", StringComparison.Ordinal);
+        }
+
+        return base.IsBatchRetryableException(exception);
+    }
+
+    private async Task<bool> DownloadFileAtomicallyAsync(
+        AsyncFtpClient client,
+        string remoteFilePath,
+        string localDestinationPath,
+        bool overwrite,
+        bool useBatchRetry,
+        CancellationToken cancellationToken)
+    {
+        var destinationFullPath = Path.GetFullPath(localDestinationPath);
+        var destinationDirectory = Path.GetDirectoryName(destinationFullPath)!;
+        Directory.CreateDirectory(destinationDirectory);
+        var tempPath = Path.Combine(destinationDirectory, $".download-{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            async Task<bool> DownloadAttemptAsync(CancellationToken operationCancellationToken)
+            {
+                var status = await client.DownloadFile(
+                    tempPath,
+                    remoteFilePath,
+                    FtpLocalExists.Overwrite,
+                    token: operationCancellationToken).ConfigureAwait(false);
+
+                return status == FtpStatus.Success;
+            }
+
+            var success = useBatchRetry
+                ? await ExecuteWithBatchRetryAsync(
+                    () => DownloadAttemptAsync(cancellationToken),
+                    cancellationToken).ConfigureAwait(false)
+                : await RetryHelper.ExecuteAsync(
+                    DownloadAttemptAsync,
+                    "Download file",
+                    shouldRetry: IsBatchRetryableException,
+                    shouldRetryResult: success => !success,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (!success)
+            {
+                return false;
+            }
+
+            CommitTemporaryFile(tempPath, destinationFullPath, overwrite);
+            return true;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch (IOException ex)
+            {
+                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", tempPath);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", tempPath);
+            }
         }
     }
 
@@ -963,17 +1026,20 @@ public class FtpFileSystem : RemoteFileSystemBase
                 return null;
             }
 
-            return await Client.GetFileSize(filePath, token: cancellationToken).ConfigureAwait(false);
+            return await GetRequiredFileSizeAsync(filePath, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
             throw;
         }
+        catch (FileSystemException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Unable to get FTP file size: {FilePath}", filePath);
-
-            return null;
+            HandleException("Get file size", ex, filePath);
+            return null; // 不会执行，HandleException 始终抛出异常
         }
     }
 
