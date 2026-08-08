@@ -39,10 +39,27 @@ List<User> asyncMapped = await database.FindListBySqlAsync(
     "SELECT Id, Name FROM Users",
     record => new User(record.GetInt32(0), record.GetString(1)),
     cancellationToken: cancellationToken);
+
+using var connection = new SqlConnection(connectionString);
+await connection.OpenAsync(cancellationToken);
+
+using SqlCommand command = connection.CreateCommand();
+command.CommandText = "SELECT Name FROM Users WHERE Active = @active";
+command.Parameters.Add(new SqlParameter("@active", true));
+
+using SqlDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+
+var streamedNames = new List<string>();
+while (await reader.ReadAsync(cancellationToken))
+{
+    streamedNames.Add(reader.GetString(0));
+}
 ```
 
 `DataSet` and `DataTable` materialization is intentionally synchronous because the BCL fill APIs are synchronous.
-For asynchronous work, use `FindListBySqlAsync` or `ExecuteReaderAsync` and consume the reader directly.
+For asynchronous materialization, use `FindListBySqlAsync`. For streaming, use the provider's native ADO.NET API so
+the connection, command, and reader all have explicit caller-owned lifetimes. `Linger.DataAccess` does not expose an
+API that creates hidden command and connection resources while returning only a raw `DbDataReader`.
 
 ## Existence and counts
 
@@ -86,6 +103,8 @@ DataTable result = database.QueryInBatches(
 ```
 
 Values are parameterized and split into batches. The first batch defines the returned `DataTable` schema.
+Use this API only for row queries whose batch results can be concatenated directly. It does not preserve global
+ordering, paging, aggregation, or distinct semantics.
 
 ## Optional capabilities
 

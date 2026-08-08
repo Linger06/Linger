@@ -1,5 +1,4 @@
 using System.Data;
-using System.Data.Common;
 using Xunit;
 
 namespace Linger.DataAccess.SqlServer.UnitTests;
@@ -7,86 +6,142 @@ namespace Linger.DataAccess.SqlServer.UnitTests;
 public class BaseDatabaseBehaviorExecuteReaderTests
 {
     [Fact]
-    public void ExecuteReader_WithAttachedTransaction_ShouldUseTransactionConnection()
+    public void IBaseDatabase_ShouldNotExposeRawReaderMethods()
     {
-        RecordingDbCommand? createdCommand = null;
-        var attachedConnection = new RecordingDbConnection("Attached-Conn",
-            () => createdCommand = new RecordingDbCommand(0));
-        var factory = new RecordingDbProviderFactory();
-        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
-        var attachedTransaction = BaseDatabaseBehaviorTestSupport.CreateAttachedTransaction(attachedConnection);
-
-        using var reader = database.ExecuteReader(
-            attachedTransaction,
-            CommandType.Text,
-            "SELECT 1",
-            Array.Empty<DbParameter>());
-
-        Assert.NotNull(reader);
-        Assert.NotNull(createdCommand);
-        Assert.Equal(1, attachedConnection.OpenCallCount);
-        Assert.Equal(1, createdCommand!.ExecuteReaderCallCount);
-        Assert.Equal(CommandBehavior.Default, createdCommand.LastReaderBehavior);
-        Assert.Equal(0, factory.CreateConnectionCallCount);
-        Assert.Equal(0, factory.CreateCommandCallCount);
-        Assert.Equal(1, attachedConnection.CreateCommandCallCount);
+        Assert.DoesNotContain(typeof(IBaseDatabase).GetMethods(),
+            static method => method.Name is "ExecuteReader" or "ExecuteReaderAsync");
     }
 
     [Fact]
-    public async Task ExecuteReaderAsync_WithAttachedTransaction_ShouldUseTransactionConnection()
+    public void GetDataSet_WhenCompleted_ShouldDisposeReaderCommandAndOwnedConnection()
     {
         RecordingDbCommand? createdCommand = null;
-        var attachedConnection = new RecordingDbConnection("Attached-Conn",
+        var connection = new RecordingDbConnection("Reader-Conn",
             () => createdCommand = new RecordingDbCommand(0));
-        var factory = new RecordingDbProviderFactory();
-        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
-        var attachedTransaction = BaseDatabaseBehaviorTestSupport.CreateAttachedTransaction(attachedConnection);
+        var factory = new RecordingDbProviderFactory(createConnection: () => connection);
+        var database = new TestableBaseDatabase(factory, "Reader-Conn");
+        var parameter = new RecordingDbParameter { ParameterName = "@id", Value = 1 };
+
+        DataSet result = database.GetDataSet(CommandType.Text, "SELECT 1", parameter);
+
+        Assert.NotNull(result);
+        Assert.NotNull(createdCommand);
+        Assert.True(createdCommand.IsDisposed);
+        Assert.Equal(0, createdCommand.ParameterCount);
+        Assert.True(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task HasRowsAsync_WhenCompleted_ShouldDisposeReaderCommandAndOwnedConnection()
+    {
+        RecordingDbCommand? createdCommand = null;
+        var connection = new RecordingDbConnection("Reader-Conn",
+            () => createdCommand = new RecordingDbCommand(0));
+        var factory = new RecordingDbProviderFactory(createConnection: () => connection);
+        var database = new Database(factory, "Reader-Conn");
+        var parameter = new RecordingDbParameter { ParameterName = "@id", Value = 1 };
+
+        bool result = await database.HasRowsAsync("SELECT 1", [parameter], CancellationToken.None);
+
+        Assert.False(result);
+        Assert.NotNull(createdCommand);
+        Assert.True(createdCommand.IsDisposed);
+        Assert.Equal(0, createdCommand.ParameterCount);
+        Assert.True(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public void GetDataSet_WhenCommandCreationFails_ShouldDisposeOwnedConnection()
+    {
+        var connection = new RecordingDbConnection("Reader-Conn",
+            () => throw new InvalidOperationException("Command creation failed."));
+        var factory = new RecordingDbProviderFactory(createConnection: () => connection);
+        var database = new TestableBaseDatabase(factory, "Reader-Conn");
+
+        _ = Assert.Throws<InvalidOperationException>(() =>
+            database.GetDataSet(CommandType.Text, "SELECT 1"));
+
+        Assert.True(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task HasRowsAsync_WhenCommandCreationFails_ShouldDisposeOwnedConnection()
+    {
+        var connection = new RecordingDbConnection("Reader-Conn",
+            () => throw new InvalidOperationException("Command creation failed."));
+        var factory = new RecordingDbProviderFactory(createConnection: () => connection);
+        var database = new Database(factory, "Reader-Conn");
+
+        _ = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            database.HasRowsAsync("SELECT 1"));
+
+        Assert.True(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public void GetDataSet_InAmbientTransaction_ShouldKeepConnectionUntilRollback()
+    {
+        RecordingDbCommand? createdCommand = null;
+        var connection = new RecordingDbConnection("Transaction-Conn",
+            () => createdCommand = new RecordingDbCommand(0));
+        var factory = new RecordingDbProviderFactory(createConnection: () => connection);
+        var database = new TestableBaseDatabase(factory, "Transaction-Conn");
+
+        _ = database.BeginTrans();
+        DataSet result = database.GetDataSet(CommandType.Text, "SELECT 1");
+
+        Assert.NotNull(result);
+        Assert.NotNull(createdCommand);
+        Assert.Equal(1, connection.OpenCallCount);
+        Assert.Equal(1, createdCommand!.ExecuteReaderCallCount);
+        Assert.Equal(CommandBehavior.Default, createdCommand.LastReaderBehavior);
+        Assert.Equal(1, factory.CreateConnectionCallCount);
+        Assert.Equal(0, factory.CreateCommandCallCount);
+        Assert.Equal(1, connection.CreateCommandCallCount);
+        Assert.True(createdCommand.IsDisposed);
+        Assert.False(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Open, connection.State);
+
+        database.Rollback();
+
+        Assert.True(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
+    }
+
+    [Fact]
+    public async Task HasRowsAsync_InAmbientTransaction_ShouldKeepConnectionUntilRollback()
+    {
+        RecordingDbCommand? createdCommand = null;
+        var connection = new RecordingDbConnection("Transaction-Conn",
+            () => createdCommand = new RecordingDbCommand(0));
+        var factory = new RecordingDbProviderFactory(createConnection: () => connection);
+        var database = new Database(factory, "Transaction-Conn");
 
         using var cancellation = new CancellationTokenSource();
         CancellationToken cancellationToken = cancellation.Token;
-        using var reader = await database.ExecuteReaderAsync(
-            attachedTransaction,
-            CommandType.Text,
-            "SELECT 1",
-            Array.Empty<DbParameter>(),
-            cancellationToken);
+        _ = await database.BeginTransAsync(cancellationToken);
+        bool result = await database.HasRowsAsync("SELECT 1", cancellationToken: cancellationToken);
 
-        Assert.NotNull(reader);
+        Assert.False(result);
         Assert.NotNull(createdCommand);
-        Assert.Equal(1, attachedConnection.OpenCallCount);
+        Assert.Equal(1, connection.OpenCallCount);
         Assert.Equal(1, createdCommand!.ExecuteReaderCallCount);
         Assert.Equal(CommandBehavior.Default, createdCommand.LastReaderBehavior);
-        Assert.Equal(cancellationToken, attachedConnection.LastOpenCancellationToken);
-        Assert.Equal(0, factory.CreateConnectionCallCount);
+        Assert.Equal(cancellationToken, connection.LastOpenCancellationToken);
+        Assert.Equal(1, factory.CreateConnectionCallCount);
         Assert.Equal(0, factory.CreateCommandCallCount);
-        Assert.Equal(1, attachedConnection.CreateCommandCallCount);
-    }
+        Assert.Equal(1, connection.CreateCommandCallCount);
+        Assert.True(createdCommand.IsDisposed);
+        Assert.False(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Open, connection.State);
 
-    [Fact]
-    public void ExecuteReader_WithDetachedTransaction_ShouldThrowArgumentNullException()
-    {
-        var factory = new RecordingDbProviderFactory();
-        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
-        var detachedTransaction = BaseDatabaseBehaviorTestSupport.CreateDetachedTransaction();
+        await database.RollbackAsync(cancellationToken);
 
-        _ = Assert.Throws<ArgumentNullException>(() =>
-            database.ExecuteReader(detachedTransaction, CommandType.Text, "SELECT 1", Array.Empty<DbParameter>()));
-
-        Assert.Equal(0, factory.CreateConnectionCallCount);
-        Assert.Equal(0, factory.CreateCommandCallCount);
-    }
-
-    [Fact]
-    public async Task ExecuteReaderAsync_WithDetachedTransaction_ShouldThrowArgumentNullException()
-    {
-        var factory = new RecordingDbProviderFactory();
-        var database = new TestableBaseDatabase(factory, "Fallback-Conn");
-        var detachedTransaction = BaseDatabaseBehaviorTestSupport.CreateDetachedTransaction();
-
-        _ = await Assert.ThrowsAsync<ArgumentNullException>(() =>
-            database.ExecuteReaderAsync(detachedTransaction, CommandType.Text, "SELECT 1", Array.Empty<DbParameter>(), CancellationToken.None));
-
-        Assert.Equal(0, factory.CreateConnectionCallCount);
-        Assert.Equal(0, factory.CreateCommandCallCount);
+        Assert.True(connection.IsDisposed);
+        Assert.Equal(ConnectionState.Closed, connection.State);
     }
 }

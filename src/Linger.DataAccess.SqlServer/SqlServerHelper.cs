@@ -29,24 +29,14 @@ public class SqlServerHelper(string connectionString)
     /// <exception cref="ArgumentException">当 tableName 为空或包含非法字符时抛出</exception>
     public int BulkInsert(DataTable table, string tableName, int batchSize = 1000, int timeout = 100)
     {
-        ArgumentNullException.ThrowIfNull(table);
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
-        ArgumentOutOfRangeException.ThrowIfNegative(timeout);
-
-        // 目标表名会被直接拼进 BulkCopy 语句，必须与 GetMaxId 一样校验
-        ValidateSqlIdentifier(tableName, nameof(tableName));
-        var destinationTableName = QuoteQualifiedName(tableName, nameof(tableName));
+        var destinationTableName = PrepareBulkInsert(table, tableName, batchSize, timeout);
 
         if (table.Rows.Count == 0)
         {
             return 0;
         }
 
-        using var bulk = new SqlBulkCopy(ConnString);
-        bulk.BatchSize = batchSize;
-        bulk.BulkCopyTimeout = timeout;
-        bulk.DestinationTableName = destinationTableName;
+        using SqlBulkCopy bulk = CreateBulkCopy(table, destinationTableName, batchSize, timeout);
 
         bulk.WriteToServer(table);
         return table.Rows.Count;
@@ -66,26 +56,59 @@ public class SqlServerHelper(string connectionString)
     public async Task<int> BulkInsertAsync(DataTable table, string tableName, int batchSize = 1000,
         int timeout = 100, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(table);
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
-        ArgumentOutOfRangeException.ThrowIfNegative(timeout);
-
-        ValidateSqlIdentifier(tableName, nameof(tableName));
-        var destinationTableName = QuoteQualifiedName(tableName, nameof(tableName));
+        var destinationTableName = PrepareBulkInsert(table, tableName, batchSize, timeout);
 
         if (table.Rows.Count == 0)
         {
             return 0;
         }
 
-        using var bulk = new SqlBulkCopy(ConnString);
-        bulk.BatchSize = batchSize;
-        bulk.BulkCopyTimeout = timeout;
-        bulk.DestinationTableName = destinationTableName;
+        using SqlBulkCopy bulk = CreateBulkCopy(table, destinationTableName, batchSize, timeout);
 
         await bulk.WriteToServerAsync(table, cancellationToken).ConfigureAwait(false);
         return table.Rows.Count;
+    }
+
+    private string PrepareBulkInsert(DataTable table, string tableName, int batchSize, int timeout)
+    {
+        ArgumentNullException.ThrowIfNull(table);
+        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(batchSize);
+        ArgumentOutOfRangeException.ThrowIfNegative(timeout);
+
+        // 目标表名会被直接拼进 BulkCopy 语句，必须与 GetMaxId 一样校验
+        ValidateSqlIdentifier(tableName, nameof(tableName));
+        var destinationTableName = QuoteQualifiedName(tableName, nameof(tableName));
+        ThrowIfAmbientTransaction();
+
+        return destinationTableName;
+    }
+
+    private SqlBulkCopy CreateBulkCopy(DataTable table, string destinationTableName, int batchSize, int timeout)
+    {
+        var bulk = new SqlBulkCopy(ConnString)
+        {
+            BatchSize = batchSize,
+            BulkCopyTimeout = timeout,
+            DestinationTableName = destinationTableName,
+        };
+
+        foreach (DataColumn column in table.Columns)
+        {
+            _ = bulk.ColumnMappings.Add(column.ColumnName, column.ColumnName);
+        }
+
+        return bulk;
+    }
+
+    private void ThrowIfAmbientTransaction()
+    {
+        if (InTransaction)
+        {
+            throw new InvalidOperationException(
+                "BulkInsert cannot run inside an ambient transaction started by BeginTrans because it opens " +
+                "a separate connection. Commit or roll back the ambient transaction before bulk insertion.");
+        }
     }
 
     /// <summary>
@@ -95,27 +118,23 @@ public class SqlServerHelper(string connectionString)
     /// <param name="tableName">表名称，可含 schema（如 <c>dbo.Users</c>）</param>
     /// <returns>最大值加 1；空表返回 1</returns>
     /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
+    /// <exception cref="OverflowException">当最大值超出 <see cref="int"/> 范围或加 1 后溢出时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     /// <remarks>
     /// 并发下不保证唯一，仅适合单写入者场景；需要强保证请使用 IDENTITY 或 SEQUENCE。
     /// </remarks>
     public int GetMaxId(string fieldName, string tableName)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(fieldName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
-
-        ValidateSqlIdentifier(fieldName, nameof(fieldName), allowQualifier: false);
-        ValidateSqlIdentifier(tableName, nameof(tableName));
+        var sql = BuildGetMaxIdSql(fieldName, tableName);
 
         try
         {
             // SQL 只取 MAX，「+1」统一由 C# 完成：空表时数据库稳定返回 NULL，加一次即可
-            var sql = $"SELECT MAX([{fieldName}]) FROM {QuoteQualifiedName(tableName, nameof(tableName))}";
             var obj = ExecuteScalar(CommandType.Text, sql);
 
-            return (obj.ToIntOrNull() ?? 0) + 1;
+            return GetNextId(obj);
         }
-        catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException))
+        catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException or OverflowException))
         {
             throw new InvalidOperationException($"获取表 {tableName} 字段 {fieldName} 的最大值时发生错误", ex);
         }
@@ -129,10 +148,38 @@ public class SqlServerHelper(string connectionString)
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>最大值加 1；空表返回 1</returns>
     /// <exception cref="ArgumentException">当 fieldName 或 tableName 为空或包含非法字符时抛出</exception>
+    /// <exception cref="OverflowException">当最大值超出 <see cref="int"/> 范围或加 1 后溢出时抛出</exception>
     /// <exception cref="InvalidOperationException">当数据库操作失败时抛出</exception>
     /// <inheritdoc cref="GetMaxId(string, string)" path="/remarks"/>
     public async Task<int> GetMaxIdAsync(string fieldName, string tableName,
         CancellationToken cancellationToken = default)
+    {
+        var sql = BuildGetMaxIdSql(fieldName, tableName);
+
+        try
+        {
+            var obj = await ExecuteScalarAsync(CommandType.Text, sql, null, cancellationToken)
+                .ConfigureAwait(false);
+
+            return GetNextId(obj);
+        }
+        catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException or OverflowException))
+        {
+            throw new InvalidOperationException($"获取表 {tableName} 字段 {fieldName} 的最大值时发生错误", ex);
+        }
+    }
+
+    private static int GetNextId(object? maxValue)
+    {
+        if (maxValue is null or DBNull)
+        {
+            return 1;
+        }
+
+        return checked(maxValue.ToInt() + 1);
+    }
+
+    private static string BuildGetMaxIdSql(string fieldName, string tableName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fieldName);
         ArgumentException.ThrowIfNullOrWhiteSpace(tableName);
@@ -140,18 +187,7 @@ public class SqlServerHelper(string connectionString)
         ValidateSqlIdentifier(fieldName, nameof(fieldName), allowQualifier: false);
         ValidateSqlIdentifier(tableName, nameof(tableName));
 
-        try
-        {
-            var sql = $"SELECT MAX([{fieldName}]) FROM {QuoteQualifiedName(tableName, nameof(tableName))}";
-            var obj = await ExecuteScalarAsync(CommandType.Text, sql, null, cancellationToken)
-                .ConfigureAwait(false);
-
-            return (obj.ToIntOrNull() ?? 0) + 1;
-        }
-        catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException))
-        {
-            throw new InvalidOperationException($"获取表 {tableName} 字段 {fieldName} 的最大值时发生错误", ex);
-        }
+        return $"SELECT MAX([{fieldName}]) FROM {QuoteQualifiedName(tableName, nameof(tableName))}";
     }
 
     /// <summary>
@@ -226,14 +262,6 @@ public class SqlServerHelper(string connectionString)
             throw new ArgumentException($"标识符 '{identifier}' 包含非法字符。只允许字母、数字、下划线和点号。", paramName);
         }
 
-        // 防止 SQL 注入常见模式
-        if (identifier.Contains("--", StringComparison.Ordinal) ||
-            identifier.Contains("/*", StringComparison.Ordinal) ||
-            identifier.Contains("*/", StringComparison.Ordinal) ||
-            identifier.Contains(';'))
-        {
-            throw new ArgumentException($"标识符 '{identifier}' 包含非法的 SQL 注释或分隔符。", paramName);
-        }
     }
 
     /// <summary>

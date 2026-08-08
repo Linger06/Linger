@@ -34,11 +34,20 @@ public class SqliteHelper(string connectionString) : Database(SQLiteFactory.Inst
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        var connectionString = createIfNotExists
-            ? $"Data Source={filePath}"
-            : $"Data Source={filePath};FailIfMissing=True";
+        var connectionString = BuildConnectionString(filePath, failIfMissing: !createIfNotExists);
 
         return new SqliteHelper(connectionString);
+    }
+
+    private static string BuildConnectionString(string filePath, bool failIfMissing)
+    {
+        var builder = new SQLiteConnectionStringBuilder
+        {
+            DataSource = filePath,
+            FailIfMissing = failIfMissing,
+        };
+
+        return builder.ConnectionString;
     }
 
     #endregion
@@ -104,7 +113,8 @@ public class SqliteHelper(string connectionString) : Database(SQLiteFactory.Inst
         return HasRowsAsync(TableExistsSql, [new SQLiteParameter("@tableName", tableName)], cancellationToken);
     }
 
-    private const string TableExistsSql = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@tableName";
+    private const string TableExistsSql =
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@tableName COLLATE NOCASE";
 
     #endregion
 
@@ -123,7 +133,7 @@ public class SqliteHelper(string connectionString) : Database(SQLiteFactory.Inst
         using var connection = new SQLiteConnection(ConnString);
         connection.Open();
 
-        using var backup = new SQLiteConnection($"Data Source={backupFilePath}");
+        using var backup = new SQLiteConnection(BuildConnectionString(backupFilePath, failIfMissing: false));
         backup.Open();
 
         connection.BackupDatabase(backup, "main", "main", -1, null, 0);

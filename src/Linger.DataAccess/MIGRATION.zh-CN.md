@@ -32,7 +32,16 @@ List<User> users = await database.FindListBySqlAsync(
     cancellationToken);
 ```
 
-需要流式读取时使用 `ExecuteReaderAsync`。
+`ExecuteReader` / `ExecuteReaderAsync` 已删除。这两个方法在内部创建 Connection 和 Command，却只向调用方
+返回 Reader，无法完整表达资源所有权。需要流式读取时，请直接使用数据库 Provider 的 ADO.NET API，并由
+调用方分别释放 Connection、Command 和 Reader。高层查询方法仍在内部完成全部资源管理。
+
+原来供外部派生类使用的 `protected ExecuteReader<TResult>` / `ExecuteReaderAsync<TResult>` 扩展点也已删除，
+这是破坏性调整。派生类应改用现有高层查询 API；确实需要流式读取时，直接使用 Provider 的 ADO.NET API。
+
+Provider 原生流式读取无法加入由 `database.BeginTrans()` 创建的环境事务，因为该事务及其 Connection 由
+`database` 实例在内部管理。需要在事务中流式读取时，调用方必须统一创建、关联并释放 Provider 的
+Connection、Transaction、Command 和 Reader。
 
 ## 存在性检查
 

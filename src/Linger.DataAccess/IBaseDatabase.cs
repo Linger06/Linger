@@ -87,31 +87,9 @@ public interface IBaseDatabase : IDisposable
 
     #endregion
 
-    #region ExecuteReader
-
-    /// <remarks>
-    /// <para>返回的读取器持有内部连接的生命周期，调用方必须释放它。</para>
-    /// <para>
-    /// <b>参数不可复用</b>：读取器返回后命令仍在使用参数，无法归还。传入的 <see cref="DbParameter"/>
-    /// 不要再交给其它命令。<c>ExecuteNonQuery</c> / <c>ExecuteScalar</c> / <c>GetDataSet</c> 则会归还参数。
-    /// </para>
-    /// </remarks>
-    DbDataReader ExecuteReader(CommandType cmdType, string cmdText, params DbParameter[] parameters);
-
-    /// <inheritdoc cref="ExecuteReader(CommandType, string, DbParameter[])"/>
-    Task<DbDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
-
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    DbDataReader ExecuteReader(DbTransaction transaction, CommandType cmdType, string cmdText, params DbParameter[] parameters);
-
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    Task<DbDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
-
-    #endregion
-
     #region GetDataSet
 
-    /// <remarks>只有同步版本：BCL 的 DataSet 填充 API 全为同步，异步场景请用 <c>ExecuteReaderAsync</c>。</remarks>
+    /// <remarks>只有同步版本：BCL 的 DataSet 填充 API 全为同步；异步流式读取请直接使用数据库 Provider 的 ADO.NET API。</remarks>
     DataSet GetDataSet(CommandType cmdType, string cmdText, params DbParameter[] parameters);
 
     #endregion

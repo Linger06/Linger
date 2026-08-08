@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.SQLite;
+using System.Reflection;
 using Xunit;
 
 namespace Linger.DataAccess.Sqlite.UnitTests;
@@ -51,6 +52,22 @@ public sealed class SqliteHelperTests : IDisposable
     public void CreateFileDatabase_WithInvalidPath_ShouldThrowArgumentException(string? path)
     {
         Assert.ThrowsAny<ArgumentException>(() => SqliteHelper.CreateFileDatabase(path!));
+    }
+
+    [Fact]
+    public void BuildConnectionString_WithConnectionStringCharacters_ShouldPreservePath()
+    {
+        const string path = @"C:\data;Mode=Memory.db";
+        MethodInfo? method = typeof(SqliteHelper).GetMethod(
+            "BuildConnectionString",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+        var connectionString = Assert.IsType<string>(method!.Invoke(null, [path, true]));
+        var builder = new SQLiteConnectionStringBuilder(connectionString);
+
+        Assert.Equal(path, builder.DataSource);
+        Assert.True(builder.FailIfMissing);
     }
 
     [Fact]

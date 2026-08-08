@@ -25,7 +25,7 @@ public class Database(DbProviderFactory factory, string connectionString)
     /// <para>
     /// DataSet / DataTable 查询只有同步版本：BCL 的填充 API 全为同步，
     /// 异步化只能手写逐行循环，不值得为此增加复杂度。
-    /// 异步场景请用 <see cref="BaseDatabase.ExecuteReaderAsync(CommandType, string, DbParameter[], CancellationToken)"/> 自行读取。
+    /// 异步流式读取请直接使用数据库 Provider 的 ADO.NET API。
     /// </para>
     /// <para>存储过程版本见 <see cref="FindDataSetByProc"/>。</para>
     /// </remarks>
@@ -46,7 +46,7 @@ public class Database(DbProviderFactory factory, string connectionString)
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
 
         // 直接走 reader，避免构造整个 DataSet 后只取首表（其余表与 DataSet 会被返回值根住无法回收）
-        return ExecuteReader(CommandType.Text, sql, parameters, ReadDataTable);
+        return ExecuteWithReader(CommandType.Text, sql, ReadDataTable, parameters);
     }
 
     #endregion
@@ -278,7 +278,7 @@ public class Database(DbProviderFactory factory, string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
 
-        return ExecuteReader(CommandType.Text, sql, parameters, static reader => reader.Read());
+        return ExecuteWithReader(CommandType.Text, sql, static reader => reader.Read(), parameters);
     }
 
     /// <summary>
@@ -290,8 +290,8 @@ public class Database(DbProviderFactory factory, string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
 
-        return ExecuteReaderAsync(CommandType.Text, sql, parameters,
-            static (reader, ct) => reader.ReadAsync(ct), cancellationToken);
+        return ExecuteWithReaderAsync(CommandType.Text, sql,
+            static (reader, ct) => reader.ReadAsync(ct), parameters, cancellationToken);
     }
 
     #endregion
@@ -407,8 +407,8 @@ public class Database(DbProviderFactory factory, string connectionString)
     public List<T> FindListBySql<T>(string sql, params DbParameter[] parameters)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        return ExecuteReader(CommandType.Text, sql, parameters,
-            static reader => ReadList(reader, CreateMapper<T>(reader)));
+        return ExecuteWithReader(CommandType.Text, sql,
+            static reader => ReadList(reader, CreateMapper<T>(reader)), parameters);
     }
 
     /// <summary>
@@ -421,7 +421,7 @@ public class Database(DbProviderFactory factory, string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(map);
-        return ExecuteReader(CommandType.Text, sql, parameters, reader => ReadList(reader, map));
+        return ExecuteWithReader(CommandType.Text, sql, reader => ReadList(reader, map), parameters);
     }
 
     /// <summary>
@@ -437,8 +437,8 @@ public class Database(DbProviderFactory factory, string connectionString)
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        return ExecuteReaderAsync(CommandType.Text, sql, parameters,
-            static (reader, ct) => ReadListAsync(reader, CreateMapper<T>(reader), ct), cancellationToken);
+        return ExecuteWithReaderAsync(CommandType.Text, sql,
+            static (reader, ct) => ReadListAsync(reader, CreateMapper<T>(reader), ct), parameters, cancellationToken);
     }
 
     /// <summary>
@@ -453,8 +453,8 @@ public class Database(DbProviderFactory factory, string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(map);
-        return ExecuteReaderAsync(CommandType.Text, sql, parameters,
-            (reader, ct) => ReadListAsync(reader, map, ct), cancellationToken);
+        return ExecuteWithReaderAsync(CommandType.Text, sql,
+            (reader, ct) => ReadListAsync(reader, map, ct), parameters, cancellationToken);
     }
 
     #endregion
@@ -469,7 +469,7 @@ public class Database(DbProviderFactory factory, string connectionString)
     public DataTable FindTableByProc(string procName, params DbParameter[] parameters)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(procName);
-        return ExecuteReader(CommandType.StoredProcedure, procName, parameters, ReadDataTable);
+        return ExecuteWithReader(CommandType.StoredProcedure, procName, ReadDataTable, parameters);
     }
 
     private static DataTable ReadDataTable(DbDataReader reader)
@@ -537,8 +537,8 @@ public class Database(DbProviderFactory factory, string connectionString)
     public T? FindEntityBySql<T>(string sql, params DbParameter[] parameters)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
-        return ExecuteReader(CommandType.Text, sql, parameters,
-            static reader => ReadFirstOrDefault(reader, CreateMapper<T>(reader)));
+        return ExecuteWithReader(CommandType.Text, sql,
+            static reader => ReadFirstOrDefault(reader, CreateMapper<T>(reader)), parameters);
     }
 
     /// <summary>
@@ -627,7 +627,7 @@ public class Database(DbProviderFactory factory, string connectionString)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);
         ArgumentNullException.ThrowIfNull(map);
-        return ExecuteReader(CommandType.Text, sql, parameters, reader => ReadFirstOrDefault(reader, map));
+        return ExecuteWithReader(CommandType.Text, sql, reader => ReadFirstOrDefault(reader, map), parameters);
     }
 
     #endregion
@@ -696,6 +696,10 @@ public class Database(DbProviderFactory factory, string connectionString)
     /// <param name="parameters">参数值列表</param>
     /// <param name="batchSize">每批次数量(&gt;0)，默认 1000</param>
     /// <returns>合并后的查询结果</returns>
+    /// <remarks>
+    /// 仅适用于各批结果可以直接拼接的行查询。不要用于依赖全局 <c>ORDER BY</c>、分页、
+    /// <c>TOP</c>/<c>LIMIT</c>、聚合或 <c>DISTINCT</c> 语义的查询。
+    /// </remarks>
     public virtual DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sql);

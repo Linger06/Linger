@@ -37,3 +37,5 @@ int written = await bulkInsert.BulkInsertAsync(
 
 `BulkInsert` validates and quotes each part of a qualified table name. `GetMaxId` is intended only for
 single-writer scenarios; use `IDENTITY` or `SEQUENCE` when uniqueness must be guaranteed concurrently.
+`BulkInsert` maps destination columns by `DataTable` column name and rejects execution inside a transaction opened
+with `BeginTrans`.

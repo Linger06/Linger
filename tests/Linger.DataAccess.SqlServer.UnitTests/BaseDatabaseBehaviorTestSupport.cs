@@ -76,6 +76,8 @@ internal sealed class RecordingDbConnection : DbConnection
 
     public int CreateCommandCallCount { get; private set; }
 
+    public bool IsDisposed { get; private set; }
+
     public CancellationToken LastOpenCancellationToken { get; private set; }
 
     public override string ConnectionString { get; set; }
@@ -123,6 +125,13 @@ internal sealed class RecordingDbConnection : DbConnection
         command.Connection = this;
         return command;
     }
+
+    protected override void Dispose(bool disposing)
+    {
+        IsDisposed = true;
+        _state = ConnectionState.Closed;
+        base.Dispose(disposing);
+    }
 }
 
 internal sealed class AttachedDbTransaction : DbTransaction
@@ -169,6 +178,10 @@ internal sealed class RecordingDbCommand : DbCommand
     public int ExecuteReaderCallCount { get; private set; }
 
     public CommandBehavior? LastReaderBehavior { get; private set; }
+
+    public bool IsDisposed { get; private set; }
+
+    public int ParameterCount => _parameters.Count;
 
     protected override DbConnection? DbConnection { get; set; }
 
@@ -218,6 +231,12 @@ internal sealed class RecordingDbCommand : DbCommand
         var table = new DataTable();
         table.Columns.Add("Value", typeof(int));
         return table.CreateDataReader();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        IsDisposed = true;
+        base.Dispose(disposing);
     }
 }
 

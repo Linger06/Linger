@@ -32,7 +32,18 @@ List<User> users = await database.FindListBySqlAsync(
     cancellationToken);
 ```
 
-Use `ExecuteReaderAsync` when results should be streamed instead of materialized as a list.
+`ExecuteReader` / `ExecuteReaderAsync` were removed. They created a connection and command internally but returned
+only the reader, so the API could not express ownership of all three resources. For streaming, use the provider's
+native ADO.NET API and dispose the connection, command, and reader explicitly. Higher-level query methods continue
+to manage all resources internally.
+
+The `protected ExecuteReader<TResult>` / `ExecuteReaderAsync<TResult>` extension points previously available to
+external derived classes were also removed. This is a breaking change. Derived classes should use the existing
+higher-level query APIs, or use the provider's native ADO.NET API when streaming is required.
+
+Native provider streaming cannot join the ambient transaction created by `database.BeginTrans()`, because that
+transaction and its connection are managed internally by the `database` instance. For transactional streaming,
+the caller must create, associate, and dispose the provider connection, transaction, command, and reader together.
 
 ## Existence checks
 

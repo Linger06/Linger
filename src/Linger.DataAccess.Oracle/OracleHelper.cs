@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Oracle.ManagedDataAccess.Client;
 
 namespace Linger.DataAccess.Oracle;
@@ -24,6 +25,15 @@ namespace Linger.DataAccess.Oracle;
 /// </example>
 public class OracleHelper(string connectionString) : Database(OracleClientFactory.Instance, connectionString)
 {
+    /// <inheritdoc />
+    protected override void ConfigureCommand(DbCommand command)
+    {
+        if (command is OracleCommand oracleCommand)
+        {
+            oracleCommand.BindByName = true;
+        }
+    }
+
     /// <summary>
     ///     获取Oracle参数名称（使用: 前缀）
     /// </summary>

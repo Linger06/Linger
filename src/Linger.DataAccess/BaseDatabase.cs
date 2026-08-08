@@ -588,117 +588,12 @@ public abstract class BaseDatabase : IBaseDatabase
 
     #endregion
 
-    #region ExecuteReader
+    #region 内部 Reader 消费
 
-    /// <summary>
-    /// 执行查询并返回数据读取器。处于环境事务中时自动加入该事务。
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 返回的读取器持有（在内部新建连接时）连接的生命周期，调用方必须释放它。
-    /// </para>
-    /// <para>
-    /// <b>参数不可复用</b>：读取器要在方法返回后继续使用命令，命令上的参数因此无法归还。
-    /// 传给本方法的 <see cref="DbParameter"/> 实例不要再交给其它命令——
-    /// 部分驱动（如 <c>Microsoft.Data.SqlClient</c>）会因参数已归属其它集合而抛
-    /// <see cref="ArgumentException"/>。需要复用同一批参数时请为每次调用新建参数对象，
-    /// 或改用会归还参数的方法（<c>ExecuteNonQuery</c> / <c>ExecuteScalar</c> / <c>GetDataSet</c>
-    /// 以及 <see cref="Database"/> 上的物化型查询，如 <c>QueryTable</c>、<c>FindListBySql</c>）。
-    /// </para>
-    /// </remarks>
-    public DbDataReader ExecuteReader(CommandType cmdType, string cmdText, params DbParameter[] parameters)
+    private protected TResult ExecuteWithReader<TResult>(CommandType cmdType, string cmdText,
+        Func<DbDataReader, TResult> read, DbParameter[]? parameters)
     {
-        return ExecuteReaderCore(null, null, cmdType, cmdText, parameters);
-    }
-
-    /// <inheritdoc cref="ExecuteReader(CommandType, string, DbParameter[])"/>
-    public Task<DbDataReader> ExecuteReaderAsync(CommandType cmdType, string cmdText,
-        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
-    {
-        return ExecuteReaderCoreAsync(null, null, cmdType, cmdText, parameters, cancellationToken);
-    }
-
-    /// <summary>
-    /// 在事务上下文中执行查询并返回数据读取器。
-    /// </summary>
-    /// <exception cref="ArgumentNullException">当 transaction.Connection 为 null 时抛出。</exception>
-    public DbDataReader ExecuteReader(DbTransaction transaction, CommandType cmdType, string cmdText,
-        params DbParameter[] parameters)
-    {
-        ArgumentNullException.ThrowIfNull(transaction);
-        return ExecuteReaderCore(null, transaction, cmdType, cmdText, parameters);
-    }
-
-    /// <inheritdoc cref="ExecuteReader(DbTransaction, CommandType, string, DbParameter[])"/>
-    public Task<DbDataReader> ExecuteReaderAsync(DbTransaction transaction, CommandType cmdType, string cmdText,
-        DbParameter[]? parameters = null, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(transaction);
-        return ExecuteReaderCoreAsync(null, transaction, cmdType, cmdText, parameters, cancellationToken);
-    }
-
-    private DbDataReader ExecuteReaderCore(DbConnection? connection, DbTransaction? transaction, CommandType cmdType,
-        string cmdText, DbParameter[]? parameters)
-    {
-        ExecutionContext context = ResolveContext(connection, transaction);
-        DbCommand cmd = context.Connection.CreateCommand();
-        try
-        {
-            PrepareCommand(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters);
-
-            // 内部新建的连接交由 reader 生命周期关闭；调用方/环境事务的连接不能被 reader 关掉
-            var behavior = context.OwnsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
-            return cmd.ExecuteReader(behavior);
-        }
-        catch
-        {
-            // 失败时归还参数，否则调用方的 DbParameter 会被这条已废弃的命令永久占用
-            ReleaseParameters(cmd);
-            cmd.Dispose();
-            DisposeIfOwned(context);
-            throw;
-        }
-    }
-
-    private async Task<DbDataReader> ExecuteReaderCoreAsync(DbConnection? connection, DbTransaction? transaction,
-        CommandType cmdType, string cmdText, DbParameter[]? parameters, CancellationToken cancellationToken)
-    {
-        ExecutionContext context = ResolveContext(connection, transaction);
-        DbCommand cmd = context.Connection.CreateCommand();
-        try
-        {
-            await PrepareCommandAsync(cmd, context.Connection, context.Transaction, cmdType, cmdText, parameters,
-                cancellationToken).ConfigureAwait(false);
-
-            var behavior = context.OwnsConnection ? CommandBehavior.CloseConnection : CommandBehavior.Default;
-            return await cmd.ExecuteReaderAsync(behavior, cancellationToken).ConfigureAwait(false);
-        }
-        catch
-        {
-            // 失败时归还参数，否则调用方的 DbParameter 会被这条已废弃的命令永久占用
-            ReleaseParameters(cmd);
-            cmd.Dispose();
-            await DisposeIfOwnedAsync(context).ConfigureAwait(false);
-            throw;
-        }
-    }
-
-    #endregion
-
-    #region ExecuteReader（内部消费）
-
-    /// <summary>
-    /// 执行查询，把读取器交给 <paramref name="read"/> 消费并返回其结果。
-    /// </summary>
-    /// <remarks>
-    /// 与把 <see cref="DbDataReader"/> 交出去的 <see cref="ExecuteReader(CommandType, string, DbParameter[])"/> 不同，
-    /// 读取器在本方法内部用完即关，参数因此能在 finally 中归还，调用方的 <see cref="DbParameter"/> 可复用。
-    /// 「执行完立即物化结果」的查询（DataTable、List、实体、存在性检查）都应走这条路径，
-    /// 否则同一批参数在 <c>Query</c> 后可复用、在 <c>QueryTable</c> 后却不可复用，调用方无从预期。
-    /// </remarks>
-    protected TResult ExecuteReader<TResult>(CommandType cmdType, string cmdText, DbParameter[]? parameters,
-        Func<DbDataReader, TResult> read)
-    {
+        ArgumentNullException.ThrowIfNull(read);
         ExecutionContext context = ResolveContext(null, null);
         try
         {
@@ -711,7 +606,6 @@ public abstract class BaseDatabase : IBaseDatabase
             }
             finally
             {
-                // reader 已在上面的 using 中关闭，此处可安全归还参数
                 ReleaseParameters(cmd);
             }
         }
@@ -721,11 +615,11 @@ public abstract class BaseDatabase : IBaseDatabase
         }
     }
 
-    /// <inheritdoc cref="ExecuteReader{TResult}(CommandType, string, DbParameter[], Func{DbDataReader, TResult})"/>
-    protected async Task<TResult> ExecuteReaderAsync<TResult>(CommandType cmdType, string cmdText,
-        DbParameter[]? parameters, Func<DbDataReader, CancellationToken, Task<TResult>> read,
+    private protected async Task<TResult> ExecuteWithReaderAsync<TResult>(CommandType cmdType, string cmdText,
+        Func<DbDataReader, CancellationToken, Task<TResult>> read, DbParameter[]? parameters,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(read);
         ExecutionContext context = ResolveContext(null, null);
         try
         {
@@ -757,11 +651,11 @@ public abstract class BaseDatabase : IBaseDatabase
     /// </summary>
     /// <remarks>
     /// 只有同步版本：BCL 的 DataSet/DataTable 填充 API 全为同步，异步化只能手写逐行循环，
-    /// 不值得为此增加复杂度。异步场景请用 <see cref="ExecuteReaderAsync(CommandType, string, DbParameter[], CancellationToken)"/>。
+    /// 不值得为此增加复杂度。异步流式读取请直接使用数据库 Provider 的 ADO.NET API。
     /// </remarks>
     public DataSet GetDataSet(CommandType cmdType, string cmdText, params DbParameter[] parameters)
     {
-        return ExecuteReader(cmdType, cmdText, parameters, DataSetReader.Read);
+        return ExecuteWithReader(cmdType, cmdText, DataSetReader.Read, parameters);
     }
 
     #endregion
@@ -845,10 +739,20 @@ public abstract class BaseDatabase : IBaseDatabase
             cmd.Transaction = transaction;
         }
 
+        ConfigureCommand(cmd);
+
         if (parameters is { Length: > 0 })
         {
             cmd.Parameters.AddRange(parameters);
         }
+    }
+
+    /// <summary>
+    /// 允许具体数据库提供程序在执行前配置其专用命令属性。
+    /// </summary>
+    /// <param name="command">即将执行的命令。</param>
+    protected virtual void ConfigureCommand(DbCommand command)
+    {
     }
 
     #endregion

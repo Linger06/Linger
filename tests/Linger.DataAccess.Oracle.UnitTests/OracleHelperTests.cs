@@ -1,4 +1,5 @@
 using Oracle.ManagedDataAccess.Client;
+using System.Reflection;
 using Xunit;
 
 namespace Linger.DataAccess.Oracle.UnitTests;
@@ -104,6 +105,23 @@ public class OracleHelperTests
         var helper = new TestableOracleHelper(ConnectionString);
 
         Assert.Equal(":param7", helper.GetParameterNameForTest(7));
+    }
+
+    [Fact]
+    public void ConfigureCommand_ShouldEnableBindingByName()
+    {
+        var helper = new OracleHelper(ConnectionString);
+        using var command = new OracleCommand();
+        MethodInfo? method = typeof(OracleHelper).GetMethod(
+            "ConfigureCommand",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        Assert.False(command.BindByName);
+        Assert.NotNull(method);
+
+        _ = method!.Invoke(helper, [command]);
+
+        Assert.True(command.BindByName);
     }
 
     [Fact]

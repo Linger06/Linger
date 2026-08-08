@@ -57,6 +57,7 @@ public sealed class SqliteSpecificFeaturesTests : IDisposable
 
     [Theory]
     [InlineData("users", true)]
+    [InlineData("USERS", true)]
     [InlineData("missing", false)]
     public void TableExists_ShouldReturnExpectedResult(string tableName, bool expected)
     {

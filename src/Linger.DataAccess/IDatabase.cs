@@ -18,7 +18,7 @@ public interface IDatabase : IBaseDatabase
     /// <summary>执行查询并返回 <see cref="DataSet"/>（含全部结果集）。</summary>
     /// <remarks>
     /// DataSet / DataTable 查询只有同步版本：BCL 的填充 API 全为同步，
-    /// 异步场景请用 <c>ExecuteReaderAsync</c> 自行读取。存储过程版本见 <see cref="FindDataSetByProc"/>。
+    /// 异步流式读取请直接使用数据库 Provider 的 ADO.NET API。存储过程版本见 <see cref="FindDataSetByProc"/>。
     /// </remarks>
     DataSet Query(string sql, params DbParameter[] parameters);
 
@@ -130,6 +130,9 @@ public interface IDatabase : IBaseDatabase
     Task<int> FindCountBySqlAsync(string sql, DbParameter[]? parameters = null, CancellationToken cancellationToken = default);
 
     /// <summary>把过长的取值列表拆成多个批次参数化查询。</summary>
+    /// <remarks>
+    /// 仅适用于各批结果可以直接拼接的行查询，不支持依赖全局排序、分页、聚合或去重语义的查询。
+    /// </remarks>
     DataTable QueryInBatches(string sql, List<string> parameters, int batchSize = 1000);
 
     #endregion

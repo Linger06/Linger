@@ -16,7 +16,7 @@ namespace Linger.DataAccess;
 /// <c>DataAdapter</c>（那要求向下转型到 <c>SqlCommand</c> 之类，跨 provider 会运行时炸）。
 /// </para>
 /// <para>
-/// 只有同步版本：BCL 没有异步填充 API，异步场景请用 <c>ExecuteReaderAsync</c> 自行逐行读取。
+/// 只有同步版本：BCL 没有异步填充 API；异步流式读取请直接使用数据库 Provider 的 ADO.NET API。
 /// </para>
 /// </remarks>
 internal sealed class DataSetReader : DataAdapter
