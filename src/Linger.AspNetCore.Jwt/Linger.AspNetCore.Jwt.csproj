@@ -31,8 +31,4 @@
       <ProjectReference Include="..\Linger.Configuration\Linger.Configuration.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.301" />
-    </ItemGroup>
-
 </Project>

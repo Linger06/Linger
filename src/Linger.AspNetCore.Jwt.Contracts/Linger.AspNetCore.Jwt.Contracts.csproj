@@ -17,8 +17,4 @@
       <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" Version="8.19.2" />
     </ItemGroup>
 
-    <ItemGroup>
-      <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.301" />
-    </ItemGroup>
-
 </Project>

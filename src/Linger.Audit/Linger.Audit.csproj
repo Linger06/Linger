@@ -10,8 +10,4 @@
         </Description>        
 </PropertyGroup>
 
-    <ItemGroup>
-      <PackageReference Update="Microsoft.SourceLink.GitHub" Version="10.0.301" />
-    </ItemGroup>
-
 </Project>

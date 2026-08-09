@@ -78,12 +78,12 @@ namespace Linger.FileSystem.Tests.Local
         {
             IFileSystemOperations fileSystem = _fileSystem;
             var sourcePath = Path.Combine(_testRootPath, "source.txt");
-            await File.WriteAllTextAsync(sourcePath, "content");
+            File.WriteAllText(sourcePath, "content");
 
             var result = await fileSystem.UploadFileAsync(sourcePath, "uploads/copied.txt");
 
             Assert.True(result.Success);
-            Assert.Equal("content", await File.ReadAllTextAsync(Path.Combine(_testRootPath, "uploads", "copied.txt")));
+            Assert.Equal("content", File.ReadAllText(Path.Combine(_testRootPath, "uploads", "copied.txt")));
         }
 
         [Fact]
@@ -818,10 +818,17 @@ namespace Linger.FileSystem.Tests.Local
 
     internal sealed class FailingAsyncReadStream : MemoryStream
     {
+#if NET8_0_OR_GREATER
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
             return ValueTask.FromException<int>(new IOException("Simulated read failure."));
         }
+#else
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            return Task.FromException<int>(new IOException("Simulated read failure."));
+        }
+#endif
     }
 
     public class FailingStream : Stream
