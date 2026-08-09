@@ -27,19 +27,13 @@ public static class ResultExtensions
         {
             if (success == StatusCodes.Status200OK)
             {
-                return new OkObjectResult(result);
+                return new OkResult();
             }
 
-            return new ObjectResult(result)
-            {
-                StatusCode = success
-            };
+            return new StatusCodeResult(success);
         }
 
-        return new ObjectResult(result.Errors)
-        {
-            StatusCode = failure
-        };
+        return CreateProblemDetailsResult(result.Errors, failure);
     }
 
     /// <summary>
@@ -69,55 +63,7 @@ public static class ResultExtensions
             };
         }
 
-        return new ObjectResult(result.Errors)
-        {
-            StatusCode = failure
-        };
-    }
-
-    /// <summary>
-    /// 将Result转换为ProblemDetails格式的ActionResult，可选指定失败时的状态码
-    /// </summary>
-    /// <param name="result">要转换的Result对象</param>
-    /// <param name="failureStatusCode">失败时返回的HTTP状态码，null时根据Result状态自动确定</param>
-    /// <returns>成功时返回200 OK，失败时返回ProblemDetails</returns>
-    public static ActionResult ToProblemDetails(this Result result, HttpStatusCode? failureStatusCode = null)
-    {
-        ArgumentNullException.ThrowIfNull(result);
-        if (result.IsSuccess)
-        {
-            return new OkObjectResult(result);
-        }
-
-        var failure = failureStatusCode.HasValue ? (int)failureStatusCode.Value : GetFailureStatusCode(result.Status);
-        var problemDetails = CreateProblemDetails(result.Errors, failure);
-        return new ObjectResult(problemDetails)
-        {
-            StatusCode = failure
-        };
-    }
-
-    /// <summary>
-    /// 将Result{T}转换为ProblemDetails格式的ActionResult，可选指定失败时的状态码
-    /// </summary>
-    /// <typeparam name="T">结果值的类型</typeparam>
-    /// <param name="result">要转换的Result{T}对象</param>
-    /// <param name="failureStatusCode">失败时返回的HTTP状态码，null时根据Result状态自动确定</param>
-    /// <returns>成功时返回200 OK和结果值，失败时返回ProblemDetails</returns>
-    public static ActionResult ToProblemDetails<T>(this Result<T> result, HttpStatusCode? failureStatusCode = null)
-    {
-        ArgumentNullException.ThrowIfNull(result);
-        if (result.IsSuccess)
-        {
-            return new OkObjectResult(result.Value);
-        }
-
-        var failure = failureStatusCode.HasValue ? (int)failureStatusCode.Value : GetFailureStatusCode(result.Status);
-        var problemDetails = CreateProblemDetails(result.Errors, failure);
-        return new ObjectResult(problemDetails)
-        {
-            StatusCode = failure
-        };
+        return CreateProblemDetailsResult(result.Errors, failure);
     }
 
     #region Minimal API Extensions
@@ -310,10 +256,17 @@ public static class ResultExtensions
     {
         return successStatusCode switch
         {
-            StatusCodes.Status200OK => Microsoft.AspNetCore.Http.Results.Ok(value),
             StatusCodes.Status201Created => Microsoft.AspNetCore.Http.Results.Created(string.Empty, value),
             StatusCodes.Status202Accepted => Microsoft.AspNetCore.Http.Results.Accepted(string.Empty, value),
             _ => Microsoft.AspNetCore.Http.Results.Json(value, statusCode: successStatusCode)
+        };
+    }
+
+    private static ObjectResult CreateProblemDetailsResult(IEnumerable<Error> errors, int statusCode)
+    {
+        return new ObjectResult(CreateProblemDetails(errors, statusCode))
+        {
+            StatusCode = statusCode
         };
     }
 
@@ -342,7 +295,7 @@ public static class ResultExtensions
         if (statusCode == StatusCodes.Status500InternalServerError)
         {
             // 生产环境安全提示，TraceIdentifier 会帮助开发人员在日志系统中瞬间定位堆栈
-            detail = $"An unexpected server error occurred. Please contact the administrator.";
+            detail = "An unexpected server error occurred. Please contact the administrator.";
         }
         else
         {
@@ -362,8 +315,7 @@ public static class ResultExtensions
         if (errorList.Count > 0 && statusCode != StatusCodes.Status500InternalServerError)
         {
             problemDetails.Extensions["errors"] = errorList
-                .Where(e => !string.IsNullOrWhiteSpace(e.Code))
-                .GroupBy(e => e.Code)
+                .GroupBy(e => e.Code ?? string.Empty)
                 .ToDictionary(
                     g => g.Key,
                     g => g.Select(e => e.Message).ToArray()

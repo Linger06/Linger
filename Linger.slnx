@@ -7,6 +7,9 @@
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
   </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/Linger.HttpClient.WinForms/Linger.HttpClient.WinForms.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <File Path="src/Directory.Build.props" />
     <Project Path="src/Linger.AspNetCore.Jwt.Contracts/Linger.AspNetCore.Jwt.Contracts.csproj" />
@@ -46,6 +49,7 @@
     <Project Path="src/Linger/Linger.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Linger.AspNetCore.Jwt.UnitTests/Linger.AspNetCore.Jwt.UnitTests.csproj" />
     <Project Path="tests/Linger.Audit.UnitTests/Linger.Audit.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.Oracle.UnitTests/Linger.DataAccess.Oracle.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.Sqlite.UnitTests/Linger.DataAccess.Sqlite.UnitTests.csproj" />

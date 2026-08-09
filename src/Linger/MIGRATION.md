@@ -74,6 +74,27 @@ for applications upgrading from the previous API surface.
 | `Linger.Excel.Contracts` | Custom `IExcelService` implementations | Implement the collection-export overloads accepting `ExcelExportColumn<T>` | `Linger.Excel.Contracts` | Explicit-column export is now part of the service contract and writes directly to worksheets without creating an intermediate `DataTable`. |
 | `Linger.Results` | `ExecuteResult`, `ExecuteResult<T>`, and `ResultCompat` | `Result` / `Result<T>` | `Linger.Results` | Replace the legacy result types and conversion helpers. |
 | `Linger.Results` | `ErrorObj` and `ToErrorObj` | `Error` and a caller-owned error collection | `Linger.Results` / application code | The legacy aggregation shape has no one-to-one replacement. |
+| `Linger.Results` | `ResultExtensions.Try` / `TryAsync` | Catch specific exceptions that can be converted into domain errors at the call boundary | Application code | The general result library no longer catches every exception; unexpected and cancellation exceptions should propagate naturally. |
+| `Linger.Results.AspNetCore` | `ToProblemDetails()` / `ToProblemDetails<T>()` | `ToActionResult()` / `ToActionResult<T>()` | `Linger.Results.AspNetCore` | `ToActionResult` now returns `ProblemDetails` for failures; continue passing `failureStatusCode` when a custom failure status is required. |
+| `Linger.Results` | Setting `Result.Status` / `Result.Errors` in subclasses | Create results through the `Success`, `Failure`, or `NotFound` factory methods | `Linger.Results` | Result status and errors are now read-only snapshots. Custom subclasses that relied on the protected setters must use factories or composition. |
+| `Linger.HttpClient.Contracts` | `HttpClientBase` | Implement `IHttpClient`, including `SendAsync`, or derive from `StandardHttpClient` to customize the standard implementation | `Linger.HttpClient.Contracts` / `Linger.HttpClient.Standard` | The contracts package no longer contains serialization, error parsing, or file-transfer implementation. `Contracts` and `Standard` remain separate packages. |
+| `Linger.HttpClient.Contracts` | `HttpMethodEnum` | `System.Net.Http.HttpMethod` | .NET BCL | Supports `PATCH`, `HEAD`, `OPTIONS`, and custom methods without maintaining a restricted enum. |
+| `Linger.HttpClient.Contracts` | `HttpResponseMode` / `CallApiWithMode<T>` | Use `CallApi<T>` for typed responses and `DownloadToFileAsync` for files | `Linger.HttpClient.Contracts` | Buffering and resource ownership are determined by the operation instead of a separate response-mode parameter. |
+| `Linger.HttpClient.Contracts` | `CallApi<T>(url, queryParams, timeout, ...)` GET overload | `GetAsync<T>(url, queryParams, headers, cancellationToken)` | `Linger.HttpClient.Contracts` | GET convenience is now an extension; `CallApi<T>` requires an `HttpMethod`. |
+| `Linger.HttpClient.Contracts` | The `int? timeout` parameter on call methods | Use `GetWithTimeoutAsync<T>` for a one-off GET deadline; use a caller-owned `CancellationTokenSource` with `CancelAfter` for other requests | `Linger.HttpClient.Contracts` / .NET BCL | Timeouts are now expressed as `TimeSpan`. A one-off GET timeout returns a failed result, while user cancellation still propagates as `OperationCanceledException`. |
+| `Linger.HttpClient.Contracts` | `SetToken`, `AddHeader`, and mutable `Options` | Pass dynamic headers through the `headers` parameter; configure fixed settings through `AddHttpClient` | `Linger.HttpClient.Contracts` / .NET DI | Dynamic credentials are isolated per request and cannot overwrite concurrent requests on a shared client. |
+| `Linger.HttpClient.Contracts` | Dedicated form and `HttpContent` overloads of `CallApi<T>` | Use the unified `CallApi<T>(..., HttpMethod, requestBody, ...)` | `Linger.HttpClient.Contracts` | `IDictionary<string, string>` is still sent as form data and `HttpContent` is still sent directly; the client disposes content after the request. |
+| `Linger.HttpClient.Standard` | Non-generic `CallApi(...)` | Use the non-generic `PostAsync`, `PutAsync`, or `DeleteAsync` extensions | `Linger.HttpClient.Contracts` | Void-response calls no longer require an implementation-specific overload set. |
+| `Linger.HttpClient.Contracts` | File-upload overload accepting `byte[] fileData` | `UploadFileAsync<T>(..., Stream fileStream, ...)` | `Linger.HttpClient.Contracts` | Uploads use `StreamContent`; the input stream is disposed when the request completes. |
+| `Linger.HttpClient.Contracts` | `DownloadStreamAsync`, `CallApi<Stream>`, and `CallApi<HttpResponseMessage>` | Use `DownloadToFileAsync` for files; use `SendAsync` for raw responses, SSE, and long-lived protocols | `Linger.HttpClient.Contracts` | Typed calls no longer change resource ownership based on the generic type. `SendAsync` explicitly requires callers to dispose the returned `HttpResponseMessage`. |
+| `Linger.HttpClient.Contracts` | `CompressionHelper` / `MultipartHelper` | Configure compression through `HttpClientHandler.AutomaticDecompression`; use `UploadFileAsync` or BCL `MultipartFormDataContent` for uploads | .NET BCL / `Linger.HttpClient.Contracts` | Concrete implementation helpers were removed from the contracts package. |
+| `Linger.HttpClient.Contracts` | Non-nullable `int` on `ProblemDetailsWithErrors.Status` | Nullable `int?` property | `Linger.HttpClient.Contracts` | RFC 7807 allows the `status` member to be omitted; readers must handle `null`. |
+| `Linger.HttpClient.Standard` | Constructors accepting `HttpClientOptions` and `Create(...)` | Use `StandardHttpClient(string, ILogger<StandardHttpClient>?)` for simple scenarios, or inject `StandardHttpClient(HttpClient, ILogger<StandardHttpClient>?)` for advanced configuration | `Linger.HttpClient.Standard` | URL mode manages its underlying resources; handlers, certificates, proxies, and other advanced settings remain caller-configured. |
+| `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.CreateTokenAsync(string)` | `CreateTokenAsync(string, CancellationToken)` | `Linger.AspNetCore.Jwt.Contracts` | Token issuance now supports end-to-end cancellation. The optional parameter preserves source call syntax. |
+| `Linger.AspNetCore.Jwt.Contracts` | `IRefreshableJwtService.RefreshTokenAsync(Token)` and matching extensions | Overloads accepting `CancellationToken` | `Linger.AspNetCore.Jwt.Contracts` | Refresh propagates caller cancellation; `RefreshTokenResultAsync` no longer swallows cancellation or unexpected exceptions. |
+| `Linger.AspNetCore.Jwt` | `JwtService.GetClaimsAsync(string)` | `GetClaimsAsync(string, CancellationToken)` | `Linger.AspNetCore.Jwt` | Custom claim lookup now observes caller cancellation. Derived services must update the override signature and pass the token to downstream asynchronous calls. |
+| `Linger.AspNetCore.Jwt` | `JwtServiceWithRefresh.GetExistRefreshTokenAsync` / `HandleRefreshToken` | `StoreRefreshTokenAsync` / `TryRotateRefreshTokenAsync` | `Linger.AspNetCore.Jwt` | Refresh rotation now performs an atomic compare-and-replace in storage to prevent concurrent reuse of one old token. Existing derived services must migrate to the new hooks. |
+| `Linger.AspNetCore.Jwt` | `JwtOption.EnableRefreshToken` configuration examples | Remove the setting; enable refresh by registering `IRefreshableJwtService` | `Linger.AspNetCore.Jwt` | The property never existed in the actual options type; refresh capability is selected by the service implementation. |
 | `Linger.FileSystem` | `ILocalFileSystem.Exists()` / `ExistsAsync()` | `DirectoryExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | Use the standard directory-existence API. `LocalFileSystem` also creates its configured root directory during construction. |
 | `Linger.FileSystem` | `ILocalFileSystem.CreateIfNotExists()` / `CreateIfNotExistsAsync()` | `CreateDirectoryIfNotExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | Use the standard directory-creation API. |
 | `Linger.FileSystem` | `IFileSystemOperations.IsDirectoryAsync(path)` | `DirectoryExistsAsync(path)` | `Linger.FileSystem` | The removed method was a complete alias. |
@@ -113,6 +134,14 @@ for applications upgrading from the previous API surface.
 
 ## Behavioral changes
 
+- **`Linger.AspNetCore.Jwt`**: `JwtOptions.Issuer` and `JwtOptions.Audience` no longer default to `http://localhost` and must now be configured explicitly. Token issuance, bearer authentication, and expired-token refresh use the same issuer and audience validation rules.
+- **`Linger.AspNetCore.Jwt`**: The effective signing key supplied by `JwtOptions.SecurityKey` or the `SECRET` environment variable must contain at least 32 UTF-8 bytes. Invalid configuration throws when the JWT service is created or bearer authentication is registered.
+- **`Linger.AspNetCore.Jwt`**: Authentication challenges and forbidden responses no longer write custom Chinese JSON. They now use the standard ASP.NET Core JwtBearer `401 Unauthorized` and `403 Forbidden` responses. Clients that depended on the previous response body must use the HTTP status code instead.
+- **`Linger.HttpClient`**: The client no longer appends a `culture` query parameter to every URL. Add it explicitly through query parameters or a `DelegatingHandler` when required.
+- **`Linger.HttpClient`**: Caller cancellation now throws `OperationCanceledException` instead of returning a failed `ApiResult`; timeouts caused by `HttpClient.Timeout` still return a failed result.
+- **`Linger.HttpClient`**: Each operation creates and disposes its own `HttpRequestMessage` and `HttpResponseMessage`. Supplied `HttpContent` and file streams passed to `UploadFileAsync` are disposed when the request completes.
+- **`Linger.HttpClient`**: `ApiResult.IsSuccess` now requires a 2xx status and no transport, deserialization, or structured errors.
+- **`Linger.HttpClient`**: ProblemDetails is parsed only when its media type or standard fields identify it. Legacy `IEnumerable<Error>` arrays remain a compatibility fallback.
 - **`Linger.Utils` -> `Linger.Utils` / `Linger.Reflection`**: The removed
   `DataTable.ToListAsync` methods did not perform asynchronous I/O. Calling
   `ToList` is synchronous and avoids a misleading async API.
@@ -153,6 +182,78 @@ List<Person> people = table.ToList(row => new Person
     Name = row.Field<string>("Name")
 });
 ```
+
+### HttpClient
+
+Configure and inject the underlying `HttpClient`:
+
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+```
+
+When no custom underlying client is required, pass the base URL directly and dispose `StandardHttpClient`:
+
+```csharp
+using var client = new StandardHttpClient("https://api.example.com/");
+```
+
+For a single-user client such as WinForms, a dedicated instance can set its authorization header when the underlying `HttpClient` is created:
+
+```csharp
+var httpClient = new HttpClient
+{
+    BaseAddress = new Uri("https://api.example.com/")
+};
+httpClient.DefaultRequestHeaders.Authorization =
+    new AuthenticationHeaderValue("Bearer", accessToken);
+
+var client = new StandardHttpClient(httpClient);
+```
+
+In external-`HttpClient` mode, reuse `httpClient` and `client` for the application lifetime, and let the caller dispose `httpClient` when the application closes. If token refresh can overlap active requests, use a `DelegatingHandler` that reads the current token while sending. Continue using per-request `headers` when one client represents multiple users or the token varies by request.
+
+Use the BCL HTTP method type and pass dynamic authentication per request:
+
+```csharp
+var result = await httpClient.CallApi<User>(
+    "users",
+    HttpMethod.Post,
+    requestBody: new CreateUserRequest("Ada"),
+    headers: new Dictionary<string, string>
+    {
+        ["Authorization"] = $"Bearer {accessToken}"
+    },
+    cancellationToken: cancellationToken);
+```
+
+Use a caller-owned linked token for a shorter one-off deadline:
+
+```csharp
+using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+timeoutSource.CancelAfter(TimeSpan.FromSeconds(5));
+
+var result = await httpClient.GetAsync<User>(
+    "users/42",
+    cancellationToken: timeoutSource.Token);
+```
+
+File uploads now use streams:
+
+```csharp
+var fileStream = File.OpenRead("report.pdf");
+var result = await httpClient.UploadFileAsync<UploadResponse>(
+    "files",
+    HttpMethod.Post,
+    fileStream,
+    "report.pdf",
+    cancellationToken: cancellationToken);
+```
+
+`UploadFileAsync` disposes `fileStream` when it completes. Use `SendAsync` for raw `HttpResponseMessage`, SSE, and other long-lived protocols, and dispose the returned response with `using`.
 
 ### Authenticated encryption
 

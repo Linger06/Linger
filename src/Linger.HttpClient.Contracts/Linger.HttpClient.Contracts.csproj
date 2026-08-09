@@ -5,21 +5,12 @@
     <Version>2.0.0-preview.1</Version>
     <Description>
       Contracts and interfaces for Linger HTTP client implementations.
-      Provides a unified API for making typed HTTP requests with standardized error handling.
-      Supports various HTTP methods, file uploading, and automatic token handling.
+      Provides transport result models and a unified API for typed HTTP requests.
     </Description>
 </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='net472'">
     <Reference Include="System.Net.Http" />
-  </ItemGroup>
-
-  <ItemGroup>
-</ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\Linger\Linger.csproj" />
-    <ProjectReference Include="..\Linger.Json\Linger.Json.csproj" />
   </ItemGroup>
 
   <ItemGroup>

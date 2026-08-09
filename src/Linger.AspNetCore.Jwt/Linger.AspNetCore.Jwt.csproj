@@ -5,8 +5,8 @@
         <Version>2.0.0-preview.1</Version>
         <Description>
             A comprehensive JWT authentication implementation for ASP.NET Core applications.
-            Provides JWT token generation, validation, and refresh token functionality with 
-            blacklisting support. Integrates seamlessly with ASP.NET Core authentication services.
+            Provides JWT token generation, validation, and refresh token functionality.
+            Integrates seamlessly with ASP.NET Core authentication services.
         </Description>        
 </PropertyGroup>
 
@@ -26,6 +26,7 @@
 	</ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.2" />
       <ProjectReference Include="..\Linger.AspNetCore.Jwt.Contracts\Linger.AspNetCore.Jwt.Contracts.csproj" />
       <ProjectReference Include="..\Linger.Configuration\Linger.Configuration.csproj" />
     </ItemGroup>

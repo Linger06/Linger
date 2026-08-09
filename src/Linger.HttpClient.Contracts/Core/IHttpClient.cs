@@ -1,125 +1,101 @@
-﻿using Linger.HttpClient.Contracts.Models;
+using Linger.HttpClient.Contracts.Models;
 
 namespace Linger.HttpClient.Contracts.Core;
 
 /// <summary>
-/// HTTP客户端接口
+/// 定义类型化 HTTP API 调用。
 /// </summary>
 public interface IHttpClient
 {
     /// <summary>
-    /// 使用 GET 方法调用 API
+    /// 发送 HTTP 请求并返回由调用方管理生命周期的原始响应。
     /// </summary>
-    /// <typeparam name="T">返回数据类型</typeparam>
-    /// <param name="url">调用地址</param>
-    /// <param name="queryParams">查询参数</param>
-    /// <param name="timeout">超时时间，单位秒</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>API 调用结果</returns>
-    Task<ApiResult<T>> CallApi<T>(string url, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 调用 API 接口
-    /// </summary>
-    /// <typeparam name="T">返回数据类型</typeparam>
-    /// <param name="url">调用地址</param>
-    /// <param name="method">HTTP 方法</param>
-    /// <param name="requestBody">请求体</param>
-    /// <param name="queryParams">查询参数</param>
-    /// <param name="timeout">超时时间，单位秒</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>API 调用结果</returns>
-    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, object? requestBody = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 使用表单数据发送请求
-    /// </summary>
-    /// <typeparam name="T">返回数据类型</typeparam>
-    /// <param name="url">调用地址</param>
-    /// <param name="method">HTTP 方法</param>
-    /// <param name="formData">表单数据</param>
-    /// <param name="timeout">超时时间，单位秒</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>API 调用结果</returns>
-    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? formData, int? timeout = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 上传文件
-    /// </summary>
-    /// <typeparam name="T">返回数据类型</typeparam>
-    /// <param name="url">调用地址</param>
-    /// <param name="method">HTTP 方法</param>
-    /// <param name="formData">表单数据</param>
-    /// <param name="fileData">文件数据</param>
-    /// <param name="filename">文件名</param>
-    /// <param name="timeout">超时时间，单位秒</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>API 调用结果</returns>
-    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, IDictionary<string, string>? formData, byte[] fileData, string filename, int? timeout = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 使用自定义 HttpContent 调用 API
-    /// </summary>
-    /// <typeparam name="T">返回数据类型</typeparam>
-    /// <param name="url">调用地址</param>
-    /// <param name="method">HTTP 方法</param>
-    /// <param name="content">请求内容</param>
-    /// <param name="queryParams">查询参数</param>
-    /// <param name="timeout">超时时间，单位秒</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>API 调用结果</returns>
-    Task<ApiResult<T>> CallApi<T>(string url, HttpMethodEnum method, HttpContent? content = null, object? queryParams = null, int? timeout = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 设置授权令牌
-    /// </summary>
-    /// <param name="token">Bearer 令牌</param>
-    void SetToken(string token);
-
-    /// <summary>
-    /// 添加请求头
-    /// </summary>
-    /// <param name="name">请求头名称</param>
-    /// <param name="value">请求头值</param>
-    void AddHeader(string name, string value);
-
-    /// <summary>
-    /// HTTP 客户端选项
-    /// </summary>
-    HttpClientOptions Options { get; }
-
-    #region 流式下载
-
-    /// <summary>
-    /// 流式下载文件，返回可读取的 Stream
-    /// </summary>
-    /// <param name="url">下载地址</param>
-    /// <param name="timeout">超时时间，单位秒</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>包含 Stream 的 API 结果，调用方负责释放 Stream</returns>
+    /// <param name="url">请求地址。</param>
+    /// <param name="method">HTTP 方法。</param>
+    /// <param name="requestBody">可选请求体；<see cref="HttpContent"/> 直接发送，字典按表单发送，其他对象按 JSON 发送。客户端负责释放传入的 <see cref="HttpContent"/>。</param>
+    /// <param name="queryParams">可选查询参数。</param>
+    /// <param name="headers">仅应用于本次请求的请求头。</param>
+    /// <param name="completionOption">响应完成条件；流式读取应使用 <see cref="HttpCompletionOption.ResponseHeadersRead"/>。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>原始 HTTP 响应。调用方必须释放返回值。</returns>
+    /// <example>
+    /// <code>
+    /// using var response = await client.SendAsync("events", HttpMethod.Get, cancellationToken: cancellationToken);
+    /// response.EnsureSuccessStatusCode();
+    /// using var stream = await response.Content.ReadAsStreamAsync();
+    /// </code>
+    /// </example>
     /// <remarks>
-    /// 使用流式模式下载，内存占用仅为缓冲区大小，适合大文件下载。
-    /// 注意：必须手动释放返回的 Stream 或使用 using 语句。
+    /// 此方法不把非成功状态码或传输异常转换为 <see cref="ApiResult"/>；需要统一错误模型时应使用 <see cref="CallApi{T}"/>。
     /// </remarks>
-    Task<ApiResult<Stream>> DownloadStreamAsync(string url, int? timeout = null, CancellationToken cancellationToken = default);
+    Task<HttpResponseMessage> SendAsync(
+        string url,
+        HttpMethod method,
+        object? requestBody = null,
+        object? queryParams = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseHeadersRead,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 流式下载文件并保存到指定路径
+    /// 调用 HTTP API 并将响应反序列化为指定类型。
     /// </summary>
-    /// <param name="url">下载地址</param>
-    /// <param name="destinationPath">保存路径</param>
-    /// <param name="timeout">超时时间，单位秒</param>
-    /// <param name="bufferSize">缓冲区大小，默认 8192 字节</param>
-    /// <param name="progress">进度回调（已下载字节数，总字节数或 null）</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>API 结果，包含下载是否成功</returns>
+    /// <typeparam name="T">响应数据类型。</typeparam>
+    /// <param name="url">请求地址。</param>
+    /// <param name="method">HTTP 方法。</param>
+    /// <param name="requestBody">可选请求体；<see cref="HttpContent"/> 直接发送，字典按表单发送，其他对象按 JSON 发送。客户端负责释放传入的 <see cref="HttpContent"/>。</param>
+    /// <param name="queryParams">可选查询参数。</param>
+    /// <param name="headers">仅应用于本次请求的请求头。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>API 调用结果。</returns>
+    Task<ApiResult<T>> CallApi<T>(
+        string url,
+        HttpMethod method,
+        object? requestBody = null,
+        object? queryParams = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 以流式方式上传单个文件。
+    /// </summary>
+    /// <typeparam name="T">响应数据类型。</typeparam>
+    /// <param name="url">请求地址。</param>
+    /// <param name="method">HTTP 方法。</param>
+    /// <param name="fileStream">文件流；请求完成后由客户端释放。</param>
+    /// <param name="fileName">文件名。</param>
+    /// <param name="formData">可选表单字段。</param>
+    /// <param name="fileFieldName">文件字段名。</param>
+    /// <param name="contentType">文件内容类型；未指定时根据扩展名推断。</param>
+    /// <param name="headers">仅应用于本次请求的请求头。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>API 调用结果。</returns>
+    Task<ApiResult<T>> UploadFileAsync<T>(
+        string url,
+        HttpMethod method,
+        Stream fileStream,
+        string fileName,
+        IReadOnlyDictionary<string, string>? formData = null,
+        string fileFieldName = "file",
+        string? contentType = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 以流式方式下载文件，并在下载成功后替换目标文件。
+    /// </summary>
+    /// <param name="url">下载地址。</param>
+    /// <param name="destinationPath">目标文件路径。</param>
+    /// <param name="bufferSize">复制缓冲区大小。</param>
+    /// <param name="progress">下载进度。</param>
+    /// <param name="headers">仅应用于本次请求的请求头。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    /// <returns>API 调用结果。</returns>
     Task<ApiResult> DownloadToFileAsync(
         string url,
         string destinationPath,
-        int? timeout = null,
         int bufferSize = 8192,
         IProgress<(long downloaded, long? total)>? progress = null,
+        IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default);
-
-    #endregion
 }

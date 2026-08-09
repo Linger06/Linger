@@ -1,245 +1,160 @@
 # Linger.HttpClient.Contracts
 
-HTTP 客户端操作的标准接口和契约定义。
+`Linger.HttpClient` 的接口和传输模型包，不包含 HTTP 请求实现。
 
-## 功能特性
+## 包含内容
 
-- **接口解耦**: 业务逻辑与具体 HTTP 实现分离
-- **实现灵活**: 支持多种 HTTP 客户端实现
-- **测试友好**: 易于进行单元测试和模拟
-- **强类型**: 泛型 `ApiResult<T>` 提供类型安全
-- **异步支持**: 完整的 async/await 模式
+- `IHttpClient`：类型化调用、原始响应、流式文件上传和文件下载契约
+- `ApiResult` / `ApiResult<T>`：包含 HTTP 状态码和结构化错误的传输结果
+- `ProblemDetailsWithErrors`：RFC 7807 ProblemDetails 字段错误模型
+- `HttpClientExtensions`：GET、POST、PUT、DELETE 便捷方法
+
+具体实现由 `Linger.HttpClient.Standard` 提供。
 
 ## 安装
 
 ```bash
-# 核心契约
 dotnet add package Linger.HttpClient.Contracts
-
-# 生产实现  
 dotnet add package Linger.HttpClient.Standard
 ```
 
 ## 核心接口
 
-### IHttpClient
 ```csharp
 public interface IHttpClient
 {
-    Task<ApiResult<T>> CallApi<T>(
+    Task<HttpResponseMessage> SendAsync(
         string url,
-        object? queryParams = null,
-        int? timeout = null,
-        CancellationToken cancellationToken = default);
-
-    Task<ApiResult<T>> CallApi<T>(
-        string url,
-        HttpMethodEnum method,
+        HttpMethod method,
         object? requestBody = null,
         object? queryParams = null,
-        int? timeout = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseHeadersRead,
         CancellationToken cancellationToken = default);
 
-    Task<ApiResult<Stream>> DownloadStreamAsync(
+    Task<ApiResult<T>> CallApi<T>(
         string url,
-        int? timeout = null,
+        HttpMethod method,
+        object? requestBody = null,
+        object? queryParams = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default);
+
+    Task<ApiResult<T>> UploadFileAsync<T>(
+        string url,
+        HttpMethod method,
+        Stream fileStream,
+        string fileName,
+        IReadOnlyDictionary<string, string>? formData = null,
+        string fileFieldName = "file",
+        string? contentType = null,
+        IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default);
 
     Task<ApiResult> DownloadToFileAsync(
         string url,
         string destinationPath,
-        int? timeout = null,
         int bufferSize = 8192,
         IProgress<(long downloaded, long? total)>? progress = null,
+        IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default);
-}
-```
-
-### 响应所有权与文件下载
-
-- `CallApi<HttpResponseMessage>` 返回原始响应，调用方拥有该实例并负责释放。
-- `DownloadStreamAsync` 返回仍处于活动状态的响应流，调用方必须释放该流。
-- `DownloadToFileAsync` 先写入目标目录中的临时文件，仅在下载和刷新全部成功后替换目标文件。
-- 取消操作会抛出 `OperationCanceledException`、删除临时文件并保留已有目标文件；文件系统和流 I/O 异常会继续向调用方传播。
-
-### ApiResult<T>
-```csharp
-public class ApiResult<T>
-{
-    public bool IsSuccess { get; }
-    public T Data { get; set; }
-    public string? ErrorMsg { get; set; }
-    public HttpStatusCode? StatusCode { get; set; }
-    public IEnumerable<Error> Errors { get; set; }
 }
 ```
 
 ## 基本用法
 
 ```csharp
-// 依赖注入注册
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
-
-// 在服务中使用
-public class UserService
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
 {
-    private readonly IHttpClient _httpClient;
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
-    public UserService(IHttpClient httpClient)
+var result = await httpClient.GetAsync<User>(
+    "users/42",
+    headers: new Dictionary<string, string>
     {
-        _httpClient = httpClient;
-    }
-
-    public async Task<User?> GetUserAsync(int id)
-    {
-        var result = await _httpClient.CallApi<User>($"api/users/{id}");
-        return result.IsSuccess ? result.Data : null;
-    }
-}
+        ["Authorization"] = $"Bearer {accessToken}"
+    },
+    cancellationToken: cancellationToken);
 ```
 
-## 与 Linger.Results 集成
-
-`ApiResult` 与 `Linger.Results` 无缝集成：
+需要为单次 GET 请求设置不同于客户端默认值的超时时间时，使用 `GetWithTimeoutAsync`：
 
 ```csharp
-// 服务端使用 Linger.Results（泛型 Result：返回数据）
-public async Task<Result<User>> GetUserAsync(int id)
-{
-    var user = await _userRepository.GetUserAsync(id);
-    return user is not null ? Result<User>.Success(user) : Result<User>.NotFound("用户未找到");
-}
-
-// 服务端使用 Linger.Results（非泛型 Result：只表示操作是否成功）
-public async Task<Result> UpdateUserAsync(UpdateUserRequest request)
-{
-    await _userRepository.UpdateUserAsync(request);
-    return Result.Success();
-}
-
-// 客户端接收结构化错误
-ApiResult<User> apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
-if (!apiResult.IsSuccess)
-{
-    // 自动映射的错误信息
-    foreach (var error in apiResult.Errors)
-        Console.WriteLine($"错误: {error.Code} - {error.Message}");
-}
-
-// 对于非泛型 Result，对应的响应通常不包含 Data，只需要判断 IsSuccess / StatusCode / Errors
-ApiResult commandResult = await _httpClient.DownloadToFileAsync("api/files/export", "export.zip");
-if (commandResult.IsSuccess)
-{
-    Console.WriteLine("操作成功");
-}
-else
-{
-    Console.WriteLine($"HTTP 状态: {commandResult.StatusCode}");
-    Console.WriteLine($"错误消息: {commandResult.ErrorMsg}");
-}
+var result = await httpClient.GetWithTimeoutAsync<User>(
+    "users/42",
+    timeout: TimeSpan.FromSeconds(5),
+    cancellationToken: cancellationToken);
 ```
 
-## 错误处理
+单次超时会返回失败的 `ApiResult<T>`；调用方通过 `cancellationToken` 主动取消时仍抛出 `OperationCanceledException`。传入 `null` 或 `Timeout.InfiniteTimeSpan` 不会增加单次超时限制。
+
+动态请求头只应用于当前请求，客户端不会维护可变的共享令牌或请求头状态，也不会自动添加 `culture` 查询参数。固定请求头可以通过 `AddHttpClient` 配置；WinForms 等由调用方持有专属 `HttpClient` 的场景，也可以在创建实例时设置 `DefaultRequestHeaders.Authorization`。同一个客户端可能代表不同用户时，应继续使用每请求 `headers`。契约包不负责保存或刷新令牌；`DelegatingHandler` 接入方式以及与 `Linger.AspNetCore.Jwt` Refresh Token 的完整示例参见 [Linger.HttpClient.Standard README](../Linger.HttpClient.Standard/README.zh-CN.md)。
+
+## 请求体
+
+`CallApi<T>` 根据 `requestBody` 类型创建内容：
+
+- `HttpContent`：直接发送，并在请求完成后释放
+- `IDictionary<string, string>`：发送 `application/x-www-form-urlencoded`
+- 其他对象：序列化为 JSON
 
 ```csharp
-var result = await _httpClient.CallApi<User>("api/users/123");
-
-if (result.IsSuccess)
-{
-    var user = result.Data;
-    // 处理成功情况
-}
-else
-{
-    // 处理错误情况
-    Console.WriteLine($"HTTP 状态: {result.StatusCode}");
-    Console.WriteLine($"错误消息: {result.ErrorMsg}");
-    
-    foreach (var error in result.Errors)
-    {
-        Console.WriteLine($"详细错误: {error.Code} - {error.Message}");
-    }
-}
+var result = await httpClient.CallApi<User>(
+    "users",
+    HttpMethod.Post,
+    new CreateUserRequest("Ada"),
+    cancellationToken: cancellationToken);
 ```
 
-## JSON 序列化配置
+## 原始响应和流式处理
 
-`HttpClientBase` 提供默认的 JSON 序列化配置，采用"安全为先"的策略：
-
-### 响应反序列化配置
-
-`HttpClientBase.DefaultResponseOptions` 用于反序列化 HTTP 响应：
-
-- **Encoder**: `JavaScriptEncoder.Default`（更安全的转义策略）
-- **数字解析**: 宽松（允许从字符串读取数字，`AllowReadingFromString`）
-- **其他配置**: 大小写不敏感、CamelCase、忽略 null、禁止尾逗号、禁止注释、忽略循环引用
-- **内置转换器**: `DateTimeConverter`、`DateTimeNullConverter`、`DataTableJsonConverter`
-
-### 请求序列化配置
-
-`HttpClientBase.DefaultRequestOptions` 用于序列化 HTTP 请求：
-
-- **Encoder**: `JavaScriptEncoder.Default`
-- **基于标准 Web 默认值**
-- **转换器**: 仅包含 `DateTimeConverter`
-
-### JSON 配置统一管理
-
-推荐使用 `Linger.Json.JsonDefaults` 获取统一的 JSON 配置:
+需要读取响应头、处理 SSE 或边接收边处理内容时，使用 `SendAsync`。它会继续使用同一个客户端的基础地址、默认请求头和 `DelegatingHandler` 链：
 
 ```csharp
-using Linger.Json;
+using var response = await httpClient.SendAsync(
+    "events",
+    HttpMethod.Get,
+    cancellationToken: cancellationToken);
 
-// 使用工厂方法获取预配置的选项
-var responseOptions = JsonDefaults.CreateResponseOptions();  // HTTP 响应
-var requestOptions = JsonDefaults.CreateRequestOptions();    // HTTP 请求
-
-// 在 WebAPI 中应用配置
-builder.Services.AddControllers()
-    .AddJsonOptions(options => 
-        JsonDefaults.ApplyDefaultConfiguration(options.JsonSerializerOptions));
+response.EnsureSuccessStatusCode();
+using var stream = await response.Content.ReadAsStreamAsync();
+await ProcessStreamAsync(stream, cancellationToken);
 ```
 
-详细配置说明请参阅 `Linger.Json` 包的 README。
+调用方必须释放返回的 `HttpResponseMessage`。`SendAsync` 不解析非成功响应，也不把传输异常转换为 `ApiResult`；需要统一错误模型时使用 `CallApi<T>`。
 
-### 自定义配置
+## 文件传输
 
-推荐通过覆盖 `GetRequestJsonOptions()` / `GetResponseJsonOptions()` 提供自定义的 JSON 配置，而不是直接覆盖序列化实现。示例：
+上传使用 `StreamContent`，不会把整个文件复制到 `byte[]`。上传请求完成后，传入的流会被释放。
 
 ```csharp
-using Linger.Json;
-using Linger.Json.JsonConverter;
-
-public class CustomHttpClient : HttpClientBase
-{
-    protected override JsonSerializerOptions GetRequestJsonOptions()
-    {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            WriteIndented = true
-        };
-        options.Converters.Add(new DateTimeConverter());
-        return options;
-    }
-
-    protected override JsonSerializerOptions GetResponseJsonOptions()
-    {
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
-        {
-            PropertyNameCaseInsensitive = true
-        };
-        options.Converters.Add(new DateTimeConverter());
-        return options;
-    }
-}
+var stream = File.OpenRead("report.pdf");
+var upload = await httpClient.UploadFileAsync<FileInfoDto>(
+    "files",
+    HttpMethod.Post,
+    stream,
+    "report.pdf",
+    cancellationToken: cancellationToken);
 ```
 
-如果需要完全自定义序列化过程,也可以覆盖 `CreateHttpContent`,但优先推荐覆盖上述方法以保持行为一致性。
+下载直接流式写入目标目录中的临时文件，刷新成功后才替换目标文件。取消或传输失败会删除临时文件并保留已有目标文件。
 
-## 最佳实践
+```csharp
+var download = await httpClient.DownloadToFileAsync(
+    "files/report.pdf",
+    "report.pdf",
+    progress: progress,
+    cancellationToken: cancellationToken);
+```
 
-- 使用依赖注入管理 HTTP 客户端生命周期
-- 利用 `ApiResult` 的结构化错误处理
-- 实现自定义错误处理逻辑时继承现有实现
-- 使用 `CancellationToken` 支持请求取消
-- 在单元测试中使用模拟实现
+## 错误和取消
+
+- 2xx 且没有解析错误时，`IsSuccess` 为 `true`
+- ProblemDetails 的 `errors` 会展开为 `ApiResult.Errors`
+- 旧版 `IEnumerable<Error>` JSON 数组仍作为兼容回退解析
+- 类型化调用中的网络、超时和 JSON 解析错误通过失败的 `ApiResult` 返回
+- 用户主动取消始终抛出 `OperationCanceledException`
+
+原始 `HttpResponseMessage` 和响应流不通过泛型 `T` 返回，而是通过所有权明确的 `SendAsync` 返回。

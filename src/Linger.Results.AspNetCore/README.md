@@ -32,7 +32,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> GetUser(int id)
     {
         var result = await _userService.GetUserByIdAsync(id);
-        return result.ToActionResult(); // Success returns UserDto, failure returns error array
+        return result.ToActionResult(); // Success returns UserDto, failure returns ProblemDetails
     }
 
     [HttpPost]
@@ -46,7 +46,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult> DeleteUser(int id)
     {
         var result = await _userService.DeleteUserAsync(id);
-        return result.ToActionResult(HttpStatusCode.NoContent); // Success returns 204, failure returns error
+        return result.ToActionResult(HttpStatusCode.NoContent); // Success returns 204, failure returns ProblemDetails
     }
 
     // Compatible with methods returning IActionResult type signature
@@ -96,18 +96,17 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 | Custom both codes | `result.ToActionResult(HttpStatusCode.Created, HttpStatusCode.Conflict)` | `result.ToHttpResult(HttpStatusCode.Created, HttpStatusCode.Conflict)` |
 | Specific created response | `result.ToActionResult(HttpStatusCode.Created)` | `result.ToCreatedResult("/api/users/123")` |
 | No content response | `result.ToActionResult(HttpStatusCode.NoContent)` | `result.ToNoContentResult()` |
-| Problem details | `result.ToProblemDetails()` | `result.ToHttpResult()` (uses ProblemDetails automatically) |
 
 ## When to use
 
 - Use `ToActionResult()` / `ToHttpResult()` for most standard CRUD operations (default auto-mapping handles status codes correctly)
 - Use `ToCreatedResult()` for POST endpoints to return 201 Created with location header
 - Use `ToNoContentResult()` for DELETE/PUT endpoints to return 204 No Content on success
-- Use `ToProblemDetails()` when you explicitly need RFC 7807 Problem Details format response
+
+`ToActionResult()` and `ToHttpResult()` both use `ProblemDetails` for failures. A successful non-generic `Result` returns only the status code with an empty body; a successful `Result<T>` returns its `Value`.
 
 > **Status Code Parameters:**
 > - `ToActionResult()` / `ToActionResult<T>()` / `ToHttpResult()` / `ToHttpResult<T>()`: Both `successStatusCode` and `failureStatusCode` are optional. When not specified, `successStatusCode` defaults to 200 OK; `failureStatusCode` is auto-determined by `Result.Status` (e.g., `NotFound` → 404, others → 400)
-> - `ToProblemDetails()` / `ToProblemDetails<T>()`: Only `failureStatusCode` is optional, same auto-determination applies
 ## Response Format Examples
 
 ### Success Responses
@@ -119,35 +118,34 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
   "email": "john.doe@example.com"
 }
 
-// Result success
-{
-  "status": "Ok",
-  "isSuccess": true,
-  "isFailure": false,
-  "errors": []
-}
+// Result success has an empty response body
 ```
 
 ### Failure Responses
 ```json
-// Standard error format
-[
-  {
-    "code": "User.NotFound",
-    "message": "User with ID 123 not found"
+// ToActionResult() and ToHttpResult() use the same format
+{
+  "type": null,
+  "title": "One or more validation errors occurred",
+  "status": 400,
+  "detail": "Please refer to the errors property for additional details.",
+  "errors": {
+    "User.InvalidEmail": ["The email format is invalid"],
+    "User.WeakPassword": ["The password is too weak"]
   }
-]
+}
+```
 
 See detailed request/response mapping and error contract in
 [REQUEST_RESPONSE_MAPPING.zh-CN.md](../Linger.HttpClient.Standard/REQUEST_RESPONSE_MAPPING.zh-CN.md).
 
 Short summary: `errors` values are arrays of strings per field; `CreateProblemDetails` groups `Error` items by `Code` and writes `string[]` into `errors`. The client will prioritize `detail` for the global message, otherwise the first `errors` entry.
-Note: `errors` is an RFC 7807 extension member and SHOULD use string arrays (e.g. `{"Field": ["msg1", "msg2"]}`) so a single field can carry multiple validation messages. The server adds it via `ProblemDetails.Extensions["errors"]`; ASP.NET Core serializes `Extensions` entries as top-level properties, so you will see a top-level `errors` field.
+Note: `errors` is an RFC 7807 extension member and uses string arrays (e.g. `{"Field": ["msg1", "msg2"]}`) so a single field can carry multiple validation messages. Errors without a code use an empty-string key and are not discarded. The server adds it via `ProblemDetails.Extensions["errors"]`; ASP.NET Core serializes `Extensions` entries as top-level properties, so you will see a top-level `errors` field.
 
 Client mapping notes:
 
 - The library exposes `ProblemDetails` with `errors` where each value is an array of strings. `CreateProblemDetails` groups `Error` items by `Code` and sets each group's messages as `string[]` in `errors`.
-- Consumers should expect `errors` values to be arrays and handle multiple messages per field. When using `ToProblemDetails()`, clients will receive `errors` that map to `ApiResult.Errors` where each array element becomes an `Error` item (`Error.Code` = field, `Error.Message` = single message).
+- Consumers should expect `errors` values to be arrays and handle multiple messages per field. Clients receive `errors` that map to `ApiResult.Errors`, where each array element becomes an `Error` item (`Error.Code` = field, `Error.Message` = single message).
 
 ## Status Code Mapping
 

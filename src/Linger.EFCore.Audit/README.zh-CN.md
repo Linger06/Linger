@@ -192,6 +192,48 @@ public class AuditTrailEntry
 - 修改审计：LastModifierId, LastModificationTime
 - 软删除：IsDeleted, DeleterId, DeletionTime
 
+## 🔧 高级配置
+
+### 处理遗留数据库的 DateTime 类型
+
+当现有数据库使用 `datetime` 而不是 `datetimeoffset` 时，应在 EF Core 实体映射中配置审计字段的类型转换：
+
+```csharp
+public class UserEntityConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> entity)
+    {
+        entity.Property(e => e.CreationTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                value => value.ToDateTime(),
+                value => new DateTimeOffset(value));
+
+        entity.Property(e => e.LastModificationTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                value => value.HasValue ? value.Value.ToDateTime() : (DateTime?)null,
+                value => value.HasValue
+                    ? new DateTimeOffset(value.Value, TimeSpan.Zero)
+                    : (DateTimeOffset?)null);
+
+        entity.Property(e => e.DeletionTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                value => value.HasValue ? value.Value.ToDateTime() : (DateTime?)null,
+                value => value.HasValue
+                    ? new DateTimeOffset(value.Value, TimeSpan.Zero)
+                    : (DateTimeOffset?)null);
+
+        entity.Property(e => e.CreatorId).HasMaxLength(30).IsUnicode(false);
+        entity.Property(e => e.LastModifierId).HasMaxLength(30).IsUnicode(false);
+        entity.Property(e => e.DeleterId).HasMaxLength(30).IsUnicode(false);
+    }
+}
+```
+
+转换会丢失原始时区偏移量。应统一以 UTC 保存和读取这些值；`TimeSpan.Zero` 表示 UTC 偏移量。
+
 ## 📊 日志记录
 
 拦截器支持可选的日志记录功能,帮助监控审计操作和排查问题。

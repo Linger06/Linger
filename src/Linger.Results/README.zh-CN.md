@@ -120,81 +120,35 @@ var finalResult = GetUser(123)
 
 ### 异步支持
 
-所有异步扩展方法都需要 `CancellationToken` 参数以支持取消操作：
+`MapAsync` 和 `BindAsync` 同时支持 `Result<T>` 与 `Task<Result<T>>`，因此可以直接组合异步结果。`CancellationToken` 会传递给映射或绑定委托：
 
 ```csharp
-// 带 CancellationToken 的异步操作
-var result = await GetUserAsync(123)
-    .MapAsync(async (user, token) => await GetUserPreferencesAsync(user, token), cancellationToken)
-    .BindAsync(async (prefs, token) => await UpdatePreferencesAsync(prefs, token), cancellationToken);
-```
-
-### 支持 CancellationToken 的异步操作
-
-```csharp
-// 所有异步扩展方法都支持 CancellationToken 以实现可取消操作
 public async Task<Result<OrderSummary>> ProcessOrderAsync(int orderId, CancellationToken cancellationToken)
 {
-    return await GetOrderAsync(orderId)
-        // MapAsync 支持 CancellationToken
-        .MapAsync(async (order, token) => 
-        {
-            // 执行支持取消的异步转换
-            return await CalculateTotalAsync(order, token);
-        }, cancellationToken)
-        
-        // BindAsync 支持 CancellationToken
-        .BindAsync(async (total, token) => 
-        {
-            // 链接另一个返回 Result 的异步操作
-            return await ValidatePaymentAsync(total, token);
-        }, cancellationToken)
-        
-        // EnsureAsync 支持 CancellationToken
-        .EnsureAsync(
-            async (payment, token) => await CheckInventoryAsync(payment, token),
-            new Error("Inventory", "库存不足"),
+    return await GetOrderAsync(orderId, cancellationToken)
+        .MapAsync(
+            (order, token) => CalculateTotalAsync(order, token),
             cancellationToken)
-        
-        // MatchAsync 支持 CancellationToken
-        .MatchAsync(
-            async (payment, token) => 
-            {
-                await SendConfirmationEmailAsync(payment, token);
-                return Result<OrderSummary>.Success(new OrderSummary(payment));
-            },
-            async (errors, token) => 
-            {
-                await LogErrorsAsync(errors, token);
-                return Result<OrderSummary>.Failure(errors);
-            },
+        .BindAsync(
+            (total, token) => ValidatePaymentAsync(total, token),
             cancellationToken);
 }
+```
 
-// 示例：与 HttpClient 或数据库操作一起使用
-public async Task<Result<User>> UpdateUserWithCancellationAsync(
-    User user, 
-    CancellationToken cancellationToken)
-{
-    return await ValidateUser(user)
-        .MapAsync(async (validUser, token) => 
-        {
-            // 支持取消的数据库操作
-            await _dbContext.Users.AddAsync(validUser, token);
-            await _dbContext.SaveChangesAsync(token);
-            return validUser;
-        }, cancellationToken)
-        .EnsureAsync(
-            async (savedUser, token) => 
-            {
-                // 验证保存操作
-                var exists = await _dbContext.Users
-                    .AnyAsync(u => u.Id == savedUser.Id, token);
-                return exists;
-            },
-            new Error("Database", "用户保存验证失败"),
-            cancellationToken);
-}
+上游异步方法仍应显式接收同一个 `CancellationToken`，Task 扩展只负责等待结果和继续组合。
+
+`MatchAsync` 用于异步处理成功或失败分支，`EnsureAsync` 用于异步验证成功值：
+
+```csharp
+await result.MatchAsync(
+    (order, token) => PublishOrderAsync(order, token),
+    (errors, token) => LogErrorsAsync(errors, token),
+    cancellationToken);
+
+Result<User> activeUser = await userResult.EnsureAsync(
+    (user, token) => IsActiveAsync(user, token),
+    new Error("User.Inactive", "用户未激活"),
+    cancellationToken);
 ```
 
 ### 使用 Result.Create 进行条件判断
@@ -328,9 +282,11 @@ private Result ProcessUserData(Result<User> userResult)
 
 ⚠️ **重要提示**：
 - `Result<T>` → `Result` 转换会**丢失值信息**，因为非泛型Result不保存具体值
+- `Result` 与 `Result<T>` 之间转换时会保留原始 `Status` 和错误信息，例如 `NotFound` 不会变成 `Error`
 - `T` → `Result<T>` 转换中，如果值为 `null` 会自动创建失败结果
 - 失败的 `Result<T>` 访问 `.Value` 属性会抛出 `InvalidOperationException`
 - 建议使用 `.ValueOrDefault` 或 `.TryGetValue()` 进行安全的值访问
+- 结果对象在创建时会复制错误集合；之后修改原集合不会改变结果
 
 ```csharp
 // 正确的用法示例
@@ -349,15 +305,20 @@ var safeUser = userResult.ValueOrDefault;
 var user = userResult.Value; // 可能抛出 InvalidOperationException
 ```
 
-### 错误处理
+### 异常边界
 
 ```csharp
-// 使用 Try 方法捕获异常并转换为结果
-var result = ResultExtensions.Try(
-    () => SomeOperationThatMightThrow(),
-    ex => ex.ToError()
-);
+try
+{
+    return Result.Success(int.Parse(value));
+}
+catch (FormatException ex)
+{
+    return Result<int>.Failure(new Error("Value.Invalid", ex.Message));
+}
 ```
+
+只捕获可以转换为领域错误的明确异常。未预期异常和取消异常应继续向上传播。
 
 ## 高级用法
 
@@ -483,7 +444,7 @@ public Result<User> GetUser(int id, string token)
 
 6. **利用链式操作**：
    - 使用函数式方法组合而非传统的条件语句
-   - Map、Bind、Tap等方法可以极大提高代码可读性
+   - Map、Bind、Ensure 等方法可以提高代码可读性
 
 7. **对于Web API**：
    - 结合 [Linger.Results.AspNetCore](../Linger.Results.AspNetCore/README.zh-CN.md) 包转换为HTTP响应

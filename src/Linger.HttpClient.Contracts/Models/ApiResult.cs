@@ -17,7 +17,11 @@ public class ApiResult
     /// <summary>
     /// 请求是否成功 (2xx 状态码)
     /// </summary>
-    public bool IsSuccess => StatusCode.HasValue && (int)StatusCode.Value >= 200 && (int)StatusCode.Value < 300;
+    public bool IsSuccess => StatusCode.HasValue
+        && (int)StatusCode.Value >= 200
+        && (int)StatusCode.Value < 300
+        && string.IsNullOrWhiteSpace(ErrorMsg)
+        && !Errors.Any();
 
     /// <summary>
     /// 是否为未授权状态 (401)

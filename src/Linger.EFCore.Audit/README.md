@@ -190,6 +190,48 @@ The `AuditTrailEntry` captures:
 - Modification audit: LastModifierId, LastModificationTime
 - Soft delete: IsDeleted, DeleterId, DeletionTime
 
+## 🔧 Advanced Configuration
+
+### Handling Legacy Database DateTime Types
+
+When an existing database uses `datetime` instead of `datetimeoffset`, configure the audit properties in the EF Core entity mapping:
+
+```csharp
+public class UserEntityConfiguration : IEntityTypeConfiguration<User>
+{
+    public void Configure(EntityTypeBuilder<User> entity)
+    {
+        entity.Property(e => e.CreationTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                value => value.ToDateTime(),
+                value => new DateTimeOffset(value));
+
+        entity.Property(e => e.LastModificationTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                value => value.HasValue ? value.Value.ToDateTime() : (DateTime?)null,
+                value => value.HasValue
+                    ? new DateTimeOffset(value.Value, TimeSpan.Zero)
+                    : (DateTimeOffset?)null);
+
+        entity.Property(e => e.DeletionTime)
+            .HasColumnType("datetime")
+            .HasConversion(
+                value => value.HasValue ? value.Value.ToDateTime() : (DateTime?)null,
+                value => value.HasValue
+                    ? new DateTimeOffset(value.Value, TimeSpan.Zero)
+                    : (DateTimeOffset?)null);
+
+        entity.Property(e => e.CreatorId).HasMaxLength(30).IsUnicode(false);
+        entity.Property(e => e.LastModifierId).HasMaxLength(30).IsUnicode(false);
+        entity.Property(e => e.DeleterId).HasMaxLength(30).IsUnicode(false);
+    }
+}
+```
+
+The conversion loses the original timezone offset. Store and read these values consistently as UTC; `TimeSpan.Zero` represents the UTC offset.
+
 ## 📊 Logging
 
 The interceptor supports optional logging to help monitor audit operations and troubleshoot issues.

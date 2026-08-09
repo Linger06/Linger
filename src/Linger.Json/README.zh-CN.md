@@ -142,4 +142,4 @@ var requestOptions = JsonDefaults.CreateRequestOptions();
 - DateTimeConverter - DateTime 序列化转换器
 - DateTimeNullConverter - 可空 DateTime 转换器
 - DataTableJsonConverter - DataTable 序列化转换器
-- HttpClientBase - 使用这些选项的 HTTP 客户端基类
+- StandardHttpClient - 使用这些选项的标准 HTTP 客户端实现

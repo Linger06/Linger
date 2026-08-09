@@ -7,10 +7,10 @@
 - 服务端统一返回 `Result<T>` / `Result`，控制器用 `ToActionResult()` / `ToHttpResult()` 做响应映射。
 - 错误优先采用 `ProblemDetails`（含 `errors`），便于客户端映射到 `ApiResult.Errors`。
 - 成功响应尽量保持结构稳定：有数据用 `ActionResult<T>`，无数据用 `ActionResult` + 204。
-- 客户端调用：有数据用 `CallApi<T>`；无数据用 `CallApi` 或 `CallApi<object>`，只关心 `IsSuccess` / `StatusCode`。
+- 客户端调用：有数据用 `GetAsync<T>` / `CallApi<T>`；无数据使用非泛型 `PostAsync` / `PutAsync` / `DeleteAsync`，只关心 `IsSuccess` / `StatusCode`。
 
 补充要点：
-- `IsSuccess` 以 HTTP 2xx 为成功标准。
+- `IsSuccess` 要求 HTTP 状态为 2xx，且不存在传输或解析错误。
 - 成功但响应体为空时，`CallApi<T>` 返回默认值；`CallApi<object>` 返回 `null`。
 
 ## 错误字段格式（重要）
@@ -40,7 +40,7 @@ Content-Type: application/problem+json
 - `HttpClient` 将 `errors` 展开为 `ApiResult.Errors`（一个 `Error` 列表），每个 `Error` 的 `Code` 对应字段名，`Message` 对应数组中的单条信息。
 - `ApiResult.ErrorMsg` 的生成规则：优先使用 `ProblemDetails.Detail`；若无则使用 `errors` 中的首条消息。客户端不会自动把多条错误合并为一个长文本（需要时可自行合并显示）。
 
-注意：客户端为防御性读取响应体，HttpClient 在解析错误体时会对流长度做保护（例如只读取前 50KB），因此在返回非常大的非结构化响应时，客户端可能只获取到响应的前部内容用于展示或作为 `ErrorMsg` 的兜底文本。
+注意：客户端为防御性读取响应体，解析错误体时最多读取前 25K 个字符，因此在返回非常大的非结构化响应时，客户端只会获取响应前部用于展示或作为 `ErrorMsg` 的兜底文本。
 
 示例：服务端返回上述 ProblemDetails，客户端获得的 `ApiResult`：
 
@@ -49,7 +49,7 @@ Content-Type: application/problem+json
 - `ErrorMsg` = "Invalid email format"（优先使用 `ProblemDetails.detail`；若无，则使用 `errors` 数组的首条消息）
 - `Errors` = [ Error{ Code="Email", Message="Invalid email format" }, Error{ Code="Age", Message="Age must be greater than 18"} ]
 失败时 `ErrorMsg` 优先使用 `ProblemDetails.Detail` 或 `Errors` 中的首条消息；解析结构化错误体失败则回退为原始响应文本或状态码默认消息。
-- `ToActionResult` / `ToProblemDetails` / `ToHttpResult` 默认失败状态码为 400 或 404（按 ResultStatus 映射）；需要 422/409 等状态码时可显式传入 `failureStatusCode`。
+- `ToActionResult` / `ToHttpResult` 默认失败状态码为 400 或 404（按 ResultStatus 映射）；需要 422/409 等状态码时可显式传入 `failureStatusCode`。
 
 ### 场景 1：成功情况
 
@@ -89,7 +89,7 @@ Content-Type: application/json
 
 ```csharp
 // 客户端调用
-var result = await _httpClient.CallApi<User>("api/users/123", cancellationToken: ct);
+var result = await _httpClient.GetAsync<User>("api/users/123", cancellationToken: ct);
 
 // 返回值字段映射:
 // result.IsSuccess       = true
@@ -139,7 +139,7 @@ HTTP/1.1 204 No Content
 // 客户端调用 DELETE 请求，不需要返回业务数据
 var result = await _httpClient.CallApi<object>(
     "api/users/123",
-    HttpMethodEnum.Delete,
+    HttpMethod.Delete,
     cancellationToken: ct
 );
 
@@ -160,12 +160,12 @@ if (result.StatusCode == HttpStatusCode.NoContent)
 **服务端返回示例（Controller / Minimal API）**
 
 ```csharp
-// Controller：返回验证错误时，ToProblemDetails 生成 ProblemDetails
+// Controller：失败时 ToActionResult 自动返回 ProblemDetails
 [HttpPost("/api/users")]
 public async Task<ActionResult<UserDto>> CreateUser(CreateUserRequest request)
 {
     var result = await _userService.CreateUserAsync(request);
-    return result.ToProblemDetails(failureStatusCode: HttpStatusCode.UnprocessableEntity);
+    return result.ToActionResult(failureStatusCode: HttpStatusCode.UnprocessableEntity);
 }
 
 // Minimal API：失败时 ToHttpResult 自动返回 ProblemDetails
@@ -199,7 +199,7 @@ Content-Type: application/problem+json
 var invalidUser = new User { Email = "invalid-email", Age = 10 };
 var result = await _httpClient.CallApi<User>(
     "api/users",
-    HttpMethodEnum.Post,
+    HttpMethod.Post,
     requestBody: invalidUser
 );
 
@@ -226,12 +226,12 @@ if (!result.IsSuccess)
 }
 ```
 
-### 场景 3：业务/全局错误（Linger.Results 格式）
+### 场景 3：业务/全局错误（ProblemDetails）
 
 **服务端返回示例（Controller / Minimal API）**
 
 ```csharp
-// Controller：业务规则失败时，返回错误数组
+// Controller：业务规则失败时自动返回 ProblemDetails
 [HttpPost("/api/orders/submit")]
 public async Task<ActionResult<OrderDto>> SubmitOrder(OrderSubmitRequest request)
 {
@@ -246,25 +246,23 @@ app.MapPost("/api/orders/submit", async (OrderSubmitRequest request, IOrderServi
     return result.ToHttpResult(failureStatusCode: HttpStatusCode.Conflict);
 });
 
-// 如需返回错误数组，请手动输出：Results.Json(result.Errors, statusCode: StatusCodes.Status409Conflict)
 ```
 
-**WebAPI 返回 409 Conflict 且包含业务错误数组**
+**WebAPI 返回 409 Conflict 且包含 ProblemDetails**
 
 ```
 WebAPI 响应:
 HTTP/1.1 409 Conflict
-Content-Type: application/json
-[
-    {
-        "code": "InsufficientStock",
-        "message": "库存不足，需求 10 件但仅剩 5 件"
-    },
-    {
-        "code": "PaymentGatewayDown",
-        "message": "支付网关暂时不可用，请稍后重试"
+Content-Type: application/problem+json
+{
+    "title": "A conflict occurred",
+    "status": 409,
+    "detail": "Please refer to the errors property for additional details.",
+    "errors": {
+        "InsufficientStock": ["库存不足，需求 10 件但仅剩 5 件"],
+        "PaymentGatewayDown": ["支付网关暂时不可用，请稍后重试"]
     }
-]
+}
 ```
 
 **客户端调用与返回值：**
@@ -274,7 +272,7 @@ Content-Type: application/json
 var order = new OrderSubmitRequest { /* ... */ };
 var result = await _httpClient.CallApi<Order>(
     "api/orders/submit",
-    HttpMethodEnum.Post,
+    HttpMethod.Post,
     requestBody: order
 );
 
@@ -282,7 +280,7 @@ var result = await _httpClient.CallApi<Order>(
 // result.IsSuccess       = false
 // result.Data            = null（因为 IsSuccess=false）
 // result.StatusCode      = 409
-// result.ErrorMsg        = "InsufficientStock: 库存不足，需求 10 件但仅剩 5 件"（优先使用首条业务错误消息；`Errors` 列表包含所有业务错误项）
+// result.ErrorMsg        = "Please refer to the errors property for additional details."
 // result.Errors          = [
 //     Error { Code = "InsufficientStock", Message = "库存不足，需求 10 件但仅剩 5 件" },
 //     Error { Code = "PaymentGatewayDown", Message = "支付网关暂时不可用，请稍后重试" }
@@ -290,7 +288,7 @@ var result = await _httpClient.CallApi<Order>(
 
 if (!result.IsSuccess)
 {
-    // 全局错误信息使用首条业务错误消息；具体业务错误项请从 `Errors` 列表逐一处理
+    // 全局信息使用 ProblemDetails.detail；具体业务错误项从 Errors 逐一处理
     Console.WriteLine($"订单提交失败: {result.ErrorMsg}");
 
     // 逐项访问具体错误编码以进行不同处理
@@ -308,6 +306,19 @@ if (!result.IsSuccess)
     }
 }
 ```
+
+#### 旧服务端错误数组兼容
+
+客户端暂时保留对以下旧格式的解析，但新接口不应再主动返回该格式：
+
+```json
+[
+    { "code": "InsufficientStock", "message": "库存不足" },
+    { "code": "PaymentGatewayDown", "message": "支付网关暂时不可用" }
+]
+```
+
+旧数组同样会展开到 `ApiResult.Errors`，首条错误消息作为 `ErrorMsg`。
 
 ### 场景 4：HTTP 错误（4xx / 5xx 无结构化错误体）
 
@@ -339,14 +350,14 @@ Internal server error occurred
 
 ```csharp
 // 客户端调用
-var result = await _httpClient.CallApi<ReportData>("api/reports/generate");
+var result = await _httpClient.GetAsync<ReportData>("api/reports/generate");
 
 // 返回值字段映射:
 // result.IsSuccess       = false
 // result.Data            = null
 // result.StatusCode      = 500
-// result.ErrorMsg        = "Internal server error occurred" （直接使用响应体文本）
-// result.Errors          = 空数组（没有结构化的错误信息）
+// result.ErrorMsg        = "Internal server error"
+// result.Errors          = [Error { Code = "", Message = "Internal server error occurred" }]
 
 if (!result.IsSuccess)
 {
@@ -379,7 +390,7 @@ app.MapPost("/api/orders/confirm", (ConfirmOrderRequest request) =>
 });
 ```
 
-**WebAPI 返回自定义格式的错误（既不是 ProblemDetails 也不是 Linger.Results 数组）**
+**WebAPI 返回自定义格式的错误（既不是 ProblemDetails 也不是旧错误数组）**
 
 ```
 WebAPI 响应:
@@ -402,8 +413,11 @@ public class CustomHttpClient : StandardHttpClient
     {
     }
 
-    protected override async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage response)
+    protected override async Task<(string ErrorMessage, IEnumerable<Error> Errors)> GetErrorMessageAsync(
+        HttpResponseMessage response,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
         try
@@ -417,13 +431,13 @@ public class CustomHttpClient : StandardHttpClient
                 return (errorMsg, errors);
             }
         }
-        catch
+        catch (JsonException)
         {
             // 解析失败，回退到默认处理
         }
 
-        // 回退到默认的 ProblemDetails / Linger.Results 处理
-        return await base.GetErrorMessageAsync(response).ConfigureAwait(false);
+        // 回退到默认的 ProblemDetails / 旧错误数组处理
+        return await base.GetErrorMessageAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
     private record CustomErrorFormat(string ErrorCode, string ErrorMessage, string Details);
@@ -455,10 +469,10 @@ services.AddHttpClient<IHttpClient, CustomHttpClient>();
 
 ```csharp
 // 1. GET 请求（最简形式）
-var result = await _httpClient.CallApi<User>("api/users/123");
+var result = await _httpClient.GetAsync<User>("api/users/123");
 
 // 2. GET 请求（带查询参数）
-var result = await _httpClient.CallApi<IEnumerable<User>>(
+var result = await _httpClient.GetAsync<IEnumerable<User>>(
     "api/users",
     queryParams: new { page = 1, pageSize = 10 }
 );
@@ -466,37 +480,36 @@ var result = await _httpClient.CallApi<IEnumerable<User>>(
 // 3. POST 请求（带请求体）
 var result = await _httpClient.CallApi<User>(
     "api/users",
-    HttpMethodEnum.Post,
+    HttpMethod.Post,
     requestBody: new { name = "张三", email = "zhangsan@example.com" }
 );
 
 // 4. PUT 请求（带请求体）
 var result = await _httpClient.CallApi<User>(
     "api/users/123",
-    HttpMethodEnum.Put,
+    HttpMethod.Put,
     requestBody: new { name = "李四", email = "lisi@example.com" }
 );
 
 // 5. DELETE 请求
 var result = await _httpClient.CallApi<object>(
     "api/users/123",
-    HttpMethodEnum.Delete
+    HttpMethod.Delete
 );
 
-// 6. 带超时和取消令牌
-var result = await _httpClient.CallApi<User>(
+// 6. 带调用方超时和取消令牌
+using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(ct);
+timeoutSource.CancelAfter(TimeSpan.FromSeconds(5));
+var result = await _httpClient.GetAsync<User>(
     "api/users/123",
-    timeout: 5000,
-    cancellationToken: ct
-);
+    cancellationToken: timeoutSource.Token);
 
 // 7. 完整参数
 var result = await _httpClient.CallApi<User>(
     "api/users/123",
-    HttpMethodEnum.Get,
+    HttpMethod.Get,
     requestBody: null,
     queryParams: new { includeDetails = true },
-    timeout: 5000,
     cancellationToken: ct
 );
 ```

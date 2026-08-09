@@ -51,7 +51,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 - **数组扩展**: 简化数组操作，提供遍历和处理的便捷方法
 - **GUID 扩展**: 完善的 GUID 操作工具，包括验证和转换功能
 
-### 集合扩展
+### 集合能力概览
 - **列表扩展**: 增强列表的操作能力，提供分页、遍历等实用功能
 - **集合扩展**: 通用的集合处理工具，让数据操作更简单
 
@@ -73,7 +73,7 @@ Linger.Utils 是专为 .NET 开发者打造的实用工具集合。无论您是�
 ### 可选反射包
 - **`Linger.Reflection`**: 提供表达式组合、动态 `IQueryable` 排序、运行时属性访问、枚举元数据和基于反射的 DataTable 转换
 
-### 可选 JSON 包
+### 可选 JSON 包概览
 - **`Linger.Json`**: 提供 `System.Text.Json` 转换器、`DataTable` JSON 转换和 `JsonDefaults` 选项工厂。请参阅 [Linger.Json 文档](../Linger.Json/README.zh-CN.md)。
 
 ## 安装

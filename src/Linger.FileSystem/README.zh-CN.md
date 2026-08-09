@@ -324,28 +324,7 @@ var localFs = new LocalFileSystem(options);
 
 ### 远程文件系统选项
 
-```csharp
-var ftpOptions = new FtpFileSystemOptions
-{
-    Host = "example.com",                      // 主机地址
-    Port = 21,                                 // FTP端口
-    UserName = "username",                     // 用户名
-    Password = "password",                     // 密码
-    ConnectionTimeout = 30000,                 // 连接超时(毫秒)
-    OperationTimeout = 60000,                  // 操作超时(毫秒)
-    MaxDegreeOfParallelism = 4,                // 批量操作并发度
-    // 批量操作重试设置
-    BatchRetryOptions = new RetryOptions
-    {
-        MaxRetryAttempts = 3,
-        DelayMilliseconds = 1000
-    },
-};
-```
-
-SFTP连接使用 `SftpFileSystemOptions`，它包含相同的通用连接属性，另外提供
-`CertificatePath` 和 `CertificatePassphrase`。`FtpFileSystemOptions` 另外提供
-FTP专用的 `Encoding` 属性。
+远程配置和连接生命周期属于具体实现包，请参阅 [Linger.FileSystem.Ftp](../Linger.FileSystem.Ftp/README.zh-CN.md) 和 [Linger.FileSystem.Sftp](../Linger.FileSystem.Sftp/README.zh-CN.md)。
 
 ## 高级功能
 
@@ -385,144 +364,21 @@ Console.WriteLine($"相对路径: {uploadedInfo.FilePath}");
 Console.WriteLine($"完整路径: {uploadedInfo.FullFilePath}");
 ```
 
-### FTP和SFTP高级功能
-
-对于FTP和SFTP的高级功能，如：
-- 批量文件操作
-- 目录列表和操作
-- 工作目录管理
-- 证书认证 (SFTP)
-- 自定义超时配置
-
-请参阅专门的文档：
-- 📖 **[Linger.FileSystem.Ftp 文档](../Linger.FileSystem.Ftp/README.zh-CN.md)**
-- 📖 **[Linger.FileSystem.Sftp 文档](../Linger.FileSystem.Sftp/README.zh-CN.md)**
-
-## 连接管理
-
-```csharp
-// 方式1: 使用using语句自动管理连接
-using (var ftpFs = new FtpFileSystem(remoteSetting))
-{
-    // 操作自动处理连接和断开
-    await ftpFs.UploadFileAsync("local.txt", "/remote/path");
-}
-
-// 方式2: 手动管理连接
-try
-{
-    await ftpFs.ConnectAsync();
-    // 执行多个操作...
-    await ftpFs.UploadFileAsync("file1.txt", "/remote");
-    await ftpFs.UploadFileAsync("file2.txt", "/remote");
-}
-finally
-{
-    await ftpFs.DisconnectAsync();
-}
-```
-
 ## 取消操作支持
 
 所有文件系统操作都支持 `CancellationToken`，实现优雅的取消机制：
 
 ```csharp
-public class FileUploadService
-{
-    private readonly IFileSystemOperations _fileSystem;
-    
-    public FileUploadService(IFileSystemOperations fileSystem)
-    {
-        _fileSystem = fileSystem;
-    }
-    
-    // 带超时的上传
-    public async Task<FileOperationResult> UploadWithTimeoutAsync(
-        Stream stream, 
-        string destinationPath, 
-        int timeoutSeconds = 300)
-    {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-        
-        try
-        {
-            return await _fileSystem.UploadAsync(
-                stream, 
-                destinationPath, 
-                overwrite: true, 
-                cancellationToken: cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return FileOperationResult.CreateFailure("上传因超时而取消");
-        }
-    }
-    
-    // 支持取消的批量上传
-    public async Task<List<FileOperationResult>> UploadMultipleFilesAsync(
-        Dictionary<Stream, string> files, 
-        CancellationToken cancellationToken)
-    {
-        var results = new List<FileOperationResult>();
-        
-        foreach (var (stream, path) in files)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            
-            var result = await _fileSystem.UploadAsync(
-                stream, 
-                path, 
-                overwrite: true, 
-                cancellationToken);
-            results.Add(result);
-        }
-        
-        return results;
-    }
-}
-```
+using var timeoutSource = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+    cancellationToken,
+    timeoutSource.Token);
 
-### 在 ASP.NET Core 中使用
-
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class FileController : ControllerBase
-{
-    private readonly IFileSystemOperations _fileSystem;
-    
-    public FileController(IFileSystemOperations fileSystem)
-    {
-        _fileSystem = fileSystem;
-    }
-    
-    [HttpPost("upload")]
-    public async Task<IActionResult> UploadFile(
-        IFormFile file, 
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var stream = file.OpenReadStream();
-            var result = await _fileSystem.UploadAsync(
-                stream, 
-                $"uploads/{file.FileName}", 
-                overwrite: true, 
-                cancellationToken);
-            
-            if (result.Success)
-            {
-                return Ok(new { path = result.FilePath });
-            }
-            
-            return BadRequest(result.ErrorMessage);
-        }
-        catch (OperationCanceledException)
-        {
-            return StatusCode(499, "上传被客户端取消");
-        }
-    }
-}
+var result = await fileSystem.UploadAsync(
+    stream,
+    "uploads/destination-file.txt",
+    overwrite: true,
+    linkedSource.Token);
 ```
 
 ## 异常处理
@@ -530,7 +386,7 @@ public class FileController : ControllerBase
 ```csharp
 try
 {
-    var result = await ftpFs.UploadFileAsync("local.txt", "/remote");
+    var result = await fileSystem.UploadFileAsync("local.txt", "uploads/remote.txt");
     if (result.Success)
     {
         Console.WriteLine($"上传成功: {result.FilePath}");
@@ -566,8 +422,7 @@ var retryOptions = new RetryOptions
     UseExponentialBackoff = true              // 使用指数退避算法
 };
 
-// 为远程文件系统配置重试选项
-var ftpFs = new FtpFileSystem(remoteSetting, retryOptions);
+var localFs = new LocalFileSystem("C:/Storage", retryOptions);
 ```
 
 ## 性能优化
@@ -592,9 +447,9 @@ var options = new LocalFileSystemOptions
 对于需要处理大量文件的场景，可以使用批处理API减少连接开销：
 
 ```csharp
-// FTP系统批量操作示例 - 比单个操作更高效
+// 本地批量操作比逐个独立调用更高效
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
-await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
+await localFs.UploadFilesAsync(localFiles, "uploads");
 ```
 
 ## 架构设计

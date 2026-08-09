@@ -14,6 +14,7 @@ Lightweight helpers for issuing and refreshing JWT access tokens in ASP.NET Core
 - [Custom Claims](#custom-claims)
 - [Enable Refresh Tokens](#enable-refresh-tokens)
 - [Controller Example](#controller-example)
+- [Automatic refresh on clients](#automatic-refresh-on-clients)
 - [Refresh Token Workflow Explained](#refresh-token-workflow-explained)
 - [Security Best Practices](#security-best-practices)
 - [Advanced Features](#advanced-features)
@@ -22,9 +23,8 @@ Lightweight helpers for issuing and refreshing JWT access tokens in ASP.NET Core
 
 ## Features
 - ✅ Interface separation: `IJwtService` only issues access tokens; refresh logic is decoupled via extension interface
-- ✅ Progressive enhancement: Enable refresh tokens / auto-refresh on demand
+- ✅ Progressive enhancement: Enable refresh tokens on demand
 - ✅ Pluggable storage: Memory, database, or custom implementation
-- ✅ Resilience support: Concurrent-safe refresh based on `Microsoft.Extensions.Http.Resilience`
 - ✅ Security hardening: Supports jti / iat, externalized keys, principle of least privilege
 - ✅ Extensible: Override `GetClaimsAsync` to add roles / permissions / tenants
 
@@ -35,7 +35,7 @@ Lightweight helpers for issuing and refreshing JWT access tokens in ASP.NET Core
 ```bash
 dotnet add package Linger.AspNetCore.Jwt
 ```
-> Client auto-refresh requires additional packages: `Linger.HttpClient.Contracts`, `Linger.HttpClient.Standard`, `Microsoft.Extensions.Http.Resilience`
+> The client auto-refresh example additionally requires `Linger.HttpClient.Standard` and `Linger.AspNetCore.Jwt.Contracts`.
 
 ## Quick Start (Minimal Code)
 ```csharp
@@ -63,12 +63,11 @@ app.Run();
 ```csharp
 public class JwtOption
 {
-    public string SecurityKey { get; set; } = null!; // ⚠️ MUST set in production!
-    public string Issuer { get; set; } = "Linger.com";
-    public string Audience { get; set; } = "Linger.com";
-    public int ExpiresInMinutes { get; set; } = 30;               // Access token expiration (minutes)
-    public int RefreshTokenExpiresInMinutes { get; set; } = 10080;    // Refresh token expiration (minutes, 7 days)
-    public bool EnableRefreshToken { get; set; } = true;  // Whether to enable refresh support
+    public string SecurityKey { get; init; } = string.Empty;
+    public string Issuer { get; init; } = string.Empty;
+    public string Audience { get; init; } = string.Empty;
+    public int ExpiresInMinutes { get; init; } = 30;
+    public int RefreshTokenExpiresInMinutes { get; init; } = 10080;
 }
 ```
 `appsettings.json`:
@@ -79,8 +78,7 @@ public class JwtOption
     "Issuer": "your-app.com",
     "Audience": "your-api.com",
     "ExpiresInMinutes": 15,
-    "RefreshTokenExpiresInMinutes": 10080,
-    "EnableRefreshToken": true
+    "RefreshTokenExpiresInMinutes": 10080
   }
 }
 ```
@@ -110,70 +108,132 @@ builder.Services.AddAuthentication(o =>
 
 // Optional implementation injection
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IJwtService, CustomJwtService>();
-builder.Services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
-builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
+
+// For refresh tokens, register one implementation with atomic rotation
 builder.Services.AddScoped<IRefreshableJwtService, DbJwtService>();
+builder.Services.AddScoped<IJwtService>(provider =>
+    provider.GetRequiredService<IRefreshableJwtService>());
 ```
+
+The basic service and refresh service are alternative registrations. Do not register several `IJwtService` implementations together. `AddJwtBearer` retains diagnostic response headers for common token failures and uses the standard ASP.NET Core `401` / `403` responses without returning internal exception details.
 
 ## Custom Claims
 Default:
 ```csharp
-protected virtual Task<List<Claim>> GetClaimsAsync(string userId) =>
+protected virtual Task<List<Claim>> GetClaimsAsync(
+    string userId,
+    CancellationToken cancellationToken) =>
     Task.FromResult(new List<Claim>{ new(ClaimTypes.Name, userId) });
 ```
 Custom:
 ```csharp
 public class CustomJwtService(AppDbContext db, JwtOption opt, ILogger? logger = null) : JwtService(opt, logger)
 {
-    protected override async Task<List<Claim>> GetClaimsAsync(string userId)
+    protected override async Task<List<Claim>> GetClaimsAsync(
+        string userId,
+        CancellationToken cancellationToken)
     {
-        var claims = new List<Claim>{ new(ClaimTypes.Name, userId) };
-        var user = await db.Users.FindAsync(userId);
+        var claims = new List<Claim> { new(ClaimTypes.Name, userId) };
+        var user = await db.Users.FindAsync([userId], cancellationToken);
         foreach (var role in user.Roles.Split(','))
+        {
             claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+
         return claims;
     }
 }
 ```
 
 ## Enable Refresh Tokens
-Inherit from the abstract `JwtServiceWithRefresh` and implement storage:
+Inherit from `JwtServiceWithRefresh` and implement initial storage and atomic rotation separately. This in-memory example uses a process-local lock so one old token can succeed only once:
 ```csharp
 public class MemoryCachedJwtService : JwtServiceWithRefresh
 {
     private readonly IMemoryCache _cache;
-    public MemoryCachedJwtService(JwtOption opt, IMemoryCache cache, ILogger<MemoryCachedJwtService>? logger = null) : base(opt, logger) => _cache = cache;
-    protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
+    private readonly object _rotationLock = new();
+
+    public MemoryCachedJwtService(
+        JwtOption options,
+        IMemoryCache cache,
+        ILogger<MemoryCachedJwtService>? logger = null) : base(options, logger)
     {
-        _cache.Set($"RT_{userId}", token, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpiresInMinutes));
+        _cache = cache;
+    }
+
+    protected override Task StoreRefreshTokenAsync(
+        string userId,
+        JwtRefreshToken refreshToken,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _cache.Set($"RT_{userId}", refreshToken, refreshToken.ExpiryTime);
+
         return Task.CompletedTask;
     }
-    protected override Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
+
+    protected override Task<bool> TryRotateRefreshTokenAsync(
+        string userId,
+        string presentedRefreshToken,
+        JwtRefreshToken replacement,
+        CancellationToken cancellationToken)
     {
-        if (_cache.TryGetValue($"RT_{userId}", out JwtRefreshToken? token) && token is not null)
-            return Task.FromResult(token);
-        throw new Exception("Refresh token not found or expired");
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_rotationLock)
+        {
+            if (!_cache.TryGetValue($"RT_{userId}", out JwtRefreshToken? current) ||
+                current is null ||
+                current.ExpiryTime <= DateTime.UtcNow ||
+                !string.Equals(current.RefreshToken, presentedRefreshToken, StringComparison.Ordinal))
+            {
+                return Task.FromResult(false);
+            }
+
+            _cache.Set($"RT_{userId}", replacement, replacement.ExpiryTime);
+
+            return Task.FromResult(true);
+        }
     }
 }
 ```
-Database example (excerpt):
+
+The lock in the memory example is process-local. Multi-instance deployments must use a database transaction or an atomic compare-and-replace primitive provided by a distributed cache.
+
+A database implementation must compare and replace through one conditional update or transaction. Do not split `TryRotateRefreshTokenAsync` back into a query followed by an update:
+
 ```csharp
 public class DbJwtService : JwtServiceWithRefresh
 {
     private readonly IUserRepository _repo;
-    public DbJwtService(JwtOption opt, IUserRepository repo, ILogger<DbJwtService>? logger = null) : base(opt, logger) => _repo = repo;
-    protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
-        => _repo.UpdateRefreshTokenAsync(userId, token.RefreshToken, token.ExpiryTime);
-    protected override async Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
+
+    public DbJwtService(
+        JwtOption options,
+        IUserRepository repo,
+        ILogger<DbJwtService>? logger = null) : base(options, logger)
     {
-        var user = await _repo.GetUserAsync(userId);
-        if (user is not null && !string.IsNullOrEmpty(user.RefreshToken))
-            return new JwtRefreshToken { RefreshToken = user.RefreshToken, ExpiryTime = user.RefreshTokenExpiryTime };
-        throw new Exception("Refresh token not found or expired");
+        _repo = repo;
     }
+
+    protected override Task StoreRefreshTokenAsync(
+        string userId,
+        JwtRefreshToken refreshToken,
+        CancellationToken cancellationToken) =>
+        _repo.StoreRefreshTokenAsync(userId, refreshToken, cancellationToken);
+
+    protected override Task<bool> TryRotateRefreshTokenAsync(
+        string userId,
+        string presentedRefreshToken,
+        JwtRefreshToken replacement,
+        CancellationToken cancellationToken) =>
+        _repo.TryRotateRefreshTokenAsync(
+            userId,
+            presentedRefreshToken,
+            replacement,
+            cancellationToken);
 }
 ```
+
+`TryRotateRefreshTokenAsync` returns `true` only when the stored token matched, had not expired, and was replaced atomically. A database can use a conditional `UPDATE` containing the user ID, old token, and expiration constraints, then check the affected row count.
 
 ## Controller Example
 
@@ -182,17 +242,17 @@ public class DbJwtService : JwtServiceWithRefresh
 public class AuthController(IJwtService jwt, IUserService users) : ControllerBase
 {
     [HttpPost("login")] 
-    public async Task<IActionResult> Login(LoginModel m)
+    public async Task<IActionResult> Login(LoginModel m, CancellationToken cancellationToken)
     { 
         var id = await users.ValidateUserAsync(m.Username, m.Password); 
         if (string.IsNullOrEmpty(id)) return Unauthorized(); 
-        return Ok(await jwt.CreateTokenAsync(id)); 
+        return Ok(await jwt.CreateTokenAsync(id, cancellationToken));
     }
     
     [HttpPost("refresh")] 
-    public async Task<IActionResult> Refresh(Token token)
+    public async Task<IActionResult> Refresh(Token token, CancellationToken cancellationToken)
     { 
-        var result = await jwt.RefreshTokenResultAsync(token);
+        var result = await jwt.RefreshTokenResultAsync(token, cancellationToken);
         if (result.Success) 
             return Ok(result.Token);
         
@@ -204,14 +264,14 @@ public class AuthController(IJwtService jwt, IUserService users) : ControllerBas
 ### Alternative Approach (using exception handling)
 ```csharp
 [HttpPost("refresh")] 
-public async Task<IActionResult> Refresh(Token token)
+public async Task<IActionResult> Refresh(Token token, CancellationToken cancellationToken)
 { 
     if (!jwt.SupportsRefreshToken()) 
         return Unauthorized("Refresh token not supported");
     
     try 
     {
-        return Ok(await jwt.RefreshTokenAsync(token));
+        return Ok(await jwt.RefreshTokenAsync(token, cancellationToken));
     }
     catch (NotSupportedException)
     {
@@ -225,7 +285,13 @@ public async Task<IActionResult> Refresh(Token token)
 }
 ```
 
-> **💡 Tip**: `RefreshTokenResultAsync` follows the result pattern, avoiding exception overhead for better performance and cleaner code.
+`RefreshTokenResultAsync` converts only expected invalid-token exceptions into a failed result. Cancellation and unexpected storage failures continue to propagate.
+
+### Automatic refresh on clients
+
+`Linger.AspNetCore.Jwt` validates and rotates refresh tokens on the server, but it does not manipulate `HttpClient` instances in desktop or other client applications. Retain the complete `Token` returned by login or refresh, call the `refresh` endpoint before the access token expires, and replace both the access token and refresh token with the returned values.
+
+When constructing `StandardHttpClient` directly in WinForms, a `DelegatingHandler` can check and refresh the token before sending a request. See the [Linger.HttpClient.Standard README](../Linger.HttpClient.Standard/README.md) for the complete implementation, including concurrent-refresh coordination, the separate refresh client, and returning to sign-in after refresh failure.
 
 ---
 
@@ -281,7 +347,7 @@ Therefore, refresh tokens help smooth authentication workflows without requiring
 | Symptom | Possible Cause | Suggested Fix |
 |---------|----------------|---------------|
 | 401 immediately after successful login | Time out of sync / Signature failure | Sync time; unify SECRET |
-| Refresh not triggering | Not enabled/registered refresh implementation | Check EnableRefreshToken & DI |
+| Refresh not triggering | Refresh implementation is not registered | Check the `IRefreshableJwtService` and `IJwtService` DI mapping |
 | Refresh storm | Concurrent 401 race condition | Use semaphore/single refresh control |
 | Refresh succeeds but still old token | Client not updating headers | Confirm event subscription and SetToken call |
 | Invalid signature | Inconsistent keys across instances | Use config center or unified env variable |

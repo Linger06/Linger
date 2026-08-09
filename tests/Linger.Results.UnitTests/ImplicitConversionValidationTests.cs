@@ -39,6 +39,17 @@ public class ImplicitConversionValidationTests
     }
 
     [Fact]
+    public void ResultT_To_Result_NotFoundConversionShouldPreserveStatus()
+    {
+        Result<TestUser> genericResult = Result<TestUser>.NotFound("User not found");
+
+        Result nonGenericResult = genericResult;
+
+        Assert.Equal(ResultStatus.NotFound, nonGenericResult.Status);
+        Assert.Equal("User not found", nonGenericResult.FirstError.Message);
+    }
+
+    [Fact]
     public void Result_To_ResultT_ConversionShouldWork()
     {
         // Arrange

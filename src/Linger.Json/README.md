@@ -141,4 +141,4 @@ The following custom converters are included in the configuration:
 - DateTimeConverter - DateTime serialization converter
 - DateTimeNullConverter - Nullable DateTime converter
 - DataTableJsonConverter - DataTable serialization converter
-- HttpClientBase - HTTP client base class that uses these options
+- StandardHttpClient - standard HTTP client implementation that uses these options

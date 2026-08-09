@@ -1,422 +1,265 @@
 # Linger.HttpClient.Standard
 
-基于 System.Net.Http.HttpClient 的生产可用 HTTP 客户端实现。
+基于 `System.Net.Http.HttpClient` 的 `IHttpClient` 标准实现。
 
-## 功能特性
+## 功能
 
-- **零依赖**: 基于标准 .NET 库构建
-- **HttpClientFactory 集成**: 正确的套接字管理和连接池
-- **正确的资源管理**: 使用所有权模式自动跟踪释放，防止资源泄漏
-- **流式下载支持**: 提供 `DownloadStreamAsync` 和 `DownloadToFileAsync`，适合大文件场景
-- **响应模式可选**: 支持 `Buffered` / `Streamed` 响应读取模式
-- **全面日志记录**: 内置性能监控
-- **Linger.Results 集成**: 服务端到客户端的无缝错误映射
-- **ProblemDetails 支持**: 原生支持 RFC 7807 标准
+- 使用 `HttpClientFactory` 管理底层连接
+- JSON、表单和自定义 `HttpContent` 请求
+- RFC 7807 ProblemDetails 与旧错误数组解析
+- 每请求 headers，不保存共享认证状态
+- 原始 `HttpResponseMessage` 和长连接流式处理
+- 基于 `StreamContent` 的流式文件上传
+- 临时文件提交式流式下载
+- 用户取消传播和 `HttpClient.Timeout` 超时处理
 
-## 安装
+## 安装和注册
 
 ```bash
 dotnet add package Linger.HttpClient.Standard
 ```
 
-## 快速上手
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+```
+
+WinForms、控制台等直接创建场景可以传入基础地址。此时 `StandardHttpClient` 持有底层客户端；应在应用生命周期内复用该实例，并在应用关闭时释放：
 
 ```csharp
-// Program.cs / Startup.cs
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
+using var client = new StandardHttpClient("https://api.example.com/");
+```
 
-// 任意业务服务中
-public sealed class UserQueryService
-{
-    private readonly IHttpClient _httpClient;
+需要设置超时、固定请求头或 `Accept-Language` 时，可以在创建阶段配置底层客户端：
 
-    public UserQueryService(IHttpClient httpClient)
+```csharp
+using var client = new StandardHttpClient(
+    "https://api.example.com/",
+    configureClient: httpClient =>
     {
-        _httpClient = httpClient;
-    }
+        httpClient.Timeout = TimeSpan.FromSeconds(30);
+        httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN");
+    });
+```
 
-    public async Task<User?> GetAsync(int id, CancellationToken cancellationToken = default)
+需要自定义 Handler、认证、证书或代理时，传入由调用方管理的 `HttpClient`。释放 `StandardHttpClient` 不会释放外部客户端：
+
+也可以直接让 URL 模式持有自定义 Handler；此时 `StandardHttpClient` 负责释放 Handler 和底层客户端：
+
+```csharp
+using var client = new StandardHttpClient(
+    "https://api.example.com/",
+    accessTokenHandler);
+```
+
+```csharp
+using var httpClient = new HttpClient
+{
+    BaseAddress = new Uri("https://api.example.com/")
+};
+using var client = new StandardHttpClient(httpClient, logger);
+```
+
+## 类型化调用
+
+```csharp
+var getResult = await client.GetAsync<User>(
+    "users/42",
+    queryParams: new { IncludeRoles = true },
+    cancellationToken: cancellationToken);
+
+var postResult = await client.PostAsync<User>(
+    "users",
+    new CreateUserRequest("Ada"),
+    cancellationToken: cancellationToken);
+
+var patchResult = await client.CallApi<User>(
+    "users/42",
+    HttpMethod.Patch,
+    new UpdateUserRequest("Grace"),
+    cancellationToken: cancellationToken);
+```
+
+查询参数对象会缓存属性元数据；集合属性会生成多个同名参数，数值和日期使用固定区域性格式。
+
+## 认证和请求头
+
+### 固定认证头
+
+当一个客户端实例只代表一个用户，且所有请求使用同一个令牌时，可以在创建阶段设置默认认证头：
+
+```csharp
+var accessToken = "eyJ...";
+using var client = new StandardHttpClient(
+    "https://api.example.com/",
+    configureClient: httpClient =>
     {
-        var result = await _httpClient.CallApi<User>($"api/users/{id}", cancellationToken: cancellationToken);
-
-        if (result.IsSuccess && result.Data is not null)
-        {
-            return result.Data;
-        }
-
-        Console.WriteLine($"请求失败: {(int)result.StatusCode} - {result.ErrorMsg}");
-
-        foreach (var error in result.Errors)
-        {
-            Console.WriteLine($"错误项: {error.Code} - {error.Message}");
-        }
-
-        return null;
-    }
-}
-
-// 控制器或页面中调用
-var user = await userQueryService.GetAsync(123);
-
-if (user is not null)
-{
-    Console.WriteLine($"用户: {user.Name}");
-}
-else
-{
-    Console.WriteLine("未获取到用户，请查看上方错误输出。");
-}
+        httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+    });
 ```
 
-要点：
-- 生产环境优先使用 HttpClientFactory。
-- 失败时先看 `ErrorMsg` 和 `Errors`，不要只看状态码。
-- 大文件优先使用 `DownloadStreamAsync` / `DownloadToFileAsync`。
+应在应用生命周期内复用客户端，不要为每个请求重新创建实例。需要自动刷新或其他动态逻辑时，使用 `DelegatingHandler`，不要在仍有请求发送期间修改共享的 `DefaultRequestHeaders`。
 
-## 基本用法
+### 使用 DelegatingHandler
 
-### 推荐：使用 HttpClientFactory（最佳实践）
+`DelegatingHandler` 可以在请求发送前添加认证头、区域性或其他公共请求信息。处理器只修改当前 `HttpRequestMessage`，不修改共享客户端状态：
 
 ```csharp
-// 在 DI 容器中注册
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
-
-// 在服务中使用
-public class UserService
+public sealed class AccessTokenHandler(string accessToken) : DelegatingHandler
 {
-    private readonly IHttpClient _httpClient;
-
-    public UserService(IHttpClient httpClient)
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
     {
-        _httpClient = httpClient;
-    }
-
-    public async Task<User?> GetUserAsync(int id)
-    {
-        var result = await _httpClient.CallApi<User>($"api/users/{id}");
-        return result.IsSuccess ? result.Data : null;
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+        return base.SendAsync(request, cancellationToken);
     }
 }
 ```
 
-### 使用现有 HttpClient 实例
+使用 Refresh Token 自动刷新时，客户端通常需要保存服务端返回的完整 `Token`，在并发请求中使用 `SemaphoreSlim` 防止重复刷新，并为刷新端点创建不带认证处理器的独立客户端。完整实现和 WinForms 生命周期示例参见 [Linger.HttpClient.WinForms 示例](../../examples/Linger.HttpClient.WinForms/README.zh-CN.md)；服务端端点参见 [Linger.AspNetCore.Jwt README](../Linger.AspNetCore.Jwt/README.zh-CN.md)。
 
-如果已有 `HttpClient` 实例（例如来自 HttpClientFactory），可以包装它：
+### 动态或多用户认证
 
-```csharp
-// StandardHttpClient 不会释放外部的 HttpClient
-var httpClient = httpClientFactory.CreateClient("MyClient");
-using var standardClient = new StandardHttpClient(httpClient, logger);
-
-var result = await standardClient.CallApi<User>("api/users/123");
-```
-
-### 直接实例化（不推荐用于生产环境）
-
-仅在测试或简单场景中使用此方式：
+共享客户端可能代表不同用户发送请求时，应把动态认证信息按请求传入，避免修改共享 `DefaultRequestHeaders.Authorization`：
 
 ```csharp
-// ⚠️ 创建新的 HttpClient 实例
-// StandardHttpClient 会在释放时一并释放它
-using var client = new StandardHttpClient("https://api.example.com", logger);
-var result = await client.CallApi<User>("api/users/123");
-// HttpClient 在此处自动释放
-```
-
-**为什么推荐 HttpClientFactory：**
-- ✅ 正确的连接池管理
-- ✅ 自动处理 DNS 刷新
-- ✅ 防止套接字耗尽
-- ✅ 内置生命周期管理
-
-## Linger.Results 集成
-
-与 Linger.Results 无缝集成，客户端可自动识别两类标准化错误输出：
-
-1) 字段/验证错误（ProblemDetailsWithErrors）
-
-服务端常见响应（HTTP 400/422）：
-
-```json
+var headers = new Dictionary<string, string>
 {
-    "title": "One or more validation errors occurred.",
-    "status": 422,
-    "errors": {
-        "Name": "不能为空",
-        "Age": "必须 >= 18"
-    }
-}
+    ["Authorization"] = $"Bearer {accessToken}",
+    ["X-Correlation-Id"] = correlationId
+};
+
+var result = await client.GetAsync<User>(
+    "users/me",
+    headers: headers,
+    cancellationToken: cancellationToken);
 ```
 
-客户端解析示例：
+固定的服务端凭据也可以在 `AddHttpClient` 注册时配置。选择原则：专属实例的固定令牌使用默认认证头，不同请求可能使用不同令牌时使用 `headers` 参数。
+
+客户端不会自动添加 `culture`。需要该约定时，应由调用方显式添加查询参数，或通过自定义 `DelegatingHandler` 统一处理。
+
+## 文件上传
 
 ```csharp
-var result = await _httpClient.CallApi<User>("api/users", HttpMethodEnum.Post, invalidUser);
+var fileStream = File.OpenRead("report.pdf");
+var result = await client.UploadFileAsync<UploadResponse>(
+    "files",
+    HttpMethod.Post,
+    fileStream,
+    "report.pdf",
+    formData: new Dictionary<string, string>
+    {
+        ["category"] = "report"
+    },
+    cancellationToken: cancellationToken);
+```
+
+上传使用 `StreamContent`，不会把完整文件复制到内存。请求完成后会释放传入的流。
+
+## 文件下载
+
+```csharp
+var progress = new Progress<(long downloaded, long? total)>(value =>
+{
+    Console.WriteLine($"{value.downloaded}/{value.total}");
+});
+
+var result = await client.DownloadToFileAsync(
+    "files/report.pdf",
+    "report.pdf",
+    progress: progress,
+    cancellationToken: cancellationToken);
+```
+
+下载流程：
+
+1. 使用 `ResponseHeadersRead` 获取响应流。
+2. 写入目标目录中的临时文件。
+3. 下载与刷新成功后原子替换目标文件。
+4. 取消或失败时删除临时文件并保留原目标文件。
+
+## 原始响应和长连接
+
+需要读取响应头、处理 SSE 或边接收边处理内容时，使用 `SendAsync`。它会复用 `StandardHttpClient` 的基础地址、默认请求头以及认证刷新等 `DelegatingHandler`：
+
+```csharp
+using var response = await client.SendAsync(
+    "events",
+    HttpMethod.Get,
+    cancellationToken: cancellationToken);
+
+response.EnsureSuccessStatusCode();
+using var stream = await response.Content.ReadAsStreamAsync();
+await ProcessStreamAsync(stream, cancellationToken);
+```
+
+返回的 `HttpResponseMessage` 由调用方释放。原始调用不会解析非成功响应，也不会把网络或超时异常转换为 `ApiResult`。
+
+## 错误处理
+
+```csharp
+var result = await client.GetAsync<User>("users/42", cancellationToken: cancellationToken);
+
 if (!result.IsSuccess)
 {
-    // 全局消息优先使用 ProblemDetails.detail；若无则使用首条字段错误消息（例如 "Name: 不能为空"）。
-    // Errors 列表仍保留每个字段的所有提示以便表单内联展示。
+    Console.WriteLine($"HTTP: {result.StatusCode}");
     Console.WriteLine(result.ErrorMsg);
 
-    // Errors 列表用于表单内联提示（Code=字段名, Message=错误提示）
-    foreach (var e in result.Errors)
-    {
-        Console.WriteLine($"字段: {e.Code}, 错误: {e.Message}");
-    }
-}
-```
-
-2) 业务/全局错误（IEnumerable<Error>）
-
-服务端常见响应（HTTP 400/409/...）：
-
-```json
-[
-    { "code": "BusinessRule", "message": "库存不足" },
-    { "code": "PaymentFailed", "message": "支付网关超时" }
-]
-```
-
-客户端解析示例：
-
-```csharp
-var apiResult = await _httpClient.CallApi<object>("api/orders/submit", HttpMethodEnum.Post, orderPayload);
-if (!apiResult.IsSuccess)
-{
-    // 全局消息优先使用首条业务错误消息；Errors 列表包含所有业务错误项供逐一处理。
-    Console.WriteLine(apiResult.ErrorMsg);
-
-    // Errors 列表保留每项（Code/Message）
-    foreach (var error in apiResult.Errors)
-    {
-        Console.WriteLine($"错误: {error.Code} - {error.Message}");
-    }
-}
-```
-
-```csharp
-// 服务端使用 Linger.Results
-[HttpGet("{id}")]
-public async Task<IActionResult> GetUser(int id)
-{
-    var result = await _userService.GetUserAsync(id);
-    return result.ToActionResult(); // 自动 HTTP 状态映射
-}
-
-// 客户端自动接收结构化错误
-var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
-if (!apiResult.IsSuccess)
-{
-    foreach (var error in apiResult.Errors)
-        Console.WriteLine($"错误: {error.Code} - {error.Message}");
-}
-```
-
-> 说明：与 ProblemDetails 的关系
-See the detailed request/response mapping and error contract in
-[REQUEST_RESPONSE_MAPPING.zh-CN.md](REQUEST_RESPONSE_MAPPING.zh-CN.md).
-
-简要说明：客户端优先使用 `ProblemDetails.detail` 作为全局错误消息；若无则使用 `errors` 数组中的首条消息。`Errors` 列表保留所有错误项以便逐项处理。
     foreach (var error in result.Errors)
     {
-        Console.WriteLine($"字段: {error.Code}, 错误: {error.Message}");
+        Console.WriteLine($"{error.Code}: {error.Message}");
     }
 }
 ```
 
-## 自定义错误处理
+解析顺序：
 
-`StandardHttpClient` 是可继承的。对于既不返回 Linger.Results，也不返回 RFC 7807 ProblemDetails 的服务端响应，可以通过继承 `StandardHttpClient` 并重写错误解析逻辑来适配自定义错误格式。
+1. ProblemDetails（`application/problem+json` 或包含标准字段）
+2. 旧版 `IEnumerable<Error>` 数组
+3. 状态码消息和原始响应文本
 
-最常见的扩展点是重写 `HttpClientBase` 中的 `GetErrorMessageAsync`，让客户端把自定义错误体转换为 `ErrorMsg` 和 `Errors`。
+任意普通 JSON 对象不会仅因为能反序列化而被误判为 ProblemDetails。异常的完整堆栈只写日志，`ErrorMsg` 不包含 `Exception.ToString()`。
+
+## 取消和超时
+
+用户取消保持标准 .NET 语义：
 
 ```csharp
-public class CustomHttpClient : StandardHttpClient
+try
+{
+    await client.GetAsync<User>("users/42", cancellationToken: cancellationToken);
+}
+catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+{
+    // 调用方取消
+}
+```
+
+超时由注册时设置的 `HttpClient.Timeout` 控制，并返回失败的 `ApiResult`。单次 GET 需要不同超时时间时使用 `GetWithTimeoutAsync`；其他请求可以使用带 `CancelAfter` 的调用方 `CancellationTokenSource`。
+
+## 自定义 JSON 或错误格式
+
+```csharp
+public sealed class CustomHttpClient : StandardHttpClient
 {
     public CustomHttpClient(HttpClient httpClient, ILogger<StandardHttpClient>? logger = null)
         : base(httpClient, logger)
     {
     }
 
-    protected override async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage response)
+    protected override JsonSerializerOptions GetResponseJsonOptions()
     {
-        var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-        // 在这里解析你的自定义错误格式
-        // 例如：{"code":"BusinessRule","message":"库存不足"}
-
-        return await base.GetErrorMessageAsync(response).ConfigureAwait(false);
+        return customOptions;
     }
 }
 ```
 
-## 调用流程与返回映射
-
-详见 [REQUEST_RESPONSE_MAPPING.zh-CN.md](REQUEST_RESPONSE_MAPPING.zh-CN.md)（包含 Controller/Minimal API 示例与状态码映射）。
-
-## 与服务端约定
-
-建议遵循以下约定，获得更稳定的错误映射体验：
-
-1. 响应内容类型
-- 验证错误使用 `application/problem+json`（RFC 7807）。
-- 业务错误可使用错误数组（`IEnumerable<Error>` 结构）。
-
-2. 错误数据结构
-- ProblemDetails 场景：建议包含 `title`、`status`、`errors`。
-- 错误数组场景：每项建议包含 `code` 和 `message`。
-
-3. 状态码习惯
-- 参数或验证失败：400 / 422
-- 未授权或鉴权失败：401 / 403
-- 资源不存在：404
-- 业务冲突：409
-
-## 核心方法
-
-### CallApi<T>
-```csharp
-public async Task<ApiResult<T>> CallApi<T>(
-    string url,
-    HttpMethodEnum method,
-    object? requestBody = null,
-    object? queryParams = null,
-    int? timeout = null,
-    CancellationToken cancellationToken = default)
-```
-
-支持的 HTTP 方法：
-- GET: 获取数据
-- POST: 创建资源
-- PUT: 更新资源
-- DELETE: 删除资源
-
-### 流式下载
-
-大文件下载建议使用流式方法，可显著降低内存占用：
-
-#### DownloadStreamAsync
-```csharp
-// 下载大文件为流（内存占用最小）
-var result = await _httpClient.DownloadStreamAsync("https://example.com/large-file.zip");
-if (result.IsSuccess && result.Data is not null)
-{
-    using var stream = result.Data;
-    // 直接处理流，无需将整个文件加载到内存
-    // 注意：必须手动释放 Stream 或使用 using 语句
-}
-```
-
-#### DownloadToFileAsync（推荐）
-```csharp
-// 直接下载到文件，支持进度报告
-var progress = new Progress<(long downloaded, long? total)>(p =>
-{
-    var percent = p.total.HasValue ? (double)p.downloaded / p.total.Value * 100 : 0;
-    Console.WriteLine($"已下载: {p.downloaded} 字节 ({percent:F1}%)");
-});
-
-var result = await _httpClient.DownloadToFileAsync(
-    url: "https://example.com/large-file.zip",
-    destinationPath: "output.zip",
-    progress: progress
-);
-
-if (result.IsSuccess)
-{
-    Console.WriteLine("下载完成！");
-}
-```
-
-**流式下载的优势：**
-- ✅ 内存占用极小（~8KB 缓冲区 vs 完整文件大小）
-- ✅ 支持任意大小的文件
-- ✅ 内置进度报告功能
-- ✅ 支持取消令牌
-
-`DownloadToFileAsync` 不会直接写入最终路径。它先写入同目录临时文件，仅在下载和刷新成功后提交；取消或传输失败会删除临时文件，并保持已有目标文件不变。取消通过抛出 `OperationCanceledException` 报告。
-
-需要访问原始 HTTP 响应时，请请求 `HttpResponseMessage` 并释放返回的实例：
-
-```csharp
-var result = await _httpClient.CallApi<HttpResponseMessage>(url);
-if (result.IsSuccess)
-{
-    using var response = result.Data;
-    // 直接检查响应头或响应内容。
-}
-```
-
-#### HttpResponseMode（Buffered / Streamed）
-
-可按场景选择响应读取模式：
-
-- `Buffered`: 适合小响应或需要一次性读取完整内容的场景
-- `Streamed`: 适合大响应或下载场景，以更低内存占用逐步处理数据
-
-| 场景 | 推荐模式 | 原因 |
-|------|----------|------|
-| 常规 JSON 接口（小到中等响应） | `Buffered` | 使用简单，便于直接反序列化 |
-| 文件下载/导出 | `Streamed` | 避免整包进内存，降低峰值内存占用 |
-| 可能超大响应（日志、报表、二进制） | `Streamed` | 更稳定，降低 OOM 风险 |
-| 需要完整内容后统一处理 | `Buffered` | 业务处理逻辑更直接 |
-
-**性能对比（下载 500MB 文件）：**
-
-| 方法 | 内存占用 | 说明 |
-|------|---------|------|
-| `CallApi<byte[]>` | ~500MB | 将整个文件加载到内存 |
-| `DownloadStreamAsync` | ~8KB | 仅缓冲区内存占用 |
-| `DownloadToFileAsync` | ~8KB | 可自定义缓冲区大小 |
-
-## 错误处理
-
-```csharp
-var result = await _httpClient.CallApi<User>("api/users/123");
-
-if (result.IsSuccess)
-{
-    var user = result.Data;
-}
-else
-{
-    // 检查 HTTP 状态码
-    switch (result.StatusCode)
-    {
-        case HttpStatusCode.NotFound:
-            Console.WriteLine("用户未找到");
-            break;
-        case HttpStatusCode.Unauthorized:
-            Console.WriteLine("需要身份验证");
-            break;
-    }
-
-    // 访问详细错误
-    foreach (var error in result.Errors)
-    {
-        Console.WriteLine($"错误: {error.Code} - {error.Message}");
-    }
-}
-```
-
-## 常见坑
-
-- 不要用 `CallApi<byte[]>` 下载大文件：会将整个响应载入内存。
-- 使用 `DownloadStreamAsync` 后要及时释放流：推荐配合 `using`。
-- 下载任务建议传入取消令牌，便于超时或用户取消时快速中断。
-- 当取消属于正常业务流程时，应捕获 `OperationCanceledException`；`DownloadToFileAsync` 不会把取消转换为失败的 `ApiResult`。
-- 包装外部 `HttpClient`（如工厂创建实例）时，不要重复管理其生命周期。
-- 统一按结构化错误处理，优先读取 `Errors` 列表，而不只是打印状态码。
-
-## 最佳实践
-
-- 使用 HttpClientFactory 进行依赖注入
-- 使用 `using` 语句确保资源正确释放
-- 启用详细日志以便调试
-- 合理设置超时时间
-- 处理网络异常和超时情况
-- **大文件下载使用流式方法**（`DownloadStreamAsync` 或 `DownloadToFileAsync`）以节省内存
-
-## 更多示例
-
-更多流式下载示例与性能对比见 [STREAMING_DOWNLOAD_EXAMPLE.md](STREAMING_DOWNLOAD_EXAMPLE.md)
+也可以重写 `GetErrorMessageAsync` 适配非 ProblemDetails 的服务端错误格式。

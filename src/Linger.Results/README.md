@@ -120,81 +120,35 @@ var finalResult = GetUser(123)
 
 ### Async Support
 
-All async extension methods require a `CancellationToken` parameter for proper cancellation support:
+`MapAsync` and `BindAsync` support both `Result<T>` and `Task<Result<T>>`, allowing asynchronous results to be composed directly. The `CancellationToken` is passed to each mapping or binding delegate:
 
 ```csharp
-// Async operations with CancellationToken
-var result = await GetUserAsync(123)
-    .MapAsync(async (user, token) => await GetUserPreferencesAsync(user, token), cancellationToken)
-    .BindAsync(async (prefs, token) => await UpdatePreferencesAsync(prefs, token), cancellationToken);
-```
-
-### Async Support with CancellationToken
-
-```csharp
-// All async extension methods support CancellationToken for cancellable operations
 public async Task<Result<OrderSummary>> ProcessOrderAsync(int orderId, CancellationToken cancellationToken)
 {
-    return await GetOrderAsync(orderId)
-        // MapAsync with CancellationToken
-        .MapAsync(async (order, token) => 
-        {
-            // Perform async transformation with cancellation support
-            return await CalculateTotalAsync(order, token);
-        }, cancellationToken)
-        
-        // BindAsync with CancellationToken
-        .BindAsync(async (total, token) => 
-        {
-            // Chain another Result-returning async operation
-            return await ValidatePaymentAsync(total, token);
-        }, cancellationToken)
-        
-        // EnsureAsync with CancellationToken
-        .EnsureAsync(
-            async (payment, token) => await CheckInventoryAsync(payment, token),
-            new Error("Inventory", "Insufficient inventory"),
+    return await GetOrderAsync(orderId, cancellationToken)
+        .MapAsync(
+            (order, token) => CalculateTotalAsync(order, token),
             cancellationToken)
-        
-        // MatchAsync with CancellationToken
-        .MatchAsync(
-            async (payment, token) => 
-            {
-                await SendConfirmationEmailAsync(payment, token);
-                return Result<OrderSummary>.Success(new OrderSummary(payment));
-            },
-            async (errors, token) => 
-            {
-                await LogErrorsAsync(errors, token);
-                return Result<OrderSummary>.Failure(errors);
-            },
+        .BindAsync(
+            (total, token) => ValidatePaymentAsync(total, token),
             cancellationToken);
 }
+```
 
-// Example: Using with HttpClient or database operations
-public async Task<Result<User>> UpdateUserWithCancellationAsync(
-    User user, 
-    CancellationToken cancellationToken)
-{
-    return await ValidateUser(user)
-        .MapAsync(async (validUser, token) => 
-        {
-            // Database operation with cancellation
-            await _dbContext.Users.AddAsync(validUser, token);
-            await _dbContext.SaveChangesAsync(token);
-            return validUser;
-        }, cancellationToken)
-        .EnsureAsync(
-            async (savedUser, token) => 
-            {
-                // Verify the save operation
-                var exists = await _dbContext.Users
-                    .AnyAsync(u => u.Id == savedUser.Id, token);
-                return exists;
-            },
-            new Error("Database", "User save verification failed"),
-            cancellationToken);
-}
+The upstream asynchronous method should still receive the same `CancellationToken`; the Task extensions only await the result and continue the composition.
+
+Use `MatchAsync` to handle success or failure asynchronously and `EnsureAsync` to validate a successful value asynchronously:
+
+```csharp
+await result.MatchAsync(
+    (order, token) => PublishOrderAsync(order, token),
+    (errors, token) => LogErrorsAsync(errors, token),
+    cancellationToken);
+
+Result<User> activeUser = await userResult.EnsureAsync(
+    (user, token) => IsActiveAsync(user, token),
+    new Error("User.Inactive", "User is not active"),
+    cancellationToken);
 ```
 
 ### Using Result.Create for Condition Checking
@@ -323,7 +277,6 @@ private Result ProcessUserData(Result<User> userResult)
     return userResult; 
 }
 ```
-```
 
 ### API Design Principles
 
@@ -338,9 +291,11 @@ After optimization, Linger.Results follows these design principles:
 
 ⚠️ **Important Notes**:
 - `Result<T>` → `Result` conversion will **lose value information**, as non-generic Result doesn't store specific values
+- Conversions between `Result` and `Result<T>` preserve the original `Status` and errors; for example, `NotFound` does not become `Error`
 - In `T` → `Result<T>` conversion, if value is `null`, it automatically creates a failure result
 - Accessing `.Value` property on a failed `Result<T>` will throw `InvalidOperationException`
 - Recommended to use `.ValueOrDefault` or `.TryGetValue()` for safe value access
+- Results snapshot their error collection when created, so later changes to the source collection do not change the result
 
 ```csharp
 // Correct usage examples
@@ -359,15 +314,20 @@ var safeUser = userResult.ValueOrDefault;
 var user = userResult.Value; // May throw InvalidOperationException
 ```
 
-### Error Handling
+### Exception Boundaries
 
 ```csharp
-// Use Try method to catch exceptions and convert to results
-var result = ResultExtensions.Try(
-    () => SomeOperationThatMightThrow(),
-    ex => ex.ToError()
-);
+try
+{
+    return Result.Success(int.Parse(value));
+}
+catch (FormatException ex)
+{
+    return Result<int>.Failure(new Error("Value.Invalid", ex.Message));
+}
 ```
+
+Catch only specific exceptions that can be converted into domain errors. Unexpected and cancellation exceptions should continue propagating.
 
 ## Advanced Usage
 
@@ -490,7 +450,7 @@ public Result<User> GetUser(int id, string token)
 
 6. **Leverage method chaining**:
    - Use functional composition instead of traditional conditional statements
-   - Map, Bind, Tap methods can greatly improve code readability
+   - Map, Bind, and Ensure can improve code readability
 
 7. **For Web APIs**:
    - Combine with [Linger.Results.AspNetCore](../Linger.Results.AspNetCore/README.md) package to convert to HTTP responses

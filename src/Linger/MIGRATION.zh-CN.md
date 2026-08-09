@@ -73,6 +73,27 @@
 | `Linger.Excel.Contracts` | 自定义 `IExcelService` 实现 | 实现接收 `ExcelExportColumn<T>` 的集合导出重载 | `Linger.Excel.Contracts` | 显式列导出现在是正式服务契约，并直接写入工作表，不再构造中间 `DataTable`。 |
 | `Linger.Results` | `ExecuteResult`、`ExecuteResult<T>` 和 `ResultCompat` | `Result` / `Result<T>` | `Linger.Results` | 使用新结果类型，移除旧类型及转换帮助方法。 |
 | `Linger.Results` | `ErrorObj` 和 `ToErrorObj` | `Error` 以及由调用方维护的错误集合 | `Linger.Results` / 应用代码 | 旧的聚合对象没有一对一替代。 |
+| `Linger.Results` | `ResultExtensions.Try` / `TryAsync` | 在调用边界捕获可转换为领域错误的明确异常 | 应用代码 | 通用结果库不再捕获所有异常；未预期异常和取消异常应自然传播。 |
+| `Linger.Results.AspNetCore` | `ToProblemDetails()` / `ToProblemDetails<T>()` | `ToActionResult()` / `ToActionResult<T>()` | `Linger.Results.AspNetCore` | `ToActionResult` 的失败响应已统一为 `ProblemDetails`；可继续通过 `failureStatusCode` 指定失败状态码。 |
+| `Linger.Results` | 在子类中设置 `Result.Status` / `Result.Errors` | 使用 `Success`、`Failure` 或 `NotFound` 工厂方法创建结果 | `Linger.Results` | 结果状态和错误集合现为只读快照。依赖 `protected set` 的自定义子类需要改用工厂方法或组合方式。 |
+| `Linger.HttpClient.Contracts` | `HttpClientBase` | 实现包含 `SendAsync` 的 `IHttpClient`；需要自定义标准实现时继承 `StandardHttpClient` | `Linger.HttpClient.Contracts` / `Linger.HttpClient.Standard` | 契约包不再包含序列化、错误解析和文件传输实现。`Contracts` 与 `Standard` 仍是独立包。 |
+| `Linger.HttpClient.Contracts` | `HttpMethodEnum` | `System.Net.Http.HttpMethod` | .NET BCL | 支持 `PATCH`、`HEAD`、`OPTIONS` 和自定义 HTTP 方法，不再维护受限枚举。 |
+| `Linger.HttpClient.Contracts` | `HttpResponseMode` / `CallApiWithMode<T>` | 类型化响应使用 `CallApi<T>`；文件下载使用 `DownloadToFileAsync` | `Linger.HttpClient.Contracts` | 响应缓冲和资源所有权由具体操作确定，不再通过独立模式参数控制。 |
+| `Linger.HttpClient.Contracts` | `CallApi<T>(url, queryParams, timeout, ...)` GET 重载 | `GetAsync<T>(url, queryParams, headers, cancellationToken)` | `Linger.HttpClient.Contracts` | GET 便利调用移动到扩展方法；`CallApi<T>` 现在必须接收 `HttpMethod`。 |
+| `Linger.HttpClient.Contracts` | 各调用方法中的 `int? timeout` 参数 | 单次 GET 使用 `GetWithTimeoutAsync<T>`；其他请求使用带 `CancelAfter` 的调用方 `CancellationTokenSource` | `Linger.HttpClient.Contracts` / .NET BCL | 超时时间改用 `TimeSpan` 表达。单次 GET 超时返回失败结果，用户取消继续通过 `OperationCanceledException` 传播。 |
+| `Linger.HttpClient.Contracts` | `SetToken`、`AddHeader` 和可变 `Options` | 通过 `headers` 参数传入动态请求头；固定设置使用 `AddHttpClient` 配置 | `Linger.HttpClient.Contracts` / .NET DI | 动态认证信息按请求隔离，避免共享客户端并发请求相互覆盖。 |
+| `Linger.HttpClient.Contracts` | `CallApi<T>` 的表单和 `HttpContent` 专用重载 | 使用统一的 `CallApi<T>(..., HttpMethod, requestBody, ...)` | `Linger.HttpClient.Contracts` | `IDictionary<string, string>` 仍按表单发送，`HttpContent` 仍直接发送；请求结束时客户端负责释放内容。 |
+| `Linger.HttpClient.Standard` | 非泛型 `CallApi(...)` | 使用非泛型 `PostAsync`、`PutAsync` 或 `DeleteAsync` 扩展 | `Linger.HttpClient.Contracts` | 无返回值调用不再由具体实现额外公开一套重载。 |
+| `Linger.HttpClient.Contracts` | 接收 `byte[] fileData` 的文件上传重载 | `UploadFileAsync<T>(..., Stream fileStream, ...)` | `Linger.HttpClient.Contracts` | 上传使用 `StreamContent`，请求完成后会释放传入的流。 |
+| `Linger.HttpClient.Contracts` | `DownloadStreamAsync`、`CallApi<Stream>` 和 `CallApi<HttpResponseMessage>` | 文件直接使用 `DownloadToFileAsync`；原始响应、SSE 和长连接使用 `SendAsync` | `Linger.HttpClient.Contracts` | 类型化调用不再根据泛型类型改变资源所有权。`SendAsync` 明确要求调用方释放返回的 `HttpResponseMessage`。 |
+| `Linger.HttpClient.Contracts` | `CompressionHelper` / `MultipartHelper` | 通过 `HttpClientHandler.AutomaticDecompression` 配置压缩；上传使用 `UploadFileAsync` 或 BCL `MultipartFormDataContent` | .NET BCL / `Linger.HttpClient.Contracts` | 删除契约包中的具体实现 Helper。 |
+| `Linger.HttpClient.Contracts` | `ProblemDetailsWithErrors.Status` 的不可空 `int` | 可空 `int?` 属性 | `Linger.HttpClient.Contracts` | RFC 7807 的 `status` 字段可以省略；读取方应处理 `null`。 |
+| `Linger.HttpClient.Standard` | 接收 `HttpClientOptions` 的构造函数和 `Create(...)` | 简单场景使用 `StandardHttpClient(string, ILogger<StandardHttpClient>?)`；高级配置注入 `StandardHttpClient(HttpClient, ILogger<StandardHttpClient>?)` | `Linger.HttpClient.Standard` | URL 模式由客户端管理底层资源；Handler、证书、代理等高级设置仍由调用方配置。 |
+| `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.CreateTokenAsync(string)` | `CreateTokenAsync(string, CancellationToken)` | `Linger.AspNetCore.Jwt.Contracts` | 签发操作现在支持端到端取消。可选参数保留了源代码调用形式。 |
+| `Linger.AspNetCore.Jwt.Contracts` | `IRefreshableJwtService.RefreshTokenAsync(Token)` 及对应扩展 | 接收 `CancellationToken` 的重载 | `Linger.AspNetCore.Jwt.Contracts` | 刷新操作传播调用方取消；`RefreshTokenResultAsync` 不再吞掉取消和未知异常。 |
+| `Linger.AspNetCore.Jwt` | `JwtService.GetClaimsAsync(string)` | `GetClaimsAsync(string, CancellationToken)` | `Linger.AspNetCore.Jwt` | 自定义 Claims 查询现在可响应调用方取消；派生类需要更新重写签名并向下游异步调用传递令牌。 |
+| `Linger.AspNetCore.Jwt` | `JwtServiceWithRefresh.GetExistRefreshTokenAsync` / `HandleRefreshToken` | `StoreRefreshTokenAsync` / `TryRotateRefreshTokenAsync` | `Linger.AspNetCore.Jwt` | 刷新轮换改为存储层原子比较并替换，防止并发请求重复使用同一个旧令牌。现有派生类必须迁移到新钩子。 |
+| `Linger.AspNetCore.Jwt` | `JwtOption.EnableRefreshToken` 配置示例 | 删除该配置；通过注册 `IRefreshableJwtService` 启用刷新 | `Linger.AspNetCore.Jwt` | 该属性从未存在于实际选项类型，刷新能力由服务实现决定。 |
 | `Linger.FileSystem` | `ILocalFileSystem.Exists()` / `ExistsAsync()` | `DirectoryExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | 使用标准目录存在性 API。`LocalFileSystem` 还会在构造时创建配置的根目录。 |
 | `Linger.FileSystem` | `ILocalFileSystem.CreateIfNotExists()` / `CreateIfNotExistsAsync()` | `CreateDirectoryIfNotExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | 使用标准目录创建 API。 |
 | `Linger.FileSystem` | `IFileSystemOperations.IsDirectoryAsync(path)` | `DirectoryExistsAsync(path)` | `Linger.FileSystem` | 被删除的方法是完全别名。 |
@@ -112,6 +133,14 @@
 
 ## 行为变化
 
+- **`Linger.AspNetCore.Jwt`**：`JwtOptions.Issuer` 和 `JwtOptions.Audience` 不再默认为 `http://localhost`，现在必须显式配置；签发、Bearer 认证和过期令牌刷新会使用同一套颁发者与受众验证规则。
+- **`Linger.AspNetCore.Jwt`**：`JwtOptions.SecurityKey` 或 `SECRET` 环境变量提供的实际签名密钥必须至少包含 32 个 UTF-8 字节。无效配置会在 JWT 服务创建或 Bearer 认证注册时抛出异常。
+- **`Linger.AspNetCore.Jwt`**：认证质询和禁止访问不再写入自定义中文 JSON，现使用 ASP.NET Core JwtBearer 的标准 `401 Unauthorized` 和 `403 Forbidden` 响应。依赖旧响应正文的客户端需要改为依据 HTTP 状态码处理。
+- **`Linger.HttpClient`**：不再自动向每个 URL 添加 `culture` 查询参数。需要该约定时，请显式加入查询对象或使用 `DelegatingHandler`。
+- **`Linger.HttpClient`**：用户主动取消现在抛出 `OperationCanceledException`，不再转换为失败的 `ApiResult`；`HttpClient.Timeout` 触发的超时仍返回失败结果。
+- **`Linger.HttpClient`**：每个请求创建并释放自己的 `HttpRequestMessage` 和 `HttpResponseMessage`。传入的 `HttpContent` 及 `UploadFileAsync` 的文件流会在请求完成后释放。
+- **`Linger.HttpClient`**：`ApiResult.IsSuccess` 现在要求状态码为 2xx，且不存在传输、反序列化或结构化错误。
+- **`Linger.HttpClient`**：ProblemDetails 只有在媒体类型或标准字段能够确认时才会解析；旧版 `IEnumerable<Error>` 数组仍作为兼容回退。
 - **`Linger.Utils` -> `Linger.Utils` / `Linger.Reflection`**：已删除的
   `DataTable.ToListAsync` 不执行异步 I/O。使用同步的 `ToList` 可以避免产生误导性的异步 API。
 - **`Linger.Utils` -> `Linger.Reflection`**：字符串排序表达式只接受 `asc` 或 `desc`，忽略大小写。无效方向现在会抛出
@@ -148,6 +177,78 @@ List<Person> people = table.ToList(row => new Person
     Name = row.Field<string>("Name")
 });
 ```
+
+### HttpClient
+
+注册方式改为配置并注入底层 `HttpClient`：
+
+```csharp
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
+{
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+```
+
+无需自定义底层客户端时，可以直接传入基础地址；此模式应释放 `StandardHttpClient`：
+
+```csharp
+using var client = new StandardHttpClient("https://api.example.com/");
+```
+
+WinForms 等单用户客户端直接创建专属实例时，可以在创建底层 `HttpClient` 时设置认证头：
+
+```csharp
+var httpClient = new HttpClient
+{
+    BaseAddress = new Uri("https://api.example.com/")
+};
+httpClient.DefaultRequestHeaders.Authorization =
+    new AuthenticationHeaderValue("Bearer", accessToken);
+
+var client = new StandardHttpClient(httpClient);
+```
+
+外部 `HttpClient` 模式应在应用生命周期内复用 `httpClient` 和 `client`，并在应用关闭时由调用方释放 `httpClient`。令牌刷新可能与请求并发时，使用 `DelegatingHandler` 在发送请求时读取当前令牌；一个客户端代表多个用户或令牌按请求变化时，继续使用每请求 `headers`。
+
+HTTP 方法使用 BCL 类型，动态认证头按请求传入：
+
+```csharp
+var result = await httpClient.CallApi<User>(
+    "users",
+    HttpMethod.Post,
+    requestBody: new CreateUserRequest("Ada"),
+    headers: new Dictionary<string, string>
+    {
+        ["Authorization"] = $"Bearer {accessToken}"
+    },
+    cancellationToken: cancellationToken);
+```
+
+单次调用需要更短超时时间时，由调用方组合取消令牌：
+
+```csharp
+using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+timeoutSource.CancelAfter(TimeSpan.FromSeconds(5));
+
+var result = await httpClient.GetAsync<User>(
+    "users/42",
+    cancellationToken: timeoutSource.Token);
+```
+
+文件上传改为流式 API：
+
+```csharp
+var fileStream = File.OpenRead("report.pdf");
+var result = await httpClient.UploadFileAsync<UploadResponse>(
+    "files",
+    HttpMethod.Post,
+    fileStream,
+    "report.pdf",
+    cancellationToken: cancellationToken);
+```
+
+`UploadFileAsync` 完成后会释放 `fileStream`。需要读取原始 `HttpResponseMessage`、SSE 或其他长连接协议时，请使用 `SendAsync`，并通过 `using` 释放返回的响应。
 
 ### 认证加密
 

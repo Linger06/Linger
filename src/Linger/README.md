@@ -51,7 +51,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 - **Array Extensions**: Array processing and manipulation utilities
 - **GUID Extensions**: GUID operation and validation utilities
 
-### Collection Extensions
+### Collection Features Overview
 - **List Extensions**: Enhanced list operations and processing
 - **Collection Extensions**: General collection utilities and transformations
 
@@ -73,7 +73,7 @@ Linger.Utils offers a rich collection of extension methods and helper classes th
 ### Optional Reflection Package
 - **`Linger.Reflection`**: Expression composition, dynamic `IQueryable` ordering, runtime property access, enum metadata, and reflection-based DataTable conversion
 
-### Optional JSON Package
+### Optional JSON Package Overview
 - **`Linger.Json`**: `System.Text.Json` converters, `DataTable` JSON conversion, and `JsonDefaults` option factories. See the [Linger.Json documentation](../Linger.Json/README.md).
 
 ## Installation

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="FormTitle" xml:space="preserve"><value>Linger HTTP 客户端</value></data>
+  <data name="LanguageLabel" xml:space="preserve"><value>语言</value></data>
+  <data name="AccessTokenLabel" xml:space="preserve"><value>访问令牌</value></data>
+  <data name="RefreshTokenLabel" xml:space="preserve"><value>刷新令牌</value></data>
+  <data name="RefreshEndpointLabel" xml:space="preserve"><value>刷新端点</value></data>
+  <data name="RequestUrlLabel" xml:space="preserve"><value>请求地址</value></data>
+  <data name="ShowTokens" xml:space="preserve"><value>显示令牌</value></data>
+  <data name="ApplyTokensButton" xml:space="preserve"><value>应用令牌</value></data>
+  <data name="SendGetButton" xml:space="preserve"><value>发送 GET</value></data>
+  <data name="ClearButton" xml:space="preserve"><value>清空</value></data>
+  <data name="ResponseLabel" xml:space="preserve"><value>响应内容</value></data>
+  <data name="ReadyStatus" xml:space="preserve"><value>就绪</value></data>
+  <data name="TokenSavedStatus" xml:space="preserve"><value>令牌会话已更新。</value></data>
+  <data name="RequestingStatus" xml:space="preserve"><value>正在发送请求...</value></data>
+  <data name="RequestSucceededStatus" xml:space="preserve"><value>请求已完成。</value></data>
+  <data name="ValidationErrorTitle" xml:space="preserve"><value>输入无效</value></data>
+  <data name="AccessTokenRequired" xml:space="preserve"><value>请输入访问令牌。</value></data>
+  <data name="RefreshTokenRequired" xml:space="preserve"><value>请输入刷新令牌。</value></data>
+  <data name="InvalidRefreshUrl" xml:space="preserve"><value>请输入完整的 HTTP 或 HTTPS 刷新端点。</value></data>
+  <data name="InvalidRequestUrl" xml:space="preserve"><value>请输入完整的 HTTP 或 HTTPS 请求地址。</value></data>
+  <data name="TokenSessionRequired" xml:space="preserve"><value>发送请求前请先应用令牌会话。</value></data>
+  <data name="RefreshFailed" xml:space="preserve"><value>刷新令牌无效或已过期，请重新登录。</value></data>
+  <data name="RequestFailed" xml:space="preserve"><value>请求失败。</value></data>
+  <data name="NoStatusCode" xml:space="preserve"><value>无</value></data>
+  <data name="RequestCanceledStatus" xml:space="preserve"><value>请求已取消。</value></data>
+  <data name="FormatRequestFailed" xml:space="preserve"><value>HTTP {0}：{1}</value></data>
+</root>

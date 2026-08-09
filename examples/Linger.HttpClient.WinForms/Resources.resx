@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="FormTitle" xml:space="preserve"><value>Linger HTTP Client</value></data>
+  <data name="LanguageLabel" xml:space="preserve"><value>Language</value></data>
+  <data name="AccessTokenLabel" xml:space="preserve"><value>Access token</value></data>
+  <data name="RefreshTokenLabel" xml:space="preserve"><value>Refresh token</value></data>
+  <data name="RefreshEndpointLabel" xml:space="preserve"><value>Refresh endpoint</value></data>
+  <data name="RequestUrlLabel" xml:space="preserve"><value>Request URL</value></data>
+  <data name="ShowTokens" xml:space="preserve"><value>Show tokens</value></data>
+  <data name="ApplyTokensButton" xml:space="preserve"><value>Apply tokens</value></data>
+  <data name="SendGetButton" xml:space="preserve"><value>Send GET</value></data>
+  <data name="ClearButton" xml:space="preserve"><value>Clear</value></data>
+  <data name="ResponseLabel" xml:space="preserve"><value>Response</value></data>
+  <data name="ReadyStatus" xml:space="preserve"><value>Ready</value></data>
+  <data name="TokenSavedStatus" xml:space="preserve"><value>Token session updated.</value></data>
+  <data name="RequestingStatus" xml:space="preserve"><value>Sending request...</value></data>
+  <data name="RequestSucceededStatus" xml:space="preserve"><value>Request completed.</value></data>
+  <data name="ValidationErrorTitle" xml:space="preserve"><value>Invalid input</value></data>
+  <data name="AccessTokenRequired" xml:space="preserve"><value>Enter an access token.</value></data>
+  <data name="RefreshTokenRequired" xml:space="preserve"><value>Enter a refresh token.</value></data>
+  <data name="InvalidRefreshUrl" xml:space="preserve"><value>Enter an absolute HTTP or HTTPS refresh endpoint.</value></data>
+  <data name="InvalidRequestUrl" xml:space="preserve"><value>Enter an absolute HTTP or HTTPS request URL.</value></data>
+  <data name="TokenSessionRequired" xml:space="preserve"><value>Apply a token session before sending a request.</value></data>
+  <data name="RefreshFailed" xml:space="preserve"><value>The refresh token is invalid or expired. Sign in again.</value></data>
+  <data name="RequestFailed" xml:space="preserve"><value>The request failed.</value></data>
+  <data name="NoStatusCode" xml:space="preserve"><value>N/A</value></data>
+  <data name="RequestCanceledStatus" xml:space="preserve"><value>Request canceled.</value></data>
+  <data name="FormatRequestFailed" xml:space="preserve"><value>HTTP {0}: {1}</value></data>
+</root>

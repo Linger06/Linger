@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- UI event handlers must resume on the WinForms synchronization context. -->
+    <NoWarn>$(NoWarn);CA2007</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Linger.AspNetCore.Jwt.Contracts\Linger.AspNetCore.Jwt.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Linger.HttpClient.Standard\Linger.HttpClient.Standard.csproj" />
+  </ItemGroup>
+
+</Project>

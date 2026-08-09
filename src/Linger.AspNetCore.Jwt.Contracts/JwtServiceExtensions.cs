@@ -1,5 +1,7 @@
 namespace Linger.AspNetCore.Jwt.Contracts;
 
+using Microsoft.IdentityModel.Tokens;
+
 /// <summary>
 /// Represents the result of a token refresh operation
 /// </summary>
@@ -20,6 +22,8 @@ public static class JwtServiceExtensions
     /// <returns><c>true</c> if the service supports token refresh; otherwise, <c>false</c></returns>
     public static bool SupportsRefreshToken(this IJwtService jwtService)
     {
+        ArgumentNullException.ThrowIfNull(jwtService);
+
         return jwtService is IRefreshableJwtService;
     }
 
@@ -28,6 +32,7 @@ public static class JwtServiceExtensions
     /// </summary>
     /// <param name="jwtService">The JWT service instance</param>
     /// <param name="token">The token to refresh</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>The refreshed token</returns>
     /// <exception cref="NotSupportedException">Thrown when the service does not support token refresh</exception>
     /// <exception cref="SecurityTokenException">Thrown when the refresh token is invalid or expired</exception>
@@ -35,14 +40,20 @@ public static class JwtServiceExtensions
     /// Consider using <see cref="RefreshTokenResultAsync"/> for result-based error handling.
     /// This method is suitable when you have a global exception handling middleware.
     /// </remarks>
-    public static Task<Token> RefreshTokenAsync(this IJwtService jwtService, Token token)
+    public static Task<Token> RefreshTokenAsync(
+        this IJwtService jwtService,
+        Token token,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(jwtService);
+        ArgumentNullException.ThrowIfNull(token);
+
         if (jwtService is not IRefreshableJwtService refreshableService)
         {
             throw new NotSupportedException("This JWT service does not support token refresh functionality");
         }
 
-        return refreshableService.RefreshTokenAsync(token);
+        return refreshableService.RefreshTokenAsync(token, cancellationToken);
     }
 
     /// <summary>
@@ -50,9 +61,16 @@ public static class JwtServiceExtensions
     /// </summary>
     /// <param name="jwtService">The JWT service instance</param>
     /// <param name="token">The token to refresh</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>A <see cref="RefreshResult"/> containing the operation result</returns>
-    public static async Task<RefreshResult> RefreshTokenResultAsync(this IJwtService jwtService, Token token)
+    public static async Task<RefreshResult> RefreshTokenResultAsync(
+        this IJwtService jwtService,
+        Token token,
+        CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(jwtService);
+        ArgumentNullException.ThrowIfNull(token);
+
         if (jwtService is not IRefreshableJwtService refreshableService)
         {
             return new RefreshResult(false, null, "Token refresh is not supported by this service");
@@ -60,13 +78,18 @@ public static class JwtServiceExtensions
 
         try
         {
-            var newToken = await refreshableService.RefreshTokenAsync(token).ConfigureAwait(false);
+            var newToken = await refreshableService
+                .RefreshTokenAsync(token, cancellationToken)
+                .ConfigureAwait(false);
             return new RefreshResult(true, newToken, null);
         }
-        catch (Exception ex)
+        catch (SecurityTokenException)
         {
-            return new RefreshResult(false, null, ex.Message);
+            return new RefreshResult(false, null, "The refresh token is invalid or expired");
+        }
+        catch (ArgumentException ex) when (ex.ParamName == nameof(token))
+        {
+            return new RefreshResult(false, null, "The refresh token is invalid or expired");
         }
     }
-
 }

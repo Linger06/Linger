@@ -14,6 +14,7 @@
 - [扩展 Claims](#扩展-claims)
 - [启用刷新令牌](#启用刷新令牌)
 - [控制器示例](#控制器示例)
+- [客户端自动刷新](#客户端自动刷新)
 - [刷新令牌工作流程说明](#刷新令牌工作流程说明)
 - [安全最佳实践](#安全最佳实践)
 - [高级功能](#高级功能)
@@ -22,9 +23,8 @@
 
 ## 核心特性
 - ✅ 接口分离：`IJwtService` 仅颁发访问令牌；刷新逻辑通过扩展接口解耦
-- ✅ 渐进式增强：按需启用刷新令牌 / 自动刷新
+- ✅ 渐进式增强：按需启用刷新令牌
 - ✅ 可插拔存储：内存、数据库或自定义实现
-- ✅ Resilience 支持：基于 `Microsoft.Extensions.Http.Resilience` 的并发安全刷新
 - ✅ 安全强化：支持 jti / iat、外部化密钥、最小权限原则
 - ✅ 易扩展：重写 `GetClaimsAsync` 即可添加角色 / 权限 / 租户
 
@@ -35,7 +35,7 @@
 ```bash
 dotnet add package Linger.AspNetCore.Jwt
 ```
-> 客户端自动刷新需要额外：`Linger.HttpClient.Contracts`、`Linger.HttpClient.Standard`、`Microsoft.Extensions.Http.Resilience`
+> 使用客户端自动刷新示例需要额外引用：`Linger.HttpClient.Standard`、`Linger.AspNetCore.Jwt.Contracts`
 
 ## 快速开始（最少代码）
 ```csharp
@@ -63,12 +63,11 @@ app.Run();
 ```csharp
 public class JwtOption
 {
-    public string SecurityKey { get; set; } = null!; // ⚠️ 生产环境必须配置！
-    public string Issuer { get; set; } = "Linger.com";
-    public string Audience { get; set; } = "Linger.com";
-    public int ExpiresInMinutes { get; set; } = 30;               // 访问令牌有效期(分钟)
-    public int RefreshTokenExpiresInMinutes { get; set; } = 10080;    // 刷新令牌有效期(分钟，7天)
-    public bool EnableRefreshToken { get; set; } = true;  // 是否启用刷新支持
+    public string SecurityKey { get; init; } = string.Empty;
+    public string Issuer { get; init; } = string.Empty;
+    public string Audience { get; init; } = string.Empty;
+    public int ExpiresInMinutes { get; init; } = 30;
+    public int RefreshTokenExpiresInMinutes { get; init; } = 10080;
 }
 ```
 `appsettings.json`：
@@ -79,8 +78,7 @@ public class JwtOption
     "Issuer": "your-app.com",
     "Audience": "your-api.com",
     "ExpiresInMinutes": 15,
-    "RefreshTokenExpiresInMinutes": 10080,
-    "EnableRefreshToken": true
+    "RefreshTokenExpiresInMinutes": 10080
   }
 }
 ```
@@ -110,70 +108,132 @@ builder.Services.AddAuthentication(o =>
 
 // 可选实现注入
 builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IJwtService, CustomJwtService>();
-builder.Services.AddScoped<IRefreshableJwtService, MemoryCachedJwtService>();
-builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<IRefreshableJwtService>());
+
+// 使用刷新令牌时，改为注册一个支持原子轮换的实现
 builder.Services.AddScoped<IRefreshableJwtService, DbJwtService>();
+builder.Services.AddScoped<IJwtService>(provider =>
+    provider.GetRequiredService<IRefreshableJwtService>());
 ```
+
+上述基础服务和刷新服务是二选一注册方式，不应同时注册多个 `IJwtService` 实现。`AddJwtBearer` 会为常见令牌错误保留诊断响应头，并使用 ASP.NET Core 默认的 `401` / `403` 响应，不会把内部异常信息写入响应。
 
 ## 扩展 Claims
 默认：
 ```csharp
-protected virtual Task<List<Claim>> GetClaimsAsync(string userId) =>
+protected virtual Task<List<Claim>> GetClaimsAsync(
+    string userId,
+    CancellationToken cancellationToken) =>
     Task.FromResult(new List<Claim>{ new(ClaimTypes.Name, userId) });
 ```
 自定义：
 ```csharp
 public class CustomJwtService(AppDbContext db, JwtOption opt, ILogger? logger = null) : JwtService(opt, logger)
 {
-    protected override async Task<List<Claim>> GetClaimsAsync(string userId)
+    protected override async Task<List<Claim>> GetClaimsAsync(
+        string userId,
+        CancellationToken cancellationToken)
     {
-        var claims = new List<Claim>{ new(ClaimTypes.Name, userId) };
-        var user = await db.Users.FindAsync(userId);
+        var claims = new List<Claim> { new(ClaimTypes.Name, userId) };
+        var user = await db.Users.FindAsync([userId], cancellationToken);
         foreach (var role in user.Roles.Split(','))
+        {
             claims.Add(new Claim(ClaimTypes.Role, role));
+        }
+
         return claims;
     }
 }
 ```
 
 ## 启用刷新令牌
-继承抽象 `JwtServiceWithRefresh`并实现存储：
+继承 `JwtServiceWithRefresh`，分别实现首次保存和原子轮换。内存示例使用进程内锁保证同一个旧令牌只成功一次：
 ```csharp
 public class MemoryCachedJwtService : JwtServiceWithRefresh
 {
     private readonly IMemoryCache _cache;
-    public MemoryCachedJwtService(JwtOption opt, IMemoryCache cache, ILogger<MemoryCachedJwtService>? logger = null) : base(opt, logger) => _cache = cache;
-    protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
+    private readonly object _rotationLock = new();
+
+    public MemoryCachedJwtService(
+        JwtOption options,
+        IMemoryCache cache,
+        ILogger<MemoryCachedJwtService>? logger = null) : base(options, logger)
     {
-        _cache.Set($"RT_{userId}", token, TimeSpan.FromMinutes(_jwtOptions.RefreshTokenExpiresInMinutes));
+        _cache = cache;
+    }
+
+    protected override Task StoreRefreshTokenAsync(
+        string userId,
+        JwtRefreshToken refreshToken,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _cache.Set($"RT_{userId}", refreshToken, refreshToken.ExpiryTime);
+
         return Task.CompletedTask;
     }
-    protected override Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
+
+    protected override Task<bool> TryRotateRefreshTokenAsync(
+        string userId,
+        string presentedRefreshToken,
+        JwtRefreshToken replacement,
+        CancellationToken cancellationToken)
     {
-        if (_cache.TryGetValue($"RT_{userId}", out JwtRefreshToken? token) && token is not null)
-            return Task.FromResult(token);
-        throw new Exception("刷新令牌未找到或已过期");
+        cancellationToken.ThrowIfCancellationRequested();
+        lock (_rotationLock)
+        {
+            if (!_cache.TryGetValue($"RT_{userId}", out JwtRefreshToken? current) ||
+                current is null ||
+                current.ExpiryTime <= DateTime.UtcNow ||
+                !string.Equals(current.RefreshToken, presentedRefreshToken, StringComparison.Ordinal))
+            {
+                return Task.FromResult(false);
+            }
+
+            _cache.Set($"RT_{userId}", replacement, replacement.ExpiryTime);
+
+            return Task.FromResult(true);
+        }
     }
 }
 ```
-数据库示例（节选）：
+
+内存示例的锁只在当前进程内有效；多实例部署必须使用数据库事务或分布式缓存提供的原子比较与替换能力。
+
+数据库实现必须使用条件更新或事务完成比较与替换，不能在 `TryRotateRefreshTokenAsync` 内重新拆成“查询后更新”：
+
 ```csharp
 public class DbJwtService : JwtServiceWithRefresh
 {
     private readonly IUserRepository _repo;
-    public DbJwtService(JwtOption opt, IUserRepository repo, ILogger<DbJwtService>? logger = null) : base(opt, logger) => _repo = repo;
-    protected override Task HandleRefreshToken(string userId, JwtRefreshToken token)
-        => _repo.UpdateRefreshTokenAsync(userId, token.RefreshToken, token.ExpiryTime);
-    protected override async Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId)
+
+    public DbJwtService(
+        JwtOption options,
+        IUserRepository repo,
+        ILogger<DbJwtService>? logger = null) : base(options, logger)
     {
-        var user = await _repo.GetUserAsync(userId);
-        if (user is not null && !string.IsNullOrEmpty(user.RefreshToken))
-            return new JwtRefreshToken { RefreshToken = user.RefreshToken, ExpiryTime = user.RefreshTokenExpiryTime };
-        throw new Exception("刷新令牌未找到或已过期");
+        _repo = repo;
     }
+
+    protected override Task StoreRefreshTokenAsync(
+        string userId,
+        JwtRefreshToken refreshToken,
+        CancellationToken cancellationToken) =>
+        _repo.StoreRefreshTokenAsync(userId, refreshToken, cancellationToken);
+
+    protected override Task<bool> TryRotateRefreshTokenAsync(
+        string userId,
+        string presentedRefreshToken,
+        JwtRefreshToken replacement,
+        CancellationToken cancellationToken) =>
+        _repo.TryRotateRefreshTokenAsync(
+            userId,
+            presentedRefreshToken,
+            replacement,
+            cancellationToken);
 }
 ```
+
+`TryRotateRefreshTokenAsync` 只有在旧令牌匹配、尚未过期且已成功替换时才返回 `true`。例如数据库可以执行带 `UserId`、旧令牌和过期时间条件的 `UPDATE`，并根据受影响行数判断是否成功。
 
 ## 控制器示例
 
@@ -182,17 +242,17 @@ public class DbJwtService : JwtServiceWithRefresh
 public class AuthController(IJwtService jwt, IUserService users) : ControllerBase
 {
     [HttpPost("login")] 
-    public async Task<IActionResult> Login(LoginModel m)
+    public async Task<IActionResult> Login(LoginModel m, CancellationToken cancellationToken)
     { 
         var id = await users.ValidateUserAsync(m.Username, m.Password); 
         if (string.IsNullOrEmpty(id)) return Unauthorized(); 
-        return Ok(await jwt.CreateTokenAsync(id)); 
+        return Ok(await jwt.CreateTokenAsync(id, cancellationToken));
     }
     
     [HttpPost("refresh")] 
-    public async Task<IActionResult> Refresh(Token token)
+    public async Task<IActionResult> Refresh(Token token, CancellationToken cancellationToken)
     { 
-        var result = await jwt.RefreshTokenResultAsync(token);
+        var result = await jwt.RefreshTokenResultAsync(token, cancellationToken);
         if (result.Success) 
             return Ok(result.Token);
         
@@ -204,14 +264,14 @@ public class AuthController(IJwtService jwt, IUserService users) : ControllerBas
 ### 备选方式 (使用异常处理)
 ```csharp
 [HttpPost("refresh")] 
-public async Task<IActionResult> Refresh(Token token)
+public async Task<IActionResult> Refresh(Token token, CancellationToken cancellationToken)
 { 
     if (!jwt.SupportsRefreshToken()) 
         return Unauthorized("不支持刷新令牌");
     
     try 
     {
-        return Ok(await jwt.RefreshTokenAsync(token));
+        return Ok(await jwt.RefreshTokenAsync(token, cancellationToken));
     }
     catch (NotSupportedException)
     {
@@ -225,7 +285,13 @@ public async Task<IActionResult> Refresh(Token token)
 }
 ```
 
-> **💡 提示**: `RefreshTokenResultAsync` 方法遵循结果模式，避免异常开销，性能更好且代码更清晰。
+`RefreshTokenResultAsync` 只把预期的无效令牌异常转换为失败结果。调用取消和未知的存储异常会继续向上传播。
+
+### 客户端自动刷新
+
+`Linger.AspNetCore.Jwt` 在服务端校验并轮换 Refresh Token，但不会直接操作桌面端或其他客户端的 `HttpClient`。客户端应保存登录或刷新端点返回的完整 `Token`，在 Access Token 即将过期时调用上面的 `refresh` 端点，并使用返回的新 Access Token 和 Refresh Token 整体替换旧值。
+
+WinForms 直接创建 `StandardHttpClient` 时，可以通过 `DelegatingHandler` 在请求发送前完成检查和刷新。完整示例以及并发刷新、独立刷新客户端和失败后重新登录的处理方式参见 [Linger.HttpClient.Standard 中文 README](../Linger.HttpClient.Standard/README.zh-CN.md)。
 
 
 ---
@@ -282,7 +348,7 @@ public async Task<IActionResult> Refresh(Token token)
 | 症状 | 可能原因 | 解决建议 |
 |------|----------|----------|
 | 登录成功后立即 401 | 时间不同步 / 签名失败 | 校准时间；统一 SECRET |
-| 刷新未触发 | 未启用/未注册刷新实现 | 检查 EnableRefreshToken & DI |
+| 刷新未触发 | 未注册刷新实现 | 检查 `IRefreshableJwtService` 与 `IJwtService` 的 DI 映射 |
 | 刷新风暴 | 并发 401 竞态 | 使用信号量/单次刷新管控 |
 | 刷新成功但仍旧老令牌 | 客户端未更新头部 | 确认事件订阅与 SetToken 调用 |
 | Invalid signature | 多实例密钥不一致 | 配置中心或环境变量统一 |

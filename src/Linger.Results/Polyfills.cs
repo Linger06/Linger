@@ -1,7 +1,7 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
-#if NETSTANDARD2_0 || NETSTANDARD2_1 || NETCOREAPP2_0_OR_GREATER || NET451_OR_GREATER
+#if NETSTANDARD2_0 || NETFRAMEWORK
 using System.ComponentModel;
 
 #pragma warning disable IDE0161

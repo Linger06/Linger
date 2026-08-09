@@ -139,7 +139,7 @@ await email.SendAsync(message);
 
 ## ASP.NET Core 集成
 
-如果你在 ASP.NET Core 项目中使用，请查看 [Linger.Email.AspNetCore](../Linger.Email.AspNetCore/README.zh-CN.md)，它提供依赖注入、配置绑定和日志集成。
+如果你在 ASP.NET Core 项目中使用，请查看 [Linger.Email.AspNetCore](../Linger.Email.AspNetCore/README.zh-CN.md)，它提供依赖注入、配置绑定、日志、控制器示例和请求取消传递。
 
 ## 进阶用法
 
@@ -325,46 +325,6 @@ public class EmailService
 }
 ```
 
-### 在 ASP.NET Core 中使用
-
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class EmailController : ControllerBase
-{
-    private readonly IEmailService _emailService;
-    
-    public EmailController(IEmailService emailService)
-    {
-        _emailService = emailService;
-    }
-    
-    [HttpPost("send")]
-    public async Task<IActionResult> SendEmail(
-        [FromBody] EmailRequest request,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            // 传递请求的取消令牌
-            // 如果客户端断开连接会自动取消
-            await _emailService.SendTextEmailAsync(
-                request.To,
-                request.Subject,
-                request.Body,
-                cancellationToken
-            );
-            
-            return Ok("邮件发送成功");
-        }
-        catch (OperationCanceledException)
-        {
-            return StatusCode(499, "请求被客户端取消");
-        }
-    }
-}
-```
-
 ### 性能优化
 - **复用连接**：发送多封邮件时，使用同一个 Email 实例，减少连接开销
 - **批量发送**：有大量邮件时，分批发送效果更好
@@ -497,4 +457,4 @@ await email.SendAsync(alertMessage);
 
 ## 相关项目
 
-📖 **想要在 ASP.NET Core 中使用？** 请查看：[Linger.Email.AspNetCore README](../Linger.Email.AspNetCore/README.md)，提供了依赖注入和配置管理功能。
+📖 **想要在 ASP.NET Core 中使用？** 请查看：[Linger.Email.AspNetCore README](../Linger.Email.AspNetCore/README.zh-CN.md)，提供了依赖注入和配置管理功能。

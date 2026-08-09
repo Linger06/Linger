@@ -71,6 +71,22 @@ if (downloadResult.Success)
 await ftpSystem.DisconnectAsync();
 ```
 
+### FTP 客户端编码
+
+`FtpFileSystemOptions.Encoding` 用于配置 FTP 客户端处理协议文本和远程路径名时使用的编码；未设置时默认使用 UTF-8：
+
+```csharp
+var settings = new FtpFileSystemOptions
+{
+    Host = "ftp.example.com",
+    UserName = "username",
+    Password = "password",
+    Encoding = System.Text.Encoding.UTF8
+};
+```
+
+此选项不控制文件内容编码。读写文本文件时，应通过 `GetReaderAsync` 或 `GetWriterAsync` 的编码参数单独指定。
+
 ## 并发与批量操作
 
 ### 配置并发开关

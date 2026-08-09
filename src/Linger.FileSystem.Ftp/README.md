@@ -70,6 +70,22 @@ if (downloadResult.Success)
 await ftpSystem.DisconnectAsync();
 ```
 
+### FTP Client Encoding
+
+`FtpFileSystemOptions.Encoding` configures the encoding used by the FTP client for protocol text and remote path names. It defaults to UTF-8 when omitted:
+
+```csharp
+var settings = new FtpFileSystemOptions
+{
+    Host = "ftp.example.com",
+    UserName = "username",
+    Password = "password",
+    Encoding = System.Text.Encoding.UTF8
+};
+```
+
+This option does not control file-content encoding. Pass the required encoding to `GetReaderAsync` or `GetWriterAsync` when reading or writing text files.
+
 ### File Upload Methods
 
 ```csharp
@@ -232,6 +248,7 @@ var retryOptions = new RetryOptions
 };
 
 var ftpSystem = new FtpFileSystem(settings, retryOptions);
+```
 
 ### Concurrency for Batch Operations
 
@@ -261,7 +278,6 @@ await ftp.ConnectAsync();
 var files = new[] { "C:/data/a.txt", "C:/data/b.txt", "C:/data/c.txt" };
 var result = await ftp.UploadFilesAsync(files, "/remote/uploads", overwrite: true);
 Console.WriteLine($"Uploaded: {result.SucceededFiles.Count}, Failed: {result.FailedFiles.Count}");
-```
 ```
 
 ### File Information and Metadata

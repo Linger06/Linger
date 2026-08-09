@@ -3,79 +3,165 @@ namespace Linger.Results.UnitTests;
 public class BasicResultTests
 {
     [Fact]
-    public void Result_Success_ShouldWork()
+    public void Map_WhenResultIsNotFound_ShouldPreserveStatus()
     {
-        var result = Result.Success();
+        var result = Result<string>.NotFound("Value not found");
+
+        var mapped = result.Map(value => value.Length);
+
+        Assert.Equal(ResultStatus.NotFound, mapped.Status);
+        Assert.Equal("Value not found", mapped.FirstError.Message);
+    }
+
+    [Fact]
+    public void Bind_WhenResultIsNotFound_ShouldPreserveStatus()
+    {
+        var result = Result<string>.NotFound("Value not found");
+
+        var bound = result.Bind(value => Result<int>.Success(value.Length));
+
+        Assert.Equal(ResultStatus.NotFound, bound.Status);
+        Assert.Equal("Value not found", bound.FirstError.Message);
+    }
+
+    [Fact]
+    public async Task MapAsync_WhenResultIsNotFound_ShouldPreserveStatus()
+    {
+        var result = Result<string>.NotFound("Value not found");
+
+        var mapped = await result.MapAsync((value, _) => Task.FromResult(value.Length));
+
+        Assert.Equal(ResultStatus.NotFound, mapped.Status);
+        Assert.Equal("Value not found", mapped.FirstError.Message);
+    }
+
+    [Fact]
+    public async Task BindAsync_WhenResultIsNotFound_ShouldPreserveStatus()
+    {
+        var result = Result<string>.NotFound("Value not found");
+
+        var bound = await result.BindAsync((value, _) => Task.FromResult(Result<int>.Success(value.Length)));
+
+        Assert.Equal(ResultStatus.NotFound, bound.Status);
+        Assert.Equal("Value not found", bound.FirstError.Message);
+    }
+
+    [Fact]
+    public async Task TaskResult_MapAsyncAndBindAsync_ShouldCompose()
+    {
+        Task<Result<string>> resultTask = Task.FromResult(Result.Success("test"));
+
+        var result = await resultTask
+            .MapAsync((value, _) => Task.FromResult(value.Length))
+            .BindAsync((value, _) => Task.FromResult(Result.Success(value.ToString())));
+
         Assert.True(result.IsSuccess);
-        Assert.False(result.IsFailure);
+        Assert.Equal("4", result.Value);
     }
 
     [Fact]
-    public void Result_Failure_ShouldWork()
+    public async Task TaskResult_MapAsync_WhenResultIsNotFound_ShouldSkipMapping()
     {
-        var result = Result.Failure("test error");
-        Assert.False(result.IsSuccess);
-        Assert.True(result.IsFailure);
-        Assert.Single(result.Errors);
-    }
+        var mapCalled = false;
+        Task<Result<string>> resultTask = Task.FromResult(Result<string>.NotFound("Value not found"));
 
-    [Fact]
-    public void ResultT_Success_ShouldWork()
-    {
-        var result = Result<string>.Success("test");
-        Assert.True(result.IsSuccess);
-        Assert.Equal("test", result.Value);
-    }
-
-    [Fact]
-    public void ResultT_Failure_ShouldWork()
-    {
-        var result = Result<string>.Failure("test error");
-        Assert.False(result.IsSuccess);
-        Assert.Single(result.Errors);
-        Assert.Throws<InvalidOperationException>(() => result.Value);
-    }
-
-    [Fact]
-    public void ImplicitConversion_FromResult_ToResultT_ShouldWork()
-    {
-        // 这是我们最重要的功能！
-        Result<string> GetUser() => Result.Failure("User not found"); // 隐式转换！
-
-        var result = GetUser();
-        Assert.False(result.IsSuccess);
-        Assert.Single(result.Errors);
-        Assert.Equal("User not found", result.Errors.First().Message);
-    }
-
-    [Fact]
-    public void ImplicitConversion_ElegantSyntax_ShouldWork()
-    {
-        // 验证优雅的语法
-        static Result<User> ValidateAndCreateUser(string email, string name)
+        var result = await resultTask.MapAsync((value, _) =>
         {
-            if (string.IsNullOrEmpty(email))
-                return Result.Failure(new Error("ValidationError", "邮箱不能为空")); // 隐式转换！
+            mapCalled = true;
 
-            if (string.IsNullOrEmpty(name))
-                return Result.Failure("姓名不能为空"); // 隐式转换！
+            return Task.FromResult(value.Length);
+        });
 
-            return Result<User>.Success(new User { Email = email, Name = name });
-        }
-
-        var invalidResult = ValidateAndCreateUser("", "test");
-        Assert.False(invalidResult.IsSuccess);
-        Assert.Equal("ValidationError", invalidResult.Errors.First().Code);
-        Assert.Equal("邮箱不能为空", invalidResult.Errors.First().Message);
-
-        var validResult = ValidateAndCreateUser("test@test.com", "test");
-        Assert.True(validResult.IsSuccess);
-        Assert.Equal("test@test.com", validResult.Value.Email);
+        Assert.False(mapCalled);
+        Assert.Equal(ResultStatus.NotFound, result.Status);
+        Assert.Equal("Value not found", result.FirstError.Message);
     }
 
-    private class User
+    [Fact]
+    public async Task MatchAsync_WhenResultIsSuccessful_ShouldInvokeSuccessBranch()
     {
-        public string Email { get; set; } = string.Empty;
-        public string Name { get; set; } = string.Empty;
+        var successValue = string.Empty;
+        var failureCalled = false;
+        var result = Result.Success("test");
+
+        await result.MatchAsync(
+            (value, _) =>
+            {
+                successValue = value;
+
+                return Task.CompletedTask;
+            },
+            (_, _) =>
+            {
+                failureCalled = true;
+
+                return Task.CompletedTask;
+            });
+
+        Assert.Equal("test", successValue);
+        Assert.False(failureCalled);
+    }
+
+    [Fact]
+    public async Task MatchAsync_WhenResultFails_ShouldInvokeFailureBranch()
+    {
+        var successCalled = false;
+        var capturedError = Error.None;
+        var result = Result<string>.Failure(new Error("Failure", "Operation failed"));
+
+        await result.MatchAsync(
+            (_, _) =>
+            {
+                successCalled = true;
+
+                return Task.CompletedTask;
+            },
+            (errors, _) =>
+            {
+                capturedError = errors.Single();
+
+                return Task.CompletedTask;
+            });
+
+        Assert.False(successCalled);
+        Assert.Equal("Failure", capturedError.Code);
+    }
+
+    [Fact]
+    public async Task EnsureAsync_WhenPredicateFails_ShouldReturnFailure()
+    {
+        var result = Result.Success("test");
+        var error = new Error("Length", "Value is too short");
+
+        var ensured = await result.EnsureAsync(
+            (value, _) => Task.FromResult(value.Length > 10),
+            error);
+
+        Assert.False(ensured.IsSuccess);
+        Assert.Equal(error, ensured.FirstError);
+    }
+
+    [Fact]
+    public void Failure_WhenSourceCollectionChanges_ShouldKeepErrorSnapshot()
+    {
+        var errors = new List<Error> { new("Initial", "Initial error") };
+        var result = Result.Failure(errors);
+
+        errors.Add(new Error("Later", "Later error"));
+
+        Assert.Single(result.Errors);
+        Assert.Equal("Initial", result.FirstError.Code);
+    }
+
+    [Fact]
+    public void GenericFailure_WhenSourceCollectionChanges_ShouldKeepErrorSnapshot()
+    {
+        var errors = new List<Error> { new("Initial", "Initial error") };
+        var result = Result<string>.Failure(errors);
+
+        errors.Clear();
+
+        Assert.Single(result.Errors);
+        Assert.Equal("Initial", result.FirstError.Code);
     }
 }

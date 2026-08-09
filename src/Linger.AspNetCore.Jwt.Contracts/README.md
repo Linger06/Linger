@@ -32,8 +32,9 @@ public interface IJwtService
     /// Creates a JWT token
     /// </summary>
     /// <param name="userId">User identifier</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Token object containing the access token</returns>
-    Task<Token> CreateTokenAsync(string userId);
+    Task<Token> CreateTokenAsync(string userId, CancellationToken cancellationToken = default);
 }
 ```
 
@@ -46,10 +47,13 @@ public interface IRefreshableJwtService : IJwtService
     /// Refreshes a JWT token
     /// </summary>
     /// <param name="token">Token object containing access token and refresh token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>New token object</returns>
-    Task<Token> RefreshTokenAsync(Token token);
+    Task<Token> RefreshTokenAsync(Token token, CancellationToken cancellationToken = default);
 }
 ```
+
+`Linger.AspNetCore.Jwt.JwtServiceWithRefresh` separates initial storage from rotation. Derived services implement `StoreRefreshTokenAsync` for first issuance and `TryRotateRefreshTokenAsync` for refresh. The latter must atomically compare the presented token and replace it in the storage layer; never implement rotation as a read followed by a write, or concurrent refreshes can both succeed.
 
 ## Related Packages
 

@@ -32,7 +32,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult<UserDto>> GetUser(int id)
     {
         var result = await _userService.GetUserByIdAsync(id);
-        return result.ToActionResult(); // 成功返回UserDto，失败返回错误数组
+        return result.ToActionResult(); // 成功返回UserDto，失败返回ProblemDetails
     }
 
     [HttpPost]
@@ -46,7 +46,7 @@ public class UsersController : ControllerBase
     public async Task<ActionResult> DeleteUser(int id)
     {
         var result = await _userService.DeleteUserAsync(id);
-        return result.ToActionResult(HttpStatusCode.NoContent); // 成功返回204，失败返回错误
+        return result.ToActionResult(HttpStatusCode.NoContent); // 成功返回204，失败返回ProblemDetails
     }
 
     // 兼容返回类型为 IActionResult 的方法签名
@@ -96,18 +96,17 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 | 自定义两个状态码 | `result.ToActionResult(HttpStatusCode.Created, HttpStatusCode.Conflict)` | `result.ToHttpResult(HttpStatusCode.Created, HttpStatusCode.Conflict)` |
 | Created响应 | `result.ToActionResult(HttpStatusCode.Created)` | `result.ToCreatedResult("/api/users/123")` |
 | NoContent响应 | `result.ToActionResult(HttpStatusCode.NoContent)` | `result.ToNoContentResult()` |
-| 问题详情 | `result.ToProblemDetails()` | `result.ToHttpResult()` (自动使用ProblemDetails) |
 
 ## 何时使用
 
 - 大多数标准 CRUD 操作使用 `ToActionResult()` / `ToHttpResult()`（自动映射能正确处理状态码）
 - POST 端点使用 `ToCreatedResult()` 返回 201 Created 和 location header
 - DELETE/PUT 端点使用 `ToNoContentResult()` 成功时返回 204 No Content
-- 需要明确 RFC 7807 问题详情格式时使用 `ToProblemDetails()`
+
+`ToActionResult()` 与 `ToHttpResult()` 的失败响应都使用 `ProblemDetails`。非泛型 `Result` 成功时只返回状态码，不序列化结果对象；泛型 `Result<T>` 成功时返回 `Value`。
 
 > **状态码参数说明：**
 > - `ToActionResult()` / `ToActionResult<T>()` / `ToHttpResult()` / `ToHttpResult<T>()`：`successStatusCode` 和 `failureStatusCode` 都是可选的。未指定时，`successStatusCode` 默认为 200 OK；`failureStatusCode` 根据 `Result.Status` 自动确定（如 `NotFound` → 404，其他 → 400）
-> - `ToProblemDetails()` / `ToProblemDetails<T>()`：仅 `failureStatusCode` 是可选的，自动确定规则同上
 > - `ToCreatedResult()` / `ToCreatedResult<T>()` / `ToNoContentResult()`：无状态码参数
 > 所有方法使用 `System.Net.HttpStatusCode` 枚举提供类型安全和 IDE 智能提示。
 
@@ -122,31 +121,17 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
   "email": "zhangsan@example.com"
 }
 
-// Result 成功时
-{
-  "status": "Ok",
-  "isSuccess": true,
-  "isFailure": false,
-  "errors": []
-}
+// Result 成功时正文为空
 ```
 
 ### 失败响应
 ```json
-// 标准错误格式
-[
-  {
-    "code": "User.NotFound",
-    "message": "ID为123的用户不存在"
-  }
-]
-
-// ProblemDetails格式 (ToProblemDetails())
+// ToActionResult() 和 ToHttpResult() 使用相同格式
 {
   "type": null,
   "title": "One or more validation errors occurred",
   "status": 400,
-  "detail": "邮箱格式不正确; 密码强度不足",
+  "detail": "Please refer to the errors property for additional details.",
   "errors": {
     "User.InvalidEmail": ["邮箱格式不正确"],
     "User.WeakPassword": ["密码强度不足"]
@@ -154,7 +139,7 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 }
 ```
 
-说明：`errors` 为 RFC 7807 的扩展成员，建议其值采用字符串数组（如 `{"字段": ["提示1", "提示2"]}`），以便单个字段能包含多条验证提示。服务端通过在 `ProblemDetails.Extensions["errors"]` 中添加键值对来实现；ASP.NET Core 在序列化时会将 `Extensions` 中的条目作为顶层属性输出，因此你会看到顶层的 `errors` 字段。
+说明：`errors` 为 RFC 7807 的扩展成员，其值采用字符串数组（如 `{"字段": ["提示1", "提示2"]}`），以便单个字段能包含多条验证提示。无错误码的错误使用空字符串键，消息不会被丢弃。服务端通过在 `ProblemDetails.Extensions["errors"]` 中添加键值对来实现；ASP.NET Core 在序列化时会将 `Extensions` 中的条目作为顶层属性输出，因此你会看到顶层的 `errors` 字段。
 
 详见权威错误映射文档：
 [REQUEST_RESPONSE_MAPPING.zh-CN.md](../Linger.HttpClient.Standard/REQUEST_RESPONSE_MAPPING.zh-CN.md)。

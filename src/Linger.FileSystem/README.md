@@ -324,28 +324,7 @@ var localFs = new LocalFileSystem(options);
 
 ### Remote File System Options
 
-```csharp
-var ftpOptions = new FtpFileSystemOptions
-{
-    Host = "example.com",                      // Host address
-    Port = 21,                                 // FTP port
-    UserName = "username",                     // Username
-    Password = "password",                     // Password
-    ConnectionTimeout = 30000,                 // Connection timeout (milliseconds)
-    OperationTimeout = 60000,                  // Operation timeout (milliseconds)
-    MaxDegreeOfParallelism = 4,                // Batch operation concurrency
-    // Batch operation retry settings
-    BatchRetryOptions = new RetryOptions
-    {
-        MaxRetryAttempts = 3,
-        DelayMilliseconds = 1000
-    },
-};
-```
-
-Use `SftpFileSystemOptions` for SFTP connections. It has the same common
-connection properties and adds `CertificatePath` and `CertificatePassphrase`.
-`FtpFileSystemOptions` additionally exposes the FTP-only `Encoding` property.
+Remote configuration and connection lifecycles belong to their implementation packages. See [Linger.FileSystem.Ftp](../Linger.FileSystem.Ftp/README.md) and [Linger.FileSystem.Sftp](../Linger.FileSystem.Sftp/README.md).
 
 ## Advanced Features
 
@@ -385,144 +364,21 @@ Console.WriteLine($"Relative path: {uploadedInfo.FilePath}");
 Console.WriteLine($"Full path: {uploadedInfo.FullFilePath}");
 ```
 
-### FTP and SFTP Advanced Features
-
-For advanced FTP and SFTP features such as:
-- Batch file operations
-- Directory listing and manipulation
-- Working directory management
-- Certificate-based authentication (SFTP)
-- Custom timeout configurations
-
-Please refer to the dedicated documentation:
-- 📖 **[Linger.FileSystem.Ftp Documentation](../Linger.FileSystem.Ftp/README.md)**
-- 📖 **[Linger.FileSystem.Sftp Documentation](../Linger.FileSystem.Sftp/README.md)**
-
-## Connection Management
-
-```csharp
-// Method 1: Use using statement for automatic connection management
-using (var ftpFs = new FtpFileSystem(remoteSetting))
-{
-    // Operations automatically handle connection and disconnection
-    await ftpFs.UploadFileAsync("local.txt", "/remote/path");
-}
-
-// Method 2: Manual connection management
-try
-{
-    ftpFs.Connect();
-    // Execute multiple operations...
-    await ftpFs.UploadFileAsync("file1.txt", "/remote");
-    await ftpFs.UploadFileAsync("file2.txt", "/remote");
-}
-finally
-{
-    ftpFs.Disconnect();
-}
-```
-
 ## Cancellation Support
 
 All file system operations support `CancellationToken` for graceful cancellation:
 
 ```csharp
-public class FileUploadService
-{
-    private readonly IFileSystemOperations _fileSystem;
-    
-    public FileUploadService(IFileSystemOperations fileSystem)
-    {
-        _fileSystem = fileSystem;
-    }
-    
-    // Upload with timeout
-    public async Task<FileOperationResult> UploadWithTimeoutAsync(
-        Stream stream, 
-        string destinationPath, 
-        int timeoutSeconds = 300)
-    {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
-        
-        try
-        {
-            return await _fileSystem.UploadAsync(
-                stream, 
-                destinationPath, 
-                overwrite: true, 
-                cancellationToken: cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            return FileOperationResult.CreateFailure("Upload cancelled due to timeout");
-        }
-    }
-    
-    // Batch upload with cancellation
-    public async Task<List<FileOperationResult>> UploadMultipleFilesAsync(
-        Dictionary<Stream, string> files, 
-        CancellationToken cancellationToken)
-    {
-        var results = new List<FileOperationResult>();
-        
-        foreach (var (stream, path) in files)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            
-            var result = await _fileSystem.UploadAsync(
-                stream, 
-                path, 
-                overwrite: true, 
-                cancellationToken);
-            results.Add(result);
-        }
-        
-        return results;
-    }
-}
-```
+using var timeoutSource = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(
+    cancellationToken,
+    timeoutSource.Token);
 
-### Using with ASP.NET Core
-
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class FileController : ControllerBase
-{
-    private readonly IFileSystemOperations _fileSystem;
-    
-    public FileController(IFileSystemOperations fileSystem)
-    {
-        _fileSystem = fileSystem;
-    }
-    
-    [HttpPost("upload")]
-    public async Task<IActionResult> UploadFile(
-        IFormFile file, 
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var stream = file.OpenReadStream();
-            var result = await _fileSystem.UploadAsync(
-                stream, 
-                $"uploads/{file.FileName}", 
-                overwrite: true, 
-                cancellationToken);
-            
-            if (result.Success)
-            {
-                return Ok(new { path = result.FilePath });
-            }
-            
-            return BadRequest(result.ErrorMessage);
-        }
-        catch (OperationCanceledException)
-        {
-            return StatusCode(499, "Upload cancelled by client");
-        }
-    }
-}
+var result = await fileSystem.UploadAsync(
+    stream,
+    "uploads/destination-file.txt",
+    overwrite: true,
+    linkedSource.Token);
 ```
 
 ## Exception Handling
@@ -530,7 +386,7 @@ public class FileController : ControllerBase
 ```csharp
 try
 {
-    var result = await ftpFs.UploadFileAsync("local.txt", "/remote");
+    var result = await fileSystem.UploadFileAsync("local.txt", "uploads/remote.txt");
     if (result.Success)
     {
         Console.WriteLine($"Upload successful: {result.FilePath}");
@@ -566,8 +422,7 @@ var retryOptions = new RetryOptions
     UseExponentialBackoff = true              // Use exponential backoff algorithm
 };
 
-// Configure retry options for remote file system
-var ftpFs = new FtpFileSystem(remoteSetting, retryOptions);
+var localFs = new LocalFileSystem("C:/Storage", retryOptions);
 ```
 
 ## Performance Optimization
@@ -592,9 +447,9 @@ var options = new LocalFileSystemOptions
 For scenarios requiring processing of large numbers of files, use batch processing APIs to reduce connection overhead:
 
 ```csharp
-// FTP system batch operation example - more efficient than individual operations
+// Local batch operation is more efficient than issuing independent calls
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
-await ftpFs.UploadFilesAsync(localFiles, "/remote/path");
+await localFs.UploadFilesAsync(localFiles, "uploads");
 ```
 
 ## Architecture Design

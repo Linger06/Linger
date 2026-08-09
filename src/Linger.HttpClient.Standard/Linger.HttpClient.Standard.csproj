@@ -5,7 +5,7 @@
     <Version>2.0.0-preview.1</Version>
     <Description>
       A lightweight implementation of Linger.HttpClient.Contracts using standard .NET HttpClient.
-      Provides robust HTTP request handling with automatic retries, timeout management, and typed response parsing.
+      Provides typed response parsing, per-request headers, and streaming file transfers.
       Seamlessly integrates with .NET's HttpClientFactory for optimal connection management.
     </Description>
 </PropertyGroup>
@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Linger.HttpClient.Contracts\Linger.HttpClient.Contracts.csproj" />
+    <ProjectReference Include="..\Linger.Json\Linger.Json.csproj" />
+    <ProjectReference Include="..\Linger\Linger.csproj" />
   </ItemGroup>
 
   <ItemGroup>

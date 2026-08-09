@@ -10,12 +10,7 @@ A lightweight .NET auditing library that provides base classes and interfaces fo
   - [Basic Entities](#basic-entities)
   - [Creation Audit Entities](#creation-audit-entities)
   - [Full Audit Entities](#full-audit-entities)
-- [💡 Usage Examples](#-usage-examples)
-  - [Setting Up Current User Context](#setting-up-current-user-context)
-  - [EF Core Integration](#ef-core-integration)
-  - [Soft Delete Filtering](#soft-delete-filtering)
-- [🔧 Advanced Configuration](#-advanced-configuration)
-  - [Handling Legacy Database DateTime Types](#handling-legacy-database-datetime-types)
+- [Persistence Integration](#persistence-integration)
 - [🧩 Class Diagram Overview](#-class-diagram-overview)
 - [📋 Interface and Base Class Reference](#-interface-and-base-class-reference)
 - [📜 License](#-license)
@@ -121,196 +116,15 @@ public class User : FullAuditEntity<Guid>
 }
 ```
 
-## 💡 Usage Examples
+## Persistence Integration
 
-### Setting Up Current User Context
+`Linger.Audit` only defines audit contracts and entity base classes. It does not hook into a persistence framework or populate fields automatically.
 
-Use audit entities in your application services, and the system will automatically populate audit fields:
+For EF Core, use [Linger.EFCore.Audit](../Linger.EFCore.Audit/README.md). Its `AuditEntitiesSaveChangesInterceptor` populates creation, modification, deletion, and user fields while converting deletes of `ISoftDelete` entities into updates. Configure the optional soft-delete query filter as shown in the [Linger.EFCore global query filter documentation](../Linger.EFCore/README.md#global-query-filters).
 
-```csharp
-// In your application service
-public class ProductService : IProductService
-{
-    private readonly IRepository<Product, Guid> _productRepository;
-    private readonly IAuditUserProvider _auditUserProvider;
+Applications using another persistence technology should populate the same contracts in their own save pipeline.
 
-    public ProductService(IRepository<Product, Guid> productRepository, IAuditUserProvider auditUserProvider)
-    {
-        _productRepository = productRepository;
-        _auditUserProvider = auditUserProvider;
-    }
-
-    public async Task<Product> CreateProductAsync(string name, decimal price)
-    {
-        var product = new Product
-        {
-            Name = name,
-            Price = price,
-            // ID, CreatorId and CreationTime will be set automatically when saving
-        };
-
-        await _productRepository.AddAsync(product);
-        await _productRepository.SaveChangesAsync();
-
-        return product;
-    }
-}
-```
-
-### EF Core Integration
-
-Configure EF Core DbContext to automatically handle audit fields:
-
-```csharp
-// Example of handling audit fields in EF Core
-public class AppDbContext : DbContext
-{
-    private readonly IAuditUserProvider _auditUserProvider;
-
-    public AppDbContext(DbContextOptions options, IAuditUserProvider auditUserProvider)
-        : base(options)
-    {
-        _auditUserProvider = auditUserProvider;
-    }
-
-    public DbSet<Product> Products { get; set; } = null!;
-    public DbSet<User> Users { get; set; } = null!;
-
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        UpdateAuditFields();
-        return base.SaveChangesAsync(cancellationToken);
-    }
-
-    private void UpdateAuditFields()
-    {
-        var userId = _auditUserProvider.GetUser();
-        var now = DateTimeOffset.UtcNow;
-
-        foreach (var entry in ChangeTracker.Entries<IEntity>())
-        {
-            if (entry.State == EntityState.Added)
-            {
-                if (entry.Entity is ICreationAuditEntity creationAuditEntity)
-                {
-                    creationAuditEntity.CreationTime = now;
-                    creationAuditEntity.CreatorId = userId;
-                }
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                if (entry.Entity is IModificationAuditEntity modificationAuditEntity)
-                {
-                    modificationAuditEntity.LastModificationTime = now;
-                    modificationAuditEntity.LastModifierId = userId;
-                }
-            }
-            else if (entry.State == EntityState.Deleted && entry.Entity is ISoftDelete softDeleteEntity)
-            {
-                // Convert to soft delete
-                entry.State = EntityState.Modified;
-                softDeleteEntity.IsDeleted = true;
-                softDeleteEntity.DeletionTime = now;
-                softDeleteEntity.DeleterId = userId;
-            }
-        }
-    }
-}
-```
-
-### Soft Delete Filtering
-
-Use global query filters to automatically filter soft-deleted entities:
-
-```csharp
-protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    // Apply soft delete filter for all entities implementing ISoftDelete
-    foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-    {
-        if (typeof(ISoftDelete).IsAssignableFrom(entityType.ClrType))
-        {
-            var parameter = Expression.Parameter(entityType.ClrType, "e");
-            var property = Expression.PropertyOrField(parameter, nameof(ISoftDelete.IsDeleted));
-            var condition = Expression.NotEqual(property, Expression.Constant(true, typeof(bool?)));
-            var lambda = Expression.Lambda(condition, parameter);
-
-            modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-        }
-    }
-}
-```
-
-## 🔧 Advanced Configuration
-
-### Handling Legacy Database DateTime Types
-
-In real-world projects, you may need to integrate with existing databases that use `datetime` types instead of `datetimeoffset`. When you cannot modify the database table structure, you need to configure data type conversion in EF Core.
-
-**Use Cases**:
-- Database tables already exist using `datetime` type
-- Cannot modify existing table structure
-- Need to use `DateTimeOffset` type for auditing in your application
-
-**Solution**:
-
-```csharp
-public class UserEntityConfiguration : IEntityTypeConfiguration<User>
-{
-    public void Configure(EntityTypeBuilder<User> entity)
-    {
-        // Configure CreationTime field
-        entity.Property(e => e.CreationTime)
-            .HasColumnType("datetime")
-            .HasConversion(
-                // When saving to database: DateTimeOffset -> DateTime
-                v => v.ToDateTime(),
-                // When reading from database: DateTime -> DateTimeOffset
-                v => new DateTimeOffset(v)
-            );
-
-        // Configure LastModificationTime field (nullable type)
-        entity.Property(e => e.LastModificationTime)
-            .HasColumnType("datetime")
-            .HasConversion(
-                // When saving to database: DateTimeOffset? -> DateTime?
-                v => v.HasValue ? v.Value.ToDateTime() : (DateTime?)null,
-                // When reading from database: DateTime? -> DateTimeOffset?
-                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
-            );
-
-        // Configure DeletionTime field (if using FullAuditEntity)
-        entity.Property(e => e.DeletionTime)
-            .HasColumnType("datetime")
-            .HasConversion(
-                v => v.HasValue ? v.Value.ToDateTime() : (DateTime?)null,
-                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
-            );
-
-        // Configure audit user fields
-        entity.Property(e => e.CreatorId)
-            .HasMaxLength(30)
-            .IsUnicode(false);
-
-        entity.Property(e => e.LastModifierId)
-            .HasMaxLength(30)
-            .IsUnicode(false);
-
-        entity.Property(e => e.DeleterId)
-            .HasMaxLength(30)
-            .IsUnicode(false);
-
-        OnConfigurePartial(entity);
-    }
-
-    partial void OnConfigurePartial(EntityTypeBuilder<User> entity);
-}
-```
-
-**Important Notes**:
-- Timezone information will be lost during conversion, recommend using UTC time consistently in your application
-- `TimeSpan.Zero` represents UTC timezone offset
-- Ensure all times stored in the database are in UTC to avoid timezone confusion
+For legacy database column types and `DateTimeOffset` conversions, see the advanced configuration section in [Linger.EFCore.Audit](../Linger.EFCore.Audit/README.md).
 
 ## 📊 Class Diagram Overview
 
@@ -404,5 +218,5 @@ public abstract class FullAuditEntity : AuditEntity, ISoftDelete
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 

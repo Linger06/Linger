@@ -9,88 +9,106 @@ namespace Linger.AspNetCore.Jwt;
 /// <summary>
 /// JWT service implementation with refresh token support
 /// </summary>
-public abstract class JwtServiceWithRefresh(JwtOption jwtOptions, ILogger<JwtServiceWithRefresh>? logger = null) : JwtService(jwtOptions, logger), IRefreshableJwtService
+public abstract class JwtServiceWithRefresh(
+    JwtOption jwtOptions,
+    ILogger<JwtServiceWithRefresh>? logger = null) : JwtService(jwtOptions, logger), IRefreshableJwtService
 {
-    public override async Task<Token> CreateTokenAsync(string userId)
+    /// <inheritdoc />
+    public override async Task<Token> CreateTokenAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
     {
-        try
-        {
-            Logger?.LogDebug("Generating token with refresh capability for user: {UserId}", userId);
+        Logger?.LogDebug("Generating token with refresh capability for user: {UserId}", userId);
 
-            // Generate base access token
-            Token baseToken = await base.CreateTokenAsync(userId).ConfigureAwait(false);
+        Token accessToken = await base
+            .CreateTokenAsync(userId, cancellationToken)
+            .ConfigureAwait(false);
+        JwtRefreshToken refreshToken = GenerateRefreshToken();
+        await StoreRefreshTokenAsync(userId, refreshToken, cancellationToken).ConfigureAwait(false);
 
-            // Generate and store refresh token
-            JwtRefreshToken refreshToken = GenerateRefreshToken();
-            await HandleRefreshToken(userId, refreshToken).ConfigureAwait(false);
+        Logger?.LogDebug("Token with refresh token generated successfully for user: {UserId}", userId);
 
-            Logger?.LogDebug("Token with refresh token generated successfully for user: {UserId}", userId);
-
-            // Return complete token with refresh token
-            return new Token(baseToken.AccessToken, refreshToken.RefreshToken);
-        }
-        catch (Exception ex)
-        {
-            Logger?.LogError(ex, "Failed to generate token with refresh token for user: {UserId}", userId);
-            throw;
-        }
+        return new Token(accessToken.AccessToken, refreshToken.RefreshToken);
     }
 
-    public async Task<Token> RefreshTokenAsync(Token token)
+    /// <inheritdoc />
+    public async Task<Token> RefreshTokenAsync(
+        Token token,
+        CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(token.RefreshToken))
+        ArgumentNullException.ThrowIfNull(token);
+        if (string.IsNullOrWhiteSpace(token.AccessToken) ||
+            string.IsNullOrWhiteSpace(token.RefreshToken))
         {
             Logger?.LogWarning("Token refresh attempt with missing refresh token");
-            throw new ArgumentException("Token does not contain a valid refresh token");
+            throw new ArgumentException("Token must contain an access token and a refresh token.", nameof(token));
         }
 
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+        Logger?.LogDebug("Refreshing token");
+
+        ClaimsPrincipal principal = GetPrincipalFromExpiredToken(token.AccessToken);
+        var userId = principal.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(userId))
         {
-            Logger?.LogDebug("Refreshing token");
-
-            ClaimsPrincipal principal = GetPrincipalFromExpiredToken(token.AccessToken);
-            var userId = principal.Identity?.Name!;
-            JwtRefreshToken refreshToken = await GetExistRefreshTokenAsync(userId).ConfigureAwait(false);
-
-            if (refreshToken.RefreshToken != token.RefreshToken || refreshToken.ExpiryTime <= DateTime.UtcNow)
-            {
-                Logger?.LogWarning("Token refresh rejected for user: {UserId} - invalid or expired refresh token", userId);
-                throw new SecurityTokenException("The provided refresh token is invalid or has expired");
-            }
-
-            Logger?.LogDebug("Token refreshed successfully for user: {UserId}", userId);
-            return await CreateTokenAsync(userId).ConfigureAwait(false);
+            Logger?.LogWarning("Token refresh rejected because the access token has no user identifier");
+            throw new SecurityTokenException("The access token has no user identifier.");
         }
-        catch (Exception ex) when (ex is not SecurityTokenException and not ArgumentException)
+
+        Token accessToken = await base
+            .CreateTokenAsync(userId, cancellationToken)
+            .ConfigureAwait(false);
+        JwtRefreshToken replacement = GenerateRefreshToken();
+        var rotated = await TryRotateRefreshTokenAsync(
+            userId,
+            token.RefreshToken,
+            replacement,
+            cancellationToken).ConfigureAwait(false);
+
+        if (!rotated)
         {
-            Logger?.LogError(ex, "Token refresh failed");
-            throw;
+            Logger?.LogWarning(
+                "Token refresh rejected for user: {UserId} - invalid, expired, or already used refresh token",
+                userId);
+            throw new SecurityTokenException("The refresh token is invalid, expired, or already used.");
         }
+
+        Logger?.LogDebug("Token refreshed successfully for user: {UserId}", userId);
+
+        return new Token(accessToken.AccessToken, replacement.RefreshToken);
     }
 
     private JwtRefreshToken GenerateRefreshToken()
     {
-        var randomNumber = new byte[32];
-
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-
+        var randomNumber = RandomNumberGenerator.GetBytes(32);
         var refreshToken = Convert.ToBase64String(randomNumber);
         DateTime refreshTokenExpires = DateTime.UtcNow.AddMinutes(JwtOptions.RefreshTokenExpiresInMinutes);
+
         return new JwtRefreshToken { RefreshToken = refreshToken, ExpiryTime = refreshTokenExpires };
     }
 
     /// <summary>
-    /// Handles refresh token storage
+    /// Stores the first refresh token issued for a new token session.
     /// </summary>
-    /// <param name="userId">User identifier</param>
-    /// <param name="refreshToken">Refresh token information</param>
-    protected abstract Task HandleRefreshToken(string userId, JwtRefreshToken refreshToken);
+    /// <param name="userId">User identifier.</param>
+    /// <param name="refreshToken">Refresh token to store.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    protected abstract Task StoreRefreshTokenAsync(
+        string userId,
+        JwtRefreshToken refreshToken,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Retrieves existing refresh token
+    /// Atomically replaces a valid stored refresh token.
     /// </summary>
-    /// <param name="userId">User identifier</param>
-    /// <returns>Refresh token information</returns>
-    protected abstract Task<JwtRefreshToken> GetExistRefreshTokenAsync(string userId);
+    /// <param name="userId">User identifier.</param>
+    /// <param name="presentedRefreshToken">Refresh token presented by the client.</param>
+    /// <param name="replacement">Replacement refresh token.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><see langword="true"/> only when the stored token matched, was not expired, and was replaced atomically.</returns>
+    protected abstract Task<bool> TryRotateRefreshTokenAsync(
+        string userId,
+        string presentedRefreshToken,
+        JwtRefreshToken replacement,
+        CancellationToken cancellationToken);
 }

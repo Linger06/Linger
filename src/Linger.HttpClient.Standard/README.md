@@ -1,365 +1,230 @@
 # Linger.HttpClient.Standard
 
-Production-ready HTTP client implementation based on System.Net.Http.HttpClient.
+The standard `IHttpClient` implementation based on `System.Net.Http.HttpClient`.
 
 ## Features
 
-- **Zero Dependencies**: Built on standard .NET libraries
-- **HttpClientFactory Integration**: Proper socket management and connection pooling
-- **Proper Resource Management**: Automatic disposal tracking with ownership pattern to prevent resource leaks
-- **Streaming Download Support**: `DownloadStreamAsync` and `DownloadToFileAsync` for large-file scenarios
-- **Optional Response Mode**: `Buffered` / `Streamed` response reading modes
-- **Comprehensive Logging**: Built-in performance monitoring
-- **Linger.Results Integration**: Seamless error mapping from server to client
-- **ProblemDetails Support**: Native RFC 7807 support
+- `HttpClientFactory` connection management
+- JSON, form, and custom `HttpContent` requests
+- RFC 7807 ProblemDetails and legacy error-array parsing
+- Per-request headers without shared mutable authentication state
+- Raw `HttpResponseMessage` access and long-lived streaming
+- Streaming uploads based on `StreamContent`
+- Temporary-file commit semantics for streaming downloads
+- User-cancellation propagation and `HttpClient.Timeout` handling
 
-## Installation
+## Installation and registration
 
 ```bash
 dotnet add package Linger.HttpClient.Standard
 ```
 
-## Quick Start
-
 ```csharp
-// Program.cs / Startup.cs
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
-
-// In any business service
-public sealed class UserQueryService
+services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
 {
-    private readonly IHttpClient _httpClient;
-
-    public UserQueryService(IHttpClient httpClient)
-    {
-        _httpClient = httpClient;
-    }
-
-    public async Task<User?> GetAsync(int id, CancellationToken cancellationToken = default)
-    {
-        var result = await _httpClient.CallApi<User>($"api/users/{id}", cancellationToken: cancellationToken);
-
-        if (result.IsSuccess && result.Data is not null)
-        {
-            return result.Data;
-        }
-
-        Console.WriteLine($"Request failed: {(int)result.StatusCode} - {result.ErrorMsg}");
-
-        foreach (var error in result.Errors)
-        {
-            Console.WriteLine($"Error item: {error.Code} - {error.Message}");
-        }
-
-        return null;
-    }
-}
-
-// Called from a controller or page
-var user = await userQueryService.GetAsync(123);
-
-if (user is not null)
-{
-    Console.WriteLine($"User: {user.Name}");
-}
-else
-{
-    Console.WriteLine("No user returned. Check the error output above.");
-}
+    client.BaseAddress = new Uri("https://api.example.com/");
+    client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
 ```
 
-Key points:
-- Prefer HttpClientFactory in production.
-- Check `ErrorMsg` and `Errors` first when a call fails; do not rely on the status code alone.
-- Prefer `DownloadStreamAsync` / `DownloadToFileAsync` for large files.
-
-## Basic Usage
-
-### Recommended: Using HttpClientFactory
+WinForms and console applications can construct the client directly from a base URL. In this mode, `StandardHttpClient` owns the underlying client; reuse the instance for the application lifetime and dispose it during shutdown:
 
 ```csharp
-// Register in DI container
-services.AddHttpClient<IHttpClient, StandardHttpClient>();
-
-// Use in service
-public class UserService
-{
-    private readonly IHttpClient _httpClient;
-
-    public UserService(IHttpClient httpClient)
-    {
-        _httpClient = httpClient;
-    }
-
-    public async Task<User?> GetUserAsync(int id)
-    {
-        var result = await _httpClient.CallApi<User>($"api/users/{id}");
-        return result.IsSuccess ? result.Data : null;
-    }
-}
+using var client = new StandardHttpClient("https://api.example.com/");
 ```
 
-### Using Existing HttpClient Instance
-
-If you already have an `HttpClient` instance (e.g., from HttpClientFactory), you can wrap it:
+Configure the underlying client during construction when you need a timeout, fixed headers, or `Accept-Language`:
 
 ```csharp
-// The StandardHttpClient will NOT dispose the external HttpClient
-var httpClient = httpClientFactory.CreateClient("MyClient");
-using var standardClient = new StandardHttpClient(httpClient, logger);
-
-var result = await standardClient.CallApi<User>("api/users/123");
-```
-
-### Direct Instantiation (Not Recommended for Production)
-
-Only use this approach for testing or simple scenarios:
-
-```csharp
-// ⚠️ Creates new HttpClient instance
-// StandardHttpClient will dispose it when disposed
-using var client = new StandardHttpClient("https://api.example.com", logger);
-var result = await client.CallApi<User>("api/users/123");
-// HttpClient is automatically disposed here
-```
-
-**Why HttpClientFactory is Recommended:**
-- Proper connection pooling
-- Automatic DNS refresh handling
-- Prevents socket exhaustion
-- Built-in lifetime management
-
-## Linger.Results Integration
-
-Integrates with Linger.Results for unified error handling:
-
-```csharp
-// Server using Linger.Results
-[HttpGet("{id}")]
-public async Task<IActionResult> GetUser(int id)
-{
-    var result = await _userService.GetUserAsync(id);
-    return result.ToActionResult(); // Automatic HTTP status mapping
-}
-
-// Client automatically receives structured errors
-var apiResult = await _httpClient.CallApi<User>($"api/users/{id}");
-if (!apiResult.IsSuccess)
-{
-    foreach (var error in apiResult.Errors)
-        Console.WriteLine($"Error: {error.Code} - {error.Message}");
-}
-```
-
-## ProblemDetails Support
-See the full request/response mapping and error contract in
-[REQUEST_RESPONSE_MAPPING.zh-CN.md](REQUEST_RESPONSE_MAPPING.zh-CN.md).
-
-Short summary: the client prefers `ProblemDetails.detail` as the global message;
-if absent it uses the first message from `errors` (each `errors` value is an array).
-The `Errors` list preserves all individual error items for fine-grained handling.
-
-## Call Flow and Response Mapping
-
-See [REQUEST_RESPONSE_MAPPING.zh-CN.md](REQUEST_RESPONSE_MAPPING.zh-CN.md) for controller / minimal API examples and status-code mapping.
-
-## Custom Error Handling
-
-`StandardHttpClient` can be inherited. If a server returns neither Linger.Results nor RFC 7807 ProblemDetails, override the error parsing logic to adapt custom formats.
-
-The most common extension point is `GetErrorMessageAsync` in `HttpClientBase`, which converts the custom error body into `ErrorMsg` and `Errors`.
-
-```csharp
-public class CustomHttpClient : StandardHttpClient
-{
-    public CustomHttpClient(HttpClient httpClient, ILogger<StandardHttpClient>? logger = null)
-        : base(httpClient, logger)
+using var client = new StandardHttpClient(
+    "https://api.example.com/",
+    configureClient: httpClient =>
     {
-    }
+        httpClient.Timeout = TimeSpan.FromSeconds(30);
+        httpClient.DefaultRequestHeaders.AcceptLanguage.ParseAdd("zh-CN");
+    });
+```
 
-    protected override async Task<(string ErrorMsg, IEnumerable<Error> Errors)> GetErrorMessageAsync(HttpResponseMessage response)
+Supply a caller-owned `HttpClient` when custom handlers, authentication, certificates, or proxies are required. Disposing `StandardHttpClient` does not dispose the external client. You can also let URL mode own a custom handler:
+
+```csharp
+using var client = new StandardHttpClient(
+    "https://api.example.com/",
+    accessTokenHandler);
+```
+
+```csharp
+using var httpClient = new HttpClient
+{
+    BaseAddress = new Uri("https://api.example.com/")
+};
+using var client = new StandardHttpClient(httpClient, logger);
+```
+
+## Typed calls
+
+```csharp
+var getResult = await client.GetAsync<User>(
+    "users/42",
+    queryParams: new { IncludeRoles = true },
+    cancellationToken: cancellationToken);
+
+var postResult = await client.PostAsync<User>(
+    "users",
+    new CreateUserRequest("Ada"),
+    cancellationToken: cancellationToken);
+
+var patchResult = await client.CallApi<User>(
+    "users/42",
+    HttpMethod.Patch,
+    new UpdateUserRequest("Grace"),
+    cancellationToken: cancellationToken);
+```
+
+Query-object property metadata is cached. Collection properties produce repeated keys, while numbers and dates use invariant formatting.
+
+## Authentication and headers
+
+### Fixed authorization header
+
+When one client instance represents one user and every request uses the same token, configure the default authorization header when creating the client:
+
+```csharp
+var accessToken = "eyJ...";
+using var client = new StandardHttpClient(
+    "https://api.example.com/",
+    configureClient: httpClient =>
     {
-        var responseText = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+        httpClient.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+    });
+```
 
-        // Parse your custom error format here
-        // Example: {"code":"BusinessRule","message":"Out of stock"}
+Reuse the client for the application lifetime instead of creating one per request. Use a `DelegatingHandler` for token refresh or other dynamic behavior rather than mutating shared `DefaultRequestHeaders` while requests are in flight.
 
-        return await base.GetErrorMessageAsync(response).ConfigureAwait(false);
+### Using DelegatingHandler
+
+A `DelegatingHandler` can attach authentication, culture, or other common request information before sending. The handler modifies only the current `HttpRequestMessage`:
+
+```csharp
+public sealed class AccessTokenHandler(string accessToken) : DelegatingHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        request.Headers.Authorization =
+            new AuthenticationHeaderValue("Bearer", accessToken);
+        return base.SendAsync(request, cancellationToken);
     }
 }
 ```
 
-## Server Conventions
+Automatic refresh normally retains the complete server `Token`, uses `SemaphoreSlim` to prevent duplicate refreshes under concurrency, and calls the refresh endpoint through a separate client without the authentication handler. See the [Linger.HttpClient.WinForms example](../../examples/Linger.HttpClient.WinForms/README.md) for the complete client implementation and lifecycle; see the [Linger.AspNetCore.Jwt README](../Linger.AspNetCore.Jwt/README.md) for the server endpoints.
 
-Follow these conventions for more stable error mapping:
+### Dynamic or multi-user authentication
 
-1. Response content type
-- Use `application/problem+json` for validation errors (RFC 7807).
-- Use an error array (`IEnumerable<Error>`) for business errors.
+When a shared client can send requests for different users, pass dynamic authentication per request instead of mutating shared `DefaultRequestHeaders.Authorization`:
 
-2. Error payload structure
-- ProblemDetails: include `title`, `status`, and `errors`.
-- Error array: each item should include `code` and `message`.
-
-3. Status code conventions
-- Parameter or validation failure: 400 / 422
-- Unauthorized or authentication failure: 401 / 403
-- Resource not found: 404
-- Business conflict: 409
-
-## Core Methods
-
-### CallApi<T>
 ```csharp
-public async Task<ApiResult<T>> CallApi<T>(
-    string url,
-    HttpMethodEnum method,
-    object? requestBody = null,
-    object? queryParams = null,
-    int? timeout = null,
-    CancellationToken cancellationToken = default)
+var headers = new Dictionary<string, string>
+{
+    ["Authorization"] = $"Bearer {accessToken}",
+    ["X-Correlation-Id"] = correlationId
+};
+
+var result = await client.GetAsync<User>(
+    "users/me",
+    headers: headers,
+    cancellationToken: cancellationToken);
 ```
 
-Supported HTTP methods:
-- GET: Retrieve data
-- POST: Create resource
-- PUT: Update resource
-- DELETE: Delete resource
+Fixed service credentials can also be configured during `AddHttpClient` registration. Use a default authorization header for a fixed token on a dedicated instance, and use the `headers` parameter when tokens can differ between requests.
 
-### Streaming Download
+The client does not append `culture`. Add it explicitly as a query parameter or through a custom `DelegatingHandler` when required.
 
-For large file downloads, use streaming methods to minimize memory consumption:
+## File uploads
 
-#### DownloadStreamAsync
 ```csharp
-// Download large file as stream (minimal memory usage)
-var result = await _httpClient.DownloadStreamAsync("https://example.com/large-file.zip");
-if (result.IsSuccess && result.Data is not null)
-{
-    using var stream = result.Data;
-    // Process stream directly without loading entire file into memory
-    // Remember to dispose the stream when done
-}
+var fileStream = File.OpenRead("report.pdf");
+var result = await client.UploadFileAsync<UploadResponse>(
+    "files",
+    HttpMethod.Post,
+    fileStream,
+    "report.pdf",
+    formData: new Dictionary<string, string>
+    {
+        ["category"] = "report"
+    },
+    cancellationToken: cancellationToken);
 ```
 
-#### DownloadToFileAsync (Recommended)
+Uploads use `StreamContent` and do not copy the complete file into memory. The input stream is disposed when the request completes.
+
+## File downloads
+
 ```csharp
-// Download directly to file with progress reporting
-var progress = new Progress<(long downloaded, long? total)>(p =>
+var progress = new Progress<(long downloaded, long? total)>(value =>
 {
-    var percent = p.total.HasValue ? (double)p.downloaded / p.total.Value * 100 : 0;
-    Console.WriteLine($"Downloaded: {p.downloaded} bytes ({percent:F1}%)");
+    Console.WriteLine($"{value.downloaded}/{value.total}");
 });
 
-var result = await _httpClient.DownloadToFileAsync(
-    url: "https://example.com/large-file.zip",
-    destinationPath: "output.zip",
-    progress: progress
-);
-
-if (result.IsSuccess)
-{
-    Console.WriteLine("Download completed successfully!");
-}
+var result = await client.DownloadToFileAsync(
+    "files/report.pdf",
+    "report.pdf",
+    progress: progress,
+    cancellationToken: cancellationToken);
 ```
 
-**Benefits of Streaming Download:**
-- ✅ Minimal memory usage (~8KB buffer vs full file size)
-- ✅ Supports files of any size
-- ✅ Built-in progress reporting
-- ✅ Cancellation token support
+The download flow uses `ResponseHeadersRead`, writes a same-directory temporary file, and replaces the destination only after download and flush succeed. Cancellation or failure removes the temporary file and preserves an existing destination.
 
-`DownloadToFileAsync` does not write directly to the final path. It commits a same-directory temporary file only after a successful flush. Cancellation or transfer failure removes the temporary file and leaves an existing destination unchanged. Cancellation is reported by throwing `OperationCanceledException`.
+## Raw responses and long-lived streams
 
-To access the raw HTTP response, request `HttpResponseMessage` and dispose the returned instance:
+Use `SendAsync` when you need response headers, SSE, or incremental content processing. It reuses the `StandardHttpClient` base address, default headers, and `DelegatingHandler` pipeline, including authentication refresh:
 
 ```csharp
-var result = await _httpClient.CallApi<HttpResponseMessage>(url);
-if (result.IsSuccess)
-{
-    using var response = result.Data;
-    // Inspect headers or content directly.
-}
+using var response = await client.SendAsync(
+    "events",
+    HttpMethod.Get,
+    cancellationToken: cancellationToken);
+
+response.EnsureSuccessStatusCode();
+using var stream = await response.Content.ReadAsStreamAsync();
+await ProcessStreamAsync(stream, cancellationToken);
 ```
 
-**Performance Comparison (Downloading 500MB file):**
+The caller owns the returned `HttpResponseMessage`. Raw calls do not parse unsuccessful responses or convert network and timeout exceptions into `ApiResult`.
 
-| Method | Memory Usage | Notes |
-|--------|-------------|-------|
-| `CallApi<byte[]>` | ~500MB | Loads entire file into memory |
-| `DownloadStreamAsync` | ~8KB | Only buffer memory usage |
-| `DownloadToFileAsync` | ~8KB | Customizable buffer size |
-
-#### HttpResponseMode (`Buffered` / `Streamed`)
-
-Choose the response reading mode based on the scenario:
-
-- `Buffered`: Suitable for small responses or cases where the full content must be read at once
-- `Streamed`: Suitable for large responses or download scenarios, processing data incrementally with lower memory usage
-
-| Scenario | Recommended Mode | Reason |
-|------|----------|------|
-| Regular JSON APIs (small to medium responses) | `Buffered` | Simple and easy to deserialize directly |
-| File download / export | `Streamed` | Avoids loading the whole payload into memory and reduces peak memory usage |
-| Potentially huge responses (logs, reports, binary data) | `Streamed` | More stable and reduces OOM risk |
-| Need full content before unified processing | `Buffered` | Business logic is simpler |
-
-**Performance comparison (downloading a 500 MB file):**
-
-| Method | Memory Usage | Notes |
-|------|---------|------|
-| `CallApi<byte[]>` | ~500 MB | Loads the entire file into memory |
-| `DownloadStreamAsync` | ~8 KB | Buffer-only memory usage |
-| `DownloadToFileAsync` | ~8 KB | Customizable buffer size |
-
-## Error Handling
+## Error handling
 
 ```csharp
-var result = await _httpClient.CallApi<User>("api/users/123");
+var result = await client.GetAsync<User>("users/42", cancellationToken: cancellationToken);
 
-if (result.IsSuccess)
+if (!result.IsSuccess)
 {
-    var user = result.Data;
-}
-else
-{
-    // Check HTTP status code
-    switch (result.StatusCode)
-    {
-        case HttpStatusCode.NotFound:
-            Console.WriteLine("User not found");
-            break;
-        case HttpStatusCode.Unauthorized:
-            Console.WriteLine("Authentication required");
-            break;
-    }
+    Console.WriteLine($"HTTP: {result.StatusCode}");
+    Console.WriteLine(result.ErrorMsg);
 
-    // Access detailed errors
     foreach (var error in result.Errors)
     {
-        Console.WriteLine($"Error: {error.Code} - {error.Message}");
+        Console.WriteLine($"{error.Code}: {error.Message}");
     }
 }
 ```
 
-## Common Pitfalls
+Parsing order:
 
-- Do not use `CallApi<byte[]>` to download large files: it loads the entire response into memory.
-- Dispose the stream promptly after `DownloadStreamAsync`; `using` is recommended.
-- Pass a cancellation token to download tasks so timeouts or user cancellation can stop quickly.
-- Catch `OperationCanceledException` when cancellation is an expected application flow; `DownloadToFileAsync` does not convert cancellation into a failed `ApiResult`.
-- Do not manage the lifecycle of an external `HttpClient` twice when wrapping an instance created by a factory.
-- Handle structured errors consistently and prefer the `Errors` list over status-code-only checks.
+1. ProblemDetails (`application/problem+json` or standard problem fields)
+2. Legacy `IEnumerable<Error>` arrays
+3. Status-code message and raw response text
 
-## Best Practices
+An arbitrary JSON object is not treated as ProblemDetails merely because it can be deserialized. Full exception details go to logs; `ErrorMsg` never contains `Exception.ToString()`.
 
-- Use HttpClientFactory for dependency injection
-- Use `using` statements to ensure proper resource disposal
-- Enable detailed logging for debugging
-- Set reasonable timeout values
-- Handle network exceptions and timeouts
-- **Use streaming methods for large file downloads** (`DownloadStreamAsync` or `DownloadToFileAsync`) to save memory
+## Cancellation and timeout
 
-## More Examples
+User cancellation preserves standard .NET semantics and throws `OperationCanceledException`. Timeout is configured through `HttpClient.Timeout` and returns a failed `ApiResult`. Use `GetWithTimeoutAsync` for a different one-off GET timeout; for other requests, pass a token from a caller-owned `CancellationTokenSource` configured with `CancelAfter`.
 
-For complete streaming download examples and performance comparisons, see [STREAMING_DOWNLOAD_EXAMPLE.md](STREAMING_DOWNLOAD_EXAMPLE.md)
+## Custom JSON and errors
+
+Derive from `StandardHttpClient` and override `GetRequestJsonOptions`, `GetResponseJsonOptions`, or `GetErrorMessageAsync` when a server requires a custom format.

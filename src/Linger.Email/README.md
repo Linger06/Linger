@@ -137,7 +137,7 @@ await email.SendAsync(message);
 
 ## ASP.NET Core Integration
 
-If you are building an ASP.NET Core application, use [Linger.Email.AspNetCore](../Linger.Email.AspNetCore/README.md) for dependency injection, configuration binding, and logging integration.
+If you are building an ASP.NET Core application, use [Linger.Email.AspNetCore](../Linger.Email.AspNetCore/README.md) for dependency injection, configuration binding, logging, controller examples, and request-cancellation propagation.
 
 ## Advanced Features
 
@@ -327,46 +327,6 @@ public class EmailService
             
             // Optional: Add delay between emails
             await Task.Delay(1000, cancellationToken);
-        }
-    }
-}
-```
-
-### Using with ASP.NET Core Request Cancellation
-
-```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class EmailController : ControllerBase
-{
-    private readonly IEmailService _emailService;
-    
-    public EmailController(IEmailService emailService)
-    {
-        _emailService = emailService;
-    }
-    
-    [HttpPost("send")]
-    public async Task<IActionResult> SendEmail(
-        [FromBody] EmailRequest request,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Pass the request's cancellation token
-            // Will automatically cancel if client disconnects
-            await _emailService.SendTextEmailAsync(
-                request.To,
-                request.Subject,
-                request.Body,
-                cancellationToken
-            );
-            
-            return Ok("Email sent successfully");
-        }
-        catch (OperationCanceledException)
-        {
-            return StatusCode(499, "Request cancelled by client");
         }
     }
 }

@@ -1,7 +1,47 @@
+using Linger.Results.AspNetCore;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+
 namespace Linger.Results.UnitTests;
 
 public class IntegrationTests
 {
+    [Fact]
+    public void ToActionResult_WhenResultIsSuccessful_ShouldReturnEmptyOkResult()
+    {
+        var actionResult = Result.Success().ToActionResult();
+
+        Assert.IsType<OkResult>(actionResult);
+    }
+
+    [Fact]
+    public void ToActionResult_WhenResultFails_ShouldReturnProblemDetails()
+    {
+        var actionResult = Result.Failure(new Error("Validation.Name", "Name is required")).ToActionResult();
+
+        var objectResult = Assert.IsType<ObjectResult>(actionResult);
+        var problemDetails = Assert.IsType<ProblemDetails>(objectResult.Value);
+        var errors = Assert.IsType<Dictionary<string, string[]>>(problemDetails.Extensions["errors"]);
+        Assert.Equal(StatusCodes.Status400BadRequest, objectResult.StatusCode);
+        Assert.Equal(["Name is required"], errors["Validation.Name"]);
+    }
+
+    [Fact]
+    public void ToActionResult_WhenErrorsHaveNoCode_ShouldPreserveAllMessages()
+    {
+        var result = Result.Failure([
+            new Error(string.Empty, "First error"),
+            new Error(string.Empty, "Second error")
+        ]);
+
+        var actionResult = result.ToActionResult();
+
+        var objectResult = Assert.IsType<ObjectResult>(actionResult);
+        var problemDetails = Assert.IsType<ProblemDetails>(objectResult.Value);
+        var errors = Assert.IsType<Dictionary<string, string[]>>(problemDetails.Extensions["errors"]);
+        Assert.Equal(["First error", "Second error"], errors[string.Empty]);
+    }
+
     [Fact]
     public void RealWorldScenario_UserValidationAndCreation_ShouldWorkCorrectly()
     {

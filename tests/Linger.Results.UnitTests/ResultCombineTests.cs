@@ -76,6 +76,17 @@ public class ResultCombineTests
     }
 
     [Fact]
+    public void Combine_WithFailureWithoutErrors_ShouldReturnFailure()
+    {
+        var results = new[] { Result.Failure(Array.Empty<Error>()) };
+
+        var combined = results.Combine();
+
+        Assert.True(combined.IsFailure);
+        Assert.Empty(combined.Errors);
+    }
+
+    [Fact]
     public void Combine_WithGenericResults_ShouldReturnNonGenericResult()
     {
         // Arrange

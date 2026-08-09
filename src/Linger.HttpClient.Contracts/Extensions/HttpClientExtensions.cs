@@ -4,39 +4,46 @@ using Linger.HttpClient.Contracts.Models;
 namespace Linger.HttpClient.Contracts.Extensions;
 
 /// <summary>
-/// HttpClient扩展方法
+/// 提供常用 HTTP 方法的便捷调用。
 /// </summary>
 public static class HttpClientExtensions
 {
     /// <summary>
-    /// 发送GET请求并返回分页结果
+    /// 发送 GET 请求并返回分页结果。
     /// </summary>
-    public static async Task<ApiResult<ApiPagedResult<T>>> GetPagedAsync<T>(
+    public static Task<ApiResult<ApiPagedResult<T>>> GetPagedAsync<T>(
         this IHttpClient client,
         string url,
         object? queryParams = null,
-        int? timeout = null,
+        IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<ApiPagedResult<T>>(url, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return client.CallApi<ApiPagedResult<T>>(url, HttpMethod.Get, queryParams: queryParams, headers: headers, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// 发送GET请求
+    /// 发送 GET 请求。
     /// </summary>
-    public static async Task<ApiResult<T>> GetAsync<T>(
+    public static Task<ApiResult<T>> GetAsync<T>(
         this IHttpClient client,
         string url,
         object? queryParams = null,
-        int? timeout = null,
+        IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default)
     {
-        return await client.CallApi<T>(url, queryParams, timeout, cancellationToken).ConfigureAwait(false);
+        return client.CallApi<T>(url, HttpMethod.Get, queryParams: queryParams, headers: headers, cancellationToken: cancellationToken);
     }
 
     /// <summary>
-    /// 使用查询参数发送GET请求并自动处理超时
+    /// 使用单次调用超时发送 GET 请求。
     /// </summary>
+    /// <typeparam name="T">响应数据类型。</typeparam>
+    /// <param name="client">HTTP 客户端。</param>
+    /// <param name="url">请求地址。</param>
+    /// <param name="queryParams">可选查询参数。</param>
+    /// <param name="timeout">本次调用的超时时间；null 或无限表示不增加单次超时。</param>
+    /// <param name="cancellationToken">调用方取消令牌。</param>
+    /// <returns>API 调用结果。</returns>
     public static async Task<ApiResult<T>> GetWithTimeoutAsync<T>(
         this IHttpClient client,
         string url,
@@ -44,110 +51,135 @@ public static class HttpClientExtensions
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        // 将TimeSpan转换为秒数,向上取整以避免丢失精度
-        int? timeoutSeconds = timeout.HasValue ? (int)Math.Ceiling(timeout.Value.TotalSeconds) : null;
-
-        // 使用基础方法发送请求
-        return await client.CallApi<T>(url, queryParams, timeoutSeconds, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 发送POST请求
-    /// </summary>
-    public static async Task<ApiResult<T>> PostAsync<T>(
-        this IHttpClient client,
-        string url,
-        object requestBody,
-        object? queryParams = null,
-        int? timeout = null,
-        CancellationToken cancellationToken = default)
-    {
-        return await client.CallApi<T>(url, HttpMethodEnum.Post, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 发送PUT请求
-    /// </summary>
-    public static async Task<ApiResult<T>> PutAsync<T>(
-        this IHttpClient client,
-        string url,
-        object requestBody,
-        object? queryParams = null,
-        int? timeout = null,
-        CancellationToken cancellationToken = default)
-    {
-        return await client.CallApi<T>(url, HttpMethodEnum.Put, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 发送DELETE请求
-    /// </summary>
-    public static async Task<ApiResult<T>> DeleteAsync<T>(
-        this IHttpClient client,
-        string url,
-        object? queryParams = null,
-        int? timeout = null,
-        CancellationToken cancellationToken = default)
-    {
-        return await client.CallApi<T>(url, HttpMethodEnum.Delete, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 发送POST请求(无返回值)
-    /// </summary>
-    public static async Task<ApiResult> PostAsync(
-        this IHttpClient client,
-        string url,
-        object requestBody,
-        object? queryParams = null,
-        int? timeout = null,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await client.CallApi<object>(url, HttpMethodEnum.Post, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-        return new ApiResult
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(client);
+#else
+        if (client is null)
         {
-            StatusCode = result.StatusCode,
-            ErrorMsg = result.ErrorMsg,
-            Errors = result.Errors
-        };
+            throw new ArgumentNullException(nameof(client));
+        }
+#endif
+
+        if (timeout is null || timeout == System.Threading.Timeout.InfiniteTimeSpan)
+        {
+            return await client
+                .GetAsync<T>(url, queryParams, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        if (timeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(timeout));
+        }
+
+        using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutSource.CancelAfter(timeout.Value);
+
+        try
+        {
+            return await client
+                .GetAsync<T>(url, queryParams, cancellationToken: timeoutSource.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (
+            !cancellationToken.IsCancellationRequested &&
+            timeoutSource.IsCancellationRequested)
+        {
+            return new ApiResult<T> { ErrorMsg = "The HTTP request timed out." };
+        }
     }
 
     /// <summary>
-    /// 发送PUT请求(无返回值)
+    /// 发送 POST 请求。
     /// </summary>
-    public static async Task<ApiResult> PutAsync(
+    public static Task<ApiResult<T>> PostAsync<T>(
         this IHttpClient client,
         string url,
         object requestBody,
         object? queryParams = null,
-        int? timeout = null,
+        IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await client.CallApi<object>(url, HttpMethodEnum.Put, requestBody, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-        return new ApiResult
-        {
-            StatusCode = result.StatusCode,
-            ErrorMsg = result.ErrorMsg,
-            Errors = result.Errors
-        };
+        return client.CallApi<T>(url, HttpMethod.Post, requestBody, queryParams, headers, cancellationToken);
     }
 
     /// <summary>
-    /// 发送DELETE请求(无返回值)
+    /// 发送 PUT 请求。
     /// </summary>
-    public static async Task<ApiResult> DeleteAsync(
+    public static Task<ApiResult<T>> PutAsync<T>(
+        this IHttpClient client,
+        string url,
+        object requestBody,
+        object? queryParams = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default)
+    {
+        return client.CallApi<T>(url, HttpMethod.Put, requestBody, queryParams, headers, cancellationToken);
+    }
+
+    /// <summary>
+    /// 发送 DELETE 请求。
+    /// </summary>
+    public static Task<ApiResult<T>> DeleteAsync<T>(
         this IHttpClient client,
         string url,
         object? queryParams = null,
-        int? timeout = null,
+        IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default)
     {
-        var result = await client.CallApi<object>(url, HttpMethodEnum.Delete, null, queryParams, timeout, cancellationToken).ConfigureAwait(false);
-        return new ApiResult
-        {
-            StatusCode = result.StatusCode,
-            ErrorMsg = result.ErrorMsg,
-            Errors = result.Errors
-        };
+        return client.CallApi<T>(url, HttpMethod.Delete, queryParams: queryParams, headers: headers, cancellationToken: cancellationToken);
+    }
+
+    /// <summary>
+    /// 发送无响应数据的 POST 请求。
+    /// </summary>
+    public static Task<ApiResult> PostAsync(
+        this IHttpClient client,
+        string url,
+        object requestBody,
+        object? queryParams = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default)
+    {
+        return CallWithoutResultAsync(client, url, HttpMethod.Post, requestBody, queryParams, headers, cancellationToken);
+    }
+
+    /// <summary>
+    /// 发送无响应数据的 PUT 请求。
+    /// </summary>
+    public static Task<ApiResult> PutAsync(
+        this IHttpClient client,
+        string url,
+        object requestBody,
+        object? queryParams = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default)
+    {
+        return CallWithoutResultAsync(client, url, HttpMethod.Put, requestBody, queryParams, headers, cancellationToken);
+    }
+
+    /// <summary>
+    /// 发送无响应数据的 DELETE 请求。
+    /// </summary>
+    public static Task<ApiResult> DeleteAsync(
+        this IHttpClient client,
+        string url,
+        object? queryParams = null,
+        IReadOnlyDictionary<string, string>? headers = null,
+        CancellationToken cancellationToken = default)
+    {
+        return CallWithoutResultAsync(client, url, HttpMethod.Delete, null, queryParams, headers, cancellationToken);
+    }
+
+    private static async Task<ApiResult> CallWithoutResultAsync(
+        IHttpClient client,
+        string url,
+        HttpMethod method,
+        object? requestBody,
+        object? queryParams,
+        IReadOnlyDictionary<string, string>? headers,
+        CancellationToken cancellationToken)
+    {
+        return await client.CallApi<object>(url, method, requestBody, queryParams, headers, cancellationToken).ConfigureAwait(false);
     }
 }

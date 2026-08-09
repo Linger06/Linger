@@ -5,44 +5,55 @@ namespace Linger.Results;
 /// </summary>
 public class Result
 {
-    private static readonly Result s_success = new(ResultStatus.Ok);
+    private static readonly Result s_success = new(ResultState.Success);
+    private readonly ResultState _state;
 
-    protected Result()
+    protected Result() : this(ResultState.Success)
     {
     }
 
-    protected Result(ResultStatus status)
+    protected Result(ResultStatus status) : this(new ResultState(status, []))
     {
-        Status = status;
     }
 
-    public ResultStatus Status { get; protected set; } = ResultStatus.Ok;
+    private Result(ResultStatus status, IEnumerable<Error> errors) : this(new ResultState(status, errors))
+    {
+    }
+
+    internal Result(ResultState state)
+    {
+        _state = state ?? throw new ArgumentNullException(nameof(state));
+    }
+
+    internal ResultState State => _state;
+
+    public ResultStatus Status => _state.Status;
 
     public bool IsSuccess => Status is ResultStatus.Ok;
 
     public bool IsFailure => !IsSuccess;
 
-    public IEnumerable<Error> Errors { get; protected set; } = [];
+    public IEnumerable<Error> Errors => _state.Errors;
 
     /// <summary>
     /// 获取第一个错误，如果没有错误则返回 <see cref="Error.None"/>
     /// </summary>
-    public Error FirstError => Errors.FirstOrDefault() ?? Error.None;
+    public Error FirstError => _state.Errors.Count > 0 ? _state.Errors[0] : Error.None;
 
     public static Result Success() => s_success;
-    public static Result<TValue> Success<TValue>(TValue value) => new(value, ResultStatus.Ok);
+    public static Result<TValue> Success<TValue>(TValue value) => Result<TValue>.Success(value);
 
-    public static Result Failure() => new(ResultStatus.Error) { Errors = [Error.Default] };
-    public static Result Failure(Error error) => new(ResultStatus.Error) { Errors = [error] };
-    public static Result Failure(string message) => new(ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
-    public static Result Failure(IEnumerable<Error> errors) => new(ResultStatus.Error) { Errors = errors };
+    public static Result Failure() => new(ResultStatus.Error, [Error.Default]);
+    public static Result Failure(Error error) => new(ResultStatus.Error, [error]);
+    public static Result Failure(string message) => new(ResultStatus.Error, [new Error(string.Empty, message)]);
+    public static Result Failure(IEnumerable<Error> errors) => new(ResultStatus.Error, errors);
 
     public static Result Create(bool condition) => condition ? Success() : Failure(Error.ConditionNotMet);
 
-    public static Result NotFound() => new(ResultStatus.NotFound) { Errors = [Error.NotFound] };
-    public static Result NotFound(string errorMessage) => new(ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
-    public static Result NotFound(Error error) => new(ResultStatus.NotFound) { Errors = [error] };
-    public static Result NotFound(IEnumerable<Error> errors) => new(ResultStatus.NotFound) { Errors = errors };
+    public static Result NotFound() => new(ResultStatus.NotFound, [Error.NotFound]);
+    public static Result NotFound(string errorMessage) => new(ResultStatus.NotFound, [new Error(string.Empty, errorMessage)]);
+    public static Result NotFound(Error error) => new(ResultStatus.NotFound, [error]);
+    public static Result NotFound(IEnumerable<Error> errors) => new(ResultStatus.NotFound, errors);
 
     /// <summary>
     /// 合并多个结果，所有结果成功时才返回成功
@@ -51,9 +62,7 @@ public class Result
     /// <returns>合并后的结果</returns>
     public static Result Combine(params Result[] results)
     {
-        var errors = results.Where(r => r.IsFailure).SelectMany(r => r.Errors).ToArray();
-
-        return errors.Length == 0 ? Success() : Failure(errors);
+        return ((IEnumerable<Result>)results).Combine();
     }
 }
 
@@ -64,35 +73,39 @@ public class Result
 public class Result<TValue>
 {
     private readonly TValue? _value;
+    private readonly ResultState _state;
 
-    protected internal Result(TValue? value, ResultStatus status)
+    protected internal Result(TValue? value, ResultStatus status) : this(value, new ResultState(status, []))
     {
-        _value = value;
-        Status = status;
     }
 
     /// <summary>
     /// 内部构造函数，用于从Result转换
     /// </summary>
-    internal Result(TValue? value, ResultStatus status, IEnumerable<Error> errors)
+    internal Result(TValue? value, ResultStatus status, IEnumerable<Error> errors) : this(value, new ResultState(status, errors))
     {
-        _value = value;
-        Status = status;
-        Errors = errors;
     }
 
-    public ResultStatus Status { get; protected set; } = ResultStatus.Ok;
+    internal Result(TValue? value, ResultState state)
+    {
+        _value = value;
+        _state = state ?? throw new ArgumentNullException(nameof(state));
+    }
+
+    internal ResultState State => _state;
+
+    public ResultStatus Status => _state.Status;
 
     public bool IsSuccess => Status is ResultStatus.Ok;
 
     public bool IsFailure => !IsSuccess;
 
-    public IEnumerable<Error> Errors { get; protected set; } = [];
+    public IEnumerable<Error> Errors => _state.Errors;
 
     /// <summary>
     /// 获取第一个错误，如果没有错误则返回 <see cref="Error.None"/>
     /// </summary>
-    public Error FirstError => Errors.FirstOrDefault() ?? Error.None;
+    public Error FirstError => _state.Errors.Count > 0 ? _state.Errors[0] : Error.None;
 
     public TValue Value => IsSuccess
         ? _value!
@@ -104,27 +117,27 @@ public class Result<TValue>
     /// </summary>
     public static implicit operator Result<TValue>(Result result)
     {
-        return new Result<TValue>(default, result.Status, result.Errors);
+        return new Result<TValue>(default, result.State);
     }
 
     public static implicit operator Result(Result<TValue> result)
     {
-        return result.Match(_ => Result.Success(), Result.Failure);
+        return new Result(result.State);
     }
 
     public static implicit operator Result<TValue>(TValue? value) => Create(value);
 
-    public static Result<TValue> Success(TValue value) => new(value, ResultStatus.Ok);
+    public static Result<TValue> Success(TValue value) => new(value, ResultState.Success);
 
-    public static Result<TValue> Failure() => new(default, ResultStatus.Error) { Errors = [Error.Default] };
-    public static Result<TValue> Failure(Error error) => new(default, ResultStatus.Error) { Errors = [error] };
-    public static Result<TValue> Failure(string message) => new(default, ResultStatus.Error) { Errors = [new Error(string.Empty, message)] };
-    public static Result<TValue> Failure(IEnumerable<Error> errors) => new(default, ResultStatus.Error) { Errors = errors };
+    public static Result<TValue> Failure() => new(default, ResultStatus.Error, [Error.Default]);
+    public static Result<TValue> Failure(Error error) => new(default, ResultStatus.Error, [error]);
+    public static Result<TValue> Failure(string message) => new(default, ResultStatus.Error, [new Error(string.Empty, message)]);
+    public static Result<TValue> Failure(IEnumerable<Error> errors) => new(default, ResultStatus.Error, errors);
 
-    public static Result<TValue> NotFound() => new(default, ResultStatus.NotFound) { Errors = [Error.NotFound] };
-    public static Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound) { Errors = [new Error(string.Empty, errorMessage)] };
-    public static Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound) { Errors = [error] };
-    public static Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound) { Errors = errors };
+    public static Result<TValue> NotFound() => new(default, ResultStatus.NotFound, [Error.NotFound]);
+    public static Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound, [new Error(string.Empty, errorMessage)]);
+    public static Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound, [error]);
+    public static Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound, errors);
 
     public static Result<TValue> Create(TValue? value) => value is not null ? Success(value) : Failure(Error.NullValue);
 
@@ -177,6 +190,30 @@ public class Result<TValue>
         else
             onFailure(Errors);
     }
+}
+
+internal sealed class ResultState
+{
+    internal static ResultState Success { get; } = new(ResultStatus.Ok, Array.Empty<Error>());
+
+    internal ResultState(ResultStatus status, IEnumerable<Error> errors)
+    {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(errors);
+#else
+        if (errors is null)
+        {
+            throw new ArgumentNullException(nameof(errors));
+        }
+#endif
+
+        Status = status;
+        Errors = Array.AsReadOnly(errors.ToArray());
+    }
+
+    internal ResultStatus Status { get; }
+
+    internal IReadOnlyList<Error> Errors { get; }
 }
 
 public record Error(string Code, string Message)

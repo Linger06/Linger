@@ -10,12 +10,7 @@
   - [基础实体](#基础实体)
   - [创建审计实体](#创建审计实体)
   - [完整审计实体](#完整审计实体)
-- [💡 使用示例](#-使用示例)
-  - [设置当前用户上下文](#设置当前用户上下文)
-  - [与 EF Core 集成](#与-ef-core-集成)
-  - [软删除过滤](#软删除过滤)
-- [🔧 高级配置](#-高级配置)
-  - [处理遗留数据库的 DateTime 类型](#处理遗留数据库的-datetime-类型)
+- [持久化集成](#持久化集成)
 - [🧩 类图概览](#-类图概览)
 - [📋 接口和基类参考](#-接口和基类参考)
 - [📜 许可证](#-许可证)
@@ -121,196 +116,15 @@ public class User : FullAuditEntity<Guid>
 }
 ```
 
-## 💡 使用示例
+## 持久化集成
 
-### 设置当前用户上下文
+`Linger.Audit` 只定义审计契约和实体基类，不会接管持久化流程，也不会自动填充审计字段。
 
-在应用程序服务中使用审计实体，系统会自动填充审计字段：
+EF Core 项目应使用 [Linger.EFCore.Audit](../Linger.EFCore.Audit/README.zh-CN.md)。其中的 `AuditEntitiesSaveChangesInterceptor` 会填充创建、修改、删除和用户字段，并把 `ISoftDelete` 实体的删除操作转换为更新。需要在查询中排除软删除实体时，请参阅 [Linger.EFCore 全局查询过滤器文档](../Linger.EFCore/README.zh-CN.md#全局查询过滤器)。
 
-```csharp
-// 在您的应用服务中
-public class ProductService : IProductService
-{
-    private readonly IRepository<Product, Guid> _productRepository;
-    private readonly IAuditUserProvider _auditUserProvider;
+使用其他持久化技术时，应在对应的保存管道中填充这些契约。
 
-    public ProductService(IRepository<Product, Guid> productRepository, IAuditUserProvider auditUserProvider)
-    {
-        _productRepository = productRepository;
-        _auditUserProvider = auditUserProvider;
-    }
-
-    public async Task<Product> CreateProductAsync(string name, decimal price)
-    {
-        var product = new Product
-        {
-            Name = name,
-            Price = price,
-            // ID, CreatorId 和 CreationTime 将在保存时自动设置
-        };
-
-        await _productRepository.AddAsync(product);
-        await _productRepository.SaveChangesAsync();
-
-        return product;
-    }
-}
-```
-
-### 与 EF Core 集成
-
-配置 EF Core DbContext 以自动处理审计字段：
-
-```csharp
-// EF Core 中处理审计字段的示例
-public class AppDbContext : DbContext
-{
-    private readonly IAuditUserProvider _auditUserProvider;
-
-    public AppDbContext(DbContextOptions options, IAuditUserProvider auditUserProvider)
-        : base(options)
-    {
-        _auditUserProvider = auditUserProvider;
-    }
-
-    public DbSet<Product> Products { get; set; } = null!;
-    public DbSet<User> Users { get; set; } = null!;
-
-    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
-    {
-        UpdateAuditFields();
-        return base.SaveChangesAsync(cancellationToken);
-    }
-
-    private void UpdateAuditFields()
-    {
-        var userId = _auditUserProvider.GetUser();
-        var now = DateTimeOffset.UtcNow;
-
-        foreach (var entry in ChangeTracker.Entries<IEntity>())
-        {
-            if (entry.State == EntityState.Added)
-            {
-                if (entry.Entity is ICreationAuditEntity creationAuditEntity)
-                {
-                    creationAuditEntity.CreationTime = now;
-                    creationAuditEntity.CreatorId = userId;
-                }
-            }
-            else if (entry.State == EntityState.Modified)
-            {
-                if (entry.Entity is IModificationAuditEntity modificationAuditEntity)
-                {
-                    modificationAuditEntity.LastModificationTime = now;
-                    modificationAuditEntity.LastModifierId = userId;
-                }
-            }
-            else if (entry.State == EntityState.Deleted && entry.Entity is ISoftDelete softDeleteEntity)
-            {
-                // 转换为软删除
-                entry.State = EntityState.Modified;
-                softDeleteEntity.IsDeleted = true;
-                softDeleteEntity.DeletionTime = now;
-                softDeleteEntity.DeleterId = userId;
-            }
-        }
-    }
-}
-```
-
-### 软删除过滤
-
-使用全局查询过滤器自动过滤软删除的实体：
-
-```csharp
-protected override void OnModelCreating(ModelBuilder modelBuilder)
-{
-    // 为所有实现 ISoftDelete 的实体应用软删除过滤器
-    foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-    {
-        if (typeof(ISoftDelete).IsAssignableFrom(entityType.ClrType))
-        {
-            var parameter = Expression.Parameter(entityType.ClrType, "e");
-            var property = Expression.PropertyOrField(parameter, nameof(ISoftDelete.IsDeleted));
-            var condition = Expression.NotEqual(property, Expression.Constant(true, typeof(bool?)));
-            var lambda = Expression.Lambda(condition, parameter);
-
-            modelBuilder.Entity(entityType.ClrType).HasQueryFilter(lambda);
-        }
-    }
-}
-```
-
-## 🔧 高级配置
-
-### 处理遗留数据库的 DateTime 类型
-
-在实际项目中，您可能需要与现有的数据库集成，而这些数据库使用的是 `datetime` 类型而不是 `datetimeoffset`。在这种情况下，如果无法修改数据库表结构，您需要在 EF Core 中配置数据类型转换。
-
-**使用场景**：
-- 数据库表已存在，使用 `datetime` 类型
-- 无法修改现有表结构
-- 需要在应用程序中使用 `DateTimeOffset` 类型进行审计
-
-**解决方案**：
-
-```csharp
-public class UserEntityConfiguration : IEntityTypeConfiguration<User>
-{
-    public void Configure(EntityTypeBuilder<User> entity)
-    {
-        // 配置 CreationTime 字段
-        entity.Property(e => e.CreationTime)
-            .HasColumnType("datetime")
-            .HasConversion(
-                // 保存到数据库时：DateTimeOffset -> DateTime
-                v => v.ToDateTime(),
-                // 从数据库读取时：DateTime -> DateTimeOffset
-                v => new DateTimeOffset(v)
-            );
-
-        // 配置 LastModificationTime 字段（可空类型）
-        entity.Property(e => e.LastModificationTime)
-            .HasColumnType("datetime")
-            .HasConversion(
-                // 保存到数据库时：DateTimeOffset? -> DateTime?
-                v => v.HasValue ? v.Value.ToDateTime() : (DateTime?)null,
-                // 从数据库读取时：DateTime? -> DateTimeOffset?
-                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
-            );
-
-        // 配置 DeletionTime 字段（如果使用 FullAuditEntity）
-        entity.Property(e => e.DeletionTime)
-            .HasColumnType("datetime")
-            .HasConversion(
-                v => v.HasValue ? v.Value.ToDateTime() : (DateTime?)null,
-                v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null
-            );
-
-        // 配置审计用户字段
-        entity.Property(e => e.CreatorId)
-            .HasMaxLength(30)
-            .IsUnicode(false);
-
-        entity.Property(e => e.LastModifierId)
-            .HasMaxLength(30)
-            .IsUnicode(false);
-
-        entity.Property(e => e.DeleterId)
-            .HasMaxLength(30)
-            .IsUnicode(false);
-
-        OnConfigurePartial(entity);
-    }
-
-    partial void OnConfigurePartial(EntityTypeBuilder<User> entity);
-}
-```
-
-**注意事项**：
-- 转换时会丢失时区信息，建议在应用程序中统一使用 UTC 时间
-- `TimeSpan.Zero` 表示 UTC 时区偏移量
-- 确保数据库中存储的时间都是 UTC 时间，以避免时区混乱
+遗留数据库列类型和 `DateTimeOffset` 转换请参阅 [Linger.EFCore.Audit](../Linger.EFCore.Audit/README.zh-CN.md) 的高级配置章节。
 
 ## 🧩 类图概览
 
@@ -404,4 +218,4 @@ public abstract class FullAuditEntity : AuditEntity, ISoftDelete
 
 ## 📜 许可证
 
-此项目使用 MIT 许可证 - 有关详细信息，请参阅 [LICENSE](LICENSE) 文件。
+此项目使用 MIT 许可证。
