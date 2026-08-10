@@ -45,9 +45,6 @@ var retryOptions = new RetryOptions
 // Create FTP file system
 using var ftpSystem = new FtpFileSystem(settings, retryOptions);
 
-// Connect to the server
-await ftpSystem.ConnectAsync();
-
 // Upload a file
 await using var stream = File.OpenRead("./local/file.txt");
 var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
@@ -66,8 +63,6 @@ if (downloadResult.Success)
     Console.WriteLine($"Downloaded {downloadedBytes} bytes");
 }
 
-// Disconnect when done
-await ftpSystem.DisconnectAsync();
 ```
 
 ### FTP Client Encoding
@@ -126,9 +121,8 @@ public void ConfigureServices(IServiceCollection services)
 }
 ```
 
-`FtpFileSystem` keeps one client connection per instance. Do not invoke non-batch operations concurrently on the
-same instance or mutate its working directory while another operation is running. Batch methods create independent
-clients when parallelism is greater than one.
+`FtpFileSystem` automatically connects on the first operation and keeps one client connection per instance. Do not
+invoke operations concurrently on the same instance or mutate its working directory while another operation is running.
 
 ## Advanced Features
 
@@ -156,65 +150,6 @@ await ftpSystem.CreateDirectoryIfNotExistsAsync("/public_html/uploads");
 bool exists = await ftpSystem.DirectoryExistsAsync("/public_html/uploads");
 ```
 
-### Batch File Operations
-
-```csharp
-// Batch upload to a remote directory
-var localFiles = new[] { "C:/data/a.txt", "C:/data/b.txt", "C:/data/c.txt" };
-var uploadResult = await ftpSystem.UploadFilesAsync(localFiles, "/remote/uploads", overwrite: true);
-Console.WriteLine($"Uploaded: {uploadResult.SucceededFiles.Count}, Failed: {uploadResult.FailedFiles.Count}");
-
-// Batch download into a local directory
-var remoteFiles = new[] { "/remote/uploads/a.txt", "/remote/uploads/b.txt" };
-var downloadResult = await ftpSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true);
-Console.WriteLine($"Downloaded: {downloadResult.SucceededFiles.Count}, Failed: {downloadResult.FailedFiles.Count}");
-
-// Batch delete
-var deleteResult = await ftpSystem.DeleteFilesAsync(new[]
-{
-    "/remote/uploads/a.txt",
-    "/remote/uploads/b.txt"
-});
-Console.WriteLine($"Deleted: {deleteResult.SucceededFiles.Count}, Failed: {deleteResult.FailedFiles.Count}");
-```
-
-Each batch call returns a `BatchOperationResult` containing `SucceededFiles` and `FailedFiles` with detailed error information.
-
-### Batch Operation Progress Reporting
-
-You can monitor batch operation progress using the `IProgress<BatchProgress>` parameter:
-
-```csharp
-// Create a progress handler
-var progress = new Progress<BatchProgress>(p =>
-{
-    Console.WriteLine($"Progress: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)");
-    Console.WriteLine($"Current file: {p.CurrentFile}");
-    Console.WriteLine($"Succeeded: {p.Succeeded}, Failed: {p.Failed}");
-});
-
-// Batch upload with progress reporting
-var localFiles = new[] { "C:/data/a.txt", "C:/data/b.txt", "C:/data/c.txt" };
-var result = await ftpSystem.UploadFilesAsync(localFiles, "/remote/uploads", overwrite: true, progress);
-
-// Batch download with progress
-var remoteFiles = new[] { "/remote/uploads/a.txt", "/remote/uploads/b.txt" };
-var downloadResult = await ftpSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
-
-// Batch delete with progress
-var deleteResult = await ftpSystem.DeleteFilesAsync(new[] { "/remote/old.txt" }, progress);
-```
-
-The `BatchProgress` struct provides:
-- `Completed`: Number of files processed (reported after each file completes)
-- `Total`: Total number of files
-- `CurrentFile`: Path of the file that was just processed
-- `Succeeded`: Number of successful operations
-- `Failed`: Number of failed operations
-- `PercentComplete`: Completion percentage (0-100)
-
-**Note**: Progress is reported *after* each file operation completes, ensuring `Completed` always reflects the accurate count.
-
 ### Custom Connection Settings
 
 ```csharp
@@ -226,16 +161,7 @@ var settings = new FtpFileSystemOptions
     Password = "password",
     ConnectionTimeout = 30000,           // 30 seconds connection timeout
     OperationTimeout = 120000,           // 2 minutes operation timeout
-    Type = "FTP",
-    
-    // Concurrency for batch operations: 1 = serial, >1 = parallel
-    MaxDegreeOfParallelism = 4,
-    // Batch operation retry settings
-    BatchRetryOptions = new RetryOptions
-    {
-        MaxRetryAttempts = 3,
-        DelayMilliseconds = 1000
-    }
+    Type = "FTP"
 };
 
 // Advanced retry configuration
@@ -248,36 +174,6 @@ var retryOptions = new RetryOptions
 };
 
 var ftpSystem = new FtpFileSystem(settings, retryOptions);
-```
-
-### Concurrency for Batch Operations
-
-You can control parallelism for batch upload/download/delete via `FtpFileSystemOptions.MaxDegreeOfParallelism`.
-
-Behavior:
-- `MaxDegreeOfParallelism = 1`: single connection, serial execution.
-- `MaxDegreeOfParallelism > 1`: per-task independent `AsyncFtpClient` connections for thread safety and throughput.
-
-Example:
-
-```csharp
-var settings = new FtpFileSystemOptions
-{
-    Host = "ftp.example.com",
-    Port = 21,
-    UserName = "username",
-    Password = "password",
-    ConnectionTimeout = 15000,
-    OperationTimeout = 60000,
-    MaxDegreeOfParallelism = 4
-};
-
-var ftp = new FtpFileSystem(settings);
-await ftp.ConnectAsync();
-
-var files = new[] { "C:/data/a.txt", "C:/data/b.txt", "C:/data/c.txt" };
-var result = await ftp.UploadFilesAsync(files, "/remote/uploads", overwrite: true);
-Console.WriteLine($"Uploaded: {result.SucceededFiles.Count}, Failed: {result.FailedFiles.Count}");
 ```
 
 ### File Information and Metadata
@@ -293,32 +189,14 @@ DateTime modTime = await ftpSystem.GetModifiedTimeAsync("/remote/file.txt");
 bool exists = await ftpSystem.FileExistsAsync("/remote/file.txt");
 ```
 
-### Connection Management Best Practices
+### Connection Lifetime
 
 ```csharp
-// Method 1: Automatic connection management with using statement
 using (var ftpSystem = new FtpFileSystem(settings))
 {
-    // Connection is automatically established and closed
+    // The first operation establishes the connection; disposal closes it.
     await ftpSystem.UploadFileAsync("local.txt", "/remote/path");
     await ftpSystem.DownloadFileAsync("/remote/file.txt", "downloaded.txt");
-}
-
-// Method 2: Manual connection management for multiple operations
-var ftpSystem = new FtpFileSystem(settings);
-try
-{
-    await ftpSystem.ConnectAsync();
-    
-    // Perform multiple operations efficiently
-    for (int i = 0; i < 10; i++)
-    {
-        await ftpSystem.UploadFileAsync($"file{i}.txt", $"/remote/file{i}.txt");
-    }
-}
-finally
-{
-    await ftpSystem.DisconnectAsync();
 }
 ```
 

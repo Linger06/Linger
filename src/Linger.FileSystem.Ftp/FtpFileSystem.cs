@@ -15,7 +15,7 @@ namespace Linger.FileSystem.Ftp;
 /// </summary>
 /// <remarks>
 /// <para>此实现基于 FluentFTP 库，提供完整的 FTP 文件操作支持。</para>
-/// <para>支持的功能包括：文件上传/下载、目录操作、批量操作等。</para>
+/// <para>支持的功能包括：文件上传/下载和目录操作等。</para>
 /// </remarks>
 public class FtpFileSystem : RemoteFileSystemBase
 {
@@ -73,16 +73,10 @@ public class FtpFileSystem : RemoteFileSystemBase
 
     #region 连接管理
 
-    public override bool IsConnected() => Client.IsConnected;
+    protected override bool IsConnected() => Client.IsConnected;
 
     /// <inheritdoc />
-    public override Task ConnectAsync()
-    {
-        return ConnectAsync(CancellationToken.None);
-    }
-
-    /// <inheritdoc />
-    public override async Task ConnectAsync(CancellationToken cancellationToken)
+    protected override async Task ConnectAsync(CancellationToken cancellationToken)
     {
         try
         {
@@ -99,7 +93,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
     }
 
-    public override async Task DisconnectAsync()
+    protected override async Task DisconnectAsync()
     {
         if (Client.IsConnected)
         {
@@ -239,7 +233,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 },
                 "Upload file",
                 restoreLength: false,
-                shouldRetry: IsBatchRetryableException,
+                shouldRetry: IsRetryableException,
                 shouldRetryResult: success => !success,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
             if (!result)
@@ -286,7 +280,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                 },
                 "Download to stream",
                 restoreLength: true,
-                shouldRetry: IsBatchRetryableException,
+                shouldRetry: IsRetryableException,
                 shouldRetryResult: success => !success,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -350,7 +344,6 @@ public class FtpFileSystem : RemoteFileSystemBase
 
                     return status == FtpStatus.Success;
                 },
-                useBatchRetry: false,
                 cancellationToken).ConfigureAwait(false);
 
             if (!result)
@@ -383,7 +376,7 @@ public class FtpFileSystem : RemoteFileSystemBase
                     return true;
                 },
                 "Delete file",
-                IsBatchRetryableException,
+                IsRetryableException,
                 cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return FileOperationResult.CreateSuccess(filePath);
@@ -440,240 +433,6 @@ public class FtpFileSystem : RemoteFileSystemBase
     }
 
     /// <summary>
-    /// 批量上传文件
-    /// </summary>
-    public override async Task<BatchOperationResult> UploadFilesAsync(
-        IEnumerable<string> localFilePaths,
-        string remoteDirectory,
-        bool overwrite = false,
-        IProgress<BatchProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        var filePaths = localFilePaths.ToList();
-        if (filePaths.Count == 0)
-            return BatchOperationResult.Empty;
-
-        Logger.LogDebug("FTP Batch upload starting: {Count} files to {Directory}", filePaths.Count, remoteDirectory);
-
-        var duplicateResult = CreateDuplicateTargetResult(
-            filePaths,
-            localPath => $"{remoteDirectory.TrimEnd(FtpPathSeparator)}{FtpPathSeparator}{Path.GetFileName(localPath)}",
-            StringComparer.Ordinal,
-            progress);
-        if (duplicateResult is not null)
-        {
-            return duplicateResult;
-        }
-
-        var tracker = new BatchOperationTracker(filePaths.Count, progress);
-
-        async Task UploadFileAsync(AsyncFtpClient client, string localPath)
-        {
-            if (!File.Exists(localPath))
-            {
-                tracker.AddFailure(localPath, "本地文件不存在");
-                return;
-            }
-
-            var fileName = Path.GetFileName(localPath);
-            var remotePath = $"{remoteDirectory.TrimEnd(FtpPathSeparator)}{FtpPathSeparator}{fileName}";
-            using var fileStream = new FileStream(
-                localPath,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                4096,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
-            var success = await ExecuteWithBatchRetryAsync(async () =>
-            {
-                fileStream.Position = 0;
-                return await UploadStreamAtomicallyAsync(
-                    client,
-                    fileStream,
-                    remotePath,
-                    overwrite,
-                    cancellationToken).ConfigureAwait(false);
-            }, cancellationToken).ConfigureAwait(false);
-
-            if (success)
-            {
-                tracker.AddSuccess(localPath);
-            }
-            else
-            {
-                tracker.AddFailure(localPath, "上传失败");
-            }
-        }
-
-        var degree = Options.MaxDegreeOfParallelism;
-        if (degree <= 1)
-        {
-            await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
-            foreach (var localPath in filePaths)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await ExecuteBatchItemAsync(localPath, () => UploadFileAsync(Client, localPath), tracker).ConfigureAwait(false);
-            }
-        }
-        else
-        {
-            await ExecuteInParallelAsync(
-                filePaths,
-                degree,
-                UploadFileAsync,
-                (localPath, ex) => tracker.AddFailure(localPath, ex.Message, ex),
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        var result = tracker.Complete();
-        Logger.LogInformation("FTP Batch upload completed: {Succeeded} succeeded, {Failed} failed", result.SucceededFiles.Count, result.FailedFiles.Count);
-
-        return result;
-    }
-
-    /// <summary>
-    /// 批量下载文件
-    /// </summary>
-    public override async Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
-        string localDirectory,
-        bool overwrite = false,
-        IProgress<BatchProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        var filePaths = remoteFilePaths.ToList();
-        if (filePaths.Count == 0)
-            return BatchOperationResult.Empty;
-
-        Logger.LogDebug("FTP Batch download starting: {Count} files to {Directory}", filePaths.Count, localDirectory);
-
-        if (!Directory.Exists(localDirectory))
-            Directory.CreateDirectory(localDirectory);
-
-        var duplicateResult = CreateDuplicateTargetResult(
-            filePaths,
-            remotePath => Path.Combine(localDirectory, Path.GetFileName(remotePath)),
-            Path.DirectorySeparatorChar == '\\' ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal,
-            progress);
-        if (duplicateResult is not null)
-        {
-            return duplicateResult;
-        }
-
-        var tracker = new BatchOperationTracker(filePaths.Count, progress);
-
-        async Task DownloadFileAsync(AsyncFtpClient client, string remotePath)
-        {
-            var fileName = Path.GetFileName(remotePath);
-            var localPath = Path.Combine(localDirectory, fileName);
-            var success = await DownloadFileAtomicallyAsync(
-                localPath,
-                overwrite,
-                async (temporaryPath, operationCancellationToken) =>
-                {
-                    var status = await client.DownloadFile(
-                        temporaryPath,
-                        remotePath,
-                        FtpLocalExists.Overwrite,
-                        token: operationCancellationToken).ConfigureAwait(false);
-
-                    return status == FtpStatus.Success;
-                },
-                useBatchRetry: true,
-                cancellationToken).ConfigureAwait(false);
-
-            if (success)
-            {
-                tracker.AddSuccess(remotePath);
-            }
-            else
-            {
-                tracker.AddFailure(remotePath, "下载失败");
-            }
-        }
-
-        var degree = Options.MaxDegreeOfParallelism;
-        if (degree <= 1)
-        {
-            await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
-            foreach (var remotePath in filePaths)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await ExecuteBatchItemAsync(remotePath, () => DownloadFileAsync(Client, remotePath), tracker).ConfigureAwait(false);
-            }
-        }
-        else
-        {
-            await ExecuteInParallelAsync(
-                filePaths,
-                degree,
-                DownloadFileAsync,
-                (remotePath, ex) => tracker.AddFailure(remotePath, ex.Message, ex),
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        var result = tracker.Complete();
-        Logger.LogInformation("FTP Batch download completed: {Succeeded} succeeded, {Failed} failed", result.SucceededFiles.Count, result.FailedFiles.Count);
-
-        return result;
-    }
-
-    /// <summary>
-    /// 批量删除文件
-    /// </summary>
-    public override async Task<BatchOperationResult> DeleteFilesAsync(
-        IEnumerable<string> filePaths,
-        IProgress<BatchProgress>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        var paths = filePaths.ToList();
-        if (paths.Count == 0)
-            return BatchOperationResult.Empty;
-
-        Logger.LogDebug("FTP Batch delete starting: {Count} files", paths.Count);
-
-        var tracker = new BatchOperationTracker(paths.Count, progress);
-
-        async Task DeleteFileAsync(AsyncFtpClient client, string filePath)
-        {
-            await ExecuteWithBatchRetryAsync(async () =>
-            {
-                if (await client.FileExists(filePath, cancellationToken).ConfigureAwait(false))
-                {
-                    await client.DeleteFile(filePath, cancellationToken).ConfigureAwait(false);
-                }
-            }, cancellationToken).ConfigureAwait(false);
-
-            tracker.AddSuccess(filePath);
-        }
-
-        var degree = Options.MaxDegreeOfParallelism;
-        if (degree <= 1)
-        {
-            await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
-            foreach (var filePath in paths)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await ExecuteBatchItemAsync(filePath, () => DeleteFileAsync(Client, filePath), tracker).ConfigureAwait(false);
-            }
-        }
-        else
-        {
-            await ExecuteInParallelAsync(
-                paths,
-                degree,
-                DeleteFileAsync,
-                (filePath, ex) => tracker.AddFailure(filePath, ex.Message, ex),
-                cancellationToken).ConfigureAwait(false);
-        }
-
-        var result = tracker.Complete();
-        Logger.LogInformation("FTP Batch delete completed: {Succeeded} succeeded, {Failed} failed", result.SucceededFiles.Count, result.FailedFiles.Count);
-
-        return result;
-    }
-
-    /// <summary>
     /// 列出目录中的文件
     /// </summary>
     public override async Task<IReadOnlyList<string>> ListFilesAsync(
@@ -721,52 +480,6 @@ public class FtpFileSystem : RemoteFileSystemBase
     #endregion
 
     #region 辅助方法
-
-    private async Task ExecuteInParallelAsync(
-        IReadOnlyCollection<string> filePaths,
-        int degree,
-        Func<AsyncFtpClient, string, Task> operation,
-        Action<string, Exception> onError,
-        CancellationToken cancellationToken)
-    {
-        await ExecuteParallelBatchAsync(
-            filePaths,
-            degree,
-            CreateClient,
-            async (client, filePath, operationCancellationToken) =>
-            {
-                if (!client.IsConnected)
-                {
-                    await client.AutoConnect(operationCancellationToken).ConfigureAwait(false);
-                }
-
-                await operation(client, filePath).ConfigureAwait(false);
-            },
-            DisposeBatchClientAsync,
-            onError,
-            cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task DisposeBatchClientAsync(AsyncFtpClient client)
-    {
-        if (client.IsConnected)
-        {
-            try
-            {
-                await client.Disconnect().ConfigureAwait(false);
-            }
-            catch (FtpException ex)
-            {
-                Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
-            }
-            catch (IOException ex)
-            {
-                Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
-            }
-        }
-
-        client.Dispose();
-    }
 
     private async Task<long> GetRequiredFileSizeAsync(string filePath, CancellationToken cancellationToken)
     {
@@ -854,14 +567,14 @@ public class FtpFileSystem : RemoteFileSystemBase
     }
 
     /// <inheritdoc />
-    protected override bool IsBatchRetryableException(Exception exception)
+    protected override bool IsRetryableException(Exception exception)
     {
         if (exception is FtpCommandException commandException)
         {
             return commandException.CompletionCode.StartsWith("4", StringComparison.Ordinal);
         }
 
-        return base.IsBatchRetryableException(exception);
+        return base.IsRetryableException(exception);
     }
 
     #endregion

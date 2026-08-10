@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Text;
 using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Remote;
@@ -32,105 +31,6 @@ public class FileSystemBaseTests
         });
 
         Assert.Equal("prefixcomplete", Encoding.UTF8.GetString(outputStream.ToArray()));
-    }
-
-    [Fact]
-    public async Task ExecuteWithBatchRetryAsync_FalseResult_RetriesUntilSuccess()
-    {
-        var fileSystem = new TestRemoteFileSystem();
-        var attempts = 0;
-
-        var result = await fileSystem.ExecuteBooleanBatchAsync(() =>
-        {
-            attempts++;
-            return Task.FromResult(attempts == 3);
-        });
-
-        Assert.True(result);
-        Assert.Equal(3, attempts);
-    }
-
-    [Fact]
-    public async Task ExecuteWithBatchRetryAsync_WhenAllResultsFail_ReturnsLastResult()
-    {
-        var fileSystem = new TestRemoteFileSystem();
-        var attempts = 0;
-
-        var result = await fileSystem.ExecuteBooleanBatchAsync(() =>
-        {
-            attempts++;
-            return Task.FromResult(false);
-        });
-
-        Assert.False(result);
-        Assert.Equal(3, attempts);
-    }
-
-    [Fact]
-    public async Task ExecuteWithBatchRetryAsync_PermanentFailure_DoesNotRetry()
-    {
-        var fileSystem = new TestRemoteFileSystem();
-        var attempts = 0;
-
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            fileSystem.ExecuteBooleanBatchAsync(() =>
-            {
-                attempts++;
-                throw new UnauthorizedAccessException("Access denied.");
-            }));
-
-        Assert.Equal(1, attempts);
-    }
-
-    [Fact]
-    public async Task ExecuteParallelBatchAsync_RecordsItemFailuresAndProcessesRemainingItems()
-    {
-        var fileSystem = new TestRemoteFileSystem();
-        var processed = new ConcurrentBag<string>();
-        var failures = new ConcurrentBag<string>();
-        var activeWorkers = 0;
-        var maximumWorkers = 0;
-
-        await fileSystem.ExecuteParallelAsync(
-            ["one", "two", "three", "four"],
-            degree: 2,
-            async (_, filePath, cancellationToken) =>
-            {
-                var active = Interlocked.Increment(ref activeWorkers);
-                InterlockedExtensions.Max(ref maximumWorkers, active);
-                await Task.Delay(1, cancellationToken);
-                Interlocked.Decrement(ref activeWorkers);
-
-                if (filePath == "two")
-                {
-                    throw new IOException("simulated failure");
-                }
-
-                processed.Add(filePath);
-            },
-            _ => Task.CompletedTask,
-            (filePath, _) => failures.Add(filePath));
-
-        Assert.Equal(3, processed.Count);
-        Assert.Contains("two", failures);
-        Assert.InRange(maximumWorkers, 1, 2);
-    }
-
-    [Fact]
-    public async Task ExecuteParallelBatchAsync_CancellationIsPropagated()
-    {
-        var fileSystem = new TestRemoteFileSystem();
-        using var cancellationSource = new CancellationTokenSource();
-        cancellationSource.Cancel();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            fileSystem.ExecuteParallelAsync(
-                ["one", "two"],
-                degree: 2,
-                static (_, _, _) => Task.CompletedTask,
-                static _ => Task.CompletedTask,
-                static (_, _) => { },
-                cancellationSource.Token));
     }
 
     [Fact]
@@ -219,21 +119,6 @@ public class FileSystemBaseTests
         Assert.True(fileSystem.LastStreamDisposed);
     }
 
-    private static class InterlockedExtensions
-    {
-        public static void Max(ref int location, int value)
-        {
-            while (true)
-            {
-                var current = Volatile.Read(ref location);
-                if (current >= value || Interlocked.CompareExchange(ref location, value, current) == current)
-                {
-                    return;
-                }
-            }
-        }
-    }
-
     private sealed class TestFileSystem : FileSystemBase
     {
         private TrackingMemoryStream? _lastStream;
@@ -293,41 +178,10 @@ public class FileSystemBaseTests
                 {
                     Host = "localhost",
                     Port = 1,
-                    UserName = "test",
-                    BatchRetryOptions = new RetryOptions
-                    {
-                        MaxRetryAttempts = 3,
-                        DelayMilliseconds = 1,
-                        MaxDelayMilliseconds = 1,
-                        UseExponentialBackoff = false,
-                        Jitter = 0
-                    }
+                    UserName = "test"
                 },
                 "TEST")
         {
-        }
-
-        public Task<bool> ExecuteBooleanBatchAsync(Func<Task<bool>> operation)
-        {
-            return ExecuteWithBatchRetryAsync(operation, CancellationToken.None);
-        }
-
-        public Task ExecuteParallelAsync(
-            IReadOnlyCollection<string> filePaths,
-            int degree,
-            Func<object, string, CancellationToken, Task> operation,
-            Func<object, Task> disposeClient,
-            Action<string, Exception> onError,
-            CancellationToken cancellationToken = default)
-        {
-            return ExecuteParallelBatchAsync(
-                filePaths,
-                degree,
-                static () => new object(),
-                operation,
-                disposeClient,
-                onError,
-                cancellationToken);
         }
 
         public Task<bool> DownloadAtomicAsync(
@@ -339,20 +193,15 @@ public class FileSystemBaseTests
                 localDestinationPath,
                 overwrite,
                 downloadAttempt,
-                useBatchRetry: false,
                 CancellationToken.None);
         }
 
-        public override bool IsConnected() => false;
-        public override Task ConnectAsync() => Task.CompletedTask;
-        public override Task ConnectAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-        public override Task DisconnectAsync() => Task.CompletedTask;
+        protected override bool IsConnected() => false;
+        protected override Task ConnectAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        protected override Task DisconnectAsync() => Task.CompletedTask;
         public override Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override void Dispose() { }
-        public override Task<BatchOperationResult> UploadFilesAsync(IEnumerable<string> localFilePaths, string remoteDirectory, bool overwrite = false, IProgress<BatchProgress>? progress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<BatchOperationResult> DownloadFilesAsync(IEnumerable<string> remoteFilePaths, string localDirectory, bool overwrite = false, IProgress<BatchProgress>? progress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<BatchOperationResult> DeleteFilesAsync(IEnumerable<string> filePaths, IProgress<BatchProgress>? progress = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<IReadOnlyList<string>> ListFilesAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<IReadOnlyList<string>> ListDirectoriesAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();

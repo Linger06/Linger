@@ -33,7 +33,6 @@ dotnet add package Linger.FileSystem.Sftp
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
 - **Streaming Upload Optimization**: Local file system uses `IncrementalHash` and `ArrayPool<byte>` for memory-efficient large file processing, supporting files of any size
 - **Batch Operation Progress**: Real-time progress tracking via `IProgress<BatchProgress>` for batch upload, download, and delete operations
-- **Batch Operation Retry**: Per-file retry support for batch operations with configurable `BatchRetryOptions` settings
 
 ## Supported .NET Versions
 
@@ -120,13 +119,13 @@ var progress = new Progress<BatchProgress>(p =>
 });
 
 // Batch upload with progress
-var uploadResult = await fileSystem.UploadFilesAsync(files, "/uploads", overwrite: true, progress);
+var uploadResult = await localFs.UploadFilesAsync(files, "/uploads", overwrite: true, progress);
 
 // Batch download with progress
-var downloadResult = await fileSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
+var downloadResult = await localFs.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
 
 // Batch delete with progress
-var deleteResult = await fileSystem.DeleteFilesAsync(filesToDelete, progress);
+var deleteResult = await localFs.DeleteFilesAsync(filesToDelete, progress);
 ```
 
 `BatchProgress` structure contains:

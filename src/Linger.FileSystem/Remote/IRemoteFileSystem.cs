@@ -4,41 +4,13 @@ namespace Linger.FileSystem.Remote;
 /// 定义远程文件系统上下文接口
 /// </summary>
 /// <remarks>
-/// <para>此接口扩展了 <see cref="IFileSystemOperations"/> 和 <see cref="IBatchFileSystemOperations"/>，添加了远程连接管理功能。</para>
+/// <para>此接口扩展了 <see cref="IFileSystemOperations"/>，添加了远程文件系统特有的功能。</para>
 /// <para>实现类应支持 <see cref="IAsyncDisposable"/> 以便正确释放异步资源。</para>
-/// <para>远程实现通常在实例内复用一个有状态客户端。不要在同一实例上并发执行非批量操作，
+/// <para>远程实现通常在实例内复用一个有状态客户端。不要在同一实例上并发执行操作，
 /// 也不要在其他操作运行期间调用 <see cref="SetWorkingDirectoryAsync"/>。</para>
 /// </remarks>
-public interface IRemoteFileSystem : IFileSystemOperations, IBatchFileSystemOperations, IDisposable, IAsyncDisposable
+public interface IRemoteFileSystem : IFileSystemOperations, IDisposable, IAsyncDisposable
 {
-    /// <summary>
-    /// 获取一个值，指示当前是否已连接到远程服务器。
-    /// </summary>
-    /// <returns>如果已连接，则为 <c>true</c>；否则为 <c>false</c>。</returns>
-    bool IsConnected();
-
-    /// <summary>
-    /// 异步连接到远程服务器。
-    /// </summary>
-    /// <returns>表示异步操作的任务。</returns>
-    /// <exception cref="FileSystemException">当连接失败时抛出。</exception>
-    Task ConnectAsync();
-
-    /// <summary>
-    /// 异步连接到远程服务器。
-    /// </summary>
-    /// <param name="cancellationToken">用于取消连接操作的令牌。</param>
-    /// <returns>表示异步操作的任务。</returns>
-    /// <exception cref="FileSystemException">当连接失败时抛出。</exception>
-    /// <exception cref="OperationCanceledException">当连接操作被取消时抛出。</exception>
-    Task ConnectAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// 异步断开与远程服务器的连接。
-    /// </summary>
-    /// <returns>表示异步操作的任务。</returns>
-    Task DisconnectAsync();
-
     /// <summary>
     /// Asynchronously gets the last modified time of a remote file.
     /// </summary>

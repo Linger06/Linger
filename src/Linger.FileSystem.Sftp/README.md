@@ -18,7 +18,6 @@ dotnet add package Linger.FileSystem.Sftp
 - Timeout configurations
 - Integration with the Linger.FileSystem abstraction
 - Supports multiple .NET frameworks (net9.0, net8.0, netstandard2.0)
-- Unified batch operations and concurrency control (`MaxDegreeOfParallelism`)
 
 ## Basic Usage
 
@@ -47,9 +46,6 @@ var retryOptions = new RetryOptions
 // Create SFTP file system
 using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 
-// Connect to the server
-await sftpSystem.ConnectAsync();
-
 // Upload a file
 await using var stream = File.OpenRead("./local/file.txt");
 var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwrite: true);
@@ -68,8 +64,6 @@ if (downloadResult.Success)
     Console.WriteLine($"Downloaded {downloadedBytes} bytes");
 }
 
-// Disconnect when done
-await sftpSystem.DisconnectAsync();
 ```
 
 ### File Upload Methods
@@ -101,10 +95,8 @@ var settings = new SftpFileSystemOptions
 // Create SFTP file system with certificate authentication
 using var sftpSystem = new SftpFileSystem(settings);
 
-// Connect and use as normal
-sftpSystem.Connect();
-// ... perform operations ...
-sftpSystem.Disconnect();
+// The first operation connects automatically
+await sftpSystem.FileExistsAsync("/remote/path/file.txt");
 ```
 
 ### Asynchronous Operations
@@ -112,9 +104,6 @@ sftpSystem.Disconnect();
 The library also provides asynchronous methods for all operations:
 
 ```csharp
-// Connect asynchronously
-await sftpSystem.ConnectAsync();
-
 // Check if file exists asynchronously
 if (await sftpSystem.FileExistsAsync("/remote/path/file.txt"))
 {
@@ -125,8 +114,6 @@ if (await sftpSystem.FileExistsAsync("/remote/path/file.txt"))
     Console.WriteLine(fileContent);
 }
 
-// Disconnect asynchronously when done
-await sftpSystem.DisconnectAsync();
 ```
 
 ## Advanced Features
@@ -156,94 +143,6 @@ foreach (var dir in directories)
 }
 ```
 
-### Batch Operations
-
-```csharp
-// Use the unified batch operations interface
-// Combine with concurrency to improve throughput
-var settings = new SftpFileSystemOptions
-{
-    Host = "sftp.example.com",
-    Port = 22,
-    UserName = "username",
-    Password = "password",
-    ConnectionTimeout = 15000,
-    OperationTimeout = 60000,
-    MaxDegreeOfParallelism = 4 // 1 = serial, >1 = parallel (per-task connection)
-};
-
-var sftp = new SftpFileSystem(settings);
-await sftp.ConnectAsync();
-
-// Batch upload
-var uploadResult = await sftp.UploadFilesAsync(new[]
-{
-    "C:/local/file1.txt",
-    "C:/local/file2.txt"
-}, "/remote/uploads", overwrite: true);
-Console.WriteLine($"Uploaded: {uploadResult.SucceededFiles.Count}, Failed: {uploadResult.FailedFiles.Count}");
-
-// Batch download
-var downloadResult = await sftp.DownloadFilesAsync(new[]
-{
-    "/remote/uploads/file1.txt",
-    "/remote/uploads/file2.txt"
-}, "C:/downloads", overwrite: true);
-Console.WriteLine($"Downloaded: {downloadResult.SucceededFiles.Count}, Failed: {downloadResult.FailedFiles.Count}");
-
-// Batch delete
-var deleteResult = await sftp.DeleteFilesAsync(new[]
-{
-    "/remote/uploads/file1.txt",
-    "/remote/uploads/file2.txt"
-});
-Console.WriteLine($"Deleted: {deleteResult.SucceededFiles.Count}, Failed: {deleteResult.FailedFiles.Count}");
-
-await sftp.DisconnectAsync();
-
-// Failed items are available in FailedFiles with path, message, and exception
-```
-
-### Batch Operation Progress Reporting
-
-Monitor batch operation progress using the `IProgress<BatchProgress>` parameter:
-
-```csharp
-// Create a progress handler
-var progress = new Progress<BatchProgress>(p =>
-{
-    Console.WriteLine($"Progress: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)");
-    Console.WriteLine($"Current file: {p.CurrentFile}");
-    Console.WriteLine($"Succeeded: {p.Succeeded}, Failed: {p.Failed}");
-});
-
-// Batch upload with progress
-var result = await sftp.UploadFilesAsync(files, "/remote/uploads", overwrite: true, progress);
-
-// Batch download with progress
-var downloadResult = await sftp.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
-
-// Batch delete with progress
-var deleteResult = await sftp.DeleteFilesAsync(filesToDelete, progress);
-```
-
-The `BatchProgress` struct provides:
-- `Completed`: Number of files processed (reported after each file completes)
-- `Total`: Total number of files
-- `CurrentFile`: Path of the file that was just processed
-- `Succeeded`: Number of successful operations
-- `Failed`: Number of failed operations  
-- `PercentComplete`: Completion percentage (0-100)
-
-**Note**: Progress is reported *after* each file operation completes, ensuring `Completed` always reflects the accurate count.
-
-### Concurrency
-
-Control parallelism for batch operations via `SftpFileSystemOptions.MaxDegreeOfParallelism`:
-
-- `1`: single connection, serial execution (lower resource usage).
-- `>1`: independent `SftpClient` connection per task for thread safety and improved throughput.
-
 ### Custom Connection Settings
 
 ```csharp
@@ -257,16 +156,7 @@ var settings = new SftpFileSystemOptions
     
     // Connection settings
     ConnectionTimeout = 30000,    // 30 seconds
-    OperationTimeout = 120000,    // 2 minutes
-    
-    // Concurrency for batch operations
-    MaxDegreeOfParallelism = 4,
-    // Batch operation retry settings
-    BatchRetryOptions = new RetryOptions
-    {
-        MaxRetryAttempts = 3,
-        DelayMilliseconds = 1000
-    }
+    OperationTimeout = 120000     // 2 minutes
 };
 
 // Enhanced retry configuration
@@ -281,23 +171,23 @@ var retryOptions = new RetryOptions
 using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 ```
 
-### Error Handling and Connection Management
+### Error Handling and Connection Lifetime
 
 ```csharp
+await using var sftpSystem = new SftpFileSystem(settings, retryOptions);
+
 try
 {
-    sftpSystem.Connect();
-    
     // Perform operations with automatic retry
-    if (sftpSystem.FileExists("/remote/important-file.txt"))
+    if (await sftpSystem.FileExistsAsync("/remote/important-file.txt"))
     {
-        var content = sftpSystem.ReadAllText("/remote/important-file.txt");
+        var content = await sftpSystem.ReadAllTextAsync("/remote/important-file.txt");
         
         // Process content safely
         if (!string.IsNullOrEmpty(content))
         {
             // Save backup
-            sftpSystem.WriteAllText("/remote/backup/important-file.bak", content);
+            await sftpSystem.WriteAllTextAsync("/remote/backup/important-file.bak", content);
         }
     }
 }
@@ -310,19 +200,6 @@ catch (SshException ex)
 {
     Console.WriteLine($"SSH Error: {ex.Message}");
     // Handle SSH connection errors
-}
-catch (Exception ex)
-{
-    Console.WriteLine($"General Error: {ex.Message}");
-    // Handle other errors
-}
-finally
-{
-    // Ensure disconnection
-    if (sftpSystem.IsConnected)
-    {
-        sftpSystem.Disconnect();
-    }
 }
 ```
 
@@ -450,9 +327,8 @@ public void ConfigureServices(IServiceCollection services)
 }
 ```
 
-`SftpFileSystem` keeps one client connection per instance. Do not invoke non-batch operations concurrently on the
-same instance or mutate its working directory while another operation is running. Batch methods create independent
-clients when parallelism is greater than one.
+`SftpFileSystem` automatically connects on the first operation and keeps one client connection per instance. Do not
+invoke operations concurrently on the same instance or mutate its working directory while another operation is running.
 
 ## Best Practices
 

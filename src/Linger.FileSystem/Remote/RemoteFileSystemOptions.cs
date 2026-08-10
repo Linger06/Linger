@@ -1,7 +1,7 @@
 namespace Linger.FileSystem.Remote;
 
 /// <summary>
-/// Provides common connection and batch-operation options for remote file systems.
+/// Provides common connection options for remote file systems.
 /// </summary>
 public class RemoteFileSystemOptions
 {
@@ -38,15 +38,4 @@ public class RemoteFileSystemOptions
     /// Gets or sets the operation timeout, in milliseconds.
     /// </summary>
     public int OperationTimeout { get; set; } = 60000;
-
-    /// <summary>
-    /// Gets or sets the maximum degree of parallelism for batch operations.
-    /// A value of <c>1</c> executes operations serially.
-    /// </summary>
-    public int MaxDegreeOfParallelism { get; set; } = 1;
-
-    /// <summary>
-    /// Gets or sets the optional retry options applied to individual batch items.
-    /// </summary>
-    public RetryOptions? BatchRetryOptions { get; set; }
 }

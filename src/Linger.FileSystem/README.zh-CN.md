@@ -33,7 +33,6 @@ dotnet add package Linger.FileSystem.Sftp
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
 - **流式上传优化**: 本地文件系统使用 `IncrementalHash` 和 `ArrayPool<byte>` 实现内存友好的大文件处理，支持任意大小文件
 - **批量操作进度报告**: 通过 `IProgress<BatchProgress>` 实时跟踪批量上传、下载和删除操作的进度
-- **批量操作重试**: 通过 `BatchRetryOptions` 配置为批量操作中的单个文件提供重试支持
 
 ## 支持的.NET版本
 
@@ -120,13 +119,13 @@ var progress = new Progress<BatchProgress>(p =>
 });
 
 // 带进度报告的批量上传
-var uploadResult = await fileSystem.UploadFilesAsync(files, "/uploads", overwrite: true, progress);
+var uploadResult = await localFs.UploadFilesAsync(files, "/uploads", overwrite: true, progress);
 
 // 带进度报告的批量下载
-var downloadResult = await fileSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
+var downloadResult = await localFs.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
 
 // 带进度报告的批量删除
-var deleteResult = await fileSystem.DeleteFilesAsync(filesToDelete, progress);
+var deleteResult = await localFs.DeleteFilesAsync(filesToDelete, progress);
 ```
 
 `BatchProgress` 结构包含：

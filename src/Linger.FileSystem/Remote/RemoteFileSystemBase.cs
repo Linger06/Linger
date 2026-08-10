@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
@@ -65,12 +64,9 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     public override bool IsRemoteFileSystem => true;
 
     #region IRemoteFileSystem 实现
-    public abstract bool IsConnected();
-    public abstract Task ConnectAsync();
-
-    /// <inheritdoc />
-    public abstract Task ConnectAsync(CancellationToken cancellationToken);
-    public abstract Task DisconnectAsync();
+    protected abstract bool IsConnected();
+    protected abstract Task ConnectAsync(CancellationToken cancellationToken);
+    protected abstract Task DisconnectAsync();
     public abstract Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default);
     public abstract Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default);
     public abstract void Dispose();
@@ -223,71 +219,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     }
 
     /// <summary>
-    /// 使用独立客户端并行执行批量文件操作。
-    /// </summary>
-    protected static async Task ExecuteParallelBatchAsync<TClient>(
-        IReadOnlyCollection<string> filePaths,
-        int degree,
-        Func<TClient> createClient,
-        Func<TClient, string, CancellationToken, Task> operation,
-        Func<TClient, Task> disposeClient,
-        Action<string, Exception> onError,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(filePaths);
-        ArgumentNullException.ThrowIfNull(createClient);
-        ArgumentNullException.ThrowIfNull(operation);
-        ArgumentNullException.ThrowIfNull(disposeClient);
-        ArgumentNullException.ThrowIfNull(onError);
-
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(degree);
-
-        var queue = new ConcurrentQueue<string>(filePaths);
-        var workerCount = Math.Min(degree, filePaths.Count);
-        var workers = Enumerable.Range(0, workerCount).Select(async _ =>
-        {
-            var client = createClient();
-            try
-            {
-                while (true)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!queue.TryDequeue(out var filePath))
-                    {
-                        break;
-                    }
-
-                    try
-                    {
-                        await operation(client, filePath, cancellationToken).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        onError(filePath, ex);
-                    }
-                }
-            }
-            finally
-            {
-                await disposeClient(client).ConfigureAwait(false);
-            }
-        });
-
-        await Task.WhenAll(workers).ConfigureAwait(false);
-    }
-
-    /// <summary>
     /// 下载到同目录临时文件，并在成功后提交到本地目标路径。
     /// </summary>
     protected async Task<bool> DownloadFileAtomicallyAsync(
         string localDestinationPath,
         bool overwrite,
         Func<string, CancellationToken, Task<bool>> downloadAttempt,
-        bool useBatchRetry,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(localDestinationPath);
@@ -300,16 +237,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
 
         try
         {
-            var success = useBatchRetry
-                ? await ExecuteWithBatchRetryAsync(
-                    () => downloadAttempt(temporaryPath, cancellationToken),
-                    cancellationToken).ConfigureAwait(false)
-                : await RetryHelper.ExecuteAsync(
-                    operationCancellationToken => downloadAttempt(temporaryPath, operationCancellationToken),
-                    "Download file",
-                    shouldRetry: IsBatchRetryableException,
-                    shouldRetryResult: result => !result,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            var success = await RetryHelper.ExecuteAsync(
+                operationCancellationToken => downloadAttempt(temporaryPath, operationCancellationToken),
+                "Download file",
+                shouldRetry: IsRetryableException,
+                shouldRetryResult: result => !result,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!success)
             {
@@ -336,29 +269,7 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         }
     }
 
-    #region IBatchFileSystemOperations 实现
-
-    /// <inheritdoc />
-    public abstract Task<BatchOperationResult> UploadFilesAsync(
-        IEnumerable<string> localFilePaths,
-        string remoteDirectory,
-        bool overwrite = false,
-        IProgress<BatchProgress>? progress = null,
-        CancellationToken cancellationToken = default);
-
-    /// <inheritdoc />
-    public abstract Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
-        string localDirectory,
-        bool overwrite = false,
-        IProgress<BatchProgress>? progress = null,
-        CancellationToken cancellationToken = default);
-
-    /// <inheritdoc />
-    public abstract Task<BatchOperationResult> DeleteFilesAsync(
-        IEnumerable<string> filePaths,
-        IProgress<BatchProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+    #region 远程目录操作
 
     /// <inheritdoc />
     public abstract Task<IReadOnlyList<string>> ListFilesAsync(
@@ -372,66 +283,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
 
     #endregion
 
-    #region 批量操作辅助方法
-
     /// <summary>
-    /// 执行带重试的单文件操作
-    /// </summary>
-    /// <param name="operation">要执行的异步操作，返回 true 表示成功</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <returns>操作是否成功</returns>
-    /// <remarks>
-    /// 当 <see cref="RemoteFileSystemOptions.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
-    /// </remarks>
-    protected async Task<bool> ExecuteWithBatchRetryAsync(Func<Task<bool>> operation, CancellationToken cancellationToken)
-    {
-        var retryOptions = Options.BatchRetryOptions;
-        if (retryOptions is null)
-        {
-            return await operation().ConfigureAwait(false);
-        }
-
-        var helper = new RetryHelper(retryOptions);
-        return await helper.ExecuteAsync(
-            _ => operation(),
-            "batch operation",
-            shouldRetry: IsBatchRetryableException,
-            shouldRetryResult: success => !success,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 执行带重试的单文件操作（异常版本）
-    /// </summary>
-    /// <param name="operation">要执行的异步操作</param>
-    /// <param name="cancellationToken">取消令牌</param>
-    /// <remarks>
-    /// 当 <see cref="RemoteFileSystemOptions.BatchRetryOptions"/> 不为 <c>null</c> 时启用重试。
-    /// 适用于抛出异常表示失败的操作。
-    /// </remarks>
-    protected async Task ExecuteWithBatchRetryAsync(Func<Task> operation, CancellationToken cancellationToken)
-    {
-        var retryOptions = Options.BatchRetryOptions;
-        if (retryOptions is null)
-        {
-            await operation().ConfigureAwait(false);
-            return;
-        }
-
-        var helper = new RetryHelper(retryOptions);
-        await helper.ExecuteAsync(
-            _ => operation(),
-            "batch operation",
-            IsBatchRetryableException,
-            cancellationToken: cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 判断批量操作异常是否适合重试。
+    /// 判断远程操作异常是否适合重试。
     /// </summary>
     /// <param name="exception">操作抛出的异常。</param>
     /// <returns><see langword="true"/> 表示该故障可能是暂时性的。</returns>
-    protected virtual bool IsBatchRetryableException(Exception exception)
+    protected virtual bool IsRetryableException(Exception exception)
     {
         return exception is not (
             ArgumentException or
@@ -443,5 +300,4 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
             ObjectDisposedException);
     }
 
-    #endregion
 }
