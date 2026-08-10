@@ -82,7 +82,7 @@ public Result<User> GetUser(int id)
 | **Linger.EFCore** | Entity Framework Core 扩展 |
 | **Linger.FileSystem** | 统一的文件系统抽象（本地、FTP、SFTP） |
 | **Linger.Email** | 电子邮件发送功能 |
-| **Linger.Excel** | Excel 操作（EPPlus、NPOI、ClosedXML） |
+| **Linger.Excel** | Excel 操作（NPOI、ClosedXML） |
 | **Linger.Dapper** | Dapper 扩展 |
 | **Linger.Ldap** | LDAP 认证（Active Directory、Novell） |
 

@@ -1,7 +1,6 @@
 using System.Data;
 using Linger.Excel.ClosedXML;
 using Linger.Excel.Contracts;
-using Linger.Excel.EPPlus;
 using Linger.Excel.Npoi;
 using Microsoft.Extensions.Logging;
 using Xunit;
@@ -462,7 +461,6 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
         var providers = new List<(string Name, IExcelService Service)>
         {
             ("Npoi", new NpoiExcel(options, _loggerFactory.CreateLogger<NpoiExcel>())),
-            ("EPPlus", new EPPlusExcel(options, _loggerFactory.CreateLogger<EPPlusExcel>())),
             ("ClosedXml", new ClosedXmlExcel(options, _loggerFactory.CreateLogger<ClosedXmlExcel>()))
         };
 
@@ -608,11 +606,6 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
                 {
                     return workbook.GetSheetAt(0).GetRow(1).GetCell(0).CellStyle.GetDataFormatString();
                 }
-            case "EPPlus":
-                using (var package = new global::OfficeOpenXml.ExcelPackage(stream))
-                {
-                    return package.Workbook.Worksheets[0].Cells[2, 1].Style.Numberformat.Format;
-                }
             case "ClosedXml":
                 using (var workbook = new global::ClosedXML.Excel.XLWorkbook(stream))
                 {
@@ -720,7 +713,6 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
         return
         [
             ("Npoi", new NpoiExcel(options ?? Options, _loggerFactory.CreateLogger<NpoiExcel>())),
-            ("EPPlus", new EPPlusExcel(options ?? Options, _loggerFactory.CreateLogger<EPPlusExcel>())),
             ("ClosedXml", new ClosedXmlExcel(options ?? Options, _loggerFactory.CreateLogger<ClosedXmlExcel>()))
         ];
     }

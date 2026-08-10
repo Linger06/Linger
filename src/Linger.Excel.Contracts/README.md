@@ -21,7 +21,6 @@ A unified, efficient, and extensible Excel operation framework that supports mul
 | Implementation | Package Name | Features |
 |----------------|--------------|----------|
 | **NPOI** | `Linger.Excel.Npoi` | No Office required, supports .xls and .xlsx |
-| **EPPlus** | `Linger.Excel.EPPlus` | High performance, supports richer Excel features |
 | **ClosedXML** | `Linger.Excel.ClosedXML` | User-friendly API, good performance |
 
 ## 🏗️ Architecture Design
@@ -53,7 +52,7 @@ A unified, efficient, and extensible Excel operation framework that supports mul
              ▼
 ┌─────────────────────────────┐
 │  Concrete Implementation    │ ◄──── Specific Excel library implementation
-│(NpoiExcel, EPPlusExcel, etc)│       
+│ (NpoiExcel, ClosedXmlExcel) │
 └─────────────────────────────┘
 ```
 
@@ -175,7 +174,7 @@ DataTable? table = await excelService.StreamToDataTableAsync(
 
 ### Stream Cancellation
 
-All asynchronous stream-import overloads accept an optional `CancellationToken`. Cancellation is cooperative: it is checked before import, while a non-seekable stream is buffered, and during conversion loops. NPOI, EPPlus, and ClosedXML parse workbooks synchronously, so a request received during their internal CPU-bound parsing phase is observed only after that phase reaches the next check point, where `OperationCanceledException` is thrown. Pass the token from the calling request or background operation.
+All asynchronous stream-import overloads accept an optional `CancellationToken`. Cancellation is cooperative: it is checked before import, while a non-seekable stream is buffered, and during conversion loops. NPOI and ClosedXML parse workbooks synchronously, so a request received during their internal CPU-bound parsing phase is observed only after that phase reaches the next check point, where `OperationCanceledException` is thrown. Pass the token from the calling request or background operation.
 
 ### 5. AOT-Friendly Exports
 

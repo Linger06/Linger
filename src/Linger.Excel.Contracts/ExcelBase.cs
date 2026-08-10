@@ -1432,7 +1432,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <returns>数据起始行索引(按库的原生索引格式)</returns>
     /// <remarks>
     /// 此方法应该处理headerRowIndex为负值的情况，通常返回第一个有效的数据行索引。
-    /// 返回的索引需使用实现库的原生索引格式(NPOI为0-based，EPPlus/ClosedXML为1-based)。
+    /// 返回的索引需使用实现库的原生索引格式（NPOI 为 0-based，ClosedXML 为 1-based）。
     /// </remarks>
     protected abstract int GetDataStartRow(TWorksheet worksheet, int headerRowIndex);
 

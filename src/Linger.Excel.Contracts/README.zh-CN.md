@@ -21,7 +21,6 @@
 | 实现库 | 包名 | 特点 |
 |-------|------|-----|
 | **NPOI** | `Linger.Excel.Npoi` | 无需Office，支持.xls和.xlsx |
-| **EPPlus** | `Linger.Excel.EPPlus` | 高性能，支持更丰富的Excel功能 |
 | **ClosedXML** | `Linger.Excel.ClosedXML` | 友好易用的API，性能良好 |
 
 ## 🏗️ 架构设计
@@ -53,7 +52,7 @@
              ▼
 ┌─────────────────────────────┐
 │     具体实现类               │ ◄──── 具体Excel库实现
-│ (NpoiExcel, EPPlusExcel等)  │       
+│ (NpoiExcel、ClosedXmlExcel) │
 └─────────────────────────────┘
 ```
 
@@ -175,7 +174,7 @@ DataTable? table = await excelService.StreamToDataTableAsync(
 
 ### 流取消
 
-所有异步流导入重载都接受可选的 `CancellationToken`。取消采用协作式检查：在导入开始前、非可寻址流的缓冲读取期间以及转换循环中观察令牌。NPOI、EPPlus 和 ClosedXML 会同步解析工作簿，因此在其内部 CPU 解析阶段收到的取消请求，需要等到该阶段完成并到达下一个检查点后才会抛出 `OperationCanceledException`。应传入请求或后台任务所使用的取消令牌。
+所有异步流导入重载都接受可选的 `CancellationToken`。取消采用协作式检查：在导入开始前、非可寻址流的缓冲读取期间以及转换循环中观察令牌。NPOI 和 ClosedXML 会同步解析工作簿，因此在其内部 CPU 解析阶段收到的取消请求，需要等到该阶段完成并到达下一个检查点后才会抛出 `OperationCanceledException`。应传入请求或后台任务所使用的取消令牌。
 
 ### 5. AOT 友好导出
 

@@ -10,7 +10,6 @@
     <ProjectReference Include="..\..\src\Linger.Excel.Contracts\Linger.Excel.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Linger.Excel.ClosedXML\Linger.Excel.ClosedXML.csproj" />
     <ProjectReference Include="..\..\src\Linger.Excel.Npoi\Linger.Excel.Npoi.csproj" />
-    <ProjectReference Include="..\..\src\Linger.Excel.EPPlus\Linger.Excel.EPPlus.csproj" />
   </ItemGroup>
 
 </Project>

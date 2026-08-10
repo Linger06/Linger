@@ -1,7 +1,6 @@
 using System.Data;
 using Linger.Excel.ClosedXML;
 using Linger.Excel.Contracts;
-using Linger.Excel.EPPlus;
 using Linger.Excel.Npoi;
 using NPOI.SS.UserModel;
 using Xunit;
@@ -65,7 +64,6 @@ public class DataSetWorksheetContextTests : ExcelServiceTestBase, IDisposable
         dataSet.Tables.Add(new DataTable("Empty"));
         var npoiInvocations = 0;
         var closedXmlInvocations = 0;
-        var epplusInvocations = 0;
 
         new NpoiExcel(Options).DataSetToExcel(
             dataSet,
@@ -75,14 +73,8 @@ public class DataSetWorksheetContextTests : ExcelServiceTestBase, IDisposable
             dataSet,
             Path.Combine(TestFilesDir, "ClosedXml_WorksheetContextEmpty.xlsx"),
             context => AssertWorksheetContext(context, dataSet.Tables[0], 0, "Empty", ref closedXmlInvocations));
-        new EPPlusExcel(Options).DataSetToExcel(
-            dataSet,
-            Path.Combine(TestFilesDir, "EPPlus_WorksheetContextEmpty.xlsx"),
-            context => AssertWorksheetContext(context, dataSet.Tables[0], 0, "Empty", ref epplusInvocations));
-
         Assert.Equal(1, npoiInvocations);
         Assert.Equal(1, closedXmlInvocations);
-        Assert.Equal(1, epplusInvocations);
     }
 
     [Fact]
@@ -98,10 +90,6 @@ public class DataSetWorksheetContextTests : ExcelServiceTestBase, IDisposable
         Assert.Throws<InvalidOperationException>(() => new ClosedXmlExcel(Options).DataSetToExcel(
             dataSet,
             Path.Combine(TestFilesDir, "ClosedXml_WorksheetContextException.xlsx"),
-            _ => throw new InvalidOperationException()));
-        Assert.Throws<InvalidOperationException>(() => new EPPlusExcel(Options).DataSetToExcel(
-            dataSet,
-            Path.Combine(TestFilesDir, "EPPlus_WorksheetContextException.xlsx"),
             _ => throw new InvalidOperationException()));
     }
 

@@ -46,7 +46,7 @@ dotnet add package Linger.DataAccess.SqlServer
     `Linger.DataAccess.SqlServer`, `Linger.DataAccess.Oracle`, or `Linger.DataAccess.Sqlite`
 - Use EF Core with extra helpers: install `Linger.EFCore`
 - Work with files across local, FTP, or SFTP: install `Linger.FileSystem`
-- Export/import spreadsheets: install `Linger.Excel.Contracts` and exactly one provider package: `Linger.Excel.EPPlus`, `Linger.Excel.Npoi`, or `Linger.Excel.ClosedXML`
+- Export/import spreadsheets: install `Linger.Excel.Contracts` and exactly one provider package: `Linger.Excel.Npoi` or `Linger.Excel.ClosedXML`
 - Integrate LDAP authentication: install `Linger.Ldap.ActiveDirectory` or `Linger.Ldap.Novell`
 
 ## Basic Usage
@@ -82,7 +82,7 @@ public Result<User> GetUser(int id)
 | **Linger.EFCore** | Entity Framework Core extensions |
 | **Linger.FileSystem** | Unified file system abstraction (Local, FTP, SFTP) |
 | **Linger.Email** | Email sending functionality |
-| **Linger.Excel.Contracts** + provider | Excel abstractions plus one concrete implementation (EPPlus, NPOI, or ClosedXML) |
+| **Linger.Excel.Contracts** + provider | Excel abstractions plus one concrete implementation (NPOI or ClosedXML) |
 | **Linger.Dapper** | Dapper extensions |
 | **Linger.Ldap** | LDAP authentication (Active Directory, Novell) |
 
@@ -97,7 +97,6 @@ public Result<User> GetUser(int id)
 - [Linger.FileSystem Documentation](src/Linger.FileSystem/README.md)
 - [Linger.Email Documentation](src/Linger.Email/README.md)
 - [Linger.Excel Contracts Documentation](src/Linger.Excel.Contracts/README.md)
-- [Linger.Excel EPPlus Documentation](src/Linger.Excel.EPPlus/README.md)
 - [Linger.Excel NPOI Documentation](src/Linger.Excel.Npoi/README.md)
 - [Linger.Excel ClosedXML Documentation](src/Linger.Excel.ClosedXML/README.md)
 - [Linger.Dapper Documentation](src/Linger.Dapper/README.md)
