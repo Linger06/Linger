@@ -280,9 +280,27 @@ public abstract class FileSystemBase : IFileSystemOperations
 
     public abstract Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default);
 
-    public abstract Task<StreamReader> GetReaderAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public virtual async Task<StreamReader> GetReaderAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default)
+    {
+        var stream = await OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
+#if NET6_0_OR_GREATER
+        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+#else
+        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+#endif
+    }
 
-    public abstract Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, Encoding? encoding = null, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public virtual async Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, Encoding? encoding = null, CancellationToken cancellationToken = default)
+    {
+        var stream = await OpenWriteAsync(filePath, overwrite, cancellationToken).ConfigureAwait(false);
+#if NET6_0_OR_GREATER
+        return new StreamWriter(stream, encoding ?? Encoding.UTF8, leaveOpen: false);
+#else
+        return new StreamWriter(stream, encoding ?? Encoding.UTF8, bufferSize: 1024, leaveOpen: false);
+#endif
+    }
 
     public abstract Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default);
 

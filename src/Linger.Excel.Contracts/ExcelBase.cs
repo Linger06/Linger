@@ -857,28 +857,11 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 获取显式导出列的值，并按列类型进行转换。
+    /// 获取显式导出列的原始值，类型转换由统一的单元格写入入口处理。
     /// </summary>
     protected static object? GetExportValue<T>(ExcelExportColumn<T> column, T item)
     {
-        var value = column.ValueSelector(item);
-        if (value is null or DBNull)
-        {
-            return null;
-        }
-
-        if (column.DataType == typeof(object) || column.DataType.IsInstanceOfType(value))
-        {
-            return value;
-        }
-
-        if (TypeConverter.TryConvert(value, column.DataType, out var convertedValue))
-        {
-            return convertedValue;
-        }
-
-        throw new InvalidOperationException(
-            $"导出列 '{column.Header}' 的值无法从 {value.GetType().FullName} 转换为 {column.DataType.FullName}。");
+        return column.ValueSelector(item);
     }
 
     /// <summary>

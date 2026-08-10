@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
@@ -219,6 +220,120 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
             File.Replace(sourcePath, destinationPath, null);
         }
 #endif
+    }
+
+    /// <summary>
+    /// 使用独立客户端并行执行批量文件操作。
+    /// </summary>
+    protected static async Task ExecuteParallelBatchAsync<TClient>(
+        IReadOnlyCollection<string> filePaths,
+        int degree,
+        Func<TClient> createClient,
+        Func<TClient, string, CancellationToken, Task> operation,
+        Func<TClient, Task> disposeClient,
+        Action<string, Exception> onError,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(filePaths);
+        ArgumentNullException.ThrowIfNull(createClient);
+        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(disposeClient);
+        ArgumentNullException.ThrowIfNull(onError);
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(degree);
+
+        var queue = new ConcurrentQueue<string>(filePaths);
+        var workerCount = Math.Min(degree, filePaths.Count);
+        var workers = Enumerable.Range(0, workerCount).Select(async _ =>
+        {
+            var client = createClient();
+            try
+            {
+                while (true)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!queue.TryDequeue(out var filePath))
+                    {
+                        break;
+                    }
+
+                    try
+                    {
+                        await operation(client, filePath, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        onError(filePath, ex);
+                    }
+                }
+            }
+            finally
+            {
+                await disposeClient(client).ConfigureAwait(false);
+            }
+        });
+
+        await Task.WhenAll(workers).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 下载到同目录临时文件，并在成功后提交到本地目标路径。
+    /// </summary>
+    protected async Task<bool> DownloadFileAtomicallyAsync(
+        string localDestinationPath,
+        bool overwrite,
+        Func<string, CancellationToken, Task<bool>> downloadAttempt,
+        bool useBatchRetry,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(localDestinationPath);
+        ArgumentNullException.ThrowIfNull(downloadAttempt);
+
+        var destinationFullPath = Path.GetFullPath(localDestinationPath);
+        var destinationDirectory = Path.GetDirectoryName(destinationFullPath)!;
+        Directory.CreateDirectory(destinationDirectory);
+        var temporaryPath = Path.Combine(destinationDirectory, $".download-{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            var success = useBatchRetry
+                ? await ExecuteWithBatchRetryAsync(
+                    () => downloadAttempt(temporaryPath, cancellationToken),
+                    cancellationToken).ConfigureAwait(false)
+                : await RetryHelper.ExecuteAsync(
+                    operationCancellationToken => downloadAttempt(temporaryPath, operationCancellationToken),
+                    "Download file",
+                    shouldRetry: IsBatchRetryableException,
+                    shouldRetryResult: result => !result,
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (!success)
+            {
+                return false;
+            }
+
+            CommitTemporaryFile(temporaryPath, destinationFullPath, overwrite);
+            return true;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(temporaryPath);
+            }
+            catch (IOException ex)
+            {
+                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", temporaryPath);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", temporaryPath);
+            }
+        }
     }
 
     #region IBatchFileSystemOperations 实现

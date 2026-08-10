@@ -141,7 +141,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             return DBNull.Value;
 
         // 处理日期格式
-        bool isDateFormat = cell.Style.Numberformat.Format.Contains("yy");
+        var isDateFormat = IsDateCellFormat(cell.Style.Numberformat.Format);
 
         // 使用通用转换器
         return GetExcelCellValue(cell.Value, isDateFormat);
@@ -152,42 +152,30 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式
     /// </summary>
-    private void WriteValueToCell(ExcelRange cell, object? value)
+    private void WriteValueToCell(ExcelRange cell, object? value, Type declaredType)
     {
-        if (value == null || value is DBNull)
-        {
-            cell.Value = null;
-            return;
-        }
+        var cellValue = NormalizeExcelCellValue(value, declaredType);
 
-        // 根据值类型进行特殊处理
-        switch (value)
+        switch (cellValue.Kind)
         {
-            case DateTime dateTime:
-                cell.Value = dateTime;
+            case ExcelCellValueKind.Empty:
+                cell.Value = null;
+                return;
+            case ExcelCellValueKind.DateTime:
+                cell.Value = cellValue.Value;
                 cell.Style.Numberformat.Format = Options.StyleOptions.DataStyle.DateFormat;
                 break;
-            case bool boolean:
-                cell.Value = boolean;
+            case ExcelCellValueKind.Boolean:
+            case ExcelCellValueKind.Text:
+                cell.Value = cellValue.Value;
                 break;
-            case decimal decimalValue:
-                cell.Value = decimalValue;
+            case ExcelCellValueKind.Decimal:
+                cell.Value = cellValue.Value;
                 cell.Style.Numberformat.Format = Options.StyleOptions.DataStyle.DecimalFormat;
                 break;
-            case double doubleValue:
-                cell.Value = doubleValue;
-                cell.Style.Numberformat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat;
-                break;
-            case float floatValue:
-                cell.Value = floatValue;
-                cell.Style.Numberformat.Format = floatValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat;
-                break;
-            case int or long or short or byte or sbyte or ushort or uint or ulong:
-                cell.Value = Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture);
+            case ExcelCellValueKind.Integer:
+                cell.Value = cellValue.Value;
                 cell.Style.Numberformat.Format = Options.StyleOptions.DataStyle.IntegerFormat;
-                break;
-            default:
-                cell.Value = value.ToString();
                 break;
         }
 
@@ -333,7 +321,7 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             {
                 var cell = excelWorksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
                 var value = dataTable.Rows[rowIndex][columnIndex];
-                WriteValueToCell(cell, value != DBNull.Value ? value : null);
+                WriteValueToCell(cell, value, dataTable.Columns[columnIndex].DataType);
             }
         }
     }
@@ -350,7 +338,8 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
             {
                 var cell = worksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
-                WriteValueToCell(cell, exportProperties[columnIndex].GetValue(list[rowIndex]));
+                var property = exportProperties[columnIndex];
+                WriteValueToCell(cell, property.GetValue(list[rowIndex]), property.PropertyType);
             }
         }
     }
@@ -366,7 +355,8 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
             for (var columnIndex = 0; columnIndex < columns.Count; columnIndex++)
             {
                 var cell = worksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
-                WriteValueToCell(cell, GetExportValue(columns[columnIndex], items[rowIndex]));
+                var column = columns[columnIndex];
+                WriteValueToCell(cell, GetExportValue(column, items[rowIndex]), column.DataType);
             }
         }
     }

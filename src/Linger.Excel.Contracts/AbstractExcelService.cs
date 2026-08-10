@@ -24,6 +24,29 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     /// </summary>
     protected readonly ILogger Logger = logger ?? NullLogger.Instance;
 
+    /// <summary>
+    /// 规范化后的 Excel 单元格值类型。
+    /// </summary>
+    protected enum ExcelCellValueKind
+    {
+        Empty,
+        Text,
+        Boolean,
+        Integer,
+        Decimal,
+        DateTime
+    }
+
+    /// <summary>
+    /// 规范化后的 Excel 单元格值。
+    /// </summary>
+    protected readonly struct ExcelCellValue(ExcelCellValueKind kind, object? value)
+    {
+        public ExcelCellValueKind Kind { get; } = kind;
+
+        public object? Value { get; } = value;
+    }
+
     #region IExcelService简单实现 - 调用IExcel实现
 
     /// <summary>
@@ -473,6 +496,125 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     protected object GetExcelCellValue(object value, bool isDateFormat = false)
     {
         return ExcelValueConverter.ConvertToDbValue(value, isDateFormat);
+    }
+
+    /// <summary>
+    /// 将用户数据规范化为各 Excel Provider 可一致写入的值。
+    /// </summary>
+    protected static ExcelCellValue NormalizeExcelCellValue(object? value, Type declaredType)
+    {
+        ArgumentNullException.ThrowIfNull(declaredType);
+
+        if (value is null or DBNull)
+        {
+            return new ExcelCellValue(ExcelCellValueKind.Empty, null);
+        }
+
+        var actualType = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
+        if (actualType == typeof(object))
+        {
+            actualType = value.GetType();
+        }
+        else if (!actualType.IsInstanceOfType(value))
+        {
+            if (!TypeConverter.TryConvert(value, actualType, out var convertedValue))
+            {
+                throw new InvalidOperationException(
+                    $"Excel 单元格值无法从 {value.GetType().FullName} 转换为 {actualType.FullName}。");
+            }
+
+            value = convertedValue!;
+        }
+
+        if (actualType.IsEnum)
+        {
+            return new ExcelCellValue(ExcelCellValueKind.Text, ConvertToInvariantText(value));
+        }
+
+        return Type.GetTypeCode(actualType) switch
+        {
+            TypeCode.Boolean => new ExcelCellValue(ExcelCellValueKind.Boolean, (bool)value),
+            TypeCode.Byte or
+            TypeCode.SByte or
+            TypeCode.Int16 or
+            TypeCode.UInt16 or
+            TypeCode.Int32 or
+            TypeCode.UInt32 or
+            TypeCode.Int64 or
+            TypeCode.UInt64 => new ExcelCellValue(
+                ExcelCellValueKind.Integer,
+                Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.Decimal or TypeCode.Double or TypeCode.Single => new ExcelCellValue(
+                ExcelCellValueKind.Decimal,
+                Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.DateTime => new ExcelCellValue(ExcelCellValueKind.DateTime, (DateTime)value),
+            _ => new ExcelCellValue(ExcelCellValueKind.Text, ConvertToInvariantText(value))
+        };
+    }
+
+    /// <summary>
+    /// 判断 Excel 数字格式是否表示日期或时间。
+    /// </summary>
+    protected static bool IsDateCellFormat(string? numberFormat)
+    {
+        if (numberFormat is null || string.IsNullOrWhiteSpace(numberFormat))
+        {
+            return false;
+        }
+
+        for (var index = 0; index < numberFormat.Length; index++)
+        {
+            var character = numberFormat[index];
+            if (character == '"')
+            {
+                index++;
+                while (index < numberFormat.Length && numberFormat[index] != '"')
+                {
+                    index++;
+                }
+
+                continue;
+            }
+
+            if (character is '\\' or '_' or '*')
+            {
+                index++;
+                continue;
+            }
+
+            if (character == '[')
+            {
+                var closingBracket = numberFormat.IndexOf(']', index + 1);
+                if (closingBracket < 0)
+                {
+                    return false;
+                }
+
+                var bracketContent = numberFormat.Substring(index + 1, closingBracket - index - 1);
+                if (bracketContent.Length > 0 && bracketContent.All(value =>
+                        char.ToLowerInvariant(value) is 'h' or 'm' or 's'))
+                {
+                    return true;
+                }
+
+                index = closingBracket;
+                continue;
+            }
+
+            if (char.ToLowerInvariant(character) is 'y' or 'm' or 'd' or 'h' or 's')
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string ConvertToInvariantText(object value)
+    {
+        return value is IFormattable formattable
+            ? formattable.ToString(null, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty
+            : value.ToString() ?? string.Empty;
     }
 
     #region 私有辅助方法

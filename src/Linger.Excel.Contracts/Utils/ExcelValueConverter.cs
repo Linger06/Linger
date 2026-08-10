@@ -14,7 +14,7 @@ public static class ExcelValueConverter
     public static object ConvertToDbValue(object? value, bool isDateFormat = false)
     {
         // 空值处理
-        if (value == null || value is DBNull)
+        if (value is null or DBNull)
             return DBNull.Value;
 
         // 处理空字符串
@@ -66,22 +66,6 @@ public static class ExcelValueConverter
             return m;
         if (value is float f)
             return f;
-
-        // 布尔值处理
-        if (value is string boolStr)
-        {
-            var boolValue = boolStr.ToBoolOrNull();
-            if (boolValue.HasValue)
-                return boolValue.Value;
-        }
-
-        // GUID处理
-        if (value is string guidStr)
-        {
-            var guidValue = guidStr.ToGuidOrNull();
-            if (guidValue.HasValue)
-                return guidValue.Value;
-        }
 
         // 默认情况下返回原值
         return value;

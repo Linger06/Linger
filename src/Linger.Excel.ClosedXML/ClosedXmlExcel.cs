@@ -177,42 +177,32 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// <summary>
     /// 将值写入Excel单元格并设置适当的格式
     /// </summary>
-    private void WriteValueToCell(IXLCell cell, object? value)
+    private void WriteValueToCell(IXLCell cell, object? value, Type declaredType)
     {
-        if (value == null || value is DBNull)
-        {
-            cell.Value = string.Empty;
-            return;
-        }
+        var cellValue = NormalizeExcelCellValue(value, declaredType);
 
-        // 根据值类型进行特殊处理
-        switch (value)
+        switch (cellValue.Kind)
         {
-            case DateTime dateTime:
-                cell.Value = dateTime;
-                cell.Style.DateFormat.Format = Options.StyleOptions.DataStyle.DateFormat; // 更新为新路径
+            case ExcelCellValueKind.Empty:
+                cell.Value = string.Empty;
+                return;
+            case ExcelCellValueKind.DateTime:
+                cell.Value = (DateTime)cellValue.Value!;
+                cell.Style.DateFormat.Format = Options.StyleOptions.DataStyle.DateFormat;
                 break;
-            case bool boolean:
-                cell.Value = boolean;
+            case ExcelCellValueKind.Boolean:
+                cell.Value = (bool)cellValue.Value!;
                 break;
-            case decimal decimalValue:
-                cell.Value = decimalValue;
-                cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
+            case ExcelCellValueKind.Decimal:
+                cell.Value = (double)cellValue.Value!;
+                cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.DecimalFormat;
                 break;
-            case double doubleValue:
-                cell.Value = doubleValue;
-                cell.Style.NumberFormat.Format = doubleValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
+            case ExcelCellValueKind.Integer:
+                cell.Value = (long)cellValue.Value!;
+                cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.IntegerFormat;
                 break;
-            case float floatValue:
-                cell.Value = floatValue;
-                cell.Style.NumberFormat.Format = floatValue % 1 == 0 ? Options.StyleOptions.DataStyle.IntegerFormat : Options.StyleOptions.DataStyle.DecimalFormat; // 更新为新路径
-                break;
-            case int or long or short or byte or sbyte or ushort or uint or ulong:
-                cell.Value = value.ToLongOrDefault();// Convert.ToInt64(value);
-                cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.IntegerFormat; // 更新为新路径
-                break;
-            default:
-                cell.Value = value.ToString();
+            case ExcelCellValueKind.Text:
+                cell.Value = (string)cellValue.Value!;
                 break;
         }
 
@@ -350,7 +340,10 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
             {
                 var cell = worksheet.Cell(startRowIndex + rowIndex + 2, columnIndex + 1);
-                WriteValueToCell(cell, dataTable.Rows[rowIndex][columnIndex]);
+                WriteValueToCell(
+                    cell,
+                    dataTable.Rows[rowIndex][columnIndex],
+                    dataTable.Columns[columnIndex].DataType);
             }
         }
     }
@@ -379,7 +372,8 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
             {
                 var cell = worksheet.Cell(startRowIndex + rowIndex + 2, columnIndex + 1);
-                WriteValueToCell(cell, exportProperties[columnIndex].GetValue(list[rowIndex]));
+                var property = exportProperties[columnIndex];
+                WriteValueToCell(cell, property.GetValue(list[rowIndex]), property.PropertyType);
             }
         }
     }
@@ -395,7 +389,8 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
             for (var columnIndex = 0; columnIndex < columns.Count; columnIndex++)
             {
                 var cell = worksheet.Cell(startRowIndex + rowIndex + 2, columnIndex + 1);
-                WriteValueToCell(cell, GetExportValue(columns[columnIndex], items[rowIndex]));
+                var column = columns[columnIndex];
+                WriteValueToCell(cell, GetExportValue(column, items[rowIndex]), column.DataType);
             }
         }
     }

@@ -178,85 +178,46 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     private void WriteValueToCell(IWorkbook workbook, IRow row, int columnIndex, object? value, Type valueType, Dictionary<Type, ICellStyle> styleCache)
     {
         var cell = row.CreateCell(columnIndex);
+        var cellValue = NormalizeExcelCellValue(value, valueType);
 
-        if (value is null or DBNull)
+        switch (cellValue.Kind)
         {
-            cell.SetCellValue(string.Empty);
-            return;
-        }
-
-        var actualType = valueType == typeof(object)
-            ? value.GetType()
-            : Nullable.GetUnderlyingType(valueType) ?? valueType;
-        switch (Type.GetTypeCode(actualType))
-        {
-            case TypeCode.DateTime:
-                WriteDateValue(workbook, cell, value, styleCache);
+            case ExcelCellValueKind.Empty:
+                cell.SetCellValue(string.Empty);
+                return;
+            case ExcelCellValueKind.DateTime:
+                cell.SetCellValue((DateTime)cellValue.Value!);
+                cell.CellStyle = GetOrCreateDataStyle(
+                    workbook,
+                    styleCache,
+                    typeof(DateTime),
+                    Options.StyleOptions.DataStyle.DateFormat);
                 break;
-            case TypeCode.Boolean:
-                cell.SetCellValue(value is bool boolean
-                    ? boolean
-                    : bool.TryParse(value.ToString(), out var parsedBoolean) && parsedBoolean);
+            case ExcelCellValueKind.Boolean:
+                cell.SetCellValue((bool)cellValue.Value!);
                 break;
-            case TypeCode.Byte:
-            case TypeCode.SByte:
-            case TypeCode.Int16:
-            case TypeCode.UInt16:
-            case TypeCode.Int32:
-            case TypeCode.UInt32:
-            case TypeCode.Int64:
-            case TypeCode.UInt64:
-                cell.SetCellValue(value.ToLongOrDefault());
+            case ExcelCellValueKind.Integer:
+                cell.SetCellValue((long)cellValue.Value!);
                 cell.CellStyle = GetOrCreateDataStyle(
                     workbook,
                     styleCache,
                     typeof(int),
                     Options.StyleOptions.DataStyle.IntegerFormat);
                 break;
-            case TypeCode.Decimal:
-            case TypeCode.Double:
-            case TypeCode.Single:
-                cell.SetCellValue(value.ToDouble());
+            case ExcelCellValueKind.Decimal:
+                cell.SetCellValue((double)cellValue.Value!);
                 cell.CellStyle = GetOrCreateDataStyle(
                     workbook,
                     styleCache,
                     typeof(double),
                     Options.StyleOptions.DataStyle.DecimalFormat);
                 break;
-            default:
-                cell.SetCellValue(value.ToString());
+            case ExcelCellValueKind.Text:
+                cell.SetCellValue((string)cellValue.Value!);
                 break;
         }
 
         DrawBorder(cell);
-    }
-
-    private void WriteDateValue(
-        IWorkbook workbook,
-        ICell cell,
-        object value,
-        Dictionary<Type, ICellStyle> styleCache)
-    {
-        var dateValue = value switch
-        {
-            DateTime dateTime => dateTime,
-            double numericDate => DateTime.FromOADate(numericDate),
-            _ when DateTime.TryParse(value.ToString(), out var parsedDate) => parsedDate,
-            _ => DateTime.MinValue
-        };
-
-        if (dateValue == DateTime.MinValue)
-        {
-            cell.SetCellValue(string.Empty);
-            return;
-        }
-
-        cell.SetCellValue(dateValue);
-        cell.CellStyle = GetOrCreateDataStyle(
-            workbook,
-            styleCache,
-            typeof(DateTime),
-            Options.StyleOptions.DataStyle.DateFormat);
     }
 
     private static ICellStyle GetOrCreateDataStyle(

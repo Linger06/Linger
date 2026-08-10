@@ -86,6 +86,87 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
+    public void DataTableToMemoryStream_WithUInt64Overflow_ThrowsAcrossProviders()
+    {
+        var sourceData = new DataTable("UnsignedData");
+        sourceData.Columns.Add("Value", typeof(ulong));
+        sourceData.Rows.Add(ulong.MaxValue);
+
+        foreach (var provider in CreateProviders())
+        {
+            Assert.Throws<OverflowException>(() =>
+                provider.Service.DataTableToMemoryStream(sourceData).Dispose());
+        }
+    }
+
+    [Fact]
+    public void DataTableToMemoryStream_WithWholeFloatingPoint_UsesDecimalFormatAcrossProviders()
+    {
+        var options = new ExcelOptions
+        {
+            AutoFitColumns = false,
+            StyleOptions = new ExcelStyleOptions
+            {
+                DataStyle = new DataStyle
+                {
+                    DecimalFormat = "0.000",
+                    IntegerFormat = "0"
+                }
+            }
+        };
+        var sourceData = new DataTable("FloatingPointData");
+        sourceData.Columns.Add("Value", typeof(double));
+        sourceData.Rows.Add(2d);
+
+        foreach (var provider in CreateProviders(options))
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+
+            Assert.Equal("0.000", GetFirstDataCellNumberFormat(provider.Name, stream));
+        }
+    }
+
+    [Fact]
+    public void StreamToDataTable_WithTypedLookingText_PreservesTextAcrossProviders()
+    {
+        var sourceData = new DataTable("TextData");
+        sourceData.Columns.Add("BooleanText", typeof(string));
+        sourceData.Columns.Add("GuidText", typeof(string));
+        sourceData.Rows.Add("true", "6f9619ff-8b86-d011-b42d-00c04fc964ff");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+
+            var imported = provider.Service.StreamToDataTable(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal(typeof(string), imported.Columns["BooleanText"]!.DataType);
+            Assert.Equal(typeof(string), imported.Columns["GuidText"]!.DataType);
+            var row = Assert.Single(imported.Rows.Cast<DataRow>());
+            Assert.Equal("true", row["BooleanText"]);
+            Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", row["GuidText"]);
+        }
+    }
+
+    [Fact]
+    public void StreamToDataTable_WithDateFormatWithoutYear_ReadsDateAcrossProviders()
+    {
+        var expected = new DateTime(2026, 8, 10);
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = CreateDateWorkbook(expected, "dd-mmm");
+
+            var imported = provider.Service.StreamToDataTable(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal(typeof(DateTime), imported.Columns["Value"]!.DataType);
+            Assert.Equal(expected, Assert.Single(imported.Rows.Cast<DataRow>())["Value"]);
+        }
+    }
+
+    [Fact]
     public void CollectionToMemoryStream_WithNoExplicitColumns_ThrowsArgumentExceptionAcrossProviders()
     {
         foreach (var provider in CreateProviders())
@@ -516,6 +597,47 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     private static MemoryStream CreateInvalidExcelStream()
     {
         return new MemoryStream([0x00, 0x01, 0x02, 0x03]);
+    }
+
+    private static string GetFirstDataCellNumberFormat(string providerName, Stream stream)
+    {
+        switch (providerName)
+        {
+            case "Npoi":
+                using (var workbook = new global::NPOI.XSSF.UserModel.XSSFWorkbook(stream))
+                {
+                    return workbook.GetSheetAt(0).GetRow(1).GetCell(0).CellStyle.GetDataFormatString();
+                }
+            case "EPPlus":
+                using (var package = new global::OfficeOpenXml.ExcelPackage(stream))
+                {
+                    return package.Workbook.Worksheets[0].Cells[2, 1].Style.Numberformat.Format;
+                }
+            case "ClosedXml":
+                using (var workbook = new global::ClosedXML.Excel.XLWorkbook(stream))
+                {
+                    return workbook.Worksheet(1).Cell(2, 1).Style.NumberFormat.Format;
+                }
+            default:
+                throw new ArgumentOutOfRangeException(nameof(providerName), providerName, null);
+        }
+    }
+
+    private static MemoryStream CreateDateWorkbook(DateTime value, string numberFormat)
+    {
+        using var workbook = new global::NPOI.XSSF.UserModel.XSSFWorkbook();
+        var worksheet = workbook.CreateSheet("Sheet1");
+        worksheet.CreateRow(0).CreateCell(0).SetCellValue("Value");
+        var valueCell = worksheet.CreateRow(1).CreateCell(0);
+        valueCell.SetCellValue(value);
+        var dateStyle = workbook.CreateCellStyle();
+        dateStyle.DataFormat = workbook.CreateDataFormat().GetFormat(numberFormat);
+        valueCell.CellStyle = dateStyle;
+        var stream = new MemoryStream();
+        workbook.Write(stream, true);
+        stream.Position = 0;
+
+        return stream;
     }
 
     private sealed class DirectImportRow

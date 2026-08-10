@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using FluentFTP;
@@ -339,10 +338,18 @@ public class FtpFileSystem : RemoteFileSystemBase
             }
 
             var result = await DownloadFileAtomicallyAsync(
-                Client,
-                remoteFilePath,
                 localDestinationPath,
                 overwrite,
+                async (temporaryPath, operationCancellationToken) =>
+                {
+                    var status = await Client.DownloadFile(
+                        temporaryPath,
+                        remoteFilePath,
+                        FtpLocalExists.Overwrite,
+                        token: operationCancellationToken).ConfigureAwait(false);
+
+                    return status == FtpStatus.Success;
+                },
                 useBatchRetry: false,
                 cancellationToken).ConfigureAwait(false);
 
@@ -560,10 +567,18 @@ public class FtpFileSystem : RemoteFileSystemBase
             var fileName = Path.GetFileName(remotePath);
             var localPath = Path.Combine(localDirectory, fileName);
             var success = await DownloadFileAtomicallyAsync(
-                client,
-                remotePath,
                 localPath,
                 overwrite,
+                async (temporaryPath, operationCancellationToken) =>
+                {
+                    var status = await client.DownloadFile(
+                        temporaryPath,
+                        remotePath,
+                        FtpLocalExists.Overwrite,
+                        token: operationCancellationToken).ConfigureAwait(false);
+
+                    return status == FtpStatus.Success;
+                },
                 useBatchRetry: true,
                 cancellationToken).ConfigureAwait(false);
 
@@ -714,63 +729,43 @@ public class FtpFileSystem : RemoteFileSystemBase
         Action<string, Exception> onError,
         CancellationToken cancellationToken)
     {
-        var queue = new ConcurrentQueue<string>(filePaths);
-        var workerCount = Math.Min(degree, filePaths.Count);
-        var workers = Enumerable.Range(0, workerCount).Select(async _ =>
+        await ExecuteParallelBatchAsync(
+            filePaths,
+            degree,
+            CreateClient,
+            async (client, filePath, operationCancellationToken) =>
+            {
+                if (!client.IsConnected)
+                {
+                    await client.AutoConnect(operationCancellationToken).ConfigureAwait(false);
+                }
+
+                await operation(client, filePath).ConfigureAwait(false);
+            },
+            DisposeBatchClientAsync,
+            onError,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task DisposeBatchClientAsync(AsyncFtpClient client)
+    {
+        if (client.IsConnected)
         {
-            var client = CreateClient();
             try
             {
-                while (true)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!queue.TryDequeue(out var filePath))
-                    {
-                        break;
-                    }
-
-                    try
-                    {
-                        if (!client.IsConnected)
-                        {
-                            await client.AutoConnect(cancellationToken).ConfigureAwait(false);
-                        }
-
-                        await operation(client, filePath).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        onError(filePath, ex);
-                    }
-                }
+                await client.Disconnect().ConfigureAwait(false);
             }
-            finally
+            catch (FtpException ex)
             {
-                if (client.IsConnected)
-                {
-                    try
-                    {
-                        await client.Disconnect().ConfigureAwait(false);
-                    }
-                    catch (FtpException ex)
-                    {
-                        Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
-                    }
-                    catch (IOException ex)
-                    {
-                        Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
-                    }
-                }
-
-                client.Dispose();
+                Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
             }
-        });
+            catch (IOException ex)
+            {
+                Logger.LogWarning(ex, "Failed to disconnect FTP batch client.");
+            }
+        }
 
-        await Task.WhenAll(workers).ConfigureAwait(false);
+        client.Dispose();
     }
 
     private async Task<long> GetRequiredFileSizeAsync(string filePath, CancellationToken cancellationToken)
@@ -869,68 +864,6 @@ public class FtpFileSystem : RemoteFileSystemBase
         return base.IsBatchRetryableException(exception);
     }
 
-    private async Task<bool> DownloadFileAtomicallyAsync(
-        AsyncFtpClient client,
-        string remoteFilePath,
-        string localDestinationPath,
-        bool overwrite,
-        bool useBatchRetry,
-        CancellationToken cancellationToken)
-    {
-        var destinationFullPath = Path.GetFullPath(localDestinationPath);
-        var destinationDirectory = Path.GetDirectoryName(destinationFullPath)!;
-        Directory.CreateDirectory(destinationDirectory);
-        var tempPath = Path.Combine(destinationDirectory, $".download-{Guid.NewGuid():N}.tmp");
-
-        try
-        {
-            async Task<bool> DownloadAttemptAsync(CancellationToken operationCancellationToken)
-            {
-                var status = await client.DownloadFile(
-                    tempPath,
-                    remoteFilePath,
-                    FtpLocalExists.Overwrite,
-                    token: operationCancellationToken).ConfigureAwait(false);
-
-                return status == FtpStatus.Success;
-            }
-
-            var success = useBatchRetry
-                ? await ExecuteWithBatchRetryAsync(
-                    () => DownloadAttemptAsync(cancellationToken),
-                    cancellationToken).ConfigureAwait(false)
-                : await RetryHelper.ExecuteAsync(
-                    DownloadAttemptAsync,
-                    "Download file",
-                    shouldRetry: IsBatchRetryableException,
-                    shouldRetryResult: success => !success,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            if (!success)
-            {
-                return false;
-            }
-
-            CommitTemporaryFile(tempPath, destinationFullPath, overwrite);
-            return true;
-        }
-        finally
-        {
-            try
-            {
-                File.Delete(tempPath);
-            }
-            catch (IOException ex)
-            {
-                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", tempPath);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", tempPath);
-            }
-        }
-    }
-
     #endregion
 
     #region 流工厂与元数据方法
@@ -991,28 +924,6 @@ public class FtpFileSystem : RemoteFileSystemBase
             HandleException("Open file for writing", ex, filePath);
             throw;
         }
-    }
-
-    /// <inheritdoc />
-    public override async Task<StreamReader> GetReaderAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default)
-    {
-        var stream = await OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
-#if NET6_0_OR_GREATER
-        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
-#else
-        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
-#endif
-    }
-
-    /// <inheritdoc />
-    public override async Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, Encoding? encoding = null, CancellationToken cancellationToken = default)
-    {
-        var stream = await OpenWriteAsync(filePath, overwrite, cancellationToken).ConfigureAwait(false);
-#if NET6_0_OR_GREATER
-        return new StreamWriter(stream, encoding ?? Encoding.UTF8, leaveOpen: false);
-#else
-        return new StreamWriter(stream, encoding ?? Encoding.UTF8, bufferSize: 1024, leaveOpen: false);
-#endif
     }
 
     /// <inheritdoc />

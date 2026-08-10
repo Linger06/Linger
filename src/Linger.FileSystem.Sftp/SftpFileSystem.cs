@@ -5,7 +5,6 @@ using Linger.Helper;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet;
 using Renci.SshNet.Common;
-using System.Collections.Concurrent;
 
 namespace Linger.FileSystem.Sftp;
 
@@ -335,10 +334,13 @@ public class SftpFileSystem : RemoteFileSystemBase
                 return FileOperationResult.CreateFailure($"目标文件已存在 {localDestinationPath}");
 
             await DownloadFileAtomicallyAsync(
-                Client,
-                remoteFilePath,
                 localDestinationPath,
                 overwrite,
+                (temporaryPath, operationCancellationToken) => DownloadToTemporaryFileAsync(
+                    Client,
+                    remoteFilePath,
+                    temporaryPath,
+                    operationCancellationToken),
                 useBatchRetry: false,
                 cancellationToken).ConfigureAwait(false);
 
@@ -590,10 +592,13 @@ public class SftpFileSystem : RemoteFileSystemBase
             }
 
             await DownloadFileAtomicallyAsync(
-                client,
-                remotePath,
                 localPath,
                 overwrite,
+                (temporaryPath, operationCancellationToken) => DownloadToTemporaryFileAsync(
+                    client,
+                    remotePath,
+                    temporaryPath,
+                    operationCancellationToken),
                 useBatchRetry: true,
                 cancellationToken).ConfigureAwait(false);
 
@@ -710,59 +715,40 @@ public class SftpFileSystem : RemoteFileSystemBase
         Action<string, Exception> onError,
         CancellationToken cancellationToken)
     {
-        var queue = new ConcurrentQueue<string>(filePaths);
-        var workerCount = Math.Min(degree, filePaths.Count);
-        var workers = Enumerable.Range(0, workerCount).Select(async _ =>
+        await ExecuteParallelBatchAsync(
+            filePaths,
+            degree,
+            CreateClient,
+            async (client, filePath, operationCancellationToken) =>
+            {
+                if (!client.IsConnected)
+                {
+                    await client.ConnectAsync(operationCancellationToken).ConfigureAwait(false);
+                }
+
+                await operation(client, filePath).ConfigureAwait(false);
+            },
+            DisposeBatchClientAsync,
+            onError,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private Task DisposeBatchClientAsync(SftpClient client)
+    {
+        if (client.IsConnected)
         {
-            var client = CreateClient();
             try
             {
-                while (true)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    if (!queue.TryDequeue(out var filePath))
-                    {
-                        break;
-                    }
-
-                    try
-                    {
-                        if (!client.IsConnected)
-                        {
-                            await client.ConnectAsync(cancellationToken).ConfigureAwait(false);
-                        }
-
-                        await operation(client, filePath).ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        onError(filePath, ex);
-                    }
-                }
+                client.Disconnect();
             }
-            finally
+            catch (SshException ex)
             {
-                if (client.IsConnected)
-                {
-                    try
-                    {
-                        client.Disconnect();
-                    }
-                    catch (SshException ex)
-                    {
-                        Logger.LogWarning(ex, "Failed to disconnect SFTP batch client.");
-                    }
-                }
-
-                client.Dispose();
+                Logger.LogWarning(ex, "Failed to disconnect SFTP batch client.");
             }
-        });
+        }
 
-        await Task.WhenAll(workers).ConfigureAwait(false);
+        client.Dispose();
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -879,6 +865,25 @@ public class SftpFileSystem : RemoteFileSystemBase
         }
     }
 
+    private static async Task<bool> DownloadToTemporaryFileAsync(
+        SftpClient client,
+        string remoteFilePath,
+        string temporaryPath,
+        CancellationToken cancellationToken)
+    {
+        using var fileStream = new FileStream(
+            temporaryPath,
+            FileMode.Create,
+            FileAccess.Write,
+            FileShare.None,
+            4096,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        await client.DownloadFileAsync(remoteFilePath, fileStream, cancellationToken).ConfigureAwait(false);
+        await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+
+        return true;
+    }
+
     /// <inheritdoc />
     protected override bool IsBatchRetryableException(Exception exception)
     {
@@ -978,28 +983,6 @@ public class SftpFileSystem : RemoteFileSystemBase
     }
 
     /// <inheritdoc />
-    public override async Task<StreamReader> GetReaderAsync(string filePath, System.Text.Encoding? encoding = null, CancellationToken cancellationToken = default)
-    {
-        var stream = await OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
-#if NET6_0_OR_GREATER
-        return new StreamReader(stream, encoding ?? System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
-#else
-        return new StreamReader(stream, encoding ?? System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
-#endif
-    }
-
-    /// <inheritdoc />
-    public override async Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, System.Text.Encoding? encoding = null, CancellationToken cancellationToken = default)
-    {
-        var stream = await OpenWriteAsync(filePath, overwrite, cancellationToken).ConfigureAwait(false);
-#if NET6_0_OR_GREATER
-        return new StreamWriter(stream, encoding ?? System.Text.Encoding.UTF8, leaveOpen: false);
-#else
-        return new StreamWriter(stream, encoding ?? System.Text.Encoding.UTF8, bufferSize: 1024, leaveOpen: false);
-#endif
-    }
-
-    /// <inheritdoc />
     public override async Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default)
     {
         await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
@@ -1026,68 +1009,6 @@ public class SftpFileSystem : RemoteFileSystemBase
         {
             HandleException("Get file size", ex, filePath);
             return null; // 不会执行，HandleException 始终抛出异常
-        }
-    }
-
-    private async Task DownloadFileAtomicallyAsync(
-        SftpClient client,
-        string remoteFilePath,
-        string localDestinationPath,
-        bool overwrite,
-        bool useBatchRetry,
-        CancellationToken cancellationToken)
-    {
-        var destinationFullPath = Path.GetFullPath(localDestinationPath);
-        var destinationDirectory = Path.GetDirectoryName(destinationFullPath)!;
-        Directory.CreateDirectory(destinationDirectory);
-        var tempPath = Path.Combine(destinationDirectory, $".download-{Guid.NewGuid():N}.tmp");
-
-        try
-        {
-            async Task DownloadAttemptAsync(CancellationToken operationCancellationToken)
-            {
-                using var fileStream = new FileStream(
-                    tempPath,
-                    FileMode.Create,
-                    FileAccess.Write,
-                    FileShare.None,
-                    4096,
-                    FileOptions.Asynchronous | FileOptions.SequentialScan);
-                await client.DownloadFileAsync(remoteFilePath, fileStream, operationCancellationToken).ConfigureAwait(false);
-                await fileStream.FlushAsync(operationCancellationToken).ConfigureAwait(false);
-            }
-
-            if (useBatchRetry)
-            {
-                await ExecuteWithBatchRetryAsync(
-                    () => DownloadAttemptAsync(cancellationToken),
-                    cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await RetryHelper.ExecuteAsync(
-                    DownloadAttemptAsync,
-                    "Download file",
-                    IsBatchRetryableException,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
-            }
-
-            CommitTemporaryFile(tempPath, destinationFullPath, overwrite);
-        }
-        finally
-        {
-            try
-            {
-                File.Delete(tempPath);
-            }
-            catch (IOException ex)
-            {
-                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", tempPath);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                Logger.LogWarning(ex, "Failed to clean up temporary download file: {FilePath}", tempPath);
-            }
         }
     }
 
