@@ -471,57 +471,19 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
 
         var styleCache = new Dictionary<Type, ICellStyle>();
 
-        if (ShouldUseBatchWrite(dataTable.Rows.Count))
+        var columnTypes = new Type[dataTable.Columns.Count];
+        for (var i = 0; i < dataTable.Columns.Count; i++)
         {
-            var columnTypes = new Type[dataTable.Columns.Count];
-
-            for (var i = 0; i < dataTable.Columns.Count; i++)
-            {
-                columnTypes[i] = dataTable.Columns[i].DataType;
-            }
-
-            for (var batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += Options.BatchSize)
-            {
-                var batchSize = GetBatchSize(dataTable.Rows.Count - batchStart);
-                var cellValues = new object?[batchSize, dataTable.Columns.Count];
-
-                Parallel.For(0, batchSize, batchOffset =>
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
-                    {
-                        cellValues[batchOffset, columnIndex] = dataTable.Rows[rowIndex][columnIndex];
-                    }
-                });
-
-                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    var dataRow = worksheet.CreateRow(rowIndex + startRowIndex + 1);
-                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
-                    {
-                        WriteValueToCell(
-                            workbook,
-                            dataRow,
-                            columnIndex,
-                            cellValues[batchOffset, columnIndex],
-                            columnTypes[columnIndex],
-                            styleCache);
-                    }
-                }
-            }
+            columnTypes[i] = dataTable.Columns[i].DataType;
         }
-        else
+
+        for (var rowIndex = 0; rowIndex < dataTable.Rows.Count; rowIndex++)
         {
-            // 顺序处理小数据集
-            for (var i = 0; i < dataTable.Rows.Count; i++)
+            var dataRow = worksheet.CreateRow(rowIndex + startRowIndex + 1);
+            for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
             {
-                var dataRow = worksheet.CreateRow(i + startRowIndex + 1);
-                for (var j = 0; j < dataTable.Columns.Count; j++)
-                {
-                    var value = dataTable.Rows[i][j];
-                    WriteValueToCell(workbook, dataRow, j, value, dataTable.Columns[j].DataType, styleCache);
-                }
+                var value = dataTable.Rows[rowIndex][columnIndex];
+                WriteValueToCell(workbook, dataRow, columnIndex, value, columnTypes[columnIndex], styleCache);
             }
         }
     }
@@ -600,50 +562,15 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
 
         var styleCache = new Dictionary<Type, ICellStyle>();
 
-        if (ShouldUseBatchWrite(list.Count))
+        for (var rowIndex = 0; rowIndex < list.Count; rowIndex++)
         {
-            Logger.LogDebug("使用分批处理导出 {Count} 条记录", list.Count);
-
-            for (var batchStart = 0; batchStart < list.Count; batchStart += Options.BatchSize)
+            var dataRow = worksheet.CreateRow(rowIndex + startRowIndex + 1);
+            for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
             {
-                var batchSize = GetBatchSize(list.Count - batchStart);
-                var cellValues = new object?[batchSize, exportProperties.Length];
-
-                Parallel.For(0, batchSize, batchOffset =>
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
-                    {
-                        cellValues[batchOffset, columnIndex] = exportProperties[columnIndex].GetValue(list[rowIndex]);
-                    }
-                });
-
-                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    var dataRow = worksheet.CreateRow(rowIndex + startRowIndex + 1);
-                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
-                    {
-                        WriteValueToCell(workbook, dataRow, columnIndex, cellValues[batchOffset, columnIndex],
-                            exportProperties[columnIndex].PropertyType,
-                            styleCache);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // 顺序处理小数据集
-            for (var i = 0; i < list.Count; i++)
-            {
-                var dataRow = worksheet.CreateRow(i + startRowIndex + 1);
-                for (var j = 0; j < exportProperties.Length; j++)
-                {
-                    var property = exportProperties[j];
-                    WriteValueToCell(workbook, dataRow, j, property.GetValue(list[i]),
-                        property.PropertyType,
-                        styleCache);
-                }
+                var property = exportProperties[columnIndex];
+                WriteValueToCell(workbook, dataRow, columnIndex, property.GetValue(list[rowIndex]),
+                    property.PropertyType,
+                    styleCache);
             }
         }
     }

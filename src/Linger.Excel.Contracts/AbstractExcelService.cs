@@ -67,45 +67,6 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     }
 
     /// <summary>
-    /// 将Stream转换为DataTable - 简单版本
-    /// </summary>
-    DataTable? IExcelService.StreamToDataTable(Stream stream, string? sheetName, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
-    {
-        return StreamToDataTable(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
-    }
-
-    /// <summary>
-    /// 将Stream转换为对象列表 - 简单版本
-    /// </summary>
-    List<T>? IExcelService.StreamToList<T>(Stream stream, string? sheetName, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
-    {
-        return StreamToList<T>(stream, sheetName, headerRowIndex, addEmptyRow, cancellationToken);
-    }
-
-    /// <summary>
-    /// 将Stream转换为DataSet - 简单版本
-    /// </summary>
-    DataSet? IExcelService.StreamToDataSet(Stream stream, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
-    {
-        return StreamToDataSet(stream, headerRowIndex, addEmptyRow, cancellationToken);
-    }
-
-    DataSet? IExcelService.StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex, bool addEmptyRow, CancellationToken cancellationToken)
-    {
-        return StreamToDataSet(stream, sheetNames, headerRowIndex, addEmptyRow, cancellationToken);
-    }
-
-    DataSet? IExcelService.StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow, CancellationToken cancellationToken)
-    {
-        return StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow, cancellationToken);
-    }
-
-    DataSet? IExcelService.StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow, CancellationToken cancellationToken)
-    {
-        return StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow, cancellationToken);
-    }
-
-    /// <summary>
     /// 异步将DataTable导出为Excel文件 - 简单版本
     /// </summary>
     Task<string> IExcelService.DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName, string title, CancellationToken cancellationToken)
@@ -549,19 +510,17 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         return await importAsync(fileStream).ConfigureAwait(false);
     }
 
-    private static async Task<TResult> ExecuteImportAsync<TResult>(CancellationToken cancellationToken, Func<TResult> import)
+    private static Task<TResult> ExecuteImportAsync<TResult>(CancellationToken cancellationToken, Func<TResult> import)
     {
         ArgumentNullException.ThrowIfNull(import);
 
-        return await Task.Run(() =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
+        cancellationToken.ThrowIfCancellationRequested();
 
-            var result = import();
+        var result = import();
 
-            cancellationToken.ThrowIfCancellationRequested();
-            return result;
-        }, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return Task.FromResult(result);
     }
 
     /// <summary>

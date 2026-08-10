@@ -327,47 +327,13 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         var excelWorksheet = worksheet;
 
-        if (ShouldUseBatchWrite(dataTable.Rows.Count))
+        for (var rowIndex = 0; rowIndex < dataTable.Rows.Count; rowIndex++)
         {
-            Logger.LogDebug("使用分批处理导出 {Count} 行数据", dataTable.Rows.Count);
-
-            for (var batchStart = 0; batchStart < dataTable.Rows.Count; batchStart += Options.BatchSize)
+            for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
             {
-                var batchSize = GetBatchSize(dataTable.Rows.Count - batchStart);
-                var cellValues = new object?[batchSize, dataTable.Columns.Count];
-
-                Parallel.For(0, batchSize, batchOffset =>
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
-                    {
-                        var value = dataTable.Rows[rowIndex][columnIndex];
-                        cellValues[batchOffset, columnIndex] = value is DBNull ? null : value;
-                    }
-                });
-
-                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
-                    {
-                        var cell = excelWorksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
-                        WriteValueToCell(cell, cellValues[batchOffset, columnIndex]);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // 顺序处理小数据集
-            for (int i = 0; i < dataTable.Rows.Count; i++)
-            {
-                for (int j = 0; j < dataTable.Columns.Count; j++)
-                {
-                    var cell = excelWorksheet.Cells[startRowIndex + i + 2, j + 1];
-                    var value = dataTable.Rows[i][j];
-                    WriteValueToCell(cell, value != DBNull.Value ? value : null);
-                }
+                var cell = excelWorksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
+                var value = dataTable.Rows[rowIndex][columnIndex];
+                WriteValueToCell(cell, value != DBNull.Value ? value : null);
             }
         }
     }
@@ -379,45 +345,12 @@ public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? log
     {
         var exportProperties = GetExportProperties(properties);
 
-        if (ShouldUseBatchWrite(list.Count))
+        for (var rowIndex = 0; rowIndex < list.Count; rowIndex++)
         {
-            Logger.LogDebug("使用分批处理导出 {Count} 条记录", list.Count);
-
-            for (var batchStart = 0; batchStart < list.Count; batchStart += Options.BatchSize)
+            for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
             {
-                var batchSize = GetBatchSize(list.Count - batchStart);
-                var cellValues = new object?[batchSize, exportProperties.Length];
-
-                Parallel.For(0, batchSize, batchOffset =>
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
-                    {
-                        cellValues[batchOffset, columnIndex] = exportProperties[columnIndex].GetValue(list[rowIndex]);
-                    }
-                });
-
-                for (var batchOffset = 0; batchOffset < batchSize; batchOffset++)
-                {
-                    var rowIndex = batchStart + batchOffset;
-                    for (var columnIndex = 0; columnIndex < exportProperties.Length; columnIndex++)
-                    {
-                        var cell = worksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
-                        WriteValueToCell(cell, cellValues[batchOffset, columnIndex]);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // 顺序处理小数据集
-            for (var i = 0; i < list.Count; i++)
-            {
-                for (var j = 0; j < exportProperties.Length; j++)
-                {
-                    var cell = worksheet.Cells[startRowIndex + i + 2, j + 1];
-                    WriteValueToCell(cell, exportProperties[j].GetValue(list[i]));
-                }
+                var cell = worksheet.Cells[startRowIndex + rowIndex + 2, columnIndex + 1];
+                WriteValueToCell(cell, exportProperties[columnIndex].GetValue(list[rowIndex]));
             }
         }
     }

@@ -790,16 +790,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
     private void ValidateExportOptions()
     {
-        if (Options.UseBatchWrite && Options.BatchSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ExcelOptions.BatchSize), Options.BatchSize, "Batch size must be greater than zero.");
-        }
-
-        if (Options.ParallelProcessingThreshold < 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(ExcelOptions.ParallelProcessingThreshold), Options.ParallelProcessingThreshold, "Parallel processing threshold cannot be negative.");
-        }
-
         if (Options.PerformanceThreshold < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(ExcelOptions.PerformanceThreshold), Options.PerformanceThreshold, "Performance threshold cannot be negative.");
@@ -889,22 +879,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         throw new InvalidOperationException(
             $"导出列 '{column.Header}' 的值无法从 {value.GetType().FullName} 转换为 {column.DataType.FullName}。");
-    }
-
-    /// <summary>
-    /// Determines whether large exports should use bounded batch extraction.
-    /// </summary>
-    protected bool ShouldUseBatchWrite(int itemCount)
-    {
-        return Options.UseBatchWrite && itemCount > Options.ParallelProcessingThreshold;
-    }
-
-    /// <summary>
-    /// Gets the size of the next bounded export batch.
-    /// </summary>
-    protected int GetBatchSize(int remainingItemCount)
-    {
-        return Math.Min(Options.BatchSize, remainingItemCount);
     }
 
     /// <summary>

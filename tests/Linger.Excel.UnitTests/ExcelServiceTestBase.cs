@@ -40,9 +40,6 @@ namespace Linger.Excel.Tests
             Options = new ExcelOptions
             {
                 AutoFitColumns = true,
-                UseBatchWrite = true,
-                BatchSize = 100,
-                ParallelProcessingThreshold = 500,
                 EnablePerformanceMonitoring = true,
                 PerformanceThreshold = 100
             };

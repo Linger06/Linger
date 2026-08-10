@@ -8,7 +8,6 @@ namespace Linger.Excel.Contracts;
 /// <code>
 /// var options = new ExcelOptions
 /// {
-///     ParallelProcessingThreshold = 2000,
 ///     AutoFitColumns = true,
 ///     EnablePerformanceMonitoring = true,
 ///     PerformanceThreshold = 1000
@@ -19,10 +18,7 @@ namespace Linger.Excel.Contracts;
 /// <code>
 /// var options = new ExcelOptions
 /// {
-///     ParallelProcessingThreshold = 1500,
 ///     AutoFitColumns = true,
-///     UseBatchWrite = true,
-///     BatchSize = 5000,
 ///     StyleOptions = new ExcelStyleOptions
 ///     {
 ///         HeaderStyle = new HeaderStyle
@@ -62,31 +58,11 @@ public class ExcelOptions
     public const string DefaultDataSetSheetPrefix = "Sheet";
 
     /// <summary>
-    /// 并行处理阈值，超过此数量的数据将使用并行处理
-    /// </summary>
-    /// <remarks>
-    /// 默认值为1000。对于CPU密集型的Excel处理操作，建议值范围为500-2000。
-    /// 较小的数据集使用并行处理可能会因为线程开销而降低性能。
-    /// 根据实际的硬件配置和数据复杂度调整此值以获得最佳性能。
-    /// </remarks>
-    public int ParallelProcessingThreshold { get; set; } = 1000;
-
-    /// <summary>
     /// 是否自动调整列宽
     /// </summary>
     public bool AutoFitColumns { get; set; } = true;
 
     // 移除此处的DefaultDateFormat, 改为使用StyleOptions中的配置
-
-    /// <summary>
-    /// 是否使用批量写入优化
-    /// </summary>
-    public bool UseBatchWrite { get; set; } = true;
-
-    /// <summary>
-    /// 批量写入大小
-    /// </summary>
-    public int BatchSize { get; set; } = 5000;
 
     /// <summary>
     /// 是否启用性能监控

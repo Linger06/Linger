@@ -44,6 +44,30 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
+    public void IExcelService_StreamImports_UsePublicImplementations()
+    {
+        var interfaceMap = typeof(NpoiExcel).GetInterfaceMap(typeof(IExcelService));
+        var methodNames = new HashSet<string>(StringComparer.Ordinal)
+        {
+            nameof(IExcelService.StreamToDataTable),
+            nameof(IExcelService.StreamToList),
+            nameof(IExcelService.StreamToDataSet)
+        };
+        var matchedMethods = 0;
+
+        for (var index = 0; index < interfaceMap.InterfaceMethods.Length; index++)
+        {
+            if (methodNames.Contains(interfaceMap.InterfaceMethods[index].Name))
+            {
+                matchedMethods++;
+                Assert.True(interfaceMap.TargetMethods[index].IsPublic);
+            }
+        }
+
+        Assert.Equal(7, matchedMethods);
+    }
+
+    [Fact]
     public void CollectionToMemoryStream_WithExplicitColumn_ConvertsValueToDeclaredTypeAcrossProviders()
     {
         var columns = new[]
@@ -370,55 +394,6 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
-    public void DataTableToMemoryStream_WithNonPositiveBatchSize_ThrowsArgumentOutOfRangeException()
-    {
-        var options = new ExcelOptions
-        {
-            UseBatchWrite = true,
-            BatchSize = 0,
-            ParallelProcessingThreshold = 0
-        };
-        var dataTable = new DataTable();
-        dataTable.Columns.Add("Value", typeof(string));
-        dataTable.Rows.Add("Value");
-
-        foreach (var provider in CreateProviders(options))
-        {
-            Assert.Throws<ArgumentOutOfRangeException>(() => provider.Service.DataTableToMemoryStream(dataTable));
-        }
-    }
-
-    [Fact]
-    public void DataTableToMemoryStream_WithSmallBatchSize_PreservesAllRowsAcrossProviders()
-    {
-        var options = new ExcelOptions
-        {
-            AutoFitColumns = false,
-            BatchSize = 2,
-            ParallelProcessingThreshold = 0,
-            UseBatchWrite = true
-        };
-        var dataTable = new DataTable();
-        dataTable.Columns.Add("Id", typeof(int));
-        dataTable.Columns.Add("Name", typeof(string));
-
-        for (var i = 1; i <= 7; i++)
-        {
-            dataTable.Rows.Add(i, $"Name {i}");
-        }
-
-        foreach (var provider in CreateProviders(options))
-        {
-            using var stream = provider.Service.DataTableToMemoryStream(dataTable);
-            var imported = provider.Service.StreamToDataTable(stream);
-
-            Assert.NotNull(imported);
-            Assert.Equal(dataTable.Rows.Count, imported.Rows.Count);
-            Assert.Equal("Name 7", imported.Rows[6]["Name"]);
-        }
-    }
-
-    [Fact]
     public void ExcelToDataSet_WithDuplicateRequestedSheetNames_ImportsEachWorksheetOnce()
     {
         var dataSet = new DataSet();
@@ -479,6 +454,26 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
 
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
                 provider.Service.StreamToDataTableAsync(stream, cancellationToken: cancellationTokenSource.Token));
+        }
+    }
+
+    [Fact]
+    public async Task StreamToDataTableAsync_ExecutesSynchronousImportOnCallingThreadAcrossProviders()
+    {
+        var sourceData = new DataTable();
+        sourceData.Columns.Add("Id", typeof(int));
+        sourceData.Rows.Add(1);
+
+        foreach (var provider in CreateProviders())
+        {
+            using var excelStream = provider.Service.DataTableToMemoryStream(sourceData);
+            using var stream = new ThreadTrackingReadStream(excelStream);
+            var callingThreadId = Environment.CurrentManagedThreadId;
+
+            var imported = await provider.Service.StreamToDataTableAsync(stream);
+
+            Assert.NotNull(imported);
+            Assert.Equal(callingThreadId, stream.ReadThreadId);
         }
     }
 
@@ -583,6 +578,18 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
             }
 
             return bytesRead;
+        }
+    }
+
+    private sealed class ThreadTrackingReadStream(Stream stream) : NonSeekableReadStream(stream)
+    {
+        public int ReadThreadId { get; private set; }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            ReadThreadId = Environment.CurrentManagedThreadId;
+
+            return base.Read(buffer, offset, count);
         }
     }
 

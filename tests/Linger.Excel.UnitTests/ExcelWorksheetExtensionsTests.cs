@@ -14,8 +14,7 @@ public class ExcelWorksheetExtensionsTests
     {
         var options = new ExcelOptions
         {
-            AutoFitColumns = false,
-            UseBatchWrite = false
+            AutoFitColumns = false
         };
         var dataTable = new DataTable();
         dataTable.Columns.Add("Value", typeof(string));

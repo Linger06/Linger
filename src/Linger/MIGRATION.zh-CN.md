@@ -71,6 +71,7 @@
 | `Linger.Excel.Contracts` | 接收 `Func<DataRow, T>` 的 Excel 导入扩展 | 接收 `Func<ExcelRow, T>` 的 `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` | `Linger.Excel.Contracts` | 替代方法直接映射工作表行，不再创建中间 `DataTable`。可使用 `ExcelRow.Get<T>(columnName)` 进行强类型访问。 |
 | `Linger.Excel.Contracts` | 接收 `Func<T>` 和 `columnSetters` 的 Excel 导入扩展 | 接收 `Func<ExcelRow, T>` 的 `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` | `Linger.Excel.Contracts` | 在同一个映射委托中创建并填充目标对象。已经持有 `DataTable` 的调用方仍可使用通用工厂/setter 重载。 |
 | `Linger.Excel.Contracts` | 自定义 `IExcelService` 实现 | 实现接收 `ExcelExportColumn<T>` 的集合导出重载 | `Linger.Excel.Contracts` | 显式列导出现在是正式服务契约，并直接写入工作表，不再构造中间 `DataTable`。 |
+| `Linger.Excel.Contracts` | `ExcelOptions.ParallelProcessingThreshold`、`UseBatchWrite` 和 `BatchSize` | 删除这些配置 | `Linger.Excel.Contracts` | 旧批处理路径仅将取值并行复制到临时数组，工作表写入仍是串行操作。现在提供方统一使用直接顺序写入路径，避免线程调度和额外分配。 |
 | `Linger.Results` | `ExecuteResult`、`ExecuteResult<T>` 和 `ResultCompat` | `Result` / `Result<T>` | `Linger.Results` | 使用新结果类型，移除旧类型及转换帮助方法。 |
 | `Linger.Results` | `ErrorObj` 和 `ToErrorObj` | `Error` 以及由调用方维护的错误集合 | `Linger.Results` / 应用代码 | 旧的聚合对象没有一对一替代。 |
 | `Linger.Results` | `ResultExtensions.Try` / `TryAsync` | 在调用边界捕获可转换为领域错误的明确异常 | 应用代码 | 通用结果库不再捕获所有异常；未预期异常和取消异常应自然传播。 |

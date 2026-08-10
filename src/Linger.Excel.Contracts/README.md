@@ -10,8 +10,8 @@ A unified, efficient, and extensible Excel operation framework that supports mul
 - **Automatic Type Mapping** - Seamless data conversion between Excel and objects
 - **DataSet Support** - Import/export entire workbook as DataSet, supports multi-sheet operations
 - **Dependency Injection Friendly** - Supports .NET Core/ASP.NET Core dependency injection
-- **High-Performance Design** - Batch processing, parallel processing, and performance monitoring
-- **Async API Support** - Async file I/O plus thread-pool isolation for synchronous provider parsing
+- **High-Performance Design** - Typed row mapping, direct export paths, and optional performance monitoring
+- **Async API Support** - Async file I/O; provider parsing remains synchronous and cancellation-aware
 - **Flexible Configuration** - Rich options configuration system
 - **Extensibility** - Easy to customize and extend
 - **Cross-Platform Compatible** - Supports .NET Framework 4.7.2+, .NET Standard 2.0+, .NET 8+, .NET 9+, .NET 10+
@@ -326,7 +326,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 
 **Async Implementation Notes:**
 - ✅ **File I/O**: Uses true async (`FileStream` with `useAsync: true`)
-- ⚠️ **Excel Processing**: Provider parsing is synchronous and runs through `Task.Run`; callers should limit concurrent large imports
+- ⚠️ **Excel Processing**: Provider parsing is synchronous and runs on the calling thread; schedule background work at the application boundary when needed
 - 🔧 **Extensible**: Subclasses can override `StreamToXXXAsync` methods for custom async implementations
 
 ## 🎨 Advanced Features
