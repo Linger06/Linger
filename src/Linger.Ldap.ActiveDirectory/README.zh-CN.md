@@ -5,12 +5,12 @@
 ## 功能特点
 
 - Active Directory 用户身份验证与验证
-- 异步用户查询与搜索 API
+- 与底层 Windows 提供程序一致的同步用户查询与搜索 API
 - 通过 `searchBase` 支持 OU 范围查询
 - 支持 `Attributes` 属性投影，按需返回字段
 - 通过 `LdapConfig.Security` 启用 LDAPS
-- `FindUserAsync` 与 `GetUsersAsync` 使用可配置 `SearchFilter`
-- 通过 `ILdapClient.SearchUsersByFilterAsync` 提供跨提供者统一的高级过滤查询
+- `FindUser` 与 `GetUsers` 使用可配置 `SearchFilter`
+- 通过 `IActiveDirectoryClient.SearchUsersByFilter` 提供高级过滤查询
 - 当 `LdapConfig.Url` 为空时可自动发现域控制器
 - 支持通过无参构造使用当前 Windows 域
 - 支持通过 `MaxResults` 限制每次查询的结果数量
@@ -68,14 +68,14 @@ var ldap = new AdLdapClient();
 
 无参构造本身不会执行网络 I/O。客户端使用当前 Windows 身份，并在首次 LDAP 操作开始时发现域控制器。
 
-使用依赖注入时，通过 `services.Configure<LdapConfig>(...)` 注册配置，并将 `AdLdapClient` 注册为 `ILdapClient` 实现。客户端可直接接收 `IOptions<LdapConfig>`。
+使用依赖注入时，通过 `services.Configure<LdapConfig>(...)` 注册配置，并将 `AdLdapClient` 注册为 `IActiveDirectoryClient` 实现。客户端可直接接收 `IOptions<LdapConfig>`。
 
 ## 使用示例
 
 ### 验证用户账号密码
 
 ```csharp
-var (isValid, userInfo) = await ldap.ValidateUserAsync("alice", "Password123!");
+var (isValid, userInfo) = ldap.ValidateUser("alice", "Password123!");
 
 if (isValid && userInfo is not null)
 {
@@ -89,7 +89,7 @@ if (isValid && userInfo is not null)
 ### 查询单个用户
 
 ```csharp
-var user = await ldap.FindUserAsync("alice");
+var user = ldap.FindUser("alice");
 
 if (user is not null)
 {
@@ -101,7 +101,7 @@ if (user is not null)
 ### 搜索用户
 
 ```csharp
-var users = await ldap.GetUsersAsync("alice");
+var users = ldap.GetUsers("alice");
 
 foreach (var item in users)
 {
@@ -118,18 +118,18 @@ var customCreds = new LdapCredentials
     BindCredentials = "ReadonlyPassword123!"
 };
 
-var usersInOu = await ldap.GetUsersAsync(
+var usersInOu = ldap.GetUsers(
     "alice",
     ldapCredentials: customCreds,
     searchBase: "OU=Sales,DC=example,DC=com");
 ```
 
-### 高级过滤查询（跨提供者统一）
+### 高级过滤查询
 
 ```csharp
-ILdapClient ldapContract = ldap;
+IActiveDirectoryClient ldapContract = ldap;
 
-var users = await ldapContract.SearchUsersByFilterAsync(
+var users = ldapContract.SearchUsersByFilter(
     "(&(objectClass=person)(department=IT)(mail=*))",
     searchBase: "DC=example,DC=com");
 ```
@@ -139,10 +139,10 @@ var users = await ldapContract.SearchUsersByFilterAsync(
 - 该实现面向 Windows 环境，依赖 `System.DirectoryServices`。
 - 在 .NET 5+ 下实现带有 `[SupportedOSPlatform("windows")]` 标注。
 - 当 `Security = true` 时，客户端在 ADSI 连接上启用 `AuthenticationTypes.SecureSocketsLayer`。
-- `SearchFilter` 会用于 `FindUserAsync` 与 `GetUsersAsync`，建议使用 `{0}` 占位符。
-- `SearchUsersByFilterAsync` 可用于跨提供者统一的原始过滤器高级查询。
+- `SearchFilter` 会用于 `FindUser` 与 `GetUsers`，建议使用 `{0}` 占位符。
+- `SearchUsersByFilter` 提供 Active Directory 原始过滤器查询。
 - 空白用户名和原始过滤器会被拒绝，避免意外执行全目录查询。
-- 取消会在同步 `System.DirectoryServices` 调用前后生效，但无法中断已经开始的目录查询。
+- 由于 `System.DirectoryServices` 不提供异步搜索 API，所有操作均为同步调用；应配置提供程序超时来限制网络调用时长。
 - 若 `SearchFilter` 格式错误，内部会回退到默认用户过滤模板。
 - 查询输入值会在构建 LDAP 过滤器前转义，降低格式破坏和注入风险。
 - 绑定用户名会先规范化：已是 `domain\\user`、UPN（`user@domain`）或完整 DN 时不会重复拼接域前缀。

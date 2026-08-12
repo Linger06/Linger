@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Linger.FileSystem.Remote;
 
@@ -69,7 +70,45 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     protected abstract Task DisconnectAsync();
     public abstract Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default);
     public abstract Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default);
     public abstract void Dispose();
+
+    /// <inheritdoc />
+    public virtual async Task<StreamReader> GetReaderAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default)
+    {
+        var stream = await OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
+#if NET6_0_OR_GREATER
+        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
+#else
+        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
+#endif
+    }
+
+    /// <inheritdoc />
+    public virtual async Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, Encoding? encoding = null, CancellationToken cancellationToken = default)
+    {
+        var stream = await OpenWriteAsync(filePath, overwrite, cancellationToken).ConfigureAwait(false);
+#if NET6_0_OR_GREATER
+        return new StreamWriter(stream, encoding ?? Encoding.UTF8, leaveOpen: false);
+#else
+        return new StreamWriter(stream, encoding ?? Encoding.UTF8, bufferSize: 1024, leaveOpen: false);
+#endif
+    }
 
     /// <summary>
     /// 异步释放资源
@@ -165,6 +204,29 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         var exception = CreateException(operation, ex, path, callerMethod);
         Logger.LogError(ex, "{Message}", exception.Message);
         throw exception;
+    }
+
+    /// <summary>
+    /// 在目标文件所在的远程目录中生成临时文件路径。
+    /// </summary>
+    /// <param name="destinationFilePath">远程目标文件路径。</param>
+    /// <param name="pathSeparator">远程路径分隔符。</param>
+    /// <param name="operationName">临时文件所对应的操作名称。</param>
+    /// <returns>与目标文件位于同一远程目录的临时文件路径。</returns>
+    protected static string GetRemoteTemporaryFilePath(
+        string destinationFilePath,
+        char pathSeparator,
+        string operationName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationFilePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
+
+        var separatorIndex = destinationFilePath.LastIndexOf(pathSeparator);
+        var directoryPrefix = separatorIndex >= 0
+            ? destinationFilePath.Substring(0, separatorIndex + 1)
+            : string.Empty;
+
+        return $"{directoryPrefix}.{operationName}-{Guid.NewGuid():N}.tmp";
     }
 
     /// <summary>

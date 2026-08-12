@@ -304,7 +304,7 @@ var devRetry = new RetryOptions
 // In your startup class
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddTransient<IFileSystemOperations>(provider => {
+    services.AddTransient<IRemoteFileSystem>(provider => {
         var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",

@@ -304,7 +304,7 @@ var devRetry = new RetryOptions
 // 在您的启动类中
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddTransient<IFileSystemOperations>(provider => {
+    services.AddTransient<IRemoteFileSystem>(provider => {
         var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",

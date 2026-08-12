@@ -20,8 +20,7 @@ namespace Linger.FileSystem.Tests.Local
             Directory.CreateDirectory(_targetDir);
             _fs = new LocalFileSystem(new LocalFileSystemOptions
             {
-                RootDirectoryPath = _root,
-                MaxDegreeOfParallelism = 2
+                RootDirectoryPath = _root
             });
         }
 
@@ -67,21 +66,21 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task DeleteFilesAsync_DeletesExistingFiles_SucceedsForMissing()
+        public void DeleteFiles_DeletesExistingFiles_SucceedsForMissing()
         {
             var f1 = Path.Combine(_root, "d1.txt");
             var f2 = Path.Combine(_root, "d2.txt");
             File.WriteAllText(f1, "d1");
             // f2 intentionally missing
 
-            var result = await _fs.DeleteFilesAsync(new[] { "d1.txt", "d2.txt" });
+            var result = _fs.DeleteFiles(new[] { "d1.txt", "d2.txt" });
 
             Assert.True(result.SuccessCount == 2);
             Assert.False(File.Exists(f1));
         }
 
         [Fact]
-        public async Task ListFilesAndDirectories_ReturnsNames()
+        public void ListFilesAndDirectories_ReturnsNames()
         {
             Directory.CreateDirectory(Path.Combine(_root, "listDir"));
             File.WriteAllText(Path.Combine(_root, "listDir", "f1.txt"), "1");
@@ -89,8 +88,8 @@ namespace Linger.FileSystem.Tests.Local
             Directory.CreateDirectory(Path.Combine(_root, "listDir", "sub1"));
             Directory.CreateDirectory(Path.Combine(_root, "listDir", "sub2"));
 
-            var files = await _fs.ListFilesAsync("listDir");
-            var dirs = await _fs.ListDirectoriesAsync("listDir");
+            var files = _fs.ListFiles("listDir");
+            var dirs = _fs.ListDirectories("listDir");
 
             Assert.Contains("f1.txt", files);
             Assert.Contains("f2.log", files);

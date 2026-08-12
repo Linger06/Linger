@@ -94,9 +94,18 @@ public class FileSystemBaseTests
     }
 
     [Fact]
+    public void CreateRemoteTemporaryFilePath_RootedDestination_KeepsTemporaryFileInRootDirectory()
+    {
+        var temporaryPath = TestRemoteFileSystem.CreateRemoteTemporaryFilePath("/file.txt", '/');
+
+        Assert.StartsWith("/.upload-", temporaryPath, StringComparison.Ordinal);
+        Assert.EndsWith(".tmp", temporaryPath, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task GetReaderAsync_DisposeClosesUnderlyingStream()
     {
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new TestRemoteFileSystem();
 
         using (var reader = await fileSystem.GetReaderAsync("input.txt", Encoding.UTF8))
         {
@@ -109,7 +118,7 @@ public class FileSystemBaseTests
     [Fact]
     public async Task GetWriterAsync_DisposeClosesUnderlyingStream()
     {
-        var fileSystem = new TestFileSystem();
+        var fileSystem = new TestRemoteFileSystem();
 
         using (var writer = await fileSystem.GetWriterAsync("output.txt", encoding: Encoding.UTF8))
         {
@@ -147,31 +156,15 @@ public class FileSystemBaseTests
 
         public bool LastStreamDisposed => _lastStream?.WasDisposed == true;
 
-        public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default)
-        {
-            _lastStream = new TrackingMemoryStream(Encoding.UTF8.GetBytes("content"));
-            return Task.FromResult<Stream>(_lastStream);
-        }
-
-        public override Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
-        {
-            _lastStream = new TrackingMemoryStream();
-            return Task.FromResult<Stream>(_lastStream);
-        }
-        public override Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<FileOperationResult> DownloadFileAsync(string remoteFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     private sealed class TestRemoteFileSystem : RemoteFileSystemBase
     {
+        private TrackingMemoryStream? _lastStream;
+
         public TestRemoteFileSystem()
             : base(
                 new RemoteFileSystemOptions
@@ -183,6 +176,13 @@ public class FileSystemBaseTests
                 "TEST")
         {
         }
+
+        public static string CreateRemoteTemporaryFilePath(string destinationFilePath, char pathSeparator)
+        {
+            return GetRemoteTemporaryFilePath(destinationFilePath, pathSeparator, "upload");
+        }
+
+        public bool LastStreamDisposed => _lastStream?.WasDisposed == true;
 
         public Task<bool> DownloadAtomicAsync(
             string localDestinationPath,
@@ -208,8 +208,17 @@ public class FileSystemBaseTests
         public override Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public override Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default)
+        {
+            _lastStream = new TrackingMemoryStream(Encoding.UTF8.GetBytes("content"));
+            return Task.FromResult<Stream>(_lastStream);
+        }
+
+        public override Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default)
+        {
+            _lastStream = new TrackingMemoryStream();
+            return Task.FromResult<Stream>(_lastStream);
+        }
         public override Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<FileOperationResult> UploadFileAsync(string localFilePath, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();

@@ -81,8 +81,4 @@ public class LocalFileSystemOptions
     /// </summary>
     public bool CleanupOnValidationFailure { get; set; } = true;
 
-    /// <summary>
-    /// 批量操作的最大并发度（默认 1 表示串行）
-    /// </summary>
-    public int MaxDegreeOfParallelism { get; set; } = 1;
 }

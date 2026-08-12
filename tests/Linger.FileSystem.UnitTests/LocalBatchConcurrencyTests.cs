@@ -3,13 +3,13 @@ using Xunit;
 
 namespace Linger.FileSystem.Tests.Local
 {
-    public class LocalBatchConcurrencyTests : IDisposable
+    public class LocalBatchManyFilesTests : IDisposable
     {
         private readonly string _root;
         private readonly string _sourceDir;
         private readonly string _targetDir;
 
-        public LocalBatchConcurrencyTests()
+        public LocalBatchManyFilesTests()
         {
             _root = Path.Combine("TestTempDir", $"batch-concurrency-{Guid.NewGuid():N}");
             _sourceDir = Path.Combine(_root, "src");
@@ -28,7 +28,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task UploadFilesAsync_WithHighConcurrency_ReportsStableResults()
+        public async Task UploadFilesAsync_WithManyFiles_ReportsStableResultsInInputOrder()
         {
             const int fileCount = 200;
 
@@ -42,8 +42,7 @@ namespace Linger.FileSystem.Tests.Local
 
             var fs = new LocalFileSystem(new LocalFileSystemOptions
             {
-                RootDirectoryPath = _root,
-                MaxDegreeOfParallelism = 8
+                RootDirectoryPath = _root
             });
 
             var result = await fs.UploadFilesAsync(files, "dst", overwrite: true);
@@ -52,13 +51,14 @@ namespace Linger.FileSystem.Tests.Local
             Assert.True(result.FailureCount == 0);
             Assert.True(result.SucceededFiles.Count == fileCount);
             Assert.True(result.FailedFiles.Count == 0);
+            Assert.Equal(files, result.SucceededFiles);
 
             var destFiles = Directory.GetFiles(_targetDir, "*.txt", SearchOption.TopDirectoryOnly);
             Assert.True(destFiles.Length == fileCount);
         }
 
         [Fact]
-        public async Task DownloadFilesAsync_WithHighConcurrency_ReportsStableResults()
+        public async Task DownloadFilesAsync_WithManyFiles_ReportsStableResultsInInputOrder()
         {
             const int fileCount = 200;
 
@@ -69,8 +69,7 @@ namespace Linger.FileSystem.Tests.Local
 
             var fs = new LocalFileSystem(new LocalFileSystemOptions
             {
-                RootDirectoryPath = _root,
-                MaxDegreeOfParallelism = 8
+                RootDirectoryPath = _root
             });
 
             var outDir = Path.Combine(_root, "out");
@@ -83,13 +82,14 @@ namespace Linger.FileSystem.Tests.Local
 
             Assert.True(result.SuccessCount == fileCount);
             Assert.True(result.FailureCount == 0);
+            Assert.Equal(remotePaths, result.SucceededFiles);
 
             var outFiles = Directory.GetFiles(outDir, "*.txt", SearchOption.TopDirectoryOnly);
             Assert.True(outFiles.Length == fileCount);
         }
 
         [Fact]
-        public async Task DeleteFilesAsync_WithHighConcurrency_ReportsStableResults()
+        public void DeleteFiles_WithManyFiles_ReportsStableResults()
         {
             const int existingCount = 150;
             const int missingCount = 50;
@@ -102,15 +102,14 @@ namespace Linger.FileSystem.Tests.Local
 
             var fs = new LocalFileSystem(new LocalFileSystemOptions
             {
-                RootDirectoryPath = _root,
-                MaxDegreeOfParallelism = 8
+                RootDirectoryPath = _root
             });
 
             var paths = Enumerable.Range(0, total)
                 .Select(i => $"d{i:D4}.txt")
                 .ToArray();
 
-            var result = await fs.DeleteFilesAsync(paths);
+            var result = fs.DeleteFiles(paths);
 
             Assert.True(result.SuccessCount == total);
             Assert.True(result.FailureCount == 0);
@@ -119,6 +118,12 @@ namespace Linger.FileSystem.Tests.Local
             {
                 Assert.False(File.Exists(Path.Combine(_root, $"d{i:D4}.txt")));
             }
+        }
+
+        [Fact]
+        public void LocalFileSystemOptions_DoesNotExposeParallelismSetting()
+        {
+            Assert.Null(typeof(LocalFileSystemOptions).GetProperty("MaxDegreeOfParallelism"));
         }
     }
 }

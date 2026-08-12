@@ -4,7 +4,7 @@
 
 ## 介绍
 
-Linger.Ldap.Contracts 定义了与具体 LDAP 提供程序无关的抽象层。业务代码只依赖统一接口，即可在不同实现之间切换。
+Linger.Ldap.Contracts 按提供程序的真实能力分别定义契约：`ILdapClient` 表示原生异步 LDAP 操作，`IActiveDirectoryClient` 表示同步 Windows Active Directory 操作。
 
 ## 支持的框架
 
@@ -15,7 +15,8 @@ Linger.Ldap.Contracts 定义了与具体 LDAP 提供程序无关的抽象层。�
 
 ## 包含内容
 
-- `ILdapClient`：LDAP 核心操作接口
+- `ILdapClient`：原生异步 LDAP 操作接口
+- `IActiveDirectoryClient`：同步 Windows Active Directory 操作接口
 - `LdapConfig`、`LdapCredentials`：连接配置模型
 - `LdapUserInfo`：统一用户信息模型
 
@@ -23,7 +24,7 @@ Linger.Ldap.Contracts 定义了与具体 LDAP 提供程序无关的抽象层。�
 
 ### 配置服务
 
-在 DI 中注册配置和一个具体实现：
+在 DI 中注册与所选提供程序匹配的契约；应用同时使用两个提供程序时可以同时注册：
 
 ```csharp
 using Linger.Ldap.Contracts;
@@ -32,9 +33,8 @@ public void ConfigureServices(IServiceCollection services)
 {
     services.Configure<LdapConfig>(Configuration.GetSection("LdapConfig"));
 
-    // 二选一：只注册一个具体实现
-    services.AddScoped<ILdapClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
-    // services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
+    services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
+    services.AddScoped<IActiveDirectoryClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
 }
 ```
 
@@ -170,7 +170,7 @@ var users = await _ldap.SearchUsersByFilterAsync(
 
 ## 取消操作支持
 
-所有异步 LDAP 操作都接受 `CancellationToken`。Novell 提供程序会将取消传递到原生异步 LDAP 调用；Active Directory 提供程序依赖同步的 `System.DirectoryServices` API，只能在调用前后响应取消，无法中断已经开始的 LDAP 查询。
+所有 `ILdapClient` 操作都接受 `CancellationToken`，Novell 提供程序会将取消传递到原生异步 LDAP 调用。`IActiveDirectoryClient` 刻意保持同步，因为 `System.DirectoryServices` 不提供异步搜索操作。
 
 `FindUserAsync` 和 `GetUsersAsync` 会拒绝空白用户名，`SearchUsersByFilterAsync` 会拒绝空白过滤器。如果确实需要宽泛查询，请显式传入原始 LDAP 过滤器。
 
@@ -252,6 +252,8 @@ public class LdapConfig
     public int MaxResults { get; set; } = 1000;
 }
 ```
+
+`IActiveDirectoryClient` 提供对应的同步方法：`ValidateUser`、`FindUser`、`GetUsers`、`SearchUsersByFilter` 和 `UserExists`，不返回 `Task`，也不接收 `CancellationToken`。
 
 提供者会在 Client 构造时生成独立的 `LdapConfig` 快照，包括 `Credentials` 和 `Attributes`。之后修改原始配置不会影响已有 Client；需要应用新配置时，应创建新的 Client。
 

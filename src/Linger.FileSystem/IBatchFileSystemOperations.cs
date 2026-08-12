@@ -10,8 +10,7 @@ namespace Linger.FileSystem;
 /// <param name="Failed">失败的文件数量</param>
 /// <remarks>
 /// <para>进度报告在每个文件处理完成后触发，<see cref="Completed"/> 值准确反映已完成的任务数。</para>
-/// <para>在并发模式下（<c>MaxDegreeOfParallelism &gt; 1</c>），报告顺序可能与输入顺序不同，
-/// 取决于各任务的完成时间。</para>
+/// <para>批量操作按输入顺序执行，因此进度报告顺序与输入顺序一致。</para>
 /// </remarks>
 public readonly record struct BatchProgress(
     int Completed,
@@ -34,12 +33,12 @@ public class BatchOperationResult
     /// <summary>
     /// 成功的文件路径列表
     /// </summary>
-    public IReadOnlyList<string> SucceededFiles { get; set; } = [];
+    public IReadOnlyList<string> SucceededFiles { get; init; } = [];
 
     /// <summary>
     /// 失败的文件及其错误信息
     /// </summary>
-    public IReadOnlyList<BatchOperationFailure> FailedFiles { get; set; } = [];
+    public IReadOnlyList<BatchOperationFailure> FailedFiles { get; init; } = [];
 
     /// <summary>
     /// 成功的文件数量
@@ -73,7 +72,7 @@ public class BatchOperationResult
     {
         return new BatchOperationResult
         {
-            SucceededFiles = files.ToList()
+            SucceededFiles = files.ToArray()
         };
     }
 
@@ -122,15 +121,15 @@ public class BatchOperationFailure
 /// </summary>
 /// <remarks>
 /// <para>此接口提供文件系统的批量操作功能，适用于需要处理多个文件的场景。</para>
-/// <para>所有方法均为异步方法，支持取消操作和进度报告。</para>
+/// <para>文件传输使用异步 I/O；批量删除和本地目录列表使用同步方法，避免包装同步文件系统 API。批量方法支持取消和进度报告。</para>
 /// </remarks>
-public interface IBatchFileSystemOperations
+public interface ILocalBatchFileSystemOperations
 {
     /// <summary>
-    /// 批量上传本地文件到远程目录
+    /// 批量上传本地文件到根目录下的目标目录
     /// </summary>
     /// <param name="localFilePaths">本地文件路径列表</param>
-    /// <param name="remoteDirectory">远程目标目录</param>
+    /// <param name="destinationDirectory">根目录下的目标目录</param>
     /// <param name="overwrite">是否覆盖已存在的文件</param>
     /// <param name="progress">进度报告回调（可选）</param>
     /// <param name="cancellationToken">取消令牌</param>
@@ -138,25 +137,25 @@ public interface IBatchFileSystemOperations
     /// <example>
     /// <code>
     /// // 不带进度报告
-    /// var result = await fileSystem.UploadFilesAsync(files, "/remote/uploads", overwrite: true);
+    /// var result = await fileSystem.UploadFilesAsync(files, "uploads", overwrite: true);
     /// 
     /// // 带进度报告
     /// var progress = new Progress&lt;BatchProgress&gt;(p =>
     ///     Console.WriteLine($"进度: {p.Completed}/{p.Total} ({p.PercentComplete:F1}%)"));
-    /// var result = await fileSystem.UploadFilesAsync(files, "/remote/uploads", true, progress);
+    /// var result = await fileSystem.UploadFilesAsync(files, "uploads", true, progress);
     /// </code>
     /// </example>
     Task<BatchOperationResult> UploadFilesAsync(
         IEnumerable<string> localFilePaths,
-        string remoteDirectory,
+        string destinationDirectory,
         bool overwrite = false,
         IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 批量下载远程文件到本地目录
+    /// 批量下载根目录下的文件到本地目录
     /// </summary>
-    /// <param name="remoteFilePaths">远程文件路径列表</param>
+    /// <param name="sourceFilePaths">根目录下的源文件路径列表</param>
     /// <param name="localDirectory">本地目标目录</param>
     /// <param name="overwrite">是否覆盖已存在的文件</param>
     /// <param name="progress">进度报告回调（可选）</param>
@@ -164,8 +163,8 @@ public interface IBatchFileSystemOperations
     /// <returns>批量操作结果</returns>
     /// <example>
     /// <code>
-    /// var remoteFiles = new[] { "/remote/file1.txt", "/remote/file2.txt" };
-    /// var result = await fileSystem.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true);
+    /// var sourceFiles = new[] { "docs/file1.txt", "docs/file2.txt" };
+    /// var result = await fileSystem.DownloadFilesAsync(sourceFiles, "C:/Downloads", overwrite: true);
     /// foreach (var failure in result.FailedFiles)
     /// {
     ///     Console.WriteLine($"下载失败: {failure.FilePath} - {failure.ErrorMessage}");
@@ -173,7 +172,7 @@ public interface IBatchFileSystemOperations
     /// </code>
     /// </example>
     Task<BatchOperationResult> DownloadFilesAsync(
-        IEnumerable<string> remoteFilePaths,
+        IEnumerable<string> sourceFilePaths,
         string localDirectory,
         bool overwrite = false,
         IProgress<BatchProgress>? progress = null,
@@ -188,12 +187,12 @@ public interface IBatchFileSystemOperations
     /// <returns>批量操作结果</returns>
     /// <example>
     /// <code>
-    /// var filesToDelete = new[] { "/remote/old1.txt", "/remote/old2.txt" };
-    /// var result = await fileSystem.DeleteFilesAsync(filesToDelete);
+    /// var filesToDelete = new[] { "archive/old1.txt", "archive/old2.txt" };
+    /// var result = fileSystem.DeleteFiles(filesToDelete);
     /// Console.WriteLine($"已删除 {result.SuccessCount} 个文件");
     /// </code>
     /// </example>
-    Task<BatchOperationResult> DeleteFilesAsync(
+    BatchOperationResult DeleteFiles(
         IEnumerable<string> filePaths,
         IProgress<BatchProgress>? progress = null,
         CancellationToken cancellationToken = default);
@@ -202,37 +201,33 @@ public interface IBatchFileSystemOperations
     /// 列出目录中的文件
     /// </summary>
     /// <param name="directoryPath">目录路径</param>
-    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>文件名列表</returns>
     /// <example>
     /// <code>
-    /// var files = await fileSystem.ListFilesAsync("/remote/documents");
+    /// var files = fileSystem.ListFiles("documents");
     /// foreach (var file in files)
     /// {
     ///     Console.WriteLine(file);
     /// }
     /// </code>
     /// </example>
-    Task<IReadOnlyList<string>> ListFilesAsync(
-        string directoryPath,
-        CancellationToken cancellationToken = default);
+    IReadOnlyList<string> ListFiles(
+        string directoryPath);
 
     /// <summary>
     /// 列出目录中的子目录
     /// </summary>
     /// <param name="directoryPath">目录路径</param>
-    /// <param name="cancellationToken">取消令牌</param>
     /// <returns>子目录名列表</returns>
     /// <example>
     /// <code>
-    /// var directories = await fileSystem.ListDirectoriesAsync("/remote");
+    /// var directories = fileSystem.ListDirectories(".");
     /// foreach (var dir in directories)
     /// {
     ///     Console.WriteLine(dir);
     /// }
     /// </code>
     /// </example>
-    Task<IReadOnlyList<string>> ListDirectoriesAsync(
-        string directoryPath,
-        CancellationToken cancellationToken = default);
+    IReadOnlyList<string> ListDirectories(
+        string directoryPath);
 }

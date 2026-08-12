@@ -39,7 +39,19 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
                           parameter.ParameterType.IsGenericType &&
                           parameter.ParameterType.GetGenericArguments().Any(argument =>
                               argument.IsGenericType &&
-                              argument.GetGenericTypeDefinition() == typeof(ExcelExportColumn<>))));
+                               argument.GetGenericTypeDefinition() == typeof(ExcelExportColumn<>))));
+    }
+
+    [Fact]
+    public void ExcelContracts_ExposeFocusedApi()
+    {
+        Assert.Equal(21, typeof(IExcelService).GetMethods().Length);
+        Assert.Equal(
+            3,
+            typeof(IExcel<>).GetMethods(
+                System.Reflection.BindingFlags.Public |
+                System.Reflection.BindingFlags.Instance |
+                System.Reflection.BindingFlags.DeclaredOnly).Length);
     }
 
     [Fact]
@@ -63,7 +75,7 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
             }
         }
 
-        Assert.Equal(7, matchedMethods);
+        Assert.Equal(5, matchedMethods);
     }
 
     [Fact]
@@ -519,41 +531,20 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
-    public async Task StreamToDataTableAsync_WithCancelledToken_ThrowsOperationCanceledException()
+    public void StreamToDataTable_WithSeekableStream_DoesNotRequireBulkCopy()
     {
         var sourceData = new DataTable();
         sourceData.Columns.Add("Id", typeof(int));
         sourceData.Rows.Add(1);
-        using var cancellationTokenSource = new CancellationTokenSource();
-        cancellationTokenSource.Cancel();
+        var service = new ClosedXmlExcel(Options, _loggerFactory.CreateLogger<ClosedXmlExcel>());
+        using var excelStream = service.DataTableToMemoryStream(sourceData);
+        using var stream = new LimitedReadSizeStream(excelStream.ToArray(), 64 * 1024);
 
-        foreach (var provider in CreateProviders())
-        {
-            using var stream = provider.Service.DataTableToMemoryStream(sourceData);
+        var imported = service.StreamToDataTable(stream);
 
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                provider.Service.StreamToDataTableAsync(stream, cancellationToken: cancellationTokenSource.Token));
-        }
-    }
-
-    [Fact]
-    public async Task StreamToDataTableAsync_ExecutesSynchronousImportOnCallingThreadAcrossProviders()
-    {
-        var sourceData = new DataTable();
-        sourceData.Columns.Add("Id", typeof(int));
-        sourceData.Rows.Add(1);
-
-        foreach (var provider in CreateProviders())
-        {
-            using var excelStream = provider.Service.DataTableToMemoryStream(sourceData);
-            using var stream = new ThreadTrackingReadStream(excelStream);
-            var callingThreadId = Environment.CurrentManagedThreadId;
-
-            var imported = await provider.Service.StreamToDataTableAsync(stream);
-
-            Assert.NotNull(imported);
-            Assert.Equal(callingThreadId, stream.ReadThreadId);
-        }
+        Assert.NotNull(imported);
+        Assert.Single(imported.Rows);
+        Assert.True(stream.CanRead);
     }
 
     [Fact]
@@ -575,7 +566,7 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     }
 
     [Fact]
-    public async Task StreamToListAsync_WithCancellationDuringNonSeekableRead_ObservesCancellationAcrossProviders()
+    public void StreamToList_WithCancellationDuringNonSeekableRead_ObservesCancellationAcrossProviders()
     {
         var sourceData = new DataTable();
         sourceData.Columns.Add("Id", typeof(int));
@@ -587,8 +578,8 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
             using var cancellationTokenSource = new CancellationTokenSource();
             using var stream = new CancellationOnFirstReadStream(excelStream, cancellationTokenSource);
 
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                provider.Service.StreamToListAsync(stream, row => row.Get<int>("Id"), cancellationToken: cancellationTokenSource.Token));
+            Assert.ThrowsAny<OperationCanceledException>(() =>
+                provider.Service.StreamToList(stream, row => row.Get<int>("Id"), cancellationToken: cancellationTokenSource.Token));
         }
     }
 
@@ -696,13 +687,14 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
         }
     }
 
-    private sealed class ThreadTrackingReadStream(Stream stream) : NonSeekableReadStream(stream)
+    private sealed class LimitedReadSizeStream(byte[] buffer, int maximumReadSize) : MemoryStream(buffer)
     {
-        public int ReadThreadId { get; private set; }
-
         public override int Read(byte[] buffer, int offset, int count)
         {
-            ReadThreadId = Environment.CurrentManagedThreadId;
+            if (count > maximumReadSize)
+            {
+                throw new InvalidOperationException($"Read request exceeded {maximumReadSize} bytes.");
+            }
 
             return base.Read(buffer, offset, count);
         }

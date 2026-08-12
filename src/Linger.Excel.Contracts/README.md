@@ -139,7 +139,7 @@ var users = excelService.ExcelToList(
         Name = row.Get<string>("Name") ?? string.Empty
     });
 
-var imported = await excelService.ExcelToListAsync(
+var imported = excelService.ExcelToList(
     filePath,
     row => new ImportUser("excel")
     {
@@ -152,7 +152,7 @@ These overloads read and map worksheet rows directly without creating an interme
 
 ### Import result and exception semantics
 
-- File-based sync and async imports return `null` when the path is blank or the file does not exist.
+- File-based imports return `null` when the path is blank or the file does not exist.
 - Once a file exists, access, I/O, workbook-format, and provider parsing failures are not converted to `null`; they propagate to the caller.
 - The bundled providers accept readable, non-seekable input streams by buffering them internally. The caller must keep the input stream open until the import completes.
 
@@ -166,7 +166,7 @@ using var response = await httpClient.GetAsync(
 response.EnsureSuccessStatusCode();
 
 using Stream stream = await response.Content.ReadAsStreamAsync();
-DataTable? table = await excelService.StreamToDataTableAsync(
+DataTable? table = excelService.StreamToDataTable(
     stream,
     sheetName: "Users",
     cancellationToken: cancellationToken);
@@ -174,7 +174,7 @@ DataTable? table = await excelService.StreamToDataTableAsync(
 
 ### Stream Cancellation
 
-All asynchronous stream-import overloads accept an optional `CancellationToken`. Cancellation is cooperative: it is checked before import, while a non-seekable stream is buffered, and during conversion loops. NPOI and ClosedXML parse workbooks synchronously, so a request received during their internal CPU-bound parsing phase is observed only after that phase reaches the next check point, where `OperationCanceledException` is thrown. Pass the token from the calling request or background operation.
+All stream-import methods accept an optional `CancellationToken`. Cancellation is cooperative: it is checked before import, while a non-seekable stream is buffered, and during conversion loops. NPOI and ClosedXML parse workbooks synchronously, so a request received during their internal CPU-bound parsing phase is observed only after that phase reaches the next check point, where `OperationCanceledException` is thrown.
 
 ### 5. AOT-Friendly Exports
 
@@ -218,30 +218,11 @@ public interface IExcelService
     List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
     List<T>? StreamToList<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
-    // Import entire workbook as DataSet (multiple overloads)
-    DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    
-    // Async imports - async file opening plus synchronous provider parsing isolation
-    Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    Task<List<T>?> ExcelToListAsync<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
-    
-    // Async Stream processing - Virtual methods, subclasses can override for true async
-    Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    Task<List<T>?> StreamToListAsync<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    // Import selected worksheets as a DataSet
+    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, IEnumerable<string>? sheetNames = null, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, IEnumerable<string>? sheetNames = null, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
     #endregion
 
@@ -259,9 +240,9 @@ public interface IExcelService
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
     
     // Async exports
-    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
-    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
-    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "");
+    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
+    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default) where T : class;
+    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
     
     // Create template
     MemoryStream CreateExcelTemplate<T>() where T : class, new();
@@ -277,44 +258,17 @@ Inherits from `IExcelService` and provides advanced customization with `Action<T
 ```csharp
 public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 {
-    #region Advanced Export Functions - Support Custom Operations
-    
-    // Export with custom cell and style operations
-    string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
-        Action<TWorksheet>? styleAction = null);
-        
-    string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
-        Action<TWorksheet>? styleAction = null);
-
-    // Export each DataTable as a worksheet with per-worksheet customization
     string DataSetToExcel(DataSet dataSet, string fullFileName,
         Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
         string defaultSheetName = "Sheet");
-        
-    string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, 
-        Action<TWorksheet>? styleAction = null) where T : class;
-        
+
     MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet, PropertyInfo[]>? action = null,
         Action<TWorksheet>? styleAction = null) where T : class;
-        
+
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
         Action<TWorksheet>? styleAction = null);
-        
-    // Async exports
-    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
-        Action<TWorksheet>? styleAction = null);
-        
-    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, 
-        Action<TWorksheet>? styleAction = null) where T : class;
-    
-    #endregion
 }
 ```
 
@@ -326,7 +280,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 **Async Implementation Notes:**
 - ✅ **File I/O**: Uses true async (`FileStream` with `useAsync: true`)
 - ⚠️ **Excel Processing**: Provider parsing is synchronous and runs on the calling thread; schedule background work at the application boundary when needed
-- 🔧 **Extensible**: Subclasses can override `StreamToXXXAsync` methods for custom async implementations
+- 📤 **Scope**: Async APIs are limited to file export; imports remain synchronous because provider parsing is synchronous
 
 ## 🎨 Advanced Features
 
@@ -354,13 +308,11 @@ DataSet? flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetNam
     };
 });
 
-// 4. Async import
-DataSet? result = await excelService.ExcelToDataSetAsync("large-workbook.xlsx", headerRowIndex: 0);
-
-// 5. Backward compatibility mode - compatible with old NPOIHelper.ImportExcelToDs method
-// Supports comma-separated worksheet name strings
-DataSet? compatibleResult = excelService.ExcelToDataSet("workbook.xlsx", "Sheet1,Sheet2,Sheet3", headerRowIndex: 0);
-DataSet? asyncCompatible = await excelService.ExcelToDataSetAsync("workbook.xlsx", "UserData, OrderData", headerRowIndex: 1);
+// 4. Import selected worksheets
+DataSet? result = excelService.ExcelToDataSet(
+    "large-workbook.xlsx",
+    ["UserData", "OrderData"],
+    headerRowIndex: 0);
 
 // Access imported data
 if (result is not null)
@@ -435,7 +387,7 @@ public class AdvancedExcelService
 
     public string ExportWithCustomStyle(List<User> users, string filePath)
     {
-        return _npoiExcel.CollectionToExcel(users, filePath, "UserList", "User Data Report",
+        using var stream = _npoiExcel.CollectionToMemoryStream(users, "UserList", "User Data Report",
             // Custom cell operations
             action: (sheet, properties) =>
             {
@@ -457,6 +409,9 @@ public class AdvancedExcelService
                 sheet.CreateFreezePane(0, 2);
             }
         );
+        stream.ToFile(filePath);
+
+        return filePath;
     }
 }
 ```
@@ -500,7 +455,7 @@ public class StyledExcelService
 
     public string ExportWithStyles(List<User> users, string filePath)
     {
-        return _npoiExcel.CollectionToExcel(users, filePath, "UserData", "User Information",
+        using var stream = _npoiExcel.CollectionToMemoryStream(users, "UserData", "User Information",
             styleAction: (sheet) =>
             {
                 // Create styles
@@ -530,6 +485,9 @@ public class StyledExcelService
                 }
             }
         );
+        stream.ToFile(filePath);
+
+        return filePath;
     }
 }
 ```

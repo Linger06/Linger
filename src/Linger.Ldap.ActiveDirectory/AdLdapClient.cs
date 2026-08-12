@@ -15,7 +15,7 @@ namespace Linger.Ldap.ActiveDirectory;
 #if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
 #endif
-public sealed class AdLdapClient : ILdapClient
+public sealed class AdLdapClient : IActiveDirectoryClient
 {
     private readonly LdapConfig _ldapConfig;
     private readonly ILogger<AdLdapClient> _logger;
@@ -92,16 +92,15 @@ public sealed class AdLdapClient : ILdapClient
     /// <param name="userName">The username to get</param>
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Returns the user information if found; otherwise, null</returns>
-    public async Task<LdapUserInfo?> FindUserAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public LdapUserInfo? FindUser(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userName);
 
         _logger.LogDebug("Finding user {UserName} in Active Directory", userName);
 
         var searchFilter = BuildUserSearchFilter(userName, exactMatch: true);
-        var users = await SearchUsersByFilterAsync(searchFilter, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
+        var users = SearchUsersByFilter(searchFilter, ldapCredentials, searchBase);
 
         var adUserInfo = users.FirstOrDefault();
         if (adUserInfo is null)
@@ -167,14 +166,13 @@ public sealed class AdLdapClient : ILdapClient
     /// <param name="userName">Keyword or identity to search (e.g., account, UPN, email, display name)</param>
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    public async Task<IReadOnlyList<LdapUserInfo>> GetUsersAsync(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public IReadOnlyList<LdapUserInfo> GetUsers(string userName, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userName);
 
         var searchFilter = BuildUserSearchFilter(userName, exactMatch: false);
-        return await SearchUsersByFilterAsync(searchFilter, ldapCredentials, searchBase, cancellationToken).ConfigureAwait(false);
+        return SearchUsersByFilter(searchFilter, ldapCredentials, searchBase);
     }
 
     /// <summary>
@@ -183,12 +181,10 @@ public sealed class AdLdapClient : ILdapClient
     /// <param name="filter">Raw LDAP filter expression</param>
     /// <param name="ldapCredentials">Optional LDAP credentials for binding</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Collection of matching users</returns>
-    public Task<IReadOnlyList<LdapUserInfo>> SearchUsersByFilterAsync(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null, CancellationToken cancellationToken = default)
+    public IReadOnlyList<LdapUserInfo> SearchUsersByFilter(string filter, LdapCredentials? ldapCredentials = null, string? searchBase = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filter);
-        cancellationToken.ThrowIfCancellationRequested();
 
         ldapCredentials = ResolveCredentials(ldapCredentials);
         using var directoryEntry = CreateDirectoryEntry(ldapCredentials, searchBase);
@@ -210,9 +206,7 @@ public sealed class AdLdapClient : ILdapClient
 
         using var collection = directorySearcher.FindAll();
         IReadOnlyList<LdapUserInfo> users = collection.ToLdapUsersInfo();
-        cancellationToken.ThrowIfCancellationRequested();
-
-        return Task.FromResult(users);
+        return users;
     }
 
     /// <summary>
@@ -221,28 +215,22 @@ public sealed class AdLdapClient : ILdapClient
     /// <param name="userName">The username to validate</param>
     /// <param name="password">The password of the username to validate</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Returns True of user is valid</returns>
-    public async Task<(bool IsValid, LdapUserInfo? LdapUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default)
+    public (bool IsValid, LdapUserInfo? LdapUserInfo) ValidateUser(string userName, string password, string? searchBase = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userName);
         ArgumentException.ThrowIfNullOrEmpty(password);
-        cancellationToken.ThrowIfCancellationRequested();
 
         _logger.LogDebug("Validating user {UserName} against Active Directory", userName);
         using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials: null, searchBase: searchBase);
         var result = principalContext.ValidateCredentials(BuildBindUserName(userName), password);
-        cancellationToken.ThrowIfCancellationRequested();
         if (result)
         {
             _logger.LogDebug("User {UserName} validated successfully", userName);
 
             try
             {
-                var adUserInfo = await FindUserAsync(
-                    userName,
-                    searchBase: searchBase,
-                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                var adUserInfo = FindUser(userName, searchBase: searchBase);
 
                 return (true, adUserInfo);
             }
@@ -336,7 +324,6 @@ public sealed class AdLdapClient : ILdapClient
     /// </summary>
     /// <param name="userName">Username to check</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>True if user exists; otherwise, false</returns>
-    public async Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default) => await FindUserAsync(userName, searchBase: searchBase, cancellationToken: cancellationToken).ConfigureAwait(false) is not null;
+    public bool UserExists(string userName, string? searchBase = null) => FindUser(userName, searchBase: searchBase) is not null;
 }

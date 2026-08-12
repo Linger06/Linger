@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.ExceptionServices;
-using System.Text;
 
 namespace Linger.FileSystem;
 
@@ -12,7 +11,7 @@ namespace Linger.FileSystem;
 /// <para>此基类提供了文件系统操作的通用实现，包括重试机制和日志记录。</para>
 /// <para>派生类可通过构造函数传入 <see cref="ILogger"/> 以启用日志记录。</para>
 /// </remarks>
-public abstract class FileSystemBase : IFileSystemOperations
+public abstract class FileSystemBase : IFileTransfer
 {
     /// <summary>
     /// 重试助手，用于在操作失败时自动重试
@@ -91,28 +90,6 @@ public abstract class FileSystemBase : IFileSystemOperations
     }
 
     /// <summary>
-    /// Executes one batch item, records failures, and reports completion unless the operation is cancelled.
-    /// </summary>
-    protected static async Task ExecuteBatchItemAsync(
-        string filePath,
-        Func<Task> operation,
-        BatchOperationTracker tracker)
-    {
-        try
-        {
-            await operation().ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            tracker.AddFailure(filePath, ex.Message, ex);
-        }
-    }
-
-    /// <summary>
     /// 检测会映射到同一目标路径的批量输入。
     /// </summary>
     protected static BatchOperationResult? CreateDuplicateTargetResult(
@@ -161,7 +138,6 @@ public abstract class FileSystemBase : IFileSystemOperations
         private readonly List<string> _succeeded = [];
         private readonly List<BatchOperationFailure> _failed = [];
         private readonly IProgress<BatchProgress>? _progress;
-        private readonly object _gate = new();
         private readonly int _total;
         private int _completed;
 
@@ -179,12 +155,9 @@ public abstract class FileSystemBase : IFileSystemOperations
         /// </summary>
         public void AddSuccess(string filePath)
         {
-            lock (_gate)
-            {
-                _succeeded.Add(filePath);
-                var progress = CreateProgressSnapshot(filePath);
-                _progress?.Report(progress);
-            }
+            _succeeded.Add(filePath);
+            var progress = CreateProgressSnapshot(filePath);
+            _progress?.Report(progress);
         }
 
         /// <summary>
@@ -201,12 +174,9 @@ public abstract class FileSystemBase : IFileSystemOperations
         public void AddFailure(BatchOperationFailure failure)
         {
             ArgumentNullException.ThrowIfNull(failure);
-            lock (_gate)
-            {
-                _failed.Add(failure);
-                var progress = CreateProgressSnapshot(failure.FilePath);
-                _progress?.Report(progress);
-            }
+            _failed.Add(failure);
+            var progress = CreateProgressSnapshot(failure.FilePath);
+            _progress?.Report(progress);
         }
 
         /// <summary>
@@ -214,19 +184,16 @@ public abstract class FileSystemBase : IFileSystemOperations
         /// </summary>
         public BatchOperationResult Complete()
         {
-            lock (_gate)
+            return new BatchOperationResult
             {
-                return new BatchOperationResult
-                {
-                    SucceededFiles = [.. _succeeded],
-                    FailedFiles = [.. _failed]
-                };
-            }
+                SucceededFiles = [.. _succeeded],
+                FailedFiles = [.. _failed]
+            };
         }
 
         private BatchProgress CreateProgressSnapshot(string filePath)
         {
-            var completed = Interlocked.Increment(ref _completed);
+            var completed = ++_completed;
 
             return new BatchProgress(completed, _total, filePath, _succeeded.Count, _failed.Count);
         }
@@ -262,47 +229,7 @@ public abstract class FileSystemBase : IFileSystemOperations
 
     #endregion
 
-    #region IFileSystem 实现
-
-    public abstract Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default);
-
-    public abstract Task<bool> DirectoryExistsAsync(string directoryPath, CancellationToken cancellationToken = default);
-
-    public abstract Task CreateDirectoryIfNotExistsAsync(string directoryPath, CancellationToken cancellationToken = default);
-
-    public abstract Task DeleteFileIfExistsAsync(string filePath, CancellationToken cancellationToken = default);
-
-    #endregion
-
-    #region IFileSystemOperations 实现
-
-    public abstract Task<Stream> OpenReadAsync(string filePath, CancellationToken cancellationToken = default);
-
-    public abstract Task<Stream> OpenWriteAsync(string filePath, bool overwrite = false, CancellationToken cancellationToken = default);
-
-    /// <inheritdoc />
-    public virtual async Task<StreamReader> GetReaderAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default)
-    {
-        var stream = await OpenReadAsync(filePath, cancellationToken).ConfigureAwait(false);
-#if NET6_0_OR_GREATER
-        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: false);
-#else
-        return new StreamReader(stream, encoding ?? Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: false);
-#endif
-    }
-
-    /// <inheritdoc />
-    public virtual async Task<StreamWriter> GetWriterAsync(string filePath, bool overwrite = false, Encoding? encoding = null, CancellationToken cancellationToken = default)
-    {
-        var stream = await OpenWriteAsync(filePath, overwrite, cancellationToken).ConfigureAwait(false);
-#if NET6_0_OR_GREATER
-        return new StreamWriter(stream, encoding ?? Encoding.UTF8, leaveOpen: false);
-#else
-        return new StreamWriter(stream, encoding ?? Encoding.UTF8, bufferSize: 1024, leaveOpen: false);
-#endif
-    }
-
-    public abstract Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default);
+    #region IFileTransfer 实现
 
     public abstract Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default);
 
@@ -328,11 +255,11 @@ public abstract class FileSystemBase : IFileSystemOperations
         return await UploadAsync(fileStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
     }
 
-    public abstract Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<FileOperationResult> DownloadToStreamAsync(string sourceFilePath, Stream outputStream, CancellationToken cancellationToken = default);
 
-    public abstract Task<FileOperationResult> DownloadFileAsync(string remoteFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
-
-    public abstract Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default);
+    /// <inheritdoc />
+    public abstract Task<FileOperationResult> DownloadFileAsync(string sourceFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default);
 
     #endregion
 }

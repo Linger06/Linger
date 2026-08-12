@@ -133,9 +133,9 @@ namespace Linger.Excel.Tests
         }
 
         [Fact]
-        public async Task StreamToListAsync_WithMapper_ReadsAndConvertsToObjects()
+        public void StreamToList_WithMapper_ReadsAndConvertsToObjects()
         {
-            await AssertStreamToListAsyncWithMapper(GetExcelService(), "ClosedXml");
+            AssertStreamToListWithMapper(GetExcelService(), "ClosedXml");
         }
 
         [Fact]
@@ -552,7 +552,7 @@ namespace Linger.Excel.Tests
 
             // Act
             var sheetsToImport = new[] { "表一", "表三" };
-            var importedDataSet = service.ExcelToDataSet(filePath, sheetsToImport, sheetName =>
+            var importedDataSet = service.ExcelToDataSet(filePath, sheetName =>
             {
                 return sheetName switch
                 {
@@ -560,7 +560,7 @@ namespace Linger.Excel.Tests
                     "表三" => null,
                     _ => 0
                 };
-            }, addEmptyRow: false);
+            }, sheetsToImport, addEmptyRow: false);
 
             // Assert
             Assert.NotNull(importedDataSet);
@@ -633,7 +633,7 @@ namespace Linger.Excel.Tests
         }
 
         [Fact]
-        public async Task ExcelToDataSetAsync_WithAllSheets_WorksCorrectly()
+        public void ExcelToDataSet_WithAllSheets_WorksCorrectly()
         {
             // Arrange
             var service = GetExcelService();
@@ -656,7 +656,7 @@ namespace Linger.Excel.Tests
             service.DataSetToExcel(sourceDataSet, filePath);
 
             // Act
-            var importedDataSet = await service.ExcelToDataSetAsync(filePath, headerRowIndex: 0, addEmptyRow: false);
+            var importedDataSet = service.ExcelToDataSet(filePath, headerRowIndex: 0, addEmptyRow: false);
 
             // Assert
             Assert.NotNull(importedDataSet);

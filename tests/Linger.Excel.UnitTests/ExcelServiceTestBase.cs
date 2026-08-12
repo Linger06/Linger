@@ -259,7 +259,7 @@ namespace Linger.Excel.Tests
             }
         }
 
-        protected async Task AssertStreamToListAsyncWithMapper(IExcelService service, string filePrefix)
+        protected void AssertStreamToListWithMapper(IExcelService service, string filePrefix)
         {
             var sourceData = GenerateTestDataTable(5);
             var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotMapperAsync.xlsx");
@@ -267,7 +267,7 @@ namespace Linger.Excel.Tests
             service.DataTableToExcel(sourceData, filePath, "测试表", $"{filePrefix} AOT Mapper 异步导入测试");
 
             using var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            var importedList = await service.StreamToListAsync(
+            var importedList = service.StreamToList(
                 stream,
                 row => new ImportedPersonWithSource(filePrefix)
                 {

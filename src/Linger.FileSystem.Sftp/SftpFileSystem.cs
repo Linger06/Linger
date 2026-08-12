@@ -512,13 +512,6 @@ public class SftpFileSystem : RemoteFileSystemBase
         return attributes.IsDirectory;
     }
 
-    private async Task<long> GetRequiredFileSizeAsync(string filePath, CancellationToken cancellationToken)
-    {
-        var attributes = await Client.GetAttributesAsync(filePath, cancellationToken).ConfigureAwait(false);
-
-        return attributes.Size;
-    }
-
     private async Task UploadStreamAtomicallyAsync(
         SftpClient client,
         Stream inputStream,
@@ -526,10 +519,10 @@ public class SftpFileSystem : RemoteFileSystemBase
         bool overwrite,
         CancellationToken cancellationToken)
     {
-        var remoteDirectory = GetSftpDirectoryPath(destinationFilePath);
-        var temporaryPath = string.IsNullOrEmpty(remoteDirectory)
-            ? $".upload-{Guid.NewGuid():N}.tmp"
-            : $"{remoteDirectory}{SftpPathSeparator}.upload-{Guid.NewGuid():N}.tmp";
+        var temporaryPath = GetRemoteTemporaryFilePath(
+            destinationFilePath,
+            SftpPathSeparator,
+            "upload");
 
         try
         {
@@ -559,7 +552,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         }
         finally
         {
-            await TryDeleteTemporaryFileAsync(client, temporaryPath, cancellationToken).ConfigureAwait(false);
+            await TryDeleteTemporaryFileAsync(client, temporaryPath, CancellationToken.None).ConfigureAwait(false);
         }
     }
 

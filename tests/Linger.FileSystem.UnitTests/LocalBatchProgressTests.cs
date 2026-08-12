@@ -32,8 +32,7 @@ public class LocalBatchProgressTests : IDisposable
         Directory.CreateDirectory(_root);
         _fs = new LocalFileSystem(new LocalFileSystemOptions
         {
-            RootDirectoryPath = _root,
-            MaxDegreeOfParallelism = 1 // Serial for predictable order
+            RootDirectoryPath = _root
         });
     }
 
@@ -71,8 +70,8 @@ public class LocalBatchProgressTests : IDisposable
         // Verify completed counts are accurate (1, 2, 3, ...)
         for (var i = 0; i < progressReports.Count; i++)
         {
-            Assert.True(progressReports[i].Completed >= i + 1,
-                $"Report {i}: Expected Completed >= {i + 1}, got {progressReports[i].Completed}");
+            Assert.Equal(i + 1, progressReports[i].Completed);
+            Assert.Equal(files[i], progressReports[i].CurrentFile);
         }
 
         // Verify final report
@@ -82,13 +81,11 @@ public class LocalBatchProgressTests : IDisposable
     }
 
     [Fact]
-    public async Task UploadFilesAsync_Parallel_ReportsProgressAfterCompletion()
+    public async Task UploadFilesAsync_WithManyFiles_ReportsProgressInInputOrder()
     {
-        // Arrange: Use parallel mode
-        var parallelFs = new LocalFileSystem(new LocalFileSystemOptions
+        var fileSystem = new LocalFileSystem(new LocalFileSystemOptions
         {
-            RootDirectoryPath = _root,
-            MaxDegreeOfParallelism = 4
+            RootDirectoryPath = _root
         });
 
         var files = new List<string>();
@@ -100,26 +97,16 @@ public class LocalBatchProgressTests : IDisposable
         }
 
         var progressReports = new List<BatchProgress>();
-        // Use SynchronousProgress to avoid async callback issues in tests
-        var progress = new SynchronousProgress<BatchProgress>(p =>
-        {
-            lock (progressReports)
-            {
-                progressReports.Add(p);
-            }
-        });
+        var progress = new SynchronousProgress<BatchProgress>(progressReports.Add);
 
-        // Act
-        await parallelFs.UploadFilesAsync(files, "dst", overwrite: true, progress);
+        await fileSystem.UploadFilesAsync(files, "dst", overwrite: true, progress);
 
-        // Assert: Each report should have Completed > 0 (reported after completion)
         Assert.Equal(10, progressReports.Count);
 
-        foreach (var report in progressReports)
+        for (var i = 0; i < progressReports.Count; i++)
         {
-            Assert.True(report.Completed > 0,
-                $"Progress for {report.CurrentFile} should have Completed > 0, got {report.Completed}");
-            Assert.Equal(report.Completed, report.Succeeded + report.Failed);
+            Assert.Equal(i + 1, progressReports[i].Completed);
+            Assert.Equal(files[i], progressReports[i].CurrentFile);
         }
 
         // Verify final report
@@ -153,7 +140,7 @@ public class LocalBatchProgressTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteFilesAsync_ReportsProgressAfterEachFile()
+    public void DeleteFiles_ReportsProgressAfterEachFile()
     {
         // Arrange
         for (var i = 0; i < 3; i++)
@@ -165,7 +152,7 @@ public class LocalBatchProgressTests : IDisposable
         var progress = new SynchronousProgress<BatchProgress>(p => progressReports.Add(p));
 
         // Act
-        await _fs.DeleteFilesAsync(new[] { "del0.txt", "del1.txt", "del2.txt" }, progress);
+        _fs.DeleteFiles(new[] { "del0.txt", "del1.txt", "del2.txt" }, progress);
 
         // Assert
         Assert.Equal(3, progressReports.Count);

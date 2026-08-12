@@ -126,7 +126,7 @@ public class DataTableReflectionExtensionsTests
     }
 
     [Fact]
-    public void ToList_OverParallelThreshold_PreservesRowOrder()
+    public void ToList_WithManyRows_PreservesRowOrder()
     {
         var table = new DataTable();
         table.Columns.Add("Id", typeof(int));
@@ -137,7 +137,7 @@ public class DataTableReflectionExtensionsTests
             table.Rows.Add(i, $"Name{i}");
         }
 
-        List<RowModel>? result = table.ToList<RowModel>(parallelProcessingThreshold: 1_000);
+        List<RowModel>? result = table.ToList<RowModel>();
 
         Assert.NotNull(result);
         Assert.Equal(2_000, result.Count);

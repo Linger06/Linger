@@ -5,12 +5,12 @@ An Active Directory focused LDAP client implementation based on System.Directory
 ## Features
 
 - Active Directory user authentication and validation
-- Async user lookup and search APIs
+- Synchronous user lookup and search APIs matching the underlying Windows provider
 - OU-scoped search support via `searchBase`
 - Optional `Attributes` projection to limit returned fields
 - LDAPS support via `LdapConfig.Security`
-- Configurable `SearchFilter` for `FindUserAsync` and `GetUsersAsync`
-- Cross-provider advanced query via `ILdapClient.SearchUsersByFilterAsync`
+- Configurable `SearchFilter` for `FindUser` and `GetUsers`
+- Advanced query via `IActiveDirectoryClient.SearchUsersByFilter`
 - Optional domain controller auto-discovery when `LdapConfig.Url` is empty
 - Parameterless construction for the current Windows domain
 - Configurable `MaxResults` limit for each query
@@ -68,14 +68,14 @@ var ldap = new AdLdapClient();
 
 The parameterless constructor performs no network I/O. It uses the current Windows identity and discovers a domain controller when the first LDAP operation starts.
 
-For dependency injection, register `LdapConfig` with `services.Configure<LdapConfig>(...)` and `AdLdapClient` as the `ILdapClient` implementation. The client consumes `IOptions<LdapConfig>` directly.
+For dependency injection, register `LdapConfig` with `services.Configure<LdapConfig>(...)` and `AdLdapClient` as the `IActiveDirectoryClient` implementation. The client consumes `IOptions<LdapConfig>` directly.
 
 ## Usage
 
 ### Validate User Credentials
 
 ```csharp
-var (isValid, userInfo) = await ldap.ValidateUserAsync("alice", "Password123!");
+var (isValid, userInfo) = ldap.ValidateUser("alice", "Password123!");
 
 if (isValid && userInfo is not null)
 {
@@ -89,7 +89,7 @@ Authentication is determined by `ValidateCredentials`. User information is queri
 ### Find a Single User
 
 ```csharp
-var user = await ldap.FindUserAsync("alice");
+var user = ldap.FindUser("alice");
 
 if (user is not null)
 {
@@ -101,7 +101,7 @@ if (user is not null)
 ### Search Users
 
 ```csharp
-var users = await ldap.GetUsersAsync("alice");
+var users = ldap.GetUsers("alice");
 
 foreach (var item in users)
 {
@@ -118,18 +118,18 @@ var customCreds = new LdapCredentials
     BindCredentials = "ReadonlyPassword123!"
 };
 
-var usersInOu = await ldap.GetUsersAsync(
+var usersInOu = ldap.GetUsers(
     "alice",
     ldapCredentials: customCreds,
     searchBase: "OU=Sales,DC=example,DC=com");
 ```
 
-### Advanced Filter Search (Cross-Provider)
+### Advanced Filter Search
 
 ```csharp
-ILdapClient ldapContract = ldap;
+IActiveDirectoryClient ldapContract = ldap;
 
-var users = await ldapContract.SearchUsersByFilterAsync(
+var users = ldapContract.SearchUsersByFilter(
     "(&(objectClass=person)(department=IT)(mail=*))",
     searchBase: "DC=example,DC=com");
 ```
@@ -139,10 +139,10 @@ var users = await ldapContract.SearchUsersByFilterAsync(
 - This implementation is intended for Windows environments using `System.DirectoryServices`.
 - In .NET 5+, the implementation is marked with `[SupportedOSPlatform("windows")]`.
 - When `Security = true`, the client enables `AuthenticationTypes.SecureSocketsLayer` on the ADSI connection.
-- `SearchFilter` is used by both `FindUserAsync` and `GetUsersAsync`; using `{0}` placeholder is recommended.
-- `SearchUsersByFilterAsync` provides provider-agnostic advanced raw-filter queries.
+- `SearchFilter` is used by both `FindUser` and `GetUsers`; using `{0}` placeholder is recommended.
+- `SearchUsersByFilter` provides raw-filter queries for Active Directory.
 - Blank usernames and raw filters are rejected to prevent accidental full-directory searches.
-- Cancellation is observed before and after synchronous `System.DirectoryServices` calls, but an in-flight directory query cannot be interrupted.
+- Operations are synchronous because `System.DirectoryServices` does not provide asynchronous search APIs.
 - If `SearchFilter` format is invalid, the implementation falls back to a default user filter.
 - Input value in user search is escaped before building LDAP filter to reduce malformed/injection risk.
 - Bind username normalization supports existing `domain\\user`, UPN (`user@domain`), and full DN forms.

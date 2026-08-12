@@ -2,6 +2,7 @@ using System.Text;
 using Linger.Exceptions;
 using Linger.FileSystem.Exceptions;
 using Linger.FileSystem.Local;
+using Linger.FileSystem.Remote;
 using Xunit;
 
 namespace Linger.FileSystem.Tests.Local
@@ -31,13 +32,10 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task DeleteAsync_WhenCanceled_ThrowsOperationCanceledException()
+        public void LocalFileSystem_UsesLocalContractOnly()
         {
-            using var cancellation = new CancellationTokenSource();
-            cancellation.Cancel();
-
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                _fileSystem.DeleteAsync("test.txt", cancellation.Token));
+            Assert.IsAssignableFrom<ILocalFileSystem>(_fileSystem);
+            Assert.IsNotAssignableFrom<IRemoteFileSystem>(_fileSystem);
         }
 
         [Fact]
@@ -61,9 +59,9 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task UploadAsync_ThroughCommonInterface_PreservesDestinationPath()
+        public async Task UploadAsync_ThroughTransferInterface_PreservesDestinationPath()
         {
-            IFileSystemOperations fileSystem = _fileSystem;
+            IFileTransfer fileSystem = _fileSystem;
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes("content"));
 
             var result = await fileSystem.UploadAsync(stream, "uploads/exact-name.txt");
@@ -74,9 +72,9 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task UploadFileAsync_ThroughCommonInterface_UsesSharedFileAdapter()
+        public async Task UploadFileAsync_ThroughTransferInterface_UsesSharedFileAdapter()
         {
-            IFileSystemOperations fileSystem = _fileSystem;
+            IFileTransfer fileSystem = _fileSystem;
             var sourcePath = Path.Combine(_testRootPath, "source.txt");
             File.WriteAllText(sourcePath, "content");
 
@@ -87,11 +85,11 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task UploadAsync_ThroughCommonInterface_WhenDestinationExists_ReturnsFailureWithoutSequencing()
+        public async Task UploadAsync_ThroughTransferInterface_WhenDestinationExists_ReturnsFailureWithoutSequencing()
         {
             var destinationPath = Path.Combine(_testRootPath, "existing.txt");
             File.WriteAllText(destinationPath, "original");
-            IFileSystemOperations fileSystem = _fileSystem;
+            IFileTransfer fileSystem = _fileSystem;
             using var stream = new MemoryStream(Encoding.UTF8.GetBytes("replacement"));
 
             var result = await fileSystem.UploadAsync(stream, "existing.txt");
@@ -114,7 +112,7 @@ namespace Linger.FileSystem.Tests.Local
         {
             var destinationPath = Path.Combine(_testRootPath, "existing.txt");
             File.WriteAllText(destinationPath, "original");
-            IFileSystemOperations fileSystem = _fileSystem;
+            IFileTransfer fileSystem = _fileSystem;
             using var stream = new FailingAsyncReadStream();
 
             await Assert.ThrowsAsync<OutOfRetryCountException>(() =>
@@ -124,14 +122,14 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public void DeleteAsync_WhenFileExists_DeletesFile()
+        public void Delete_WhenFileExists_DeletesFile()
         {
             // Arrange
             var filePath = Path.Combine(_testRootPath, "test.txt");
             File.WriteAllText(filePath, "test");
 
             // Act
-            _fileSystem.DeleteAsync("test.txt");
+            _fileSystem.Delete("test.txt");
 
             // Assert
             Assert.False(File.Exists(filePath));
@@ -226,26 +224,26 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task DirectoryExistsAsync_WhenDirectoryDoesNotExist_ReturnsFalse()
+        public void DirectoryExists_WhenDirectoryDoesNotExist_ReturnsFalse()
         {
             // Arrange
             var nonExistentPath = "nonexistent";
 
             // Act
-            var result = await _fileSystem.DirectoryExistsAsync(nonExistentPath);
+            var result = _fileSystem.DirectoryExists(nonExistentPath);
 
             // Assert
             Assert.False(result);
         }
 
         [Fact]
-        public async Task FileExistsAsync_WhenFileDoesNotExist_ReturnsFalse()
+        public void FileExists_WhenFileDoesNotExist_ReturnsFalse()
         {
             // Arrange
             var nonExistentFile = "nonexistent.txt";
 
             // Act
-            var result = await _fileSystem.FileExistsAsync(nonExistentFile);
+            var result = _fileSystem.FileExists(nonExistentFile);
 
             // Assert
             Assert.False(result);
@@ -375,7 +373,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task GetRealPath_WithRelativePath_ReturnsFullPath()
+        public void GetRealPath_WithRelativePath_ReturnsFullPath()
         {
             // Arrange
             var relativePath = "test/file.txt";
@@ -386,7 +384,7 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(filePath, "test");
 
             // Assert
-            Assert.True(await _fileSystem.FileExistsAsync(relativePath));
+            Assert.True(_fileSystem.FileExists(relativePath));
         }
 
         [Fact]
@@ -622,7 +620,7 @@ namespace Linger.FileSystem.Tests.Local
         #region 流工厂与元数据方法测试
 
         [Fact]
-        public async Task OpenReadAsync_WhenFileExists_ReturnsReadableStream()
+        public async Task OpenRead_WhenFileExists_ReturnsReadableStream()
         {
             // Arrange
             var content = "Test Content for OpenReadAsync";
@@ -630,7 +628,7 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(filePath, content);
 
             // Act
-            using var stream = await _fileSystem.OpenReadAsync("openread.txt");
+            using var stream = _fileSystem.OpenRead("openread.txt");
 
             // Assert
             Assert.NotNull(stream);
@@ -641,22 +639,22 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task OpenReadAsync_WhenFileDoesNotExist_ThrowsFileNotFoundException()
+        public void OpenRead_WhenFileDoesNotExist_ThrowsFileNotFoundException()
         {
             // Act & Assert
-            await Assert.ThrowsAsync<FileNotFoundException>(() =>
-                _fileSystem.OpenReadAsync("nonexistent.txt"));
+            Assert.Throws<FileNotFoundException>(() =>
+                _fileSystem.OpenRead("nonexistent.txt"));
         }
 
         [Fact]
-        public async Task OpenWriteAsync_CreatesNewFile()
+        public async Task OpenWrite_CreatesNewFile()
         {
             // Arrange
             var filePath = "openwrite.txt";
             var content = "Test Content for OpenWriteAsync";
 
             // Act
-            using (var stream = await _fileSystem.OpenWriteAsync(filePath))
+            using (var stream = _fileSystem.OpenWrite(filePath))
             {
                 var bytes = Encoding.UTF8.GetBytes(content);
                 await stream.WriteAsync(bytes, 0, bytes.Length);
@@ -669,7 +667,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task OpenWriteAsync_WithOverwriteFalse_ThrowsWhenFileExists()
+        public void OpenWrite_WithOverwriteFalse_ThrowsWhenFileExists()
         {
             // Arrange
             var filePath = "existing.txt";
@@ -677,12 +675,12 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(fullPath, "existing content");
 
             // Act & Assert
-            await Assert.ThrowsAsync<DuplicateFileException>(() =>
-                _fileSystem.OpenWriteAsync(filePath, overwrite: false));
+            Assert.Throws<DuplicateFileException>(() =>
+                _fileSystem.OpenWrite(filePath, overwrite: false));
         }
 
         [Fact]
-        public async Task OpenWriteAsync_WithOverwriteTrue_OverwritesExistingFile()
+        public async Task OpenWrite_WithOverwriteTrue_OverwritesExistingFile()
         {
             // Arrange
             var filePath = "overwrite.txt";
@@ -691,7 +689,7 @@ namespace Linger.FileSystem.Tests.Local
             var newContent = "new content";
 
             // Act
-            using (var stream = await _fileSystem.OpenWriteAsync(filePath, overwrite: true))
+            using (var stream = _fileSystem.OpenWrite(filePath, overwrite: true))
             {
                 var bytes = Encoding.UTF8.GetBytes(newContent);
                 await stream.WriteAsync(bytes, 0, bytes.Length);
@@ -702,7 +700,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task GetReaderAsync_WhenFileExists_ReturnsStreamReader()
+        public async Task GetReader_WhenFileExists_ReturnsStreamReader()
         {
             // Arrange
             var content = "Test Content for GetReaderAsync";
@@ -710,7 +708,7 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(filePath, content);
 
             // Act
-            using var reader = await _fileSystem.GetReaderAsync("getreader.txt");
+            using var reader = _fileSystem.GetReader("getreader.txt");
 
             // Assert
             Assert.NotNull(reader);
@@ -719,7 +717,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task GetReaderAsync_WithEncoding_UsesSpecifiedEncoding()
+        public async Task GetReader_WithEncoding_UsesSpecifiedEncoding()
         {
             // Arrange
             var content = "中文内容测试";
@@ -727,7 +725,7 @@ namespace Linger.FileSystem.Tests.Local
             File.WriteAllText(filePath, content, Encoding.UTF8);
 
             // Act
-            using var reader = await _fileSystem.GetReaderAsync("encoding.txt", Encoding.UTF8);
+            using var reader = _fileSystem.GetReader("encoding.txt", Encoding.UTF8);
 
             // Assert
             var readContent = await reader.ReadToEndAsync();
@@ -735,14 +733,14 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task GetWriterAsync_CreatesNewFileWithContent()
+        public async Task GetWriter_CreatesNewFileWithContent()
         {
             // Arrange
             var filePath = "getwriter.txt";
             var content = "Test Content for GetWriterAsync";
 
             // Act
-            using (var writer = await _fileSystem.GetWriterAsync(filePath))
+            using (var writer = _fileSystem.GetWriter(filePath))
             {
                 await writer.WriteAsync(content);
             }
@@ -754,14 +752,14 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task GetWriterAsync_WithEncoding_UsesSpecifiedEncoding()
+        public async Task GetWriter_WithEncoding_UsesSpecifiedEncoding()
         {
             // Arrange
             var filePath = "writer_encoding.txt";
             var content = "中文内容写入测试";
 
             // Act
-            using (var writer = await _fileSystem.GetWriterAsync(filePath, encoding: Encoding.UTF8))
+            using (var writer = _fileSystem.GetWriter(filePath, encoding: Encoding.UTF8))
             {
                 await writer.WriteAsync(content);
             }
@@ -773,7 +771,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task GetFileSizeAsync_WhenFileExists_ReturnsCorrectSize()
+        public void GetFileSize_WhenFileExists_ReturnsCorrectSize()
         {
             // Arrange
             var content = "Test Content for GetFileSizeAsync";
@@ -782,7 +780,7 @@ namespace Linger.FileSystem.Tests.Local
             var expectedSize = new FileInfo(filePath).Length;
 
             // Act
-            var result = await _fileSystem.GetFileSizeAsync("filesize.txt");
+            var result = _fileSystem.GetFileSize("filesize.txt");
 
             // Assert
             Assert.NotNull(result);
@@ -790,24 +788,24 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task GetFileSizeAsync_WhenFileDoesNotExist_ReturnsNull()
+        public void GetFileSize_WhenFileDoesNotExist_ReturnsNull()
         {
             // Act
-            var result = await _fileSystem.GetFileSizeAsync("nonexistent.txt");
+            var result = _fileSystem.GetFileSize("nonexistent.txt");
 
             // Assert
             Assert.Null(result);
         }
 
         [Fact]
-        public async Task GetFileSizeAsync_WhenPathIsDirectory_ReturnsNull()
+        public void GetFileSize_WhenPathIsDirectory_ReturnsNull()
         {
             // Arrange
             var dirPath = Path.Combine(_testRootPath, "sizedir");
             Directory.CreateDirectory(dirPath);
 
             // Act
-            var result = await _fileSystem.GetFileSizeAsync("sizedir");
+            var result = _fileSystem.GetFileSize("sizedir");
 
             // Assert
             Assert.Null(result);

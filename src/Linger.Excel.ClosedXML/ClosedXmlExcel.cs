@@ -13,8 +13,14 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     // 添加基类要求的方法实现
     protected override XLWorkbook OpenWorkbook(Stream stream, CancellationToken cancellationToken)
     {
-        var memoryStream = CopyToMemoryStream(stream, cancellationToken);
-        return new XLWorkbook(memoryStream);
+        if (!stream.CanSeek)
+        {
+            var seekableStream = CopyToMemoryStream(stream, cancellationToken);
+            return new XLWorkbook(seekableStream);
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return new XLWorkbook(stream);
     }
 
     protected override IXLWorksheet? GetWorksheet(XLWorkbook workbook, string? sheetName)

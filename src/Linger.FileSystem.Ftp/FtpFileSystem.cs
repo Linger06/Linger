@@ -502,11 +502,10 @@ public class FtpFileSystem : RemoteFileSystemBase
         bool overwrite,
         CancellationToken cancellationToken)
     {
-        var separatorIndex = destinationFilePath.LastIndexOf(FtpPathSeparator);
-        var remoteDirectory = separatorIndex >= 0
-            ? destinationFilePath.Substring(0, separatorIndex + 1)
-            : string.Empty;
-        var temporaryPath = $"{remoteDirectory}.upload-{Guid.NewGuid():N}.tmp";
+        var temporaryPath = GetRemoteTemporaryFilePath(
+            destinationFilePath,
+            FtpPathSeparator,
+            "upload");
 
         try
         {
@@ -540,7 +539,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
         finally
         {
-            await TryDeleteTemporaryFileAsync(client, temporaryPath, cancellationToken).ConfigureAwait(false);
+            await TryDeleteTemporaryFileAsync(client, temporaryPath, CancellationToken.None).ConfigureAwait(false);
         }
     }
 

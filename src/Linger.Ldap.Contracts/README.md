@@ -4,7 +4,7 @@ Core contracts and shared models for LDAP operations in .NET applications.
 
 ## Introduction
 
-Linger.Ldap.Contracts defines provider-agnostic abstractions so application code can work with a single LDAP API while switching between concrete implementations.
+Linger.Ldap.Contracts exposes separate contracts for the capabilities actually provided by each LDAP implementation. `ILdapClient` represents native asynchronous LDAP operations, while `IActiveDirectoryClient` represents the synchronous Windows Active Directory APIs.
 
 ## Supported Frameworks
 
@@ -15,7 +15,8 @@ Linger.Ldap.Contracts defines provider-agnostic abstractions so application code
 
 ## What This Package Contains
 
-- `ILdapClient` interface for core LDAP operations
+- `ILdapClient` interface for native asynchronous LDAP operations
+- `IActiveDirectoryClient` interface for synchronous Windows Active Directory operations
 - `LdapConfig` and `LdapCredentials` configuration models
 - `LdapUserInfo` unified user profile model
 
@@ -23,7 +24,7 @@ Linger.Ldap.Contracts defines provider-agnostic abstractions so application code
 
 ### Configure Services
 
-Register your LDAP configuration and one concrete provider implementation.
+Register the contract matching the selected provider. Both may be registered when an application uses both providers.
 
 ```csharp
 using Linger.Ldap.Contracts;
@@ -32,9 +33,8 @@ public void ConfigureServices(IServiceCollection services)
 {
     services.Configure<LdapConfig>(Configuration.GetSection("LdapConfig"));
 
-    // Choose exactly one provider implementation
-    services.AddScoped<ILdapClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
-    // services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
+    services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
+    services.AddScoped<IActiveDirectoryClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
 }
 ```
 
@@ -170,7 +170,7 @@ var users = await _ldap.SearchUsersByFilterAsync(
 
 ## Cancellation Support
 
-All asynchronous LDAP operations accept `CancellationToken`. The Novell provider forwards cancellation to its native asynchronous LDAP calls. The Active Directory provider is backed by synchronous `System.DirectoryServices` APIs: it observes cancellation before and after those calls, but cannot interrupt an LDAP query already in progress.
+All `ILdapClient` operations accept `CancellationToken`, and the Novell provider forwards cancellation to its native asynchronous LDAP calls. `IActiveDirectoryClient` is intentionally synchronous because `System.DirectoryServices` does not provide asynchronous search operations.
 
 `FindUserAsync` and `GetUsersAsync` reject blank usernames, and `SearchUsersByFilterAsync` rejects blank filters. Use an explicit raw LDAP filter when a broad query is intentional.
 
@@ -199,7 +199,7 @@ public async Task<bool> ValidateUserWithTimeoutAsync(
 }
 ```
 
-## Core Interface
+## Core Interfaces
 
 ```csharp
 public interface ILdapClient
@@ -252,6 +252,8 @@ public class LdapConfig
     public int MaxResults { get; set; } = 1000;
 }
 ```
+
+`IActiveDirectoryClient` exposes the corresponding operations as `ValidateUser`, `FindUser`, `GetUsers`, `SearchUsersByFilter`, and `UserExists` without `Task` or `CancellationToken`.
 
 Providers take an independent snapshot of `LdapConfig`, including `Credentials` and `Attributes`, during client construction. Later changes to the source configuration do not affect an existing client; create a new client to apply new configuration.
 

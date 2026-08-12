@@ -8,6 +8,30 @@ namespace Linger.Ldap.UnitTests;
 public class LdapClientConfigurationTests
 {
     [Fact]
+    public void AdLdapClient_ImplementsSynchronousActiveDirectoryContract()
+    {
+        Assert.True(typeof(IActiveDirectoryClient).IsAssignableFrom(typeof(AdLdapClient)));
+    }
+
+    [Fact]
+    public void AdLdapClient_DoesNotImplementAsynchronousLdapContract()
+    {
+        Assert.False(typeof(ILdapClient).IsAssignableFrom(typeof(AdLdapClient)));
+    }
+
+    [Fact]
+    public void ActiveDirectoryContract_ContainsOnlySynchronousOperations()
+    {
+        var methods = typeof(IActiveDirectoryClient).GetMethods();
+
+        Assert.All(methods, method =>
+        {
+            Assert.DoesNotContain("Async", method.Name, StringComparison.Ordinal);
+            Assert.False(typeof(Task).IsAssignableFrom(method.ReturnType));
+        });
+    }
+
+    [Fact]
     public void AdParameterlessConstructor_CreatesClientWithoutDiscoveringDomain()
     {
         var client = new AdLdapClient();

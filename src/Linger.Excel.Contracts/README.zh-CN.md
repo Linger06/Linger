@@ -139,7 +139,7 @@ var users = excelService.ExcelToList(
         Name = row.Get<string>("Name") ?? string.Empty
     });
 
-var imported = await excelService.ExcelToListAsync(
+var imported = excelService.ExcelToList(
     filePath,
     row => new ImportUser("excel")
     {
@@ -152,7 +152,7 @@ var imported = await excelService.ExcelToListAsync(
 
 ### 导入返回值与异常语义
 
-- 基于文件的同步和异步导入在路径为空或文件不存在时返回 `null`。
+- 基于文件的导入在路径为空或文件不存在时返回 `null`。
 - 文件存在后，访问权限、I/O、工作簿格式和提供方解析错误不会转换为 `null`，而是继续向调用方传播。
 - 内置提供方会在内部缓冲可读但不可寻址的输入流。调用方必须在导入完成前保持输入流处于打开状态。
 
@@ -166,7 +166,7 @@ using var response = await httpClient.GetAsync(
 response.EnsureSuccessStatusCode();
 
 using Stream stream = await response.Content.ReadAsStreamAsync();
-DataTable? table = await excelService.StreamToDataTableAsync(
+DataTable? table = excelService.StreamToDataTable(
     stream,
     sheetName: "Users",
     cancellationToken: cancellationToken);
@@ -174,7 +174,7 @@ DataTable? table = await excelService.StreamToDataTableAsync(
 
 ### 流取消
 
-所有异步流导入重载都接受可选的 `CancellationToken`。取消采用协作式检查：在导入开始前、非可寻址流的缓冲读取期间以及转换循环中观察令牌。NPOI 和 ClosedXML 会同步解析工作簿，因此在其内部 CPU 解析阶段收到的取消请求，需要等到该阶段完成并到达下一个检查点后才会抛出 `OperationCanceledException`。应传入请求或后台任务所使用的取消令牌。
+所有流导入方法都接受可选的 `CancellationToken`。取消采用协作式检查：在导入开始前、非可寻址流的缓冲读取期间以及转换循环中观察令牌。NPOI 和 ClosedXML 会同步解析工作簿，因此在其内部 CPU 解析阶段收到的取消请求，需要等到该阶段完成并到达下一个检查点后才会抛出 `OperationCanceledException`。
 
 ### 5. AOT 友好导出
 
@@ -218,30 +218,11 @@ public interface IExcelService
     List<T>? StreamToList<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
     List<T>? StreamToList<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
-    // 导入整个工作簿为 DataSet (支持多种重载)
-    DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
-    DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
-    
-    // 异步导入 - 异步打开文件，并隔离同步提供方解析
-    Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    Task<List<T>?> ExcelToListAsync<T>(string filePath, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
-    
-    // 异步 Stream 处理 - 虚拟方法,子类可覆盖以提供真正的异步
-    Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false) where T : class, new();
-    Task<List<T>?> StreamToListAsync<T>(Stream stream, Func<ExcelRow, T> map, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false);
-    Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
+    // 将选定工作表导入为 DataSet
+    DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames = null, int headerRowIndex = 0, bool addEmptyRow = false);
+    DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, IEnumerable<string>? sheetNames = null, bool addEmptyRow = false);
+    DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
+    DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, IEnumerable<string>? sheetNames = null, bool addEmptyRow = false, CancellationToken cancellationToken = default);
     
     #endregion
 
@@ -259,9 +240,9 @@ public interface IExcelService
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
     
     // 异步导出
-    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "");
-    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "") where T : class;
-    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "");
+    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
+    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default) where T : class;
+    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
     
     // 创建模板
     MemoryStream CreateExcelTemplate<T>() where T : class, new();
@@ -277,44 +258,17 @@ public interface IExcelService
 ```csharp
 public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 {
-    #region 高级导出功能 - 支持自定义操作
-    
-    // 导出时支持自定义单元格和样式操作
-    string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
-        Action<TWorksheet>? styleAction = null);
-        
-    string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
-        Action<TWorksheet>? styleAction = null);
-
-    // 将每个 DataTable 导出为工作表，并按工作表定制
     string DataSetToExcel(DataSet dataSet, string fullFileName,
         Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
         string defaultSheetName = "Sheet");
-        
-    string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, 
-        Action<TWorksheet>? styleAction = null) where T : class;
-        
+
     MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, 
+        Action<TWorksheet, PropertyInfo[]>? action = null,
         Action<TWorksheet>? styleAction = null) where T : class;
-        
+
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
         Action<TWorksheet>? styleAction = null);
-        
-    // 异步导出
-    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, 
-        Action<TWorksheet>? styleAction = null);
-        
-    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
-        Action<TWorksheet, PropertyInfo[]>? action = null, 
-        Action<TWorksheet>? styleAction = null) where T : class;
-    
-    #endregion
 }
 ```
 
@@ -326,7 +280,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 **异步实现说明:**
 - ✅ **文件 I/O**: 使用真正的异步 (`FileStream` 的 `useAsync: true`)
 - ⚠️ **Excel 处理**: 提供方解析为同步操作并在调用线程执行；需要后台执行时应在应用边界自行调度
-- 🔧 **可扩展**: 子类可以覆盖 `StreamToXXXAsync` 方法提供自定义异步实现
+- 📤 **范围**: 异步 API 仅用于文件导出；由于 Provider 解析为同步操作，导入保持同步
 
 ## 🎨 高级功能
 
@@ -354,13 +308,11 @@ DataSet? flexibleHeaders = excelService.ExcelToDataSet("workbook.xlsx", sheetNam
     };
 });
 
-// 4. 异步导入
-DataSet? result = await excelService.ExcelToDataSetAsync("large-workbook.xlsx", headerRowIndex: 0);
-
-// 5. 向后兼容方式 - 兼容旧版 NPOIHelper.ImportExcelToDs 方法
-// 支持逗号分隔的工作表名称字符串
-DataSet? compatibleResult = excelService.ExcelToDataSet("workbook.xlsx", "Sheet1,Sheet2,Sheet3", headerRowIndex: 0);
-DataSet? asyncCompatible = await excelService.ExcelToDataSetAsync("workbook.xlsx", "用户数据, 订单数据", headerRowIndex: 1);
+// 4. 导入指定工作表
+DataSet? result = excelService.ExcelToDataSet(
+    "large-workbook.xlsx",
+    ["用户数据", "订单数据"],
+    headerRowIndex: 0);
 
 // 访问导入的数据
 if (result is not null)
@@ -435,7 +387,7 @@ public class AdvancedExcelService
 
     public string ExportWithCustomStyle(List<User> users, string filePath)
     {
-        return _npoiExcel.CollectionToExcel(users, filePath, "用户列表", "用户数据报表",
+        using var stream = _npoiExcel.CollectionToMemoryStream(users, "用户列表", "用户数据报表",
             // 自定义单元格操作
             action: (sheet, properties) =>
             {
@@ -457,6 +409,9 @@ public class AdvancedExcelService
                 sheet.CreateFreezePane(0, 2);
             }
         );
+        stream.ToFile(filePath);
+
+        return filePath;
     }
 }
 ```
@@ -500,7 +455,7 @@ public class StyledExcelService
 
     public string ExportWithStyles(List<User> users, string filePath)
     {
-        return _npoiExcel.CollectionToExcel(users, filePath, "用户数据", "用户信息表",
+        using var stream = _npoiExcel.CollectionToMemoryStream(users, "用户数据", "用户信息表",
             styleAction: (sheet) =>
             {
                 // 创建样式
@@ -530,6 +485,9 @@ public class StyledExcelService
                 }
             }
         );
+        stream.ToFile(filePath);
+
+        return filePath;
     }
 }
 ```

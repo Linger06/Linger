@@ -34,7 +34,7 @@ public class DataSetWorksheetContextTests : ExcelServiceTestBase, IDisposable
         var filePath = Path.Combine(TestFilesDir, "Npoi_EmptyTableAction.xlsx");
         var service = new NpoiExcel(Options);
 
-        service.DataSetToExcel(dataSet, filePath, action: (_, _, _) => actionInvocations++);
+        service.DataSetToExcel(dataSet, filePath, _ => actionInvocations++);
 
         Assert.Equal(1, actionInvocations);
     }

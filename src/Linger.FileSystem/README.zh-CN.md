@@ -1,12 +1,12 @@
 ﻿# Linger.FileSystem
 
-Linger.FileSystem 是一个统一的文件系统抽象库，提供了对多种文件系统的一致访问接口，包括本地文件系统、FTP和SFTP。通过这个库，您可以使用相同的API操作不同类型的文件系统，简化开发过程，提高代码复用性。
+Linger.FileSystem 为本地存储、FTP 和 SFTP 提供文件系统抽象。文件内容传输共享异步契约；本地元数据使用同步 API，远程元数据保留异步协议 API。
 
 ## 项目结构
 
 Linger.FileSystem解决方案包含以下NuGet包：
 
-- **Linger.FileSystem**: 核心库，提供统一接口和本地文件系统实现
+- **Linger.FileSystem**: 核心库，提供共享传输契约、本地同步能力契约和本地文件系统实现
 - **Linger.FileSystem.Ftp**: FTP文件系统实现，基于FluentFTP
 - **Linger.FileSystem.Sftp**: SFTP文件系统实现，基于SSH.NET
 
@@ -25,9 +25,9 @@ dotnet add package Linger.FileSystem.Sftp
 
 ## 主要特点
 
-- **统一接口**: 通过 `IFileSystemOperations` 接口提供的一致API操作不同类型的文件系统
+- **能力契约**: `IFileTransfer` 统一真实异步传输；本地同步 API 与远程异步 API 分别由专用接口定义
 - **支持多种文件系统**: 包括本地文件系统、FTP和SFTP
-- **异步操作**: 所有操作都支持异步方法，适用于现代应用程序开发
+- **真实异步 I/O**: 文件内容传输保持异步，不使用 `Task.Run` 包装同步文件系统 API
 - **自动重试**: 内置重试机制，可以配置重试次数和延迟，提高操作可靠性
 - **连接管理**: 按需自动连接，并复用连接直到文件系统实例被释放
 - **多种命名规则**: 支持MD5、UUID和普通命名规则
@@ -59,21 +59,16 @@ if (result.Success)
 }
 ```
 
-### 并发与批量操作（本地）
+### 批量操作（本地）
 
-本地批量操作支持通过 `LocalFileSystemOptions.MaxDegreeOfParallelism` 配置并发度，用于提升批量复制/删除的吞吐量：
-
-- 值为 1：串行执行（默认），资源占用低；
-- 值大于 1：并发执行（内部使用限流），适合大量文件批处理。
+本地批量操作按输入顺序执行。上传和下载保留真正的异步文件 I/O；由于 `File.Delete` 没有异步 API，删除保持同步执行。批量 API 统一提供进度报告、取消、目标冲突检查和成功/失败汇总。
 
 示例：
 
 ```csharp
-// 配置并发度并使用统一批量接口
 var options = new LocalFileSystemOptions
 {
-    RootDirectoryPath = "C:/Storage",
-    MaxDegreeOfParallelism = 4 // 1 串行，>1 并发
+    RootDirectoryPath = "C:/Storage"
 };
 
 var localFs = new LocalFileSystem(options);
@@ -95,7 +90,7 @@ var downloadResult = await localFs.DownloadFilesAsync(new[]
 Console.WriteLine($"下载成功: {downloadResult.SucceededFiles.Count}, 失败: {downloadResult.FailedFiles.Count}");
 
 // 批量删除：传入根内的相对路径
-var deleteResult = await localFs.DeleteFilesAsync(new[]
+var deleteResult = localFs.DeleteFiles(new[]
 {
     "uploads/a.txt",
     "uploads/b.txt"
@@ -125,7 +120,7 @@ var uploadResult = await localFs.UploadFilesAsync(files, "/uploads", overwrite: 
 var downloadResult = await localFs.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
 
 // 带进度报告的批量删除
-var deleteResult = await localFs.DeleteFilesAsync(filesToDelete, progress);
+var deleteResult = localFs.DeleteFiles(filesToDelete, progress);
 ```
 
 `BatchProgress` 结构包含：
@@ -213,7 +208,7 @@ result = await fileSystem.UploadAsync(
     cts.Token);
 ```
 
-`FileOperationResult` 不包含文件大小；需要大小元数据时请调用 `GetFileSizeAsync`。
+`FileOperationResult` 不包含文件大小。本地文件系统调用 `GetFileSize`，远程文件系统调用 `GetFileSizeAsync`。
 
 ### 文件下载
 
@@ -237,42 +232,44 @@ result = await fileSystem.DownloadFileAsync(
 ### 文件删除
 
 ```csharp
-var result = await fileSystem.DeleteAsync("uploads/file-to-delete.txt");
+var localResult = localFileSystem.Delete("uploads/file-to-delete.txt");
+var remoteResult = await remoteFileSystem.DeleteAsync("uploads/file-to-delete.txt");
 ```
 
 ### 目录操作
 
 ```csharp
-// 检查目录是否存在
-bool exists = await fileSystem.DirectoryExistsAsync("uploads/images");
+// 本地文件系统使用同步元数据 API
+bool localExists = localFileSystem.DirectoryExists("uploads/images");
+localFileSystem.CreateDirectoryIfNotExists("uploads/documents");
 
-// 创建目录
-await fileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
+// 远程文件系统保留真实异步协议 API
+bool remoteExists = await remoteFileSystem.DirectoryExistsAsync("uploads/images");
+await remoteFileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
 
 ```
 
+本地文件系统的目录枚举使用同步的 `ListFiles` 和 `ListDirectories`；FTP/SFTP 远程目录枚举使用异步的 `ListFilesAsync` 和 `ListDirectoriesAsync`。
+
 ### 流工厂 API
 
-高效的流式操作，无需将整个文件加载到内存：
+打开本地流是同步操作；流返回后，内容读写仍使用真实异步 I/O：
 
 ```csharp
-// 打开文件进行读取（返回原始 Stream）
-await using var readStream = await fileSystem.OpenReadAsync("data/large-file.bin", cancellationToken);
+await using var readStream = localFileSystem.OpenRead("data/large-file.bin");
 await ProcessLargeFileAsync(readStream);
 
-// 打开文件进行写入
-await using var writeStream = await fileSystem.OpenWriteAsync("output/result.bin", overwrite: true, cancellationToken);
+await using var writeStream = localFileSystem.OpenWrite("output/result.bin", overwrite: true);
 await writeStream.WriteAsync(data, cancellationToken);
 
-// 使用 StreamReader 读取文本文件
-using var reader = await fileSystem.GetReaderAsync("logs/app.log", Encoding.UTF8, cancellationToken);
+using var reader = localFileSystem.GetReader("logs/app.log", Encoding.UTF8);
 while (await reader.ReadLineAsync() is { } line)
 {
     ProcessLine(line);
 }
 
 // 使用 StreamWriter 写入文本文件
-await using var writer = await fileSystem.GetWriterAsync("output/report.csv", overwrite: true, Encoding.UTF8, cancellationToken);
+await using var writer = localFileSystem.GetWriter("output/report.csv", overwrite: true, Encoding.UTF8);
 await writer.WriteLineAsync("Name,Value");
 await writer.WriteLineAsync("Item1,100");
 ```
@@ -280,8 +277,9 @@ await writer.WriteLineAsync("Item1,100");
 ### 元数据查询 API
 
 ```csharp
-// 获取文件大小（如果文件不存在则返回 null）
-var fileSize = await fileSystem.GetFileSizeAsync("uploads/document.pdf", cancellationToken);
+// 本地查询同步完成；远程查询需要协议 I/O
+var fileSize = localFileSystem.GetFileSize("uploads/document.pdf");
+var remoteFileSize = await remoteFileSystem.GetFileSizeAsync("uploads/document.pdf", cancellationToken);
 if (fileSize.HasValue)
 {
     Console.WriteLine($"文件大小: {fileSize.Value} 字节");
@@ -439,14 +437,13 @@ var options = new LocalFileSystemOptions
 };
 ```
 
-> 💡 更大的缓冲区可提升大文件性能，但会增加每个并发操作的内存占用。
+更大的缓冲区可提升大文件吞吐量，但会增加当前复制操作的内存占用。
 
 ### 批量操作优化
 
-对于需要处理大量文件的场景，可以使用批处理API减少连接开销：
+对于需要处理大量文件的场景，可以使用批量 API 统一管理进度、取消、冲突检查和结果汇总：
 
 ```csharp
-// 本地批量操作比逐个独立调用更高效
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
 await localFs.UploadFilesAsync(localFiles, "uploads");
 ```
@@ -456,19 +453,16 @@ await localFs.UploadFilesAsync(localFiles, "uploads");
 ### 核心接口层次
 
 ```
-              IFileSystem
-                   │
-         IFileSystemOperations
-           /            \
-ILocalFileSystem    IRemoteFileSystem
+                    IFileTransfer
+                   /             \
+      ILocalFileSystem       IRemoteFileSystem
 ```
 
 ### 核心接口
 
-- **IFileSystem**: 定义基本文件操作接口
-- **IFileSystemOperations**: 统一的文件系统操作接口，继承自 IFileSystem
-- **ILocalFileSystem**: 本地文件系统特定接口，扩展了特有功能
-- **IRemoteFileSystem**: 远程文件系统连接管理接口
+- **IFileTransfer**: 定义本地和远程共用的真实异步文件内容传输
+- **ILocalFileSystem**: 定义同步本地元数据和流工厂，以及异步内容传输
+- **IRemoteFileSystem**: 定义远程元数据、流、目录、传输及连接生命周期的异步操作
 
 ### 实现类层次
 
@@ -482,7 +476,7 @@ ILocalFileSystem    IRemoteFileSystem
 
 ### 基础类
 
-- **FileSystemBase**: 所有文件系统的抽象基类，实现了IFileSystemOperations接口
+- **FileSystemBase**: 复用重试、日志和批量结果辅助逻辑，不声明本地或远程执行契约
 - **RemoteFileSystemBase**: 远程文件系统的抽象基类，继承自FileSystemBase，实现了IRemoteFileSystem
 - **LocalFileSystem**: 本地文件系统具体实现
 - **FtpFileSystem**: FTP文件系统实现，基于FluentFTP库
@@ -492,7 +486,7 @@ ILocalFileSystem    IRemoteFileSystem
 
 该库使用了以下设计模式：
 
-- **策略模式**: 不同文件系统实现相同接口(IFileSystemOperations)但有各自的实现策略
+- **能力接口**: 本地和远程共享传输契约，但分别表达同步和异步元数据能力
 - **模板方法**: 在FileSystemBase基类中定义算法骨架，子类实现具体步骤
 - **适配器模式**: 将FluentFTP和SSH.NET等不同的文件系统API适配到统一接口
 - **简单工厂**: 各个文件系统类内部的CreateClient()方法用于创建具体的客户端实例
@@ -501,7 +495,7 @@ ILocalFileSystem    IRemoteFileSystem
 ### 关键流程
 
 1. **文件上传流程**:
-   - 客户端调用IFileSystemOperations.UploadAsync
+   - 客户端通过 `IFileTransfer.UploadAsync` 发起真实异步内容传输
    - 根据实际文件系统类型执行不同实现 
    - 应用配置的文件命名规则和验证措施
    - 返回统一的FileOperationResult结果

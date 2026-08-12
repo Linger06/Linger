@@ -98,7 +98,7 @@ result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file
 // In your startup class
 public void ConfigureServices(IServiceCollection services)
 {
-    services.AddTransient<IFileSystemOperations>(provider => {
+    services.AddTransient<IRemoteFileSystem>(provider => {
         var settings = new FtpFileSystemOptions
         {
             Host = "ftp.example.com",

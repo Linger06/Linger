@@ -14,8 +14,7 @@ namespace Linger.FileSystem.Tests.Local
             Directory.CreateDirectory(_root);
             _fs = new LocalFileSystem(new LocalFileSystemOptions
             {
-                RootDirectoryPath = _root,
-                MaxDegreeOfParallelism = 4
+                RootDirectoryPath = _root
             });
         }
 
@@ -68,7 +67,7 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task DeleteFilesAsync_WithCancelledToken_ThrowsOperationCancelledException()
+        public void DeleteFiles_WithCancelledToken_ThrowsOperationCancelledException()
         {
             for (var i = 0; i < 10; i++)
             {
@@ -80,8 +79,8 @@ namespace Linger.FileSystem.Tests.Local
             using var cts = new CancellationTokenSource();
             cts.Cancel();
 
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-                await _fs.DeleteFilesAsync(paths, cancellationToken: cts.Token));
+            Assert.ThrowsAny<OperationCanceledException>(() =>
+                _fs.DeleteFiles(paths, cancellationToken: cts.Token));
         }
 
         #endregion
@@ -196,17 +195,17 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
-        public async Task ListFilesAsync_NonExistentDirectory_ReturnsEmptyList()
+        public void ListFiles_NonExistentDirectory_ReturnsEmptyList()
         {
-            var files = await _fs.ListFilesAsync("nonexistent");
+            var files = _fs.ListFiles("nonexistent");
 
             Assert.Empty(files);
         }
 
         [Fact]
-        public async Task ListDirectoriesAsync_NonExistentDirectory_ReturnsEmptyList()
+        public void ListDirectories_NonExistentDirectory_ReturnsEmptyList()
         {
-            var dirs = await _fs.ListDirectoriesAsync("nonexistent");
+            var dirs = _fs.ListDirectories("nonexistent");
 
             Assert.Empty(dirs);
         }

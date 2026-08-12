@@ -1,12 +1,12 @@
 ﻿# Linger.FileSystem
 
-A unified file system abstraction library providing a consistent interface for accessing different file systems, including local file system, FTP, and SFTP. With this library, you can use the same API to operate on different types of file systems, simplifying the development process and improving code reusability.
+A file-system abstraction library for local storage, FTP, and SFTP. Content transfers share one asynchronous contract, while local metadata uses synchronous APIs and remote metadata keeps asynchronous protocol APIs.
 
 ## Project Structure
 
 The Linger.FileSystem solution includes the following NuGet packages:
 
-- **Linger.FileSystem**: Core library, providing unified interfaces and local file system implementation
+- **Linger.FileSystem**: Core library providing shared transfer contracts, local synchronous capabilities, and the local file-system implementation
 - **Linger.FileSystem.Ftp**: FTP file system implementation, based on FluentFTP
 - **Linger.FileSystem.Sftp**: SFTP file system implementation, based on SSH.NET
 
@@ -25,9 +25,9 @@ dotnet add package Linger.FileSystem.Sftp
 
 ## Key Features
 
-- **Unified Interface**: Consistent API through `IFileSystemOperations` interface to operate different types of file systems
+- **Capability Contracts**: `IFileTransfer` unifies true asynchronous transfers, while local synchronous and remote asynchronous APIs use dedicated interfaces
 - **Multiple File System Support**: Including local file system, FTP, and SFTP
-- **Asynchronous Operations**: All operations support async methods, suitable for modern application development
+- **True Asynchronous I/O**: Content transfers remain asynchronous without wrapping synchronous file-system APIs in `Task.Run`
 - **Automatic Retry**: Built-in retry mechanism with configurable retry count and delay for improved operation reliability
 - **Connection Management**: Automatic connection on demand, with reuse until the file-system instance is disposed
 - **Multiple Naming Rules**: Support for MD5, UUID, and normal naming rules
@@ -59,21 +59,16 @@ if (result.Success)
 }
 ```
 
-### Concurrency and Batch (Local)
+### Batch Operations (Local)
 
-Local batch operations support configurable parallelism via `LocalFileSystemOptions.MaxDegreeOfParallelism`:
-
-- `1`: serial execution (default), lower resource usage
-- `>1`: parallel execution (internally throttled), ideal for large batches
+Local batch operations run in input order. Upload and download retain true asynchronous file I/O, while deletion is synchronous because `File.Delete` has no asynchronous API. The batch APIs centralize progress reporting, cancellation, target-conflict validation, and success/failure aggregation.
 
 Example:
 
 ```csharp
-// Configure parallelism and use unified batch operations
 var options = new LocalFileSystemOptions
 {
-    RootDirectoryPath = "C:/Storage",
-    MaxDegreeOfParallelism = 4 // 1 = serial, >1 = parallel
+    RootDirectoryPath = "C:/Storage"
 };
 
 var localFs = new LocalFileSystem(options);
@@ -95,7 +90,7 @@ var downloadResult = await localFs.DownloadFilesAsync(new[]
 Console.WriteLine($"Downloaded: {downloadResult.SucceededFiles.Count}, Failed: {downloadResult.FailedFiles.Count}");
 
 // Batch delete: pass root-relative paths
-var deleteResult = await localFs.DeleteFilesAsync(new[]
+var deleteResult = localFs.DeleteFiles(new[]
 {
     "uploads/a.txt",
     "uploads/b.txt"
@@ -125,7 +120,7 @@ var uploadResult = await localFs.UploadFilesAsync(files, "/uploads", overwrite: 
 var downloadResult = await localFs.DownloadFilesAsync(remoteFiles, "C:/Downloads", overwrite: true, progress);
 
 // Batch delete with progress
-var deleteResult = await localFs.DeleteFilesAsync(filesToDelete, progress);
+var deleteResult = localFs.DeleteFiles(filesToDelete, progress);
 ```
 
 `BatchProgress` structure contains:
@@ -213,7 +208,7 @@ result = await fileSystem.UploadAsync(
     cts.Token);
 ```
 
-`FileOperationResult` does not include file size. Call `GetFileSizeAsync` when size metadata is needed.
+`FileOperationResult` does not include file size. Use `GetFileSize` locally and `GetFileSizeAsync` remotely.
 
 ### File Download
 
@@ -237,42 +232,46 @@ result = await fileSystem.DownloadFileAsync(
 ### File Deletion
 
 ```csharp
-var result = await fileSystem.DeleteAsync("uploads/file-to-delete.txt");
+var localResult = localFileSystem.Delete("uploads/file-to-delete.txt");
+var remoteResult = await remoteFileSystem.DeleteAsync("uploads/file-to-delete.txt");
 ```
 
 ### Directory Operations
 
 ```csharp
-// Check if directory exists
-bool exists = await fileSystem.DirectoryExistsAsync("uploads/images");
+// Local metadata APIs are synchronous
+bool localExists = localFileSystem.DirectoryExists("uploads/images");
+localFileSystem.CreateDirectoryIfNotExists("uploads/documents");
 
-// Create directory
-await fileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
+// Remote protocol APIs remain truly asynchronous
+bool remoteExists = await remoteFileSystem.DirectoryExistsAsync("uploads/images");
+await remoteFileSystem.CreateDirectoryIfNotExistsAsync("uploads/documents");
 
 ```
 
+The local file system uses synchronous `ListFiles` and `ListDirectories` for directory enumeration; FTP/SFTP remote enumeration uses asynchronous `ListFilesAsync` and `ListDirectoriesAsync`.
+
 ### Stream Factory API
 
-For efficient streaming operations without loading entire files into memory:
+Opening a local stream is synchronous; content I/O on the returned stream remains truly asynchronous:
 
 ```csharp
-// Open file for reading (returns raw Stream)
-await using var readStream = await fileSystem.OpenReadAsync("data/large-file.bin", cancellationToken);
+await using var readStream = localFileSystem.OpenRead("data/large-file.bin");
 await ProcessLargeFileAsync(readStream);
 
 // Open file for writing
-await using var writeStream = await fileSystem.OpenWriteAsync("output/result.bin", overwrite: true, cancellationToken);
+await using var writeStream = localFileSystem.OpenWrite("output/result.bin", overwrite: true);
 await writeStream.WriteAsync(data, cancellationToken);
 
 // Text file reading with StreamReader
-using var reader = await fileSystem.GetReaderAsync("logs/app.log", Encoding.UTF8, cancellationToken);
+using var reader = localFileSystem.GetReader("logs/app.log", Encoding.UTF8);
 while (await reader.ReadLineAsync() is { } line)
 {
     ProcessLine(line);
 }
 
 // Text file writing with StreamWriter
-await using var writer = await fileSystem.GetWriterAsync("output/report.csv", overwrite: true, Encoding.UTF8, cancellationToken);
+await using var writer = localFileSystem.GetWriter("output/report.csv", overwrite: true, Encoding.UTF8);
 await writer.WriteLineAsync("Name,Value");
 await writer.WriteLineAsync("Item1,100");
 ```
@@ -280,8 +279,9 @@ await writer.WriteLineAsync("Item1,100");
 ### Metadata Query API
 
 ```csharp
-// Get file size (returns null if file doesn't exist)
-var fileSize = await fileSystem.GetFileSizeAsync("uploads/document.pdf", cancellationToken);
+// Local queries are synchronous; remote queries require protocol I/O
+var fileSize = localFileSystem.GetFileSize("uploads/document.pdf");
+var remoteFileSize = await remoteFileSystem.GetFileSizeAsync("uploads/document.pdf", cancellationToken);
 if (fileSize.HasValue)
 {
     Console.WriteLine($"File size: {fileSize.Value} bytes");
@@ -439,14 +439,13 @@ var options = new LocalFileSystemOptions
 };
 ```
 
-> 💡 Larger buffers improve performance for large files but increase memory usage per concurrent operation.
+Larger buffers can improve large-file throughput but increase memory usage for the active copy operation.
 
 ### Batch Operation Optimization
 
-For scenarios requiring processing of large numbers of files, use batch processing APIs to reduce connection overhead:
+For scenarios requiring processing of many files, use the batch APIs to centralize progress, cancellation, conflict validation, and result aggregation:
 
 ```csharp
-// Local batch operation is more efficient than issuing independent calls
 string[] localFiles = Directory.GetFiles("local/directory", "*.txt");
 await localFs.UploadFilesAsync(localFiles, "uploads");
 ```
@@ -456,19 +455,16 @@ await localFs.UploadFilesAsync(localFiles, "uploads");
 ### Core Interface Hierarchy
 
 ```
-              IFileSystem
-                   │
-         IFileSystemOperations
-           /            \
-ILocalFileSystem    IRemoteFileSystem
+                    IFileTransfer
+                   /             \
+      ILocalFileSystem       IRemoteFileSystem
 ```
 
 ### Core Interfaces
 
-- **IFileSystem**: Defines basic file operation interfaces
-- **IFileSystemOperations**: Unified file system operation interface, inheriting from IFileSystem
-- **ILocalFileSystem**: Local file system specific interface, extending unique functionalities
-- **IRemoteFileSystem**: Remote file system connection management interface
+- **IFileTransfer**: Defines true asynchronous content transfers shared by local and remote implementations
+- **ILocalFileSystem**: Defines synchronous local metadata and stream factories plus asynchronous content transfers
+- **IRemoteFileSystem**: Defines asynchronous remote metadata, stream, directory, transfer, and connection-lifecycle operations
 
 ### Implementation Class Hierarchy
 
@@ -482,7 +478,7 @@ ILocalFileSystem    IRemoteFileSystem
 
 ### Base Classes
 
-- **FileSystemBase**: Abstract base class for all file systems, implementing the IFileSystemOperations interface
+- **FileSystemBase**: Shares retry, logging, and batch-result helpers without declaring a local or remote execution contract
 - **RemoteFileSystemBase**: Abstract base class for remote file systems, inheriting from FileSystemBase and implementing IRemoteFileSystem
 - **LocalFileSystem**: Concrete implementation of local file system
 - **FtpFileSystem**: FTP file system implementation based on FluentFTP library
@@ -492,7 +488,7 @@ ILocalFileSystem    IRemoteFileSystem
 
 This library uses the following design patterns:
 
-- **Strategy Pattern**: Different file systems implement the same interface (IFileSystemOperations) but have their own implementation strategies
+- **Capability Interfaces**: Local and remote implementations share transfers while expressing metadata execution accurately
 - **Template Method**: Defines algorithm skeleton in FileSystemBase base class, with subclasses implementing specific steps
 - **Adapter Pattern**: Adapts different file system APIs like FluentFTP and SSH.NET to a unified interface
 - **Simple Factory**: The CreateClient() method within each file system class creates specific client instances
@@ -501,7 +497,7 @@ This library uses the following design patterns:
 ### Key Workflows
 
 1. **File Upload Workflow**:
-   - Client calls IFileSystemOperations.UploadAsync
+   - Client calls `IFileTransfer.UploadAsync` for true asynchronous content transfer
    - Executes different implementations based on actual file system type
    - Applies configured file naming rules and validation measures
    - Returns unified FileOperationResult

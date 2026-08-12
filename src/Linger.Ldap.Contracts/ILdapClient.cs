@@ -1,11 +1,11 @@
 namespace Linger.Ldap.Contracts;
 
 /// <summary>
-/// Represents low-level LDAP operations
+/// Represents asynchronous LDAP operations backed by a provider with native asynchronous APIs.
 /// </summary>
 /// <remarks>
-/// Cancellation behavior depends on the provider. Providers with native asynchronous LDAP APIs can cancel
-/// in-flight operations; providers backed by synchronous directory APIs observe cancellation at operation boundaries.
+/// The Active Directory provider uses a separate synchronous contract because
+/// <c>System.DirectoryServices</c> does not provide asynchronous search operations.
 /// </remarks>
 public interface ILdapClient
 {

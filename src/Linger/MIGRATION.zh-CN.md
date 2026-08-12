@@ -10,11 +10,12 @@
 | --- | --- | --- | --- | --- |
 | `Linger.Utils` | `DataTable.ToListAsync<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` | 需要引用 `Linger.Reflection`；被删除的方法只是使用 `Task.FromResult` 包装基于反射的同步映射。 |
 | `Linger.Utils` | 基于反射的 `DataTable.ToList<T>()` | `DataTable.ToList<T>()` | `Linger.Reflection` | 需要引用 `Linger.Reflection`。不需要运行时反射时，请使用 `Linger.Utils` 中的映射器或工厂重载。 |
+| `Linger.Reflection` | `DataTable.ToList<T>(parallelProcessingThreshold: ...)` | `DataTable.ToList<T>()` | `Linger.Reflection` | 已移除自动并行映射；反射重载现在按顺序映射行。需要可预测性能和更高可读性时，请使用显式映射器重载。 |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<DataRow, T>)` | `DataTable.ToList<T>(Func<DataRow, T>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
 | `Linger.Utils` | `DataTable.ToListAsync<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `DataTable.ToList<T>(Func<T>, IReadOnlyDictionary<string, Action<T, object?>>)` | `Linger.Utils` | 被删除的方法只是使用 `Task.FromResult` 包装同步映射。 |
 | `Linger.Utils` | `RetryHelper.ExecuteAsync(Func<Task...>)` | `ExecuteAsync(Func<CancellationToken, Task...>)` | `Linger.Utils` | 接收并向实际操作传递取消令牌。省略 `shouldRetry` 时不再重试所有异常；需要重试时必须显式传入谓词。 |
 | `Linger.Utils` | 不支持结果策略的 `RetryHelper.ExecuteAsync<T>` | `ExecuteAsync<T>(..., shouldRetryResult: ...)` | `Linger.Utils` | 泛型 API 现在可直接重试失败结果；达到最大次数后返回最后一次结果。公共签名已变化，调用方需要重新编译。 |
-| `Linger.FileSystem` | `FileOperationResult.FileSize` | `GetFileSizeAsync(...)` | `Linger.FileSystem` | 操作结果不再携带大小元数据，仅在需要时查询。 |
+| `Linger.FileSystem` | `FileOperationResult.FileSize` | 本地使用 `GetFileSize(...)`；远程使用 `GetFileSizeAsync(...)` | `Linger.FileSystem` | 操作结果不再携带大小元数据，仅在需要时查询。 |
 | `Linger.FileSystem` | `FileOperationResult.FullFilePath` / `FileHash` | `UploadedInfo.FullFilePath` / `HashData` | `Linger.FileSystem.Local` | 实现特有元数据仅由本地命名上传 API 返回。 |
 | `Linger.FileSystem` | 本地命名版 `UploadAsync(...)` 重载 | `UploadWithNamingAsync(...)` 或 `UploadFileWithNamingAsync(...)` | `Linger.FileSystem.Local` | 公共 `UploadAsync` 现在仅表示从流上传到指定路径。 |
 | `Linger.Utils` | 为 `ParameterList.Parameters` 整体赋值 | 修改 `Parameters` 集合，或调用 `SetValue`、`Add`、`Remove`、`Clear` | `Linger.Utils` | 字典引用已改为只读，不能再整体替换或设为 `null`。 |
@@ -95,9 +96,23 @@
 | `Linger.AspNetCore.Jwt` | `JwtService.GetClaimsAsync(string)` | `GetClaimsAsync(string, CancellationToken)` | `Linger.AspNetCore.Jwt` | 自定义 Claims 查询现在可响应调用方取消；派生类需要更新重写签名并向下游异步调用传递令牌。 |
 | `Linger.AspNetCore.Jwt` | `JwtServiceWithRefresh.GetExistRefreshTokenAsync` / `HandleRefreshToken` | `StoreRefreshTokenAsync` / `TryRotateRefreshTokenAsync` | `Linger.AspNetCore.Jwt` | 刷新轮换改为存储层原子比较并替换，防止并发请求重复使用同一个旧令牌。现有派生类必须迁移到新钩子。 |
 | `Linger.AspNetCore.Jwt` | `JwtOption.EnableRefreshToken` 配置示例 | 删除该配置；通过注册 `IRefreshableJwtService` 启用刷新 | `Linger.AspNetCore.Jwt` | 该属性从未存在于实际选项类型，刷新能力由服务实现决定。 |
-| `Linger.FileSystem` | `ILocalFileSystem.Exists()` / `ExistsAsync()` | `DirectoryExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | 使用标准目录存在性 API。`LocalFileSystem` 还会在构造时创建配置的根目录。 |
-| `Linger.FileSystem` | `ILocalFileSystem.CreateIfNotExists()` / `CreateIfNotExistsAsync()` | `CreateDirectoryIfNotExistsAsync(fileSystem.RootDirectoryPath)` | `Linger.FileSystem` | 使用标准目录创建 API。 |
+| `Linger.FileSystem` | 本地 `FileExistsAsync` / `DirectoryExistsAsync` | `FileExists` / `DirectoryExists` | `Linger.FileSystem.Local` | 本地元数据查询基于同步 BCL API，不再包装为伪异步。远程签名不变。 |
+| `Linger.FileSystem` | 本地 `CreateDirectoryIfNotExistsAsync` / `DeleteFileIfExistsAsync` | `CreateDirectoryIfNotExists` / `DeleteFileIfExists` | `Linger.FileSystem.Local` | 本地目录和文件变更同步完成。 |
+| `Linger.FileSystem` | 本地 `OpenReadAsync` / `OpenWriteAsync` / `GetReaderAsync` / `GetWriterAsync` | `OpenRead` / `OpenWrite` / `GetReader` / `GetWriter` | `Linger.FileSystem.Local` | 创建本地流是同步操作；返回的文件流仍支持真正的异步内容读写。 |
+| `Linger.FileSystem` | 本地 `GetFileSizeAsync` / `DeleteAsync` | `GetFileSize` / `Delete` | `Linger.FileSystem.Local` | 本地元数据和删除不再返回已完成任务。 |
+| `Linger.FileSystem` | `IFileSystem` | `IFileTransfer` | `Linger.FileSystem` | 共享契约改为直接表达其真实职责：异步文件内容传输。这是破坏源代码兼容性的接口重命名。 |
+| `Linger.FileSystem` | `IFileSystemOperations` | 远程操作使用 `IRemoteFileSystem`；本地操作使用 `ILocalFileSystem` | `Linger.FileSystem` | 已删除无独立职责的中间接口。远程异步能力直接归入 `IRemoteFileSystem`；本地元数据和流工厂保持同步。 |
+| `Linger.FileSystem` | `ILocalFileSystem.Exists()` / `ExistsAsync()` | `DirectoryExists(fileSystem.RootDirectoryPath)` | `Linger.FileSystem.Local` | 使用本地同步目录存在性 API。`LocalFileSystem` 还会在构造时创建配置的根目录。 |
+| `Linger.FileSystem` | `ILocalFileSystem.CreateIfNotExists()` / `CreateIfNotExistsAsync()` | `CreateDirectoryIfNotExists(fileSystem.RootDirectoryPath)` | `Linger.FileSystem.Local` | 使用本地同步目录创建 API。 |
 | `Linger.FileSystem` | `IFileSystemOperations.IsDirectoryAsync(path)` | `DirectoryExistsAsync(path)` | `Linger.FileSystem` | 被删除的方法是完全别名。 |
+| `Linger.FileSystem` | `IBatchFileSystemOperations` | `ILocalBatchFileSystemOperations` | `Linger.FileSystem` | 批量操作仅由本地文件系统提供，接口名现在明确其能力边界。 |
+| `Linger.FileSystem` | `IBatchFileSystemOperations.ListFilesAsync(...)` / `ListDirectoriesAsync(...)` | `ILocalBatchFileSystemOperations.ListFiles(...)` / `ListDirectories(...)` | `Linger.FileSystem` | 本地目录枚举基于同步 BCL API，不再包装为伪异步，也不再接收无实际取消能力的 `CancellationToken`；FTP/SFTP 继续通过 `IRemoteFileSystem` 使用真正的异步列表 API。 |
+| `Linger.FileSystem` | `ILocalBatchFileSystemOperations.DeleteFilesAsync(...)` | `DeleteFiles(...)` | `Linger.FileSystem` | `File.Delete` 是同步操作。批量删除现在在调用线程上顺序执行，不再通过异步批处理 worker 返回已完成任务；取消会在文件之间检查。 |
+| `Linger.FileSystem` | `LocalFileSystemOptions.MaxDegreeOfParallelism` | 删除该配置 | `Linger.FileSystem` | 本地批量操作现在按输入顺序执行。上传和下载保留异步文件 I/O，但不再调度并发 worker；删除保持同步。 |
+| `Linger.FileSystem.Ftp` / `Linger.FileSystem.Sftp` | 通过 `FtpFileSystem` / `SftpFileSystem` 具体类型调用 `ListFilesAsync(...)` / `ListDirectoriesAsync(...)` | 通过 `IRemoteFileSystem` 调用同签名方法 | `Linger.FileSystem` | 远程目录枚举能力现在由远程接口正式声明；原有具体类型调用无需修改。 |
+| `Linger.FileSystem` | `UploadFilesAsync(..., remoteDirectory, ...)` / `DownloadFilesAsync(remoteFilePaths, ...)` | `UploadFilesAsync(..., destinationDirectory, ...)` / `DownloadFilesAsync(sourceFilePaths, ...)` | `Linger.FileSystem` | 参数含义原本就是本地根目录下的目标/源路径；使用命名参数的调用方需要更新参数名。 |
+| `Linger.FileSystem` | 可在创建后重新赋值 `BatchOperationResult.SucceededFiles` / `FailedFiles` | 仅可在对象初始化期间赋值 | `Linger.FileSystem` | 集合属性由 `set` 改为 `init`，防止返回结果在创建后被替换。 |
+| `Linger.FileSystem` | 派生类调用 `FileSystemBase.ExecuteBatchItemAsync(...)` | 在派生实现中直接执行并记录批量项结果 | `Linger.FileSystem` | 未使用的受保护辅助方法已删除；外部派生类如有调用，需要内联对应的异常和结果记录逻辑。 |
 | `Linger.FileSystem` | `IRemoteFileSystem.ServerDetails()` | `IRemoteFileSystem.ServerDetails` | `Linger.FileSystem` | 服务器详情是缓存数据，现改为只读属性。 |
 | `Linger.FileSystem` | `RemoteSystemSetting` | `FtpFileSystemOptions` / `SftpFileSystemOptions` | `Linger.FileSystem.Ftp` / `Linger.FileSystem.Sftp` | 根据协议选择专用选项类型。`Type` 属性已删除，协议由具体实现确定。 |
 | `Linger.FileSystem.Ftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Ftp` | 调用上传 API 前先构造完整目标路径。 |
@@ -109,6 +124,7 @@
 | `Linger.Ldap.Contracts` | `ILdap` | `ILdapClient` | `Linger.Ldap.Contracts` | 重命名以准确表达契约含义：连接目录服务器的客户端。 |
 | `Linger.Ldap.Contracts` | `AdUserInfo` | `LdapUserInfo` | `Linger.Ldap.Contracts` | 该模型与提供者无关，并不局限于 Active Directory。 |
 | `Linger.Ldap.ActiveDirectory` | `Ldap` | `AdLdapClient` | `Linger.Ldap.ActiveDirectory` | 原名称与 `Linger.Ldap` 命名空间冲突，且与 Novell 实现同名。 |
+| `Linger.Ldap.ActiveDirectory` | `ILdapClient` 以及 `ValidateUserAsync` / `FindUserAsync` / `GetUsersAsync` / `SearchUsersByFilterAsync` / `UserExistsAsync` | `IActiveDirectoryClient` 以及 `ValidateUser` / `FindUser` / `GetUsers` / `SearchUsersByFilter` / `UserExists` | `Linger.Ldap.Contracts` | `System.DirectoryServices` 只提供同步目录操作；新公共契约直接表达真实执行模型，不再返回已完成任务。 |
 | `Linger.Ldap.Contracts` | 查询返回 `Task<IEnumerable<LdapUserInfo>>` | `Task<IReadOnlyList<LdapUserInfo>>` | `Linger.Ldap.Contracts` | 提供者资源释放前会完成结果实体化，新契约直接表达这一行为。 |
 | `Linger.Ldap.Contracts` | 使用分隔字符串表示 `ProxyAddresses` / `OtherTelephone` | `string[]?` 属性 | `Linger.Ldap.Contracts` | LDAP 多值属性不再依赖提供者特定的分隔符。 |
 | `Linger.Ldap.Novell` | `Ldap` | `NovellLdapClient` | `Linger.Ldap.Novell` | 原名称与 `Linger.Ldap` 命名空间冲突，且与 Active Directory 实现同名。 |
@@ -129,8 +145,8 @@
 | `Linger.Utils` | 其他 `DataContractJsonSerializer` 相关帮助方法 | 使用 `System.Text.Json.JsonSerializer`。 | .NET BCL | 项目统一采用 `System.Text.Json`。 |
 | `Linger.Utils` | `DeserializeDynamicJsonObject` 和 `JsonTextAccessor` | 根据是否需要可变 JSON，使用 `JsonDocument`、`JsonElement` 或 `JsonNode`。 | .NET BCL | 动态 JSON 隐藏了数据结构和运行时失败方式。 |
 | `Linger.Ldap.ActiveDirectory` | `AdLdapClient` 仅 Logger 的构造函数 | 当前 Windows 域使用无参构造；需要自定义 Logger 和显式配置时，通过 Options 注册 `LdapConfig`。 | `Linger.Ldap.ActiveDirectory` | 仅提供 Logger 无法表达连接和查询配置。 |
-| `Linger.Ldap.ActiveDirectory` | `GetEntryByUsername` | 常规用户查询使用 `FindUserAsync`；确需原生 ADSI 时由应用直接使用 `System.DirectoryServices`。 | `Linger.Ldap.ActiveDirectory` / 应用代码 | 返回提供者资源会把所有权和释放责任泄露到客户端契约之外。 |
-| `Linger.Ldap.ActiveDirectory` | 面向 `UserPrincipal`、`DirectoryEntry` 和 `SearchResultCollection` 的公开映射扩展 | 使用 `ILdapClient` 查询操作。 | `Linger.Ldap.Contracts` | 三套映射路径存在重复，并会返回不一致的账户安全信息。 |
+| `Linger.Ldap.ActiveDirectory` | `GetEntryByUsername` | 常规用户查询使用 `IActiveDirectoryClient.FindUser`；确需原生 ADSI 时由应用直接使用 `System.DirectoryServices`。 | `Linger.Ldap.ActiveDirectory` / 应用代码 | 返回提供者资源会把所有权和释放责任泄露到客户端契约之外。 |
+| `Linger.Ldap.ActiveDirectory` | 面向 `UserPrincipal`、`DirectoryEntry` 和 `SearchResultCollection` 的公开映射扩展 | 使用 `IActiveDirectoryClient` 查询操作。 | `Linger.Ldap.Contracts` | 三套映射路径存在重复，并会返回不一致的账户安全信息。 |
 
 ## 行为变化
 

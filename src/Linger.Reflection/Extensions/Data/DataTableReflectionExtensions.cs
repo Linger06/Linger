@@ -14,12 +14,11 @@ public static class DataTableReflectionExtensions
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dataTable">The current <see cref="DataTable"/>.</param>
-    /// <param name="parallelProcessingThreshold">The minimum number of rows required to enable parallel processing.</param>
     /// <returns>A <see cref="List{T}"/> representing the rows, or <see langword="null"/> when <paramref name="dataTable"/> is <see langword="null"/>.</returns>
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload in Linger.Utils for AOT/trimming scenarios.")]
 #endif
-    public static List<T>? ToList<T>(this DataTable? dataTable, int parallelProcessingThreshold = 1000)
+    public static List<T>? ToList<T>(this DataTable? dataTable)
         where T : class, new()
     {
         if (dataTable?.Rows.Count == 0)
@@ -52,8 +51,6 @@ public static class DataTableReflectionExtensions
             return result;
         }
 
-        var useParallel = dataTable.Rows.Count > parallelProcessingThreshold;
-
         static T MapRow(DataRow row, IReadOnlyDictionary<int, PropertyInfo> mappings)
         {
             var item = new T();
@@ -69,22 +66,9 @@ public static class DataTableReflectionExtensions
             return item;
         }
 
-        if (useParallel)
+        foreach (DataRow row in dataTable.Rows)
         {
-            var items = new T[dataTable.Rows.Count];
-            Parallel.For(0, dataTable.Rows.Count, i =>
-            {
-                items[i] = MapRow(dataTable.Rows[i], columnMappings);
-            });
-
-            result.AddRange(items);
-        }
-        else
-        {
-            foreach (DataRow row in dataTable.Rows)
-            {
-                result.Add(MapRow(row, columnMappings));
-            }
+            result.Add(MapRow(row, columnMappings));
         }
 
         return result;

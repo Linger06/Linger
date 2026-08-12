@@ -45,16 +45,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 将Excel文件转换为DataSet(所有工作表)
-    /// </summary>
-    public override DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false)
-    {
-        return ImportFile(
-            filePath,
-            stream => StreamToDataSet(stream, headerRowIndex, addEmptyRow));
-    }
-
-    /// <summary>
     /// 将Excel文件转换为DataSet(指定工作表)
     /// </summary>
     public override DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false)
@@ -65,23 +55,13 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
-    /// </summary>
-    public override DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
-    {
-        return ImportFile(
-            filePath,
-            stream => StreamToDataSet(stream, headerRowIndexSelector, addEmptyRow));
-    }
-
-    /// <summary>
     /// 将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
-    public override DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false)
+    public override DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, IEnumerable<string>? sheetNames = null, bool addEmptyRow = false)
     {
         return ImportFile(
             filePath,
-            stream => StreamToDataSet(stream, sheetNames, headerRowIndexSelector, addEmptyRow));
+            stream => StreamToDataSet(stream, headerRowIndexSelector, sheetNames, addEmptyRow));
     }
 
     private TResult? ImportFile<TResult>(string filePath, Func<Stream, TResult?> import)
@@ -103,7 +83,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 数据表格转 Excel 文件
     /// </summary>
-    public override string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "",
+    protected override string DataTableToExcelCore(DataTable dataTable, string fullFileName, string sheetsName, string title,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
         using var ms = DataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
@@ -117,7 +97,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads.")]
 #endif
-    public override string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "",
+    protected override string CollectionToExcelCore<T>(List<T> list, string fullFileName, string sheetsName, string title,
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
     {
         using var ms = CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
@@ -140,7 +120,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 数据集转 Excel 文件(每个DataTable一个工作表)
     /// </summary>
-    public override string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = "Sheet",
+    protected override string DataSetToExcelCore(DataSet dataSet, string fullFileName, string defaultSheetName,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
         return DataSetToExcelCore(dataSet, fullFileName, defaultSheetName, action, styleAction, worksheetAction: null);
@@ -357,14 +337,6 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 将Stream转换为DataSet(所有工作表)（新方法）
-    /// </summary>
-    public override DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
-    {
-        return StreamToDataSet(stream, null, headerRowIndex, addEmptyRow, cancellationToken);
-    }
-
-    /// <summary>
     /// 将Stream转换为DataSet(指定工作表)（新方法）
     /// </summary>
     public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default)
@@ -430,17 +402,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     }
 
     /// <summary>
-    /// 将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
-    /// </summary>
-    public override DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
-    {
-        return StreamToDataSet(stream, null, headerRowIndexSelector, addEmptyRow, cancellationToken);
-    }
-
-    /// <summary>
     /// 将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行（新方法）
     /// </summary>
-    public override DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default)
+    public override DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, IEnumerable<string>? sheetNames = null, bool addEmptyRow = false, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
