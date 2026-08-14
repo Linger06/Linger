@@ -43,6 +43,21 @@ Provider 原生流式读取无法加入由 `database.BeginTrans()` 创建的环�
 `database` 实例在内部管理。需要在事务中流式读取时，调用方必须统一创建、关联并释放 Provider 的
 Connection、Transaction、Command 和 Reader。
 
+`ExecuteBySql` / `ExecuteByProc` 的 `StringBuilder` 重载已删除，请使用 `string` 重载（必要时先调用 `sql.ToString()`）。
+`FindTableBySql` / `FindDataSetBySql`（同步）和 `FindMaxBySql` / `FindMaxBySqlAsync` 已删除，
+改用 `QueryTable` / `Query` / `FindListBySql`，或直接编写 SQL。
+
+`IBaseDatabase` 的异步方法不再提供 `params DbParameter[]` 重载。`ExecuteNonQueryAsync` / `ExecuteScalarAsync`
+统一接收 `DbParameter[]?` 参数数组（取消令牌由可选参数提供）：
+
+```csharp
+await database.ExecuteNonQueryAsync(
+    CommandType.Text,
+    "UPDATE Accounts SET Balance = @amount WHERE Id = @id",
+    new SqlParameter[] { new("@amount", 100), new("@id", 1) },
+    cancellationToken);
+```
+
 ## 存在性检查
 
 `Exists` 和 `ExistsAsync` 已删除。它们既重复了计数方法，又容易与“查询是否返回行”混淆。
@@ -117,3 +132,4 @@ Provider Helper 只保留行为明确的 SQLite 特有操作：
 - 删除 `SqlBuilder`。
 - 删除原始字符串分批查询和异步 `DataTable` 分批查询 API。
 - `CommandTimeout` 设置为负数时会立即抛出异常。
+- `OracleHelper` 自身的 `Query` / `QueryAsync` / `Exists` / `ExistsAsync` 重载已删除，统一使用 `Database` 基类 API。

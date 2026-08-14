@@ -1,5 +1,7 @@
 # Linger.EFCore.Audit
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 用于自动跟踪数据变更的 Entity Framework Core 审计跟踪库。
 
 ## ✨ 功能特点

@@ -1,5 +1,7 @@
 # Linger.Excel.ClosedXML
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 ## Overview
 
 Linger.Excel.ClosedXML is an implementation of the Excel manipulation interfaces defined in Linger.Excel.Contracts, based on the powerful [ClosedXML](https://github.com/ClosedXML/ClosedXML) library. This package provides high-performance Excel file operations with a clean, abstracted API.

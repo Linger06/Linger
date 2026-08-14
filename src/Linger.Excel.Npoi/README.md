@@ -1,5 +1,7 @@
 # Linger.Excel.Npoi
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 ## Overview
 
 Linger.Excel.Npoi is an implementation of the Excel manipulation interfaces defined in Linger.Excel.Contracts, based on the powerful [NPOI](https://github.com/nissl-lab/npoi) library. This package provides high-performance Excel file operations without requiring Microsoft Office to be installed.

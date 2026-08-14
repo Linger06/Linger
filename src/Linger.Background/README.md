@@ -1,5 +1,7 @@
 # Linger.Background
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 一个轻量级的.NET后台任务处理库。
 
 ## 介绍

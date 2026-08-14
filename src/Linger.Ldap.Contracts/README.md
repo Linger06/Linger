@@ -1,5 +1,7 @@
 ﻿# Linger.Ldap.Contracts
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 Core contracts and shared models for LDAP operations in .NET applications.
 
 ## Introduction

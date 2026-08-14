@@ -1,5 +1,7 @@
 # Linger.Excel.ClosedXML
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 ## 概述
 
 Linger.Excel.ClosedXML 是基于强大的 [ClosedXML](https://github.com/ClosedXML/ClosedXML) 库实现的 Linger.Excel.Contracts 中定义的 Excel 操作接口。该包提供了高性能的 Excel 文件操作功能，并具有清晰、抽象的 API。

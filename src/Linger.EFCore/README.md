@@ -1,5 +1,7 @@
 ﻿# Linger.EFCore
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 A C# Entity Framework Core helper library that provides enhanced query filter capabilities and property conversion extensions for .NET 9.0 and .NET 8.0.
 
 ## Introduction

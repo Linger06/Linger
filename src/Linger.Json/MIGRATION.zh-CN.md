@@ -11,3 +11,5 @@
 | `Linger.Utils` | `JsonElement.JsonElementToDataTable()` | `Linger.Json` | 添加 `Linger.Json` 包引用。 |
 
 已删除的 `JsonExtensions.ToJsonString(...)` 与 `JsonExtensions.Deserialize<T>(...)` 便捷包装方法不会迁入 `Linger.Json`。请直接使用 `System.Text.Json.JsonSerializer`；Native AOT 应用应优先使用源生成的 `JsonTypeInfo<T>` 或 `JsonSerializerContext`。
+
+其他包的破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。

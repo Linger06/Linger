@@ -1,6 +1,8 @@
 ````markdown
 # Linger.Background
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 一个轻量级的.NET后台任务处理库。
 
 ## 介绍

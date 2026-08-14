@@ -1,5 +1,7 @@
 # Linger.Ldap.ActiveDirectory
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 基于 System.DirectoryServices 的 Active Directory LDAP 客户端实现。
 
 ## 功能特点

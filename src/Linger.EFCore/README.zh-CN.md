@@ -1,5 +1,7 @@
 # Linger.EFCore
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 一个为 .NET 9.0 和 .NET 8.0 提供增强查询过滤功能和属性转换扩展的 C# Entity Framework Core 辅助库。
 
 ## 介绍

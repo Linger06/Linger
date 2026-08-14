@@ -1,5 +1,7 @@
 ﻿# Linger.FileSystem
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 Linger.FileSystem 为本地存储、FTP 和 SFTP 提供文件系统抽象。文件内容传输共享异步契约；本地元数据使用同步 API，远程元数据保留异步协议 API。
 
 ## 项目结构

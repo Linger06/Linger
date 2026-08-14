@@ -1,5 +1,7 @@
 # Linger.AspNetCore.Jwt.Contracts
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 Core interfaces and abstractions for JWT (JSON Web Token) authentication and authorization in ASP.NET Core applications.
 
 ## Features

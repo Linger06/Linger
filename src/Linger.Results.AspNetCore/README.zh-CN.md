@@ -1,5 +1,7 @@
 # Linger.Results.AspNetCore
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 Linger.Results.AspNetCore 提供了将 Linger.Results 库与 ASP.NET Core 框架无缝集成的扩展方法，使API控制器可以轻松返回统一格式的结果。
 
 ## 功能特点

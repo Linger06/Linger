@@ -1,5 +1,7 @@
 # Linger.Audit
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 一个轻量级的 .NET 审计库，提供实体审计的基类和接口。
 
 ## 📖 目录

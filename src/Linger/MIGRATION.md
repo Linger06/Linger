@@ -64,12 +64,13 @@ for applications upgrading from the previous API surface.
 
 ## Other Linger packages
 
+> **Specialized guides**: breaking changes for `Linger.DataAccess` are documented in the [Linger.DataAccess migration guide](../Linger.DataAccess/MIGRATION.md); the `Linger.Json` package split is covered by the [Linger.Json migration guide](../Linger.Json/MIGRATION.md).
+
 | Source package | Removed API | Replacement | Replacement location | Notes |
 | --- | --- | --- | --- | --- |
 | `Linger.Configuration` | `AppSettingsHelper.CovertToObject<T>` | `ConvertToObject<T>` | `Linger.Configuration` | Corrects the method name typo. |
 | `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.TryRefreshTokenAsync` | `RefreshTokenResultAsync` | `Linger.AspNetCore.Jwt.Contracts` | The replacement also provides an error message. |
 | `Linger.Email.AspNetCore` | `ConfigureEmail` / `ConfigureMailKit` | `AddEmailService` | `Linger.Email.AspNetCore` | The replacement returns `IServiceCollection` for chaining. |
-| `Linger.DataAccess` | .NET Framework 4.7.2 async transaction APIs: `BeginTransAsync`, `CommitAsync`, `RollbackAsync`, and `ExecuteTransactionAsync` | `BeginTrans`, `Commit`, `Rollback`, and `ExecuteTransaction` | `Linger.DataAccess` | Async transaction APIs are available on .NET 8 and later only. On .NET Framework 4.7.2, call the synchronous APIs directly rather than wrapping them in `Task.Run`. |
 | `Linger.Email` | Reusing an SMTP connection through one `Email` instance | No API replacement; batch or queue high-volume sends | `Linger.Email` | `SendAsync` now creates and closes an SMTP client per call, so one `Email` instance supports concurrent sends. Do not rely on connection reuse. |
 | `Linger.Excel.Contracts` | `DataTableToFile` / `DataSetToFile` | `DataTableToExcel` / `DataSetToExcel` | `Linger.Excel.Contracts` | The replacement names match the Excel export operation. |
 | `Linger.Excel.Contracts` | `DataTableToExcelAsync` / `CollectionToExcelAsync` | `DataTableToExcel` / `CollectionToExcel` | `Linger.Excel.Contracts` | The providers serialize workbooks synchronously, so the removed APIs only added an asynchronous file copy after first buffering the entire workbook in memory. File exports now write directly to the destination stream. |
@@ -136,6 +137,14 @@ for applications upgrading from the previous API surface.
 | `Linger.Ldap.Contracts` | String-delimited `ProxyAddresses` / `OtherTelephone` | `string[]?` properties | `Linger.Ldap.Contracts` | LDAP multi-value attributes are preserved without provider-specific delimiters. |
 | `Linger.Ldap.Novell` | `Ldap` | `NovellLdapClient` | `Linger.Ldap.Novell` | The previous name collided with the `Linger.Ldap` namespace and with the Active Directory implementation of the same name. |
 | `Linger.Ldap.Novell` | `LdapEntry.ToAdUser()` | `LdapEntry.ToLdapUserInfo()` | `Linger.Ldap.Novell` | Renamed to match `LdapUserInfo`. |
+| `Linger.Excel.EPPlus` | `EPPlusExcel`, `ExcelWorksheetExtensions.TrimLastEmptyRows` / `IsLastRowEmpty` | Use `Linger.Excel.Npoi` or `Linger.Excel.ClosedXML` | `Linger.Excel.Npoi` / `Linger.Excel.ClosedXML` | The EPPlus provider was removed entirely; the remaining providers implement the same `IExcelService` contract and can be swapped in directly. |
+| `Linger.SharedKernel` | `BaseSearchPageList` | `BaseSearchPagedList` | `Linger.SharedKernel` | A duplicate type equivalent to `BaseSearchPagedList` (both inherit `BaseSearch` and implement `IBaseSearchPagedList`); only the name spelling differed. |
+| `Linger.Audit` | `IAuditUserProvider.UserName`; the `string` return type of `GetUser()` | Implement `GetUser()` and return `null` when no authenticated user exists | `Linger.Audit.Contracts` | User identity now comes solely from `GetUser()`; the return type became `string?`, so interface implementers must adjust. |
+| `Linger.Audit` | `AuditTrailEntry.Changes` / `TempProperties` | `CurrentValuesSnapshot`, or compare `OldValues` / `NewValues` yourself | `Linger.EFCore.Audit` | Change tracking now uses explicit old/new value snapshots. |
+| `Linger.FileSystem` | `IRemoteFileSystem.IsConnected()` / `ConnectAsync()` / `DisconnectAsync()` | No explicit call needed; remote implementations manage connection lifetime internally | `Linger.FileSystem` | Connection management moved out of the shared contract; the corresponding members on `FtpFileSystem` / `SftpFileSystem` are internal implementation details. |
+| `Linger.Excel.Contracts` | Legacy overloads such as `ExcelToDataSet(string, int, ...)`, `ExcelToDataSet(string, Func<string, int?>, ...)`, and `StreamToDataSet(...)` | `ExcelToDataSet(string, IEnumerable<string>? = null, int = 0, bool = false)` / `ExcelToDataSet(string, Func<string, int?>, IEnumerable<string>? = null, bool = false)` | `Linger.Excel.Contracts` | The header-row index parameter moved later in the signature; positional calls such as `ExcelToDataSet(path, 1)` must become `ExcelToDataSet(path, headerRowIndex: 1)` or pass `sheetNames` explicitly. |
+| `Linger.Excel.Contracts` | `ExcelToDataSetAsync` / `StreamToDataSetAsync` / `ExcelToDataTableAsync` / `StreamToDataTableAsync` | The synchronous `ExcelToDataSet` / `StreamToDataSet` / `ExcelToDataTable` / `StreamToDataTable` | `Linger.Excel.Contracts` | Import parses synchronously, so the pseudo-async wrappers were removed; switch to the synchronous APIs. |
+| `Linger.Excel.Contracts` | Positional parameter order of the callback-based `IExcel<TWorksheet>.DataSetToExcel` / `DataTableToExcel` | `DataSetToExcel(DataSet, string, Action<IWorksheetExportContext<TWorksheet>>, string defaultSheetName = ...)` / `DataTableToExcel(DataTable, string, Action<TWorksheet, DataColumnCollection, DataRowCollection>?, string sheetsName = ..., string title = "", Action<TWorksheet>? styleAction = null)` | `Linger.Excel.Contracts` | The callback parameter moved to the third position; callers using positional arguments must reorder them. |
 
 ## No one-to-one replacement
 
@@ -181,6 +190,7 @@ for applications upgrading from the previous API surface.
   value's runtime type, so numbers and booleans remain JSON numbers and booleans. When JSON values
   of incompatible token types share a column, deserialization uses an `object` column and preserves
   each token's corresponding .NET value type.
+- **`Linger.Audit`**: `CreationAuditEntity.CreationTime` is no longer initialized to `DateTimeOffset.Now`; assign it explicitly when creating an entity. `CreatorId` now defaults to `string.Empty` instead of `null!`.
 
 ## Examples
 

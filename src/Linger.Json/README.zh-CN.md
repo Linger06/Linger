@@ -1,5 +1,7 @@
 # Linger.Json
 
+> 2.0 迁移说明见 [Linger.Json 迁移指南](MIGRATION.zh-CN.md)，其他包的破坏性变更见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 `Linger.Json` 是从 `Linger.Utils` 拆分出的可选 JSON 包，提供 `System.Text.Json` 转换器、`DataTable` JSON 扩展和可复用的 `JsonSerializerOptions` 工厂。
 
 ## 安装

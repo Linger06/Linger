@@ -1,5 +1,7 @@
 ﻿# Linger.Ldap.Novell
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 A cross-platform LDAP client implementation based on Novell.Directory.Ldap.
 
 ## Features

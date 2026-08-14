@@ -1,5 +1,7 @@
 # Linger.Ldap.ActiveDirectory
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 An Active Directory focused LDAP client implementation based on System.DirectoryServices.
 
 ## Features

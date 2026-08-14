@@ -1,5 +1,7 @@
 ﻿# Linger.FileSystem.Sftp
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 ## 概述
 
 Linger.FileSystem.Sftp 是 Linger FileSystem 抽象的一个实现，提供 SFTP（SSH 文件传输协议）文件操作支持。它使用 SSH.NET 库提供安全可靠的 SFTP 客户端，支持密码和证书认证方式进行文件操作。

@@ -1,5 +1,7 @@
 # Linger.Email
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 ## Overview
 
 Linger.Email is the framework-agnostic core package for sending email with MailKit. It provides SMTP transport, message composition, attachment handling, and asynchronous sending across multiple .NET frameworks.

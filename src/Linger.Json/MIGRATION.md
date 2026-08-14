@@ -11,3 +11,5 @@ In Linger 2.0, JSON-specific APIs move from `Linger.Utils` to `Linger.Json`. The
 | `Linger.Utils` | `JsonElement.JsonElementToDataTable()` | `Linger.Json` | Add the `Linger.Json` package reference. |
 
 The removed `JsonExtensions.ToJsonString(...)` and `JsonExtensions.Deserialize<T>(...)` convenience wrappers are not part of `Linger.Json`. Use `System.Text.Json.JsonSerializer` directly, preferably with source-generated `JsonTypeInfo<T>` or `JsonSerializerContext` in Native AOT applications.
+
+Breaking changes for other packages are documented in the [Linger migration guide](../Linger/MIGRATION.md).

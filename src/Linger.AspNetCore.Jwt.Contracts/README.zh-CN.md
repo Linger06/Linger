@@ -1,5 +1,7 @@
 # Linger.AspNetCore.Jwt.Contracts
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 ASP.NET Core 应用中 JWT（JSON Web Token）认证和授权的核心接口和抽象。
 
 ## 功能特点

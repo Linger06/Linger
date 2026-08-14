@@ -1,5 +1,7 @@
 # Linger.Email
 
+> 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
+
 ## 概述
 
 Linger.Email 是用于邮件发送的框架无关核心包，基于 MailKit 构建。它提供 SMTP 传输、邮件内容组装、附件处理和异步发送能力，可在多个 .NET 框架中使用。

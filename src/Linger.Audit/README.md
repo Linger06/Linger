@@ -1,5 +1,7 @@
 ﻿# Linger.Audit
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 A lightweight .NET auditing library that provides base classes and interfaces for entity auditing.
 
 ## 📖 Table of Contents

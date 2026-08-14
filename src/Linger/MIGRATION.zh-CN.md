@@ -63,12 +63,13 @@
 
 ## 其他 Linger 包
 
+> **专项迁移指南**：`Linger.DataAccess` 的破坏性变更详见 [Linger.DataAccess 迁移指南](../Linger.DataAccess/MIGRATION.zh-CN.md)；`Linger.Json` 的包拆分说明详见 [Linger.Json 迁移指南](../Linger.Json/MIGRATION.zh-CN.md)。
+
 | 原包 | 已删除 API | 替代方式 | 替代项位置 | 说明 |
 | --- | --- | --- | --- | --- |
 | `Linger.Configuration` | `AppSettingsHelper.CovertToObject<T>` | `ConvertToObject<T>` | `Linger.Configuration` | 修正方法名称中的拼写错误。 |
 | `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.TryRefreshTokenAsync` | `RefreshTokenResultAsync` | `Linger.AspNetCore.Jwt.Contracts` | 替代方法同时提供错误消息。 |
 | `Linger.Email.AspNetCore` | `ConfigureEmail` / `ConfigureMailKit` | `AddEmailService` | `Linger.Email.AspNetCore` | 替代方法返回 `IServiceCollection`，可继续链式调用。 |
-| `Linger.DataAccess` | .NET Framework 4.7.2 的异步事务 API：`BeginTransAsync`、`CommitAsync`、`RollbackAsync` 和 `ExecuteTransactionAsync` | `BeginTrans`、`Commit`、`Rollback` 和 `ExecuteTransaction` | `Linger.DataAccess` | 异步事务 API 仅在 .NET 8 及更高版本可用；.NET Framework 4.7.2 请直接调用同步 API，不要使用 `Task.Run` 进行包装。 |
 | `Linger.Email` | 单个 `Email` 实例复用 SMTP 连接 | 无 API 替代；高频发送请改用批处理或队列 | `Linger.Email` | `SendAsync` 现在会在每次调用时新建并关闭 SMTP 客户端，因此单个 `Email` 实例支持并发发送。请勿依赖连接复用。 |
 | `Linger.Excel.Contracts` | `DataTableToFile` / `DataSetToFile` | `DataTableToExcel` / `DataSetToExcel` | `Linger.Excel.Contracts` | 替代方法名称与 Excel 导出操作一致。 |
 | `Linger.Excel.Contracts` | `DataTableToExcelAsync` / `CollectionToExcelAsync` | `DataTableToExcel` / `CollectionToExcel` | `Linger.Excel.Contracts` | 提供方以同步方式序列化工作簿，已删除的 API 只是先将完整工作簿缓冲到内存，再异步复制到文件。文件导出现在直接写入目标流。 |
@@ -135,6 +136,14 @@
 | `Linger.Ldap.Contracts` | 使用分隔字符串表示 `ProxyAddresses` / `OtherTelephone` | `string[]?` 属性 | `Linger.Ldap.Contracts` | LDAP 多值属性不再依赖提供者特定的分隔符。 |
 | `Linger.Ldap.Novell` | `Ldap` | `NovellLdapClient` | `Linger.Ldap.Novell` | 原名称与 `Linger.Ldap` 命名空间冲突，且与 Active Directory 实现同名。 |
 | `Linger.Ldap.Novell` | `LdapEntry.ToAdUser()` | `LdapEntry.ToLdapUserInfo()` | `Linger.Ldap.Novell` | 与 `LdapUserInfo` 保持一致。 |
+| `Linger.Excel.EPPlus` | `EPPlusExcel`、`ExcelWorksheetExtensions.TrimLastEmptyRows` / `IsLastRowEmpty` | 使用 `Linger.Excel.Npoi` 或 `Linger.Excel.ClosedXML` 提供者 | `Linger.Excel.Npoi` / `Linger.Excel.ClosedXML` | EPPlus 提供者已整体移除；其余提供者实现同一 `IExcelService` 契约，可直接替换。 |
+| `Linger.SharedKernel` | `BaseSearchPageList` | `BaseSearchPagedList` | `Linger.SharedKernel` | 与 `BaseSearchPagedList` 内容等价的重复类型（继承 `BaseSearch`、实现 `IBaseSearchPagedList`），仅名称拼写不同。 |
+| `Linger.Audit` | `IAuditUserProvider.UserName`；`GetUser()` 的 `string` 返回类型 | 实现 `GetUser()`，无可认证用户时返回 `null` | `Linger.Audit.Contracts` | 用户标识统一由 `GetUser()` 提供；返回类型改为 `string?`，接口实现者需要调整签名。 |
+| `Linger.Audit` | `AuditTrailEntry.Changes` / `TempProperties` | `CurrentValuesSnapshot`，或自行对比 `OldValues` / `NewValues` | `Linger.EFCore.Audit` | 变更集合改为清晰的旧值/新值快照模型。 |
+| `Linger.FileSystem` | `IRemoteFileSystem.IsConnected()` / `ConnectAsync()` / `DisconnectAsync()` | 无需显式调用；远程实现内部管理连接生命周期 | `Linger.FileSystem` | 连接管理移出共享接口；`FtpFileSystem` / `SftpFileSystem` 的对应方法改为内部使用。 |
+| `Linger.Excel.Contracts` | `ExcelToDataSet(string, int, ...)`、`ExcelToDataSet(string, Func<string, int?>, ...)`、`StreamToDataSet(...)` 等旧重载 | `ExcelToDataSet(string, IEnumerable<string>? = null, int = 0, bool = false)` / `ExcelToDataSet(string, Func<string, int?>, IEnumerable<string>? = null, bool = false)` | `Linger.Excel.Contracts` | 表头行索引参数后移；`ExcelToDataSet(path, 1)` 这类位置参数调用需改为 `ExcelToDataSet(path, headerRowIndex: 1)` 或显式传入 `sheetNames`。 |
+| `Linger.Excel.Contracts` | `ExcelToDataSetAsync` / `StreamToDataSetAsync` / `ExcelToDataTableAsync` / `StreamToDataTableAsync` | 同步方法 `ExcelToDataSet` / `StreamToDataSet` / `ExcelToDataTable` / `StreamToDataTable` | `Linger.Excel.Contracts` | 导入是同步解析，删除伪异步包装；调用方改用同步 API。 |
+| `Linger.Excel.Contracts` | `IExcel<TWorksheet>.DataSetToExcel` / `DataTableToExcel` 的回调式参数顺序 | `DataSetToExcel(DataSet, string, Action<IWorksheetExportContext<TWorksheet>>, string defaultSheetName = ...)` / `DataTableToExcel(DataTable, string, Action<TWorksheet, DataColumnCollection, DataRowCollection>?, string sheetsName = ..., string title = "", Action<TWorksheet>? styleAction = null)` | `Linger.Excel.Contracts` | 回调参数提前到第三参；使用位置参数调用导出方法的调用方需要调整实参顺序。 |
 
 ## 没有一对一替代
 
@@ -176,6 +185,7 @@
 - **`Linger.Json`**：`DataTableJsonConverter` 现在根据 `object` 列中每个值的运行时类型进行序列化，
   数值和布尔值会继续输出为 JSON 数值和布尔值。反序列化时，如果同一列包含不兼容的 JSON token
   类型，则使用 `object` 列并保留各 token 对应的 .NET 值类型。
+- **`Linger.Audit`**：`CreationAuditEntity.CreationTime` 不再自动初始化为 `DateTimeOffset.Now`，创建实体时必须显式赋值；`CreatorId` 默认值由 `null!` 改为 `string.Empty`。
 
 ## 示例
 

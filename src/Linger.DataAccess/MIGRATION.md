@@ -45,6 +45,22 @@ Native provider streaming cannot join the ambient transaction created by `databa
 transaction and its connection are managed internally by the `database` instance. For transactional streaming,
 the caller must create, associate, and dispose the provider connection, transaction, command, and reader together.
 
+`StringBuilder` overloads of `ExecuteBySql` / `ExecuteByProc` were removed; use the `string` overloads (call
+`sql.ToString()` first when needed). `FindTableBySql` / `FindDataSetBySql` (synchronous) and
+`FindMaxBySql` / `FindMaxBySqlAsync` were removed; use `QueryTable` / `Query` / `FindListBySql`, or write SQL directly.
+
+`IBaseDatabase` no longer exposes `params DbParameter[]` overloads for asynchronous methods.
+`ExecuteNonQueryAsync` / `ExecuteScalarAsync` now take a single `DbParameter[]?` parameter array
+(the cancellation token remains an optional parameter):
+
+```csharp
+await database.ExecuteNonQueryAsync(
+    CommandType.Text,
+    "UPDATE Accounts SET Balance = @amount WHERE Id = @id",
+    new SqlParameter[] { new("@amount", 100), new("@id", 1) },
+    cancellationToken);
+```
+
 ## Existence checks
 
 `Exists` and `ExistsAsync` were removed because they duplicated count operations while overlapping semantically
@@ -122,3 +138,4 @@ when needed. Use the core parameterized transaction methods for multi-statement 
 - `SqlBuilder` was removed.
 - Raw batch-query variants and asynchronous `DataTable` batch-query variants were removed.
 - `CommandTimeout` now rejects negative values when assigned.
+- `OracleHelper`'s own `Query` / `QueryAsync` / `Exists` / `ExistsAsync` overloads were removed; use the `Database` base-class APIs instead.

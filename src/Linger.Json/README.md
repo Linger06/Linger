@@ -1,5 +1,7 @@
 # Linger.Json
 
+> Migration notes for 2.0 are documented in the [Linger.Json migration guide](MIGRATION.md); see the [Linger migration guide](../Linger/MIGRATION.md) for other packages.
+
 `Linger.Json` contains the optional JSON support that was previously part of `Linger.Utils`. It provides `System.Text.Json` converters, `DataTable` conversion extensions, and reusable `JsonSerializerOptions` factories.
 
 ## Installation

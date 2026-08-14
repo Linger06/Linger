@@ -1,5 +1,7 @@
 ﻿# Linger.FileSystem
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 A file-system abstraction library for local storage, FTP, and SFTP. Content transfers share one asynchronous contract, while local metadata uses synchronous APIs and remote metadata keeps asynchronous protocol APIs.
 
 ## Project Structure

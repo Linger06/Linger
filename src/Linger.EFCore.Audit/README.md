@@ -1,5 +1,7 @@
 # Linger.EFCore.Audit
 
+> Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
+
 An Entity Framework Core audit trail library for automatically tracking data changes.
 
 ## ✨ Features
