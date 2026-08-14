@@ -135,6 +135,7 @@ public abstract class BaseDatabase : IBaseDatabase
         }
     }
 
+#if !NET472
     /// <summary>
     /// 开启环境事务（异步）。
     /// </summary>
@@ -167,6 +168,7 @@ public abstract class BaseDatabase : IBaseDatabase
             throw;
         }
     }
+#endif
 
     /// <summary>
     /// 提交环境事务。不在事务中时为空操作。
@@ -189,6 +191,7 @@ public abstract class BaseDatabase : IBaseDatabase
         }
     }
 
+#if !NET472
     /// <summary>
     /// 提交环境事务（异步）。不在事务中时为空操作。
     /// </summary>
@@ -209,6 +212,7 @@ public abstract class BaseDatabase : IBaseDatabase
             ClearTransactionState();
         }
     }
+#endif
 
     /// <summary>
     /// 回滚环境事务。不在事务中时为空操作。
@@ -231,6 +235,7 @@ public abstract class BaseDatabase : IBaseDatabase
         }
     }
 
+#if !NET472
     /// <summary>
     /// 回滚环境事务（异步）。不在事务中时为空操作。
     /// </summary>
@@ -251,6 +256,7 @@ public abstract class BaseDatabase : IBaseDatabase
             ClearTransactionState();
         }
     }
+#endif
 
     /// <summary>
     /// 关闭环境事务所用的连接。若事务尚未结束，先回滚。
@@ -479,7 +485,11 @@ public abstract class BaseDatabase : IBaseDatabase
         }
         finally
         {
+#if NET472
+            DisposeIfOwned(context);
+#else
             await DisposeIfOwnedAsync(context).ConfigureAwait(false);
+#endif
         }
     }
 
@@ -582,7 +592,11 @@ public abstract class BaseDatabase : IBaseDatabase
         }
         finally
         {
+#if NET472
+            DisposeIfOwned(context);
+#else
             await DisposeIfOwnedAsync(context).ConfigureAwait(false);
+#endif
         }
     }
 
@@ -638,7 +652,11 @@ public abstract class BaseDatabase : IBaseDatabase
         }
         finally
         {
+#if NET472
+            DisposeIfOwned(context);
+#else
             await DisposeIfOwnedAsync(context).ConfigureAwait(false);
+#endif
         }
     }
 
@@ -767,12 +785,12 @@ public abstract class BaseDatabase : IBaseDatabase
         }
     }
 
-    private static Task DisposeIfOwnedAsync(ExecutionContext context)
+#if !NET472
+    private static ValueTask DisposeIfOwnedAsync(ExecutionContext context)
     {
-        return context.OwnsConnection
-            ? DbCompat.DisposeAsync(context.Connection)
-            : Task.CompletedTask;
+        return context.OwnsConnection ? context.Connection.DisposeAsync() : default;
     }
+#endif
 
     #endregion
 }

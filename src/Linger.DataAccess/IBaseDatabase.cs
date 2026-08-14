@@ -37,20 +37,26 @@ public interface IBaseDatabase : IDisposable
     /// <summary>开启环境事务；已在事务中时返回同一个事务对象。</summary>
     DbTransaction BeginTrans();
 
+#if !NET472
     /// <summary>开启环境事务（异步）。</summary>
     Task<DbTransaction> BeginTransAsync(CancellationToken cancellationToken = default);
+#endif
 
     /// <summary>提交环境事务；不在事务中时为空操作。</summary>
     void Commit();
 
+#if !NET472
     /// <summary>提交环境事务（异步）；不在事务中时为空操作。</summary>
     Task CommitAsync(CancellationToken cancellationToken = default);
+#endif
 
     /// <summary>回滚环境事务；不在事务中时为空操作。</summary>
     void Rollback();
 
+#if !NET472
     /// <summary>回滚环境事务（异步）；不在事务中时为空操作。</summary>
     Task RollbackAsync(CancellationToken cancellationToken = default);
+#endif
 
     /// <summary>关闭环境事务的连接；若事务未结束则先回滚。</summary>
     void Close();

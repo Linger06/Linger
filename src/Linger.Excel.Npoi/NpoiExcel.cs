@@ -493,14 +493,12 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
     }
 
     /// <summary>
-    /// 保存工作簿到内存流
+    /// 将工作簿写入目标流。
     /// </summary>
-    protected override MemoryStream SaveWorkbookToStream(IWorkbook workbook)
+    protected override void WriteWorkbook(IWorkbook workbook, Stream destination)
     {
-        var ms = new MemoryStream();
-        workbook.Write(ms, true);
-        ms.Position = 0;
-        return ms;
+        ArgumentNullException.ThrowIfNull(destination);
+        workbook.Write(destination, true);
     }
 
     /// <summary>

@@ -334,7 +334,7 @@ public class EmailService
 
 ## Performance Tips
 
-1. **Connection Reuse**: Reuse SMTP connections for better performance when sending multiple emails
+1. **Per-Send Connections**: Each `SendAsync` creates and closes its own SMTP connection, so a single `Email` instance is safe for concurrent sends. For high volume, batch or queue sends instead of sharing one client.
 2. **Batch Processing**: Send emails in batches to reduce connection overhead
 3. **Async Processing**: Use background services for high-volume email processing
 4. **Configuration Optimization**: Set appropriate timeout and retry policies

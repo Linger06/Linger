@@ -331,6 +331,44 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         }
     }
 
+    /// <summary>
+    /// 尝试删除远程临时文件；删除失败仅记录警告，不向上抛出。
+    /// </summary>
+    /// <typeparam name="TClient">远程客户端类型。</typeparam>
+    /// <param name="client">远程客户端实例。</param>
+    /// <param name="temporaryPath">远程临时文件路径。</param>
+    /// <param name="operationDescription">操作描述，用于日志。</param>
+    /// <param name="existsAsync">检查文件是否存在的委托。</param>
+    /// <param name="deleteAsync">删除文件的委托。</param>
+    /// <param name="isExpectedException">判断异常是否为协议特定异常（如 FTP/SFTP 异常）的委托。</param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    protected async Task TryDeleteTemporaryFileAsync<TClient>(
+        TClient client,
+        string temporaryPath,
+        string operationDescription,
+        Func<TClient, string, CancellationToken, Task<bool>> existsAsync,
+        Func<TClient, string, CancellationToken, Task> deleteAsync,
+        Func<Exception, bool> isExpectedException,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(existsAsync);
+        ArgumentNullException.ThrowIfNull(deleteAsync);
+        ArgumentNullException.ThrowIfNull(isExpectedException);
+
+        try
+        {
+            if (await existsAsync(client, temporaryPath, cancellationToken).ConfigureAwait(false))
+            {
+                await deleteAsync(client, temporaryPath, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (isExpectedException(ex) || ex is IOException)
+        {
+            Logger.LogWarning(ex, "Failed to clean up temporary {Operation} file: {FilePath}", operationDescription, temporaryPath);
+        }
+    }
+
     #region 远程目录操作
 
     /// <inheritdoc />

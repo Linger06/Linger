@@ -205,7 +205,7 @@ catch
 }
 ```
 
-`BeginTransAsync`、`CommitAsync` 和 `RollbackAsync` 提供对应的异步操作。`Commit`、`Rollback` 后连接由组件释放。
+在 .NET 8 及更高版本，`BeginTransAsync`、`CommitAsync` 和 `RollbackAsync` 提供对应的异步操作；.NET Framework 4.7.2 请使用同步事务 API，避免将同步事务伪装为异步操作。`Commit`、`Rollback` 后连接由组件释放。
 
 ### 参数化批量事务
 
@@ -226,6 +226,8 @@ var statements = new[]
 
 int[] affectedRows = await database.ExecuteTransactionAsync(statements, cancellationToken);
 ```
+
+`ExecuteTransactionAsync` 仅适用于 .NET 8 及更高版本；.NET Framework 4.7.2 请使用 `ExecuteTransaction`。
 
 环境事务生效期间不要调用 `ExecuteTransaction`，否则会抛出 `InvalidOperationException`。
 

@@ -86,9 +86,25 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     protected override string DataTableToExcelCore(DataTable dataTable, string fullFileName, string sheetsName, string title,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null)
     {
-        using var ms = DataTableToMemoryStream(dataTable, sheetsName, title, action, styleAction);
-        ms.ToFile(fullFileName);
-        return fullFileName;
+        return WriteExcelFile(
+            fullFileName,
+            destination => WriteDataTable(dataTable, sheetsName, title, action, styleAction, destination));
+    }
+
+    /// <summary>
+    /// 使用 Provider 特定的工作表回调将数据表直接导出到 Excel 文件。
+    /// </summary>
+    public override string DataTableToExcel(
+        DataTable dataTable,
+        string fullFileName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        string sheetsName = ExcelOptions.DefaultSheetName,
+        string title = "",
+        Action<TWorksheet>? styleAction = null)
+    {
+        return WriteExcelFile(
+            fullFileName,
+            destination => WriteDataTable(dataTable, sheetsName, title, action, styleAction, destination));
     }
 
     /// <summary>
@@ -100,9 +116,29 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     protected override string CollectionToExcelCore<T>(List<T> list, string fullFileName, string sheetsName, string title,
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null)
     {
-        using var ms = CollectionToMemoryStream(list, sheetsName, title, action, styleAction);
-        ms.ToFile(fullFileName);
-        return fullFileName;
+        return WriteExcelFile(
+            fullFileName,
+            destination => WriteCollection(list, sheetsName, title, action, styleAction, destination));
+    }
+
+    /// <summary>
+    /// 使用 Provider 特定的工作表回调将对象集合直接导出到 Excel 文件。
+    /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads.")]
+#endif
+    public override string CollectionToExcel<T>(
+        List<T> list,
+        string fullFileName,
+        Action<TWorksheet, PropertyInfo[]>? action,
+        string sheetsName = ExcelOptions.DefaultSheetName,
+        string title = "",
+        Action<TWorksheet>? styleAction = null)
+        where T : class
+    {
+        return WriteExcelFile(
+            fullFileName,
+            destination => WriteCollection(list, sheetsName, title, action, styleAction, destination));
     }
 
     /// <summary>
@@ -111,10 +147,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     public override string CollectionToExcel<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName,
         string sheetsName = "Sheet1", string title = "")
     {
-        using var ms = CollectionToMemoryStream(items, columns, sheetsName, title);
-        ms.ToFile(fullFileName);
-
-        return fullFileName;
+        return WriteExcelFile(
+            fullFileName,
+            destination => WriteCollection(items, columns, sheetsName, title, destination));
     }
 
     /// <summary>
@@ -157,31 +192,9 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             dataSet.Tables.Add(new DataTable($"{defaultSheetName}1"));
         }
 
-        ValidateExportOptions();
-
-        MemoryStream ms;
-        if (Options.EnablePerformanceMonitoring)
-        {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction, worksheetAction);
-            sw.Stop();
-
-            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-            {
-                Logger.LogInformation("导出DataSet到Excel[表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
-                    dataSet.Tables.Count, sw.ElapsedMilliseconds);
-            }
-        }
-        else
-        {
-            ms = ExportDataSet(dataSet, defaultSheetName, action, styleAction, worksheetAction);
-        }
-
-        using (ms)
-        {
-            ms.ToFile(fullFileName);
-            return fullFileName;
-        }
+        return WriteExcelFile(
+            fullFileName,
+            destination => WriteDataSet(dataSet, defaultSheetName, action, styleAction, worksheetAction, destination));
     }
 
     /// <summary>
@@ -537,33 +550,8 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         Action<TWorksheet, PropertyInfo[]>? action = null,
         Action<TWorksheet>? styleAction = null)
     {
-        if (list == null)
-        {
-            Logger.LogWarning("要导出的列表为空");
-            list = [];
-        }
-
-        ValidateExportOptions();
-
-        MemoryStream result;
-        if (Options.EnablePerformanceMonitoring)
-        {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            result = ExportCollection(list, sheetsName, title, action, styleAction);
-            sw.Stop();
-
-            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-            {
-                Logger.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
-                    list.Count, sw.ElapsedMilliseconds);
-            }
-        }
-        else
-        {
-            result = ExportCollection(list, sheetsName, title, action, styleAction);
-        }
-
-        return result;
+        return WriteExcelMemoryStream(
+            destination => WriteCollection(list, sheetsName, title, action, styleAction, destination));
     }
 
     /// <summary>
@@ -575,33 +563,8 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         string sheetsName = "Sheet1",
         string title = "")
     {
-        ArgumentNullException.ThrowIfNull(items);
-        ArgumentNullException.ThrowIfNull(columns);
-
-        var itemList = items as IReadOnlyList<T> ?? items.ToList();
-        var columnList = columns as IReadOnlyList<ExcelExportColumn<T>> ?? columns.ToList();
-        ValidateExplicitExportColumns(columnList);
-        ValidateExportOptions();
-
-        if (!Options.EnablePerformanceMonitoring)
-        {
-            return ExportCollection(itemList, columnList, sheetsName, title);
-        }
-
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        var result = ExportCollection(itemList, columnList, sheetsName, title);
-        sw.Stop();
-
-        if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-        {
-            Logger.LogInformation(
-                "使用显式列导出列表到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
-                itemList.Count,
-                columnList.Count,
-                sw.ElapsedMilliseconds);
-        }
-
-        return result;
+        return WriteExcelMemoryStream(
+            destination => WriteCollection(items, columns, sheetsName, title, destination));
     }
 
     /// <summary>
@@ -614,7 +577,125 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null,
         Action<TWorksheet>? styleAction = null)
     {
-        if (dataTable == null)
+        return WriteExcelMemoryStream(
+            destination => WriteDataTable(dataTable, sheetsName, title, action, styleAction, destination));
+    }
+
+    private static string WriteExcelFile(string fullFileName, Action<Stream> write)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fullFileName);
+        ArgumentNullException.ThrowIfNull(write);
+
+        var directory = Path.GetDirectoryName(fullFileName);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        using var destination = new FileStream(fullFileName, FileMode.Create, FileAccess.Write, FileShare.None);
+        write(destination);
+
+        return fullFileName;
+    }
+
+    private static MemoryStream WriteExcelMemoryStream(Action<Stream> write)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+
+        var result = new MemoryStream();
+        try
+        {
+            write(result);
+            result.Position = 0;
+
+            return result;
+        }
+        catch
+        {
+            result.Dispose();
+            throw;
+        }
+    }
+
+    private void WriteCollection<T>(
+        List<T>? list,
+        string sheetsName,
+        string title,
+        Action<TWorksheet, PropertyInfo[]>? action,
+        Action<TWorksheet>? styleAction,
+        Stream destination)
+        where T : class
+    {
+        if (list is null)
+        {
+            Logger.LogWarning("要导出的列表为空");
+            list = [];
+        }
+
+        ValidateExportOptions();
+
+        if (!Options.EnablePerformanceMonitoring)
+        {
+            ExportCollection(list, sheetsName, title, action, styleAction, destination);
+            return;
+        }
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        ExportCollection(list, sheetsName, title, action, styleAction, destination);
+        stopwatch.Stop();
+
+        if (stopwatch.ElapsedMilliseconds > Options.PerformanceThreshold)
+        {
+            Logger.LogInformation("导出列表到Excel[行数:{Count}]耗时: {ElapsedMilliseconds}ms",
+                list.Count,
+                stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    private void WriteCollection<T>(
+        IEnumerable<T> items,
+        IEnumerable<ExcelExportColumn<T>> columns,
+        string sheetsName,
+        string title,
+        Stream destination)
+    {
+        ArgumentNullException.ThrowIfNull(items);
+        ArgumentNullException.ThrowIfNull(columns);
+
+        var itemList = items as IReadOnlyList<T> ?? items.ToList();
+        var columnList = columns as IReadOnlyList<ExcelExportColumn<T>> ?? columns.ToList();
+        ValidateExplicitExportColumns(columnList);
+        ValidateExportOptions();
+
+        if (!Options.EnablePerformanceMonitoring)
+        {
+            ExportCollection(itemList, columnList, sheetsName, title, destination);
+            return;
+        }
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        ExportCollection(itemList, columnList, sheetsName, title, destination);
+        stopwatch.Stop();
+
+        if (stopwatch.ElapsedMilliseconds > Options.PerformanceThreshold)
+        {
+            Logger.LogInformation(
+                "使用显式列导出列表到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                itemList.Count,
+                columnList.Count,
+                stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    private void WriteDataTable(
+        DataTable? dataTable,
+        string sheetsName,
+        string title,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        Action<TWorksheet>? styleAction,
+        Stream destination)
+    {
+        if (dataTable is null)
         {
             Logger.LogWarning("要导出的DataTable为空");
             dataTable = new DataTable();
@@ -622,36 +703,63 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
         ValidateExportOptions();
 
-        MemoryStream result;
-        if (Options.EnablePerformanceMonitoring)
+        if (!Options.EnablePerformanceMonitoring)
         {
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-            result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
-            sw.Stop();
-
-            if (sw.ElapsedMilliseconds > Options.PerformanceThreshold)
-            {
-                Logger.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
-                    dataTable.Rows.Count, dataTable.Columns.Count, sw.ElapsedMilliseconds);
-            }
-        }
-        else
-        {
-            result = ExportDataTable(dataTable, sheetsName, title, action, styleAction);
+            ExportDataTable(dataTable, sheetsName, title, action, styleAction, destination);
+            return;
         }
 
-        return result;
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        ExportDataTable(dataTable, sheetsName, title, action, styleAction, destination);
+        stopwatch.Stop();
+
+        if (stopwatch.ElapsedMilliseconds > Options.PerformanceThreshold)
+        {
+            Logger.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
+                dataTable.Rows.Count,
+                dataTable.Columns.Count,
+                stopwatch.ElapsedMilliseconds);
+        }
+    }
+
+    private void WriteDataSet(
+        DataSet dataSet,
+        string defaultSheetName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        Action<TWorksheet>? styleAction,
+        Action<IWorksheetExportContext<TWorksheet>>? worksheetAction,
+        Stream destination)
+    {
+        ValidateExportOptions();
+
+        if (!Options.EnablePerformanceMonitoring)
+        {
+            ExportDataSet(dataSet, defaultSheetName, action, styleAction, worksheetAction, destination);
+            return;
+        }
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        ExportDataSet(dataSet, defaultSheetName, action, styleAction, worksheetAction, destination);
+        stopwatch.Stop();
+
+        if (stopwatch.ElapsedMilliseconds > Options.PerformanceThreshold)
+        {
+            Logger.LogInformation("导出DataSet到Excel[表数:{TableCount}]耗时: {ElapsedMilliseconds}ms",
+                dataSet.Tables.Count,
+                stopwatch.ElapsedMilliseconds);
+        }
     }
 
     /// <summary>
     /// 导出集合到Excel
     /// </summary>
-    private MemoryStream ExportCollection<T>(
+    private void ExportCollection<T>(
         List<T> list,
         string sheetsName,
         string title,
         Action<TWorksheet, PropertyInfo[]>? action,
-        Action<TWorksheet>? styleAction) where T : class
+        Action<TWorksheet>? styleAction,
+        Stream destination) where T : class
     {
         // 获取所有属性
         var properties = typeof(T).GetProperties().Where(p => p.CanRead).ToArray();
@@ -687,8 +795,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             // 进行工作表格式化
             ApplyWorksheetFormatting(worksheet, list.Count + startRowIndex + 1, columnNames.Length);
 
-            // 保存到流
-            return SaveWorkbookToStream(workbook);
+            WriteWorkbook(workbook, destination);
         }
         finally
         {
@@ -696,11 +803,12 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         }
     }
 
-    private MemoryStream ExportCollection<T>(
+    private void ExportCollection<T>(
         IReadOnlyList<T> items,
         IReadOnlyList<ExcelExportColumn<T>> columns,
         string sheetsName,
-        string title)
+        string title,
+        Stream destination)
     {
         var workbook = CreateWorkbook();
         try
@@ -718,7 +826,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             ProcessCollectionRows(worksheet, items, columns, startRowIndex);
             ApplyWorksheetFormatting(worksheet, items.Count + startRowIndex + 1, columnNames.Length);
 
-            return SaveWorkbookToStream(workbook);
+            WriteWorkbook(workbook, destination);
         }
         finally
         {
@@ -729,12 +837,13 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 导出DataTable到Excel
     /// </summary>
-    private MemoryStream ExportDataTable(
+    private void ExportDataTable(
         DataTable dataTable,
         string sheetsName,
         string title,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
-        Action<TWorksheet>? styleAction)
+        Action<TWorksheet>? styleAction,
+        Stream destination)
     {
         // 创建Excel工作簿
         var workbook = CreateWorkbook();
@@ -743,8 +852,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             // 调用通用方法处理单个DataTable
             ExportDataTableToWorksheet(workbook, dataTable, sheetsName, title, action, styleAction, worksheetAction: null, tableIndex: 0);
 
-            // 保存到流
-            return SaveWorkbookToStream(workbook);
+            WriteWorkbook(workbook, destination);
         }
         finally
         {
@@ -831,12 +939,13 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// <summary>
     /// 导出DataSet到Excel
     /// </summary>
-    private MemoryStream ExportDataSet(
+    private void ExportDataSet(
         DataSet dataSet,
         string defaultSheetName,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
         Action<TWorksheet>? styleAction,
-        Action<IWorksheetExportContext<TWorksheet>>? worksheetAction)
+        Action<IWorksheetExportContext<TWorksheet>>? worksheetAction,
+        Stream destination)
     {
         // 创建Excel工作簿
         var workbook = CreateWorkbook();
@@ -852,8 +961,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
                 ExportDataTableToWorksheet(workbook, dataTable, sheetName, null, action, styleAction, worksheetAction, i);
             }
 
-            // 保存到流
-            return SaveWorkbookToStream(workbook);
+            WriteWorkbook(workbook, destination);
         }
         finally
         {
@@ -1457,9 +1565,11 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     protected abstract void ApplyWorksheetFormatting(TWorksheet worksheet, int rowCount, int columnCount);
 
     /// <summary>
-    /// 保存工作簿到内存流
+    /// 将工作簿写入指定目标流。
     /// </summary>
-    protected abstract MemoryStream SaveWorkbookToStream(TWorkbook workbook);
+    /// <param name="workbook">要写入的工作簿。</param>
+    /// <param name="destination">接收工作簿内容的可写流。</param>
+    protected abstract void WriteWorkbook(TWorkbook workbook, Stream destination);
 
     #endregion
 

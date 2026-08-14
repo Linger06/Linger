@@ -50,11 +50,13 @@
   <Folder Name="/tests/">
     <Project Path="tests/Linger.AspNetCore.Jwt.UnitTests/Linger.AspNetCore.Jwt.UnitTests.csproj" />
     <Project Path="tests/Linger.Audit.UnitTests/Linger.Audit.UnitTests.csproj" />
+    <Project Path="tests/Linger.Configuration.UnitTests/Linger.Configuration.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.Oracle.UnitTests/Linger.DataAccess.Oracle.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.Sqlite.UnitTests/Linger.DataAccess.Sqlite.UnitTests.csproj" />
     <Project Path="tests/Linger.DataAccess.SqlServer.UnitTests/Linger.DataAccess.SqlServer.UnitTests.csproj" />
     <Project Path="tests/Linger.EFCore.Audit.UnitTests/Linger.EFCore.Audit.UnitTests.csproj" />
     <Project Path="tests/Linger.EFCore.UnitTests/Linger.EFCore.UnitTests.csproj" />
+    <Project Path="tests/Linger.Email.UnitTests/Linger.Email.UnitTests.csproj" />
     <Project Path="tests/Linger.Excel.UnitTests/Linger.Excel.UnitTests.csproj" />
     <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" />
     <Project Path="tests/Linger.Json.UnitTests/Linger.Json.UnitTests.csproj" />

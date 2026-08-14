@@ -74,6 +74,10 @@ var statements = new[]
 int[] affected = await database.ExecuteTransactionAsync(statements, cancellationToken);
 ```
 
+On .NET Framework 4.7.2, `BeginTransAsync`, `CommitAsync`, `RollbackAsync`, and
+`ExecuteTransactionAsync` are unavailable. Use `BeginTrans`, `Commit`, `Rollback`, and
+`ExecuteTransaction` directly; do not wrap synchronous transaction work in `Task.Run`.
+
 For a parameterless statement, call `new SqlStatement(sql)` and omit the parameter arguments. An explicitly null
 parameter array is rejected.
 

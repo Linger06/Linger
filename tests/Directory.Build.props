@@ -9,7 +9,6 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <OutputType>Exe</OutputType>
-    <WarningLevel>0</WarningLevel>
     <TestRuntime>async</TestRuntime>
   </PropertyGroup>
 

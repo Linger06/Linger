@@ -305,20 +305,6 @@ namespace Linger.Excel.Tests
             AssertExplicitExportedData(imported, list);
         }
 
-        protected async Task AssertCollectionToExcelAsyncWithExplicitColumns(IExcelService service, string filePrefix)
-        {
-            var list = GenerateTestPersonList(5);
-            var filePath = Path.Combine(TestFilesDir, $"{filePrefix}_AotExportAsync.xlsx");
-
-            var result = await service.CollectionToExcelAsync(list, CreateExplicitExportColumns(), filePath, "员工信息");
-
-            Assert.Equal(filePath, result);
-            Assert.True(File.Exists(filePath));
-
-            var imported = service.ExcelToDataTable(filePath, "员工信息", headerRowIndex: 0);
-            AssertExplicitExportedData(imported, list);
-        }
-
         protected void AssertCreateExcelTemplateWithExplicitColumns(IExcelService service, string filePrefix)
         {
             using var stream = service.CreateExcelTemplate(CreateExplicitExportColumns(), $"{filePrefix}模板");

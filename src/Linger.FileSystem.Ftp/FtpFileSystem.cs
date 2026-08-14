@@ -539,29 +539,14 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
         finally
         {
-            await TryDeleteTemporaryFileAsync(client, temporaryPath, CancellationToken.None).ConfigureAwait(false);
-        }
-    }
-
-    private async Task TryDeleteTemporaryFileAsync(
-        AsyncFtpClient client,
-        string temporaryPath,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (await client.FileExists(temporaryPath, cancellationToken).ConfigureAwait(false))
-            {
-                await client.DeleteFile(temporaryPath, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (FtpException ex)
-        {
-            Logger.LogWarning(ex, "Failed to clean up temporary FTP upload: {FilePath}", temporaryPath);
-        }
-        catch (IOException ex)
-        {
-            Logger.LogWarning(ex, "Failed to clean up temporary FTP upload: {FilePath}", temporaryPath);
+            await TryDeleteTemporaryFileAsync(
+                client,
+                temporaryPath,
+                "FTP upload",
+                (ftpClient, path, token) => ftpClient.FileExists(path, token),
+                (ftpClient, path, token) => ftpClient.DeleteFile(path, token),
+                ex => ex is FtpException,
+                CancellationToken.None).ConfigureAwait(false);
         }
     }
 

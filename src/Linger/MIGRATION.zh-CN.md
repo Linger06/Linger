@@ -68,7 +68,13 @@
 | `Linger.Configuration` | `AppSettingsHelper.CovertToObject<T>` | `ConvertToObject<T>` | `Linger.Configuration` | 修正方法名称中的拼写错误。 |
 | `Linger.AspNetCore.Jwt.Contracts` | `IJwtService.TryRefreshTokenAsync` | `RefreshTokenResultAsync` | `Linger.AspNetCore.Jwt.Contracts` | 替代方法同时提供错误消息。 |
 | `Linger.Email.AspNetCore` | `ConfigureEmail` / `ConfigureMailKit` | `AddEmailService` | `Linger.Email.AspNetCore` | 替代方法返回 `IServiceCollection`，可继续链式调用。 |
+| `Linger.DataAccess` | .NET Framework 4.7.2 的异步事务 API：`BeginTransAsync`、`CommitAsync`、`RollbackAsync` 和 `ExecuteTransactionAsync` | `BeginTrans`、`Commit`、`Rollback` 和 `ExecuteTransaction` | `Linger.DataAccess` | 异步事务 API 仅在 .NET 8 及更高版本可用；.NET Framework 4.7.2 请直接调用同步 API，不要使用 `Task.Run` 进行包装。 |
+| `Linger.Email` | 单个 `Email` 实例复用 SMTP 连接 | 无 API 替代；高频发送请改用批处理或队列 | `Linger.Email` | `SendAsync` 现在会在每次调用时新建并关闭 SMTP 客户端，因此单个 `Email` 实例支持并发发送。请勿依赖连接复用。 |
 | `Linger.Excel.Contracts` | `DataTableToFile` / `DataSetToFile` | `DataTableToExcel` / `DataSetToExcel` | `Linger.Excel.Contracts` | 替代方法名称与 Excel 导出操作一致。 |
+| `Linger.Excel.Contracts` | `DataTableToExcelAsync` / `CollectionToExcelAsync` | `DataTableToExcel` / `CollectionToExcel` | `Linger.Excel.Contracts` | 提供方以同步方式序列化工作簿，已删除的 API 只是先将完整工作簿缓冲到内存，再异步复制到文件。文件导出现在直接写入目标流。 |
+| `Linger.Excel.Contracts` | `ExcelExtensions.DataTableToFileAsync` / `ListToFileAsync` | `IExcel<TWorksheet>.DataTableToExcel` / `CollectionToExcel` 回调重载 | `Linger.Excel.Contracts` | 保留提供方特定回调能力，同时将完成的工作簿直接写入目标文件。 |
+| `Linger.Excel.Contracts` | 自定义 `IExcel<TWorksheet>` 实现 / `AbstractExcelService<TWorkbook, TWorksheet>` 派生类 | 实现新增的回调式 `DataTableToExcel(...)` 和 `CollectionToExcel(...)` 成员，或改为继承 `ExcelBase<TWorkbook, TWorksheet>` | `Linger.Excel.Contracts` | 这些成员现为接口和抽象基类的必需成员；直接自定义实现必须补齐它们才能编译。 |
+| `Linger.Excel.Contracts` | `ExcelBase<TWorkbook, TWorksheet>.SaveWorkbookToStream(TWorkbook)` | `WriteWorkbook(TWorkbook, Stream)` | `Linger.Excel.Contracts` | 自定义提供方应同步写入传入流，避免文件导出必须分配完整 `MemoryStream`。 |
 | `Linger.Excel.Contracts` | 接收 `Func<DataRow, T>` 的 Excel 导入扩展 | 接收 `Func<ExcelRow, T>` 的 `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` | `Linger.Excel.Contracts` | 替代方法直接映射工作表行，不再创建中间 `DataTable`。可使用 `ExcelRow.Get<T>(columnName)` 进行强类型访问。 |
 | `Linger.Excel.Contracts` | 接收 `Func<T>` 和 `columnSetters` 的 Excel 导入扩展 | 接收 `Func<ExcelRow, T>` 的 `IExcelService.ExcelToList[Async]` / `StreamToList[Async]` | `Linger.Excel.Contracts` | 在同一个映射委托中创建并填充目标对象。已经持有 `DataTable` 的调用方仍可使用通用工厂/setter 重载。 |
 | `Linger.Excel.Contracts` | 自定义 `IExcelService` 实现 | 实现接收 `ExcelExportColumn<T>` 的集合导出重载 | `Linger.Excel.Contracts` | 显式列导出现在是正式服务契约，并直接写入工作表，不再构造中间 `DataTable`。 |

@@ -11,6 +11,9 @@ Provider-neutral ADO.NET execution, connection/transaction lifetime management, 
 - .NET 8
 - .NET Framework 4.7.2
 
+`BeginTransAsync`, `CommitAsync`, `RollbackAsync`, and `ExecuteTransactionAsync` are available on .NET 8 and later.
+Use their synchronous counterparts on .NET Framework 4.7.2 instead of wrapping synchronous transactions as asynchronous work.
+
 ## Architecture
 
 - `BaseDatabase`: commands, connections, transactions, cancellation, and parameter ownership.
@@ -89,6 +92,8 @@ var statements = new[]
 
 int[] affected = await database.ExecuteTransactionAsync(statements, cancellationToken);
 ```
+
+`ExecuteTransactionAsync` is available on .NET 8 and later. Use `ExecuteTransaction` on .NET Framework 4.7.2.
 
 The transaction is committed only when every statement succeeds. Failure rolls back and rethrows the original
 error. Do not call this API while an ambient transaction started by `BeginTrans` is active.

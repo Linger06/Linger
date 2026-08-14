@@ -552,29 +552,14 @@ public class SftpFileSystem : RemoteFileSystemBase
         }
         finally
         {
-            await TryDeleteTemporaryFileAsync(client, temporaryPath, CancellationToken.None).ConfigureAwait(false);
-        }
-    }
-
-    private async Task TryDeleteTemporaryFileAsync(
-        SftpClient client,
-        string temporaryPath,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (await client.ExistsAsync(temporaryPath, cancellationToken).ConfigureAwait(false))
-            {
-                await client.DeleteFileAsync(temporaryPath, cancellationToken).ConfigureAwait(false);
-            }
-        }
-        catch (SshException ex)
-        {
-            Logger.LogWarning(ex, "Failed to clean up temporary SFTP upload: {FilePath}", temporaryPath);
-        }
-        catch (IOException ex)
-        {
-            Logger.LogWarning(ex, "Failed to clean up temporary SFTP upload: {FilePath}", temporaryPath);
+            await TryDeleteTemporaryFileAsync(
+                client,
+                temporaryPath,
+                "SFTP upload",
+                (sftpClient, path, token) => sftpClient.ExistsAsync(path, token),
+                (sftpClient, path, token) => sftpClient.DeleteFileAsync(path, token),
+                ex => ex is SshException,
+                CancellationToken.None).ConfigureAwait(false);
         }
     }
 

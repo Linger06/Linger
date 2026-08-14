@@ -200,6 +200,7 @@ public sealed class SqliteHelperTests : IDisposable
         Assert.Equal(0, _helper.FindCountBySql("SELECT COUNT(*) FROM products WHERE Name = 'Cherry'"));
     }
 
+#if !NET472
     [Fact]
     public async Task ExecuteTransactionAsync_WithParameterizedStatements_ShouldCommitAllStatements()
     {
@@ -213,6 +214,18 @@ public sealed class SqliteHelperTests : IDisposable
 
         Assert.Equal([1], affected);
     }
+#endif
+
+#if NET472
+    [Fact]
+    public void AsyncTransactionMembers_ShouldNotBeExposed()
+    {
+        Assert.DoesNotContain(typeof(IBaseDatabase).GetMethods(), static method =>
+            method.Name is "BeginTransAsync" or "CommitAsync" or "RollbackAsync");
+        Assert.DoesNotContain(typeof(IDatabase).GetMethods(), static method =>
+            method.Name is "ExecuteTransactionAsync");
+    }
+#endif
 
     [Fact]
     public void ExecuteTransaction_WithNullStatement_ShouldThrowArgumentNullException()

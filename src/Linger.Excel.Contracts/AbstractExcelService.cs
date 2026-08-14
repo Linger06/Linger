@@ -83,18 +83,6 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         return DataTableToMemoryStream(dataTable, sheetsName, title, action: null, styleAction: null);
     }
 
-    /// <inheritdoc />
-    public Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default)
-    {
-        return DataTableToExcelAsyncCore(dataTable, fullFileName, sheetsName, title, cancellationToken);
-    }
-
-    /// <inheritdoc />
-    public Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default) where T : class
-    {
-        return CollectionToExcelAsyncCore(list, fullFileName, sheetsName, title, cancellationToken);
-    }
-
     #endregion
 
     #region IExcel抽象方法 - 由具体实现类实现
@@ -172,6 +160,32 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         string defaultSheetName = ExcelOptions.DefaultDataSetSheetPrefix);
 
     /// <summary>
+    /// 使用 Provider 特定的工作表回调将数据表直接导出到 Excel 文件。
+    /// </summary>
+    public abstract string DataTableToExcel(
+        DataTable dataTable,
+        string fullFileName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        string sheetsName = ExcelOptions.DefaultSheetName,
+        string title = "",
+        Action<TWorksheet>? styleAction = null);
+
+    /// <summary>
+    /// 使用 Provider 特定的工作表回调将对象集合直接导出到 Excel 文件。
+    /// </summary>
+#if NET5_0_OR_GREATER
+    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method relies on reflection-based property discovery. For AOT/trimming scenarios, use the explicit-column export overloads.")]
+#endif
+    public abstract string CollectionToExcel<T>(
+        List<T> list,
+        string fullFileName,
+        Action<TWorksheet, PropertyInfo[]>? action,
+        string sheetsName = ExcelOptions.DefaultSheetName,
+        string title = "",
+        Action<TWorksheet>? styleAction = null)
+        where T : class;
+
+    /// <summary>
     /// 对象集合转 Excel 文件（推荐）
     /// </summary>
     protected abstract string CollectionToExcelCore<T>(List<T> list, string fullFileName, string sheetsName, string title,
@@ -204,54 +218,6 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
     #endregion
 
     #region 共享方法实现
-
-    /// <summary>
-    /// 异步将DataTable导出为Excel文件（推荐）
-    /// </summary>
-    private async Task<string> DataTableToExcelAsyncCore(DataTable dataTable, string fullFileName, string sheetsName, string title, CancellationToken cancellationToken)
-    {
-        using var ms = DataTableToMemoryStream(dataTable, sheetsName, title, action: null, styleAction: null);
-        if (ms == null)
-        {
-            Logger.LogError("转换DataTable到MemoryStream失败");
-            throw new InvalidOperationException("转换DataTable到MemoryStream失败");
-        }
-
-        await ms.ToFileAsync(fullFileName, cancellationToken).ConfigureAwait(false);
-        return fullFileName;
-    }
-
-    /// <summary>
-    /// 异步将对象集合导出为Excel文件（推荐）
-    /// </summary>
-#if NET5_0_OR_GREATER
-    [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method flows through reflection-based collection export. For AOT/trimming scenarios, use the explicit-column export overloads.")]
-#endif
-    private async Task<string> CollectionToExcelAsyncCore<T>(List<T> list, string fullFileName, string sheetsName, string title, CancellationToken cancellationToken) where T : class
-    {
-        using var ms = CollectionToMemoryStream(list, sheetsName, title, action: null, styleAction: null);
-        if (ms == null)
-        {
-            Logger.LogError("转换对象列表到MemoryStream失败");
-            throw new InvalidOperationException("转换对象列表到MemoryStream失败");
-        }
-
-        await ms.ToFileAsync(fullFileName, cancellationToken).ConfigureAwait(false);
-        return fullFileName;
-    }
-
-    /// <summary>
-    /// 使用显式列定义异步将对象集合导出为 Excel 文件。
-    /// </summary>
-    public virtual async Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName,
-        string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        using var ms = CollectionToMemoryStream(items, columns, sheetsName, title);
-        await ms.ToFileAsync(fullFileName, cancellationToken).ConfigureAwait(false);
-
-        return fullFileName;
-    }
 
     /// <summary>
     /// 创建Excel模板

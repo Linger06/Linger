@@ -34,10 +34,12 @@ public interface IDatabase : IBaseDatabase
     /// <remarks>自带连接与事务；处于环境事务中时抛 <see cref="InvalidOperationException"/>，避免与之死锁。</remarks>
     int[] ExecuteTransaction(IEnumerable<SqlStatement> statements);
 
+#if !NET472
     /// <summary>在单个事务中依次执行多条参数化 SQL（异步）：全部成功则提交，任一条失败则整体回滚并抛出原异常。</summary>
     /// <inheritdoc cref="ExecuteTransaction(IEnumerable{SqlStatement})" path="/remarks"/>
     Task<int[]> ExecuteTransactionAsync(IEnumerable<SqlStatement> statements,
         CancellationToken cancellationToken = default);
+#endif
 
     #endregion
 

@@ -430,13 +430,11 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     }
 
     /// <summary>
-    /// 保存工作簿到内存流
+    /// 将工作簿写入目标流。
     /// </summary>
-    protected override MemoryStream SaveWorkbookToStream(XLWorkbook workbook)
+    protected override void WriteWorkbook(XLWorkbook workbook, Stream destination)
     {
-        var ms = new MemoryStream();
-        workbook.SaveAs(ms);
-        ms.Position = 0;
-        return ms;
+        ArgumentNullException.ThrowIfNull(destination);
+        workbook.SaveAs(destination);
     }
 }

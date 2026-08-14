@@ -10,33 +10,42 @@ namespace Linger.Email;
 public class Email : IEmail, IDisposable
 {
     private readonly EmailConfig _emailConfig;
-    private readonly SmtpClient _smtpClient;
-    private Action<string>? _actionSendCompletedCallback;
     private bool _disposed;
 
     public Email(EmailConfig emailConfig)
     {
         _emailConfig = emailConfig ?? throw new ArgumentNullException(nameof(emailConfig));
-        _smtpClient = new SmtpClient();
-        _smtpClient.MessageSent += SmtpClient_MessageSent;
+    }
+
+    /// <summary>
+    /// Creates the SMTP client used by a single send operation. Each send creates its own client
+    /// so concurrent sends never share mutable transport state.
+    /// </summary>
+    /// <returns>A new <see cref="ISmtpClient"/> instance.</returns>
+    protected virtual ISmtpClient CreateClient()
+    {
+        return new SmtpClient();
     }
 
     public virtual async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(emailMessage);
+        ThrowIfDisposed();
+
+        ValidateAndSetupEmailMessage(emailMessage);
+        var mimeMessage = CreateMimeMessage(emailMessage);
+
+        using var smtpClient = CreateClient();
+        smtpClient.MessageSent += (_, e) => completedCallback?.Invoke(e.Response);
 
         try
         {
-            ValidateAndSetupEmailMessage(emailMessage);
-            var mimeMessage = CreateMimeMessage(emailMessage);
-            _actionSendCompletedCallback = completedCallback;
-
-            await ConnectToServerAsync(cancellationToken).ConfigureAwait(false);
-            await SendMessageAsync(mimeMessage, cancellationToken).ConfigureAwait(false);
+            await ConnectToServerAsync(smtpClient, cancellationToken).ConfigureAwait(false);
+            await SendMessageAsync(smtpClient, mimeMessage, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            await DisconnectAsync(cancellationToken).ConfigureAwait(false);
+            await DisconnectAsync(smtpClient, CancellationToken.None).ConfigureAwait(false);
         }
     }
 
@@ -49,15 +58,15 @@ public class Email : IEmail, IDisposable
         emailMessage.Bcc ??= _emailConfig.Bcc;
     }
 
-    private async Task ConnectToServerAsync(CancellationToken cancellationToken)
+    private async Task ConnectToServerAsync(ISmtpClient smtpClient, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(_emailConfig.Host);
         var secureOptions = DetermineSecureOptions();
-        await _smtpClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, secureOptions, cancellationToken).ConfigureAwait(false);
+        await smtpClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, secureOptions, cancellationToken).ConfigureAwait(false);
 
         if (_emailConfig.UserName.IsNotNullOrEmpty())
         {
-            await _smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password ?? string.Empty, cancellationToken).ConfigureAwait(false);
+            await smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password ?? string.Empty, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -70,22 +79,29 @@ public class Email : IEmail, IDisposable
         return _emailConfig.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
     }
 
-    private async Task SendMessageAsync(MimeMessage message, CancellationToken cancellationToken)
+    private static async Task SendMessageAsync(ISmtpClient smtpClient, MimeMessage message, CancellationToken cancellationToken)
     {
-        await _smtpClient.SendAsync(message, cancellationToken).ConfigureAwait(false);
+        await smtpClient.SendAsync(message, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task DisconnectAsync(CancellationToken cancellationToken)
+    private static async Task DisconnectAsync(ISmtpClient smtpClient, CancellationToken cancellationToken)
     {
-        if (_smtpClient.IsConnected)
+        if (smtpClient.IsConnected)
         {
-            await _smtpClient.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
+            await smtpClient.DisconnectAsync(true, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private void SmtpClient_MessageSent(object? sender, MessageSentEventArgs e)
+    private void ThrowIfDisposed()
     {
-        _actionSendCompletedCallback?.Invoke(e.Response);
+#if NET8_0_OR_GREATER
+        ObjectDisposedException.ThrowIf(_disposed, this);
+#else
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(Email));
+        }
+#endif
     }
 
     private static MimeMessage CreateMimeMessage(EmailMessage emailMessage)
@@ -213,12 +229,6 @@ public class Email : IEmail, IDisposable
             return;
         }
 
-        if (disposing)
-        {
-            _smtpClient.MessageSent -= SmtpClient_MessageSent;
-            _smtpClient.Dispose();
-        }
-
         _disposed = true;
     }
 
@@ -229,16 +239,9 @@ public class Email : IEmail, IDisposable
         GC.SuppressFinalize(this);
     }
 
-    protected virtual async ValueTask DisposeAsyncCore()
+    protected virtual ValueTask DisposeAsyncCore()
     {
-        if (_disposed) return;
-
-        if (_smtpClient.IsConnected)
-        {
-            await _smtpClient.DisconnectAsync(true, CancellationToken.None).ConfigureAwait(false);
-        }
-        _smtpClient.MessageSent -= SmtpClient_MessageSent;
-        _smtpClient.Dispose();
         _disposed = true;
+        return default;
     }
 }

@@ -45,9 +45,9 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
     [Fact]
     public void ExcelContracts_ExposeFocusedApi()
     {
-        Assert.Equal(21, typeof(IExcelService).GetMethods().Length);
+        Assert.Equal(18, typeof(IExcelService).GetMethods().Length);
         Assert.Equal(
-            3,
+            5,
             typeof(IExcel<>).GetMethods(
                 System.Reflection.BindingFlags.Public |
                 System.Reflection.BindingFlags.Instance |

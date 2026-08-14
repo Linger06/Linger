@@ -46,6 +46,18 @@ namespace Linger.Excel.Tests
         }
 
         [Fact]
+        public void DataTableToFile_WritesWorkbookDirectlyToFileStream()
+        {
+            var service = new TrackingNpoiExcel(Options);
+            var filePath = Path.Combine(TestFilesDir, "NpoiExport_DirectFileStream.xlsx");
+
+            service.DataTableToExcel(GenerateTestDataTable(2), filePath);
+
+            Assert.True(service.WroteToFileStream);
+            Assert.False(service.WroteToMemoryStream);
+        }
+
+        [Fact]
         public void ListToFile_GeneratesValidExcelFile()
         {
             // Arrange
@@ -75,6 +87,24 @@ namespace Linger.Excel.Tests
             // Assert
             Assert.NotNull(stream);
             Assert.True(stream.Length > 0);
+            Assert.Equal(0, stream.Position);
+        }
+
+        [Fact]
+        public void DataTableToFile_WithProviderCallback_InvokesCallback()
+        {
+            var service = new NpoiExcel(Options);
+            var filePath = Path.Combine(TestFilesDir, "NpoiExport_Callback.xlsx");
+            var callbackInvoked = false;
+
+            var result = ((IExcel<NPOI.SS.UserModel.ISheet>)service).DataTableToExcel(
+                GenerateTestDataTable(2),
+                filePath,
+                (worksheet, _, _) => callbackInvoked = worksheet is not null);
+
+            Assert.Equal(filePath, result);
+            Assert.True(callbackInvoked);
+            Assert.True(File.Exists(filePath));
         }
 
         [Fact]
@@ -145,12 +175,6 @@ namespace Linger.Excel.Tests
         }
 
         [Fact]
-        public async Task CollectionToExcelAsync_WithExplicitColumns_GeneratesValidExcelFile()
-        {
-            await AssertCollectionToExcelAsyncWithExplicitColumns(GetExcelService(), "Npoi");
-        }
-
-        [Fact]
         public void CreateExcelTemplate_WithExplicitColumns_GeneratesValidTemplate()
         {
             AssertCreateExcelTemplateWithExplicitColumns(GetExcelService(), "Npoi");
@@ -176,6 +200,20 @@ namespace Linger.Excel.Tests
             Assert.NotNull(templateStream);
             Assert.True(templateStream.Length > 0);
             Assert.True(File.Exists(templatePath));
+        }
+
+        private sealed class TrackingNpoiExcel(ExcelOptions options) : NpoiExcel(options)
+        {
+            public bool WroteToFileStream { get; private set; }
+
+            public bool WroteToMemoryStream { get; private set; }
+
+            protected override void WriteWorkbook(NPOI.SS.UserModel.IWorkbook workbook, Stream destination)
+            {
+                WroteToFileStream = destination is FileStream;
+                WroteToMemoryStream = destination is MemoryStream;
+                base.WriteWorkbook(workbook, destination);
+            }
         }
 
         [Fact]

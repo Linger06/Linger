@@ -11,7 +11,7 @@
 - **DataSet支持** - 导入/导出整个工作簿为DataSet，支持多工作表操作
 - **依赖注入友好** - 支持.NET Core/ASP.NET Core依赖注入
 - **高性能设计** - 强类型行映射、直接导出路径以及可选性能监控
-- **异步 API 支持** - 异步文件 I/O；提供方解析保持同步并支持协作式取消
+- **真实执行模型** - 提供方序列化为同步执行；流导入保持支持协作式取消
 - **灵活配置** - 丰富的选项配置系统
 - **可扩展性** - 易于自定义和扩展
 - **跨平台兼容** - 支持.NET Framework 4.7.2+、.NET Standard 2.0+、.NET 8+、.NET 9+、.NET 10+
@@ -39,13 +39,13 @@
          │实现
          ▼
 ┌─────────────────────────────┐
-│AbstractExcelService<T1,T2>  │ ◄──── 抽象基类，实现公共逻辑和向后兼容方法
+│AbstractExcelService<T1,T2>  │ ◄──── 抽象基类，实现共享公开 API
 └────────────┬────────────────┘
              │
              │继承
              ▼
 ┌─────────────────────────────┐
-│ ExcelBase<TWorkbook,TSheet> │ ◄──── Excel实现基类，更多通用逻辑
+│ExcelBase<TWorkbook,TWorksheet>│ ◄── Excel 实现基类，承载提供方无关逻辑
 └────────────┬────────────────┘
              │
              │继承
@@ -116,11 +116,6 @@ public class ExcelReportService
         return _excelService.CollectionToExcel(users, filePath, "用户列表");
     }
     
-    public async Task<string> ExportUsersAsync(List<User> users, string filePath)
-    {
-        // 真正的异步文件 I/O
-        return await _excelService.CollectionToExcelAsync(users, filePath, "用户列表");
-    }
 }
 ```
 
@@ -190,7 +185,7 @@ var columns = new[]
     new ExcelExportColumn<User>("部门", user => user.Department, typeof(string))
 };
 
-await excelService.CollectionToExcelAsync(users, columns, filePath, "Users");
+string exportPath = excelService.CollectionToExcel(users, columns, filePath, "Users");
 
 using var template = excelService.CreateExcelTemplate(columns, "Users");
 ```
@@ -239,11 +234,6 @@ public interface IExcelService
     MemoryStream CollectionToMemoryStream<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string sheetsName = "Sheet1", string title = "");
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
     
-    // 异步导出
-    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
-    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default) where T : class;
-    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
-    
     // 创建模板
     MemoryStream CreateExcelTemplate<T>() where T : class, new();
     
@@ -262,6 +252,16 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
         Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
         string defaultSheetName = "Sheet");
 
+    string DataTableToExcel(DataTable dataTable, string fullFileName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet>? styleAction = null);
+
+    string CollectionToExcel<T>(List<T> list, string fullFileName,
+        Action<TWorksheet, PropertyInfo[]>? action,
+        string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet>? styleAction = null) where T : class;
+
     MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null,
         Action<TWorksheet>? styleAction = null) where T : class;
@@ -277,10 +277,11 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 - **高级定制**: 需要自定义单元格样式、合并单元格等操作时,使用 `IExcel<TWorksheet>`
 - **依赖注入**: 两个接口都可注入,`IExcel<TWorksheet>` 实例可向上转型为 `IExcelService`
 
-**异步实现说明:**
-- ✅ **文件 I/O**: 使用真正的异步 (`FileStream` 的 `useAsync: true`)
-- ⚠️ **Excel 处理**: 提供方解析为同步操作并在调用线程执行；需要后台执行时应在应用边界自行调度
-- 📤 **范围**: 异步 API 仅用于文件导出；由于 Provider 解析为同步操作，导入保持同步
+**导出内存行为：**
+- `DataTableToExcel`、`DataSetToExcel` 和 `CollectionToExcel` 会将完成的工作簿直接写入 `FileStream`，不再产生原先那份完整的额外 `MemoryStream` 副本。
+- `DataTableToMemoryStream` 和 `CollectionToMemoryStream` 会有意将完整生成文件保留在内存中，仅应在调用方确实需要内存载荷时使用。
+- ClosedXML 和 NPOI 仍会在内存中构建工作簿对象模型并同步序列化。直接写入文件仅消除了额外输出缓冲，并不意味着工作簿生成已变为流式。
+- 序列化失败时目标文件可能不完整。需要原子发布的应用，应先导出至调用方管理的临时路径，成功后再替换目标文件。
 
 ## 🎨 高级功能
 
@@ -387,7 +388,9 @@ public class AdvancedExcelService
 
     public string ExportWithCustomStyle(List<User> users, string filePath)
     {
-        using var stream = _npoiExcel.CollectionToMemoryStream(users, "用户列表", "用户数据报表",
+        return _npoiExcel.CollectionToExcel(
+            users,
+            filePath,
             // 自定义单元格操作
             action: (sheet, properties) =>
             {
@@ -398,6 +401,8 @@ public class AdvancedExcelService
                 // 合并单元格
                 sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, properties.Length - 1));
             },
+            sheetsName: "用户列表",
+            title: "用户数据报表",
             // 自定义样式操作
             styleAction: (sheet) =>
             {
@@ -409,9 +414,6 @@ public class AdvancedExcelService
                 sheet.CreateFreezePane(0, 2);
             }
         );
-        stream.ToFile(filePath);
-
-        return filePath;
     }
 }
 ```
@@ -455,7 +457,12 @@ public class StyledExcelService
 
     public string ExportWithStyles(List<User> users, string filePath)
     {
-        using var stream = _npoiExcel.CollectionToMemoryStream(users, "用户数据", "用户信息表",
+        return _npoiExcel.CollectionToExcel(
+            users,
+            filePath,
+            action: null,
+            sheetsName: "用户数据",
+            title: "用户信息表",
             styleAction: (sheet) =>
             {
                 // 创建样式
@@ -485,9 +492,6 @@ public class StyledExcelService
                 }
             }
         );
-        stream.ToFile(filePath);
-
-        return filePath;
     }
 }
 ```
@@ -497,11 +501,10 @@ public class StyledExcelService
 ### 大数据处理
 
 ```csharp
-// 异步导出大数据集
+// 直接导出文件可避免额外的一整份输出缓冲。
 var largeDataList = GetLargeDataSet(); // 假设有10万条数据
 
-// 使用真正的异步 I/O
-string filePath = await excelService.CollectionToExcelAsync(
+string filePath = excelService.CollectionToExcel(
     largeDataList, 
     "huge_data.xlsx", 
     "数据导出"
@@ -509,6 +512,8 @@ string filePath = await excelService.CollectionToExcelAsync(
 
 Console.WriteLine($"导出完成: {filePath}");
 ```
+
+大数据导出仍受所选提供方的内存工作簿模型限制；如果不需要内存中的文件载荷，应优先直接导出到文件。
 
 ### Excel模板填充
 
@@ -521,14 +526,21 @@ Console.WriteLine($"导出完成: {filePath}");
 ```csharp
 public class MyCustomExcel : ExcelBase<MyWorkbook, MyWorksheet>
 {
-    public MyCustomExcel(ExcelOptions options = null) : base(options) { }
+    public MyCustomExcel(ExcelOptions? options = null) : base(options) { }
 
-    // 实现基类要求的方法...
+    // 实现其余提供方特定抽象成员。
+    protected override void WriteWorkbook(MyWorkbook workbook, Stream destination)
+    {
+        // 在此调用提供方的同步流写入 API。
+    }
 }
 
 // 注册自定义实现
-services.AddExcel<MyCustomExcel>();
+services.AddSingleton<IExcelService, MyCustomExcel>();
+services.AddSingleton<IExcel<MyWorksheet>, MyCustomExcel>();
 ```
+
+继承 `ExcelBase<TWorkbook, TWorksheet>` 的提供方必须实现 `WriteWorkbook(TWorkbook, Stream)`。请直接写入传入的流，而不要创建 `MemoryStream`，以保留文件导出的直写行为。
 
 ### 事件钩子
 

@@ -138,6 +138,7 @@ public class Database(DbProviderFactory factory, string connectionString)
         }
     }
 
+#if !NET472
     /// <summary>
     /// 在单个事务中依次执行多条参数化 SQL 语句（异步）：全部成功则提交，任一条失败则整体回滚。
     /// </summary>
@@ -189,6 +190,7 @@ public class Database(DbProviderFactory factory, string connectionString)
             transaction.Dispose();
         }
     }
+#endif
 
     /// <summary>
     /// 拒绝在环境事务内再开一个独立事务。
@@ -244,6 +246,7 @@ public class Database(DbProviderFactory factory, string connectionString)
         }
     }
 
+#if !NET472
     private static async Task RollbackOrThrowAggregateAsync(DbTransaction transaction, Exception executionError)
     {
         try
@@ -258,6 +261,7 @@ public class Database(DbProviderFactory factory, string connectionString)
                 executionError, rollbackError);
         }
     }
+#endif
 
     #endregion
 

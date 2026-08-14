@@ -24,6 +24,44 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
         string defaultSheetName = ExcelOptions.DefaultDataSetSheetPrefix);
 
     /// <summary>
+    /// 使用 Provider 特定的工作表回调将数据表直接导出到 Excel 文件。
+    /// </summary>
+    /// <param name="dataTable">要导出的数据表。</param>
+    /// <param name="fullFileName">输出文件的完整路径。</param>
+    /// <param name="action">接收工作表、列集合和行集合的单元格处理委托；可为 <see langword="null"/>。</param>
+    /// <param name="sheetsName">工作表名称。</param>
+    /// <param name="title">工作表标题。</param>
+    /// <param name="styleAction">默认格式化完成后执行的工作表样式委托。</param>
+    /// <returns>生成的文件路径。</returns>
+    string DataTableToExcel(
+        DataTable dataTable,
+        string fullFileName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        string sheetsName = ExcelOptions.DefaultSheetName,
+        string title = "",
+        Action<TWorksheet>? styleAction = null);
+
+    /// <summary>
+    /// 使用 Provider 特定的工作表回调将对象集合直接导出到 Excel 文件。
+    /// </summary>
+    /// <typeparam name="T">要导出的对象类型。</typeparam>
+    /// <param name="list">要导出的对象列表。</param>
+    /// <param name="fullFileName">输出文件的完整路径。</param>
+    /// <param name="action">接收工作表和导出属性的单元格处理委托；可为 <see langword="null"/>。</param>
+    /// <param name="sheetsName">工作表名称。</param>
+    /// <param name="title">工作表标题。</param>
+    /// <param name="styleAction">默认格式化完成后执行的工作表样式委托。</param>
+    /// <returns>生成的文件路径。</returns>
+    string CollectionToExcel<T>(
+        List<T> list,
+        string fullFileName,
+        Action<TWorksheet, PropertyInfo[]>? action,
+        string sheetsName = ExcelOptions.DefaultSheetName,
+        string title = "",
+        Action<TWorksheet>? styleAction = null)
+        where T : class;
+
+    /// <summary>
     /// 使用 Provider 特定的工作表回调将对象集合导出到内存流。
     /// </summary>
     /// <typeparam name="T">要导出的对象类型。</typeparam>

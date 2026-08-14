@@ -71,6 +71,10 @@ var statements = new[]
 int[] affected = await database.ExecuteTransactionAsync(statements, cancellationToken);
 ```
 
+在 .NET Framework 4.7.2 中，`BeginTransAsync`、`CommitAsync`、`RollbackAsync` 和
+`ExecuteTransactionAsync` 均不可用。请直接使用 `BeginTrans`、`Commit`、`Rollback` 和
+`ExecuteTransaction`，不要使用 `Task.Run` 将同步事务操作伪装为异步操作。
+
 无参数语句直接调用 `new SqlStatement(sql)` 并省略参数即可；显式传入 null 参数数组会被拒绝。
 
 ## SQL Server

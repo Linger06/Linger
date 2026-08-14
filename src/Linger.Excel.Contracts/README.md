@@ -11,7 +11,7 @@ A unified, efficient, and extensible Excel operation framework that supports mul
 - **DataSet Support** - Import/export entire workbook as DataSet, supports multi-sheet operations
 - **Dependency Injection Friendly** - Supports .NET Core/ASP.NET Core dependency injection
 - **High-Performance Design** - Typed row mapping, direct export paths, and optional performance monitoring
-- **Async API Support** - Async file I/O; provider parsing remains synchronous and cancellation-aware
+- **Honest Execution Model** - Provider serialization is synchronous; stream imports remain cancellation-aware
 - **Flexible Configuration** - Rich options configuration system
 - **Extensibility** - Easy to customize and extend
 - **Cross-Platform Compatible** - Supports .NET Framework 4.7.2+, .NET Standard 2.0+, .NET 8+, .NET 9+, .NET 10+
@@ -39,13 +39,13 @@ A unified, efficient, and extensible Excel operation framework that supports mul
          │implements
          ▼
 ┌─────────────────────────────┐
-│AbstractExcelService<T1,T2>  │ ◄──── Abstract base class, implements common logic and backward compatibility methods
+│AbstractExcelService<T1,T2>  │ ◄──── Abstract base class, implements the shared public API
 └────────────┬────────────────┘
              │
              │inherits
              ▼
 ┌─────────────────────────────┐
-│ ExcelBase<TWorkbook,TSheet> │ ◄──── Excel implementation base, more common logic
+│ExcelBase<TWorkbook,TWorksheet>│ ◄── Excel implementation base, contains provider-independent logic
 └────────────┬────────────────┘
              │
              │inherits
@@ -116,11 +116,6 @@ public class ExcelReportService
         return _excelService.CollectionToExcel(users, filePath, "UserList");
     }
     
-    public async Task<string> ExportUsersAsync(List<User> users, string filePath)
-    {
-        // True async file I/O
-        return await _excelService.CollectionToExcelAsync(users, filePath, "UserList");
-    }
 }
 ```
 
@@ -190,7 +185,7 @@ var columns = new[]
     new ExcelExportColumn<User>("Department", user => user.Department, typeof(string))
 };
 
-await excelService.CollectionToExcelAsync(users, columns, filePath, "Users");
+string exportPath = excelService.CollectionToExcel(users, columns, filePath, "Users");
 
 using var template = excelService.CreateExcelTemplate(columns, "Users");
 ```
@@ -239,11 +234,6 @@ public interface IExcelService
     MemoryStream CollectionToMemoryStream<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string sheetsName = "Sheet1", string title = "");
     MemoryStream DataTableToMemoryStream(DataTable dataTable, string sheetsName = "Sheet1", string title = "");
     
-    // Async exports
-    Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
-    Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default) where T : class;
-    Task<string> CollectionToExcelAsync<T>(IEnumerable<T> items, IEnumerable<ExcelExportColumn<T>> columns, string fullFileName, string sheetsName = "Sheet1", string title = "", CancellationToken cancellationToken = default);
-    
     // Create template
     MemoryStream CreateExcelTemplate<T>() where T : class, new();
     
@@ -262,6 +252,16 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
         Action<IWorksheetExportContext<TWorksheet>> worksheetAction,
         string defaultSheetName = "Sheet");
 
+    string DataTableToExcel(DataTable dataTable, string fullFileName,
+        Action<TWorksheet, DataColumnCollection, DataRowCollection>? action,
+        string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet>? styleAction = null);
+
+    string CollectionToExcel<T>(List<T> list, string fullFileName,
+        Action<TWorksheet, PropertyInfo[]>? action,
+        string sheetsName = "Sheet1", string title = "",
+        Action<TWorksheet>? styleAction = null) where T : class;
+
     MemoryStream CollectionToMemoryStream<T>(List<T> list, string sheetsName = "Sheet1", string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null,
         Action<TWorksheet>? styleAction = null) where T : class;
@@ -277,10 +277,11 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 - **Advanced Customization**: Use `IExcel<TWorksheet>` when you need custom cell styles, merged cells, etc.
 - **Dependency Injection**: Both interfaces can be injected; `IExcel<TWorksheet>` instances can be upcast to `IExcelService`
 
-**Async Implementation Notes:**
-- ✅ **File I/O**: Uses true async (`FileStream` with `useAsync: true`)
-- ⚠️ **Excel Processing**: Provider parsing is synchronous and runs on the calling thread; schedule background work at the application boundary when needed
-- 📤 **Scope**: Async APIs are limited to file export; imports remain synchronous because provider parsing is synchronous
+**Export Memory Behavior:**
+- `DataTableToExcel`, `DataSetToExcel`, and `CollectionToExcel` write the completed workbook directly to a `FileStream`. They avoid the former extra full-size `MemoryStream` copy.
+- `DataTableToMemoryStream` and `CollectionToMemoryStream` intentionally keep the complete generated file in memory. Use them only when the caller really needs an in-memory payload.
+- ClosedXML and NPOI still construct their workbook object models in memory and serialize synchronously. Direct file output removes the additional output buffer; it does not make workbook generation streaming.
+- A serialization failure can leave the target file incomplete. Applications that require atomic publication should export to a caller-managed temporary path and replace the target only after success.
 
 ## 🎨 Advanced Features
 
@@ -387,7 +388,9 @@ public class AdvancedExcelService
 
     public string ExportWithCustomStyle(List<User> users, string filePath)
     {
-        using var stream = _npoiExcel.CollectionToMemoryStream(users, "UserList", "User Data Report",
+        return _npoiExcel.CollectionToExcel(
+            users,
+            filePath,
             // Custom cell operations
             action: (sheet, properties) =>
             {
@@ -398,6 +401,8 @@ public class AdvancedExcelService
                 // Merge cells
                 sheet.AddMergedRegion(new CellRangeAddress(0, 0, 0, properties.Length - 1));
             },
+            sheetsName: "UserList",
+            title: "User Data Report",
             // Custom style operations
             styleAction: (sheet) =>
             {
@@ -409,9 +414,6 @@ public class AdvancedExcelService
                 sheet.CreateFreezePane(0, 2);
             }
         );
-        stream.ToFile(filePath);
-
-        return filePath;
     }
 }
 ```
@@ -455,7 +457,12 @@ public class StyledExcelService
 
     public string ExportWithStyles(List<User> users, string filePath)
     {
-        using var stream = _npoiExcel.CollectionToMemoryStream(users, "UserData", "User Information",
+        return _npoiExcel.CollectionToExcel(
+            users,
+            filePath,
+            action: null,
+            sheetsName: "UserData",
+            title: "User Information",
             styleAction: (sheet) =>
             {
                 // Create styles
@@ -485,9 +492,6 @@ public class StyledExcelService
                 }
             }
         );
-        stream.ToFile(filePath);
-
-        return filePath;
     }
 }
 ```
@@ -497,11 +501,10 @@ public class StyledExcelService
 ### Large Data Processing
 
 ```csharp
-// Async export of large datasets
+// Direct file export avoids an additional full-size output buffer.
 var largeDataList = GetLargeDataSet(); // Assume 100k records
 
-// Use true async I/O
-string filePath = await excelService.CollectionToExcelAsync(
+string filePath = excelService.CollectionToExcel(
     largeDataList, 
     "huge_data.xlsx", 
     "DataExport"
@@ -509,6 +512,8 @@ string filePath = await excelService.CollectionToExcelAsync(
 
 Console.WriteLine($"Export completed: {filePath}");
 ```
+
+Large exports are still bounded by the chosen provider's in-memory workbook model. Prefer direct file export over a memory-stream export when an in-memory payload is not required.
 
 ### Excel Template Filling
 
@@ -519,17 +524,20 @@ Console.WriteLine($"Export completed: {filePath}");
 ### Custom Excel Implementation
 
 ```csharp
-public class MyCustomExcel : AbstractExcelService<MyWorkbook, MyWorksheet>
+public class MyCustomExcel : ExcelBase<MyWorkbook, MyWorksheet>
 {
     public MyCustomExcel(ExcelOptions? options = null) : base(options) { }
 
-    // Implement abstract methods...
-    protected override MyWorkbook CreateWorkbookInternal() { /* ... */ }
-    protected override MyWorksheet GetWorksheetInternal(MyWorkbook workbook, string sheetName) { /* ... */ }
-    // More method implementations...
+    // Implement the remaining provider-specific abstract members.
+    protected override void WriteWorkbook(MyWorkbook workbook, Stream destination)
+    {
+        // Call the provider's synchronous stream-writing API here.
+    }
 }
 
 // Register custom implementation
 services.AddSingleton<IExcelService, MyCustomExcel>();
 services.AddSingleton<IExcel<MyWorksheet>, MyCustomExcel>();
 ```
+
+Providers deriving from `ExcelBase<TWorkbook, TWorksheet>` must implement `WriteWorkbook(TWorkbook, Stream)`. Write directly to the supplied stream instead of creating a `MemoryStream`, so file exports retain the direct-write behavior.

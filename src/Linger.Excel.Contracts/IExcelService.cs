@@ -253,59 +253,6 @@ public interface IExcelService
         string title = "");
 
     /// <summary>
-    /// 异步将数据表导出到 Excel 文件。
-    /// </summary>
-    /// <param name="dataTable">要导出的数据表。</param>
-    /// <param name="fullFileName">输出文件的完整路径。</param>
-    /// <param name="sheetsName">工作表名称。</param>
-    /// <param name="title">工作表标题。</param>
-    /// <param name="cancellationToken">用于取消文件写入的令牌。</param>
-    /// <returns>其结果为生成文件路径的任务。</returns>
-    Task<string> DataTableToExcelAsync(
-        DataTable dataTable,
-        string fullFileName,
-        string sheetsName = ExcelOptions.DefaultSheetName,
-        string title = "",
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// 使用基于反射的列发现异步将对象集合导出到 Excel 文件。
-    /// </summary>
-    /// <typeparam name="T">要导出的对象类型。</typeparam>
-    /// <param name="list">要导出的对象列表。</param>
-    /// <param name="fullFileName">输出文件的完整路径。</param>
-    /// <param name="sheetsName">工作表名称。</param>
-    /// <param name="title">工作表标题。</param>
-    /// <param name="cancellationToken">用于取消文件写入的令牌。</param>
-    /// <returns>其结果为生成文件路径的任务。</returns>
-    Task<string> CollectionToExcelAsync<T>(
-        List<T> list,
-        string fullFileName,
-        string sheetsName = ExcelOptions.DefaultSheetName,
-        string title = "",
-        CancellationToken cancellationToken = default)
-        where T : class;
-
-    /// <summary>
-    /// 使用显式列定义异步将对象集合导出到 Excel 文件。
-    /// </summary>
-    /// <typeparam name="T">要导出的对象类型。</typeparam>
-    /// <param name="items">要导出的对象序列。</param>
-    /// <param name="columns">导出列定义。</param>
-    /// <param name="fullFileName">输出文件的完整路径。</param>
-    /// <param name="sheetsName">工作表名称。</param>
-    /// <param name="title">工作表标题。</param>
-    /// <param name="cancellationToken">用于取消文件写入的令牌。</param>
-    /// <returns>其结果为生成文件路径的任务。</returns>
-    Task<string> CollectionToExcelAsync<T>(
-        IEnumerable<T> items,
-        IEnumerable<ExcelExportColumn<T>> columns,
-        string fullFileName,
-        string sheetsName = ExcelOptions.DefaultSheetName,
-        string title = "",
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// 使用基于反射的列发现创建空 Excel 模板。
     /// </summary>
     /// <typeparam name="T">用于定义模板列的对象类型。</typeparam>
