@@ -32,16 +32,19 @@ public class FileOperationResult
     /// <summary>
     /// 完整文件路径（本地文件系统适用）
     /// </summary>
+    [Obsolete("FullFilePath will be removed in 2.0.0. Use UploadedInfo.FullFilePath for local named uploads instead. See the migration guide in the Linger repository for guidance.")]
     public string? FullFilePath { get; init; }
 
     /// <summary>
     /// 文件大小（字节）
     /// </summary>
+    [Obsolete("FileSize will be removed in 2.0.0. Query the file size explicitly when needed. See the migration guide in the Linger repository for guidance.")]
     public long FileSize { get; init; }
 
     /// <summary>
     /// 文件哈希值（如MD5）
     /// </summary>
+    [Obsolete("FileHash will be removed in 2.0.0. Use UploadedInfo.HashData for local named uploads instead. See the migration guide in the Linger repository for guidance.")]
     public string? FileHash { get; init; }
 
     /// <summary>
@@ -52,6 +55,7 @@ public class FileOperationResult
     /// <param name="fileSize">文件大小（字节）</param>
     /// <param name="fileHash">文件哈希值（可选）</param>
     /// <returns>表示成功的操作结果</returns>
+    [Obsolete("This overload will be removed in 2.0.0. Use CreateSuccess(string) or query the metadata explicitly. See the migration guide in the Linger repository for guidance.")]
     public static FileOperationResult CreateSuccess(string filePath, string? fullFilePath = null, long fileSize = 0, string? fileHash = null)
     {
         return new FileOperationResult
