@@ -3,6 +3,7 @@ namespace Linger.HttpClient.Contracts.Core;
 /// <summary>
 /// HTTP 响应处理模式
 /// </summary>
+[Obsolete("HttpResponseMode will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
 public enum HttpResponseMode
 {
     /// <summary>

@@ -11,6 +11,7 @@ namespace Linger.HttpClient.Contracts.Core;
 /// <summary>
 /// HTTP客户端抽象基类
 /// </summary>
+[Obsolete("HttpClientBase will be removed in 2.0.0. Use StandardHttpClient with the injected HttpClient pattern instead. See the migration guide in the Linger repository for guidance.")]
 public abstract class HttpClientBase : IHttpClient
 {
     /// <summary>

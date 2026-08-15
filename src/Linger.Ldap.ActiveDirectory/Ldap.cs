@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Linger.Ldap.ActiveDirectory;
 
+[Obsolete("Ldap will be removed in 2.0.0. Use AdLdapClient instead. See the migration guide in the Linger repository for guidance.")]
 #if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
 #endif

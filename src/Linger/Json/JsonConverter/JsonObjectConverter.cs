@@ -21,6 +21,7 @@ namespace Linger.Json.JsonConverter;
 /// // obj will be a JsonElement representing the JSON object
 /// </code>
 /// </example>
+[Obsolete("JsonObjectConverter will be removed in 2.0.0. Use JsonElement, JsonNode, or a strongly typed model instead. See the migration guide in the Linger repository for guidance.")]
 public class JsonObjectConverter : JsonConverter<object>
 {
     /// <summary>
