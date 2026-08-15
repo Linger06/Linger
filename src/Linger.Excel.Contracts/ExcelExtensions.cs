@@ -19,6 +19,7 @@ public static class ExcelExtensions
     /// <param name="headerRowIndex">列头所在行索引。</param>
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static List<T>? ExcelToList<T>(
         this IExcelService excelService,
         string filePath,
@@ -47,6 +48,7 @@ public static class ExcelExtensions
     /// <param name="headerRowIndex">列头所在行索引。</param>
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static List<T>? ExcelToList<T>(
         this IExcelService excelService,
         string filePath,
@@ -77,6 +79,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">用于取消导入操作的令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static List<T>? StreamToList<T>(
         this IExcelService excelService,
         Stream stream,
@@ -107,6 +110,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">用于取消导入操作的令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static List<T>? StreamToList<T>(
         this IExcelService excelService,
         Stream stream,
@@ -138,6 +142,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. Use the synchronous ExcelToList instead. See the migration guide in the Linger repository for guidance.")]
     public static async Task<List<T>?> ExcelToListAsync<T>(
         this IExcelService excelService,
         string filePath,
@@ -172,6 +177,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. Use the synchronous ExcelToList instead. See the migration guide in the Linger repository for guidance.")]
     public static async Task<List<T>?> ExcelToListAsync<T>(
         this IExcelService excelService,
         string filePath,
@@ -207,6 +213,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. Use the synchronous StreamToList instead. See the migration guide in the Linger repository for guidance.")]
     public static async Task<List<T>?> StreamToListAsync<T>(
         this IExcelService excelService,
         Stream stream,
@@ -241,6 +248,7 @@ public static class ExcelExtensions
     /// <param name="addEmptyRow">是否保留空行。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>导入后的对象列表；导入失败时返回 <c>null</c>。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. Use the synchronous StreamToList instead. See the migration guide in the Linger repository for guidance.")]
     public static async Task<List<T>?> StreamToListAsync<T>(
         this IExcelService excelService,
         Stream stream,
@@ -275,6 +283,7 @@ public static class ExcelExtensions
     /// <param name="sheetsName">工作表名称。</param>
     /// <param name="title">标题。</param>
     /// <returns>导出的文件路径。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static string CollectionToExcel<T>(
         this IExcelService excelService,
         IEnumerable<T> items,
@@ -300,6 +309,7 @@ public static class ExcelExtensions
     /// <param name="sheetsName">工作表名称。</param>
     /// <param name="title">标题。</param>
     /// <returns>包含导出内容的内存流。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static MemoryStream CollectionToMemoryStream<T>(
         this IExcelService excelService,
         IEnumerable<T> items,
@@ -326,6 +336,7 @@ public static class ExcelExtensions
     /// <param name="title">标题。</param>
     /// <param name="cancellationToken">取消令牌。</param>
     /// <returns>导出的文件路径。</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. Use the synchronous CollectionToExcel instead. See the migration guide in the Linger repository for guidance.")]
     public static Task<string> CollectionToExcelAsync<T>(
         this IExcelService excelService,
         IEnumerable<T> items,
@@ -374,6 +385,7 @@ public static class ExcelExtensions
     /// <param name="styleAction"></param>
     /// <param name="cancellationToken">用于取消导出操作的令牌。</param>
     /// <returns>文件路径</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static async Task<string> DataTableToFileAsync<TWorkbook, TWorksheet>(
         this ExcelBase<TWorkbook, TWorksheet> excel,
         DataTable dataTable,
@@ -426,6 +438,7 @@ public static class ExcelExtensions
     /// <param name="styleAction"></param>
     /// <param name="cancellationToken">用于取消导出操作的令牌。</param>
     /// <returns>文件路径</returns>
+    [Obsolete("This extension method will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public static async Task<string> ListToFileAsync<T, TWorkbook, TWorksheet>(
         this ExcelBase<TWorkbook, TWorksheet> excel,
         List<T> list,
