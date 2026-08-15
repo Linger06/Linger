@@ -1,5 +1,6 @@
 ﻿namespace Linger.Ldap.Contracts;
 
+[Obsolete("AdUserInfo will be removed in 2.0.0. Use LdapUserInfo instead. See the migration guide in the Linger repository for guidance.")]
 public class AdUserInfo
 {
     public string? DisplayName { get; set; }

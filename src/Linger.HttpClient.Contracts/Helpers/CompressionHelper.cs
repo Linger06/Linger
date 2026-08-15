@@ -3,6 +3,7 @@
 /// <summary>
 /// HTTP压缩辅助类
 /// </summary>
+[Obsolete("CompressionHelper will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
 public static class CompressionHelper
 {
     /// <summary>

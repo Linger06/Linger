@@ -12,6 +12,7 @@ namespace Linger.Ldap.Novell;
 /// LDAP client implementation using Novell.Directory.Ldap provider.
 /// Provides cross-platform LDAP connectivity.
 /// </summary>
+[Obsolete("Ldap will be removed in 2.0.0. Use NovellLdapClient instead. See the migration guide in the Linger repository for guidance.")]
 public sealed class Ldap : ILdap, IDisposable
 {
     private readonly LdapConfig _ldapConfig;

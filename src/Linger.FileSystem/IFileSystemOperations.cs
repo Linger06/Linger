@@ -15,6 +15,7 @@ namespace Linger.FileSystem;
 /// </list>
 /// <para>所有方法均支持 <see cref="CancellationToken"/>，可在长时间操作中安全取消。</para>
 /// </remarks>
+[Obsolete("IFileSystemOperations will be removed in 2.0.0. Use IFileTransfer instead. See the migration guide in the Linger repository for guidance.")]
 public interface IFileSystemOperations : IFileSystem
 {
     /// <summary>

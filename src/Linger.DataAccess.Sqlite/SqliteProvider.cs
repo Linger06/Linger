@@ -3,6 +3,7 @@ using System.Data.SQLite;
 
 namespace Linger.DataAccess.Sqlite;
 
+[Obsolete("SqliteProvider will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
 public class SqliteProvider : IProvider
 {
     public DbCommand CreateCommand()
