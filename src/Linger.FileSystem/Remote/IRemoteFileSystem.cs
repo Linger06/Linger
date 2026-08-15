@@ -13,6 +13,7 @@ public interface IRemoteFileSystem : IFileSystemOperations, IBatchFileSystemOper
     /// 获取一个值，指示当前是否已连接到远程服务器。
     /// </summary>
     /// <returns>如果已连接，则为 <c>true</c>；否则为 <c>false</c>。</returns>
+    [Obsolete("IsConnected will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     bool IsConnected();
 
     /// <summary>
@@ -20,17 +21,20 @@ public interface IRemoteFileSystem : IFileSystemOperations, IBatchFileSystemOper
     /// </summary>
     /// <returns>表示异步操作的任务。</returns>
     /// <exception cref="FileSystemException">当连接失败时抛出。</exception>
+    [Obsolete("ConnectAsync will be removed in 2.0.0. Connection is established lazily. See the migration guide in the Linger repository for guidance.")]
     Task ConnectAsync();
 
     /// <summary>
     /// 异步断开与远程服务器的连接。
     /// </summary>
     /// <returns>表示异步操作的任务。</returns>
+    [Obsolete("DisconnectAsync will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     Task DisconnectAsync();
 
     /// <summary>
     /// 获取服务器详细信息的描述字符串。
     /// </summary>
     /// <returns>包含服务器类型、主机、端口等信息的字符串。</returns>
+    [Obsolete("ServerDetails() will be removed in 2.0.0. Use the ServerDetails property instead.")]
     string ServerDetails();
 }

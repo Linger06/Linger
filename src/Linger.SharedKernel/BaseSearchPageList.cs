@@ -3,6 +3,7 @@ namespace Linger.SharedKernel;
 /// <summary>
 /// 分页搜索类，继承基础搜索功能并添加分页支持
 /// </summary>
+[Obsolete("Use BaseSearchPagedList instead. This API will be removed in 2.0.0.")]
 public class BaseSearchPageList : BaseSearch, IBaseSearchPagedList
 {
     /// <summary>
