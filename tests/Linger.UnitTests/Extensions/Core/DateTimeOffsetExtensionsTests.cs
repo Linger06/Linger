@@ -22,7 +22,7 @@ public class DateTimeOffsetExtensionsTests
     }
     
     [Fact]
-    public void ToDateTime_WithLocalOffset_ReturnsLocalDateTime()
+    public void ToDateTime_WithSystemLocalOffset_ReturnsExpectedKind()
     {
         // Arrange
         var localNow = DateTime.Now;
@@ -34,7 +34,10 @@ public class DateTimeOffsetExtensionsTests
         
         // Assert
         Assert.Equal(localNow, result);
-        Assert.Equal(DateTimeKind.Local, result.Kind);
+        var expectedKind = localOffset == TimeSpan.Zero
+            ? DateTimeKind.Utc
+            : DateTimeKind.Local;
+        Assert.Equal(expectedKind, result.Kind);
     }
     
     [Fact]
@@ -63,14 +66,18 @@ public class DateTimeOffsetExtensionsTests
     }
     
     [Fact]
-    public void ToDateTime_WithDifferentOffsets_ReturnsDifferentKinds()
+    public void ToDateTime_WithDifferentOffsets_ReturnsExpectedKinds()
     {
         // Arrange
         var baseDateTime = new DateTime(2025, 4, 11, 15, 30, 45);
         
+        var localOffsetValue = TimeZoneInfo.Local.GetUtcOffset(baseDateTime);
         var utcOffset = new DateTimeOffset(baseDateTime, TimeSpan.Zero);
-        var localOffset = new DateTimeOffset(baseDateTime, TimeZoneInfo.Local.GetUtcOffset(baseDateTime));
-        var customOffset = new DateTimeOffset(baseDateTime, TimeSpan.FromHours(5));
+        var localOffset = new DateTimeOffset(baseDateTime, localOffsetValue);
+        var customOffsetValue = localOffsetValue == TimeSpan.FromHours(14)
+            ? TimeSpan.FromHours(-12)
+            : TimeSpan.FromHours(14);
+        var customOffset = new DateTimeOffset(baseDateTime, customOffsetValue);
         
         // Act
         var utcResult = utcOffset.ToDateTime();
@@ -79,9 +86,13 @@ public class DateTimeOffsetExtensionsTests
         
         // Assert
         Assert.Equal(DateTimeKind.Utc, utcResult.Kind);
-        Assert.Equal(DateTimeKind.Local, localResult.Kind);
+        var expectedLocalKind = localOffsetValue == TimeSpan.Zero
+            ? DateTimeKind.Utc
+            : DateTimeKind.Local;
+        Assert.Equal(expectedLocalKind, localResult.Kind);
         
         // 对于自定义偏移量，DateTime.Kind可能是Unspecified
+        Assert.Equal(DateTimeKind.Unspecified, customResult.Kind);
         Assert.Equal(baseDateTime, customResult);
     }
 }
