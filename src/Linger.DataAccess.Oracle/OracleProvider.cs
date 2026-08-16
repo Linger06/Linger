@@ -3,6 +3,7 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace Linger.DataAccess.Oracle;
 
+[Obsolete("OracleProvider will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
 public class OracleProvider : IProvider
 {
     public DbCommand CreateCommand()

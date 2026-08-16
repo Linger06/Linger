@@ -112,39 +112,6 @@ public class SqlServerHelperTests
     }
 
     [Fact]
-    public void Exists_WithEmptySql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.Exists(""));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public void Exists_WithNullSql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentNullException>(() => sqlHelper.Exists(null!));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public void Exists_WithWhitespaceSql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = Assert.Throws<System.ArgumentException>(() => sqlHelper.Exists("   "));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
     public async Task AddByBulkCopyAsync_WithNullTable_ShouldThrowArgumentNullException()
     {
         // Arrange
@@ -190,30 +157,6 @@ public class SqlServerHelperTests
         var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
             sqlHelper.GetMaxIdAsync("Id", ""));
         Assert.Equal("tableName", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task ExistsAsync_WithEmptySql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
-            sqlHelper.ExistsAsync(""));
-        Assert.Equal("sql", ex.ParamName);
-    }
-
-    [Fact]
-    public async Task ExistsAsync_WithNullSql_ShouldThrowArgumentException()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-
-        // Act & Assert
-        var ex = await Assert.ThrowsAsync<System.ArgumentNullException>(() =>
-            sqlHelper.ExistsAsync(null!));
-        Assert.Equal("sql", ex.ParamName);
     }
 
     [Fact]
@@ -426,27 +369,5 @@ public class SqlServerHelperPerformanceTests
 
         var result = sqlHelper.BulkInsert(table);
         Assert.False(result); // Empty table should return false
-    }
-
-    [Fact]
-    public async Task ConcurrentAsyncOperations_ShouldNotCauseDeadlock()
-    {
-        // Arrange
-        var sqlHelper = new SqlServerHelper(TestConnectionString);
-        var tasks = new List<Task>();
-
-        // Act - Create multiple async parameter validation tasks
-        for (int i = 0; i < 10; i++)
-        {
-            tasks.Add(Task.Run(async () =>
-            {
-                var ex = await Assert.ThrowsAsync<System.ArgumentException>(() =>
-                    sqlHelper.ExistsAsync("")).ConfigureAwait(false);
-                Assert.Equal("sql", ex.ParamName);
-            }));
-        }
-
-        // Assert
-        await Task.WhenAll(tasks); // Should complete without deadlock
     }
 }

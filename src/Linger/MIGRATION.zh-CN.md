@@ -48,6 +48,9 @@ Linger 1.6.0 是帮助应用从 1.x 平稳迁移到 2.0 的兼容版本。1.6.0
 | `GetExtensionNotDotString` | `Path.GetExtension(path).TrimStart('.')` |
 | `FileHelper.GetLineCount` | `File.ReadLines(path).Count()` |
 | `FileHelper.GetFileSize` | `filePath.GetFileSize()` |
+| `FileHelper.GetExistingFileInfo` | 使用 `new FileInfo(path)`；仅在确实需要内容指纹时打开文件并调用 `ComputeHashMd5()` |
+| `ExtendedFileInfo` | 上传结果使用 `UploadedInfo`，其他场景使用业务自定义 DTO |
+| `BaseFileInfo` | 上传结果使用 `UploadedInfo`，其他场景使用业务自定义 DTO |
 | `FileHelper.GetDirectories` / `GetFileNames` 的布尔参数重载 | 接收 `SearchOption` 的重载 |
 | `FileHelper.CreateDirectoryIfNotExists` | `Directory.CreateDirectory` |
 | `GuidCode.GetInt32UniqueCode` / `GetInt64UniqueCode` | 使用完整 `Guid` |

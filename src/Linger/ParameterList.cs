@@ -46,7 +46,8 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// <summary>
     /// Gets or sets the parameters.
     /// </summary>
-    public Dictionary<string, object> Parameters { get; set; }
+[Obsolete("Parameters will become read-only in 2.0.0. Modify the collection or use SetValue/Add/Remove/Clear instead. See the migration guide in the Linger repository for guidance.")]
+public Dictionary<string, object> Parameters { get; set; }
 
     /// <summary>
     /// Gets or sets the value associated with the specified key.

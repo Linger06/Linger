@@ -3,6 +3,7 @@ namespace Linger.HttpClient.Contracts.Helpers;
 /// <summary>
 /// 多部分内容处理助手
 /// </summary>
+[Obsolete("MultipartHelper will be removed in 2.0.0. Use the streaming UploadFileAsync API instead. See the migration guide in the Linger repository for guidance.")]
 public static class MultipartHelper
 {
     /// <summary>

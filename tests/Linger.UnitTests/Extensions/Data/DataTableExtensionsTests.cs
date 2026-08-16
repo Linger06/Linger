@@ -1,5 +1,7 @@
 ﻿using LingerDataTableExtensions = Linger.Extensions.Data.DataTableExtensions;
 
+using System.Globalization;
+
 #pragma warning disable CS0618 // Compatibility coverage for legacy async-named wrappers.
 
 namespace Linger.UnitTests;
@@ -123,6 +125,29 @@ public partial class DataTableExtensionsTests
         var exception = Assert.Throws<InvalidCastException>(() => table.ToList<TestClass2>());
 
         Assert.Contains("DateTime", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ToList_WithZhCnDateTimeString_MapsDateTimeProperty()
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("zh-CN");
+            var table = new DataTable();
+            table.Columns.Add("DateTime", typeof(string));
+            table.Rows.Add("2024/1/15 下午 3:04:05");
+
+            var result = table.ToList<TestClass2>();
+
+            var item = Assert.Single(result!);
+            Assert.Equal(new DateTime(2024, 1, 15, 15, 4, 5), item.DateTime);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 
     [Fact]

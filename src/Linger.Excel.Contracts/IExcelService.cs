@@ -39,6 +39,7 @@ public interface IExcelService
     /// <param name="headerRowIndex">列名所在行号(所有工作表使用相同值)</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    [Obsolete("This overload will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     DataSet? ExcelToDataSet(string filePath, int headerRowIndex = 0, bool addEmptyRow = false);
 
     /// <summary>
@@ -58,6 +59,7 @@ public interface IExcelService
     /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    [Obsolete("This overload will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     DataSet? ExcelToDataSet(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
 
     /// <summary>
@@ -68,6 +70,7 @@ public interface IExcelService
     /// <param name="headerRowIndexSelector">根据工作表名称返回对应的表头行索引的委托，如果返回null则使用默认值0</param>
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    [Obsolete("This overload will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     DataSet? ExcelToDataSet(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false);
 
     /// <summary>
@@ -101,6 +104,7 @@ public interface IExcelService
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    [Obsolete("This overload will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     DataSet? StreamToDataSet(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -122,6 +126,7 @@ public interface IExcelService
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    [Obsolete("This overload will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     DataSet? StreamToDataSet(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -133,66 +138,79 @@ public interface IExcelService
     /// <param name="addEmptyRow">是否添加空行</param>
     /// <param name="cancellationToken">协作式取消令牌</param>
     /// <returns>转换后的DataSet，每个工作表对应一个DataTable</returns>
+    [Obsolete("This overload will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     DataSet? StreamToDataSet(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataTable
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataTable?> ExcelToDataTableAsync(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为对象列表
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<List<T>?> ExcelToListAsync<T>(string filePath, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(所有工作表)
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> ExcelToDataSetAsync(string filePath, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(指定工作表)
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> ExcelToDataSetAsync(string filePath, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Excel文件转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> ExcelToDataSetAsync(string filePath, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Stream转换为DataTable
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataTable?> StreamToDataTableAsync(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Stream转换为对象列表
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<List<T>?> StreamToListAsync<T>(Stream stream, string? sheetName = null, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default) where T : class, new();
 
     /// <summary>
     /// 异步将Stream转换为DataSet(所有工作表)
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> StreamToDataSetAsync(Stream stream, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Stream转换为DataSet(指定工作表)
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, int headerRowIndex = 0, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Stream转换为DataSet(所有工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> StreamToDataSetAsync(Stream stream, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将Stream转换为DataSet(指定工作表)，支持为每个工作表指定不同的表头行
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<DataSet?> StreamToDataSetAsync(Stream stream, IEnumerable<string>? sheetNames, Func<string, int?> headerRowIndexSelector, bool addEmptyRow = false, CancellationToken cancellationToken = default);
 
     #endregion
@@ -227,11 +245,13 @@ public interface IExcelService
     /// <summary>
     /// 异步将DataTable导出为Excel文件
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 异步将对象集合导出为Excel文件
     /// </summary>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "", CancellationToken cancellationToken = default) where T : class;
 
     /// <summary>

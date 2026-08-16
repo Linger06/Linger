@@ -3,6 +3,7 @@ namespace Linger.Ldap.Contracts;
 /// <summary>
 /// Represents low-level LDAP operations
 /// </summary>
+[Obsolete("ILdap will be removed in 2.0.0. Use ILdapClient instead. See the migration guide in the Linger repository for guidance.")]
 public interface ILdap
 {
     /// <summary>

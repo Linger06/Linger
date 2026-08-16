@@ -1,6 +1,4 @@
 using System.Text;
-using Linger.Extensions.Core;
-using Linger.Extensions.IO;
 
 namespace Linger.Helper;
 
@@ -195,58 +193,6 @@ public static partial class FileHelper
                                  || PathHelper.IsPathException(ex))
         {
             return false;
-        }
-    }
-
-    #endregion
-
-    #region File Information
-
-    /// <summary>
-    /// Gets extended metadata for an existing file, including hash, paths, and size information.
-    /// </summary>
-    /// <param name="fullFileName">The target file path, absolute or relative.</param>
-    /// <param name="relativeTo">The base directory used to compute the relative path. Defaults to the current working directory.</param>
-    /// <returns>
-    /// An <see cref="ExtendedFileInfo"/> instance when the file exists and the path is valid; otherwise <see langword="null"/>.
-    /// </returns>
-    public static ExtendedFileInfo? GetExistingFileInfo(string fullFileName, string? relativeTo = null)
-    {
-        if (string.IsNullOrEmpty(fullFileName))
-            return null;
-
-        string basePath = relativeTo is { Length: > 0 }
-            ? relativeTo
-            : Directory.GetCurrentDirectory();
-
-        try
-        {
-            string absolutePath = fullFileName.ToFullPath();
-
-            if (!PathExtensions.Exists(absolutePath, checkAsFile: true))
-                return null;
-
-            var file = new FileInfo(absolutePath);
-            string strHashData;
-
-            using (var fileStream = file.OpenRead())
-            {
-                strHashData = fileStream.ComputeHashMd5();
-            }
-
-            return new ExtendedFileInfo
-            {
-                HashData = strHashData,
-                FileName = file.Name,
-                RelativeFilePath = basePath.GetRelativePath(absolutePath),
-                FullFilePath = file.FullName,
-                FileSize = file.Length.FormatFileSize(),
-                Length = file.Length
-            };
-        }
-        catch (Exception ex) when (PathHelper.IsPathException(ex))
-        {
-            return null;
         }
     }
 

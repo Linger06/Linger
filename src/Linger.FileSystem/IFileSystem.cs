@@ -3,6 +3,7 @@
 /// <summary>
 /// 文件系统接口，定义基本的文件操作
 /// </summary>
+[Obsolete("IFileSystem will be removed in 2.0.0. Use IFileTransfer instead. See the migration guide in the Linger repository for guidance.")]
 public interface IFileSystem
 {
     Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default);

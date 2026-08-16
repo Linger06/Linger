@@ -24,7 +24,8 @@ public static class GuidCode
     /// <summary>
     /// Gets a compact identifier based on the current date and part of a GUID.
     /// </summary>
-    public static string NewDateGuid
+[Obsolete("NewDateGuid will be removed in 2.0.0. Use Guid.NewGuid().ToString(\"N\") instead. See the migration guide in the Linger repository for guidance.")]
+public static string NewDateGuid
     {
         get
         {

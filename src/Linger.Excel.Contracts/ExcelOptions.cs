@@ -69,6 +69,7 @@ public class ExcelOptions
     /// 较小的数据集使用并行处理可能会因为线程开销而降低性能。
     /// 根据实际的硬件配置和数据复杂度调整此值以获得最佳性能。
     /// </remarks>
+    [Obsolete("This option will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public int ParallelProcessingThreshold { get; set; } = 1000;
 
     /// <summary>
@@ -81,11 +82,13 @@ public class ExcelOptions
     /// <summary>
     /// 是否使用批量写入优化
     /// </summary>
+    [Obsolete("This option will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public bool UseBatchWrite { get; set; } = true;
 
     /// <summary>
     /// 批量写入大小
     /// </summary>
+    [Obsolete("This option will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     public int BatchSize { get; set; } = 5000;
 
     /// <summary>

@@ -5,6 +5,7 @@ namespace Linger.FileSystem.Remote;
 /// <summary>
 /// 远程文件系统连接设置
 /// </summary>
+[Obsolete("RemoteSystemSetting will be removed in 2.0.0. Use RemoteFileSystemOptions instead. See the migration guide in the Linger repository for guidance.")]
 public class RemoteSystemSetting
 {
     /// <summary>

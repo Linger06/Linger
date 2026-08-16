@@ -19,6 +19,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// <param name="action">自定义单元格操作委托</param>
     /// <param name="styleAction">自定义样式操作委托</param>
     /// <returns>生成的文件路径</returns>
+    [Obsolete("The parameter order of this overload changes in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     string DataTableToExcel(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
 
@@ -31,6 +32,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// <param name="action">自定义单元格操作委托</param>
     /// <param name="styleAction">自定义样式操作委托</param>
     /// <returns>生成的文件路径</returns>
+    [Obsolete("This overload will be removed in 2.0.0. Use the overload accepting Action<IWorksheetExportContext<TWorksheet>> instead.")]
     string DataSetToExcel(DataSet dataSet, string fullFileName, string defaultSheetName = ExcelOptions.DefaultDataSetSheetPrefix,
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null);
 
@@ -60,6 +62,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// <param name="action">自定义单元格操作委托</param>
     /// <param name="styleAction">自定义样式操作委托</param>
     /// <returns>生成的文件路径</returns>
+    [Obsolete("The parameter order of this overload changes in 2.0.0. See the migration guide in the Linger repository for guidance.")]
     string CollectionToExcel<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null) where T : class;
 
@@ -99,6 +102,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// <param name="styleAction">自定义样式操作委托</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>生成的文件路径</returns>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<string> DataTableToExcelAsync(DataTable dataTable, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
         Action<TWorksheet, DataColumnCollection, DataRowCollection>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default);
 
@@ -114,6 +118,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// <param name="styleAction">自定义样式操作委托</param>
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>生成的文件路径</returns>
+    [Obsolete("This async method will be removed in 2.0.0. Use the synchronous method instead. See the migration guide in the Linger repository for guidance.")]
     Task<string> CollectionToExcelAsync<T>(List<T> list, string fullFileName, string sheetsName = ExcelOptions.DefaultSheetName, string title = "",
         Action<TWorksheet, PropertyInfo[]>? action = null, Action<TWorksheet>? styleAction = null, CancellationToken cancellationToken = default) where T : class;
 
@@ -122,6 +127,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
     /// </summary>
     /// <typeparam name="T">模板类型</typeparam>
     /// <returns>包含模板的内存流</returns>
+    [Obsolete("CreateExcelTemplate will be removed in 2.0.0. Use the CreateExcelTemplate extension accepting ExcelExportColumn<T> definitions instead.")]
     new MemoryStream CreateExcelTemplate<T>() where T : class, new();
 
     #endregion

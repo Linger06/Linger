@@ -116,6 +116,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         return Task.CompletedTask;
     }
 
+    [Obsolete("This named upload overload will be removed in 2.0.0. Use UploadWithNamingAsync instead. See the migration guide in the Linger repository for guidance.")]
     public async Task<UploadedInfo> UploadAsync(
         Stream inputStream,
         string sourceFileName,
@@ -412,6 +413,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem, IBatchFileSyste
         }
     }
 
+    [Obsolete("This named upload overload will be removed in 2.0.0. Use UploadFileWithNamingAsync instead. See the migration guide in the Linger repository for guidance.")]
     public async Task<UploadedInfo> UploadAsync(string sourceFilePathName, string containerName, string destPath = "", NamingRule namingRule = NamingRule.Md5, bool overwrite = false, bool useSequencedName = true)
     {
         var fileInfo = new FileInfo(sourceFilePathName);

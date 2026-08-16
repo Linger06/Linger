@@ -1,8 +1,6 @@
 using System.Data;
 using System.Reflection;
 using Linger.Excel.Contracts;
-using Linger.Extensions.Core;
-using Linger.Extensions.Data;
 using Microsoft.Extensions.Logging;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
@@ -10,6 +8,7 @@ using SixLabors.ImageSharp;
 
 namespace Linger.Excel.EPPlus;
 
+[Obsolete("Use NpoiExcel or ClosedXmlExcel instead. The EPPlus provider will be removed in 2.0.0. See the migration guide in the Linger repository.")]
 public class EPPlusExcel(ExcelOptions? options = null, ILogger<EPPlusExcel>? logger = null)
     : ExcelBase<ExcelPackage, ExcelWorksheet>(options, logger)
 {

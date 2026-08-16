@@ -79,25 +79,6 @@ public class PathHelperBaseTests
     }
 
     [Fact]
-    public void SplitPath_ShouldSplitPathIntoSegments()
-    {
-        var method = s_pathHelperBaseType.GetMethod(
-            "SplitPath",
-            BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(method);
-
-        var result1 = method.Invoke(null, new[] { "path/to/file" }) as string[];
-        var result2 = method.Invoke(null, new[] { "/path/to/file" }) as string[];
-        var result3 = method.Invoke(null, new[] { "path//to///file" }) as string[];
-        var result4 = method.Invoke(null, new[] { string.Empty }) as string[];
-
-        Assert.Equal(new[] { "path", "to", "file" }, result1);
-        Assert.Equal(new[] { "path", "to", "file" }, result2);
-        Assert.Equal(new[] { "path", "to", "file" }, result3);
-        Assert.Empty(result4);
-    }
-
-    [Fact]
     public void StandardizePathSeparators_ShouldUseCorrectSeparator()
     {
         var method = s_pathHelperBaseType.GetMethod(

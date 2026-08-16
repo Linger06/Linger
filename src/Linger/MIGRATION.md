@@ -50,6 +50,9 @@ in 2.0.
 | `GetExtensionNotDotString` | `Path.GetExtension(path).TrimStart('.')` |
 | `FileHelper.GetLineCount` | `File.ReadLines(path).Count()` |
 | `FileHelper.GetFileSize` | `filePath.GetFileSize()` |
+| `FileHelper.GetExistingFileInfo` | `new FileInfo(path)`; open the file and call `ComputeHashMd5()` only when a content fingerprint is required |
+| `ExtendedFileInfo` | `UploadedInfo` for upload results, or an application-specific DTO |
+| `BaseFileInfo` | `UploadedInfo` for upload results, or an application-specific DTO |
 | `FileHelper.GetDirectories` / `GetFileNames` boolean overloads | Overloads accepting `SearchOption` |
 | `FileHelper.CreateDirectoryIfNotExists` | `Directory.CreateDirectory` |
 | `GuidCode.GetInt32UniqueCode` / `GetInt64UniqueCode` | A full `Guid` |

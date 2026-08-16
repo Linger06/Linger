@@ -3,6 +3,7 @@ using System.Text;
 
 namespace Linger.DataAccess;
 
+[Obsolete("SqlBuilder will be removed in 2.0.0. See the migration guide in the Linger repository for guidance.")]
 public class SqlBuilder(ParameterList paraList)
 {
     private readonly StringBuilder _sb = new();
