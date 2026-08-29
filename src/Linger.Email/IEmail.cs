@@ -3,7 +3,7 @@
 /// <summary>
 /// 邮件发送基础接口
 /// </summary>
-public interface IEmail : IAsyncDisposable
+public interface IEmail
 {
     /// <summary>
     /// 发送邮件

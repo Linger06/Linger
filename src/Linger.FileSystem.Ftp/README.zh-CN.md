@@ -122,6 +122,9 @@ builder.Services.AddTransient<IRemoteFileSystem>(provider => {
 `FtpFileSystem` 会在首次操作时自动连接，并在每个实例中复用一个客户端连接。不要在同一实例上并发执行操作，
 也不要在其他操作运行期间修改工作目录。
 
+`FtpFileSystem` 实现了 `IAsyncRemoteFileSystem`。需要异步释放时，请使用具体类型或该能力接口；
+通用的 `IRemoteFileSystem` 契约提供同步释放。
+
 ## 最佳实践
 
 1. **连接管理**：始终使用 `using` 语句或确保正确释放 FTP 连接

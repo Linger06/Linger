@@ -126,6 +126,9 @@ public void ConfigureServices(IServiceCollection services)
 `FtpFileSystem` automatically connects on the first operation and keeps one client connection per instance. Do not
 invoke operations concurrently on the same instance or mutate its working directory while another operation is running.
 
+`FtpFileSystem` implements `IAsyncRemoteFileSystem`. Use the concrete type or this capability interface when asynchronous
+disposal is required; the general `IRemoteFileSystem` contract provides synchronous disposal.
+
 ## Advanced Features
 
 ### Working Directory Management

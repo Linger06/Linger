@@ -125,7 +125,8 @@
 | `Linger.FileSystem.Ftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Ftp` | 调用上传 API 前先构造完整目标路径。 |
 | `Linger.FileSystem.Ftp` | `ListDirectoryAsync(...)` | `ListFilesAsync(...)` / `ListDirectoriesAsync(...)` | `Linger.FileSystem.Ftp` | 使用与协议无关的列表 API，不再使用 FluentFTP 特有的对象类型筛选。 |
 | `Linger.FileSystem.Sftp` | `UploadFileAsync(localPath, destinationDirectory, destinationFileName, ...)` | `UploadFileAsync(localPath, destinationFilePath, ...)` | `Linger.FileSystem.Sftp` | 调用上传 API 前先构造完整目标路径。 |
-| `Linger.FileSystem.Sftp` | `Connect()` / `Disconnect()` | `ConnectAsync()` / `DisconnectAsync()` | `Linger.FileSystem.Sftp` | 连接管理统一使用远程文件系统的异步契约。 |
+| `Linger.FileSystem.Sftp` | `Connect()` / `Disconnect()` | 无需显式调用；首次操作自动连接，实例释放使用 `using` | `Linger.FileSystem.Sftp` | SSH.NET 不提供真实异步断开能力，SFTP 不再暴露伪异步释放。 |
+| `Linger.FileSystem` | `IRemoteFileSystem : IAsyncDisposable` | `IRemoteFileSystem : IDisposable`；具备真实异步断开能力的实现使用 `IAsyncRemoteFileSystem` | `Linger.FileSystem` | 拆分同步与异步释放能力，避免 SFTP 暴露伪异步契约。 |
 | `Linger.FileSystem.Sftp` | `SetRootAsWorkingDirectoryAsync()` | `SetWorkingDirectoryAsync("/")` | `Linger.FileSystem.Sftp` | 被删除的方法只负责传入根路径。 |
 | `Linger.Ldap.Novell` | `ConnectAsync(...)`、`Disconnect()`、`IsConnected()` 和 `IDisposable` | 无需替代，直接调用 `ILdapClient` 操作。 | `Linger.Ldap.Novell` | 每次操作现在会独立创建、绑定和释放连接，避免并发调用共享凭据或相互断开连接。 |
 | `Linger.Ldap.Contracts` | `ILdap` | `ILdapClient` | `Linger.Ldap.Contracts` | 重命名以准确表达契约含义：连接目录服务器的客户端。 |

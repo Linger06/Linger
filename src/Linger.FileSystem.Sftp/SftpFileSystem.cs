@@ -5,6 +5,7 @@ using Linger.Helper;
 using Microsoft.Extensions.Logging;
 using Renci.SshNet;
 using Renci.SshNet.Common;
+using Renci.SshNet.Sftp;
 
 namespace Linger.FileSystem.Sftp;
 
@@ -98,26 +99,10 @@ public class SftpFileSystem : RemoteFileSystemBase
         }
     }
 
-    protected override Task DisconnectAsync()
+    /// <inheritdoc />
+    protected override void DisposeCore()
     {
-        if (Client?.IsConnected == true)
-        {
-            Logger.LogDebug("Disconnecting from SFTP server: {Host}:{Port}", Options.Host, Options.Port);
-            Client.Disconnect();
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public override void Dispose()
-    {
-        if (Disposed)
-            return;
-
-        Client?.Dispose();
-
-        Disposed = true;
-        GC.SuppressFinalize(this);
+        Client.Dispose();
     }
 
     #endregion
@@ -327,7 +312,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             if (File.Exists(localDestinationPath) && !overwrite)
                 return FileOperationResult.CreateFailure($"目标文件已存在 {localDestinationPath}");
 
-            await DownloadFileAtomicallyAsync(
+            var result = await DownloadFileAtomicallyAsync(
                 localDestinationPath,
                 overwrite,
                 (temporaryPath, operationCancellationToken) => DownloadToTemporaryFileAsync(
@@ -336,6 +321,11 @@ public class SftpFileSystem : RemoteFileSystemBase
                     temporaryPath,
                     operationCancellationToken),
                 cancellationToken).ConfigureAwait(false);
+
+            if (!result)
+            {
+                return FileOperationResult.CreateFailure($"下载文件失败: {remoteFilePath}");
+            }
 
             return FileOperationResult.CreateSuccess(remoteFilePath);
         }
@@ -490,26 +480,31 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     private static async Task<bool> IsRegularFileAsync(SftpClient client, string filePath, CancellationToken cancellationToken)
     {
-        if (!await client.ExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
-        {
-            return false;
-        }
+        var attributes = await GetAttributesIfExistsAsync(client, filePath, cancellationToken).ConfigureAwait(false);
 
-        var attributes = await client.GetAttributesAsync(filePath, cancellationToken).ConfigureAwait(false);
-
-        return attributes.IsRegularFile;
+        return attributes?.IsRegularFile == true;
     }
 
     private static async Task<bool> IsRemoteDirectoryAsync(SftpClient client, string directoryPath, CancellationToken cancellationToken)
     {
-        if (!await client.ExistsAsync(directoryPath, cancellationToken).ConfigureAwait(false))
+        var attributes = await GetAttributesIfExistsAsync(client, directoryPath, cancellationToken).ConfigureAwait(false);
+
+        return attributes?.IsDirectory == true;
+    }
+
+    private static async Task<SftpFileAttributes?> GetAttributesIfExistsAsync(
+        SftpClient client,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        try
         {
-            return false;
+            return await client.GetAttributesAsync(path, cancellationToken).ConfigureAwait(false);
         }
-
-        var attributes = await client.GetAttributesAsync(directoryPath, cancellationToken).ConfigureAwait(false);
-
-        return attributes.IsDirectory;
+        catch (SftpPathNotFoundException)
+        {
+            return null;
+        }
     }
 
     private async Task UploadStreamAtomicallyAsync(
@@ -686,14 +681,9 @@ public class SftpFileSystem : RemoteFileSystemBase
         await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            if (!await Client.ExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
-            {
-                return null;
-            }
+            var attributes = await GetAttributesIfExistsAsync(Client, filePath, cancellationToken).ConfigureAwait(false);
 
-            var attributes = await Client.GetAttributesAsync(filePath, cancellationToken).ConfigureAwait(false);
-
-            return attributes.IsRegularFile ? attributes.Size : null;
+            return attributes?.IsRegularFile == true ? attributes.Size : null;
         }
         catch (OperationCanceledException)
         {

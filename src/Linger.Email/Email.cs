@@ -7,10 +7,9 @@ using MimeKit;
 
 namespace Linger.Email;
 
-public class Email : IEmail, IDisposable
+public class Email : IEmail
 {
     private readonly EmailConfig _emailConfig;
-    private bool _disposed;
 
     public Email(EmailConfig emailConfig)
     {
@@ -30,22 +29,33 @@ public class Email : IEmail, IDisposable
     public virtual async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(emailMessage);
-        ThrowIfDisposed();
 
         ValidateAndSetupEmailMessage(emailMessage);
-        var mimeMessage = CreateMimeMessage(emailMessage);
-
-        using var smtpClient = CreateClient();
-        smtpClient.MessageSent += (_, e) => completedCallback?.Invoke(e.Response);
+        var ownedAttachmentStreams = new List<Stream>();
 
         try
         {
-            await ConnectToServerAsync(smtpClient, cancellationToken).ConfigureAwait(false);
-            await SendMessageAsync(smtpClient, mimeMessage, cancellationToken).ConfigureAwait(false);
+            var mimeMessage = CreateMimeMessage(emailMessage, ownedAttachmentStreams);
+
+            using var smtpClient = CreateClient();
+            smtpClient.MessageSent += (_, e) => completedCallback?.Invoke(e.Response);
+
+            try
+            {
+                await ConnectToServerAsync(smtpClient, cancellationToken).ConfigureAwait(false);
+                await SendMessageAsync(smtpClient, mimeMessage, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                await DisconnectAsync(smtpClient, CancellationToken.None).ConfigureAwait(false);
+            }
         }
         finally
         {
-            await DisconnectAsync(smtpClient, CancellationToken.None).ConfigureAwait(false);
+            foreach (var stream in ownedAttachmentStreams)
+            {
+                stream.Dispose();
+            }
         }
     }
 
@@ -92,23 +102,16 @@ public class Email : IEmail, IDisposable
         }
     }
 
-    private void ThrowIfDisposed()
-    {
-#if NET8_0_OR_GREATER
-        ObjectDisposedException.ThrowIf(_disposed, this);
-#else
-        if (_disposed)
-        {
-            throw new ObjectDisposedException(nameof(Email));
-        }
-#endif
-    }
-
-    private static MimeMessage CreateMimeMessage(EmailMessage emailMessage)
+    private static MimeMessage CreateMimeMessage(EmailMessage emailMessage, List<Stream> ownedAttachmentStreams)
     {
         var message = new MimeMessage();
         AddMessageAddresses(message, emailMessage);
-        AddMessageContent(message, emailMessage);
+
+        var bodyBuilder = new BodyBuilder();
+        ProcessAttachments(emailMessage, bodyBuilder, ownedAttachmentStreams);
+        SetMessageBody(bodyBuilder, emailMessage);
+        message.Body = bodyBuilder.ToMessageBody();
+
         SetMessageProperties(message, emailMessage);
         message.Prepare(EncodingConstraint.SevenBit);
         return message;
@@ -133,24 +136,21 @@ public class Email : IEmail, IDisposable
         }
     }
 
-    private static void AddMessageContent(MimeMessage message, EmailMessage emailMessage)
-    {
-        var bodyBuilder = new BodyBuilder();
-        ProcessAttachments(emailMessage, bodyBuilder);
-        SetMessageBody(bodyBuilder, emailMessage);
-        message.Body = bodyBuilder.ToMessageBody();
-    }
-
-    private static void ProcessAttachments(EmailMessage emailMessage, BodyBuilder bodyBuilder)
+    private static void ProcessAttachments(
+        EmailMessage emailMessage,
+        BodyBuilder bodyBuilder,
+        List<Stream> ownedAttachmentStreams)
     {
         if (emailMessage.AttachmentsPath?.Count > 0)
         {
             foreach (var path in emailMessage.AttachmentsPath)
             {
+                var stream = File.OpenRead(path);
+                ownedAttachmentStreams.Add(stream);
                 var attachment = new AttachmentInfo
                 {
                     FileName = Path.GetFileName(path),
-                    Stream = File.OpenRead(path)
+                    Stream = stream
                 };
                 var mimePart = CreateMimePart(attachment);
                 bodyBuilder.Attachments.Add(mimePart);
@@ -180,7 +180,7 @@ public class Email : IEmail, IDisposable
         Stream stream = att.Stream ?? throw new ArgumentException("The attachment must provide a stream or data.", nameof(att));
         attachment.Content = new MimeContent(stream);
         attachment.ContentDisposition = new ContentDisposition(ContentDisposition.Attachment);
-        attachment.ContentTransferEncoding = ContentEncoding.Base64;
+        attachment.ContentTransferEncoding = att.ContentTransferEncoding;
         attachment.FileName = ConvertHeaderToBase64(att.FileName, Encoding.UTF8);
 
         return attachment;
@@ -216,32 +216,4 @@ public class Email : IEmail, IDisposable
         return $"=?{encoding.WebName}?B?{base64String}?=";
     }
 
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-    }
-
-    public virtual async ValueTask DisposeAsync()
-    {
-        await DisposeAsyncCore().ConfigureAwait(false);
-        Dispose(false);
-        GC.SuppressFinalize(this);
-    }
-
-    protected virtual ValueTask DisposeAsyncCore()
-    {
-        _disposed = true;
-        return default;
-    }
 }

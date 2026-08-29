@@ -156,7 +156,7 @@ var ftpOptions = new FtpFileSystemOptions
     Password = "password"
 };
 
-var ftpFs = new FtpFileSystem(ftpOptions);
+await using var ftpFs = new FtpFileSystem(ftpOptions);
 var result = await ftpFs.UploadAsync(fileStream, "/public_html/test.txt", true);
 ```
 
@@ -183,7 +183,7 @@ var sftpOptions = new SftpFileSystemOptions
     Password = "password"
 };
 
-var sftpFs = new SftpFileSystem(sftpOptions);
+using var sftpFs = new SftpFileSystem(sftpOptions);
 var result = await sftpFs.UploadAsync(fileStream, "/home/user/test.txt", true);
 ```
 
@@ -460,13 +460,16 @@ await localFs.UploadFilesAsync(localFiles, "uploads");
                     IFileTransfer
                    /             \
       ILocalFileSystem       IRemoteFileSystem
+                                      ^
+                         IAsyncRemoteFileSystem (FTP)
 ```
 
 ### Core Interfaces
 
 - **IFileTransfer**: Defines true asynchronous content transfers shared by local and remote implementations
 - **ILocalFileSystem**: Defines synchronous local metadata and stream factories plus asynchronous content transfers
-- **IRemoteFileSystem**: Defines asynchronous remote metadata, stream, directory, transfer, and connection-lifecycle operations
+- **IRemoteFileSystem**: Defines remote metadata, stream, directory, transfer, and synchronous disposal capabilities
+- **IAsyncRemoteFileSystem**: Adds true asynchronous disposal to the remote contract; currently implemented by `FtpFileSystem`
 
 ### Implementation Class Hierarchy
 
@@ -481,10 +484,10 @@ await localFs.UploadFilesAsync(localFiles, "uploads");
 ### Base Classes
 
 - **FileSystemBase**: Shares retry, logging, and batch-result helpers without declaring a local or remote execution contract
-- **RemoteFileSystemBase**: Abstract base class for remote file systems, inheriting from FileSystemBase and implementing IRemoteFileSystem
+- **RemoteFileSystemBase**: Abstract base class that centralizes synchronous disposal and connection-gate cleanup
 - **LocalFileSystem**: Concrete implementation of local file system
-- **FtpFileSystem**: FTP file system implementation based on FluentFTP library
-- **SftpFileSystem**: SFTP file system implementation based on SSH.NET library
+- **FtpFileSystem**: FTP file system implementation based on FluentFTP library, implementing `IAsyncRemoteFileSystem`
+- **SftpFileSystem**: SFTP file system implementation based on SSH.NET library, with synchronous disposal only
 
 ### Design Patterns
 

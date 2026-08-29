@@ -17,7 +17,7 @@ namespace Linger.FileSystem.Ftp;
 /// <para>此实现基于 FluentFTP 库，提供完整的 FTP 文件操作支持。</para>
 /// <para>支持的功能包括：文件上传/下载和目录操作等。</para>
 /// </remarks>
-public class FtpFileSystem : RemoteFileSystemBase
+public class FtpFileSystem : RemoteFileSystemBase, IAsyncRemoteFileSystem
 {
     private const string Protocol = "FTP";
     private const char FtpPathSeparator = '/';
@@ -93,7 +93,7 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
     }
 
-    protected override async Task DisconnectAsync()
+    protected virtual async Task DisconnectAsync()
     {
         if (Client.IsConnected)
         {
@@ -102,16 +102,37 @@ public class FtpFileSystem : RemoteFileSystemBase
         }
     }
 
-    public override void Dispose()
+    /// <summary>
+    /// 异步断开 FTP 连接并释放客户端及连接管理资源。
+    /// </summary>
+    /// <remarks>
+    /// 调用前必须确保当前实例发起的所有操作以及实例返回的流和文本读写器均已完成并释放。
+    /// 此方法不得与实例操作并发调用。
+    /// </remarks>
+    public async ValueTask DisposeAsync()
     {
-        if (Disposed)
+        if (!TryBeginDispose())
+        {
             return;
+        }
 
+        try
+        {
+            await DisconnectAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            DisposeCoreAndDependencies();
+        }
+    }
+
+    /// <inheritdoc />
+    protected override void DisposeCore()
+    {
         if (!Client.IsDisposed)
+        {
             Client.Dispose();
-
-        Disposed = true;
-        GC.SuppressFinalize(this);
+        }
     }
 
     #endregion

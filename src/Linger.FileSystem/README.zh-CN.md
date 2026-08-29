@@ -156,7 +156,7 @@ var ftpOptions = new FtpFileSystemOptions
     Password = "password"
 };
 
-var ftpFs = new FtpFileSystem(ftpOptions);
+await using var ftpFs = new FtpFileSystem(ftpOptions);
 var result = await ftpFs.UploadAsync(fileStream, "/public_html/test.txt", true);
 ```
 
@@ -183,7 +183,7 @@ var sftpOptions = new SftpFileSystemOptions
     Password = "password"
 };
 
-var sftpFs = new SftpFileSystem(sftpOptions);
+using var sftpFs = new SftpFileSystem(sftpOptions);
 var result = await sftpFs.UploadAsync(fileStream, "/home/user/test.txt", true);
 ```
 
@@ -458,13 +458,16 @@ await localFs.UploadFilesAsync(localFiles, "uploads");
                     IFileTransfer
                    /             \
       ILocalFileSystem       IRemoteFileSystem
+                                      ^
+                         IAsyncRemoteFileSystem (FTP)
 ```
 
 ### 核心接口
 
 - **IFileTransfer**: 定义本地和远程共用的真实异步文件内容传输
 - **ILocalFileSystem**: 定义同步本地元数据和流工厂，以及异步内容传输
-- **IRemoteFileSystem**: 定义远程元数据、流、目录、传输及连接生命周期的异步操作
+- **IRemoteFileSystem**: 定义远程元数据、流、目录、传输及同步释放能力
+- **IAsyncRemoteFileSystem**: 在远程接口基础上增加真实异步释放能力，目前由 `FtpFileSystem` 实现
 
 ### 实现类层次
 
@@ -479,10 +482,10 @@ await localFs.UploadFilesAsync(localFiles, "uploads");
 ### 基础类
 
 - **FileSystemBase**: 复用重试、日志和批量结果辅助逻辑，不声明本地或远程执行契约
-- **RemoteFileSystemBase**: 远程文件系统的抽象基类，继承自FileSystemBase，实现了IRemoteFileSystem
+- **RemoteFileSystemBase**: 远程文件系统的抽象基类，统一实现同步释放并负责连接闸门资源
 - **LocalFileSystem**: 本地文件系统具体实现
-- **FtpFileSystem**: FTP文件系统实现，基于FluentFTP库
-- **SftpFileSystem**: SFTP文件系统实现，基于SSH.NET库
+- **FtpFileSystem**: FTP文件系统实现，基于FluentFTP库，并支持 `IAsyncRemoteFileSystem`
+- **SftpFileSystem**: SFTP文件系统实现，基于SSH.NET库，仅支持同步释放
 
 ### 设计模式
 

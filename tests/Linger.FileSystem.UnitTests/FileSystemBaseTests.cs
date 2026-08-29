@@ -128,10 +128,45 @@ public class FileSystemBaseTests
         Assert.True(fileSystem.LastStreamDisposed);
     }
 
+    [Fact]
+    public void Dispose_DisposesRemoteFileSystemAndIsIdempotent()
+    {
+        var fileSystem = new TestRemoteFileSystem();
+
+        fileSystem.Dispose();
+        fileSystem.Dispose();
+
+        Assert.True(fileSystem.WasDisposed);
+        Assert.Equal(1, fileSystem.DisposeCount);
+    }
+
+    [Fact]
+    public void RemoteFileSystemContracts_SeparateSynchronousAndAsynchronousDisposal()
+    {
+        Assert.True(typeof(IDisposable).IsAssignableFrom(typeof(IRemoteFileSystem)));
+        Assert.False(typeof(IAsyncDisposable).IsAssignableFrom(typeof(IRemoteFileSystem)));
+        Assert.True(typeof(IRemoteFileSystem).IsAssignableFrom(typeof(IAsyncRemoteFileSystem)));
+        Assert.True(typeof(IAsyncDisposable).IsAssignableFrom(typeof(IAsyncRemoteFileSystem)));
+    }
+
+    [Fact]
+    public async Task RemoteFileSystemOperation_AfterDispose_ThrowsObjectDisposedException()
+    {
+        var fileSystem = new TestRemoteFileSystem();
+        fileSystem.Dispose();
+
+        var exception = await Assert.ThrowsAsync<ObjectDisposedException>(
+            () => fileSystem.EnsureConnectedForTestAsync());
+
+#if NET7_0_OR_GREATER
+        Assert.Equal(typeof(TestRemoteFileSystem).FullName, exception.ObjectName);
+#else
+        Assert.Equal(nameof(TestRemoteFileSystem), exception.ObjectName);
+#endif
+    }
+
     private sealed class TestFileSystem : FileSystemBase
     {
-        private TrackingMemoryStream? _lastStream;
-
         public TestFileSystem()
             : base(new RetryOptions
             {
@@ -153,8 +188,6 @@ public class FileSystemBaseTests
                 restoreLength: true,
                 cancellationToken: CancellationToken.None);
         }
-
-        public bool LastStreamDisposed => _lastStream?.WasDisposed == true;
 
         public override Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<FileOperationResult> DownloadToStreamAsync(string remoteFilePath, Stream outputStream, CancellationToken cancellationToken = default) => throw new NotSupportedException();
@@ -184,6 +217,10 @@ public class FileSystemBaseTests
 
         public bool LastStreamDisposed => _lastStream?.WasDisposed == true;
 
+        public bool WasDisposed { get; private set; }
+
+        public int DisposeCount { get; private set; }
+
         public Task<bool> DownloadAtomicAsync(
             string localDestinationPath,
             bool overwrite,
@@ -196,12 +233,20 @@ public class FileSystemBaseTests
                 CancellationToken.None);
         }
 
+        public Task EnsureConnectedForTestAsync()
+        {
+            return EnsureConnectedAsync();
+        }
+
         protected override bool IsConnected() => false;
         protected override Task ConnectAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-        protected override Task DisconnectAsync() => Task.CompletedTask;
         public override Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public override void Dispose() { }
+        protected override void DisposeCore()
+        {
+            WasDisposed = true;
+            DisposeCount++;
+        }
         public override Task<IReadOnlyList<string>> ListFilesAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<IReadOnlyList<string>> ListDirectoriesAsync(string directoryPath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();

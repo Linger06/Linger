@@ -3,15 +3,18 @@ using System.Text;
 namespace Linger.FileSystem.Remote;
 
 /// <summary>
-/// 定义远程文件系统的异步协议操作和连接生命周期。
+/// 定义远程文件系统的协议操作和连接生命周期。
 /// </summary>
 /// <remarks>
 /// <para>此接口扩展了 <see cref="IFileTransfer"/>，并直接声明远程元数据、流和目录操作。</para>
-/// <para>实现类应支持 <see cref="IAsyncDisposable"/> 以便正确释放异步资源。</para>
+/// <para>所有实现都支持同步释放；只有具备真实异步断开能力的实现才实现 <see cref="IAsyncRemoteFileSystem"/>。</para>
 /// <para>远程实现通常在实例内复用一个有状态客户端。不要在同一实例上并发执行操作，
 /// 也不要在其他操作运行期间调用 <see cref="SetWorkingDirectoryAsync"/>。</para>
+/// <para>调用 <see cref="IDisposable.Dispose"/> 或 <see cref="IAsyncDisposable.DisposeAsync"/>（若实现支持）前，
+/// 必须等待该实例发起的所有操作完成，并释放由实例返回的 <see cref="Stream"/>、<see cref="StreamReader"/> 和
+/// <see cref="StreamWriter"/>。释放方法不得与实例操作并发调用。</para>
 /// </remarks>
-public interface IRemoteFileSystem : IFileTransfer, IDisposable, IAsyncDisposable
+public interface IRemoteFileSystem : IFileTransfer, IDisposable
 {
     /// <summary>异步检查远程文件是否存在。</summary>
     /// <param name="filePath">远程文件路径。</param>
@@ -118,4 +121,15 @@ public interface IRemoteFileSystem : IFileTransfer, IDisposable, IAsyncDisposabl
     /// </summary>
     /// <value>包含服务器类型、主机、端口等信息的字符串。</value>
     string ServerDetails { get; }
+}
+
+/// <summary>
+/// 定义支持真实异步释放的远程文件系统能力。
+/// </summary>
+/// <remarks>
+/// <para>实现此接口的类型同时支持 <see cref="IDisposable"/> 和 <see cref="IAsyncDisposable"/>。</para>
+/// <para>仅当底层客户端提供异步断开能力时才应实现此接口；同步释放的实现只实现 <see cref="IRemoteFileSystem"/>。</para>
+/// </remarks>
+public interface IAsyncRemoteFileSystem : IRemoteFileSystem, IAsyncDisposable
+{
 }

@@ -11,7 +11,6 @@ public sealed class EmailService(
     ILogger<EmailService> logger) : Email(emailConfig?.Value ?? throw new ArgumentNullException(nameof(emailConfig))), IEmailService
 {
     private readonly ILogger<EmailService> _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    private bool _disposed;
 
     /// <inheritdoc/>
     public override async Task SendAsync(EmailMessage emailMessage, Action<string>? completedCallback = null, CancellationToken cancellationToken = default)
@@ -67,24 +66,4 @@ public sealed class EmailService(
             IsHtmlBody = isHtml
         };
 
-    public override async ValueTask DisposeAsync()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        try
-        {
-            await base.DisposeAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error occurred while disposing email service resources");
-        }
-        finally
-        {
-            _disposed = true;
-        }
-    }
 }

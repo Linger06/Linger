@@ -176,7 +176,7 @@ using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 ### 错误处理和连接生命周期
 
 ```csharp
-await using var sftpSystem = new SftpFileSystem(settings, retryOptions);
+using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 
 try
 {
@@ -331,6 +331,7 @@ public void ConfigureServices(IServiceCollection services)
 
 `SftpFileSystem` 会在首次操作时自动连接，并在每个实例中复用一个客户端连接。不要在同一实例上并发执行操作，
 也不要在其他操作运行期间修改工作目录。
+SSH.NET 仅提供同步释放，因此 SFTP 使用 `using`，不提供伪异步的 `DisposeAsync()`。
 
 ## 最佳实践
 

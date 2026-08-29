@@ -56,6 +56,13 @@ public class EmailTests
     }
 
     [Fact]
+    public void Email_DoesNotExposeUnneededDisposalContract()
+    {
+        Assert.False(typeof(IDisposable).IsAssignableFrom(typeof(Email)));
+        Assert.False(typeof(IAsyncDisposable).IsAssignableFrom(typeof(IEmail)));
+    }
+
+    [Fact]
     public async Task SendAsync_CompletedCallbackReceivesServerResponse()
     {
         var email = new TestableEmail(CreateConfig(), CreateSmtpClientMock);
@@ -108,5 +115,89 @@ public class EmailTests
         {
             Assert.Equal($"RESP-Subject-{i}", responses[$"Subject-{i}"]);
         }
+    }
+
+    [Fact]
+    public async Task SendAsync_PathAttachment_DisposesOwnedStreamAfterSending()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"linger-email-{Guid.NewGuid():N}.txt");
+        await File.WriteAllTextAsync(path, "attachment", TestContext.Current.CancellationToken);
+        Stream? attachmentStream = null;
+        var smtpClient = CreateSmtpClientMock();
+        smtpClient.Setup(client => client.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>(), It.IsAny<ITransferProgress>()))
+            .Returns((MimeMessage message, CancellationToken _, ITransferProgress _) =>
+            {
+                var multipart = Assert.IsType<Multipart>(message.Body);
+                var attachment = multipart.OfType<MimePart>().Single(part => part.IsAttachment);
+                attachmentStream = attachment.Content!.Stream;
+                return Task.FromResult("sent");
+            });
+        var email = new TestableEmail(CreateConfig(), () => smtpClient);
+
+        try
+        {
+            var message = CreateMessage("Path attachment");
+            message.AttachmentsPath = [path];
+
+            await email.SendAsync(message, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.NotNull(attachmentStream);
+            Assert.Throws<ObjectDisposedException>(() => attachmentStream!.ReadByte());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public async Task SendAsync_StreamAttachment_LeavesCallerOwnedStreamOpen()
+    {
+        using var attachmentStream = new MemoryStream("attachment"u8.ToArray());
+        var email = new TestableEmail(CreateConfig(), CreateSmtpClientMock);
+        var message = CreateMessage("Stream attachment");
+        message.Attachments =
+        [
+            new AttachmentInfo
+            {
+                FileName = "attachment.txt",
+                Stream = attachmentStream
+            }
+        ];
+
+        await email.SendAsync(message, cancellationToken: TestContext.Current.CancellationToken);
+
+        attachmentStream.Position = 0;
+        Assert.Equal((int)'a', attachmentStream.ReadByte());
+    }
+
+    [Fact]
+    public async Task SendAsync_Attachment_UsesConfiguredContentTransferEncoding()
+    {
+        MimeMessage? sentMessage = null;
+        var smtpClient = CreateSmtpClientMock();
+        smtpClient.Setup(client => client.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>(), It.IsAny<ITransferProgress>()))
+            .Returns((MimeMessage message, CancellationToken _, ITransferProgress _) =>
+            {
+                sentMessage = message;
+                return Task.FromResult("sent");
+            });
+        var email = new TestableEmail(CreateConfig(), () => smtpClient);
+        var message = CreateMessage("Encoded attachment");
+        message.Attachments =
+        [
+            new AttachmentInfo
+            {
+                FileName = "attachment.txt",
+                Data = "attachment"u8.ToArray(),
+                ContentTransferEncoding = ContentEncoding.QuotedPrintable
+            }
+        ];
+
+        await email.SendAsync(message, cancellationToken: TestContext.Current.CancellationToken);
+
+        var multipart = Assert.IsType<Multipart>(sentMessage!.Body);
+        var attachment = multipart.OfType<MimePart>().Single(part => part.IsAttachment);
+        Assert.Equal(ContentEncoding.QuotedPrintable, attachment.ContentTransferEncoding);
     }
 }

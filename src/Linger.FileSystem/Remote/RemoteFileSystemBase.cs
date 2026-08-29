@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 
 namespace Linger.FileSystem.Remote;
 
@@ -31,10 +32,12 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// </summary>
     protected readonly string ServerDetailsString;
 
+    private int _disposeState;
+
     /// <summary>
-    /// 指示是否已释放资源
+    /// 指示是否已开始释放资源。
     /// </summary>
-    protected bool Disposed;
+    protected bool Disposed => Volatile.Read(ref _disposeState) != 0;
 
     /// <summary>
     /// 初始化 <see cref="RemoteFileSystemBase"/> 的新实例。
@@ -67,7 +70,10 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     #region IRemoteFileSystem 实现
     protected abstract bool IsConnected();
     protected abstract Task ConnectAsync(CancellationToken cancellationToken);
-    protected abstract Task DisconnectAsync();
+    /// <summary>
+    /// 释放派生类持有的客户端资源。
+    /// </summary>
+    protected abstract void DisposeCore();
     public abstract Task<DateTime> GetLastModifiedTimeAsync(string filePath, CancellationToken cancellationToken = default);
     public abstract Task SetWorkingDirectoryAsync(string directoryPath, CancellationToken cancellationToken = default);
     /// <inheritdoc />
@@ -86,7 +92,23 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     public abstract Task<long?> GetFileSizeAsync(string filePath, CancellationToken cancellationToken = default);
     /// <inheritdoc />
     public abstract Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default);
-    public abstract void Dispose();
+
+    /// <summary>
+    /// 释放远程文件系统及其连接管理资源。
+    /// </summary>
+    /// <remarks>
+    /// 调用此方法前必须确保当前实例发起的所有操作已经完成，并释放实例返回的流和文本读写器。
+    /// 此方法不等待并发操作，不得与实例操作同时调用。
+    /// </remarks>
+    public void Dispose()
+    {
+        if (!TryBeginDispose())
+        {
+            return;
+        }
+
+        DisposeCoreAndDependencies();
+    }
 
     /// <inheritdoc />
     public virtual async Task<StreamReader> GetReaderAsync(string filePath, Encoding? encoding = null, CancellationToken cancellationToken = default)
@@ -110,36 +132,44 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
 #endif
     }
 
-    /// <summary>
-    /// 异步释放资源
-    /// </summary>
-    /// <returns>表示异步释放操作的 <see cref="ValueTask"/>。</returns>
-    public virtual async ValueTask DisposeAsync()
-    {
-        if (Disposed)
-            return;
-
-        Logger.LogDebug("Disposing remote file system: {ServerDetails}", ServerDetailsString);
-        try
-        {
-            await DisconnectAsync().ConfigureAwait(false);
-        }
-        finally
-        {
-            Dispose();
-            GC.SuppressFinalize(this);
-        }
-    }
-
     /// <inheritdoc />
     public virtual string ServerDetails => ServerDetailsString;
     #endregion
 
     /// <summary>
+    /// 尝试取得释放流程的执行权。
+    /// </summary>
+    /// <returns>当前调用负责执行释放时返回 <see langword="true"/>。</returns>
+    protected bool TryBeginDispose()
+    {
+        return Interlocked.CompareExchange(ref _disposeState, 1, 0) == 0;
+    }
+
+    /// <summary>
+    /// 执行派生类资源和基类连接闸门的统一释放。
+    /// </summary>
+    /// <remarks>
+    /// 异步释放实现应先完成真实的异步断开，再调用此方法完成剩余释放。
+    /// </remarks>
+    protected void DisposeCoreAndDependencies()
+    {
+        try
+        {
+            Logger.LogDebug("Disposing remote file system: {ServerDetails}", ServerDetailsString);
+            DisposeCore();
+        }
+        finally
+        {
+            _connectionGate.Dispose();
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    /// <summary>
     /// 确保已建立连接。如果尚未连接，则自动连接。
     /// </summary>
     /// <remarks>
-    /// <para>此方法是推荐的连接检查方式，比 <see cref="CreateConnectionScopeAsync"/> 更简洁。</para>
+    /// <para>此方法是远程操作推荐使用的连接检查方式。</para>
     /// <para>连接保持到实例被 Dispose，避免每次操作都重新连接的开销。</para>
     /// </remarks>
     /// <example>
@@ -150,6 +180,8 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     /// </example>
     protected async Task EnsureConnectedAsync(CancellationToken cancellationToken = default)
     {
+        ThrowIfDisposed();
+
         if (IsConnected())
         {
             return;
@@ -169,6 +201,21 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
         {
             _connectionGate.Release();
         }
+    }
+
+    /// <summary>
+    /// 在执行远程操作前检查实例是否已经释放。
+    /// </summary>
+    protected void ThrowIfDisposed()
+    {
+#if NET7_0_OR_GREATER
+        ObjectDisposedException.ThrowIf(Disposed, this);
+#else
+        if (Disposed)
+        {
+            throw new ObjectDisposedException(GetType().Name);
+        }
+#endif
     }
 
     /// <summary>

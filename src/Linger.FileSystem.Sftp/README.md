@@ -176,7 +176,7 @@ using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 ### Error Handling and Connection Lifetime
 
 ```csharp
-await using var sftpSystem = new SftpFileSystem(settings, retryOptions);
+using var sftpSystem = new SftpFileSystem(settings, retryOptions);
 
 try
 {
@@ -331,6 +331,7 @@ public void ConfigureServices(IServiceCollection services)
 
 `SftpFileSystem` automatically connects on the first operation and keeps one client connection per instance. Do not
 invoke operations concurrently on the same instance or mutate its working directory while another operation is running.
+SSH.NET provides synchronous disposal only, so SFTP uses `using` and does not expose a pseudo-asynchronous `DisposeAsync()`.
 
 ## Best Practices
 
