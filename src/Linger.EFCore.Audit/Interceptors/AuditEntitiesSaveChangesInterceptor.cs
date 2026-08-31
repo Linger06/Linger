@@ -16,6 +16,7 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
     private const string UnknownUser = "Unknown";
     private readonly IAuditUserProvider _auditUserProvider;
     private readonly ILogger<AuditEntitiesSaveChangesInterceptor>? _logger;
+    private readonly IAuditTimeProvider _timeProvider;
 
     /// <summary>
     /// Initializes a new interceptor.
@@ -25,11 +26,26 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
     public AuditEntitiesSaveChangesInterceptor(
         IAuditUserProvider auditUserProvider,
         ILogger<AuditEntitiesSaveChangesInterceptor>? logger = null)
+        : this(auditUserProvider, logger, null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new interceptor with a configurable audit time provider.
+    /// </summary>
+    /// <param name="auditUserProvider">The current audit user provider.</param>
+    /// <param name="logger">An optional logger.</param>
+    /// <param name="timeProvider">The provider used to obtain audit timestamps.</param>
+    public AuditEntitiesSaveChangesInterceptor(
+        IAuditUserProvider auditUserProvider,
+        ILogger<AuditEntitiesSaveChangesInterceptor>? logger,
+        IAuditTimeProvider? timeProvider)
     {
         ArgumentNullException.ThrowIfNull(auditUserProvider);
 
         _auditUserProvider = auditUserProvider;
         _logger = logger;
+        _timeProvider = timeProvider ?? new UtcAuditTimeProvider();
     }
 
     /// <inheritdoc />
@@ -68,7 +84,7 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
             userId = UnknownUser;
         }
 
-        var timestamp = DateTimeOffset.UtcNow;
+        var timestamp = _timeProvider.GetNow();
         var auditedEntities = new HashSet<object>();
 
         context.ChangeTracker.DetectChanges();
@@ -258,5 +274,25 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
         return value is IFormattable formattable
             ? formattable.ToString(null, CultureInfo.InvariantCulture)
             : value?.ToString();
+    }
+}
+
+/// <summary>
+/// Supplies the timestamp used by the audit interceptor.
+/// </summary>
+public interface IAuditTimeProvider
+{
+    /// <summary>
+    /// Gets the current timestamp for audit fields and audit trail records.
+    /// </summary>
+    /// <returns>The current timestamp.</returns>
+    DateTimeOffset GetNow();
+}
+
+internal sealed class UtcAuditTimeProvider : IAuditTimeProvider
+{
+    public DateTimeOffset GetNow()
+    {
+        return DateTimeOffset.UtcNow;
     }
 }

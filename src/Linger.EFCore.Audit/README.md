@@ -88,6 +88,22 @@ services.AddDbContext<AppDbContext>((serviceProvider, options) =>
 });
 ```
 
+### Audit time
+
+The interceptor uses UTC by default. Applications that need a specific time zone can register `IAuditTimeProvider`; the interceptor obtains a fresh timestamp for each save operation:
+
+```csharp
+public sealed class ChinaStandardTimeAuditTimeProvider : IAuditTimeProvider
+{
+    public DateTimeOffset GetNow() =>
+        DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8));
+}
+
+services.AddSingleton<IAuditTimeProvider, ChinaStandardTimeAuditTimeProvider>();
+```
+
+The existing two-parameter constructor remains supported. If no time provider is registered, UTC behavior is preserved.
+
 ### Example Usage
 
 Automatic tracking of all changes to entities:

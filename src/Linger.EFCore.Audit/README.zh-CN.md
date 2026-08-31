@@ -86,6 +86,22 @@ services.AddDbContext<AppDbContext>((serviceProvider, options) =>
 });
 ```
 
+### 审计时间
+
+拦截器默认使用 UTC 时间。若应用需要使用指定时区，注册 `IAuditTimeProvider`，拦截器会在每次保存时获取当前时间：
+
+```csharp
+public sealed class ChinaStandardTimeAuditTimeProvider : IAuditTimeProvider
+{
+    public DateTimeOffset GetNow() =>
+        DateTimeOffset.UtcNow.ToOffset(TimeSpan.FromHours(8));
+}
+
+services.AddSingleton<IAuditTimeProvider, ChinaStandardTimeAuditTimeProvider>();
+```
+
+原有的两参数构造函数仍然可用；未注册时间提供器时保持 UTC 行为。
+
 ## 📋 使用示例
 
 ### 基本审计跟踪

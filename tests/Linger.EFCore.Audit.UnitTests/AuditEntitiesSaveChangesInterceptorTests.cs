@@ -221,6 +221,38 @@ public class AuditEntitiesSaveChangesInterceptorTests
         Assert.Equal(42, entityId.RootElement.GetProperty(nameof(CompositeAuditEntity.RecordId)).GetInt32());
     }
 
+    [Fact]
+    public async Task SavingChanges_UsesConfiguredTimeProvider()
+    {
+        var expectedTimestamp = new DateTimeOffset(2026, 8, 31, 12, 34, 56, TimeSpan.FromHours(8));
+        var interceptor = new AuditEntitiesSaveChangesInterceptor(
+            _mockUserProvider.Object,
+            null,
+            new FixedAuditTimeProvider(expectedTimestamp));
+        var options = new DbContextOptionsBuilder<TestDbContext>()
+            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var context = new TestDbContext(options);
+        var entity = new TestAuditEntity { Name = "ConfiguredTime" };
+
+        await context.TestEntities.AddAsync(entity);
+        await context.SaveChangesAsync();
+
+        var auditEntry = await context.AuditTrails.SingleAsync();
+        Assert.Equal(expectedTimestamp, entity.CreationTime);
+        Assert.Null(entity.LastModificationTime);
+        Assert.Equal(expectedTimestamp, auditEntry.TimeStamp);
+    }
+
+}
+
+internal sealed class FixedAuditTimeProvider(DateTimeOffset timestamp) : IAuditTimeProvider
+{
+    public DateTimeOffset GetNow()
+    {
+        return timestamp;
+    }
 }
 
 public class TestDbContext : DbContext
