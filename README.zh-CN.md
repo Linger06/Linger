@@ -6,16 +6,16 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Linger.Utils.svg)](https://www.nuget.org/packages/Linger.Utils/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-11.0%20%7C%2010.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](.github/workflows/dotnet.yml)
 
 ## 特性
 
 - 🚀 **高性能** - 零开销类型转换
 - 🔒 **类型安全** - 严格的类型安全原则
-- 🔮 **.NET 10 已支持** - 原生支持 .NET 10；同时保留 Polyfills 以兼容旧目标框架
+- 🔮 **.NET 11 RC1 已支持** - 原生支持 .NET 11 RC1；同时保留 Polyfills 以兼容旧目标框架
 - 📦 **模块化** - 按需引入
-- 🌐 **跨平台** - 支持 .NET 10.0、9.0、8.0、Standard 2.0、Framework 4.7.2
+- 🌐 **跨平台** - 支持 .NET 11.0 RC1、10.0、9.0、8.0、Standard 2.0、Framework 4.7.2
 
 ## 快速开始
 

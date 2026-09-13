@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <!-- 需要 net472 支持 -->
-        <TargetFrameworks>net10.0;net9.0;net8.0;net472</TargetFrameworks>
+        <TargetFrameworks>net11.0;net10.0;net9.0;net8.0;net472</TargetFrameworks>
         <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(DefineConstants);WINDOWS</DefineConstants>
         <DefineConstants Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(DefineConstants);LINUX</DefineConstants>
         <DefineConstants Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(DefineConstants);OSX</DefineConstants>

@@ -92,6 +92,7 @@ dotnet add package Linger.Reflection
 
 ## 目标框架
 
+- .NET 11.0
 - .NET 10.0
 - .NET 9.0
 - .NET 8.0
@@ -220,7 +221,7 @@ list.ForEach(Console.WriteLine); // 对每个元素执行操作
 // var dataTable = list.Select(x => new { Value = x }).ToDataTable();
 
 // .NET 10+ Join 操作兼容
-// LeftJoin/RightJoin 在旧目标框架使用 Polyfill，在 .NET 10 使用框架实现；FullJoin 始终由 Linger 提供
+// LeftJoin/RightJoin 在 .NET 10+ 使用框架实现；FullJoin 在 .NET 11+ 使用框架实现
 
 // Left Join（左外连接）- 保留所有左侧记录
 var employees = new List<Employee>
@@ -270,7 +271,7 @@ var caseInsensitiveJoin = stringList1.LeftJoin(
     StringComparer.OrdinalIgnoreCase
 );
 
-// 元组便利重载与 FullJoin 在所有目标框架上均由 Linger 提供
+// 元组便利重载仍由 Linger 提供；FullJoin 在 .NET 11 之前由 Linger 提供
 ```
 
 ### DataTable 扩展（AOT 友好）
@@ -594,7 +595,7 @@ bool dirExists = PathExtensions.Exists(filePath, checkAsFile: false); // 检查�
 
 ### .NET 10 兼容性（已支持）
 
-`LeftJoin` 和 `RightJoin` 在 .NET 10 目标上使用框架原生实现，在较旧目标框架上由条件编译的 Polyfill 提供。无结果选择器的元组 `LeftJoin` 重载以及 `FullJoin` 始终由 Linger 提供，因此这些便利 API 在所有受支持的目标框架上保持一致。
+`LeftJoin` 和 `RightJoin` 在 .NET 10 及更高版本使用框架原生实现，在较旧目标框架上由条件编译的 Polyfill 提供。`FullJoin` 从 .NET 11 起采用相同策略。无结果选择器的元组 `LeftJoin` 重载仍由 Linger 在所有受支持的目标框架上提供。
 
 ### 严格类型安全原则
 
@@ -638,7 +639,7 @@ int failed = doubleObj.ToIntOrDefault(0);  // 小数部分非 0，返回 0（转
 | **转换工具** | `Convert.ToHexStringLower` (.NET 9 前) | `Polyfills/Convert.cs` |
 | **语言特性** | `required` 关键字支持 (C# 11)<br>`RequiredMemberAttribute`、`SetsRequiredMembersAttribute`、`CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **可空性注解** | `AllowNull`、`NotNull`、`MaybeNullWhen`、`NotNullIfNotNull` 等 11 个特性 | `Polyfills/NullableAttributes.cs` |
-| **集合扩展** | `LeftJoin`、`RightJoin`（.NET 10 前使用 Polyfill）；元组 `LeftJoin` 与 `FullJoin`（Linger 扩展） | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs`<br>`Extensions/Collection/IEnumerableExtensions.cs` |
+| **集合扩展** | `LeftJoin`、`RightJoin`（.NET 10 前使用 Polyfill）；`FullJoin`（.NET 11 前由 Linger 提供）；元组 `LeftJoin`（Linger 扩展） | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs`<br>`Extensions/Collection/IEnumerableExtensions.cs` |
 | **调用方捕获** | `CallerArgumentExpressionAttribute` (改进 Guard 体验) | `Polyfills/CallerArgumentExpressionAttribute.cs` |
 
 ## 依赖项

@@ -114,6 +114,7 @@ public static partial class IEnumerableExtensions
         return !e.MoveNext();
     }
 
+#if !NET11_0_OR_GREATER
     /// <summary>
     /// Performs a full outer join on two sequences.
     /// </summary>
@@ -192,6 +193,7 @@ public static partial class IEnumerableExtensions
             }
         }
     }
+#endif
 
     /// <summary>
     /// Paginates the <see cref="IEnumerable{T}"/> based on the specified page index and page size.

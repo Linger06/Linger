@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
-        <Version>2.0.0-preview.2</Version>
+        <TargetFrameworks>net11.0;net10.0;net9.0;net8.0;</TargetFrameworks>
+        <Version>2.0.0-preview.3</Version>
         <Description>
             An Entity Framework Core audit trail library for automatically tracking data changes.
             Captures entity creation, modification, and deletion events with old and new values.
@@ -12,6 +12,10 @@
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.9" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="11.0.0-rc.1.26425.128" />
     </ItemGroup>
     
     <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">

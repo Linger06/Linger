@@ -92,6 +92,7 @@ dotnet add package Linger.Reflection
 
 ## Target Frameworks
 
+- .NET 11.0
 - .NET 10.0
 - .NET 9.0
 - .NET 8.0
@@ -219,7 +220,7 @@ list.ForEach(Console.WriteLine); // Print each element
 // For reflection-based IEnumerable<T>.ToDataTable(), install Linger.Reflection.
 
 // .NET 10+ Join compatibility
-// LeftJoin/RightJoin use polyfills on older targets and framework implementations on .NET 10; FullJoin is always provided by Linger
+// LeftJoin/RightJoin use framework implementations on .NET 10+; FullJoin uses the framework implementation on .NET 11+
 
 // Left Join (Left Outer Join) - Keep all left-side records
 var employees = new List<Employee>
@@ -269,7 +270,7 @@ var caseInsensitiveJoin = stringList1.LeftJoin(
     StringComparer.OrdinalIgnoreCase
 );
 
-// The tuple convenience overload and FullJoin are available from Linger on every target framework
+// The tuple convenience overload remains a Linger API; FullJoin is provided by Linger before .NET 11
 ```
 
 ### DataTable Extensions (AOT-Friendly)
@@ -539,7 +540,7 @@ bool dirExists = PathExtensions.Exists(filePath, checkAsFile: false); // Check a
 
 ### .NET 10 Compatibility (Now Supported)
 
-`LeftJoin` and `RightJoin` use the framework implementations on .NET 10 and conditional polyfills on older targets. The tuple-returning `LeftJoin` convenience overload and `FullJoin` remain Linger APIs on every supported target framework.
+`LeftJoin` and `RightJoin` use the framework implementations on .NET 10 and conditional polyfills on older targets. `FullJoin` follows the same model starting with .NET 11. The tuple-returning `LeftJoin` convenience overload remains a Linger API on every supported target framework.
 
 ### Strict Type Safety Principles
 
@@ -583,7 +584,7 @@ Provides forward-compatible Polyfills for BCL APIs & language features (for .NET
 | **Conversion Utilities** | `Convert.ToHexStringLower` (pre-.NET 9) | `Polyfills/Convert.cs` |
 | **Language Features** | `required` keyword support (C# 11)<br>`RequiredMemberAttribute`, `SetsRequiredMembersAttribute`, `CompilerFeatureRequiredAttribute` | `Polyfills/RequiredMemberAttribute.cs`<br>`Polyfills/SetsRequiredMembersAttribute.cs`<br>`Polyfills/CompilerFeatureRequiredAttribute.cs` |
 | **Nullability Attributes** | 11 attributes: `AllowNull`, `NotNull`, `MaybeNullWhen`, `NotNullIfNotNull`, etc. | `Polyfills/NullableAttributes.cs` |
-| **Collection Extensions** | `LeftJoin`, `RightJoin` (polyfilled before .NET 10); tuple `LeftJoin` and `FullJoin` (Linger extensions) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs`<br>`Extensions/Collection/IEnumerableExtensions.cs` |
+| **Collection Extensions** | `LeftJoin`, `RightJoin` (polyfilled before .NET 10); `FullJoin` (provided before .NET 11); tuple `LeftJoin` (Linger extension) | `Extensions/Collection/IEnumerableExtensions.Polyfills.cs`<br>`Extensions/Collection/IEnumerableExtensions.cs` |
 | **Caller Capture** | `CallerArgumentExpressionAttribute` (improves Guard experience) | `Polyfills/CallerArgumentExpressionAttribute.cs` |
 
 ## Dependencies

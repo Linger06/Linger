@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net10.0;net9.0;net8.0;</TargetFrameworks>
-        <Version>2.0.0-preview.1</Version>
+        <TargetFrameworks>net11.0;net10.0;net9.0;net8.0;</TargetFrameworks>
+        <Version>2.0.0-preview.3</Version>
         <Description>
             A comprehensive JWT authentication implementation for ASP.NET Core applications.
             Provides JWT token generation, validation, and refresh token functionality.
@@ -15,6 +15,10 @@
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.9" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0-rc.1.26425.128" />
   </ItemGroup>
   
     <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">

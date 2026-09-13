@@ -6,16 +6,16 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Linger.Utils.svg)](https://www.nuget.org/packages/Linger.Utils/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![.NET](https://img.shields.io/badge/.NET-10.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
+[![.NET](https://img.shields.io/badge/.NET-11.0%20%7C%2010.0%20%7C%209.0%20%7C%208.0%20%7C%20Standard%202.0-512BD4)](https://dotnet.microsoft.com/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](.github/workflows/dotnet.yml)
 
 ## Features
 
 - 🚀 **High Performance** - Zero-overhead type conversions
 - 🔒 **Type Safety** - Strict type safety principles
-- 🔮 **.NET 10 Supported** - Native support for .NET 10; Polyfills are retained to provide backward compatibility for older target frameworks
+- 🔮 **.NET 11 RC1 Supported** - Native support for .NET 11 RC1; Polyfills are retained to provide backward compatibility for older target frameworks
 - 📦 **Modular** - Install only what you need
-- 🌐 **Cross-platform** - Supports .NET 10.0, 9.0, 8.0, Standard 2.0, Framework 4.7.2
+- 🌐 **Cross-platform** - Supports .NET 11.0 RC1, 10.0, 9.0, 8.0, Standard 2.0, Framework 4.7.2
 
 ## Quick Start
 

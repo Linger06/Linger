@@ -6,11 +6,16 @@ using Xunit;
 public class DecimalExtensionsTests
 {
 
+    public static TheoryData<decimal, int, decimal> RoundData() => new()
+    {
+        { 12.345m, 2, 12.35m },
+        { -12.345m, 2, -12.35m },
+        { 12.344m, 2, 12.34m },
+        { 12.5m, 0, 13m }
+    };
+
     [Theory]
-    [InlineData(12.345, 2, 12.35)]
-    [InlineData(-12.345, 2, -12.35)]
-    [InlineData(12.344, 2, 12.34)]
-    [InlineData(12.5, 0, 13)]
+    [MemberData(nameof(RoundData))]
     public void Round_ReturnsConventionallyRoundedValue(decimal value, int decimals, decimal expected)
     {
         var result = value.Round(decimals);

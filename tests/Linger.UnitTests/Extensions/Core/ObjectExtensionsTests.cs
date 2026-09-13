@@ -723,14 +723,14 @@ namespace Linger.UnitTests.Extensions.Core
         }
 
         [Theory]
-        [InlineData("123.45", true, 123.45)]
-        [InlineData("invalid", false, 0)]
-        [InlineData(null, false, 0)]
-        public void TryToDecimal_ShouldReturnExpected(object? input, bool expectedSuccess, decimal expectedValue)
+        [InlineData("123.45", true, "123.45")]
+        [InlineData("invalid", false, "0")]
+        [InlineData(null, false, "0")]
+        public void TryToDecimal_ShouldReturnExpected(object? input, bool expectedSuccess, string expectedValue)
         {
             var success = input.TryToDecimal(out var value);
             Assert.Equal(expectedSuccess, success);
-            Assert.Equal(expectedValue, value);
+            Assert.Equal(decimal.Parse(expectedValue, CultureInfo.InvariantCulture), value);
         }
 
         [Theory]

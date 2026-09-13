@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <!-- 需要 net472 支持 -->
-        <TargetFrameworks>net10.0;net9.0;net8.0;net472</TargetFrameworks>
+        <TargetFrameworks>net11.0;net10.0;net9.0;net8.0;net472</TargetFrameworks>
     </PropertyGroup>
 
     <ItemGroup>
