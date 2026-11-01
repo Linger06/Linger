@@ -2,6 +2,33 @@ namespace Linger.UnitTests.Extensions.Core;
 
 public partial class StringExtensionsTests
 {
+    [Theory]
+    [InlineData("Hello (World)", "Hello ")]
+    [InlineData("北京（中国）", "北京")]
+    [InlineData("a(b)c(d)e", "ace")]
+    [InlineData("a(b(c)d)e", "ae")]
+    [InlineData("a((b))c", "ac")]
+    [InlineData("a(b)c)d", "ac)d")]
+    [InlineData("a(b(c)d", "a(bd")]
+    [InlineData("a)b(c)", "a)b")]
+    [InlineData("a(b", "a(b")]
+    [InlineData("北京（中国", "北京(中国")]
+    [InlineData("()", "")]
+    [InlineData("", "")]
+    [InlineData("no brackets", "no brackets")]
+    public void DeleteBrackets_ShouldRemoveBalancedPairsAndKeepUnmatchedBrackets(string input, string expected)
+    {
+        Assert.Equal(expected, input.DeleteBrackets());
+    }
+
+    [Fact]
+    public void DeleteBrackets_WithDeeplyNestedInput_ShouldCompleteQuickly()
+    {
+        var input = new string('(', 50_000) + "x" + new string(')', 50_000);
+
+        Assert.Equal(string.Empty, input.DeleteBrackets());
+    }
+
     [Fact]
     public void ToSplitList_WithRegexPattern_ReturnsExpectedResult()
     {
