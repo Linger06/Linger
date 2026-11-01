@@ -10,6 +10,8 @@
         </Description>
         <Version>2.0.0-preview.3</Version>
         <Deterministic>true</Deterministic>
+        <!-- net8.0 缺少 Base64Url 与 Convert.ToHexStringLower，需要编译共享垫片 -->
+        <LingerPolyfillTargets>netstandard2.0;net472;net8.0</LingerPolyfillTargets>
     </PropertyGroup>
 
     <!-- Stable frameworks using .NET 9.0 compatible packages (向下兼容) -->

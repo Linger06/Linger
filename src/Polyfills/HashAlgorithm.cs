@@ -7,7 +7,7 @@ namespace System.Security.Cryptography;
 /// <summary>
 /// Provides downlevel polyfill for MD5.HashData.
 /// </summary>
-public static class MD5Polyfills
+internal static class MD5Polyfills
 {
     extension(MD5)
     {
@@ -32,7 +32,7 @@ public static class MD5Polyfills
 /// <summary>
 /// Provides downlevel polyfill for SHA256.HashData.
 /// </summary>
-public static class SHA256Polyfills
+internal static class SHA256Polyfills
 {
     extension(SHA256)
     {
@@ -57,7 +57,7 @@ public static class SHA256Polyfills
 /// <summary>
 /// Provides downlevel polyfill for SHA384.HashData.
 /// </summary>
-public static class SHA384Polyfills
+internal static class SHA384Polyfills
 {
     extension(SHA384)
     {
@@ -82,7 +82,7 @@ public static class SHA384Polyfills
 /// <summary>
 /// Provides downlevel polyfill for SHA512.HashData.
 /// </summary>
-public static class SHA512Polyfills
+internal static class SHA512Polyfills
 {
     extension(SHA512)
     {

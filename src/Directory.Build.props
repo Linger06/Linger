@@ -45,4 +45,19 @@
     </None>
   </ItemGroup>
 
+  <!--
+    垫片源码按目标框架链接进每个项目，且全部是 internal：
+    既不把 BCL 补丁类型作为公开 API 泄漏给使用方，也避免多个程序集公开同名类型导致 CS0433。
+    默认只对 netstandard2.0 和 net472 生效；个别项目需要更多目标框架时，
+    在项目文件中设置 LingerPolyfillTargets（例如 Linger.Utils 在 net8.0 下需要 Base64Url）。
+    MSBuild 先算完全部属性再算条目，因此项目文件里的设置对这里的条件同样生效。
+  -->
+  <PropertyGroup>
+    <LingerPolyfillTargets Condition="'$(LingerPolyfillTargets)' == ''">netstandard2.0;net472</LingerPolyfillTargets>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != '' And $([System.String]::Copy(';$(LingerPolyfillTargets);').Contains(';$(TargetFramework);'))">
+    <Compile Include="$(MSBuildThisFileDirectory)Polyfills\*.cs" Link="Polyfills\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

@@ -3,7 +3,7 @@
 namespace System.Runtime.CompilerServices;
 
 [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false, Inherited = false)]
-public sealed class RequiredMemberAttribute : Attribute
+internal sealed class RequiredMemberAttribute : Attribute
 {
 }
 #endif

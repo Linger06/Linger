@@ -1,7 +1,6 @@
 // https://github.com/dotnet/runtime/blob/527f9ae88a0ee216b44d556f9bdc84037fe0ebda/src/libraries/System.Private.CoreLib/src/System/Diagnostics/CodeAnalysis/NullableAttributes.cs
 
 #pragma warning disable
-#define SYSTEM_PRIVATE_CORELIB
 
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
@@ -208,7 +207,7 @@ namespace System.Diagnostics.CodeAnalysis
     /// <summary>Indicates that a member requires unreferenced code and may break when trimming.</summary>
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Constructor | AttributeTargets.Method,
         Inherited = false)]
-    public sealed class RequiresUnreferencedCodeAttribute : Attribute
+    internal sealed class RequiresUnreferencedCodeAttribute : Attribute
     {
         /// <summary>Initializes the attribute with a description of the trimming requirement.</summary>
         /// <param name="message">A message describing the trimming requirement.</param>

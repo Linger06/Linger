@@ -3,7 +3,7 @@
 namespace System.Runtime.CompilerServices;
 
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct, AllowMultiple = true, Inherited = false)]
-public sealed class CompilerFeatureRequiredAttribute : Attribute
+internal sealed class CompilerFeatureRequiredAttribute : Attribute
 {
     public CompilerFeatureRequiredAttribute(string feature) => FeatureName = feature;
     public string FeatureName { get; }
@@ -13,5 +13,5 @@ public sealed class CompilerFeatureRequiredAttribute : Attribute
 }
 
 // Support for init accessors on older TFMs
-public static class IsExternalInit { }
+internal static class IsExternalInit { }
 #endif

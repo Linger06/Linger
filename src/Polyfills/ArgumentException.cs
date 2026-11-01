@@ -2,7 +2,6 @@
 #if !NET8_0_OR_GREATER
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using Linger.Extensions.Core;
 
 namespace System;
 
@@ -10,7 +9,7 @@ namespace System;
 /// Provides downlevel polyfills for static methods on ArgumentException.
 /// Uses C# 14 extension members to extend the existing System.ArgumentException class.
 /// </summary>
-public static class ArgumentExceptionPolyfills
+internal static class ArgumentExceptionPolyfills
 {
     extension(ArgumentException)
     {
@@ -27,7 +26,7 @@ public static class ArgumentExceptionPolyfills
                 throw new ArgumentNullException(paramName);
             }
 
-            if (argument.IsEmpty())
+            if (argument.Length == 0)
             {
                 throw new ArgumentException("The value cannot be an empty string.", paramName);
             }
@@ -46,7 +45,7 @@ public static class ArgumentExceptionPolyfills
                 throw new ArgumentNullException(paramName);
             }
 
-            if (argument.IsWhiteSpace())
+            if (string.IsNullOrWhiteSpace(argument))
             {
                 throw new ArgumentException("The value cannot be a white space string.", paramName);
             }

@@ -9,4 +9,9 @@
         <ProjectReference Include="..\..\src\Linger.HttpClient.Standard\Linger.HttpClient.Standard.csproj" />
     </ItemGroup>
 
+    <!-- 库内的垫片是 internal，使用 init 访问器的 net472 测试代码需要自备 IsExternalInit -->
+    <ItemGroup Condition="'$(TargetFramework)'=='net472'">
+        <Compile Include="..\..\src\Polyfills\CompilerFeatureRequiredAttribute.cs" Link="Polyfills\CompilerFeatureRequiredAttribute.cs" />
+    </ItemGroup>
+
 </Project>

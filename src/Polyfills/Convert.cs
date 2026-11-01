@@ -6,7 +6,7 @@ namespace System;
 /// <summary>
 /// Provides ToHexStringLower polyfill for .NET versions before 9.0.
 /// </summary>
-public static class ConvertPolyfills
+internal static class ConvertPolyfills
 {
     extension(Convert)
     {

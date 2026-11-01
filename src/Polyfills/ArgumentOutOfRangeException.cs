@@ -10,7 +10,7 @@ namespace System;
 /// Provides downlevel polyfills for static methods on ArgumentOutOfRangeException.
 /// Uses C# 14 extension members to extend the existing System.ArgumentOutOfRangeException class.
 /// </summary>
-public static class ArgumentOutOfRangeExceptionPolyfills
+internal static class ArgumentOutOfRangeExceptionPolyfills
 {
     extension(ArgumentOutOfRangeException)
     {

@@ -12,7 +12,7 @@ namespace System.Buffers.Text;
 /// that the characters '+' and '/' are replaced with '-' and '_' respectively to make
 /// the output URL-safe. Padding characters '=' are also removed.
 /// </remarks>
-public static class Base64Url
+internal static class Base64Url
 {
     /// <summary>
     /// Encodes the span of binary data into a string represented as Base64Url ASCII chars.

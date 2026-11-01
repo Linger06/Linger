@@ -10,7 +10,7 @@ namespace System;
 /// Provides downlevel polyfills for static methods on ArgumentNullException.
 /// Uses C# 14 extension members to extend the existing System.ArgumentNullException class.
 /// </summary>
-public static class ArgumentNullExceptionPolyfills
+internal static class ArgumentNullExceptionPolyfills
 {
     extension(ArgumentNullException)
     {

@@ -3,7 +3,7 @@
 namespace System.Diagnostics.CodeAnalysis;
 
 [AttributeUsage(AttributeTargets.Constructor | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
-public sealed class SetsRequiredMembersAttribute : Attribute
+internal sealed class SetsRequiredMembersAttribute : Attribute
 {
 }
 #endif
