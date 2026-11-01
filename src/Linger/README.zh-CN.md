@@ -163,7 +163,7 @@ string encrypted = plaintext.AesEncryptAuthenticated(key);
 string decrypted = encrypted.AesDecryptAuthenticated(key);
 ```
 
-认证加密会使用随机 salt 和 IV，并通过 HMAC-SHA256 校验密文完整性。生产环境应使用专用密钥管理服务保存密钥；旧格式密文可继续使用已标记过时的 `AesDecrypt` 解密，该方法仅用于迁移。
+认证加密使用 PBKDF2-HMAC-SHA256 派生密钥（600,000 次迭代，记录在载荷头部），使用随机 salt 和 IV，并通过 HMAC-SHA256 校验密文完整性。每次调用的开销约为此前 100,000 次迭代格式的 6 倍：在 .NET 8 及更高版本上不到一秒，在 .NET Framework 上随硬件不同常常需要数秒。生产环境应使用专用密钥管理服务保存密钥；旧格式密文可继续使用已标记过时的 `AesDecrypt` 解密，该方法仅用于迁移。
 
 ### 重试与取消
 

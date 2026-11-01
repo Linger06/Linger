@@ -163,7 +163,7 @@ string encrypted = plaintext.AesEncryptAuthenticated(key);
 string decrypted = encrypted.AesDecryptAuthenticated(key);
 ```
 
-Authenticated encryption uses a random salt and IV and verifies ciphertext integrity with HMAC-SHA256. Store production keys in a dedicated key-management service; legacy ciphertext can still be read with the obsolete `AesDecrypt`, which is intended only for migration.
+Authenticated encryption derives keys with PBKDF2-HMAC-SHA256 (600,000 iterations, recorded in the payload header), uses a random salt and IV, and verifies ciphertext integrity with HMAC-SHA256. Each call costs about six times as much as the previous 100,000-iteration format: a fraction of a second on .NET 8 and later, and often several seconds on .NET Framework depending on the hardware. Store production keys in a dedicated key-management service; legacy ciphertext can still be read with the obsolete `AesDecrypt`, which is intended only for migration.
 
 ### Retries and cancellation
 

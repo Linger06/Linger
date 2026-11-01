@@ -197,6 +197,31 @@
   `RequiredMemberAttribute` 和 `CallerArgumentExpressionAttribute`。通过引用 `Linger.Utils` 来使用它们的代码，
   在这些目标框架上必须自备 Polyfill。标注在 `Linger.Utils` API 上的 `[NotNullWhen]`、`required` 等特性仍然有效，
   因为编译器按名称匹配它们。其他 `Linger.*` 包通过共享源码各自编译 `internal` 副本，因此同样不再公开这些类型。
+- **`Linger.Utils`**：`AesEncryptAuthenticated` 现在写入 `LNG4` 载荷，在受认证的头部记录 PBKDF2-HMAC-SHA256 的
+  迭代次数（600,000）。`AesDecryptAuthenticated` 和 `AesDecrypt` 仍可读取 `LNG2`、`LNG3` 和旧格式密文，但更早的
+  预览版无法读取 `LNG4` 密文。解密时头部的迭代次数必须在 100,000 到 10,000,000 之间，否则在派生密钥之前就抛出
+  `CryptographicException`。更高的迭代次数在 .NET Framework 上很明显：每次调用的开销约为此前格式的 6 倍，在 .NET 8 及
+  更高版本上不到一秒，在 .NET Framework 上随硬件不同常常需要数秒。
+- **`Linger.Utils`**：`DeleteBrackets` 现在会删除所有成对的括号（包括嵌套），并保留没有配对的括号。此前
+  `"a(b(c)d)e"` 返回 `"a(be"`，`"a(b)c)d"` 返回 `"ad"`；现在分别返回 `"ae"` 和 `"ac)d"`。不含嵌套或多余括号的输入不受影响。
+- **`Linger.Utils`**：AES 辅助方法、`RetryHelper` 和 `TableRowTurnToColumn` 抛出的异常消息改为英文。此前按中文文本匹配的代码，
+  应改为匹配新文本，更好的做法是匹配异常类型。
+- **`Linger.Utils`**：`FileInfo.Rename`、`RenameFileWithoutExtension` 和 `ChangeExtension` 只接受纯文件名。名称为空或空白、
+  为 `.` 或 `..`，或者包含目录、根路径时，现在抛出 `ArgumentException`；此前 `Rename("../x.txt")` 会把文件移出原目录。
+- **`Linger.Utils`**：字符串和对象上的数值解析（`TryToInt`、`ToDecimal`、`TryToDouble` 及同一家族的其他方法）现在校验
+  千分位。首组可以是 1 到 3 位，之后每组必须正好 3 位，所以 `"1,234"` 和 `"1,234.5"` 仍可解析；此前被解析成 314 和 15 的
+  `"3,14"`、`"1,5"` 现在会失败。
+- **`Linger.Utils`**：`object` 上的 `ToXxx`、`TryToXxx`、`ToXxxOrNull` 和 `ToXxxOrDefault` 遵循同一规则：`ToXxx` 返回
+  `TryToXxx` 的结果，失败则抛出异常。所有整数类型和枚举按数值转换，`bool` 不转换为数字，其他类型按区域性无关的字符串转换。
+  因此 `ToInt('A')` 抛出 `InvalidCastException`，不再返回 65；`ToInt(true)` 和 `ToDouble(true)` 抛出异常，不再返回 1；
+  `ToFloat(1e39)` 抛出 `OverflowException`，不再返回无穷大；`ToBool((ushort)5)` 和 `ToBool(DayOfWeek.Tuesday)` 抛出异常，
+  不再返回 `true`；`ToIntOrNull(DayOfWeek.Monday)` 返回 1，不再返回 `null`。
+- **`Linger.Utils`**：位于整数范围上沿的浮点输入会被拒绝。此前 `TryToInt(2147483648f)` 和
+  `TryToLong(9223372036854775808d)` 会报告成功并返回饱和值。`TryToDecimal` 遇到等于 2^96 的 double 时不再抛出异常。
+- **`Linger.Utils`**：`DataTable.Join` 在成对的键列数据类型不同（且都不是 `object`）时抛出 `ArgumentException`，不再静默返回
+  零匹配；键列名包含逗号时也能正常使用。`ClearEmptyRow` 行为不变，文档现已写明它会原地修改表。
+- **`Linger.Dapper`、`Linger.DataAccess.SqlServer`、`Linger.Excel.Contracts`、`Linger.FileSystem`、`Linger.FileSystem.Ftp`、
+  `Linger.FileSystem.Sftp`、`Linger.Reflection`**：异常消息和文件操作结果中返回的错误消息改为英文。此前按中文文本匹配的代码需要更新。
 - **`Linger.Excel.Contracts`**：Excel 导入 `DataTable` 时会推断每列的公共 CLR 类型，保留数值、布尔值和
   `DateTime` 等值，不再把所有非空单元格强制转换为 `string`；空列或混合类型列使用 `object`。需要文本时
   请显式调用 `Convert.ToString`。

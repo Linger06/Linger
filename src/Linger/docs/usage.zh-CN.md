@@ -310,6 +310,7 @@ string decrypted = encrypted.AesDecryptAuthenticated(key);
 使用约定：
 
 - 密钥应存放在密钥管理服务或安全凭据存储中，不要写入源代码、日志或配置仓库。
+- 每次认证加密或解密都会用 600,000 次 PBKDF2 迭代派生密钥，开销约为此前 100,000 次迭代格式的 6 倍：在 .NET 8 及更高版本上不到一秒，在 .NET Framework 上随硬件不同常常需要数秒。不要在紧凑循环里逐条调用，应改为加密一个较大的值。
 - 认证失败表示密钥错误或密文被修改，应按安全错误处理，不要忽略异常后继续使用明文。
 - `AesDecrypt` 已标记过时。它能识别认证格式，但会静默回退到旧版未认证 AES-CBC 密文，因此只应用于读取旧数据并用 `AesEncryptAuthenticated` 重新加密；解密当前数据请使用 `AesDecryptAuthenticated`。
 - 不要使用已移除或不安全的 DES 方案。

@@ -310,6 +310,7 @@ The format derives separate encryption and authentication keys with PBKDF2-SHA25
 Usage rules:
 
 - Store keys in a key-management service or secure credential store, never in source code, logs, or a configuration repository.
+- Each authenticated encryption or decryption derives its key with 600,000 PBKDF2 iterations, about six times the cost of the previous 100,000-iteration format. That is a fraction of a second on .NET 8 and later, but often several seconds on .NET Framework depending on the hardware. Do not call it per item in a tight loop; encrypt one larger value instead.
 - Treat authentication failure as a wrong-key or tampered-data error. Do not ignore it and continue with the plaintext.
 - `AesDecrypt` is obsolete. It recognizes the authenticated format but silently falls back to legacy unauthenticated AES-CBC ciphertext, so use it only to read legacy data and re-encrypt it with `AesEncryptAuthenticated`. Decrypt current data with `AesDecryptAuthenticated`.
 - Do not use DES or other obsolete encryption schemes.

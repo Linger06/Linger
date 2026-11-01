@@ -206,6 +206,40 @@ for applications upgrading from the previous API surface.
   that annotate `Linger.Utils` APIs, such as `[NotNullWhen]` and `required`, keep working because the compiler
   matches them by name. The other `Linger.*` packages compile their own `internal` copies from shared source,
   so none of them exposes these types either.
+- **`Linger.Utils`**: `AesEncryptAuthenticated` now writes the `LNG4` payload, which records the PBKDF2-HMAC-SHA256
+  iteration count (600,000) in an authenticated header. `AesDecryptAuthenticated` and `AesDecrypt` still read
+  `LNG2`, `LNG3`, and legacy ciphertext, but earlier previews cannot read `LNG4` ciphertext. On decryption the
+  header value must be between 100,000 and 10,000,000, otherwise a `CryptographicException` is thrown before any
+  key derivation. The higher cost is noticeable on .NET Framework: each call costs about six times as much as the
+  previous format, which is a fraction of a second on .NET 8 and later but often several seconds on .NET Framework,
+  depending on the hardware.
+- **`Linger.Utils`**: `DeleteBrackets` now removes every balanced pair of parentheses, including nested pairs, and
+  keeps unmatched parentheses. Previously `"a(b(c)d)e"` returned `"a(be"` and `"a(b)c)d"` returned `"ad"`; they now
+  return `"ae"` and `"ac)d"`. Input without nested or unmatched parentheses is unaffected.
+- **`Linger.Utils`**: Exception messages thrown by the AES helpers, `RetryHelper`, and `TableRowTurnToColumn` are now
+  English. Code that matched the previous Chinese text must match the new text or, preferably, the exception type.
+- **`Linger.Utils`**: `FileInfo.Rename`, `RenameFileWithoutExtension`, and `ChangeExtension` accept only a plain file
+  name. A name that is empty or whitespace, is `.` or `..`, or contains a directory or root now throws
+  `ArgumentException`; previously `Rename("../x.txt")` moved the file out of its directory.
+- **`Linger.Utils`**: Numeric parsing on strings and objects (`TryToInt`, `ToDecimal`, `TryToDouble`, and the rest of
+  the family) validates thousands separators. The first group may have one to three digits and every later group exactly
+  three, so `"1,234"` and `"1,234.5"` still parse, while `"3,14"` and `"1,5"`, which used to become 314 and 15, now fail.
+- **`Linger.Utils`**: The `ToXxx`, `TryToXxx`, `ToXxxOrNull`, and `ToXxxOrDefault` methods on `object` share one rule:
+  `ToXxx` returns the `TryToXxx` result or throws. Every integer type and every enum converts by numeric value, `bool`
+  does not convert to a number, and other types are converted through their invariant-culture string. As a result
+  `ToInt('A')` throws `InvalidCastException` instead of returning 65, `ToInt(true)` and `ToDouble(true)` throw instead of
+  returning 1, `ToFloat(1e39)` throws `OverflowException` instead of returning infinity, `ToBool((ushort)5)` and
+  `ToBool(DayOfWeek.Tuesday)` throw instead of returning `true`, and `ToIntOrNull(DayOfWeek.Monday)` returns 1 instead
+  of `null`.
+- **`Linger.Utils`**: Floating-point inputs at the upper edge of an integer range are rejected. `TryToInt(2147483648f)`
+  and `TryToLong(9223372036854775808d)` used to report success with a saturated value. `TryToDecimal` no longer throws
+  for a double equal to 2^96.
+- **`Linger.Utils`**: `DataTable.Join` throws `ArgumentException` when paired key columns have different data types,
+  unless one of them is `object`, instead of silently returning no matches. Key column names that contain commas are
+  now accepted. `ClearEmptyRow` is unchanged, and its documentation now states that it modifies the table in place.
+- **`Linger.Dapper`, `Linger.DataAccess.SqlServer`, `Linger.Excel.Contracts`, `Linger.FileSystem`, `Linger.FileSystem.Ftp`,
+  `Linger.FileSystem.Sftp`, `Linger.Reflection`**: Exception messages and the error messages returned in file operation
+  results are now English. Code that matched the previous Chinese text must be updated.
 - **`Linger.Excel.Contracts`**: Excel-to-`DataTable` imports now infer each column's common CLR type
   and preserve values such as numbers, booleans, and `DateTime` instead of coercing every non-null
   cell to `string`. Empty or mixed-type columns use `object`. Call `Convert.ToString` explicitly when
