@@ -128,7 +128,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
         }
 
         var elapsed = DateTime.UtcNow - start;
-        throw new OutOfRetryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetryAttempts}, 耗时: {elapsed.TotalMilliseconds:N0} ms", lastException);
+        throw new OutOfRetryCountException($"{operationName} failed: the maximum number of attempts ({_options.MaxRetryAttempts}) was reached after {elapsed.TotalMilliseconds:N0} ms.", lastException);
     }
 
     /// <summary>
@@ -200,7 +200,7 @@ public sealed class RetryHelper(RetryOptions? options = null)
 
         var elapsed = DateTime.UtcNow - start;
         // 如果所有重试都失败，抛出统一的异常
-        throw new OutOfRetryCountException($"{operationName} 操作失败，已达到最大重试次数: {_options.MaxRetryAttempts}, 耗时: {elapsed.TotalMilliseconds:N0} ms", lastException);
+        throw new OutOfRetryCountException($"{operationName} failed: the maximum number of attempts ({_options.MaxRetryAttempts}) was reached after {elapsed.TotalMilliseconds:N0} ms.", lastException);
     }
 
     private Task DelayBeforeRetryAsync(int retryAttempt, CancellationToken cancellationToken)

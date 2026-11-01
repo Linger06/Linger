@@ -114,8 +114,8 @@ public abstract class FileSystemBase : IFileTransfer
             .Select(mapping => new BatchOperationFailure(
                 mapping.SourcePath,
                 duplicateTargets.Contains(mapping.TargetPath)
-                    ? $"多个输入映射到同一目标路径: {mapping.TargetPath}"
-                    : "批量操作未执行，因为其他输入存在目标路径冲突。"))
+                    ? $"Multiple inputs map to the same target path: {mapping.TargetPath}"
+                    : "The batch was not executed because other inputs have conflicting target paths."))
             .ToList();
         for (var index = 0; index < failures.Count; index++)
         {
@@ -241,7 +241,7 @@ public abstract class FileSystemBase : IFileTransfer
 
         if (!File.Exists(localFilePath))
         {
-            return FileOperationResult.CreateFailure($"本地文件不存在: {localFilePath}");
+            return FileOperationResult.CreateFailure($"The local file does not exist: {localFilePath}");
         }
 
         using var fileStream = new FileStream(

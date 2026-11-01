@@ -114,7 +114,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 effectiveOverwrite,
                 effectiveUseSequencedName,
                 operationCancellationToken).ConfigureAwait(false),
-            "文件上传",
+            "File upload",
             restoreLength: false,
             shouldRetry: IsRetryableLocalFileOperationException,
             cancellationToken: cancellationToken).ConfigureAwait(false);
@@ -665,7 +665,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         var realSourcePath = GetRealPath(sourceFilePath);
         if (!File.Exists(realSourcePath))
         {
-            throw new FileNotFoundException("源文件不存在", realSourcePath);
+            throw new FileNotFoundException("The source file does not exist.", realSourcePath);
         }
 
         var destFilePath = GetUniqueDestFilePath(
@@ -686,7 +686,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
                 return destFilePath;
             },
-            "文件下载",
+            "File download",
             IsRetryableLocalFileOperationException,
             cancellationToken: cancellationToken).ConfigureAwait(false);
 
@@ -944,7 +944,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
         catch (DuplicateFileException ex)
         {
-            return FileOperationResult.CreateFailure($"上传文件失败: {ex.Message}", ex);
+            return FileOperationResult.CreateFailure($"Failed to upload the file: {ex.Message}", ex);
         }
     }
 
@@ -961,7 +961,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
         catch (FileNotFoundException ex)
         {
-            return FileOperationResult.CreateFailure($"下载文件到流失败: {ex.Message}", ex);
+            return FileOperationResult.CreateFailure($"Failed to download the file to the stream: {ex.Message}", ex);
         }
     }
 
@@ -978,11 +978,11 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
         catch (FileNotFoundException ex)
         {
-            return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
+            return FileOperationResult.CreateFailure($"Failed to download the file: {ex.Message}", ex);
         }
         catch (DuplicateFileException ex)
         {
-            return FileOperationResult.CreateFailure($"下载文件失败: {ex.Message}", ex);
+            return FileOperationResult.CreateFailure($"Failed to download the file: {ex.Message}", ex);
         }
     }
 
@@ -1041,7 +1041,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
             {
                 if (!File.Exists(sourcePath))
                 {
-                    return new BatchOperationFailure(sourcePath, "本地文件不存在");
+                    return new BatchOperationFailure(sourcePath, "The local file does not exist.");
                 }
 
                 var fileName = Path.GetFileName(sourcePath);
@@ -1100,7 +1100,7 @@ public class LocalFileSystem : FileSystemBase, ILocalFileSystem
                 var sourcePath = GetRealPath(remotePath);
                 if (!File.Exists(sourcePath))
                 {
-                    return new BatchOperationFailure(remotePath, "源文件不存在");
+                    return new BatchOperationFailure(remotePath, "The source file does not exist.");
                 }
 
                 var fileName = Path.GetFileName(sourcePath);

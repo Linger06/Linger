@@ -235,7 +235,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
         // 使用现有方法创建模板
         var result = CollectionToMemoryStream(list, type.Name, $"{type.Name} 模板");
 
-        return result ?? throw new InvalidOperationException($"创建 {type.Name} Excel模板失败");
+        return result ?? throw new InvalidOperationException($"Failed to create the Excel template for {type.Name}.");
     }
 
     #endregion
@@ -282,7 +282,7 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             if (!TypeConverter.TryConvert(value, actualType, out var convertedValue))
             {
                 throw new InvalidOperationException(
-                    $"Excel 单元格值无法从 {value.GetType().FullName} 转换为 {actualType.FullName}。");
+                    $"The Excel cell value cannot be converted from {value.GetType().FullName} to {actualType.FullName}.");
             }
 
             value = convertedValue!;

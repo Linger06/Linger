@@ -300,4 +300,23 @@ public class DataTableExtensionsFixTests
         Assert.Throws<DuplicateNameException>(() =>
             sourceTable.TableRowTurnToColumn(groupColumns, captionColumns, valueColumn));
     }
+
+    [Fact]
+    public void TableRowTurnToColumn_WithColumnMissingFromSource_ShouldThrowEnglishMessage()
+    {
+        var sourceTable = new DataTable();
+        sourceTable.Columns.Add("GroupId", typeof(int));
+        sourceTable.Columns.Add("Category", typeof(string));
+        sourceTable.Columns.Add("Amount", typeof(decimal));
+        var otherTable = new DataTable();
+        otherTable.Columns.Add("Other", typeof(decimal));
+
+        var exception = Assert.Throws<ArgumentException>(() => sourceTable.TableRowTurnToColumn(
+            new[] { sourceTable.Columns["GroupId"]! },
+            new[] { sourceTable.Columns["Category"]! },
+            otherTable.Columns["Other"]!));
+
+        Assert.Contains("does not exist in the source table", exception.Message);
+        Assert.Contains("Other", exception.Message);
+    }
 }

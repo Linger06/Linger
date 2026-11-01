@@ -878,7 +878,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     {
         if (columns.Count == 0)
         {
-            throw new ArgumentException("至少需要一个导出列。", nameof(columns));
+            throw new ArgumentException("At least one export column is required.", nameof(columns));
         }
 
         var headers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -886,7 +886,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         {
             if (!headers.Add(column.Header))
             {
-                throw new ArgumentException($"存在重复的导出列名: '{column.Header}'。", nameof(columns));
+                throw new ArgumentException($"Duplicate export column name: '{column.Header}'.", nameof(columns));
             }
         }
     }

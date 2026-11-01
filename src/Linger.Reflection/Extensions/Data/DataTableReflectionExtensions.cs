@@ -81,14 +81,14 @@ public static class DataTableReflectionExtensions
 
         if (!property.CanWrite)
         {
-            throw new InvalidOperationException($"属性 {property.Name} 是只读的，无法赋值。");
+            throw new InvalidOperationException($"Property {property.Name} is read-only and cannot be assigned.");
         }
 
         if (value is null or DBNull)
         {
             if (property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) is null)
             {
-                throw new InvalidCastException($"无法将 null 赋值给不可空的值类型属性: '{property.DeclaringType?.Name}.{property.Name}'。");
+                throw new InvalidCastException($"Cannot assign null to the non-nullable value-type property '{property.DeclaringType?.Name}.{property.Name}'.");
             }
 
             property.SetValue(obj, null);
@@ -98,13 +98,13 @@ public static class DataTableReflectionExtensions
         if (!TypeConverter.TryConvert(value, property.PropertyType, out object? convertedValue))
         {
             throw new InvalidCastException(
-                $"[核心转换失败] 无法将输入值 '{value}' (类型: {value.GetType().Name}) 转换为属性 '{property.Name}' 所需的目标类型 {property.PropertyType.Name}。" +
-                "请提供目标类型可直接接收的值，或在映射前显式转换。");
+                $"Cannot convert the value '{value}' (type {value.GetType().Name}) to the type {property.PropertyType.Name} required by property '{property.Name}'. " +
+                "Provide a value the target type accepts directly, or convert it explicitly before mapping.");
         }
 
         if (convertedValue is null && property.PropertyType.IsValueType && Nullable.GetUnderlyingType(property.PropertyType) is null)
         {
-            throw new InvalidCastException($"转换器发生异常：无法将转换后的 null 赋值给不可空值类型 '{property.Name}'。");
+            throw new InvalidCastException($"The converter returned null, which cannot be assigned to the non-nullable value-type property '{property.Name}'.");
         }
 
         property.SetValue(obj, convertedValue);

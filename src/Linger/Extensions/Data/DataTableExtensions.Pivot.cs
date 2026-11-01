@@ -54,7 +54,7 @@ public static partial class DataTableExtensions
         {
             if (!source.Columns.Contains(column.ColumnName))
             {
-                throw new ArgumentException($"列 '{column.ColumnName}' 不存在于源数据表中");
+                throw new ArgumentException($"Column '{column.ColumnName}' does not exist in the source table.");
             }
         }
     }

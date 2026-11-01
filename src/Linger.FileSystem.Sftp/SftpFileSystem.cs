@@ -208,7 +208,7 @@ public class SftpFileSystem : RemoteFileSystemBase
             if (await FileExistsAsync(destinationFilePath, cancellationToken).ConfigureAwait(false) && !overwrite)
             {
                 Logger.LogWarning("SFTP Upload failed - file already exists: {Destination}", destinationFilePath);
-                return FileOperationResult.CreateFailure($"远程文件已存在 {destinationFilePath}");
+                return FileOperationResult.CreateFailure($"The remote file already exists: {destinationFilePath}");
             }
 
             await ExecuteStreamOperationAsync(
@@ -235,7 +235,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         }
         catch (DuplicateFileException ex)
         {
-            return FileOperationResult.CreateFailure($"远程文件已存在 {destinationFilePath}", ex);
+            return FileOperationResult.CreateFailure($"The remote file already exists: {destinationFilePath}", ex);
         }
         catch (Exception ex)
         {
@@ -260,7 +260,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
-                return FileOperationResult.CreateFailure($"文件不存在 {remoteFilePath}");
+                return FileOperationResult.CreateFailure($"The file does not exist: {remoteFilePath}");
 
             await ExecuteStreamOperationAsync(
                 outputStream,
@@ -301,7 +301,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         try
         {
             if (!await FileExistsAsync(remoteFilePath, cancellationToken).ConfigureAwait(false))
-                return FileOperationResult.CreateFailure($"文件不存在 {remoteFilePath}");
+                return FileOperationResult.CreateFailure($"The file does not exist: {remoteFilePath}");
 
             // 确保目标目录存在
             var destDir = Path.GetDirectoryName(localDestinationPath);
@@ -310,7 +310,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
             // 检查文件是否已存在
             if (File.Exists(localDestinationPath) && !overwrite)
-                return FileOperationResult.CreateFailure($"目标文件已存在 {localDestinationPath}");
+                return FileOperationResult.CreateFailure($"The destination file already exists: {localDestinationPath}");
 
             var result = await DownloadFileAtomicallyAsync(
                 localDestinationPath,
@@ -324,7 +324,7 @@ public class SftpFileSystem : RemoteFileSystemBase
 
             if (!result)
             {
-                return FileOperationResult.CreateFailure($"下载文件失败: {remoteFilePath}");
+                return FileOperationResult.CreateFailure($"Failed to download the file: {remoteFilePath}");
             }
 
             return FileOperationResult.CreateSuccess(remoteFilePath);

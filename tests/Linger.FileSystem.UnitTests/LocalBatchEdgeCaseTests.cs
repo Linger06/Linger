@@ -144,7 +144,7 @@ namespace Linger.FileSystem.Tests.Local
 
             Assert.True(result.FailureCount == 1);
             Assert.True(result.SuccessCount == 0);
-            Assert.Contains("本地文件不存在", result.FailedFiles[0].ErrorMessage);
+            Assert.Contains("local file does not exist", result.FailedFiles[0].ErrorMessage);
         }
 
         [Fact]
@@ -174,8 +174,8 @@ namespace Linger.FileSystem.Tests.Local
             Assert.Equal(0, result.SuccessCount);
             Assert.Equal(3, result.FailureCount);
             Assert.All(result.FailedFiles.Take(2), failure =>
-                Assert.Contains("多个输入映射到同一目标路径", failure.ErrorMessage));
-            Assert.Contains("批量操作未执行", result.FailedFiles[2].ErrorMessage);
+                Assert.Contains("map to the same target path", failure.ErrorMessage));
+            Assert.Contains("batch was not executed", result.FailedFiles[2].ErrorMessage);
             Assert.Equal(3, progressReports.Count);
             Assert.All(progressReports, report => Assert.Equal(report.Completed, report.Failed));
             Assert.False(File.Exists(Path.Combine(_root, "dst", "same.txt")));
@@ -191,7 +191,7 @@ namespace Linger.FileSystem.Tests.Local
 
             Assert.True(result.FailureCount == 1);
             Assert.True(result.SuccessCount == 0);
-            Assert.Contains("源文件不存在", result.FailedFiles[0].ErrorMessage);
+            Assert.Contains("source file does not exist", result.FailedFiles[0].ErrorMessage);
         }
 
         [Fact]

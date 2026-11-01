@@ -586,7 +586,7 @@ public class DapperHelper<TConnection> : IDapperHelper where TConnection : IDbCo
         using IDbConnection con = GetDbConnection();
         var result = con.Query<T>(sql, param).FirstOrDefault();
 
-        return result is null ? throw new InvalidOperationException("查询结果为空，无法返回第一条数据。") : result;
+        return result is null ? throw new InvalidOperationException("The query returned no rows, so there is no first row to return.") : result;
     }
 
     /// <summary>

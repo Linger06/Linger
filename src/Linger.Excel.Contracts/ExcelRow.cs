@@ -75,10 +75,10 @@ public readonly struct ExcelRow
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
 
-        var columnIndexes = _columnIndexes ?? throw new InvalidOperationException("ExcelRow 尚未初始化。");
+        var columnIndexes = _columnIndexes ?? throw new InvalidOperationException("The ExcelRow has not been initialized.");
         if (!columnIndexes.TryGetValue(columnName, out var columnIndex))
         {
-            throw new KeyNotFoundException($"找不到 Excel 列: '{columnName}'。");
+            throw new KeyNotFoundException($"Excel column '{columnName}' was not found.");
         }
 
         return columnIndex;
@@ -110,7 +110,7 @@ public readonly struct ExcelRow
 
         var rawValue = this[columnName];
         throw new InvalidCastException(
-            $"Excel 列 '{columnName}' 的值 '{rawValue}' 无法转换为 {typeof(T).FullName}。");
+            $"The value '{rawValue}' in Excel column '{columnName}' cannot be converted to {typeof(T).FullName}.");
     }
 
     /// <summary>
@@ -147,7 +147,7 @@ public readonly struct ExcelRow
 
     private object[] GetValues()
     {
-        return _values ?? throw new InvalidOperationException("ExcelRow 尚未初始化。");
+        return _values ?? throw new InvalidOperationException("The ExcelRow has not been initialized.");
     }
 
     private static object? NormalizeValue(object? value)

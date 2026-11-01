@@ -158,7 +158,7 @@ public class RetryHelperTests
                     _ => true);
             });
 
-        Assert.Contains("已达到最大重试次数", exception.Message);
+        Assert.Contains("maximum number of attempts", exception.Message);
     }
 
     [Fact]
@@ -196,7 +196,7 @@ public class RetryHelperTests
                     _ => true);
             });
 
-        Assert.Contains("已达到最大重试次数", exception.Message);
+        Assert.Contains("maximum number of attempts", exception.Message);
     }
 
     [Fact]
@@ -429,7 +429,7 @@ public class RetryHelperTests
             });
 
         Assert.Equal(1, attemptCount);
-        Assert.Contains("已达到最大重试次数", exception.Message);
+        Assert.Contains("maximum number of attempts", exception.Message);
     }
 
     [Fact]

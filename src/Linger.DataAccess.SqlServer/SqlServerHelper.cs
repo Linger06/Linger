@@ -136,7 +136,7 @@ public class SqlServerHelper(string connectionString)
         }
         catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException or OverflowException))
         {
-            throw new InvalidOperationException($"获取表 {tableName} 字段 {fieldName} 的最大值时发生错误", ex);
+            throw new InvalidOperationException($"Failed to get the maximum value of column {fieldName} in table {tableName}.", ex);
         }
     }
 
@@ -165,7 +165,7 @@ public class SqlServerHelper(string connectionString)
         }
         catch (Exception ex) when (ex is not (ArgumentException or OperationCanceledException or OverflowException))
         {
-            throw new InvalidOperationException($"获取表 {tableName} 字段 {fieldName} 的最大值时发生错误", ex);
+            throw new InvalidOperationException($"Failed to get the maximum value of column {fieldName} in table {tableName}.", ex);
         }
     }
 
@@ -259,7 +259,7 @@ public class SqlServerHelper(string connectionString)
         // 不允许：空格、特殊字符、SQL 关键字符（如引号、分号等）
         if (identifier.Any(c => !char.IsLetterOrDigit(c) && c != '_' && (c != '.' || !allowQualifier)))
         {
-            throw new ArgumentException($"标识符 '{identifier}' 包含非法字符。只允许字母、数字、下划线和点号。", paramName);
+            throw new ArgumentException($"Identifier '{identifier}' contains invalid characters. Only letters, digits, underscores, and periods are allowed.", paramName);
         }
 
     }
@@ -278,7 +278,7 @@ public class SqlServerHelper(string connectionString)
         var parts = qualifiedName.Split('.');
         if (parts.Any(string.IsNullOrEmpty))
         {
-            throw new ArgumentException($"名称 '{qualifiedName}' 含有空段。", paramName);
+            throw new ArgumentException($"Name '{qualifiedName}' contains an empty segment.", paramName);
         }
 
         return string.Join(".", parts.Select(p => $"[{p}]"));
