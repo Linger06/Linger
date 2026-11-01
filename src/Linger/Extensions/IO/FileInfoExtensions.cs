@@ -15,8 +15,22 @@ public static partial class FileInfoExtensions
     /// <param name="file">The file.</param>
     /// <param name="newName">The new name.</param>
     /// <returns>The renamed file.</returns>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="newName"/> is empty, whitespace, <c>.</c>, <c>..</c>, or contains a directory or root,
+    /// which would move the file out of its current directory.
+    /// </exception>
+    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     public static FileInfo Rename(this FileInfo file, string newName)
     {
+        ArgumentNullException.ThrowIfNull(file);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newName);
+
+        // 只允许纯文件名：带目录、根路径或 "."、".." 的名称会让 Path.Combine 把文件移出原目录
+        if (newName != Path.GetFileName(newName) || newName is "." or "..")
+        {
+            throw new ArgumentException("The new name must be a file name without a directory or root.", nameof(newName));
+        }
+
         if (!file.Exists)
         {
             throw new FileNotFoundException("File not found.");

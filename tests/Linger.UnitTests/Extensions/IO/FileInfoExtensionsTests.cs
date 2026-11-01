@@ -74,6 +74,44 @@ public class FileInfoExtensionsTests : IDisposable
         Assert.Throws<FileNotFoundException>(() => fileInfo.Rename("renamed.txt"));
     }
 
+    [Theory]
+    [InlineData("../escaped.txt")]
+    [InlineData("..")]
+    [InlineData(".")]
+    [InlineData("sub/renamed.txt")]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Rename_WithNameThatIsNotAPlainFileName_ThrowsAndKeepsFile(string newName)
+    {
+        string filePath = CreateTestFile("test.txt");
+        var fileInfo = new FileInfo(filePath);
+
+        Assert.Throws<ArgumentException>(() => fileInfo.Rename(newName));
+        Assert.True(File.Exists(filePath));
+    }
+
+    [Fact]
+    public void Rename_WithRootedPath_ThrowsAndKeepsFile()
+    {
+        string filePath = CreateTestFile("test.txt");
+        var fileInfo = new FileInfo(filePath);
+        string rootedTarget = Path.Combine(Path.GetTempPath(), "rooted-" + Guid.NewGuid().ToString("N") + ".txt");
+
+        Assert.Throws<ArgumentException>(() => fileInfo.Rename(rootedTarget));
+        Assert.True(File.Exists(filePath));
+        Assert.False(File.Exists(rootedTarget));
+    }
+
+    [Fact]
+    public void RenameFileWithoutExtension_WithParentDirectoryName_Throws()
+    {
+        string filePath = CreateTestFile("test.txt");
+        var fileInfo = new FileInfo(filePath);
+
+        Assert.Throws<ArgumentException>(() => fileInfo.RenameFileWithoutExtension("../escaped"));
+        Assert.True(File.Exists(filePath));
+    }
+
     [Fact]
     public void RenameFileWithoutExtension_ShouldRenameWithoutChangingExtension()
     {
