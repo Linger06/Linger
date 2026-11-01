@@ -761,5 +761,108 @@ namespace Linger.UnitTests.Extensions.Core
             public int Count { get; init; }
             public string this[int index] => index.ToString(CultureInfo.InvariantCulture);
         }
+
+        [Fact]
+        public void TryToInt_WithFloatAtTwoToThe31_ReturnsFalse()
+        {
+            Assert.False(((object)2147483648f).TryToInt(out _));
+            Assert.Throws<OverflowException>(() => ((object)2147483648f).ToInt());
+        }
+
+        [Fact]
+        public void TryToInt_WithFloatsAtTheEdgesOfTheRange_ReturnsExactValues()
+        {
+            Assert.True(((object)2147483520f).TryToInt(out var largest));
+            Assert.Equal(2147483520, largest);
+            Assert.True(((object)(-2147483648f)).TryToInt(out var smallest));
+            Assert.Equal(int.MinValue, smallest);
+        }
+
+        [Fact]
+        public void TryToLong_WithDoubleAtTwoToThe63_ReturnsFalse()
+        {
+            Assert.False(((object)9223372036854775808d).TryToLong(out _));
+            Assert.Throws<OverflowException>(() => ((object)9223372036854775808d).ToLong());
+        }
+
+        [Fact]
+        public void TryToDecimal_WithDoubleAtTwoToThe96_ReturnsFalseWithoutThrowing()
+        {
+            object value = 79228162514264337593543950336d;
+
+            Assert.False(value.TryToDecimal(out _));
+            Assert.Throws<OverflowException>(() => value.ToDecimal());
+        }
+
+        public static TheoryData<object, int?, Type?> IntConsistencyData => new()
+        {
+            { DayOfWeek.Monday, 1, null },
+            { true, null, typeof(InvalidCastException) },
+            { false, null, typeof(InvalidCastException) },
+            { (sbyte)-3, -3, null },
+            { (ushort)5, 5, null },
+            { (uint)5, 5, null },
+            { (ulong)5, 5, null },
+            { '5', 5, null },
+            { 'A', null, typeof(InvalidCastException) },
+            { uint.MaxValue, null, typeof(OverflowException) },
+            { ulong.MaxValue, null, typeof(OverflowException) },
+        };
+
+        [Theory]
+        [MemberData(nameof(IntConsistencyData))]
+        public void ToInt_AgreesWithTryToIntAndToIntOrNull(object value, int? expected, Type? expectedException)
+        {
+            Assert.Equal(expected, value.ToIntOrNull());
+            Assert.Equal(expected.HasValue, value.TryToInt(out var tryResult));
+            if (expectedException is null)
+            {
+                Assert.Equal(expected!.Value, tryResult);
+                Assert.Equal(expected.Value, value.ToInt());
+            }
+            else
+            {
+                Assert.Throws(expectedException, () => value.ToInt());
+            }
+        }
+
+        [Fact]
+        public void LongAndShortFamilies_AgreeOnEnumsAndOverflow()
+        {
+            Assert.Equal(1L, ((object)DayOfWeek.Monday).ToLong());
+            Assert.Equal(1L, ((object)DayOfWeek.Monday).ToLongOrNull());
+            Assert.Null(((object)(ushort)40000).ToShortOrNull());
+            Assert.Throws<OverflowException>(() => ((object)(ushort)40000).ToShort());
+        }
+
+        [Fact]
+        public void DecimalFamily_RejectsBooleansAndAcceptsEnums()
+        {
+            Assert.Throws<InvalidCastException>(() => ((object)true).ToDecimal());
+            Assert.Null(((object)true).ToDecimalOrNull());
+            Assert.Equal(1m, ((object)DayOfWeek.Monday).ToDecimalOrNull());
+        }
+
+        [Fact]
+        public void DoubleAndFloatFamilies_AgreeWithStrictConversions()
+        {
+            Assert.Null(((object)true).ToDoubleOrNull());
+            Assert.Throws<InvalidCastException>(() => ((object)true).ToDouble());
+            Assert.Equal(1d, ((object)DayOfWeek.Monday).ToDoubleOrNull());
+            Assert.Equal(5d, ((object)new System.Numerics.BigInteger(5)).ToDoubleOrNull());
+            Assert.Null(((object)1e39).ToFloatOrNull());
+            Assert.Throws<OverflowException>(() => ((object)1e39).ToFloat());
+            Assert.Throws<InvalidCastException>(() => ((object)'A').ToDouble());
+        }
+
+        [Fact]
+        public void BoolFamily_AcceptsOnlyZeroAndOneForEveryIntegerType()
+        {
+            Assert.True(((object)(byte)1).ToBool());
+            Assert.True(((object)(ushort)1).ToBoolOrNull());
+            Assert.Null(((object)(ushort)5).ToBoolOrNull());
+            Assert.Throws<InvalidCastException>(() => ((object)(ushort)5).ToBool());
+            Assert.Throws<InvalidCastException>(() => ((object)DayOfWeek.Tuesday).ToBool());
+        }
     }
 }

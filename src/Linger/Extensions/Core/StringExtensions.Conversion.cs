@@ -36,6 +36,8 @@ public static partial class StringExtensions
         if (short.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
             return true;
 
+        if (!HasValidThousandsGrouping(trimmed)) return false;
+
         const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
         return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToShort(out result);
@@ -87,6 +89,8 @@ public static partial class StringExtensions
         if (int.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
             return true;
 
+        if (!HasValidThousandsGrouping(trimmed)) return false;
+
         const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
         return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToInt(out result);
@@ -116,6 +120,8 @@ public static partial class StringExtensions
         if (long.TryParse(trimmed, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
             return true;
 
+        if (!HasValidThousandsGrouping(trimmed)) return false;
+
         const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
         return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToLong(out result);
@@ -141,8 +147,11 @@ public static partial class StringExtensions
         result = 0m;
         if (string.IsNullOrWhiteSpace(value)) return false;
 
+        var trimmed = value!.Trim();
+        if (!HasValidThousandsGrouping(trimmed)) return false;
+
         const NumberStyles permissiveStyles = NumberStyles.Number | NumberStyles.AllowExponent;
-        return decimal.TryParse(value!.Trim(), permissiveStyles, CultureInfo.InvariantCulture, out result);
+        return decimal.TryParse(trimmed, permissiveStyles, CultureInfo.InvariantCulture, out result);
     }
 
     public static decimal ToDecimal(this string? value)
@@ -150,6 +159,7 @@ public static partial class StringExtensions
         ArgumentNullException.ThrowIfNull(value);
         if (value.TryToDecimal(out var result)) return result;
 
+        ThrowIfInvalidThousandsGrouping(value, "Decimal");
         const NumberStyles strictStyles = NumberStyles.Number | NumberStyles.AllowExponent;
         return decimal.Parse(value, strictStyles, CultureInfo.InvariantCulture);
     }
@@ -173,6 +183,8 @@ public static partial class StringExtensions
         if (string.IsNullOrWhiteSpace(value)) return false;
 
         var trimmed = value ?? string.Empty;
+        if (!HasValidThousandsGrouping(trimmed.Trim())) return false;
+
         return double.TryParse(trimmed.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
             CultureInfo.InvariantCulture, out result);
     }
@@ -188,6 +200,7 @@ public static partial class StringExtensions
         var nonNullValue = value;
         if (nonNullValue.TryToDouble(out var result)) return result;
 
+        ThrowIfInvalidThousandsGrouping(nonNullValue, "Double");
         return double.Parse(nonNullValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
     }
 
@@ -222,6 +235,8 @@ public static partial class StringExtensions
         if (string.IsNullOrWhiteSpace(value)) return false;
 
         var trimmed = value ?? string.Empty;
+        if (!HasValidThousandsGrouping(trimmed.Trim())) return false;
+
         return float.TryParse(trimmed.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
             CultureInfo.InvariantCulture, out result);
     }
@@ -237,6 +252,7 @@ public static partial class StringExtensions
         var nonNullValue = value;
         if (nonNullValue.TryToFloat(out var result)) return result;
 
+        ThrowIfInvalidThousandsGrouping(nonNullValue, "Single");
         return float.Parse(nonNullValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
     }
 
@@ -369,6 +385,9 @@ public static partial class StringExtensions
         if (trimmed.Length == 0)
             throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
 
+        if (!HasValidThousandsGrouping(trimmed))
+            throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
+
         const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
 
         decimal parsed;
@@ -388,5 +407,67 @@ public static partial class StringExtensions
             throw new OverflowException($"Value was either too large or too small for {targetTypeName}.");
 
         return converter(parsed);
+    }
+
+    // AllowThousands 不校验分组位置，"3,14" 会被解析成 314。整数部分只接受首组 1~3 位、其余每组正好 3 位的写法，
+    // 小数和指数部分不允许出现逗号。
+    private static bool HasValidThousandsGrouping(string value)
+    {
+        if (value.IndexOf(',') < 0)
+        {
+            return true;
+        }
+
+        var start = 0;
+        var end = value.Length;
+        if (end > start && (value[start] == '+' || value[start] == '-'))
+        {
+            start++;
+        }
+
+        if (end > start && (value[end - 1] == '+' || value[end - 1] == '-'))
+        {
+            end--;
+        }
+
+        var integerEnd = start;
+        while (integerEnd < end && value[integerEnd] != '.' && value[integerEnd] != 'e' && value[integerEnd] != 'E')
+        {
+            integerEnd++;
+        }
+
+        if (value.IndexOf(',', integerEnd, end - integerEnd) >= 0)
+        {
+            return false;
+        }
+
+        var groupLength = 0;
+        var seenSeparator = false;
+        for (var i = start; i < integerEnd; i++)
+        {
+            if (value[i] != ',')
+            {
+                groupLength++;
+                continue;
+            }
+
+            if (groupLength == 0 || groupLength > 3 || (seenSeparator && groupLength != 3))
+            {
+                return false;
+            }
+
+            seenSeparator = true;
+            groupLength = 0;
+        }
+
+        return groupLength == 3;
+    }
+
+    private static void ThrowIfInvalidThousandsGrouping(string value, string targetTypeName)
+    {
+        if (!HasValidThousandsGrouping(value.Trim()))
+        {
+            throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
+        }
     }
 }

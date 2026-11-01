@@ -701,5 +701,44 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, result);
         }
 
+
+        [Theory]
+        [InlineData("3,14")]
+        [InlineData("1,5")]
+        [InlineData("1,2345")]
+        [InlineData(",123")]
+        [InlineData("1,234,")]
+        [InlineData("1,,234")]
+        public void NumericParsing_WithMalformedThousandsGrouping_Fails(string value)
+        {
+            Assert.False(value.TryToShort(out _));
+            Assert.False(value.TryToInt(out _));
+            Assert.False(value.TryToLong(out _));
+            Assert.False(value.TryToDecimal(out _));
+            Assert.False(value.TryToDouble(out _));
+            Assert.False(value.TryToFloat(out _));
+            Assert.Throws<FormatException>(() => value.ToInt());
+            Assert.Throws<FormatException>(() => value.ToDecimal());
+            Assert.Throws<FormatException>(() => value.ToDouble());
+        }
+
+        [Theory]
+        [InlineData("1,234", 1234)]
+        [InlineData("-12,345,678", -12345678)]
+        [InlineData(" 1,234 ", 1234)]
+        public void TryToInt_WithWellFormedThousandsGrouping_Succeeds(string value, int expected)
+        {
+            Assert.True(value.TryToInt(out var result));
+            Assert.Equal(expected, result);
+        }
+
+        [Theory]
+        [InlineData("1,234.5", 1234.5)]
+        [InlineData("1,234,567.25", 1234567.25)]
+        public void TryToDouble_WithWellFormedThousandsGrouping_Succeeds(string value, double expected)
+        {
+            Assert.True(value.TryToDouble(out var result));
+            Assert.Equal(expected, result);
+        }
     }
 }

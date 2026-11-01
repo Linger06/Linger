@@ -74,38 +74,29 @@ public static class ObjectExtensions
     public static bool TryToShort(this object? value, out short result)
     {
         result = 0;
-        if (value is null || value is DBNull) return false;
-        if (value is short s)
-        {
-            result = s;
-            return true;
-        }
-
         switch (value)
         {
-            case int i:
-                if (i < short.MinValue || i > short.MaxValue) return false;
-                result = (short)i;
+            case null or DBNull:
+                return false;
+            case short exact:
+                result = exact;
                 return true;
-            case long l:
-                if (l < short.MinValue || l > short.MaxValue) return false;
-                result = (short)l;
-                return true;
-            case byte b:
-                result = b;
-                return true;
-            case decimal dec:
-                return dec.TryToShort(out result);
             case string str:
                 return str.TryToShort(out result);
+            case decimal dec:
+                return dec.TryToShort(out result);
             case double db:
-                return TryConvertToWholeNumber(db, short.MinValue, short.MaxValue, out result);
+                return TryConvertToWholeNumber(db, short.MinValue, out result);
             case float fl:
-                return TryConvertToWholeNumber(fl, short.MinValue, short.MaxValue, out result);
+                return TryConvertToWholeNumber(fl, short.MinValue, out result);
         }
 
-        var fallbackStr = value.ToString();
-        return fallbackStr is not null && fallbackStr.TryToShort(out result);
+        if (TryGetIntegralValue(value, out var integral))
+        {
+            return integral.TryToShort(out result);
+        }
+
+        return FormatInvariant(value).TryToShort(out result);
     }
 
     public static short ToShort(this object? value)
@@ -114,19 +105,14 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToShort(out var result)) return result;
 
-        switch (value)
+        return value switch
         {
-            case string str:
-                return str.ToShort();
-            case decimal dec:
-                return dec.ToShort();
-            case double db:
-                return ConvertToWholeNumberOrThrow(db, short.MinValue, short.MaxValue, nameof(Double), "Int16", static x => (short)x);
-            case float fl:
-                return ConvertToWholeNumberOrThrow(fl, short.MinValue, short.MaxValue, nameof(Single), "Int16", static x => (short)x);
-        }
-
-        return Convert.ToInt16(value, CultureInfo.InvariantCulture);
+            string str => str.ToShort(),
+            decimal dec => dec.ToShort(),
+            double db => ConvertToWholeNumberOrThrow(db, short.MinValue, nameof(Double), "Int16", static x => (short)x),
+            float fl => ConvertToWholeNumberOrThrow(fl, short.MinValue, nameof(Single), "Int16", static x => (short)x),
+            _ => ThrowConversionFailure<short>(value, "Int16"),
+        };
     }
 
     public static short? ToShortOrNull(this object? value) => value.TryToShort(out var r) ? r : null;
@@ -135,36 +121,29 @@ public static class ObjectExtensions
     public static bool TryToLong(this object? value, out long result)
     {
         result = 0L;
-        if (value is null || value is DBNull) return false;
-        if (value is long l)
-        {
-            result = l;
-            return true;
-        }
-
         switch (value)
         {
-            case int i:
-                result = i;
+            case null or DBNull:
+                return false;
+            case long exact:
+                result = exact;
                 return true;
-            case short s:
-                result = s;
-                return true;
-            case byte b:
-                result = b;
-                return true;
-            case decimal dec:
-                return dec.TryToLong(out result);
             case string str:
                 return str.TryToLong(out result);
+            case decimal dec:
+                return dec.TryToLong(out result);
             case double db:
-                return TryConvertToWholeNumber(db, long.MinValue, long.MaxValue, out result);
+                return TryConvertToWholeNumber(db, long.MinValue, out result);
             case float fl:
-                return TryConvertToWholeNumber(fl, long.MinValue, long.MaxValue, out result);
+                return TryConvertToWholeNumber(fl, long.MinValue, out result);
         }
 
-        var fallbackStr = value.ToString();
-        return fallbackStr is not null && fallbackStr.TryToLong(out result);
+        if (TryGetIntegralValue(value, out var integral))
+        {
+            return integral.TryToLong(out result);
+        }
+
+        return FormatInvariant(value).TryToLong(out result);
     }
 
     public static long ToLong(this object? value)
@@ -177,9 +156,9 @@ public static class ObjectExtensions
         {
             string str => str.ToLong(),
             decimal dec => dec.ToLong(),
-            double db => ConvertToWholeNumberOrThrow(db, long.MinValue, long.MaxValue, nameof(Double), "Int64", static x => (long)x),
-            float fl => ConvertToWholeNumberOrThrow(fl, long.MinValue, long.MaxValue, nameof(Single), "Int64", static x => (long)x),
-            _ => Convert.ToInt64(value, CultureInfo.InvariantCulture),
+            double db => ConvertToWholeNumberOrThrow(db, long.MinValue, nameof(Double), "Int64", static x => (long)x),
+            float fl => ConvertToWholeNumberOrThrow(fl, long.MinValue, nameof(Single), "Int64", static x => (long)x),
+            _ => ThrowConversionFailure<long>(value, "Int64"),
         };
     }
 
@@ -189,43 +168,41 @@ public static class ObjectExtensions
     public static bool TryToDecimal(this object? value, out decimal result)
     {
         result = 0m;
-        if (value is null || value is DBNull) return false;
-        if (value is decimal dec)
-        {
-            result = dec;
-            return true;
-        }
-
         switch (value)
         {
+            case null or DBNull:
+                return false;
+            case decimal dec:
+                result = dec;
+                return true;
             case string str:
                 return str.TryToDecimal(out result);
-            case int i:
-                result = i;
-                return true;
-            case long l:
-                result = l;
-                return true;
-            case short s:
-                result = s;
-                return true;
-            case byte b:
-                result = b;
-                return true;
             case double db:
-                if (double.IsNaN(db) || double.IsInfinity(db)) return false;
-                if (db < (double)decimal.MinValue || db > (double)decimal.MaxValue) return false;
+                // (double)decimal.MaxValue 会被舍入成 2^96，所以上下界都用开区间
+                if (double.IsNaN(db) || double.IsInfinity(db) || db >= (double)decimal.MaxValue || db <= (double)decimal.MinValue)
+                {
+                    return false;
+                }
+
                 result = (decimal)db;
                 return true;
             case float fl:
-                if (float.IsNaN(fl) || float.IsInfinity(fl)) return false;
-                if (fl < (float)decimal.MinValue || fl > (float)decimal.MaxValue) return false;
+                if (float.IsNaN(fl) || float.IsInfinity(fl) || fl >= (float)decimal.MaxValue || fl <= (float)decimal.MinValue)
+                {
+                    return false;
+                }
+
                 result = (decimal)fl;
                 return true;
         }
 
-        var fallbackStr = value.ToString();
-        return fallbackStr is not null && fallbackStr.TryToDecimal(out result);
+        if (TryGetIntegralValue(value, out var integral))
+        {
+            result = integral;
+            return true;
+        }
+
+        return FormatInvariant(value).TryToDecimal(out result);
     }
 
     public static decimal ToDecimal(this object? value)
@@ -234,7 +211,12 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToDecimal(out var result)) return result;
 
-        return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+        return value switch
+        {
+            string str => str.ToDecimal(),
+            double or float => throw new OverflowException($"The value '{FormatInvariant(value)}' is outside the range of Decimal."),
+            _ => ThrowConversionFailure<decimal>(value, "Decimal"),
+        };
     }
 
     public static decimal? ToDecimalOrNull(this object? value) => value.TryToDecimal(out var r) ? r : null;
@@ -249,15 +231,13 @@ public static class ObjectExtensions
     public static bool TryToDouble(this object? value, out double result)
     {
         result = 0d;
-        if (value is null || value is DBNull) return false;
-        if (value is double db)
-        {
-            result = db;
-            return true;
-        }
-
         switch (value)
         {
+            case null or DBNull:
+                return false;
+            case double exact:
+                result = exact;
+                return true;
             case string str:
                 return str.TryToDouble(out result);
             case float fl:
@@ -290,9 +270,12 @@ public static class ObjectExtensions
             case ulong ul:
                 result = ul;
                 return true;
+            case Enum:
+                result = Convert.ToDouble(value, CultureInfo.InvariantCulture);
+                return true;
         }
 
-        return false;
+        return FormatInvariant(value).TryToDouble(out result);
     }
 
     /// <summary>
@@ -307,7 +290,11 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToDouble(out var result)) return result;
 
-        return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+        return value switch
+        {
+            string str => str.ToDouble(),
+            _ => ThrowConversionFailure<double>(value, "Double"),
+        };
     }
 
     /// <summary>
@@ -334,15 +321,13 @@ public static class ObjectExtensions
     public static bool TryToFloat(this object? value, out float result)
     {
         result = 0f;
-        if (value is null || value is DBNull) return false;
-        if (value is float fl)
-        {
-            result = fl;
-            return true;
-        }
-
         switch (value)
         {
+            case null or DBNull:
+                return false;
+            case float exact:
+                result = exact;
+                return true;
             case string str:
                 return str.TryToFloat(out result);
             case double db when double.IsNaN(db) || double.IsInfinity(db):
@@ -351,6 +336,9 @@ public static class ObjectExtensions
             case double db when db >= -float.MaxValue && db <= float.MaxValue:
                 result = (float)db;
                 return true;
+            case double:
+                // 超出 float 范围：不能落到下面的字符串回退，否则 "1E+39" 会被解析成无穷大
+                return false;
             case decimal dec:
                 result = (float)dec;
                 return true;
@@ -378,9 +366,12 @@ public static class ObjectExtensions
             case ulong ul:
                 result = ul;
                 return true;
+            case Enum:
+                result = Convert.ToSingle(value, CultureInfo.InvariantCulture);
+                return true;
         }
 
-        return false;
+        return FormatInvariant(value).TryToFloat(out result);
     }
 
     /// <summary>
@@ -395,7 +386,12 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToFloat(out var result)) return result;
 
-        return Convert.ToSingle(value, CultureInfo.InvariantCulture);
+        return value switch
+        {
+            string str => str.ToFloat(),
+            double => throw new OverflowException($"The value '{FormatInvariant(value)}' is outside the range of Single."),
+            _ => ThrowConversionFailure<float>(value, "Single"),
+        };
     }
 
     /// <summary>
@@ -416,37 +412,29 @@ public static class ObjectExtensions
     public static bool TryToInt(this object? value, out int result)
     {
         result = 0;
-        if (value is null || value is DBNull) return false;
-        if (value is int i)
-        {
-            result = i;
-            return true;
-        }
-
         switch (value)
         {
-            case long l:
-                if (l < int.MinValue || l > int.MaxValue) return false;
-                result = (int)l;
+            case null or DBNull:
+                return false;
+            case int exact:
+                result = exact;
                 return true;
-            case short s:
-                result = s;
-                return true;
-            case byte b:
-                result = b;
-                return true;
-            case decimal dec:
-                return dec.TryToInt(out result);
             case string str:
                 return str.TryToInt(out result);
+            case decimal dec:
+                return dec.TryToInt(out result);
             case double db:
-                return TryConvertToWholeNumber(db, int.MinValue, int.MaxValue, out result);
+                return TryConvertToWholeNumber(db, int.MinValue, out result);
             case float fl:
-                return TryConvertToWholeNumber(fl, int.MinValue, int.MaxValue, out result);
+                return TryConvertToWholeNumber(fl, int.MinValue, out result);
         }
 
-        var fallbackStr = value.ToString();
-        return fallbackStr is not null && fallbackStr.TryToInt(out result);
+        if (TryGetIntegralValue(value, out var integral))
+        {
+            return integral.TryToInt(out result);
+        }
+
+        return FormatInvariant(value).TryToInt(out result);
     }
 
     public static int ToInt(this object? value)
@@ -455,19 +443,14 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToInt(out var result)) return result;
 
-        switch (value)
+        return value switch
         {
-            case string str:
-                return str.ToInt();
-            case decimal dec:
-                return dec.ToInt();
-            case double db:
-                return ConvertToWholeNumberOrThrow(db, int.MinValue, int.MaxValue, nameof(Double), "Int32", static x => (int)x);
-            case float fl:
-                return ConvertToWholeNumberOrThrow(fl, int.MinValue, int.MaxValue, nameof(Single), "Int32", static x => (int)x);
-        }
-
-        return Convert.ToInt32(value, CultureInfo.InvariantCulture);
+            string str => str.ToInt(),
+            decimal dec => dec.ToInt(),
+            double db => ConvertToWholeNumberOrThrow(db, int.MinValue, nameof(Double), "Int32", static x => (int)x),
+            float fl => ConvertToWholeNumberOrThrow(fl, int.MinValue, nameof(Single), "Int32", static x => (int)x),
+            _ => ThrowConversionFailure<int>(value, "Int32"),
+        };
     }
 
     /// <summary>
@@ -559,33 +542,17 @@ public static class ObjectExtensions
     public static bool TryToBool(this object? value, out bool result)
     {
         result = false;
-        if (value is null || value is DBNull) return false;
-        if (value is bool b)
-        {
-            result = b;
-            return true;
-        }
-
         switch (value)
         {
+            case null or DBNull:
+                return false;
+            case bool flag:
+                result = flag;
+                return true;
             case string str:
                 return BoolConversionHelper.TryConvertStringToBool(str, out result);
-            case int i:
-                if (i == 1) { result = true; return true; }
-                if (i == 0) { result = false; return true; }
-                return false;
-            case long l:
-                if (l == 1L) { result = true; return true; }
-                if (l == 0L) { result = false; return true; }
-                return false;
-            case short s:
-                if (s == 1) { result = true; return true; }
-                if (s == 0) { result = false; return true; }
-                return false;
             case decimal dec:
-                if (dec == 1m) { result = true; return true; }
-                if (dec == 0m) { result = false; return true; }
-                return false;
+                return TryMapZeroOrOne(dec, out result);
             case double db:
                 if (db == 1.0) { result = true; return true; }
                 if (db == 0.0) { result = false; return true; }
@@ -596,8 +563,13 @@ public static class ObjectExtensions
                 return false;
         }
 
-        var fallbackStr = value.ToString();
-        return BoolConversionHelper.TryConvertStringToBool(fallbackStr, out result);
+        // 枚举保持按名称解析（如 Yes/No），其余整数类型统一只接受 0 和 1
+        if (value is not Enum && TryGetIntegralValue(value, out var integral))
+        {
+            return TryMapZeroOrOne(integral, out result);
+        }
+
+        return BoolConversionHelper.TryConvertStringToBool(value.ToString(), out result);
     }
 
     public static bool ToBool(this object? value)
@@ -606,23 +578,17 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToBool(out var result)) return result;
 
-        switch (value)
+        if (value is string str)
         {
-            case int i:
-                throw new InvalidCastException($"The integer value '{FormatInvariant(i)}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
-            case decimal dec:
-                throw new InvalidCastException($"The decimal value '{FormatInvariant(dec)}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
-            case long l:
-                throw new InvalidCastException($"The long value '{FormatInvariant(l)}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
-            case short s:
-                throw new InvalidCastException($"The short value '{FormatInvariant(s)}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
-            case double db:
-                throw new InvalidCastException($"The double value '{FormatInvariant(db)}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
-            case float fl:
-                throw new InvalidCastException($"The float value '{FormatInvariant(fl)}' is invalid for Boolean conversion. Only 1.0 and 0.0 are allowed.");
+            return Convert.ToBoolean(str, CultureInfo.InvariantCulture);
         }
 
-        return Convert.ToBoolean(value, CultureInfo.InvariantCulture);
+        if (value is decimal or double or float || (value is not Enum && TryGetIntegralValue(value, out _)))
+        {
+            throw new InvalidCastException($"The {value.GetType().Name} value '{FormatInvariant(value)}' is invalid for Boolean conversion. Only 1 and 0 are allowed.");
+        }
+
+        throw new InvalidCastException($"Cannot convert a value of type '{value.GetType().FullName}' to Boolean.");
     }
 
     public static bool? ToBoolOrNull(this object? value) => value.TryToBool(out var r) ? r : null;
@@ -669,9 +635,9 @@ public static class ObjectExtensions
     public static Guid? ToGuidOrNull(this object? value) => value.TryToGuid(out var r) ? r : null;
     public static Guid ToGuidOrDefault(this object? value, Guid defaultValue = default) => value.TryToGuid(out var r) ? r : defaultValue;
 
-    private static bool TryConvertToWholeNumber(double value, short minValue, short maxValue, out short result)
+    private static bool TryConvertToWholeNumber(double value, short minValue, out short result)
     {
-        if (IsWholeNumberInRange(value, minValue, maxValue))
+        if (IsWholeNumberInRange(value, minValue))
         {
             result = (short)value;
             return true;
@@ -681,9 +647,9 @@ public static class ObjectExtensions
         return false;
     }
 
-    private static bool TryConvertToWholeNumber(float value, short minValue, short maxValue, out short result)
+    private static bool TryConvertToWholeNumber(float value, short minValue, out short result)
     {
-        if (IsWholeNumberInRange(value, minValue, maxValue))
+        if (IsWholeNumberInRange(value, minValue))
         {
             result = (short)value;
             return true;
@@ -693,9 +659,9 @@ public static class ObjectExtensions
         return false;
     }
 
-    private static bool TryConvertToWholeNumber(double value, int minValue, int maxValue, out int result)
+    private static bool TryConvertToWholeNumber(double value, int minValue, out int result)
     {
-        if (IsWholeNumberInRange(value, minValue, maxValue))
+        if (IsWholeNumberInRange(value, minValue))
         {
             result = (int)value;
             return true;
@@ -705,9 +671,9 @@ public static class ObjectExtensions
         return false;
     }
 
-    private static bool TryConvertToWholeNumber(float value, int minValue, int maxValue, out int result)
+    private static bool TryConvertToWholeNumber(float value, int minValue, out int result)
     {
-        if (IsWholeNumberInRange(value, minValue, maxValue))
+        if (IsWholeNumberInRange(value, minValue))
         {
             result = (int)value;
             return true;
@@ -717,9 +683,9 @@ public static class ObjectExtensions
         return false;
     }
 
-    private static bool TryConvertToWholeNumber(double value, long minValue, long maxValue, out long result)
+    private static bool TryConvertToWholeNumber(double value, long minValue, out long result)
     {
-        if (IsWholeNumberInRange(value, minValue, maxValue))
+        if (IsWholeNumberInRange(value, minValue))
         {
             result = (long)value;
             return true;
@@ -729,9 +695,9 @@ public static class ObjectExtensions
         return false;
     }
 
-    private static bool TryConvertToWholeNumber(float value, long minValue, long maxValue, out long result)
+    private static bool TryConvertToWholeNumber(float value, long minValue, out long result)
     {
-        if (IsWholeNumberInRange(value, minValue, maxValue))
+        if (IsWholeNumberInRange(value, minValue))
         {
             result = (long)value;
             return true;
@@ -744,14 +710,13 @@ public static class ObjectExtensions
     private static TResult ConvertToWholeNumberOrThrow<TResult>(
         double value,
         double minValue,
-        double maxValue,
         string sourceTypeName,
         string targetTypeName,
         Func<double, TResult> converter)
     {
         if (double.IsNaN(value) || double.IsInfinity(value) || value % 1 != 0)
             throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' cannot be converted to {targetTypeName} because it contains a fractional part.");
-        if (value < minValue || value > maxValue)
+        if (value < minValue || value >= -minValue)
             throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
         return converter(value);
     }
@@ -759,23 +724,79 @@ public static class ObjectExtensions
     private static TResult ConvertToWholeNumberOrThrow<TResult>(
         float value,
         float minValue,
-        float maxValue,
         string sourceTypeName,
         string targetTypeName,
         Func<float, TResult> converter)
     {
         if (float.IsNaN(value) || float.IsInfinity(value) || value % 1 != 0)
             throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' cannot be converted to {targetTypeName} because it contains a fractional part.");
-        if (value < minValue || value > maxValue)
+        if (value < minValue || value >= -minValue)
             throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
         return converter(value);
     }
 
-    private static bool IsWholeNumberInRange(double value, double minValue, double maxValue)
-        => !double.IsNaN(value) && !double.IsInfinity(value) && value % 1 == 0 && value >= minValue && value <= maxValue;
+    // 上界取 -minValue 的开区间：(double)int.MaxValue 和 (double)long.MaxValue 会被舍入成 2^31、2^63，用闭区间会把越界值放进来
+    private static bool IsWholeNumberInRange(double value, double minValue)
+        => !double.IsNaN(value) && !double.IsInfinity(value) && value % 1 == 0 && value >= minValue && value < -minValue;
 
-    private static bool IsWholeNumberInRange(float value, float minValue, float maxValue)
-        => !float.IsNaN(value) && !float.IsInfinity(value) && value % 1 == 0 && value >= minValue && value <= maxValue;
+    private static bool IsWholeNumberInRange(float value, float minValue)
+        => !float.IsNaN(value) && !float.IsInfinity(value) && value % 1 == 0 && value >= minValue && value < -minValue;
+
+    // 整数类型和枚举统一折算成 decimal（bool 不算整数，与 ToIntOrDefault 的既有约定一致）：decimal 能精确表示所有 64 位整数，之后复用 decimal 的范围检查
+    private static bool TryGetIntegralValue(object value, out decimal integral)
+    {
+        switch (value)
+        {
+            case sbyte v:
+                integral = v;
+                return true;
+            case byte v:
+                integral = v;
+                return true;
+            case short v:
+                integral = v;
+                return true;
+            case ushort v:
+                integral = v;
+                return true;
+            case int v:
+                integral = v;
+                return true;
+            case uint v:
+                integral = v;
+                return true;
+            case long v:
+                integral = v;
+                return true;
+            case ulong v:
+                integral = v;
+                return true;
+            case Enum:
+                integral = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+                return true;
+            default:
+                integral = 0m;
+                return false;
+        }
+    }
+
+    // TryToXxx 已覆盖所有支持的输入：整数类型或枚举转换失败只可能是超出范围，其余类型视为不支持
+    [DoesNotReturn]
+    private static T ThrowConversionFailure<T>(object value, string targetTypeName)
+    {
+        if (TryGetIntegralValue(value, out _))
+        {
+            throw new OverflowException($"The {value.GetType().Name} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
+        }
+
+        throw new InvalidCastException($"Cannot convert a value of type '{value.GetType().FullName}' to {targetTypeName}.");
+    }
+
+    private static bool TryMapZeroOrOne(decimal value, out bool result)
+    {
+        result = value == 1m;
+        return value == 1m || value == 0m;
+    }
 
     private static string FormatInvariant(object value)
     {
