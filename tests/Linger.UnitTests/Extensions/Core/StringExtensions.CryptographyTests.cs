@@ -18,6 +18,37 @@ public class StringExtensionsCryptographyTests
         Assert.NotNull(System.Reflection.CustomAttributeExtensions.GetCustomAttribute<ObsoleteAttribute>(method));
     }
 
+    [Fact]
+    public void ErrorMessages_ShouldBeEnglish()
+    {
+        var tampered = Convert.FromBase64String("message".AesEncryptAuthenticated("key"));
+        tampered[tampered.Length - 1] ^= 0xFF;
+
+        var exceptions = new[]
+        {
+            Record.Exception(() => string.Empty.AesEncryptAuthenticated("key")),
+            Record.Exception(() => "message".AesEncryptAuthenticated(string.Empty)),
+            Record.Exception(() => string.Empty.AesDecryptAuthenticated("key")),
+            Record.Exception(() => "message".AesDecryptAuthenticated(string.Empty)),
+            Record.Exception(() => "not base64!".AesDecryptAuthenticated("key")),
+            Record.Exception(() => Convert.ToBase64String(new byte[10]).AesDecryptAuthenticated("key")),
+            Record.Exception(() => Convert.ToBase64String(tampered).AesDecryptAuthenticated("key")),
+            Record.Exception(() => Convert.ToBase64String(new byte[8]).AesDecrypt("key")),
+            Record.Exception(() => string.Empty.AesDecrypt("key")),
+            Record.Exception(() => "not base64!".AesDecrypt("key"))
+        };
+
+        Assert.All(exceptions, exception =>
+        {
+            Assert.NotNull(exception);
+            // ArgumentException 会追加由运行时本地化的参数名后缀，所以只检查库自己写的第一句
+            var sentenceEnd = exception.Message.IndexOf('.');
+            Assert.True(sentenceEnd > 0, exception.Message);
+            var libraryText = exception.Message.Substring(0, sentenceEnd + 1);
+            Assert.False(libraryText.Any(character => character >= '\u4E00' && character <= '\u9FFF'), libraryText);
+        });
+    }
+
     #region Test Data
 
     // DES test data has been removed as DES encryption methods are no longer supported
@@ -191,7 +222,7 @@ public class StringExtensionsCryptographyTests
         string decrypted = encrypted.AesDecryptAuthenticated(key);
 
         Assert.Equal(original, decrypted);
-        Assert.Equal(new byte[] { 0x4C, 0x4E, 0x47, 0x33 }, Convert.FromBase64String(encrypted).Take(4).ToArray());
+        Assert.Equal(new byte[] { 0x4C, 0x4E, 0x47, 0x34 }, Convert.FromBase64String(encrypted).Take(4).ToArray());
     }
 
     [Fact]
@@ -204,6 +235,53 @@ public class StringExtensionsCryptographyTests
         string decrypted = payload.AesDecryptAuthenticated(key);
 
         Assert.Equal(original, decrypted);
+    }
+
+    [Fact]
+    public void AesEncryptAuthenticated_ShouldStoreIterationCountInHeader()
+    {
+        byte[] payload = Convert.FromBase64String("value".AesEncryptAuthenticated("key"));
+
+        int iterations = (payload[4] << 24) | (payload[5] << 16) | (payload[6] << 8) | payload[7];
+
+        Assert.Equal(600_000, iterations);
+    }
+
+    [Fact]
+    public void AesDecryptAuthenticated_PreviewV3Payload_ReturnsOriginalString()
+    {
+        // 由 2.0.0-preview.4 之前的实现生成（魔数 LNG3，固定 100000 次迭代）
+        const string payload = "TE5HM4Pi9UkSfOt2WMQxmwJvsCZzTYj5WNjUWRNBkJ4mS0acYMcOxyRNPpt/rrBeqPvsHTbpFQiUx019Dy7kaUqlV1yflNc09u/XOwsIu57E0Hv4/m5UqS7/rriEKW+C8gxfcA==";
+
+        Assert.Equal("golden v3 plaintext 测试 123", payload.AesDecryptAuthenticated("golden-key-v3"));
+        Assert.Equal("golden v3 plaintext 测试 123", payload.AesDecrypt("golden-key-v3"));
+    }
+
+    [Theory(Timeout = 30000)]
+    [InlineData(0)]
+    [InlineData(99_999)]
+    [InlineData(10_000_001)]
+    [InlineData(int.MaxValue)]
+    public void AesDecryptAuthenticated_WithIterationCountOutsideAcceptedRange_ThrowsBeforeDerivingKey(int iterations)
+    {
+        byte[] payload = Convert.FromBase64String("value".AesEncryptAuthenticated("key"));
+        payload[4] = (byte)(iterations >> 24);
+        payload[5] = (byte)(iterations >> 16);
+        payload[6] = (byte)(iterations >> 8);
+        payload[7] = (byte)iterations;
+
+        var exception = Assert.Throws<CryptographicException>(() => Convert.ToBase64String(payload).AesDecryptAuthenticated("key"));
+
+        Assert.Contains("iteration", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void AesDecryptAuthenticated_WithTamperedIterationCount_ThrowsCryptographicException()
+    {
+        byte[] payload = Convert.FromBase64String("value".AesEncryptAuthenticated("key"));
+        payload[7] ^= 1;
+
+        Assert.Throws<CryptographicException>(() => Convert.ToBase64String(payload).AesDecryptAuthenticated("key"));
     }
 
     [Fact]

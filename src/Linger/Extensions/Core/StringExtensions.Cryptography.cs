@@ -10,11 +10,20 @@ public static partial class StringExtensions
 {
     private static readonly byte[] s_aesPayloadMagicV2 = { 0x4C, 0x4E, 0x47, 0x32 }; // LNG2
     private static readonly byte[] s_aesPayloadMagicV3 = { 0x4C, 0x4E, 0x47, 0x33 }; // LNG3
+    private static readonly byte[] s_aesPayloadMagicV4 = { 0x4C, 0x4E, 0x47, 0x34 }; // LNG4
     private const int AesSaltSize = 16;
     private const int AesIvSize = 16;
     private const int AesTagSize = 32;
     private const int AesDerivedKeySize = 64;
-    private const int AesPbkdf2Iterations = 100_000;
+    private const int AesIterationFieldSize = sizeof(int);
+
+    // V2/V3 没有在密文中记录迭代次数，固定使用该值；新加密写入 AesPbkdf2Iterations（V4）
+    private const int AesLegacyPbkdf2Iterations = 100_000;
+    private const int AesPbkdf2Iterations = 600_000;
+
+    // 解密 V4 时接受的迭代次数范围：下限防止被降级，上限限制恶意头部造成的 CPU 消耗
+    private const int AesMinAcceptedIterations = 100_000;
+    private const int AesMaxAcceptedIterations = 10_000_000;
 #if NETSTANDARD2_0
     private static readonly System.Reflection.MethodInfo? s_pbkdf2Sha256Method =
         typeof(Rfc2898DeriveBytes).GetMethod(
@@ -33,7 +42,7 @@ public static partial class StringExtensions
     // 新代码应使用 AesEncryptAuthenticated 和 AesDecryptAuthenticated。
 
     /// <summary>
-    /// Encrypts a string using PBKDF2, AES-256-CBC, and HMAC-SHA256 authentication.
+    /// Encrypts a string using PBKDF2-HMAC-SHA256 (600,000 iterations, recorded in the payload header), AES-256-CBC, and HMAC-SHA256 authentication.
     /// </summary>
     /// <param name="input">The plaintext to encrypt.</param>
     /// <param name="key">The password or key material used to derive encryption and authentication keys.</param>
@@ -41,10 +50,10 @@ public static partial class StringExtensions
     public static string AesEncryptAuthenticated(this string input, string key)
     {
         if (string.IsNullOrEmpty(input))
-            throw new ArgumentException("输入文本不能为null或空字符串", nameof(input));
+            throw new ArgumentException("The input text cannot be null or empty.", nameof(input));
 
         if (string.IsNullOrEmpty(key))
-            throw new ArgumentException("密钥不能为null或空字符串", nameof(key));
+            throw new ArgumentException("The key cannot be null or empty.", nameof(key));
 
         try
         {
@@ -52,7 +61,7 @@ public static partial class StringExtensions
         }
         catch (Exception ex) when (ex is not CryptographicException)
         {
-            throw new CryptographicException($"AES认证加密失败: {ex.Message}", ex);
+            throw new CryptographicException($"AES authenticated encryption failed: {ex.Message}", ex);
         }
     }
 
@@ -83,10 +92,10 @@ public static partial class StringExtensions
     public static string AesDecrypt(this string encryptedInput, string key)
     {
         if (string.IsNullOrEmpty(encryptedInput))
-            throw new ArgumentException("加密文本不能为null或空字符串", nameof(encryptedInput));
+            throw new ArgumentException("The encrypted text cannot be null or empty.", nameof(encryptedInput));
 
         if (string.IsNullOrEmpty(key))
-            throw new ArgumentException("密钥不能为null或空字符串", nameof(key));
+            throw new ArgumentException("The key cannot be null or empty.", nameof(key));
 
         try
         {
@@ -101,11 +110,11 @@ public static partial class StringExtensions
         }
         catch (FormatException ex)
         {
-            throw new CryptographicException("无效的Base64编码格式", ex);
+            throw new CryptographicException("The encrypted text is not valid Base64.", ex);
         }
         catch (Exception ex) when (ex is not CryptographicException)
         {
-            throw new CryptographicException($"AES解密失败: {ex.Message}", ex);
+            throw new CryptographicException($"AES decryption failed: {ex.Message}", ex);
         }
     }
 
@@ -115,28 +124,28 @@ public static partial class StringExtensions
     public static string AesDecryptAuthenticated(this string encryptedInput, string key)
     {
         if (string.IsNullOrEmpty(encryptedInput))
-            throw new ArgumentException("加密文本不能为null或空字符串", nameof(encryptedInput));
+            throw new ArgumentException("The encrypted text cannot be null or empty.", nameof(encryptedInput));
 
         if (string.IsNullOrEmpty(key))
-            throw new ArgumentException("密钥不能为null或空字符串", nameof(key));
+            throw new ArgumentException("The key cannot be null or empty.", nameof(key));
 
         try
         {
             byte[] payload = Convert.FromBase64String(encryptedInput);
             if (!TryGetAuthenticatedPayloadVersion(payload, out AesPayloadVersion version))
             {
-                throw new CryptographicException("加密数据不是受支持的认证格式。");
+                throw new CryptographicException("The encrypted data is not in a supported authenticated format.");
             }
 
             return DecryptAuthenticated(payload, key, version);
         }
         catch (FormatException ex)
         {
-            throw new CryptographicException("无效的Base64编码格式", ex);
+            throw new CryptographicException("The encrypted text is not valid Base64.", ex);
         }
         catch (Exception ex) when (ex is not CryptographicException)
         {
-            throw new CryptographicException($"AES认证解密失败: {ex.Message}", ex);
+            throw new CryptographicException($"AES authenticated decryption failed: {ex.Message}", ex);
         }
     }
 
@@ -150,7 +159,7 @@ public static partial class StringExtensions
             random.GetBytes(salt);
         }
 
-        byte[] keyMaterial = DeriveAesKeys(password, salt, AesPayloadVersion.V3);
+        byte[] keyMaterial = DeriveAesKeys(password, salt, AesPayloadVersion.V4, AesPbkdf2Iterations);
         try
         {
             using var aes = Aes.Create();
@@ -160,13 +169,19 @@ public static partial class StringExtensions
             aes.GenerateIV();
 
             byte[] encrypted = PerformEncryptionWithIV(aes, input);
-            int tagOffset = s_aesPayloadMagicV3.Length + salt.Length + aes.IV.Length + encrypted.Length;
+
+            // 头部布局：魔数 | 迭代次数（大端 int32） | 盐 | IV，随后是密文和 HMAC 标签；标签同样覆盖迭代次数
+            int saltOffset = s_aesPayloadMagicV4.Length + AesIterationFieldSize;
+            int ivOffset = saltOffset + salt.Length;
+            int encryptedOffset = ivOffset + aes.IV.Length;
+            int tagOffset = encryptedOffset + encrypted.Length;
             byte[] payload = new byte[tagOffset + AesTagSize];
 
-            Buffer.BlockCopy(s_aesPayloadMagicV3, 0, payload, 0, s_aesPayloadMagicV3.Length);
-            Buffer.BlockCopy(salt, 0, payload, s_aesPayloadMagicV3.Length, salt.Length);
-            Buffer.BlockCopy(aes.IV, 0, payload, s_aesPayloadMagicV3.Length + salt.Length, aes.IV.Length);
-            Buffer.BlockCopy(encrypted, 0, payload, s_aesPayloadMagicV3.Length + salt.Length + aes.IV.Length, encrypted.Length);
+            Buffer.BlockCopy(s_aesPayloadMagicV4, 0, payload, 0, s_aesPayloadMagicV4.Length);
+            WriteInt32BigEndian(payload, s_aesPayloadMagicV4.Length, AesPbkdf2Iterations);
+            Buffer.BlockCopy(salt, 0, payload, saltOffset, salt.Length);
+            Buffer.BlockCopy(aes.IV, 0, payload, ivOffset, aes.IV.Length);
+            Buffer.BlockCopy(encrypted, 0, payload, encryptedOffset, encrypted.Length);
 
             using var hmac = new HMACSHA256(CopyRange(keyMaterial, 32, 32));
             byte[] tag = hmac.ComputeHash(payload, 0, tagOffset);
@@ -181,14 +196,28 @@ public static partial class StringExtensions
 
     private static string DecryptAuthenticated(byte[] payload, string password, AesPayloadVersion version)
     {
-        int saltOffset = s_aesPayloadMagicV3.Length;
+        var iterations = AesLegacyPbkdf2Iterations;
+        var saltOffset = s_aesPayloadMagicV3.Length;
+        if (version == AesPayloadVersion.V4)
+        {
+            iterations = ReadInt32BigEndian(payload, s_aesPayloadMagicV4.Length);
+
+            // 迭代次数来自尚未认证的头部：先限定范围，避免恶意数据让密钥派生长时间占用 CPU
+            if (iterations is < AesMinAcceptedIterations or > AesMaxAcceptedIterations)
+            {
+                throw new CryptographicException($"The encrypted data declares an unsupported PBKDF2 iteration count ({iterations}).");
+            }
+
+            saltOffset += AesIterationFieldSize;
+        }
+
         int ivOffset = saltOffset + AesSaltSize;
         int encryptedOffset = ivOffset + AesIvSize;
         int tagOffset = payload.Length - AesTagSize;
         int encryptedLength = tagOffset - encryptedOffset;
 
         byte[] salt = CopyRange(payload, saltOffset, AesSaltSize);
-        byte[] keyMaterial = DeriveAesKeys(password, salt, version);
+        byte[] keyMaterial = DeriveAesKeys(password, salt, version, iterations);
         try
         {
             using var hmac = new HMACSHA256(CopyRange(keyMaterial, 32, 32));
@@ -196,7 +225,7 @@ public static partial class StringExtensions
             byte[] actualTag = CopyRange(payload, tagOffset, AesTagSize);
             if (!FixedTimeEquals(expectedTag, actualTag))
             {
-                throw new CryptographicException("加密数据认证失败，密钥错误或数据已被篡改。");
+                throw new CryptographicException("Authentication of the encrypted data failed: the key is wrong or the data was tampered with.");
             }
 
             using var aes = Aes.Create();
@@ -216,7 +245,7 @@ public static partial class StringExtensions
     {
         if (fullCipher.Length < AesIvSize)
         {
-            throw new CryptographicException("加密数据格式无效：长度不足");
+            throw new CryptographicException("The encrypted data is invalid: it is too short.");
         }
 
         using var aes = Aes.Create();
@@ -227,37 +256,37 @@ public static partial class StringExtensions
         return PerformDecryptionWithData(aes, CopyRange(fullCipher, AesIvSize, fullCipher.Length - AesIvSize));
     }
 
-    private static byte[] DeriveAesKeys(string password, byte[] salt, AesPayloadVersion version)
+    private static byte[] DeriveAesKeys(string password, byte[] salt, AesPayloadVersion version, int iterations)
     {
         if (version == AesPayloadVersion.V2)
         {
 #pragma warning disable SYSLIB0041, SYSLIB0060 // LNG2 compatibility requires the historical PBKDF2-SHA1 format.
-            using var legacyDeriveBytes = new Rfc2898DeriveBytes(password, salt, AesPbkdf2Iterations);
+            using var legacyDeriveBytes = new Rfc2898DeriveBytes(password, salt, iterations);
 #pragma warning restore SYSLIB0041, SYSLIB0060
             return legacyDeriveBytes.GetBytes(AesDerivedKeySize);
         }
 
 #if NETSTANDARD2_0
-        return DeriveAesKeysSha256Portable(password, salt);
+        return DeriveAesKeysSha256Portable(password, salt, iterations);
 #elif NET10_0_OR_GREATER
         return Rfc2898DeriveBytes.Pbkdf2(
             password,
             salt,
-            AesPbkdf2Iterations,
+            iterations,
             HashAlgorithmName.SHA256,
             AesDerivedKeySize);
 #else
         using var deriveBytes = new Rfc2898DeriveBytes(
             password,
             salt,
-            AesPbkdf2Iterations,
+            iterations,
             HashAlgorithmName.SHA256);
         return deriveBytes.GetBytes(AesDerivedKeySize);
 #endif
     }
 
 #if NETSTANDARD2_0
-    private static byte[] DeriveAesKeysSha256Portable(string password, byte[] salt)
+    private static byte[] DeriveAesKeysSha256Portable(string password, byte[] salt, int iterations)
     {
         if (s_pbkdf2Sha256Method is not null)
         {
@@ -267,7 +296,7 @@ public static partial class StringExtensions
                 {
                     password,
                     salt,
-                    AesPbkdf2Iterations,
+                    iterations,
                     HashAlgorithmName.SHA256,
                     AesDerivedKeySize
                 })!;
@@ -276,7 +305,7 @@ public static partial class StringExtensions
         if (s_pbkdf2Sha256Constructor is not null)
         {
             using var deriveBytes = (Rfc2898DeriveBytes)s_pbkdf2Sha256Constructor.Invoke(
-                new object[] { password, salt, AesPbkdf2Iterations, HashAlgorithmName.SHA256 });
+                new object[] { password, salt, iterations, HashAlgorithmName.SHA256 });
             return deriveBytes.GetBytes(AesDerivedKeySize);
         }
 
@@ -301,7 +330,7 @@ public static partial class StringExtensions
                 byte[] block = (byte[])iterationHash.Clone();
                 try
                 {
-                    for (var iteration = 1; iteration < AesPbkdf2Iterations; iteration++)
+                    for (var iteration = 1; iteration < iterations; iteration++)
                     {
                         byte[] nextHash = hmac.ComputeHash(iterationHash);
                         Array.Clear(iterationHash, 0, iterationHash.Length);
@@ -335,23 +364,29 @@ public static partial class StringExtensions
 
     private static bool TryGetAuthenticatedPayloadVersion(byte[] payload, out AesPayloadVersion version)
     {
-        int minimumLength = s_aesPayloadMagicV3.Length + AesSaltSize + AesIvSize + 16 + AesTagSize;
-        if (payload.Length < minimumLength)
-        {
-            version = default;
-            return false;
-        }
+        // 盐、IV、至少一个 AES 块的密文和标签；V4 头部在魔数之后多一个迭代次数字段
+        int minimumBodyLength = AesSaltSize + AesIvSize + 16 + AesTagSize;
 
-        if (HasMagic(payload, s_aesPayloadMagicV3))
+        if (payload.Length >= s_aesPayloadMagicV4.Length + AesIterationFieldSize + minimumBodyLength
+            && HasMagic(payload, s_aesPayloadMagicV4))
         {
-            version = AesPayloadVersion.V3;
+            version = AesPayloadVersion.V4;
             return true;
         }
 
-        if (HasMagic(payload, s_aesPayloadMagicV2))
+        if (payload.Length >= s_aesPayloadMagicV3.Length + minimumBodyLength)
         {
-            version = AesPayloadVersion.V2;
-            return true;
+            if (HasMagic(payload, s_aesPayloadMagicV3))
+            {
+                version = AesPayloadVersion.V3;
+                return true;
+            }
+
+            if (HasMagic(payload, s_aesPayloadMagicV2))
+            {
+                version = AesPayloadVersion.V2;
+                return true;
+            }
         }
 
         version = default;
@@ -385,6 +420,19 @@ public static partial class StringExtensions
         return difference == 0;
     }
 
+    private static void WriteInt32BigEndian(byte[] destination, int offset, int value)
+    {
+        destination[offset] = (byte)(value >> 24);
+        destination[offset + 1] = (byte)(value >> 16);
+        destination[offset + 2] = (byte)(value >> 8);
+        destination[offset + 3] = (byte)value;
+    }
+
+    private static int ReadInt32BigEndian(byte[] source, int offset)
+    {
+        return (source[offset] << 24) | (source[offset + 1] << 16) | (source[offset + 2] << 8) | source[offset + 3];
+    }
+
     private static byte[] CopyRange(byte[] source, int offset, int count)
     {
         var result = new byte[count];
@@ -395,7 +443,8 @@ public static partial class StringExtensions
     private enum AesPayloadVersion
     {
         V2,
-        V3
+        V3,
+        V4
     }
 
     /// <summary>
