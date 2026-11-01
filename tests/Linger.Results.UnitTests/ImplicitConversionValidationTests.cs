@@ -1,5 +1,7 @@
 namespace Linger.Results.UnitTests;
 
+#pragma warning disable CS0618
+
 /// <summary>
 /// 验证Result模式的隐式转换功能
 /// </summary>
@@ -160,3 +162,5 @@ public class ImplicitConversionValidationTests
 
     private record TestUser(string Name, string Email);
 }
+
+#pragma warning restore CS0618

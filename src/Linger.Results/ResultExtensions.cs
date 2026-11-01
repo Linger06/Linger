@@ -96,8 +96,7 @@ public static class ResultExtensions
 
     private static Result CombineStates(IEnumerable<ResultState> states)
     {
-        var hasFailure = false;
-        var errors = new List<Error>();
+        List<Error>? errors = null;
 
         foreach (var state in states)
         {
@@ -106,11 +105,11 @@ public static class ResultExtensions
                 continue;
             }
 
-            hasFailure = true;
+            errors ??= [];
             errors.AddRange(state.Errors);
         }
 
-        return hasFailure ? Result.Failure(errors) : Result.Success();
+        return errors is null ? Result.Success() : Result.Failure(errors);
     }
 
     #endregion

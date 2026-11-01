@@ -5,6 +5,23 @@ public class ResultTTests
     private readonly TestUser _testUser = new("John", "john@example.com");
 
     [Fact]
+    public void ResultOfT_ShouldBeSealedAndExposeReadOnlyErrors()
+    {
+        Assert.True(typeof(Result<TestUser>).IsSealed);
+        Assert.Equal(typeof(IReadOnlyList<Error>), typeof(Result<TestUser>).GetProperty(nameof(Result<TestUser>.Errors))!.PropertyType);
+    }
+
+    [Fact]
+    public void Failure_WithErrorArray_ShouldPreserveAllErrors()
+    {
+        var errors = new[] { new Error("A", "First"), new Error("B", "Second") };
+
+        var result = Result<TestUser>.Failure(errors);
+
+        Assert.Equal(errors, result.Errors);
+    }
+
+    [Fact]
     public void Success_WithValue_ShouldCreateSuccessfulResult()
     {
         // Act

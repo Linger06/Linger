@@ -3,6 +3,28 @@ namespace Linger.Results.UnitTests;
 public class ResultCombineTests
 {
     [Fact]
+    public void Combine_WithSinglePassSequence_ShouldPreserveErrorOrder()
+    {
+        var enumerated = false;
+        IEnumerable<Result> Results()
+        {
+            if (enumerated)
+            {
+                throw new InvalidOperationException("Sequence can only be enumerated once.");
+            }
+            enumerated = true;
+            yield return Result.Success();
+            yield return Result.Failure(Array.Empty<Error>());
+            yield return Result.Failure("first");
+            yield return Result.Success();
+            yield return Result.Failure("second");
+        }
+
+        var combined = Results().Combine();
+
+        Assert.Equal(new[] { "first", "second" }, combined.Errors.Select(error => error.Message));
+    }
+    [Fact]
     public void Combine_WithAllSuccessResults_ShouldReturnSuccess()
     {
         // Arrange

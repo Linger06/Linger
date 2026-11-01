@@ -177,9 +177,9 @@ public Result<string> ValidateAndReturnPassword(string password)
 }
 ```
 
-## 隐式转换和优雅语法
+## 隐式转换
 
-Linger.Results 提供了强大的隐式转换功能，让您的代码更加简洁优雅。支持以下三种隐式转换：
+Linger.Results 支持 `Result` 与 `Result<T>` 之间的转换。值到 `Result<T>` 的隐式转换仍为迁移保留，但已标记为过时；新代码请使用显式工厂方法。
 
 ### 1. 从 Result 到 Result&lt;T&gt; 的隐式转换
 
@@ -235,36 +235,33 @@ public Result ProcessUser(int userId)
 }
 ```
 
-### 3. 从 T 到 Result&lt;T&gt; 的隐式转换
+### 3. 已过时：从 T 到 Result&lt;T&gt; 的隐式转换
 
 ```csharp
 public Result<User> GetDefaultUser()
 {
     var defaultUser = new User { Name = "默认用户", Email = "default@example.com" };
     
-    // 对象自动转换为成功的 Result<User>
-    return defaultUser;
+    return Result<User>.Success(defaultUser);
 }
 
 public Result<string> GetConfigValue(string key)
 {
     string value = _configuration[key];
     
-    // 如果值为 null，自动创建失败结果
-    // 如果值不为 null，自动创建成功结果
-    return value; // 等价于 Result<string>.Create(value)
+    return Result<string>.Create(value);
 }
 ```
 
 ### 链式转换示例
 
 ```csharp
-// 演示不同的返回方式都能隐式转换为 Result<User>
+// Result 类型之间的转换仍受支持。
 private Result<User> GetUserById(int id)
 {
     return id switch
     {
-        1 => _testUser,                     // User → Result<User>
+        1 => Result<User>.Success(_testUser),
         0 => Result.Success(),              // Result → Result<User>  
         _ => Result.Failure("User not found") // Result → Result<User>
     };
@@ -431,11 +428,9 @@ public Result<User> GetUser(int id, string token)
    - 定义领域特定的错误常量
    - 使用结构化的错误代码（如 "Category.SubCategory.Error"）
 
-4. **利用隐式转换简化代码**：
-   - 在返回 `Result<T>` 的方法中，可以直接返回 `Result.Failure()` 或 `Result.NotFound()`
-   - 可以直接返回对象实例，会自动转换为成功的 `Result<T>`
-   - 注意 `null` 值会自动转换为失败结果
-   - 这样可以让代码更简洁优雅，同时保持类型安全
+4. **显式创建值结果**：
+   - 已有非空值使用 `Result<T>.Success(value)`
+   - 需要将 null 转为失败结果时使用 `Result<T>.Create(value)`
 
 5. **正确使用 Value 属性**：
    - 始终在访问 `.Value` 前检查 `.IsSuccess`
@@ -452,8 +447,7 @@ public Result<User> GetUser(int id, string token)
 
 8. **隐式转换最佳实践**：
    - 了解转换过程中的信息丢失（如 `Result<T>` → `Result` 会丢失值）
-   - 合理利用对象到结果的自动转换简化代码
-   - 注意 `null` 检查，避免意外的失败结果
+   - 值到 `Result<T>` 的隐式转换已过时，新代码应使用显式工厂
 
 ## 和异常处理对比
 
@@ -481,6 +475,13 @@ var resultWithValue = Result.Success(user);
 var message = result.FirstError.Message;
 var errors = result.Errors;
 ```
+
+### 2.0 Preview API 变更
+
+- `Result` 和 `Result<T>` 现为 sealed 类型，领域扩展请使用组合方式。
+- `Errors` 公开类型改为 `IReadOnlyList<Error>`，明确表示结果集合稳定且只读。
+- `Failure(IEnumerable<Error>)` 和 `NotFound(IEnumerable<Error>)` 继续保留以兼容现有调用方；需要简洁调用时可以使用 `params Error[]` 重载。
+- `TValue` 到 `Result<TValue>` 的隐式转换已标记为过时，请显式使用 `Result<TValue>.Create(value)` 或 `Result<TValue>.Success(value)`。
 
 ### FirstError 属性
 

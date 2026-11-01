@@ -177,9 +177,9 @@ public Result<string> ValidateAndReturnPassword(string password)
 }
 ```
 
-## Implicit Conversion and Elegant Syntax
+## Implicit Conversion
 
-Linger.Results provides powerful implicit conversion features to make your code more concise and elegant. It supports three types of implicit conversions:
+Linger.Results supports conversions between `Result` and `Result<T>`. Conversion from a value to `Result<T>` remains available for migration but is obsolete; prefer explicit factories.
 
 ### 1. Implicit Conversion from Result to Result&lt;T&gt;
 
@@ -235,36 +235,33 @@ public Result ProcessUser(int userId)
 }
 ```
 
-### 3. Implicit Conversion from T to Result&lt;T&gt;
+### 3. Obsolete: Implicit Conversion from T to Result&lt;T&gt;
 
 ```csharp
 public Result<User> GetDefaultUser()
 {
     var defaultUser = new User { Name = "Default User", Email = "default@example.com" };
     
-    // Object automatically converts to successful Result<User>
-    return defaultUser;
+    return Result<User>.Success(defaultUser);
 }
 
 public Result<string> GetConfigValue(string key)
 {
     string value = _configuration[key];
     
-    // If value is null, automatically creates failure result
-    // If value is not null, automatically creates success result
-    return value; // Equivalent to Result<string>.Create(value)
+    return Result<string>.Create(value);
 }
 ```
 
 ### Chained Conversion Examples
 
 ```csharp
-// Demonstrates different return types that can implicitly convert to Result<User>
+// Result-to-Result conversions remain supported.
 private Result<User> GetUserById(int id)
 {
     return id switch
     {
-        1 => _testUser,                     // User → Result<User>
+        1 => Result<User>.Success(_testUser),
         0 => Result.Success(),              // Result → Result<User>  
         _ => Result.Failure("User not found") // Result → Result<User>
     };
@@ -440,13 +437,13 @@ public Result<User> GetUser(int id, string token)
    - Define domain-specific error constants
    - Use structured error codes (like "Category.SubCategory.Error")
 
-4. **Leverage implicit conversion to simplify code**:
-   - In methods returning `Result<T>`, you can directly return `Result.Failure()` or `Result.NotFound()`
-   - This makes code more concise and elegant while maintaining type safety
+4. **Use explicit value factories**:
+   - Use `Result<T>.Success(value)` for a known non-null value
+   - Use `Result<T>.Create(value)` when null should produce a failure
 
 5. **Use API correctly**:
    - For generic results, use `Result<T>.Success()`, `Result<T>.Failure()` methods directly
-   - Leverage implicit conversion from `Result` to `Result<T>` instead of relying on removed forwarding methods
+   - Conversion from `Result` to `Result<T>` remains available for failure propagation
 
 6. **Leverage method chaining**:
    - Use functional composition instead of traditional conditional statements
@@ -482,6 +479,13 @@ var resultWithValue = Result.Success(user);
 var message = result.FirstError.Message;
 var errors = result.Errors;
 ```
+
+### 2.0 Preview API changes
+
+- `Result` and `Result<T>` are sealed. Derive a domain type through composition instead.
+- `Errors` is exposed as `IReadOnlyList<Error>` so callers can rely on stable, indexed, read-only results.
+- `Failure(IEnumerable<Error>)` and `NotFound(IEnumerable<Error>)` remain available for existing callers. Use the `params Error[]` overloads when a concise call is preferred.
+- Implicit conversion from `TValue` to `Result<TValue>` is obsolete. Use `Result<TValue>.Create(value)` or `Result<TValue>.Success(value)` explicitly.
 
 ### FirstError Property
 

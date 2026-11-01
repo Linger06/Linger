@@ -3,6 +3,24 @@ namespace Linger.Results.UnitTests;
 public class ResultTests
 {
     [Fact]
+    public void Result_ShouldBeSealedAndExposeReadOnlyErrors()
+    {
+        Assert.True(typeof(Result).IsSealed);
+        Assert.Equal(typeof(IReadOnlyList<Error>), typeof(Result).GetProperty(nameof(Result.Errors))!.PropertyType);
+    }
+
+    [Fact]
+    public void Failure_WithErrorArray_ShouldExposeReadOnlyErrors()
+    {
+        var errors = new[] { new Error("A", "First"), new Error("B", "Second") };
+        var result = Result.Failure(errors);
+        var exposedErrors = Assert.IsAssignableFrom<IList<Error>>(result.Errors);
+
+        Assert.Throws<NotSupportedException>(() => exposedErrors.Add(new Error("C", "Third")));
+        Assert.Equal(errors, result.Errors);
+    }
+
+    [Fact]
     public void Success_ShouldCreateSuccessfulResult()
     {
         // Act

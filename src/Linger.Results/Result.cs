@@ -1,20 +1,12 @@
 namespace Linger.Results;
 
 /// <summary>
-/// 表示操作结果的基类
+/// 表示不带值的操作结果
 /// </summary>
-public class Result
+public sealed class Result
 {
     private static readonly Result s_success = new(ResultState.Success);
     private readonly ResultState _state;
-
-    protected Result() : this(ResultState.Success)
-    {
-    }
-
-    protected Result(ResultStatus status) : this(new ResultState(status, []))
-    {
-    }
 
     private Result(ResultStatus status, IEnumerable<Error> errors) : this(new ResultState(status, errors))
     {
@@ -33,7 +25,7 @@ public class Result
 
     public bool IsFailure => !IsSuccess;
 
-    public IEnumerable<Error> Errors => _state.Errors;
+    public IReadOnlyList<Error> Errors => _state.Errors;
 
     /// <summary>
     /// 获取第一个错误，如果没有错误则返回 <see cref="Error.None"/>
@@ -46,6 +38,8 @@ public class Result
     public static Result Failure() => new(ResultStatus.Error, [Error.Default]);
     public static Result Failure(Error error) => new(ResultStatus.Error, [error]);
     public static Result Failure(string message) => new(ResultStatus.Error, [new Error(string.Empty, message)]);
+    public static Result Failure(params Error[] errors) => new(ResultStatus.Error, errors);
+
     public static Result Failure(IEnumerable<Error> errors) => new(ResultStatus.Error, errors);
 
     public static Result Create(bool condition) => condition ? Success() : Failure(Error.ConditionNotMet);
@@ -53,6 +47,8 @@ public class Result
     public static Result NotFound() => new(ResultStatus.NotFound, [Error.NotFound]);
     public static Result NotFound(string errorMessage) => new(ResultStatus.NotFound, [new Error(string.Empty, errorMessage)]);
     public static Result NotFound(Error error) => new(ResultStatus.NotFound, [error]);
+    public static Result NotFound(params Error[] errors) => new(ResultStatus.NotFound, errors);
+
     public static Result NotFound(IEnumerable<Error> errors) => new(ResultStatus.NotFound, errors);
 
     /// <summary>
@@ -70,12 +66,12 @@ public class Result
 /// 表示包含值的操作结果
 /// </summary>
 /// <typeparam name="TValue">结果包含的值的类型</typeparam>
-public class Result<TValue>
+public sealed class Result<TValue>
 {
     private readonly TValue? _value;
     private readonly ResultState _state;
 
-    protected internal Result(TValue? value, ResultStatus status) : this(value, new ResultState(status, []))
+    internal Result(TValue? value, ResultStatus status) : this(value, new ResultState(status, []))
     {
     }
 
@@ -100,7 +96,7 @@ public class Result<TValue>
 
     public bool IsFailure => !IsSuccess;
 
-    public IEnumerable<Error> Errors => _state.Errors;
+    public IReadOnlyList<Error> Errors => _state.Errors;
 
     /// <summary>
     /// 获取第一个错误，如果没有错误则返回 <see cref="Error.None"/>
@@ -125,6 +121,7 @@ public class Result<TValue>
         return new Result(result.State);
     }
 
+    [Obsolete("Use Result<TValue>.Create(value) or Result<TValue>.Success(value) instead.")]
     public static implicit operator Result<TValue>(TValue? value) => Create(value);
 
     public static Result<TValue> Success(TValue value) => new(value, ResultState.Success);
@@ -132,11 +129,15 @@ public class Result<TValue>
     public static Result<TValue> Failure() => new(default, ResultStatus.Error, [Error.Default]);
     public static Result<TValue> Failure(Error error) => new(default, ResultStatus.Error, [error]);
     public static Result<TValue> Failure(string message) => new(default, ResultStatus.Error, [new Error(string.Empty, message)]);
+    public static Result<TValue> Failure(params Error[] errors) => new(default, ResultStatus.Error, errors);
+
     public static Result<TValue> Failure(IEnumerable<Error> errors) => new(default, ResultStatus.Error, errors);
 
     public static Result<TValue> NotFound() => new(default, ResultStatus.NotFound, [Error.NotFound]);
     public static Result<TValue> NotFound(string errorMessage) => new(default, ResultStatus.NotFound, [new Error(string.Empty, errorMessage)]);
     public static Result<TValue> NotFound(Error error) => new(default, ResultStatus.NotFound, [error]);
+    public static Result<TValue> NotFound(params Error[] errors) => new(default, ResultStatus.NotFound, errors);
+
     public static Result<TValue> NotFound(IEnumerable<Error> errors) => new(default, ResultStatus.NotFound, errors);
 
     public static Result<TValue> Create(TValue? value) => value is not null ? Success(value) : Failure(Error.NullValue);
