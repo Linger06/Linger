@@ -301,6 +301,66 @@ public partial class DataTableExtensionsTests
     }
 
     [Fact]
+    public void ClearEmptyRow_ModifiesTableInPlaceAndReturnsSameInstance()
+    {
+        var table = new DataTable();
+        table.Columns.Add("Name", typeof(string));
+        table.Rows.Add("John");
+        table.Rows.Add(DBNull.Value);
+
+        var result = table.ClearEmptyRow();
+
+        Assert.Same(table, result);
+        Assert.Equal(1, table.Rows.Count);
+    }
+
+    [Fact]
+    public void Join_WithDifferentKeyColumnTypes_ThrowsArgumentException()
+    {
+        var left = new DataTable();
+        left.Columns.Add("Id", typeof(int));
+        left.Rows.Add(1);
+        var right = new DataTable();
+        right.Columns.Add("Id", typeof(long));
+        right.Rows.Add(1L);
+
+        var exception = Assert.Throws<ArgumentException>(() =>
+            left.Join(right, new[] { left.Columns["Id"]! }, new[] { right.Columns["Id"]! }, false, false));
+
+        Assert.Contains("different data types", exception.Message);
+    }
+
+    [Fact]
+    public void Join_WithObjectKeyColumn_MatchesEqualValues()
+    {
+        var left = new DataTable();
+        left.Columns.Add("Code", typeof(object));
+        left.Rows.Add("A");
+        var right = new DataTable();
+        right.Columns.Add("Code", typeof(string));
+        right.Rows.Add("A");
+
+        var result = left.Join(right, new[] { left.Columns["Code"]! }, new[] { right.Columns["Code"]! }, false, false);
+
+        Assert.Equal(1, result.Rows.Count);
+    }
+
+    [Fact]
+    public void Join_WithCommaInKeyColumnName_MatchesRows()
+    {
+        var left = new DataTable();
+        left.Columns.Add("Last,First", typeof(string));
+        left.Rows.Add("Smith,John");
+        var right = new DataTable();
+        right.Columns.Add("Last,First", typeof(string));
+        right.Rows.Add("Smith,John");
+
+        var result = left.Join(right, new[] { left.Columns["Last,First"]! }, new[] { right.Columns["Last,First"]! }, false, false);
+
+        Assert.Equal(1, result.Rows.Count);
+    }
+
+    [Fact]
     public void Find_ReturnsFilteredDataTable()
     {
         DataTable? table = CreateTestDataTable();

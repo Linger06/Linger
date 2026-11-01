@@ -8,10 +8,16 @@ namespace Linger.Extensions.Data;
 public static partial class DataTableExtensions
 {
     /// <summary>
-    /// Removes empty rows from the current <see cref="DataTable"/>.
+    /// Removes rows whose every column is <see langword="null"/>, <see cref="DBNull"/>, or an empty string.
     /// </summary>
     /// <param name="dt">The <see cref="DataTable"/> to remove empty rows from.</param>
-    /// <returns>The <see cref="DataTable"/> with empty rows removed.</returns>
+    /// <returns>
+    /// The same <see cref="DataTable"/> instance, or <see langword="null"/> when <paramref name="dt"/> is <see langword="null"/>.
+    /// </returns>
+    /// <remarks>
+    /// Unlike <c>Find</c>, <c>Sort</c>, and <c>Distinct</c>, this method modifies <paramref name="dt"/> in place.
+    /// Clone the table first when the original rows must be kept.
+    /// </remarks>
     /// <example>
     /// <code>
     /// DataTable table = GetDataTable();
@@ -276,6 +282,7 @@ public static partial class DataTableExtensions
 
         ValidateJoinColumns(left, leftCols, nameof(leftCols), nameof(left));
         ValidateJoinColumns(right, rightCols, nameof(rightCols), nameof(right));
+        ValidateJoinColumnTypes(leftCols, rightCols);
 
         var result = CreateJoinResultTable(left, right);
         var rightLookup = BuildJoinLookup(right, rightCols);
@@ -331,9 +338,27 @@ public static partial class DataTableExtensions
     {
         foreach (var column in columns)
         {
-            if (!table.ContainAllColumns(column.ColumnName))
+            // 单个列名直接查集合：ContainAllColumns 会按逗号拆分，列名本身带逗号时会被误判为不存在
+            if (!table.Columns.Contains(column.ColumnName))
             {
                 throw new ArgumentException($"{columnsParameterName} have columns not in {tableParameterName}");
+            }
+        }
+    }
+
+    // 键值按 object.Equals 比较：Int32 的 1 与 Int64 的 1 不相等，类型不一致会静默得到零匹配，所以提前报错。
+    // object 列可能装着任意类型，不做限制。
+    private static void ValidateJoinColumnTypes(DataColumn[] leftCols, DataColumn[] rightCols)
+    {
+        for (var i = 0; i < leftCols.Length; i++)
+        {
+            var leftType = leftCols[i].DataType;
+            var rightType = rightCols[i].DataType;
+            if (leftType != rightType && leftType != typeof(object) && rightType != typeof(object))
+            {
+                throw new ArgumentException(
+                    $"Join columns '{leftCols[i].ColumnName}' ({leftType.Name}) and '{rightCols[i].ColumnName}' ({rightType.Name}) have different data types. Convert one side before joining.",
+                    nameof(rightCols));
             }
         }
     }
