@@ -20,6 +20,7 @@
 | `Linger.FileSystem` | 本地命名版 `UploadAsync(...)` 重载 | `UploadWithNamingAsync(...)` 或 `UploadFileWithNamingAsync(...)` | `Linger.FileSystem.Local` | 公共 `UploadAsync` 现在仅表示从流上传到指定路径。 |
 | `Linger.Utils` | 为 `ParameterList.Parameters` 整体赋值 | 修改 `Parameters` 集合，或调用 `SetValue`、`Add`、`Remove`、`Clear` | `Linger.Utils` | 字典引用已改为只读，不能再整体替换或设为 `null`。 |
 | `Linger.Utils` | `GuidCode.NewDateGuid` | `Guid.NewGuid().ToString("N")`；.NET 9+ 可使用 `Guid.CreateVersion7().ToString("N")` | .NET BCL | 被删除的 10 位标识只有 4 位 Base36 随机字符，无法可靠保证唯一。短业务码必须配合唯一约束和冲突重试。 |
+| `Linger.Utils` | `GuidCode.CreateVersion7()` | `Guid.CreateVersion7()` | .NET BCL（.NET 9+） | 被删除的方法只是转发 BCL，且仅在 .NET 9 及更高版本存在，导致公开 API 随目标框架变化。 |
 | `Linger.Utils` | `JsonExtensions.Serialize<T>` / `SerializeJson<T>(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | 旧实现使用 `DataContractJsonSerializer`。 |
 | `Linger.Utils` | `JsonExtensions.DeserializeJson<T>(...)` | `JsonSerializer.Deserialize<T>(...)` | .NET BCL | 旧实现使用 `DataContractJsonSerializer`。 |
 | `Linger.Utils` | `JsonExtensions.ToJsonString(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | 包装方法没有增加序列化能力，且无法保证 Native AOT 兼容性。 |
@@ -150,7 +151,7 @@
 
 | 原包 | 已删除 API | 迁移方式 | 替代项位置 | 删除原因 |
 | --- | --- | --- | --- | --- |
-| `Linger.Utils` | `AesEncrypt` | 使用 `AesEncryptAuthenticated`。已有的旧格式密文仍可通过 `AesDecrypt` 解密。 | `Linger.Utils` | 未经认证的 AES-CBC 无法保护密文完整性。 |
+| `Linger.Utils` | `AesEncrypt` | 使用 `AesEncryptAuthenticated`。已有的旧格式密文仍可通过 `AesDecrypt` 解密，该方法已标记过时，仅用于迁移旧密文。 | `Linger.Utils` | 未经认证的 AES-CBC 无法保护密文完整性。 |
 | `Linger.Utils` | `GuidCode.GetInt32UniqueCode` / `GetInt64UniqueCode` | 使用 `Guid.NewGuid()`；在 .NET 9 或更高版本中，需要按时间排序时可考虑 `Guid.CreateVersion7()`。 | .NET BCL | 截断 GUID 无法保证唯一性。 |
 | `Linger.Utils` | `object.IsNullOrEmpty` / `IsNotNullOrEmpty` | 根据类型使用 `string.IsNullOrEmpty`、集合数量判断或 `Guid?` 扩展方法。 | .NET BCL / `Linger.Utils` | 任意对象不存在统一、明确的“空”状态。 |
 | `Linger.Utils` | `ToTarget<T>`、`TryToTarget<T>`、`ToTargetOrDefault<T>` 和 `ToTargetOrNull<T>` | 使用明确的 `ToInt`、`TryToDateTime`、`TryToGuid` 等转换 API；目标类型只能在运行时确定时，使用 `TypeConverter.TryConvert`。 | `Linger.Utils` | 泛型转换隐藏了支持范围和失败语义。 |
@@ -180,6 +181,22 @@
   `ArgumentException`，不再被静默视为降序。
 - **`Linger.Utils`**：`FileInfoExtensions.Delete` 不再提供默认异常处理策略。调用方必须明确选择
   遇错即停或汇总异常。
+- **`Linger.Utils`**：`AesDecrypt` 已标记过时，因为它会静默回退到未认证的旧格式。解密
+  `AesEncryptAuthenticated` 的结果请使用 `AesDecryptAuthenticated`；`AesDecrypt` 仅用于把旧密文重新加密。
+- **`Linger.Utils`**：`RetryHelper` 不再把所有 `OperationCanceledException` 视为最终结果。只有调用方
+  `cancellationToken` 的取消会立即传播；`HttpClient` 超时等其他取消交给 `shouldRetry` 判断。同步 `Execute`
+  没有调用方令牌，所有异常都交给 `shouldRetry` 判断。
+- **`Linger.Utils`**：`RetryOptions.Jitter` 现在在 `[延迟 × (1 − Jitter), 延迟 × (1 + Jitter)]` 内取值，并截断到
+  `MaxDelayMilliseconds`。此前延迟可能为 0，也可能超过配置的上限。
+- **`Linger.Utils`**：`IsEmail`、`IsMultipleEmail`、`IsDomainName` 和 `IsIpv4` 拒绝末尾带换行符的输入。
+  `IsMultipleEmail` 接受超过四个字母的顶级域名；`IsIpv4` 在所有目标框架下都只接受 ASCII 数字。
+- **`Linger.Utils`**：兼容 Polyfill 现在是 `internal`。早期预览版在 .NET Standard 2.0 和 .NET Framework 4.7.2
+  上公开了它们，在 .NET 8.0 上还公开了 `Base64Url` 与 `Convert.ToHexStringLower`：包括
+  `ArgumentNullException`、`ArgumentException`、`ArgumentOutOfRangeException` 的 `Throw*` 辅助方法、
+  `MD5`/`SHA*` 的 `HashData`、`System.Buffers.Text.Base64Url`、可空性注解特性、`IsExternalInit`、
+  `RequiredMemberAttribute` 和 `CallerArgumentExpressionAttribute`。通过引用 `Linger.Utils` 来使用它们的代码，
+  在这些目标框架上必须自备 Polyfill。标注在 `Linger.Utils` API 上的 `[NotNullWhen]`、`required` 等特性仍然有效，
+  因为编译器按名称匹配它们。其他 `Linger.*` 包通过共享源码各自编译 `internal` 副本，因此同样不再公开这些类型。
 - **`Linger.Excel.Contracts`**：Excel 导入 `DataTable` 时会推断每列的公共 CLR 类型，保留数值、布尔值和
   `DateTime` 等值，不再把所有非空单元格强制转换为 `string`；空列或混合类型列使用 `object`。需要文本时
   请显式调用 `Convert.ToString`。
@@ -288,7 +305,7 @@ var result = await httpClient.UploadFileAsync<UploadResponse>(
 
 ```csharp
 string ciphertext = plaintext.AesEncryptAuthenticated(key);
-string plaintext = ciphertext.AesDecrypt(key);
+string plaintext = ciphertext.AesDecryptAuthenticated(key);
 ```
 
 ### 向上回溯多级目录

@@ -21,6 +21,7 @@ for applications upgrading from the previous API surface.
 | `Linger.FileSystem` | Local naming overloads of `UploadAsync(...)` | `UploadWithNamingAsync(...)` or `UploadFileWithNamingAsync(...)` | `Linger.FileSystem.Local` | The common `UploadAsync` now has one unambiguous stream-to-path meaning. |
 | `Linger.Utils` | Assigning `ParameterList.Parameters` | Mutate `Parameters` or call `SetValue`, `Add`, `Remove`, or `Clear` | `Linger.Utils` | The dictionary reference is now read-only and can no longer be replaced or set to `null`. |
 | `Linger.Utils` | `GuidCode.NewDateGuid` | `Guid.NewGuid().ToString("N")`, or `Guid.CreateVersion7().ToString("N")` on .NET 9+ | .NET BCL | The removed 10-character value had only four Base36 random characters and could not provide reliable uniqueness. Short business codes require a unique constraint and collision retry. |
+| `Linger.Utils` | `GuidCode.CreateVersion7()` | `Guid.CreateVersion7()` | .NET BCL (.NET 9+) | The removed method only forwarded to the BCL and existed only on .NET 9 or later, so the public surface differed by target framework. |
 | `Linger.Utils` | `JsonExtensions.Serialize<T>` / `SerializeJson<T>(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | The legacy implementation used `DataContractJsonSerializer`. |
 | `Linger.Utils` | `JsonExtensions.DeserializeJson<T>(...)` | `JsonSerializer.Deserialize<T>(...)` | .NET BCL | The legacy implementation used `DataContractJsonSerializer`. |
 | `Linger.Utils` | `JsonExtensions.ToJsonString(...)` | `JsonSerializer.Serialize(...)` | .NET BCL | The wrapper added no serialization capability and could not guarantee Native AOT compatibility. |
@@ -151,7 +152,7 @@ for applications upgrading from the previous API surface.
 
 | Source package | Removed API | Migration approach | Replacement location | Reason for removal |
 | --- | --- | --- | --- | --- |
-| `Linger.Utils` | `AesEncrypt` | Use `AesEncryptAuthenticated`. Existing legacy ciphertext can still be read by `AesDecrypt`. | `Linger.Utils` | AES-CBC encryption without authentication does not protect ciphertext integrity. |
+| `Linger.Utils` | `AesEncrypt` | Use `AesEncryptAuthenticated`. Existing legacy ciphertext can still be read by `AesDecrypt`, which is now obsolete and intended only for migrating legacy ciphertext. | `Linger.Utils` | AES-CBC encryption without authentication does not protect ciphertext integrity. |
 | `Linger.Utils` | `GuidCode.GetInt32UniqueCode` / `GetInt64UniqueCode` | Use `Guid.NewGuid()`; on .NET 9 or later, consider `Guid.CreateVersion7()` when time ordering is useful. | .NET BCL | Truncating a GUID does not provide uniqueness. |
 | `Linger.Utils` | `object.IsNullOrEmpty` / `IsNotNullOrEmpty` | Use a type-specific check such as `string.IsNullOrEmpty`, collection count checks, or `Guid?` extensions. | .NET BCL / `Linger.Utils` | Arbitrary objects do not have a well-defined empty state. |
 | `Linger.Utils` | `ToTarget<T>`, `TryToTarget<T>`, `ToTargetOrDefault<T>`, and `ToTargetOrNull<T>` | Use a specific `ToInt`, `TryToDateTime`, `TryToGuid`, and similar conversion API; for a runtime target type, use `TypeConverter.TryConvert`. | `Linger.Utils` | Generic conversion concealed supported types and failure semantics. |
@@ -183,6 +184,28 @@ for applications upgrading from the previous API surface.
   as descending order.
 - **`Linger.Utils`**: `FileInfoExtensions.Delete` no longer has a default exception policy. Call
   sites must choose fail-fast or consolidated exceptions explicitly.
+- **`Linger.Utils`**: `AesDecrypt` is obsolete because it silently falls back to the unauthenticated
+  legacy format. Decrypt `AesEncryptAuthenticated` output with `AesDecryptAuthenticated`; keep
+  `AesDecrypt` only for re-encrypting legacy ciphertext.
+- **`Linger.Utils`**: `RetryHelper` no longer treats every `OperationCanceledException` as final. Only
+  cancellation of the caller's `cancellationToken` propagates immediately; other cancellations, such as
+  `HttpClient` timeouts, are passed to `shouldRetry`. The synchronous `Execute` has no caller token and
+  passes every exception to `shouldRetry`.
+- **`Linger.Utils`**: `RetryOptions.Jitter` now selects each delay from
+  `[delay × (1 − Jitter), delay × (1 + Jitter)]` and caps it at `MaxDelayMilliseconds`. Previously the
+  delay could be zero or exceed the configured maximum.
+- **`Linger.Utils`**: `IsEmail`, `IsMultipleEmail`, `IsDomainName`, and `IsIpv4` reject input with a
+  trailing newline. `IsMultipleEmail` accepts top-level domains longer than four letters, and `IsIpv4`
+  accepts only ASCII digits on every target framework.
+- **`Linger.Utils`**: Compatibility polyfills are now `internal`. Earlier previews exposed them publicly on
+  .NET Standard 2.0 and .NET Framework 4.7.2, and `Base64Url` and `Convert.ToHexStringLower` on .NET 8.0 as well:
+  the `ArgumentNullException`, `ArgumentException`, and `ArgumentOutOfRangeException` `Throw*` helpers,
+  `MD5`/`SHA*` `HashData`, `System.Buffers.Text.Base64Url`, the nullable-annotation attributes,
+  `IsExternalInit`, `RequiredMemberAttribute`, and `CallerArgumentExpressionAttribute`. Code that used them
+  through a `Linger.Utils` reference must supply its own polyfills on those target frameworks. The attributes
+  that annotate `Linger.Utils` APIs, such as `[NotNullWhen]` and `required`, keep working because the compiler
+  matches them by name. The other `Linger.*` packages compile their own `internal` copies from shared source,
+  so none of them exposes these types either.
 - **`Linger.Excel.Contracts`**: Excel-to-`DataTable` imports now infer each column's common CLR type
   and preserve values such as numbers, booleans, and `DateTime` instead of coercing every non-null
   cell to `string`. Empty or mixed-type columns use `object`. Call `Convert.ToString` explicitly when
@@ -293,7 +316,7 @@ var result = await httpClient.UploadFileAsync<UploadResponse>(
 
 ```csharp
 string ciphertext = plaintext.AesEncryptAuthenticated(key);
-string plaintext = ciphertext.AesDecrypt(key);
+string plaintext = ciphertext.AesDecryptAuthenticated(key);
 ```
 
 ### Walking up several directory levels
