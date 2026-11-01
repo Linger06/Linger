@@ -128,4 +128,30 @@ public class RetryHelperSyncTests
         Assert.Same(exception, actualException);
         Assert.Equal(1, attempts);
     }
+
+    [Fact]
+    public void Execute_WithOperationCanceledException_RetriesWhenPolicyAllows()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1,
+            UseExponentialBackoff = false,
+            Jitter = 0
+        };
+        var retry = new RetryHelper(options);
+        var attempts = 0;
+
+        retry.Execute(() =>
+        {
+            attempts++;
+            if (attempts < 2)
+            {
+                throw new OperationCanceledException("inner timeout");
+            }
+        }, shouldRetry: ex => ex is OperationCanceledException);
+
+        Assert.Equal(2, attempts);
+    }
 }

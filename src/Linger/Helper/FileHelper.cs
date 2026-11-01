@@ -146,12 +146,12 @@ public static partial class FileHelper
             Directory.CreateDirectory(directory);
         }
 
-        if (content != null)
+        if (content is not null)
         {
             encoding ??= Encoding.UTF8;
             File.WriteAllText(filePath, content, encoding);
         }
-        else if (buffer != null)
+        else if (buffer is not null)
         {
             using var fs = File.Create(filePath);
             fs.Write(buffer, 0, buffer.Length);
@@ -222,7 +222,7 @@ public static partial class FileHelper
 
         var directories = Directory.GetDirectories(directoryPath, searchPattern, searchOption);
 
-        if (filter != null)
+        if (filter is not null)
         {
             return directories
                 .Select(dir => new DirectoryInfo(dir))

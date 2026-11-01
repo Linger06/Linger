@@ -80,7 +80,7 @@ public static partial class IEnumerableExtensions
     public static string ToSeparatedString<T>(this IEnumerable<T>? self, string separator = ",", Func<T, string>? format = null)
     {
         ArgumentNullException.ThrowIfNull(separator);
-        if (self == null) return string.Empty;
+        if (self is null) return string.Empty;
 
         var formattedList = self.Select(item => format?.Invoke(item) ?? item?.ToString() ?? string.Empty);
         return string.Join(separator, formattedList);

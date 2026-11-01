@@ -310,6 +310,78 @@ public class RetryHelperTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithOperationCanceledNotFromCaller_RetriesWhenPolicyAllows()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1,
+            UseExponentialBackoff = false,
+            Jitter = 0
+        };
+        var retryHelper = new RetryHelper(options);
+        var attempts = 0;
+
+        var result = await retryHelper.ExecuteAsync(
+            _ => ++attempts == 1
+                ? Task.FromException<int>(new TaskCanceledException("HttpClient timeout"))
+                : Task.FromResult(42),
+            shouldRetry: ex => ex is TaskCanceledException);
+
+        Assert.Equal(42, result);
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenCallerCancels_DoesNotRetryEvenIfPolicyAllows()
+    {
+        var options = new RetryOptions
+        {
+            MaxRetryAttempts = 3,
+            DelayMilliseconds = 1,
+            MaxDelayMilliseconds = 1,
+            UseExponentialBackoff = false,
+            Jitter = 0
+        };
+        var retryHelper = new RetryHelper(options);
+        using var cts = new CancellationTokenSource();
+        var attempts = 0;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => retryHelper.ExecuteAsync<int>(
+            cancellationToken =>
+            {
+                attempts++;
+                cts.Cancel();
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.FromResult(42);
+            },
+            shouldRetry: _ => true,
+            cancellationToken: cts.Token));
+
+        Assert.Equal(1, attempts);
+    }
+
+    [Theory]
+    [InlineData(0.0)]
+    [InlineData(0.5)]
+    [InlineData(0.999999)]
+    public void CalculateDelay_WithJitter_StaysWithinJitterRangeAndMaxDelay(double sample)
+    {
+        var options = new RetryOptions
+        {
+            DelayMilliseconds = 1000,
+            MaxDelayMilliseconds = 1000,
+            UseExponentialBackoff = false,
+            Jitter = 0.2
+        };
+
+        var delay = RetryHelper.CalculateDelay(options, 0, sample);
+
+        Assert.InRange(delay, 800, 1000);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithLastAttemptSucceeding_ShouldReturnResult()
     {
         // Arrange

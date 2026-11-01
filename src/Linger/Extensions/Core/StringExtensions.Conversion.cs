@@ -301,7 +301,7 @@ public static partial class StringExtensions
         => value.TryToBool(out var r) ? r : defaultValue;
 
     public static bool ToBoolOrDefault(this string? value, Func<bool>? defaultValueFunc)
-        => value.TryToBool(out var r) ? r : (defaultValueFunc != null ? defaultValueFunc() : default);
+        => value.TryToBool(out var r) ? r : (defaultValueFunc is not null ? defaultValueFunc() : default);
 
     #endregion
 

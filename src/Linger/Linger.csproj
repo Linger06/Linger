@@ -26,4 +26,8 @@
         <None Include="icon.png" Pack="true" PackagePath="" Condition="Exists('icon.png')" />
     </ItemGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="Linger.UnitTests" />
+    </ItemGroup>
+
 </Project>

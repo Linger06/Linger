@@ -2,6 +2,58 @@
 
 public class DictionaryExtensionTests
 {
+    [Theory]
+    [InlineData(true, 0)]
+    [InlineData(false, 1)]
+    public void GetOrAdd_Overload_InvokesFactoryOnlyWhenMissing(bool exists, int expectedCalls)
+    {
+        var dictionary = new Dictionary<int, string>();
+        if (exists)
+        {
+            dictionary.Add(1, "existing");
+        }
+        var calls = 0;
+
+        dictionary.GetOrAdd(1, () => { calls++; return "created"; });
+
+        Assert.Equal(expectedCalls, calls);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void AddOrUpdate_Overload_InvokesOnlySelectedFactory(bool exists)
+    {
+        var dictionary = new Dictionary<int, string>();
+        if (exists)
+        {
+            dictionary.Add(1, "existing");
+        }
+        var addCalls = 0;
+        var updateCalls = 0;
+
+        dictionary.AddOrUpdate(1,
+            () => { addCalls++; return "created"; },
+            value => { updateCalls++; return value; });
+
+        Assert.Equal(exists ? (0, 1) : (1, 0), (addCalls, updateCalls));
+    }
+
+    [Fact]
+    public void GetOrAdd_Overload_WithNullFactory_ThrowsEvenWhenKeyExists()
+    {
+        IDictionary<int, string> dictionary = new Dictionary<int, string> { [1] = "one" };
+
+        Assert.Throws<ArgumentNullException>(() => dictionary.GetOrAdd(1, (Func<string>)null!));
+    }
+
+    [Fact]
+    public void AddOrUpdate_Overload_WithNullUpdateFactory_ThrowsEvenWhenKeyMissing()
+    {
+        IDictionary<int, string> dictionary = new Dictionary<int, string>();
+
+        Assert.Throws<ArgumentNullException>(() => dictionary.AddOrUpdate(1, () => "one", (Func<string, string>)null!));
+    }
     [Fact]
     public void GetOrAdd_ReturnsExistingValue()
     {

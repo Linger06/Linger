@@ -45,7 +45,7 @@ public static class ObjectExtensions
 
     public static string? ToNormalizedString(this object? input, bool trim = false, bool treatEmptyAsNull = false)
     {
-        if (input == null) return null;
+        if (input is null) return null;
 
         var result = input.ToString();
         if (trim)
@@ -105,7 +105,7 @@ public static class ObjectExtensions
         }
 
         var fallbackStr = value.ToString();
-        return fallbackStr != null && fallbackStr.TryToShort(out result);
+        return fallbackStr is not null && fallbackStr.TryToShort(out result);
     }
 
     public static short ToShort(this object? value)
@@ -164,7 +164,7 @@ public static class ObjectExtensions
         }
 
         var fallbackStr = value.ToString();
-        return fallbackStr != null && fallbackStr.TryToLong(out result);
+        return fallbackStr is not null && fallbackStr.TryToLong(out result);
     }
 
     public static long ToLong(this object? value)
@@ -225,7 +225,7 @@ public static class ObjectExtensions
         }
 
         var fallbackStr = value.ToString();
-        return fallbackStr != null && fallbackStr.TryToDecimal(out result);
+        return fallbackStr is not null && fallbackStr.TryToDecimal(out result);
     }
 
     public static decimal ToDecimal(this object? value)
@@ -446,7 +446,7 @@ public static class ObjectExtensions
         }
 
         var fallbackStr = value.ToString();
-        return fallbackStr != null && fallbackStr.TryToInt(out result);
+        return fallbackStr is not null && fallbackStr.TryToInt(out result);
     }
 
     public static int ToInt(this object? value)
@@ -528,7 +528,7 @@ public static class ObjectExtensions
         }
 
         var fallbackStr = value.ToString();
-        return fallbackStr != null && fallbackStr.TryToDateTime(out result);
+        return fallbackStr is not null && fallbackStr.TryToDateTime(out result);
     }
 
     public static DateTime ToDateTime(this object? value)
@@ -648,7 +648,7 @@ public static class ObjectExtensions
         }
 
         var fallbackStr = value.ToString();
-        return fallbackStr != null && fallbackStr.TryToGuid(out result);
+        return fallbackStr is not null && fallbackStr.TryToGuid(out result);
     }
 
     public static Guid ToGuid(this object? value)
@@ -661,7 +661,7 @@ public static class ObjectExtensions
             throw new FormatException($"Byte array length must be exactly 16 bytes to convert to Guid. Actual length: {bytes.Length}");
 
         var finalStr = value.ToString();
-        if (finalStr == null)
+        if (finalStr is null)
             throw new InvalidCastException($"Cannot convert type {value.GetType().FullName} to Guid.");
         return Guid.Parse(finalStr);
     }

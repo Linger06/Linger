@@ -35,20 +35,23 @@ public static partial class StringExtensions
 #if NET6_0_OR_GREATER
         ReadOnlySpan<char> span = str.AsSpan();
         ReadOnlySpan<char> valueSpan = value.AsSpan();
+        var changed = false;
 
         // 检查前缀
         if (span.StartsWith(valueSpan))
         {
             span = span[valueSpan.Length..];
+            changed = true;
         }
 
         // 检查后缀
         if (span.EndsWith(valueSpan))
         {
             span = span[..^valueSpan.Length];
+            changed = true;
         }
 
-        return span.ToString();
+        return changed ? span.ToString() : str;
 #else
         var result = str;
 
@@ -79,6 +82,25 @@ public static partial class StringExtensions
         if (str is null) return null;
         if (string.IsNullOrEmpty(str) || string.IsNullOrEmpty(value)) return str;
 
+#if NET6_0_OR_GREATER
+        var start = 0;
+        var end = str.Length;
+
+        if (str.StartsWith(value, comparison))
+        {
+            start = value.Length;
+        }
+
+        var remaining = str.AsSpan(start, end - start);
+        if (remaining.Length >= value.Length && remaining.EndsWith(value.AsSpan(), comparison))
+        {
+            end -= value.Length;
+        }
+
+        return start == 0 && end == str.Length
+            ? str
+            : str.AsSpan(start, end - start).ToString();
+#else
         var result = str;
 
         if (result.StartsWith(value, comparison))
@@ -92,6 +114,7 @@ public static partial class StringExtensions
         }
 
         return result;
+#endif
     }
 
     /// <summary>
@@ -300,7 +323,7 @@ public static partial class StringExtensions
     /// <returns>The truncated string.</returns>
     public static string TakeLast(this string self, int length)
     {
-        if (self == null || length <= 0)
+        if (self is null || length <= 0)
             return string.Empty;
 
         if (length >= self.Length)
@@ -315,8 +338,8 @@ public static partial class StringExtensions
 
     private static string EnsureAffixCore(string value, string affix, bool isPrefix, StringComparison? comparison)
     {
-        if (value == null) return affix ?? string.Empty;
-        if (affix == null) return value;
+        if (value is null) return affix ?? string.Empty;
+        if (affix is null) return value;
         bool has = comparison.HasValue
             ? (isPrefix ? value.StartsWith(affix, comparison.Value) : value.EndsWith(affix, comparison.Value))
             : (isPrefix ? value.StartsWith(affix) : value.EndsWith(affix));

@@ -3,6 +3,45 @@ namespace Linger.UnitTests.Extensions.Core;
 
 public partial class StringExtensionsTests
 {
+    [Fact]
+    public void RemovePrefixAndSuffix_WithoutMatch_ReturnsOriginalReference()
+    {
+        var input = new string('x', 64);
+
+        Assert.Same(input, input.RemovePrefixAndSuffix("__"));
+    }
+
+    [Theory]
+    [InlineData("aaa", "aa", "a")]
+    [InlineData("aa", "aa", "")]
+    [InlineData("aaaa", "aa", "")]
+    [InlineData("a", "aa", "a")]
+    public void RemovePrefixAndSuffix_WithOverlappingToken_RemovesEachSideOnce(string input, string token, string expected)
+    {
+        Assert.Equal(expected, input.RemovePrefixAndSuffix(token, StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(StringComparison.Ordinal)]
+    [InlineData(StringComparison.OrdinalIgnoreCase)]
+    [InlineData(StringComparison.InvariantCulture)]
+    [InlineData(StringComparison.InvariantCultureIgnoreCase)]
+    public void RemovePrefixAndSuffix_WithComparison_PreservesSequentialRemoval(StringComparison comparison)
+    {
+        const string input = "AaValueaA";
+        const string token = "aa";
+        var expected = input;
+        if (expected.StartsWith(token, comparison))
+        {
+            expected = expected.Substring(token.Length);
+        }
+        if (expected.EndsWith(token, comparison))
+        {
+            expected = expected.Substring(0, expected.Length - token.Length);
+        }
+
+        Assert.Equal(expected, input.RemovePrefixAndSuffix(token, comparison));
+    }
     [Theory]
     [InlineData("HelloWorld", "World", StringComparison.Ordinal, "Hello")] // 精确后缀
     [InlineData("HelloWorld", "world", StringComparison.Ordinal, "HelloWorld")] // 区分大小写不移除

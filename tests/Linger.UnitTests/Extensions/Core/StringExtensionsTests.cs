@@ -648,6 +648,7 @@ public partial class StringExtensionsTests
     [InlineData("test@", false)]
     [InlineData("@example.com", false)]
     [InlineData("test@example", false)]
+    [InlineData("test@example.com\n", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
     public void IsEmail_ShouldReturnExpectedResult(string? input, bool expected)
@@ -660,6 +661,7 @@ public partial class StringExtensionsTests
     [InlineData("test@example.com", true)]
     [InlineData("test@example.com;user@example.org", true)]
     [InlineData("test@example.com; user@example.org", true)]
+    [InlineData("user@example.online;admin@example.technology", true)]
     [InlineData("invalid@email", false)]
     [InlineData("test@example.com;invalid", false)]
     [InlineData("", false)]
@@ -677,6 +679,7 @@ public partial class StringExtensionsTests
     [InlineData("example", false)]
     [InlineData("", false)]
     [InlineData("example..com", false)]
+    [InlineData("example.com\n", false)]
     [InlineData(null, false)]
     public void IsDomainName_ShouldReturnExpectedResult(string? input, bool expected)
     {
@@ -698,6 +701,8 @@ public partial class StringExtensionsTests
     [InlineData("192.168.1.-1", false)]     // Negative value
     [InlineData("192.168.1.1a", false)]     // Contains letter
     [InlineData("192.168..1", false)]       // Empty segment
+    [InlineData("١.٢.٣.٤", false)] // Non-ASCII digits
+    [InlineData("192.168.1.1\n", false)]    // Trailing newline
     [InlineData("", false)]
     [InlineData(null, false)]
     [InlineData("::1", false)]              // IPv6 should be false

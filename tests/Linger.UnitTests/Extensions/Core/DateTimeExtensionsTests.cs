@@ -244,6 +244,14 @@ public partial class DateTimeExtensionsTests
     }
 
     [Fact]
+    public void GetCountDaysOfMonth_WithLastSupportedMonth_ReturnsDayCount()
+    {
+        var result = new DateTime(9999, 12, 15).GetCountDaysOfMonth();
+
+        Assert.Equal(31, result);
+    }
+
+    [Fact]
     public void IsToday_ReturnsCorrectResult()
     {
         // Arrange

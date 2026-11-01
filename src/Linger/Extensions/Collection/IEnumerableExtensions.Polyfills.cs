@@ -12,8 +12,8 @@ public static partial class IEnumerableExtensions
     public static IEnumerable<TSource> DistinctBy<TSource, TKey>(this IEnumerable<TSource> source,
         Func<TSource, TKey> keySelector)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-        if (keySelector == null) throw new ArgumentNullException(nameof(keySelector));
+        if (source is null) throw new ArgumentNullException(nameof(source));
+        if (keySelector is null) throw new ArgumentNullException(nameof(keySelector));
 
         return Iterator();
 

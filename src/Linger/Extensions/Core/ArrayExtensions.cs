@@ -43,22 +43,7 @@ public static class ArrayExtensions
     /// </example>
     public static bool Exists<T>(this T[] array, T value)
     {
-        return Array.Exists(array, Predicate);
-
-        bool Predicate(T item)
-        {
-            if (item == null)
-            {
-                if (value == null)
-                {
-                    return true;
-                }
-
-                return false;
-            }
-
-            return item.Equals(value);
-        }
+        return Array.IndexOf(array, value) >= 0;
     }
 
     /// <summary>
@@ -100,22 +85,9 @@ public static class ArrayExtensions
     /// </example>
     public static T[] Remove<T>(this T[] array, T value)
     {
-        return Array.FindAll(array, Predicate);
+        var comparer = EqualityComparer<T>.Default;
 
-        bool Predicate(T item)
-        {
-            if (item == null)
-            {
-                if (value == null)
-                {
-                    return false;
-                }
-
-                return true;
-            }
-
-            return !item.Equals(value);
-        }
+        return Array.FindAll(array, item => !comparer.Equals(item, value));
     }
 
     /// <summary>

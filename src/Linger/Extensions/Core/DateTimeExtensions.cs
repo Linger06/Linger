@@ -152,8 +152,7 @@ public static class DateTimeExtensions
     /// <returns>The number of days in the month.</returns>
     public static int GetCountDaysOfMonth(this DateTime date)
     {
-        DateTime nextMonth = date.AddMonths(1);
-        return new DateTime(nextMonth.Year, nextMonth.Month, 1).AddDays(-1).Day;
+        return DateTime.DaysInMonth(date.Year, date.Month);
     }
 
     /// <summary>
@@ -552,7 +551,7 @@ public static class DateTimeExtensions
     [return: NotNullIfNotNull(nameof(input))]
     public static DateTimeOffset? ToDateTimeOffset(this DateTime? input)
     {
-        if (input == null)
+        if (input is null)
         {
             return null;
         }

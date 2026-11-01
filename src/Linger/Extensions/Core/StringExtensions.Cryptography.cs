@@ -66,26 +66,20 @@ public static partial class StringExtensions
     /// <exception cref="CryptographicException">当解密操作失败时抛出</exception>
     /// <remarks>
     /// 自动识别当前认证格式，也兼容解密旧版仅包含 IV 和密文的结果。
+    /// 旧格式没有完整性校验，对不可信输入使用本方法存在填充预言攻击风险；
+    /// 解密 <see cref="AesEncryptAuthenticated"/> 的结果请使用 <see cref="AesDecryptAuthenticated"/>，
+    /// 本方法仅用于迁移旧密文。
     /// </remarks>
     /// <example>
     /// <code>
-    /// try
-    /// {
-    ///     string encryptedText = "base64_encrypted_string_with_iv";
-    ///     string key = "mySecretKey"; // 任意长度密钥
-    ///     string decrypted = encryptedText.AesDecrypt(key);
-    ///     Console.WriteLine($"解密结果: {decrypted}");
-    /// }
-    /// catch (ArgumentException ex)
-    /// {
-    ///     Console.WriteLine($"参数错误: {ex.Message}");
-    /// }
-    /// catch (CryptographicException ex)
-    /// {
-    ///     Console.WriteLine($"解密失败: {ex.Message}");
-    /// }
+    /// // 仅在迁移旧密文时使用：解密后立即用认证格式重新加密
+    /// string key = "mySecretKey";
+    /// string legacyCiphertext = "base64_encrypted_string_with_iv";
+    /// string plaintext = legacyCiphertext.AesDecrypt(key);
+    /// string migrated = plaintext.AesEncryptAuthenticated(key);
     /// </code>
     /// </example>
+    [Obsolete("AesDecrypt falls back to the unauthenticated legacy format. Use AesDecryptAuthenticated for payloads produced by AesEncryptAuthenticated; use AesDecrypt only to migrate legacy ciphertext.")]
     public static string AesDecrypt(this string encryptedInput, string key)
     {
         if (string.IsNullOrEmpty(encryptedInput))

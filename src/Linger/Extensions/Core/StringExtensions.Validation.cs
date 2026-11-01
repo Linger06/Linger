@@ -55,7 +55,7 @@ public static partial class StringExtensions
     /// <returns>Returns true if the string is not null; otherwise, false.</returns>
     public static bool IsNotNull([NotNullWhen(true)] this string? value)
     {
-        return value != null;
+        return value is not null;
     }
 
     /// <summary>

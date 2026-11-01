@@ -4,8 +4,20 @@ using Linger.Extensions.Core;
 
 namespace Linger.UnitTests.Extensions.Core;
 
+// AesDecrypt 已标记过时，但仍需覆盖其自动识别格式与旧密文兼容行为
+#pragma warning disable CS0618
+
 public class StringExtensionsCryptographyTests
 {
+    [Fact]
+    public void AesDecrypt_ShouldBeMarkedObsolete()
+    {
+        var method = typeof(StringExtensions).GetMethod(nameof(StringExtensions.AesDecrypt), [typeof(string), typeof(string)]);
+
+        Assert.NotNull(method);
+        Assert.NotNull(System.Reflection.CustomAttributeExtensions.GetCustomAttribute<ObsoleteAttribute>(method));
+    }
+
     #region Test Data
 
     // DES test data has been removed as DES encryption methods are no longer supported
@@ -441,3 +453,5 @@ public class StringExtensionsCryptographyTests
         }
     }
 }
+
+#pragma warning restore CS0618

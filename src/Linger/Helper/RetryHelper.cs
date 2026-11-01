@@ -92,8 +92,8 @@ public sealed class RetryHelper(RetryOptions? options = null)
         ArgumentNullException.ThrowIfNull(operation);
         operationName ??= operationExpr ?? nameof(operation);
 
-        // 使用同步包装调用通用重试逻辑，避免阻塞异步上下文。
         // 这里不接受 CancellationToken，保持 API 简洁；如需取消请使用 ExecuteAsync。
+        // 没有调用方令牌，因此 OperationCanceledException 与其他异常一样交给 shouldRetry 判断。
         _options.Validate();
         Exception? lastException = null;
 
@@ -107,11 +107,6 @@ public sealed class RetryHelper(RetryOptions? options = null)
             }
             catch (Exception ex)
             {
-                if (ex is OperationCanceledException)
-                {
-                    throw;
-                }
-
                 lastException = ex;
                 if (shouldRetry?.Invoke(ex) != true)
                 {
@@ -163,14 +158,13 @@ public sealed class RetryHelper(RetryOptions? options = null)
             {
                 result = await operation().ConfigureAwait(false);
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // 只有调用方主动取消才直接传播；HttpClient 超时等内部取消交给 shouldRetry 判断
+                throw;
+            }
             catch (Exception ex)
             {
-                // 如果是取消异常，直接重新抛出
-                if (ex is OperationCanceledException)
-                {
-                    throw;
-                }
-
                 lastException = ex;
 
                 // 如果异常类型不需要重试，直接将原始异常重新抛出
@@ -218,27 +212,33 @@ public sealed class RetryHelper(RetryOptions? options = null)
 
     private int CalculateDelayWithJitter(int retryAttempt)
     {
+        return CalculateDelay(_options, retryAttempt, ThreadSafeRandom.NextDouble());
+    }
+
+    internal static int CalculateDelay(RetryOptions options, int retryAttempt, double sample)
+    {
         // 计算基础延迟（指数退避 2^n，使用Math.Min防止溢出）
-        long baseDelay = _options.DelayMilliseconds;
-        long delay = _options.UseExponentialBackoff
-            ? Math.Min(baseDelay * (1L << Math.Min(retryAttempt, 30)), _options.MaxDelayMilliseconds)
+        long baseDelay = options.DelayMilliseconds;
+        long delay = options.UseExponentialBackoff
+            ? Math.Min(baseDelay * (1L << Math.Min(retryAttempt, 30)), options.MaxDelayMilliseconds)
             : baseDelay;
 
-        if (delay > _options.MaxDelayMilliseconds)
+        if (delay > options.MaxDelayMilliseconds)
         {
-            delay = _options.MaxDelayMilliseconds;
+            delay = options.MaxDelayMilliseconds;
         }
 
-        // Full jitter: random between 0 and delay * (1 + Jitter)
-        if (_options.Jitter <= 0)
+        if (options.Jitter <= 0)
         {
             // 无抖动，返回确定性延迟，便于测试与预测
-            return (int)Math.Min(int.MaxValue, delay);
+            return (int)delay;
         }
 
-        var maxWithJitter = delay + (long)(delay * _options.Jitter);
-        var rnd = ThreadSafeRandom.NextLong(0, Math.Max(1, maxWithJitter));
-        return (int)Math.Min(int.MaxValue, rnd);
+        // 在 [delay×(1−Jitter), delay×(1+Jitter)] 内均匀取值后再截断到上限，
+        // 避免出现 0 延迟的紧凑重试，也保证不突破 MaxDelayMilliseconds
+        var jittered = delay * (1 - options.Jitter + 2 * options.Jitter * sample);
+
+        return (int)Math.Min(jittered, options.MaxDelayMilliseconds);
     }
 }
 
@@ -265,7 +265,7 @@ public class RetryOptions
     public int MaxDelayMilliseconds { get; set; } = 30000;
 
     /// <summary>
-    /// 抖动因子(0-1之间)
+    /// 抖动因子(0-1之间)。实际延迟在 [基础延迟×(1−Jitter), 基础延迟×(1+Jitter)] 内随机取值，且不超过 <see cref="MaxDelayMilliseconds"/>。
     /// </summary>
     public double Jitter { get; set; } = 0.2;
 
@@ -284,14 +284,15 @@ public class RetryOptions
 
 internal static class ThreadSafeRandom
 {
-    public static long NextLong(long minInclusive, long maxExclusive)
+    /// <summary>
+    /// 返回 [0, 1) 区间内的随机数。
+    /// </summary>
+    public static double NextDouble()
     {
-        if (maxExclusive <= minInclusive) return minInclusive;
 #if NET6_0_OR_GREATER
-        return Random.Shared.NextInt64(minInclusive, maxExclusive);
+        return Random.Shared.NextDouble();
 #else
-        // Thread-local fallback instance
-        return LocalRandom.NextLong(minInclusive, maxExclusive);
+        return LocalRandom.Instance.NextDouble();
 #endif
     }
 
@@ -302,13 +303,6 @@ internal static class ThreadSafeRandom
         private static Random? _local;
 
         public static Random Instance => _local ??= new Random(unchecked(Environment.TickCount * 31 + Environment.CurrentManagedThreadId));
-
-        public static long NextLong(long minInclusive, long maxExclusive)
-        {
-            var range = (double)maxExclusive - minInclusive;
-            var sample = Instance.NextDouble();
-            return (long)(minInclusive + sample * range);
-        }
     }
 #endif
 }

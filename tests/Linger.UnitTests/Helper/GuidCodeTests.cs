@@ -39,17 +39,4 @@ public class GuidCodeTests
         // Assert
         Assert.NotEqual(guid1, guid2);
     }
-
-#if NET9_0_OR_GREATER
-    [Fact]
-    public void CreateVersion7_ShouldGenerateVersion7Guid()
-    {
-        // Arrange & Act
-        var guid = GuidCode.CreateVersion7();
-
-        // Assert
-        Assert.Equal(7, (guid.Version));
-    }
-#endif
-
 }

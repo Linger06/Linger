@@ -12,7 +12,7 @@ public static partial class StringExtensions
     /// </returns>
     public static bool IsDateTime(this string value, string[] format)
     {
-        if (value == null) return false;
+        if (value is null) return false;
         return (DateTime.TryParseExact(value, format, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _));
     }
 
@@ -26,7 +26,7 @@ public static partial class StringExtensions
     /// </returns>
     public static bool IsDateTime(this string value, string format)
     {
-        if (value == null) return false;
+        if (value is null) return false;
         return (DateTime.TryParseExact(value, format, CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out _));
     }
 

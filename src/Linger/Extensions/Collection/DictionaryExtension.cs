@@ -62,7 +62,12 @@ public static class DictionaryExtension
         ArgumentNullException.ThrowIfNull(dictionary);
         ArgumentNullException.ThrowIfNull(factory);
 
-        return dictionary.GetOrAdd(key, _ => factory());
+        if (dictionary.TryGetValue(key, out TValue? value))
+        {
+            return value;
+        }
+
+        return dictionary[key] = factory();
     }
 
     /// <summary>
@@ -136,6 +141,16 @@ public static class DictionaryExtension
         ArgumentNullException.ThrowIfNull(addFactory);
         ArgumentNullException.ThrowIfNull(updateFactory);
 
-        return dictionary.AddOrUpdate(key, _ => addFactory(), (_, v) => updateFactory(v));
+        if (dictionary.TryGetValue(key, out TValue? value))
+        {
+            value = updateFactory(value);
+        }
+        else
+        {
+            value = addFactory();
+        }
+
+        dictionary[key] = value;
+        return value;
     }
 }
