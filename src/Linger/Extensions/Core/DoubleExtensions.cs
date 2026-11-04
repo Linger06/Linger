@@ -15,13 +15,15 @@ public static class DoubleExtensions
         ReadOnlySpan<string> units = ["Bytes", "KB", "MB", "GB", "TB", "PB"];
         const double Mod = 1024.0;
         var i = 0;
-        while (contentLength >= Mod && i < units.Length - 1)
+        // 先取整再判断进位：否则 1023.6KB 取整后会显示成 "1024KB"，而不是 "1MB"
+        while (i < units.Length - 1 && Math.Round(contentLength, MidpointRounding.AwayFromZero) >= Mod)
         {
             contentLength /= Mod;
             i++;
         }
 
-        return $"{Math.Round(contentLength)}{units[i]}";
+        // 与 DecimalExtensions.Round 保持一致；默认的银行家舍入会把 2.5KB 显示成 "2KB"
+        return $"{Math.Round(contentLength, MidpointRounding.AwayFromZero)}{units[i]}";
     }
 
     /// <summary>

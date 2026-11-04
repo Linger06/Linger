@@ -33,4 +33,12 @@ public class Int64ExtensionsTests
         var result = length.FormatFileSize();
         Assert.Equal("1GB", result);
     }
+
+    [Fact]
+    public void FileSize_PromotesUnitWhenRoundedValueReachesNextUnit()
+    {
+        long length = 1048166;
+        var result = length.FormatFileSize();
+        Assert.Equal("1MB", result);
+    }
 }
