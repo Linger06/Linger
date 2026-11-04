@@ -150,11 +150,10 @@ using Linger.Helper;
 
 Guid? optionalId = null;
 bool empty = optionalId.IsNullOrEmpty();
-long numericId = Guid.NewGuid().ToInt64();
 string sortableId = GuidCode.NewId;
 ```
 
-On .NET 9 and later, use `Guid.CreateVersion7()` for time-sortable GUIDs. Do not treat converting a GUID to an integer as a collision-free database key guarantee.
+On .NET 9 and later, use `Guid.CreateVersion7()` for time-sortable GUIDs.
 
 ### Enums
 

@@ -62,28 +62,6 @@ public static class GuidExtensions
     /// <returns><c>true</c> if value has a non-empty Guid; otherwise, <c>false</c>.</returns>
     public static bool IsNotNullOrEmpty(this Guid? value) => !value.IsNullOrEmpty();
 
-    /// <summary>
-    /// Converts the specified <see cref="Guid"/> to a 64-bit integer.
-    /// </summary>
-    /// <param name="value">The <see cref="Guid"/> to convert.</param>
-    /// <returns>A 64-bit integer representation of the <see cref="Guid"/>.</returns>
-    public static long ToInt64(this Guid value)
-    {
-        var bytes = value.ToByteArray();
-        return BitConverter.ToInt64(bytes, 0);
-    }
-
-    /// <summary>
-    /// Converts the specified <see cref="Guid"/> to a 32-bit integer.
-    /// </summary>
-    /// <param name="value">The <see cref="Guid"/> to convert.</param>
-    /// <returns>A 32-bit integer representation of the <see cref="Guid"/>.</returns>
-    public static int ToInt32(this Guid value)
-    {
-        var bytes = value.ToByteArray();
-        return BitConverter.ToInt32(bytes, 0);
-    }
-
 #if NET9_0_OR_GREATER
     /// <summary>
     /// Extracts the timestamp from a version 7 GUID.

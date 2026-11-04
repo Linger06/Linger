@@ -116,22 +116,6 @@ public class GuidExtensionsTests
         Assert.False(result);
     }
 
-    [Fact]
-    public void ToInt64_ReturnsCorrectInt64Value()
-    {
-        var value = Guid.NewGuid();
-        var result = value.ToInt64();
-        Assert.Equal(BitConverter.ToInt64(value.ToByteArray(), 0), result);
-    }
-
-    [Fact]
-    public void ToInt32_ReturnsCorrectInt32Value()
-    {
-        var value = Guid.NewGuid();
-        var result = value.ToInt32();
-        Assert.Equal(BitConverter.ToInt32(value.ToByteArray(), 0), result);
-    }
-
 #if NET9_0_OR_GREATER
     [Fact]
     public void GetTimestamp_ReturnsCorrectTimestampForV7Guid()

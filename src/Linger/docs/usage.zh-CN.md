@@ -150,11 +150,10 @@ using Linger.Helper;
 
 Guid? optionalId = null;
 bool empty = optionalId.IsNullOrEmpty();
-long numericId = Guid.NewGuid().ToInt64();
 string sortableId = GuidCode.NewId;
 ```
 
-在 .NET 9 及更高版本，使用 `Guid.CreateVersion7()` 生成带时间排序特征的 GUID。不要把 GUID 转换成整数作为无碰撞的数据库主键保证。
+在 .NET 9 及更高版本，使用 `Guid.CreateVersion7()` 生成带时间排序特征的 GUID。
 
 ### 枚举
 
