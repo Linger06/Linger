@@ -31,14 +31,25 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="bool"/> type.
+    /// Determines whether the specified string can be converted to a <see cref="bool"/>.
     /// </summary>
-    /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="bool"/> type; otherwise, false.</returns>
-    public static bool IsBoolean(this string value)
-    {
-        return bool.TryParse(value, out _);
-    }
+    /// <param name="value">The string to evaluate.</param>
+    /// <returns><see langword="true"/> when conversion succeeds; otherwise, <see langword="false"/>.</returns>
+    /// <remarks>
+    /// Uses the same rules as <see cref="TryToBool(string?, out bool)"/>: besides <c>true</c>/<c>false</c>,
+    /// it accepts <c>1</c>/<c>0</c>, <c>yes</c>/<c>no</c>, <c>y</c>/<c>n</c> and <c>on</c>/<c>off</c>
+    /// (case-insensitive, surrounding whitespace ignored). Pair it with <see cref="ToBool(string?)"/> rather than
+    /// <see cref="bool.Parse(string)"/>, which only accepts <c>true</c>/<c>false</c>.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// if (input.IsBoolean())
+    /// {
+    ///     var flag = input.ToBool();
+    /// }
+    /// </code>
+    /// </example>
+    public static bool IsBoolean(this string value) => value.TryToBool(out _);
 
     /// <summary>
     /// Check if the specified string is equivalent to a <see cref="Guid"/> type.
@@ -125,7 +136,7 @@ public static partial class StringExtensions
 
         foreach (var c in s)
         {
-            if (!char.IsDigit(c))
+            if (!IsAsciiDigit(c))
             {
                 return false;
             }
@@ -168,7 +179,7 @@ public static partial class StringExtensions
 
         for (var i = startIndex; i < s.Length; i++)
         {
-            if (!char.IsDigit(s[i]))
+            if (!IsAsciiDigit(s[i]))
             {
                 return false;
             }
@@ -210,7 +221,7 @@ public static partial class StringExtensions
 
         foreach (var c in s)
         {
-            if (char.IsDigit(c))
+            if (IsAsciiDigit(c))
             {
                 if (foundDecimal)
                 {
@@ -290,12 +301,12 @@ public static partial class StringExtensions
             return false;
         }
 
-        if (!char.IsDigit(input[pos]))
+        if (!IsAsciiDigit(input[pos]))
         {
             return false;
         }
 
-        while (pos < input.Length && char.IsDigit(input[pos]))
+        while (pos < input.Length && IsAsciiDigit(input[pos]))
         {
             pos++;
         }
@@ -303,12 +314,12 @@ public static partial class StringExtensions
         if (pos < input.Length && input[pos] == '.')
         {
             pos++;
-            if (pos >= input.Length || !char.IsDigit(input[pos]))
+            if (pos >= input.Length || !IsAsciiDigit(input[pos]))
             {
                 return false;
             }
 
-            while (pos < input.Length && char.IsDigit(input[pos]))
+            while (pos < input.Length && IsAsciiDigit(input[pos]))
             {
                 pos++;
             }
@@ -326,12 +337,12 @@ public static partial class StringExtensions
             pos++;
         }
 
-        if (pos >= input.Length || !char.IsDigit(input[pos]))
+        if (pos >= input.Length || !IsAsciiDigit(input[pos]))
         {
             return false;
         }
 
-        while (pos < input.Length && char.IsDigit(input[pos]))
+        while (pos < input.Length && IsAsciiDigit(input[pos]))
         {
             pos++;
         }
@@ -349,9 +360,13 @@ public static partial class StringExtensions
     {
         if (!input.IsScientificNotation())
         {
-            throw new FormatException(nameof(input));
+            throw new FormatException($"String '{input}' is not in scientific notation.");
         }
 
         return decimal.Parse(input, NumberStyles.Float, CultureInfo.InvariantCulture);
     }
+
+    // char.IsDigit 会接受全角、阿拉伯-印度等所有 Unicode 数字，而 InvariantCulture 下的数值解析只认 ASCII 数字；
+    // char.IsAsciiDigit 仅 .NET 7+ 提供，netstandard2.0 / net472 不可用
+    private static bool IsAsciiDigit(char c) => c is >= '0' and <= '9';
 }

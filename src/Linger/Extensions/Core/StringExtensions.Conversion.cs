@@ -38,8 +38,7 @@ public static partial class StringExtensions
 
         if (!HasValidThousandsGrouping(trimmed)) return false;
 
-        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
-        return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
+        return decimal.TryParse(trimmed, NumericTextStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToShort(out result);
     }
 
@@ -91,8 +90,7 @@ public static partial class StringExtensions
 
         if (!HasValidThousandsGrouping(trimmed)) return false;
 
-        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
-        return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
+        return decimal.TryParse(trimmed, NumericTextStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToInt(out result);
     }
 
@@ -122,8 +120,7 @@ public static partial class StringExtensions
 
         if (!HasValidThousandsGrouping(trimmed)) return false;
 
-        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
-        return decimal.TryParse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture, out var dec) &&
+        return decimal.TryParse(trimmed, NumericTextStyles, CultureInfo.InvariantCulture, out var dec) &&
                dec.TryToLong(out result);
     }
 
@@ -150,8 +147,7 @@ public static partial class StringExtensions
         var trimmed = value!.Trim();
         if (!HasValidThousandsGrouping(trimmed)) return false;
 
-        const NumberStyles permissiveStyles = NumberStyles.Number | NumberStyles.AllowExponent;
-        return decimal.TryParse(trimmed, permissiveStyles, CultureInfo.InvariantCulture, out result);
+        return decimal.TryParse(trimmed, NumericTextStyles, CultureInfo.InvariantCulture, out result);
     }
 
     public static decimal ToDecimal(this string? value)
@@ -160,8 +156,7 @@ public static partial class StringExtensions
         if (value.TryToDecimal(out var result)) return result;
 
         ThrowIfInvalidThousandsGrouping(value, "Decimal");
-        const NumberStyles strictStyles = NumberStyles.Number | NumberStyles.AllowExponent;
-        return decimal.Parse(value, strictStyles, CultureInfo.InvariantCulture);
+        return decimal.Parse(value, NumericTextStyles, CultureInfo.InvariantCulture);
     }
 
     public static decimal? ToDecimalOrNull(this string? value) => value.TryToDecimal(out var r) ? r : null;
@@ -185,8 +180,19 @@ public static partial class StringExtensions
         var trimmed = value ?? string.Empty;
         if (!HasValidThousandsGrouping(trimmed.Trim())) return false;
 
-        return double.TryParse(trimmed.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-            CultureInfo.InvariantCulture, out result);
+        if (!double.TryParse(trimmed.Trim(), NumericTextStyles,
+            CultureInfo.InvariantCulture, out result))
+        {
+            return false;
+        }
+
+        if (double.IsInfinity(result) && IsOverflowedNumberText(trimmed))
+        {
+            result = 0d;
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -201,7 +207,13 @@ public static partial class StringExtensions
         if (nonNullValue.TryToDouble(out var result)) return result;
 
         ThrowIfInvalidThousandsGrouping(nonNullValue, "Double");
-        return double.Parse(nonNullValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
+        var parsed = double.Parse(nonNullValue, NumericTextStyles, CultureInfo.InvariantCulture);
+        if (double.IsInfinity(parsed))
+        {
+            throw new OverflowException("Value was either too large or too small for a Double.");
+        }
+
+        return parsed;
     }
 
     /// <summary>
@@ -237,8 +249,19 @@ public static partial class StringExtensions
         var trimmed = value ?? string.Empty;
         if (!HasValidThousandsGrouping(trimmed.Trim())) return false;
 
-        return float.TryParse(trimmed.Trim(), NumberStyles.Float | NumberStyles.AllowThousands,
-            CultureInfo.InvariantCulture, out result);
+        if (!float.TryParse(trimmed.Trim(), NumericTextStyles,
+            CultureInfo.InvariantCulture, out result))
+        {
+            return false;
+        }
+
+        if (float.IsInfinity(result) && IsOverflowedNumberText(trimmed))
+        {
+            result = 0f;
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -253,7 +276,13 @@ public static partial class StringExtensions
         if (nonNullValue.TryToFloat(out var result)) return result;
 
         ThrowIfInvalidThousandsGrouping(nonNullValue, "Single");
-        return float.Parse(nonNullValue, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
+        var parsed = float.Parse(nonNullValue, NumericTextStyles, CultureInfo.InvariantCulture);
+        if (float.IsInfinity(parsed))
+        {
+            throw new OverflowException("Value was either too large or too small for a Single.");
+        }
+
+        return parsed;
     }
 
     /// <summary>
@@ -339,10 +368,11 @@ public static partial class StringExtensions
 
     public static byte[] ToBytes(this string? value, Encoding? encoding = null)
     {
+        ArgumentNullException.ThrowIfNull(value);
         if (value.TryToBytes(encoding ?? Encoding.UTF8, out var result))
             return result;
 
-        throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-empty string input.");
+        throw new ArgumentException("Strict conversion requires a non-empty string input.", nameof(value));
     }
 
     public static byte[]? ToBytesOrNull(this string? value, Encoding? encoding = null)
@@ -374,6 +404,10 @@ public static partial class StringExtensions
 
     #endregion
 
+    // 所有数值类型共用的文本样式：允许前后空白、前导符号、小数点、千分位和指数。
+    // 刻意不用 NumberStyles.Number，它带 AllowTrailingSign，会把 "5-" 悄悄解析成 -5 而反转符号
+    private const NumberStyles NumericTextStyles = NumberStyles.Float | NumberStyles.AllowThousands;
+
     private static T ParseStrictWholeNumberText<T>(
         string value,
         decimal minValue,
@@ -388,16 +422,14 @@ public static partial class StringExtensions
         if (!HasValidThousandsGrouping(trimmed))
             throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
 
-        const NumberStyles wholeNumberStyles = NumberStyles.Number | NumberStyles.AllowExponent;
-
         decimal parsed;
         try
         {
-            parsed = decimal.Parse(trimmed, wholeNumberStyles, CultureInfo.InvariantCulture);
+            parsed = decimal.Parse(trimmed, NumericTextStyles, CultureInfo.InvariantCulture);
         }
-        catch (FormatException)
+        catch (FormatException ex)
         {
-            throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.");
+            throw new FormatException($"String '{value}' was not recognized as a valid {targetTypeName}.", ex);
         }
 
         if (parsed % 1 != 0)
@@ -419,24 +451,18 @@ public static partial class StringExtensions
         }
 
         var start = 0;
-        var end = value.Length;
-        if (end > start && (value[start] == '+' || value[start] == '-'))
+        if (value.Length > start && (value[start] == '+' || value[start] == '-'))
         {
             start++;
         }
 
-        if (end > start && (value[end - 1] == '+' || value[end - 1] == '-'))
-        {
-            end--;
-        }
-
         var integerEnd = start;
-        while (integerEnd < end && value[integerEnd] != '.' && value[integerEnd] != 'e' && value[integerEnd] != 'E')
+        while (integerEnd < value.Length && value[integerEnd] != '.' && value[integerEnd] != 'e' && value[integerEnd] != 'E')
         {
             integerEnd++;
         }
 
-        if (value.IndexOf(',', integerEnd, end - integerEnd) >= 0)
+        if (value.IndexOf(',', integerEnd, value.Length - integerEnd) >= 0)
         {
             return false;
         }
@@ -461,6 +487,21 @@ public static partial class StringExtensions
         }
 
         return groupLength == 3;
+    }
+
+    // .NET Core 3.0 起，溢出的浮点文本会被解析成 ±∞ 并返回成功，而 .NET Framework 返回失败。
+    // 含数字却得到无穷大只可能是溢出，据此统一各目标框架的行为；"Infinity" 这类符号文本不含数字，不受影响
+    private static bool IsOverflowedNumberText(string value)
+    {
+        foreach (var c in value)
+        {
+            if (IsAsciiDigit(c))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void ThrowIfInvalidThousandsGrouping(string value, string targetTypeName)

@@ -541,11 +541,14 @@ public partial class StringExtensionsTests
     [Theory]
     [InlineData("true", true)]
     [InlineData("false", true)]
-    [InlineData("1", false)]
-    [InlineData("0", false)]
-    [InlineData("yes", false)]
-    [InlineData("off", false)]
+    [InlineData("1", true)]
+    [InlineData("0", true)]
+    [InlineData("yes", true)]
+    [InlineData("off", true)]
+    [InlineData(" Y ", true)]
+    [InlineData("2", false)]
     [InlineData("abc", false)]
+    [InlineData("", false)]
     public void IsBoolean_ShouldReturnExpectedResult(string value, bool expected)
     {
         var result = value.IsBoolean();
@@ -776,6 +779,7 @@ public partial class StringExtensionsTests
     [InlineData("1.23", false)]
     [InlineData("123", false)]
     [InlineData("E123", false)]
+    [InlineData("１E+2", false)]
     [InlineData("", false)]
     [InlineData(null, false)]
     public void IsScientificNotation_ShouldReturnExpectedResult(string? input, bool expected)
@@ -1188,6 +1192,8 @@ public partial class StringExtensionsTests
     [InlineData("-123", true)]
     [InlineData("abc", false)]
     [InlineData("", false)]
+    [InlineData("１２３", false)]
+    [InlineData("-١٢", false)]
     public void IsInteger_ShouldReturnExpectedResult(string input, bool expected)
     {
         var result = input.IsInteger();
@@ -1200,6 +1206,7 @@ public partial class StringExtensionsTests
     [InlineData("-123", false)]
     [InlineData("abc", false)]
     [InlineData("", false)]
+    [InlineData("１２３", false)]
     public void IsPositiveInteger_ShouldReturnExpectedResult(string input, bool expected)
     {
         var result = input.IsPositiveInteger();
@@ -1265,6 +1272,7 @@ public partial class StringExtensionsTests
     [InlineData("123.45", true, 5, 2)]
     [InlineData("123.456", false, 5, 2)]
     [InlineData("1234567", false, 5, 0)]
+    [InlineData("１２３", false, 3, 0)]
     public void IsNumber_ShouldReturnExpectedResult(string input, bool expected, int precision, int scale)
     {
         var result = input.IsNumber(precision, scale);
@@ -1292,6 +1300,14 @@ public partial class StringExtensionsTests
 
         // Act & Assert
         Assert.Throws<FormatException>(() => input.ToDecimalForScientificNotation());
+    }
+
+    [Fact]
+    public void ToDecimalForScientificNotation_InvalidInput_ReportsInputInMessage()
+    {
+        var exception = Assert.Throws<FormatException>(() => "123".ToDecimalForScientificNotation());
+
+        Assert.Contains("'123'", exception.Message);
     }
 
     // Base64Url Tests

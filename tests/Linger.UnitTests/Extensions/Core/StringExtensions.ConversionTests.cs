@@ -740,5 +740,115 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.True(value.TryToDouble(out var result));
             Assert.Equal(expected, result);
         }
+
+        [Theory]
+        [InlineData("1e400")]
+        [InlineData("-1e400")]
+        public void TryToDouble_WithOverflowingText_Fails(string value)
+        {
+            Assert.False(value.TryToDouble(out var result));
+            Assert.Equal(0d, result);
+        }
+
+        [Theory]
+        [InlineData("1e400")]
+        [InlineData("-1e400")]
+        public void ToDouble_WithOverflowingText_ThrowsOverflowException(string value)
+        {
+            Assert.Throws<OverflowException>(() => value.ToDouble());
+        }
+
+        [Theory]
+        [InlineData("1e39")]
+        [InlineData("-1e39")]
+        public void TryToFloat_WithOverflowingText_Fails(string value)
+        {
+            Assert.False(value.TryToFloat(out var result));
+            Assert.Equal(0f, result);
+        }
+
+        [Theory]
+        [InlineData("1e39")]
+        [InlineData("-1e39")]
+        public void ToFloat_WithOverflowingText_ThrowsOverflowException(string value)
+        {
+            Assert.Throws<OverflowException>(() => value.ToFloat());
+        }
+
+        [Theory]
+        [InlineData("Infinity", double.PositiveInfinity)]
+        [InlineData("-Infinity", double.NegativeInfinity)]
+        public void TryToDouble_WithInfinitySymbol_Succeeds(string value, double expected)
+        {
+            Assert.True(value.TryToDouble(out var result));
+            Assert.Equal(expected, result);
+        }
+
+        [Fact]
+        public void ToBytes_WithEmptyString_ThrowsArgumentException()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => "".ToBytes());
+            Assert.Equal("value", exception.ParamName);
+        }
+
+        [Fact]
+        public void ToBytes_WithNull_ThrowsArgumentNullException()
+        {
+            Assert.Throws<ArgumentNullException>(() => ((string?)null).ToBytes());
+        }
+
+        // 末尾符号（"5-"）更可能是录入错误，悄悄转成 -5 会反转符号，所以所有数值类型一律拒绝
+        [Theory]
+        [InlineData("5-")]
+        [InlineData("5+")]
+        [InlineData("1,234-")]
+        [InlineData("1.5-")]
+        [InlineData("1e2-")]
+        public void NumericParsing_WithTrailingSign_Fails(string value)
+        {
+            Assert.False(value.TryToShort(out _));
+            Assert.False(value.TryToInt(out _));
+            Assert.False(value.TryToLong(out _));
+            Assert.False(value.TryToDecimal(out _));
+            Assert.False(value.TryToDouble(out _));
+            Assert.False(value.TryToFloat(out _));
+            Assert.Throws<FormatException>(() => value.ToShort());
+            Assert.Throws<FormatException>(() => value.ToInt());
+            Assert.Throws<FormatException>(() => value.ToLong());
+            Assert.Throws<FormatException>(() => value.ToDecimal());
+            Assert.Throws<FormatException>(() => value.ToDouble());
+            Assert.Throws<FormatException>(() => value.ToFloat());
+        }
+
+        [Fact]
+        public void NumericParsing_WithLeadingSignAndGrouping_StillSucceeds()
+        {
+            Assert.Equal(-1234, "-1,234".ToInt());
+            Assert.Equal(-1234.5m, "-1,234.5".ToDecimal());
+            Assert.Equal(-1234.5d, "-1,234.5".ToDouble());
+            Assert.Equal(-1234.5f, "-1,234.5".ToFloat());
+            Assert.Equal(1234, "+1,234".ToInt());
+        }
+
+        [Fact]
+        public void ToInt_WithInvalidText_PreservesOriginalExceptionAsInnerException()
+        {
+            var exception = Assert.Throws<FormatException>(() => "abc".ToInt());
+            Assert.IsType<FormatException>(exception.InnerException);
+        }
+
+        // 这些写法原先由 DateTimeConversionHelper 里的固定格式列表兜底，锁定它们以确认 InvariantCulture 的通用解析已经覆盖
+        [Theory]
+        [InlineData("1/5/2024 3:04:05 PM", 2024, 1, 5)]
+        [InlineData("12/25/2024 03:04:05 PM", 2024, 12, 25)]
+        [InlineData("2024/1/5 15:04:05", 2024, 1, 5)]
+        [InlineData("2024/12/25 3:04:05 PM", 2024, 12, 25)]
+        [InlineData("2024-01-05 15:04:05", 2024, 1, 5)]
+        [InlineData("2024/12/25 15:04:05", 2024, 12, 25)]
+        public void TryToDateTime_WithCommonLayouts_Succeeds(string value, int year, int month, int day)
+        {
+            Assert.True(value.TryToDateTime(out var result));
+            Assert.Equal(new DateTime(year, month, day, 15, 4, 5), result);
+        }
     }
 }

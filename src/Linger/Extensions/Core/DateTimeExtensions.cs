@@ -549,21 +549,7 @@ public static class DateTimeExtensions
     }
 
     [return: NotNullIfNotNull(nameof(input))]
-    public static DateTimeOffset? ToDateTimeOffset(this DateTime? input)
-    {
-        if (input is null)
-        {
-            return null;
-        }
-
-        var value = input.Value;
-        if (value.Kind == DateTimeKind.Unspecified)
-        {
-            var localDateTime = DateTime.SpecifyKind(value, DateTimeKind.Local);
-            return new DateTimeOffset(localDateTime);
-        }
-        return new DateTimeOffset(value);
-    }
+    public static DateTimeOffset? ToDateTimeOffset(this DateTime? input) => input?.ToDateTimeOffset();
 
     /// <summary>
     /// Gets the number of weeks in the specified year according to the specified culture's calendar.

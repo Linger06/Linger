@@ -85,10 +85,14 @@ public static class ObjectExtensions
                 return str.TryToShort(out result);
             case decimal dec:
                 return dec.TryToShort(out result);
-            case double db:
-                return TryConvertToWholeNumber(db, short.MinValue, out result);
-            case float fl:
-                return TryConvertToWholeNumber(fl, short.MinValue, out result);
+            case double db when IsWholeNumberInRange(db, short.MinValue):
+                result = (short)db;
+                return true;
+            case float fl when IsWholeNumberInRange(fl, short.MinValue):
+                result = (short)fl;
+                return true;
+            case double or float:
+                return false;
         }
 
         if (TryGetIntegralValue(value, out var integral))
@@ -132,10 +136,14 @@ public static class ObjectExtensions
                 return str.TryToLong(out result);
             case decimal dec:
                 return dec.TryToLong(out result);
-            case double db:
-                return TryConvertToWholeNumber(db, long.MinValue, out result);
-            case float fl:
-                return TryConvertToWholeNumber(fl, long.MinValue, out result);
+            case double db when IsWholeNumberInRange(db, long.MinValue):
+                result = (long)db;
+                return true;
+            case float fl when IsWholeNumberInRange(fl, long.MinValue):
+                result = (long)fl;
+                return true;
+            case double or float:
+                return false;
         }
 
         if (TryGetIntegralValue(value, out var integral))
@@ -337,7 +345,7 @@ public static class ObjectExtensions
                 result = (float)db;
                 return true;
             case double:
-                // 超出 float 范围：不能落到下面的字符串回退，否则 "1E+39" 会被解析成无穷大
+                // 超出 float 范围：直接判失败，不必再格式化成字符串走下面的回退解析
                 return false;
             case decimal dec:
                 result = (float)dec;
@@ -423,10 +431,14 @@ public static class ObjectExtensions
                 return str.TryToInt(out result);
             case decimal dec:
                 return dec.TryToInt(out result);
-            case double db:
-                return TryConvertToWholeNumber(db, int.MinValue, out result);
-            case float fl:
-                return TryConvertToWholeNumber(fl, int.MinValue, out result);
+            case double db when IsWholeNumberInRange(db, int.MinValue):
+                result = (int)db;
+                return true;
+            case float fl when IsWholeNumberInRange(fl, int.MinValue):
+                result = (int)fl;
+                return true;
+            case double or float:
+                return false;
         }
 
         if (TryGetIntegralValue(value, out var integral))
@@ -503,7 +515,7 @@ public static class ObjectExtensions
                 return true;
             case string str:
                 return str.TryToDateTime(out result);
-#if NETCOREAPP
+#if NET6_0_OR_GREATER
             case DateOnly dOnly:
                 result = dOnly.ToDateTime(TimeOnly.MinValue);
                 return true;
@@ -518,22 +530,12 @@ public static class ObjectExtensions
     {
         if (value is null || value is DBNull)
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
-
-        switch (value)
-        {
-            case DateTimeOffset dto:
-                return dto.UtcDateTime;
-            case string str:
-                return str.ToDateTime();
-#if NETCOREAPP
-            case DateOnly dOnly:
-                return dOnly.ToDateTime(TimeOnly.MinValue);
-#endif
-        }
-
         if (value.TryToDateTime(out var result)) return result;
 
-        return Convert.ToDateTime(value, CultureInfo.InvariantCulture);
+        // 字符串走严格解析，抛出带原文的 FormatException；其他类型交给 Convert 判断是否支持
+        return value is string str
+            ? str.ToDateTime()
+            : Convert.ToDateTime(value, CultureInfo.InvariantCulture);
     }
 
     public static DateTime? ToDateTimeOrNull(this object? value) => value.TryToDateTime(out var r) ? r : null;
@@ -580,7 +582,7 @@ public static class ObjectExtensions
 
         if (value is string str)
         {
-            return Convert.ToBoolean(str, CultureInfo.InvariantCulture);
+            return str.ToBool();
         }
 
         if (value is decimal or double or float || (value is not Enum && TryGetIntegralValue(value, out _)))
@@ -623,89 +625,16 @@ public static class ObjectExtensions
             throw new ArgumentNullException(nameof(value), "Strict conversion requires a non-null input.");
         if (value.TryToGuid(out var result)) return result;
 
-        if (value is byte[] bytes)
-            throw new FormatException($"Byte array length must be exactly 16 bytes to convert to Guid. Actual length: {bytes.Length}");
-
-        var finalStr = value.ToString();
-        if (finalStr is null)
-            throw new InvalidCastException($"Cannot convert type {value.GetType().FullName} to Guid.");
-        return Guid.Parse(finalStr);
+        return value switch
+        {
+            string str => str.ToGuid(),
+            byte[] bytes => throw new FormatException($"Byte array length must be exactly 16 bytes to convert to Guid. Actual length: {bytes.Length}"),
+            _ => throw new InvalidCastException($"Cannot convert a value of type '{value.GetType().FullName}' to Guid."),
+        };
     }
 
     public static Guid? ToGuidOrNull(this object? value) => value.TryToGuid(out var r) ? r : null;
     public static Guid ToGuidOrDefault(this object? value, Guid defaultValue = default) => value.TryToGuid(out var r) ? r : defaultValue;
-
-    private static bool TryConvertToWholeNumber(double value, short minValue, out short result)
-    {
-        if (IsWholeNumberInRange(value, minValue))
-        {
-            result = (short)value;
-            return true;
-        }
-
-        result = 0;
-        return false;
-    }
-
-    private static bool TryConvertToWholeNumber(float value, short minValue, out short result)
-    {
-        if (IsWholeNumberInRange(value, minValue))
-        {
-            result = (short)value;
-            return true;
-        }
-
-        result = 0;
-        return false;
-    }
-
-    private static bool TryConvertToWholeNumber(double value, int minValue, out int result)
-    {
-        if (IsWholeNumberInRange(value, minValue))
-        {
-            result = (int)value;
-            return true;
-        }
-
-        result = 0;
-        return false;
-    }
-
-    private static bool TryConvertToWholeNumber(float value, int minValue, out int result)
-    {
-        if (IsWholeNumberInRange(value, minValue))
-        {
-            result = (int)value;
-            return true;
-        }
-
-        result = 0;
-        return false;
-    }
-
-    private static bool TryConvertToWholeNumber(double value, long minValue, out long result)
-    {
-        if (IsWholeNumberInRange(value, minValue))
-        {
-            result = (long)value;
-            return true;
-        }
-
-        result = 0;
-        return false;
-    }
-
-    private static bool TryConvertToWholeNumber(float value, long minValue, out long result)
-    {
-        if (IsWholeNumberInRange(value, minValue))
-        {
-            result = (long)value;
-            return true;
-        }
-
-        result = 0;
-        return false;
-    }
 
     private static TResult ConvertToWholeNumberOrThrow<TResult>(
         double value,
@@ -714,7 +643,10 @@ public static class ObjectExtensions
         string targetTypeName,
         Func<double, TResult> converter)
     {
-        if (double.IsNaN(value) || double.IsInfinity(value) || value % 1 != 0)
+        // NaN 和无穷大不是"带小数"而是不可表示，与 Convert.ToInt32(double.NaN) 一致按溢出处理
+        if (double.IsNaN(value) || double.IsInfinity(value))
+            throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
+        if (value % 1 != 0)
             throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' cannot be converted to {targetTypeName} because it contains a fractional part.");
         if (value < minValue || value >= -minValue)
             throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
@@ -728,7 +660,9 @@ public static class ObjectExtensions
         string targetTypeName,
         Func<float, TResult> converter)
     {
-        if (float.IsNaN(value) || float.IsInfinity(value) || value % 1 != 0)
+        if (float.IsNaN(value) || float.IsInfinity(value))
+            throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");
+        if (value % 1 != 0)
             throw new InvalidCastException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' cannot be converted to {targetTypeName} because it contains a fractional part.");
         if (value < minValue || value >= -minValue)
             throw new OverflowException($"The {sourceTypeName.ToLowerInvariant()} value '{FormatInvariant(value)}' is outside the range of {targetTypeName}.");

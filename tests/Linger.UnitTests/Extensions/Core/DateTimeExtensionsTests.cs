@@ -840,6 +840,18 @@ public partial class DateTimeExtensionsTests
     }
 
     [Fact]
+    public void ToDateTimeOffset_WithNullableUnspecifiedKind_ConvertsToLocalDateTimeOffset()
+    {
+        DateTime? dateTime = new DateTime(2023, 4, 15, 14, 30, 25, DateTimeKind.Unspecified);
+
+        var result = dateTime.ToDateTimeOffset();
+
+        Assert.NotNull(result);
+        Assert.Equal(TimeZoneInfo.Local.GetUtcOffset(dateTime.Value), result.Value.Offset);
+        Assert.Equal(dateTime.Value, result.Value.DateTime);
+    }
+
+    [Fact]
     public void GetWeekCountOfYear_ReturnsCorrectWeekCount()
     {
         // Act

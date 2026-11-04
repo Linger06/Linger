@@ -864,5 +864,48 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Throws<InvalidCastException>(() => ((object)(ushort)5).ToBool());
             Assert.Throws<InvalidCastException>(() => ((object)DayOfWeek.Tuesday).ToBool());
         }
+
+        [Theory]
+        [InlineData(double.NaN)]
+        [InlineData(double.PositiveInfinity)]
+        [InlineData(double.NegativeInfinity)]
+        [InlineData(float.NaN)]
+        [InlineData(float.PositiveInfinity)]
+        public void WholeNumberFamilies_ThrowOverflowException_ForNonFiniteInput(object input)
+        {
+            Assert.Throws<OverflowException>(() => input.ToShort());
+            Assert.Throws<OverflowException>(() => input.ToInt());
+            Assert.Throws<OverflowException>(() => input.ToLong());
+        }
+
+        [Fact]
+        public void ToGuid_ThrowsInvalidCastException_ForUnsupportedType()
+        {
+            Assert.Throws<InvalidCastException>(() => ((object)123).ToGuid());
+        }
+
+        [Fact]
+        public void ToGuid_ThrowsFormatException_ForInvalidString()
+        {
+            Assert.Throws<FormatException>(() => ((object)"invalid").ToGuid());
+        }
+
+        [Fact]
+        public void ToGuid_ThrowsFormatException_ForByteArrayWithWrongLength()
+        {
+            Assert.Throws<FormatException>(() => ((object)new byte[3]).ToGuid());
+        }
+
+        [Fact]
+        public void ToDateTime_ThrowsInvalidCastException_ForUnsupportedType()
+        {
+            Assert.Throws<InvalidCastException>(() => ((object)42).ToDateTime());
+        }
+
+        [Fact]
+        public void ToBool_ThrowsFormatException_ForUnrecognizedString()
+        {
+            Assert.Throws<FormatException>(() => ((object)"maybe").ToBool());
+        }
     }
 }
