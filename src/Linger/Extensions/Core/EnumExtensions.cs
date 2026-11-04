@@ -65,11 +65,12 @@ public static class EnumExtensions
     /// <returns>The enum name, or null if not found.</returns>
     public static string? GetEnumName<T>(this int itemValue) where T : struct, Enum
     {
-        if (!Enum.IsDefined(typeof(T), itemValue))
+        if (!Helper.EnumConversionHelper.TryConvertToEnum(itemValue, typeof(T), out var result))
+        {
             return null;
+        }
 
-        var enumValue = (T)Enum.ToObject(typeof(T), itemValue);
-        return enumValue.ToString();
+        return result?.ToString();
     }
 
     /// <summary>

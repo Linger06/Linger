@@ -153,6 +153,23 @@ public class TypeConverterTests
     }
 
     [Fact]
+    public void TryConvert_Int64ToInt32BackedEnum_ReturnsConvertedValue()
+    {
+        AssertConversion(5L, DayOfWeek.Friday);
+    }
+
+    [Theory]
+    [InlineData(5.0)]
+    [InlineData(true)]
+    public void TryConvert_NonIntegralValueToEnum_ReturnsFalse(object value)
+    {
+        var success = TypeConverter.TryConvert(value, typeof(DayOfWeek), out var result);
+
+        Assert.False(success);
+        Assert.Null(result);
+    }
+
+    [Fact]
     public void TryConvert_StringToNullableTypes_ReturnsConvertedValues()
     {
         AssertConversion("123", (int?)123);

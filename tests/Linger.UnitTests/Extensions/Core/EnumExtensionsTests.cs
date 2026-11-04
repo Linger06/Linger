@@ -18,6 +18,19 @@ public class EnumExtensionsTests
         ValueTwo = 2
     }
 
+    private enum ByteBackedEnum : byte
+    {
+        Low = 1,
+
+        // 300 截断成 byte 后正好是 44，用来验证越界值不会被静默截断成合法值
+        Truncated = 44
+    }
+
+    private enum LongBackedEnum : long
+    {
+        Big = 1
+    }
+
     [Fact]
     [Trait("GetEnum", "itemName")]
     public void GetEnum_EnumName_ReturnCorrespondEnum()
@@ -159,6 +172,36 @@ public class EnumExtensionsTests
         var itemValue = 99;
         var result = itemValue.GetEnumName<TestEnum>();
         Assert.Null(result);
+    }
+
+    [Fact]
+    public void GetEnum_ReturnsCorrectEnumForInt_WhenUnderlyingTypeIsByte()
+    {
+        var result = 1.GetEnum<ByteBackedEnum>();
+        Assert.Equal(ByteBackedEnum.Low, result);
+    }
+
+    [Fact]
+    public void TryGetEnum_Int_Succeeds_WhenUnderlyingTypeIsLong()
+    {
+        var ok = 1.TryGetEnum<LongBackedEnum>(out var value);
+        Assert.True(ok);
+        Assert.Equal(LongBackedEnum.Big, value);
+    }
+
+    [Fact]
+    public void TryGetEnum_Int_Fails_WhenValueIsOutOfUnderlyingRange()
+    {
+        var ok = 300.TryGetEnum<ByteBackedEnum>(out var value);
+        Assert.False(ok);
+        Assert.Equal(default, value);
+    }
+
+    [Fact]
+    public void GetEnumName_ReturnsCorrectName_WhenUnderlyingTypeIsByte()
+    {
+        var result = 1.GetEnumName<ByteBackedEnum>();
+        Assert.Equal("Low", result);
     }
 
 }

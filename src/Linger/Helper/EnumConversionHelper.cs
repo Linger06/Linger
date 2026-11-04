@@ -44,17 +44,30 @@ internal static class EnumConversionHelper
             return true;
         }
 
+        // Enum.IsDefined 只接受整数类型，且要求类型与枚举底层类型完全一致：long 传给 int 枚举会抛 ArgumentException，
+        // double、decimal、bool 会抛 InvalidOperationException。所以只放行整数，并先换算到底层类型
+        if (value is not (sbyte or byte or short or ushort or int or uint or long or ulong))
+        {
+            return false;
+        }
+
         try
         {
-            if (!Enum.IsDefined(enumType, value))
+            // 不用 Enum.ToObject 直接换算：它会静默截断越界值（如 300 变成 byte 枚举的 44），Convert.ChangeType 则会抛 OverflowException
+            var underlyingValue = Convert.ChangeType(value, Enum.GetUnderlyingType(enumType), CultureInfo.InvariantCulture);
+            if (!Enum.IsDefined(enumType, underlyingValue))
             {
                 return false;
             }
 
-            result = Enum.ToObject(enumType, value);
+            result = Enum.ToObject(enumType, underlyingValue);
             return true;
         }
         catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (OverflowException)
         {
             return false;
         }
