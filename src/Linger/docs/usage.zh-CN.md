@@ -287,10 +287,11 @@ bool directoryExists = PathExtensions.Exists("data", checkAsFile: false);
 using Linger.Extensions.IO;
 
 using var source = File.OpenRead("source.bin");
-await source.ToFileAsync("backup/source.bin", cancellationToken);
+byte[] hash = await source.ToMd5HashByteAsync(cancellationToken);
 ```
 
-异步流操作应传递取消令牌。`ToFileAsync` 会创建目标目录并覆盖目标文件；对不可重复读取的流，调用前应确认当前位置和重试策略。
+异步流操作应传递取消令牌。`ToMd5HashByteAsync` 仅在 .NET 6 及更高版本提供，从流的当前位置开始读取；对不可重复读取的流，重试前应确认当前位置。
+将流写入文件请直接使用 `File.Create` 和 `Stream.CopyToAsync`。
 
 ## 认证加密
 
@@ -305,6 +306,8 @@ string decrypted = encrypted.AesDecryptAuthenticated(key);
 ```
 
 该格式使用 PBKDF2-SHA256 派生加密密钥和认证密钥，随机生成 salt 与 IV，并使用 HMAC-SHA256 校验完整性。相同明文和密钥每次产生的密文不应相同。
+
+.NET Standard 2.0 构建不提供这些 API，请以 .NET 8 及更高版本或 .NET Framework 4.7.2 为目标框架。
 
 使用约定：
 

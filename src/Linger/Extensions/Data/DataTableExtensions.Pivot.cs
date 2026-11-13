@@ -1,4 +1,5 @@
 using Linger.Extensions.Core;
+using System.Globalization;
 
 namespace Linger.Extensions.Data;
 
@@ -12,6 +13,10 @@ public static partial class DataTableExtensions
     /// <param name="captionColumns">The columns to use as new column names.</param>
     /// <param name="valueColumn">The column containing the values.</param>
     /// <returns>A new <see cref="DataTable"/> with rows converted to columns.</returns>
+    /// <remarks>
+    /// 忽略 Deleted 行。标题使用固定区域性格式；空字符串生成 EMPTY，空值生成 NULL。
+    /// 不同标题生成同名列时抛出 DuplicateNameException。分组键按序数、区分大小写比较。
+    /// </remarks>
     public static DataTable TableRowTurnToColumn(this DataTable source, DataColumn[] groupColumns,
         DataColumn[] captionColumns, DataColumn valueColumn)
     {
@@ -35,7 +40,7 @@ public static partial class DataTableExtensions
         var groupedRows = new Dictionary<object?[], DataRow>(ColumnValueArrayComparer.Instance);
 
         // 分组处理数据
-        foreach (DataRow sourceRow in source.Rows)
+        foreach (var sourceRow in EnumerateCurrentRows(source))
         {
             var resultRow = GetOrCreatePivotRow(sourceRow, resultTable, groupedRows, groupColumns);
             AccumulatePivotValue(sourceRow, resultRow, resultTable, captionColumns, valueColumn);
@@ -89,7 +94,7 @@ public static partial class DataTableExtensions
         DataColumn[] captionColumns)
     {
         var captionValuesByName = new Dictionary<string, object?[]>(StringComparer.OrdinalIgnoreCase);
-        foreach (DataRow row in source.Rows)
+        foreach (var row in EnumerateCurrentRows(source))
         {
             var captionValues = GetColumnValues(row, captionColumns);
             var captionName = FormatCaptionValue(captionValues);
@@ -111,11 +116,6 @@ public static partial class DataTableExtensions
 
     private static void AddPivotCaptionColumn(DataTable resultTable, string captionName)
     {
-        if (string.IsNullOrEmpty(captionName))
-        {
-            return;
-        }
-
         if (resultTable.Columns.Contains(captionName))
         {
             throw new DuplicateNameException(captionName);
@@ -158,7 +158,7 @@ public static partial class DataTableExtensions
     {
         var captionName = FormatCaptionValue(GetColumnValues(sourceRow, captionColumns));
         var cellValue = sourceRow[valueColumn.ColumnName];
-        if (!resultTable.Columns.Contains(captionName) || cellValue is DBNull)
+        if (cellValue is DBNull)
         {
             return;
         }
@@ -187,15 +187,20 @@ public static partial class DataTableExtensions
         var captionParts = new List<string>();
         foreach (var value in captionValues)
         {
-            // 确保null和DBNull值也能生成有效的列名
-            var stringValue = value?.ToString() ?? "NULL";
+            // 固定列名格式，避免当前区域性改变输出表结构。
+            var stringValue = value is null ? "NULL" : Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+            if (stringValue.Length == 0)
+            {
+                stringValue = "EMPTY";
+            }
 
             // 替换可能导致列名无效的字符
             stringValue = SanitizeColumnName(stringValue);
             captionParts.Add(stringValue);
         }
 
-        return string.Join("_", captionParts);
+        // 没有标题列时仍需承接聚合值，不能因空列名静默丢弃。
+        return captionParts.Count == 0 ? "EMPTY" : string.Join("_", captionParts);
     }
 
     // 净化列名，替换无效字符
@@ -266,6 +271,7 @@ public static partial class DataTableExtensions
     /// <param name="pageIndex">The page index (1-based).</param>
     /// <param name="pageSize">The number of rows per page.</param>
     /// <returns>A new <see cref="DataTable"/> containing the paginated rows.</returns>
+    /// <remarks>Deleted 行不计入页容量；不改变源表的行状态。</remarks>
     public static DataTable? Paging(this DataTable? dt, int pageIndex, int pageSize)
     {
         if (dt.IsNull())
@@ -284,7 +290,7 @@ public static partial class DataTableExtensions
             return result;
         }
 
-        IEnumerable<DataRow> rows = dt.AsEnumerable().Skip((int)offset).Take(pageSize);
+        IEnumerable<DataRow> rows = EnumerateCurrentRows(dt).Skip((int)offset).Take(pageSize);
         foreach (DataRow item in rows)
         {
             result.ImportRow(item);

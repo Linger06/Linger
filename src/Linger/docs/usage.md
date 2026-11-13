@@ -287,10 +287,11 @@ bool directoryExists = PathExtensions.Exists("data", checkAsFile: false);
 using Linger.Extensions.IO;
 
 using var source = File.OpenRead("source.bin");
-await source.ToFileAsync("backup/source.bin", cancellationToken);
+byte[] hash = await source.ToMd5HashByteAsync(cancellationToken);
 ```
 
-Pass a cancellation token to asynchronous stream operations. `ToFileAsync` creates the destination directory and overwrites the destination file. For non-repeatable streams, confirm the position and retry behavior before retrying an operation.
+Pass a cancellation token to asynchronous stream operations. `ToMd5HashByteAsync` is available on .NET 6 and later and reads from the stream's current position. For non-repeatable streams, confirm the position before retrying an operation.
+To write a stream to a file, use `File.Create` and `Stream.CopyToAsync` directly.
 
 ## Authenticated encryption
 
@@ -305,6 +306,8 @@ string decrypted = encrypted.AesDecryptAuthenticated(key);
 ```
 
 The format derives separate encryption and authentication keys with PBKDF2-SHA256, generates a random salt and IV, and authenticates the payload with HMAC-SHA256. Encrypting the same plaintext with the same key should produce different ciphertext each time.
+
+These APIs are not available in the .NET Standard 2.0 build. Target .NET 8 or later, or .NET Framework 4.7.2.
 
 Usage rules:
 

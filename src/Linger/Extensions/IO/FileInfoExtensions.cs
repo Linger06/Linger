@@ -58,12 +58,17 @@ public static partial class FileInfoExtensions
     /// Changes the file's extension.
     /// </summary>
     /// <param name="file">The file.</param>
-    /// <param name="newExtension">The new extension.</param>
+    /// <param name="newExtension">The new extension. An empty string removes the extension.</param>
     /// <returns>The renamed file.</returns>
     public static FileInfo ChangeExtension(this FileInfo file, string newExtension)
     {
-        newExtension = newExtension.EnsureStartsWith(".");
+        if (newExtension != string.Empty)
+        {
+            newExtension = newExtension.EnsureStartsWith(".");
+        }
+
         var fileName = string.Concat(Path.GetFileNameWithoutExtension(file.FullName), newExtension);
+
         return file.Rename(fileName);
     }
 

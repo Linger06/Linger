@@ -211,7 +211,7 @@ public void ProcessData(string data, IEnumerable<int> values)
 | 集合和数组 | `IEnumerableExtensions`、`ListExtensions`、`ArrayExtensions` |
 | DataTable | `DataTableExtensions` 的显式 mapper/factory API |
 | 文件和路径 | `FileHelper`、`PathHelper`、`PathExtensions` |
-| 加密 | `AesEncryptAuthenticated`、`AesDecryptAuthenticated` |
+| 加密 | `AesEncryptAuthenticated`、`AesDecryptAuthenticated`（.NET Standard 2.0 构建不提供） |
 | GUID 和枚举 | `GuidCode`、GUID 扩展、`EnumExtensions` |
 | 重试 | `RetryHelper`、`RetryOptions` |
 | 参数验证 | `ThrowIfNull`、`ThrowIfNullOrEmpty`、`ThrowIfNullOrWhiteSpace` |

@@ -152,6 +152,17 @@ public class FileInfoExtensionsTests : IDisposable
     }
 
     [Fact]
+    public void ChangeExtension_WithEmptyExtension_RemovesExtension()
+    {
+        string filePath = CreateTestFile("test.txt");
+
+        var renamedFile = new FileInfo(filePath).ChangeExtension(string.Empty);
+
+        Assert.Equal("test", renamedFile.Name);
+        Assert.Equal("Test Content", File.ReadAllText(Path.Combine(_testDirectory, "test")));
+    }
+
+    [Fact]
     public void ChangeExtensions_ShouldChangeMultipleFileExtensions()
     {
         var filePaths = new[]

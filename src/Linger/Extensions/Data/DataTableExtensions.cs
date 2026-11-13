@@ -33,6 +33,11 @@ public static partial class DataTableExtensions
 
         for (var i = dt.Rows.Count - 1; i >= 0; i--)
         {
+            if (dt.Rows[i].RowState == DataRowState.Deleted)
+            {
+                continue;
+            }
+
             var emptyColumnCount = 0;
             for (var j = 0; j < dt.Columns.Count; j++)
             {
@@ -95,7 +100,8 @@ public static partial class DataTableExtensions
     /// </example>
     public static DataTable Sort(this DataTable sourceTable, string sortingExpression)
     {
-        var view = new DataView(sourceTable) { Sort = sortingExpression };
+        using var view = new DataView(sourceTable) { Sort = sortingExpression };
+
         return view.ToTable();
     }
 
@@ -113,7 +119,9 @@ public static partial class DataTableExtensions
     /// </example>
     public static DataTable Distinct(this DataTable sourceTable, string[] distinctColumns)
     {
-        return new DataView(sourceTable).ToTable(true, distinctColumns);
+        using var view = new DataView(sourceTable);
+
+        return view.ToTable(true, distinctColumns);
     }
 
     /// <summary>
@@ -129,15 +137,29 @@ public static partial class DataTableExtensions
     /// </code>
     /// </example>
     /// <exception cref="InvalidCastException">A non-null column value cannot be converted to <see cref="double"/>.</exception>
+    /// <exception cref="ArgumentException">The specified column does not exist.</exception>
+    /// <remarks>忽略 Deleted 行，不改变源表的行状态。</remarks>
     public static double Sum(this DataTable sourceTable, string columnName)
     {
         ArgumentNullException.ThrowIfNull(sourceTable);
         ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
 
+        var column = sourceTable.Columns[columnName];
+        if (column is null)
+        {
+            throw new ArgumentException(null, nameof(columnName));
+        }
+
         var sum = 0d;
         for (var rowIndex = 0; rowIndex < sourceTable.Rows.Count; rowIndex++)
         {
-            var value = sourceTable.Rows[rowIndex][columnName];
+            var row = sourceTable.Rows[rowIndex];
+            if (row.RowState == DataRowState.Deleted)
+            {
+                continue;
+            }
+
+            var value = row[column];
             if (value is DBNull)
             {
                 continue;
@@ -161,6 +183,7 @@ public static partial class DataTableExtensions
     /// <param name="dataTable1">The first <see cref="DataTable"/>.</param>
     /// <param name="dataTable2">The second <see cref="DataTable"/>.</param>
     /// <returns>A new <see cref="DataTable"/> that contains the combined rows of both tables.</returns>
+    /// <remarks>只合并当前行，忽略 Deleted 行。</remarks>
     /// <example>
     /// <code>
     /// DataTable table1 = GetDataTable1();
@@ -176,12 +199,12 @@ public static partial class DataTableExtensions
         ValidateCompatibleTableSchema(dataTable1, dataTable2);
 
         DataTable newDataTable = dataTable1.Clone();
-        foreach (DataRow row in dataTable1.Rows)
+        foreach (var row in EnumerateCurrentRows(dataTable1))
         {
             newDataTable.Rows.Add(row.ItemArray);
         }
 
-        foreach (DataRow row in dataTable2.Rows)
+        foreach (var row in EnumerateCurrentRows(dataTable2))
         {
             newDataTable.Rows.Add(row.ItemArray);
         }
@@ -215,6 +238,7 @@ public static partial class DataTableExtensions
     /// </summary>
     /// <param name="dataTable">The <see cref="DataTable"/> to check.</param>
     /// <param name="columnString">A comma-separated string of column names to check for.</param>
+    /// <remarks>优先匹配原始列名；未匹配时去除名称两端空白后再查找。</remarks>
     /// <returns><c>true</c> if the <see cref="DataTable"/> contains all specified columns; otherwise, <c>false</c>.</returns>
     /// <example>
     /// <code>
@@ -224,11 +248,14 @@ public static partial class DataTableExtensions
     /// </example>
     public static bool ContainAllColumns(this DataTable dataTable, string columnString)
     {
+        ArgumentNullException.ThrowIfNull(dataTable);
+        ArgumentNullException.ThrowIfNull(columnString);
+
         var array = columnString.Split(',');
         var flag = true;
         foreach (var item in array)
         {
-            if (!dataTable.Columns.Contains(item))
+            if (!dataTable.Columns.Contains(item) && !dataTable.Columns.Contains(item.Trim()))
             {
                 flag = false;
                 break;
@@ -262,6 +289,7 @@ public static partial class DataTableExtensions
     /// </code>
     /// </example>
     /// <exception cref="ArgumentException">Thrown when the specified columns are not found in the respective tables.</exception>
+    /// <remarks>忽略 Deleted 行。字符串键按序数、区分大小写比较，不受 DataTable.CaseSensitive 影响。</remarks>
     public static DataTable Join(this DataTable left, DataTable right, DataColumn[] leftCols, DataColumn[] rightCols,
         bool includeLeftJoin, bool includeRightJoin)
     {
@@ -291,7 +319,7 @@ public static partial class DataTableExtensions
         result.BeginLoadData();
         try
         {
-            foreach (DataRow leftRow in left.Rows)
+            foreach (var leftRow in EnumerateCurrentRows(left))
             {
                 var key = GetJoinKey(leftRow, leftCols);
                 if (key is not null && rightLookup.TryGetValue(key, out var rightRows))
@@ -313,7 +341,7 @@ public static partial class DataTableExtensions
 
             if (matchedRightRows is not null)
             {
-                foreach (DataRow rightRow in right.Rows)
+                foreach (var rightRow in EnumerateCurrentRows(right))
                 {
                     if (!matchedRightRows.Contains(rightRow))
                     {
@@ -366,7 +394,7 @@ public static partial class DataTableExtensions
     private static Dictionary<object?[], List<DataRow>> BuildJoinLookup(DataTable table, DataColumn[] columns)
     {
         var lookup = new Dictionary<object?[], List<DataRow>>(ColumnValueArrayComparer.Instance);
-        foreach (DataRow row in table.Rows)
+        foreach (var row in EnumerateCurrentRows(table))
         {
             var key = GetJoinKey(row, columns);
             if (key is null)
@@ -488,7 +516,7 @@ public static partial class DataTableExtensions
         }
 
         var result = new List<T>(dataTable.Rows.Count);
-        foreach (DataRow row in dataTable.Rows)
+        foreach (var row in EnumerateCurrentRows(dataTable))
         {
             result.Add(map(row));
         }
@@ -623,7 +651,7 @@ public static partial class DataTableExtensions
         }
 
         var result = new List<T>(dataTable.Rows.Count);
-        foreach (DataRow row in dataTable.Rows)
+        foreach (var row in EnumerateCurrentRows(dataTable))
         {
             var item = factory();
             foreach (var mapping in columnMappings)
@@ -636,6 +664,18 @@ public static partial class DataTableExtensions
         }
 
         return result;
+    }
+
+    private static IEnumerable<DataRow> EnumerateCurrentRows(DataTable table)
+    {
+        // 保留待提交的删除记录，只在读取当前值的运算中排除它们。
+        foreach (DataRow row in table.Rows)
+        {
+            if (row.RowState != DataRowState.Deleted)
+            {
+                yield return row;
+            }
+        }
     }
 
     private static bool IsNullableOrReferenceType(Type type)

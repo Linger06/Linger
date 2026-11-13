@@ -211,7 +211,7 @@ public void ProcessData(string data, IEnumerable<int> values)
 | Collections and arrays | `IEnumerableExtensions`, `ListExtensions`, `ArrayExtensions` |
 | DataTable | Explicit mapper and factory APIs in `DataTableExtensions` |
 | Files and paths | `FileHelper`, `PathHelper`, `PathExtensions` |
-| Encryption | `AesEncryptAuthenticated`, `AesDecryptAuthenticated` |
+| Encryption | `AesEncryptAuthenticated`, `AesDecryptAuthenticated` (not available in the .NET Standard 2.0 build) |
 | GUIDs and enums | `GuidCode`, GUID extensions, `EnumExtensions` |
 | Retries | `RetryHelper`, `RetryOptions` |
 | Argument validation | `ThrowIfNull`, `ThrowIfNullOrEmpty`, `ThrowIfNullOrWhiteSpace` |

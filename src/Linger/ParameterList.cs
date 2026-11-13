@@ -95,6 +95,8 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// <param name="key">The key of the parameter.</param>
     /// <returns>The value of the parameter.</returns>
     /// <exception cref="KeyNotFoundException">Thrown when the key does not exist in the parameter list.</exception>
+    /// <exception cref="InvalidCastException">The value is null or is not assignable to <typeparamref name="T"/>.</exception>
+    /// <remarks>Values are retrieved by direct type match; numeric and enum conversions are not performed.</remarks>
     public T Get<T>(string key)
     {
         if (!Parameters.TryGetValue(key, out var value))
@@ -102,7 +104,13 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
             throw new KeyNotFoundException($"The key '{key}' does not exist in the parameter list.");
         }
 
-        return (T)value;
+        if (value is T typedValue)
+        {
+            return typedValue;
+        }
+
+        throw new InvalidCastException(
+            $"The value for key '{key}' is not assignable to '{typeof(T).FullName}'.");
     }
 
     /// <summary>
@@ -112,6 +120,7 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// <param name="key">The key of the parameter.</param>
     /// <param name="defaultValue">The default value to return if the key does not exist.</param>
     /// <returns>The value of the parameter or the default value.</returns>
+    /// <remarks>Returns <paramref name="defaultValue"/> when the key is absent or its value is null or not assignable to <typeparamref name="T"/>. No type conversion is performed.</remarks>
     public T? GetOrDefault<T>(string key, T? defaultValue = default) where T : class
     {
         return TryGet(key, out T? value) ? value : defaultValue;
@@ -124,6 +133,7 @@ public class ParameterList : IEnumerable<KeyValuePair<string, object>>
     /// <param name="key">The key of the parameter.</param>
     /// <param name="defaultValue">The default value to return if the key does not exist.</param>
     /// <returns>The value of the parameter or the default value.</returns>
+    /// <remarks>Returns <paramref name="defaultValue"/> when the key is absent or its value is null or not assignable to <typeparamref name="T"/>. No type conversion is performed.</remarks>
     public T GetValueOrDefault<T>(string key, T defaultValue = default) where T : struct
     {
         return TryGetValue(key, out T value) ? value : defaultValue;
