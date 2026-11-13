@@ -247,14 +247,14 @@ public static class DateTimeExtensions
     /// <summary>
     /// Gets the total number of days in the specified year using the specified culture's calendar.
     /// </summary>
-    /// <param name="year">The year to get the day count for.</param>
-    /// <param name="culture">The culture whose calendar to use.</param>
+    /// <param name="year">The year in the selected calendar's current era.</param>
+    /// <param name="culture">The culture whose DateTimeFormat calendar to use.</param>
     /// <returns>The number of days in the year.</returns>
     public static int GetDays(int year, CultureInfo culture)
     {
-        var first = new DateTime(year, 1, 1, culture.Calendar);
-        var last = new DateTime(year + 1, 1, 1, culture.Calendar);
-        return first.GetDays(last);
+        ArgumentNullException.ThrowIfNull(culture);
+
+        return culture.DateTimeFormat.Calendar.GetDaysInYear(year);
     }
 
     /// <summary>
@@ -268,14 +268,17 @@ public static class DateTimeExtensions
     }
 
     /// <summary>
-    /// Gets the total number of days in the year of the specified date using the specified culture's calendar.
+    /// Gets the total number of days in the calendar year and era containing the specified date.
     /// </summary>
     /// <param name="date">The date whose year to get the day count for.</param>
-    /// <param name="culture">The culture whose calendar to use.</param>
+    /// <param name="culture">The culture whose DateTimeFormat calendar to use.</param>
     /// <returns>The number of days in the year.</returns>
     public static int GetDays(this DateTime date, CultureInfo culture)
     {
-        return GetDays(date.Year, culture);
+        ArgumentNullException.ThrowIfNull(culture);
+        var calendar = culture.DateTimeFormat.Calendar;
+
+        return calendar.GetDaysInYear(calendar.GetYear(date), calendar.GetEra(date));
     }
 
     /// <summary>
@@ -567,12 +570,12 @@ public static class DateTimeExtensions
 
         culture ??= CultureInfo.InvariantCulture;
 
-        var calendar = culture.Calendar;
+        var calendar = CultureInfo.InvariantCulture.Calendar;
         var firstDayOfWeek = culture.DateTimeFormat.FirstDayOfWeek;
         var calendarWeekRule = culture.DateTimeFormat.CalendarWeekRule;
 
-        // Get the last day of the year
-        var lastDayOfYear = new DateTime(year, 12, 31);
+        // 四日首周规则下，12 月 28 日始终属于当年的最后一周，避免把下一年的首周计入。
+        var lastDayOfYear = new DateTime(year, 12, calendarWeekRule == CalendarWeekRule.FirstFourDayWeek ? 28 : 31);
         var weekOfLastDay = calendar.GetWeekOfYear(lastDayOfYear, calendarWeekRule, firstDayOfWeek);
 
         return weekOfLastDay;
