@@ -14,8 +14,8 @@ public static class PathHelper
     // Native separator for the current platform.
     internal static readonly char PlatformSeparator = Path.DirectorySeparatorChar;
 
-    // Alternate separator accepted by the current platform.
-    internal static readonly char AltPlatformSeparator = Path.AltDirectorySeparatorChar;
+    // 字符串规范化始终接受两种分隔符，包括 Unix 不原生识别的反斜杠。
+    internal static readonly char AltPlatformSeparator = PlatformSeparator == '/' ? '\\' : '/';
 
     // Shared separator set used by framework-specific fallback code.
     internal static readonly char[] PathSeparators = new[] { '/', '\\' };
@@ -107,7 +107,7 @@ public static class PathHelper
                 startIndex = 2;
             }
 
-            var lastWasSeparator = false;
+            var lastWasSeparator = isDoubleStart;
             for (var i = startIndex; i < path.Length; i++)
             {
                 char c = path[i];
@@ -144,7 +144,7 @@ public static class PathHelper
             startIndex = 2;
         }
 
-        var lastWasSeparator = false;
+        var lastWasSeparator = isDoubleStart;
         for (var i = startIndex; i < path.Length; i++)
         {
             char c = path[i];

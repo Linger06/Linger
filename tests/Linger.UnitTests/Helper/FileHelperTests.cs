@@ -326,6 +326,134 @@ public class FileHelperTests : IDisposable
         Assert.Equal(2, result.Count);
     }
 
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public void GetFileNames_WithPathAndExtensionOptions_ReturnsExpectedNames(bool containPath, bool containExtension)
+    {
+        var directory = CreateTestDirectory("folder.with.dots");
+        CreateTestFile(Path.Combine("folder.with.dots", "file.part.txt"), "content");
+        var expectedName = containExtension ? "file.part.txt" : "file.part";
+        var expected = containPath ? Path.Combine(directory, expectedName) : expectedName;
+
+        var result = FileHelper.GetFileNames(directory, "*.txt", containPath, containExtension);
+
+        Assert.Equal(new[] { expected }, result);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetDirectories_WithRelativePath_FilterPreservesPathFormat(bool recursive)
+    {
+        CreateTestDirectory(Path.Combine("parent", "child"));
+        var currentUri = new Uri(Environment.CurrentDirectory + Path.DirectorySeparatorChar);
+        var relativePath = Uri.UnescapeDataString(currentUri.MakeRelativeUri(new Uri(_testDirectory)).ToString());
+        var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
+        var expected = FileHelper.GetDirectories(relativePath, searchOption: searchOption);
+
+        var result = FileHelper.GetDirectories(relativePath, searchOption: searchOption, filter: _ => true);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("\\")]
+    public void CopyFile_WithDirectoryDestination_ThrowsWithoutCreatingFile(string endingSeparator)
+    {
+        var source = CreateTestFile("source.txt", "content");
+        var destination = Path.Combine(_testDirectory, "destination");
+
+        Assert.Throws<ArgumentException>(() => FileHelper.CopyFile(source, destination + endingSeparator));
+        Assert.False(File.Exists(destination));
+    }
+
+    [Fact]
+    public void CopyFile_WithMixedSeparators_CreatesNestedFile()
+    {
+        var source = CreateTestFile("source.txt", "content");
+        var destination = Path.Combine(_testDirectory, "out\\sub/file.txt");
+
+        FileHelper.CopyFile(source, destination);
+
+        Assert.Equal("content", File.ReadAllText(Path.Combine(_testDirectory, "out", "sub", "file.txt")));
+    }
+
+    [Fact]
+    public void MoveFile_WithNullSource_PreservesParameterName()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => FileHelper.MoveFile(null!, _testDirectory));
+
+        Assert.Equal("sourceFilePath", exception.ParamName);
+    }
+
+#if NET7_0_OR_GREATER
+    [Fact]
+    public void Contains_WithInaccessibleChild_FindsFileInAccessibleSibling()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Skip("此测试需要 Unix 目录权限。");
+        }
+
+        CreateTestDirectory("restricted");
+        CreateTestDirectory("accessible");
+        var directories = Directory.GetDirectories(_testDirectory);
+        var restricted = directories[0];
+        CreateTestFile(Path.Combine(directories[1], "match.txt"), "content");
+        var originalMode = File.GetUnixFileMode(restricted);
+        try
+        {
+            File.SetUnixFileMode(restricted, UnixFileMode.None);
+            if (Record.Exception(() => Directory.GetFiles(restricted)) is not UnauthorizedAccessException)
+            {
+                Assert.Skip("当前用户可绕过目录权限，无法验证无权限子目录。");
+            }
+
+            Assert.True(FileHelper.Contains(_testDirectory, "*.txt", isSearchChild: true));
+        }
+        finally
+        {
+            File.SetUnixFileMode(restricted, originalMode);
+        }
+    }
+#endif
+
+    [Fact]
+    public void Contains_WithRecursiveSearch_FindsFileInNestedDirectory()
+    {
+        CreateTestDirectory(Path.Combine("parent", "child"));
+        CreateTestFile(Path.Combine("parent", "child", "match.txt"), "content");
+
+        Assert.True(FileHelper.Contains(_testDirectory, "*.txt", isSearchChild: true));
+        Assert.False(FileHelper.Contains(_testDirectory, "*.txt"));
+    }
+
+#if NET6_0_OR_GREATER
+    [Fact]
+    public void Contains_WithDirectoryReparsePoint_DoesNotFollowLink()
+    {
+        var scanDir = CreateTestDirectory("scan");
+        var linkedTargetDir = CreateTestDirectory("linkedTarget");
+        CreateTestFile(Path.Combine("linkedTarget", "match.txt"), "content");
+        var linkPath = Path.Combine(scanDir, "linkedDirectory");
+
+        try
+        {
+            _ = Directory.CreateSymbolicLink(linkPath, linkedTargetDir);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            throw Xunit.Sdk.SkipException.ForSkip("The current environment does not allow creating directory symbolic links.");
+        }
+
+        Assert.False(FileHelper.Contains(scanDir, "*.txt", isSearchChild: true));
+    }
+#endif
+
     [Fact]
     public void GetFileNames_WithoutPath_ReturnsFileNamesWithoutPath()
     {

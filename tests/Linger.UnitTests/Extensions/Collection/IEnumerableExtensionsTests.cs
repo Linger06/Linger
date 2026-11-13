@@ -4,6 +4,55 @@ namespace Linger.UnitTests.Extensions.Collection;
 public class IEnumerableExtensionsTests
 {
     [Fact]
+    public void FullJoin_WithInterleavedKeys_PreservesOuterOrder()
+    {
+        var outer = new[] { (Key: 1, Value: "a"), (Key: 2, Value: "b"), (Key: 1, Value: "c") };
+
+        var result = outer.FullJoin(Array.Empty<int>(), item => item.Key, item => item,
+            (left, _) => left.Value);
+
+        Assert.Equal(new[] { "a", "b", "c" }, result);
+    }
+
+    [Fact]
+    public void FullJoin_WithNullKeys_DoesNotMatchNullKeys()
+    {
+        var outer = new[] { (Key: (string?)null, Value: "a") };
+        var inner = new[] { (Key: (string?)null, Value: "b") };
+
+        var result = outer.FullJoin(inner, item => item.Key, item => item.Key,
+            (left, right) => (left.Value, right.Value));
+
+        Assert.Equal(new (string?, string?)[] { ("a", null), (null, "b") }, result);
+    }
+
+    [Fact]
+    public void FullJoin_WithDuplicateKeys_PreservesInnerOrderForEachOuterRow()
+    {
+        var outer = new[] { (Key: 1, Value: "a"), (Key: 2, Value: "b"), (Key: 1, Value: "c") };
+        var inner = new[] { (Key: 1, Value: "x"), (Key: 3, Value: "z"), (Key: 1, Value: "y") };
+
+        var result = outer.FullJoin(inner, item => item.Key, item => item.Key,
+            (left, right) => (left.Value, right.Value));
+
+        Assert.Equal(new (string?, string?)[]
+        {
+            ("a", "x"), ("a", "y"), ("b", null), ("c", "x"), ("c", "y"), (null, "z")
+        }, result);
+    }
+
+    [Fact]
+    public void FullJoin_WithInterleavedUnmatchedInnerKeys_PreservesInnerOrder()
+    {
+        var inner = new[] { (Key: 1, Value: "a"), (Key: 2, Value: "b"), (Key: 1, Value: "c") };
+
+        var result = Array.Empty<int>().FullJoin(inner, item => item, item => item.Key,
+            (_, right) => right.Value);
+
+        Assert.Equal(new[] { "a", "b", "c" }, result);
+    }
+
+    [Fact]
     public void ForEach_Action_ShouldApplyActionToEachElement()
     {
         IEnumerable<int> list = new List<int> { 1, 2, 3 };

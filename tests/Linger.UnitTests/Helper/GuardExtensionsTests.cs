@@ -8,6 +8,65 @@ namespace Linger.UnitTests.Helper;
 public class GuardExtensionsTests
 {
     [Fact]
+    public void EnsureIsNotNull_WithoutParameterName_CapturesExpression()
+    {
+        object? value = null;
+
+        var exception = Assert.Throws<ArgumentNullException>(() => value.EnsureIsNotNull());
+
+        Assert.Equal(nameof(value), exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public void EnsureIsNotNullOrEmpty_WithoutParameterName_CapturesExpression(string? value)
+    {
+        var exception = Assert.ThrowsAny<ArgumentException>(() => value.EnsureIsNotNullOrEmpty());
+
+        Assert.Equal(nameof(value), exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void EnsureIsNotNullOrWhiteSpace_WithoutParameterName_CapturesExpression(string? value)
+    {
+        var exception = Assert.ThrowsAny<ArgumentException>(() => value.EnsureIsNotNullOrWhiteSpace());
+
+        Assert.Equal(nameof(value), exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("customName")]
+    public void EnsureFileExists_WithNullPath_PreservesParameterName(string? explicitName)
+    {
+        string? path = null;
+
+        var exception = Assert.Throws<ArgumentNullException>(() => explicitName is null
+            ? path.EnsureFileExists()
+            : path.EnsureFileExists(explicitName));
+
+        Assert.Equal(explicitName ?? nameof(path), exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("customName")]
+    public void EnsureDirectoryExists_WithNullPath_PreservesParameterName(string? explicitName)
+    {
+        string? path = null;
+
+        var exception = Assert.Throws<ArgumentNullException>(() => explicitName is null
+            ? path.EnsureDirectoryExists()
+            : path.EnsureDirectoryExists(explicitName));
+
+        Assert.Equal(explicitName ?? nameof(path), exception.ParamName);
+    }
+
+    [Fact]
     public void EnsureIsNotNull_WithNullValue_ThrowsArgumentNullException()
     {
         // Arrange

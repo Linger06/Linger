@@ -67,6 +67,11 @@ public static partial class FileHelper
     public static void CopyFile(string sourceFile, string destFile)
     {
         sourceFile.EnsureFileExists();
+        ArgumentException.ThrowIfNullOrWhiteSpace(destFile);
+
+        // 先验证文件名，避免规范化去掉目录末尾分隔符后覆盖同名文件。
+        ArgumentException.ThrowIfNullOrWhiteSpace(
+            Path.GetFileName(PathHelper.StandardizePathSeparators(destFile)), nameof(destFile));
 
         var normalizedDest = PathHelper.CleanAndNormalizePureString(destFile, false);
         var directory = Path.GetDirectoryName(normalizedDest);
@@ -103,6 +108,7 @@ public static partial class FileHelper
     /// Clears all content from the specified file, leaving an empty file.
     /// </summary>
     /// <param name="filePath">The path of the file to clear.</param>
+    /// <remarks>文件不存在时创建空文件；父目录必须已存在。</remarks>
     /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
     /// <example>
     /// <code>
@@ -123,6 +129,7 @@ public static partial class FileHelper
     /// <param name="content">The text content to write to the file. If null, buffer or empty file is created.</param>
     /// <param name="buffer">The byte array to write to the file. Used if content is null.</param>
     /// <param name="encoding">The character encoding to use for text content. Defaults to UTF-8.</param>
+    /// <remarks>文件已存在时覆盖其内容；未提供内容或缓冲区时将文件清空。</remarks>
     /// <exception cref="ArgumentException">Thrown when filePath is null or whitespace.</exception>
     /// <example>
     /// <code>
@@ -172,6 +179,7 @@ public static partial class FileHelper
     /// <param name="directoryPath">The absolute path of the directory to search.</param>
     /// <param name="searchPattern">The search pattern. Use "*" for zero or more characters, "?" for a single character. Example: "Log*.xml" matches all XML files starting with "Log".</param>
     /// <param name="isSearchChild">If <c>true</c>, searches subdirectories; otherwise, only searches the top directory.</param>
+    /// <remarks>递归搜索时跳过无法访问的子目录以及目录符号链接、联接点，继续搜索其余目录。</remarks>
     /// <returns><c>true</c> if matching files are found; otherwise, <c>false</c>.</returns>
     /// <example>
     /// <code>
@@ -185,8 +193,16 @@ public static partial class FileHelper
 
         try
         {
-            var searchOption = isSearchChild ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-            return Directory.EnumerateFiles(directoryPath, searchPattern, searchOption).Any();
+            if (Directory.EnumerateFiles(directoryPath, searchPattern, SearchOption.TopDirectoryOnly).Any())
+            {
+                return true;
+            }
+
+            // 每个子目录独立处理访问失败，避免一个不可读目录中断其余目录的搜索。
+            // 不跟随符号链接和联接点：环形链接会让递归一直深入到路径超长，链接目标也可能位于搜索范围之外。
+            return isSearchChild && new DirectoryInfo(directoryPath).EnumerateDirectories()
+                .Where(directory => (directory.Attributes & FileAttributes.ReparsePoint) == 0)
+                .Any(directory => Contains(directory.FullName, searchPattern, isSearchChild: true));
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException
                                  || ex is DirectoryNotFoundException
@@ -225,9 +241,7 @@ public static partial class FileHelper
         if (filter is not null)
         {
             return directories
-                .Select(dir => new DirectoryInfo(dir))
-                .Where(filter)
-                .Select(dir => dir.FullName)
+                .Where(dir => filter(new DirectoryInfo(dir)))
                 .ToArray();
         }
 
@@ -271,7 +285,7 @@ public static partial class FileHelper
             if (!containPath)
                 fileName = Path.GetFileName(file);
             if (!containExtension)
-                fileName = Path.GetFileNameWithoutExtension(fileName);
+                fileName = Path.ChangeExtension(fileName, null);
             result.Add(fileName);
         }
 

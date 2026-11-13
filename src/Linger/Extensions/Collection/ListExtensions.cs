@@ -33,6 +33,10 @@ public static class ListExtensions
     /// <param name="separator">The separator to use between elements.</param>
     /// <param name="singleQuoted">Whether to enclose each element in single quotes.</param>
     /// <param name="notSpace">Whether to remove spaces from each element.</param>
+    /// <remarks>
+    /// 此重载默认添加单引号；IEnumerable 泛型重载默认不添加。
+    /// 为兼容常见 SQL 字面量约定，内部单引号会加倍；这不等同于参数化查询，不应代替数据库参数。
+    /// </remarks>
     /// <returns>A string representation of the <see cref="List{T}"/> with elements separated by the specified separator.</returns>
     /// <example>
     /// <code>
@@ -52,7 +56,8 @@ public static class ListExtensions
         {
             var quote = singleQuoted ? "'" : string.Empty;
             string value = item ?? string.Empty;
-            var newItem = notSpace ? value.Replace(" ", string.Empty) : value;
+            var normalizedValue = notSpace ? value.Replace(" ", string.Empty) : value;
+            var newItem = singleQuoted ? normalizedValue.Replace("'", "''") : normalizedValue;
             return $"{quote}{newItem}{quote}";
         }
     }

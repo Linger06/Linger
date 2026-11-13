@@ -10,6 +10,31 @@ public class PathHelperBaseTests
     // PathHelper exposes these helpers internally, so reflection is used here to keep the tests focused.
     private static readonly Type s_pathHelperBaseType = typeof(PathHelper);
 
+    [Theory]
+    [InlineData("///server/share")]
+    [InlineData("////server/share")]
+    [InlineData("\\\\\\server\\share")]
+    [InlineData("/\\/server/share")]
+    public void RemoveConsecutiveSeparators_WithMultipleLeadingSeparators_PreservesOnlyTwo(string path)
+    {
+        var separator = Path.DirectorySeparatorChar;
+
+        var result = PathHelper.RemoveConsecutiveSeparators(path);
+
+        Assert.Equal($"{separator}{separator}server{separator}share", result);
+    }
+
+    [Theory]
+    [InlineData("a\\b")]
+    [InlineData("a/b")]
+    [InlineData("a\\b//c")]
+    public void StandardizePathSeparators_WithEitherSeparator_UsesNativeSeparator(string path)
+    {
+        var expected = path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+
+        Assert.Equal(expected, PathHelper.StandardizePathSeparators(path));
+    }
+
     [Fact]
     public void RemoveConsecutiveSeparators_ShouldRemoveDuplicateSeparators()
     {

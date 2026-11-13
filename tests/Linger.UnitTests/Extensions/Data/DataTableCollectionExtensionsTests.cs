@@ -6,6 +6,36 @@ using Xunit;
 
 public class DataTableCollectionExtensionsTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ForEach_WithNullCollection_ThrowsArgumentNullException(bool indexed)
+    {
+        DataTableCollection collection = null!;
+        Action operation = indexed ? () => collection.ForEach((_, _) => { }) : () => collection.ForEach(_ => { });
+
+        Assert.Throws<ArgumentNullException>("dataTableCollection", operation);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ForEach_WithNullAction_ThrowsArgumentNullException(bool indexed, bool populated)
+    {
+        using var dataSet = new DataSet();
+        if (populated)
+        {
+            dataSet.Tables.Add("Table");
+        }
+        Action operation = indexed
+            ? () => dataSet.Tables.ForEach((Action<DataTable, int>)null!)
+            : () => dataSet.Tables.ForEach((Action<DataTable>)null!);
+
+        Assert.Throws<ArgumentNullException>("action", operation);
+    }
+
     [Fact]
     public void ForEach_PerformsActionOnEachElement()
     {

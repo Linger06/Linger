@@ -2,6 +2,32 @@
 
 public class ICollectionExtensionsTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RemoveAll_WithEqualItems_RemovesOnlyMatchingInstance(bool linkedList)
+    {
+        var retained = new EqualItem { Id = 1, Remove = false };
+        var removed = new EqualItem { Id = 1, Remove = true };
+        ICollection<EqualItem> collection = linkedList
+            ? new LinkedList<EqualItem>(new[] { retained, removed })
+            : new System.Collections.ObjectModel.ObservableCollection<EqualItem>(new[] { retained, removed });
+
+        collection.RemoveAll(item => item.Remove);
+
+        Assert.Same(retained, Assert.Single(collection));
+    }
+
+    private sealed class EqualItem
+    {
+        public int Id { get; set; }
+        public bool Remove { get; set; }
+
+        public override bool Equals(object? obj) => obj is EqualItem other && Id == other.Id;
+
+        public override int GetHashCode() => Id;
+    }
+
     [Fact]
     public void RemoveAll_RemovesMatchingElements_FromList()
     {

@@ -2,6 +2,26 @@ namespace Linger.UnitTests.Extensions.Collection;
 
 public class ListExtensionsTests
 {
+    [Fact]
+    public void ToSeparatedString_WithSingleQuote_EscapesQuotedValues()
+    {
+        var values = new List<string> { "O'Brien", "x" };
+
+        var result = values.ToSeparatedString();
+
+        Assert.Equal("'O''Brien','x'", result);
+    }
+
+    [Fact]
+    public void ToSeparatedString_WithSingleQuoteDisabled_PreservesValue()
+    {
+        var values = new List<string> { "O'Brien", "x" };
+
+        var result = values.ToSeparatedString(", ", singleQuoted: false);
+
+        Assert.Equal("O'Brien, x", result);
+    }
+
     // String-specific Paging tests
     [Fact]
     public void Paging_ReturnsCorrectPage()

@@ -15,7 +15,7 @@ public static class GuardExtensions
     /// <param name="value">The value to check.</param>
     /// <param name="paramName">The name of the parameter.</param>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static T EnsureIsNotNull<T>([NotNull] this T? value, string? paramName = null)
+    public static T EnsureIsNotNull<T>([NotNull] this T? value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentNullException.ThrowIfNull(value, paramName);
         return value;
@@ -34,7 +34,7 @@ public static class GuardExtensions
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string EnsureIsNotNullOrEmpty([NotNull] this string? value, string? paramName = null)
+    public static string EnsureIsNotNullOrEmpty([NotNull] this string? value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentException.ThrowIfNullOrEmpty(value, paramName);
         return value;
@@ -54,7 +54,7 @@ public static class GuardExtensions
     /// </code>
     /// </example>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static string EnsureIsNotNullOrWhiteSpace([NotNull] this string? value, string? paramName = null)
+    public static string EnsureIsNotNullOrWhiteSpace([NotNull] this string? value, [CallerArgumentExpression(nameof(value))] string? paramName = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value, paramName);
         return value;
@@ -145,7 +145,7 @@ public static class GuardExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string EnsureFileExists(this string? filePath, [CallerArgumentExpression(nameof(filePath))] string? paramName = null, string? message = null)
     {
-        EnsureIsNotNull(filePath);
+        EnsureIsNotNull(filePath, paramName);
 
         if (filePath.IsEmpty())
         {
@@ -171,7 +171,7 @@ public static class GuardExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static string EnsureDirectoryExists(this string? directory, [CallerArgumentExpression(nameof(directory))] string? paramName = null, string? message = null)
     {
-        EnsureIsNotNull(directory);
+        EnsureIsNotNull(directory, paramName);
 
         if (directory.IsEmpty())
         {

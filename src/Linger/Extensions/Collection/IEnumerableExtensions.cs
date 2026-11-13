@@ -63,6 +63,10 @@ public static partial class IEnumerableExtensions
     /// <param name="self">The enumerable to convert.</param>
     /// <param name="separator">The separator to use between elements.</param>
     /// <param name="format">A function to format each element. If not provided, ToString() will be used.</param>
+    /// <remarks>
+    /// 默认使用元素自身的 ToString() 格式，数值和日期可能受当前区域性影响。
+    /// 需要固定格式时请通过 format 指定 CultureInfo.InvariantCulture；此方法不提供可逆的序列化格式。
+    /// </remarks>
     /// <returns>A string representation of the enumerable with elements separated by the specified separator.</returns>
     /// <exception cref="ArgumentNullException">Thrown when separator is null.</exception>
     /// <example>
@@ -131,6 +135,7 @@ public static partial class IEnumerableExtensions
     /// <remarks>
     /// The result contains rows for keys that appear in either sequence. Where no match exists, the corresponding side is its default value.
     /// Duplicate keys produce multiple rows.
+    /// 保留 outer 顺序及每组匹配项的 inner 顺序；未匹配的 inner 项按原顺序追加。null 键不匹配。
     /// </remarks>
     /// <example>
     /// <code>
@@ -176,19 +181,39 @@ public static partial class IEnumerableExtensions
 
         IEnumerable<TResult> Iterator()
         {
-            ILookup<TKey, TOuter> outerLookup = outer.ToLookup(outerKeySelector, comparer);
-            ILookup<TKey, TInner> innerLookup = inner.ToLookup(innerKeySelector, comparer);
-            var keys = new HashSet<TKey>(outerLookup.Select(group => group.Key), comparer);
-            keys.UnionWith(innerLookup.Select(group => group.Key));
+            var innerItems = inner.Select(item => (Item: item, Key: innerKeySelector(item))).ToList();
+            var innerLookup = innerItems.Where(entry => entry.Key is not null)
+                .ToLookup(entry => entry.Key, entry => entry.Item, comparer);
+            var matchedKeys = new HashSet<TKey>(comparer);
 
-            foreach (TKey key in keys)
+            foreach (var outerItem in outer)
             {
-                foreach (TOuter? outerItem in outerLookup[key].DefaultIfEmpty())
+                var key = outerKeySelector(outerItem);
+                var hasMatch = false;
+                if (key is not null)
                 {
-                    foreach (TInner? innerItem in innerLookup[key].DefaultIfEmpty())
+                    foreach (var innerItem in innerLookup[key])
                     {
+                        hasMatch = true;
                         yield return resultSelector(outerItem, innerItem);
                     }
+                }
+
+                if (hasMatch)
+                {
+                    matchedKeys.Add(key);
+                }
+                else
+                {
+                    yield return resultSelector(outerItem, default);
+                }
+            }
+
+            foreach (var entry in innerItems)
+            {
+                if (entry.Key is null || !matchedKeys.Contains(entry.Key))
+                {
+                    yield return resultSelector(default, entry.Item);
                 }
             }
         }

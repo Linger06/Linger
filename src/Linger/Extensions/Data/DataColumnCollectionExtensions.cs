@@ -12,6 +12,9 @@ public static class DataColumnCollectionExtensions
     /// <param name="action">The <see cref="Action{DataColumn}"/> to execute on each element.</param>
     public static void ForEach(this DataColumnCollection dataColumnCollection, Action<DataColumn> action)
     {
+        ArgumentNullException.ThrowIfNull(dataColumnCollection);
+        ArgumentNullException.ThrowIfNull(action);
+
         foreach (DataColumn item in dataColumnCollection)
         {
             action(item);
@@ -25,6 +28,9 @@ public static class DataColumnCollectionExtensions
     /// <param name="action">The <see cref="Action{DataColumn, Int}"/> to execute on each element, with the element's index.</param>
     public static void ForEach(this DataColumnCollection dataColumnCollection, Action<DataColumn, int> action)
     {
+        ArgumentNullException.ThrowIfNull(dataColumnCollection);
+        ArgumentNullException.ThrowIfNull(action);
+
         for (var i = 0; i < dataColumnCollection.Count; i++)
         {
             action(dataColumnCollection[i], i);

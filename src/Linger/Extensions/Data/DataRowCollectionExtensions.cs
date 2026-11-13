@@ -21,6 +21,9 @@ public static class DataRowCollectionExtensions
     /// </example>
     public static void ForEach(this DataRowCollection dataRowCollection, Action<DataRow> action)
     {
+        ArgumentNullException.ThrowIfNull(dataRowCollection);
+        ArgumentNullException.ThrowIfNull(action);
+
         foreach (DataRow item in dataRowCollection)
         {
             action(item);
@@ -44,6 +47,9 @@ public static class DataRowCollectionExtensions
     /// </remarks>
     public static void ForEach(this DataRowCollection dataRowCollection, Action<DataRow, int> action)
     {
+        ArgumentNullException.ThrowIfNull(dataRowCollection);
+        ArgumentNullException.ThrowIfNull(action);
+
         for (var i = 0; i < dataRowCollection.Count; i++)
         {
             action(dataRowCollection[i], i);

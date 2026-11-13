@@ -2,6 +2,55 @@ namespace Linger.Extensions.Tests;
 
 public partial class ArrayExtensionsTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void RemoveRange_WithStartAtEnd_ReturnsUnchangedCopy(bool empty, bool explicitLength)
+    {
+        var array = empty ? Array.Empty<int>() : new[] { 1, 2, 3 };
+
+        var result = explicitLength ? array.RemoveRange(array.Length, 0) : array.RemoveRange(array.Length);
+
+        Assert.Equal(array, result);
+        Assert.NotSame(array, result);
+    }
+
+    [Theory]
+    [InlineData("ForEach", "array")]
+    [InlineData("Add", "array")]
+    [InlineData("Remove", "array")]
+    [InlineData("Exists", "array")]
+    [InlineData("RemoveAt", "array")]
+    [InlineData("RemoveRange", "array")]
+    [InlineData("RemoveRangeWithLength", "array")]
+    [InlineData("ToBase64String", "value")]
+    [InlineData("ToBase64UrlString", "value")]
+    [InlineData("ToMemoryStream", "value")]
+    [InlineData("ToDataTableColumns", "stringArray")]
+    public void ArrayOperation_WithNullArray_ThrowsArgumentNullException(string operationName, string parameterName)
+    {
+        int[] array = null!;
+        Action operation = operationName switch
+        {
+            "ForEach" => () => array.ForEach((_, _) => { }),
+            "Add" => () => array.Add(1),
+            "Remove" => () => array.Remove(1),
+            "Exists" => () => array.Exists(1),
+            "RemoveAt" => () => array.RemoveAt(0),
+            "RemoveRange" => () => array.RemoveRange(0),
+            "RemoveRangeWithLength" => () => array.RemoveRange(0, 0),
+            "ToBase64String" => () => ((byte[])null!).ToBase64String(),
+            "ToBase64UrlString" => () => ((byte[])null!).ToBase64UrlString(),
+            "ToMemoryStream" => () => ((byte[])null!).ToMemoryStream(),
+            "ToDataTableColumns" => () => ((string[])null!).ToDataTableColumns(),
+            _ => throw new ArgumentOutOfRangeException(nameof(operationName))
+        };
+
+        Assert.Throws<ArgumentNullException>(parameterName, operation);
+    }
+
     [Fact]
     public void ForEach_ActionOnEachElement_ShouldExecuteAction()
     {

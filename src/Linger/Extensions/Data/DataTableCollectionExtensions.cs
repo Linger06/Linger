@@ -21,6 +21,9 @@ public static class DataTableCollectionExtensions
     /// </example>
     public static void ForEach(this DataTableCollection dataTableCollection, Action<DataTable> action)
     {
+        ArgumentNullException.ThrowIfNull(dataTableCollection);
+        ArgumentNullException.ThrowIfNull(action);
+
         foreach (DataTable item in dataTableCollection)
         {
             action(item);
@@ -43,6 +46,9 @@ public static class DataTableCollectionExtensions
     /// </example>
     public static void ForEach(this DataTableCollection dataTableCollection, Action<DataTable, int> action)
     {
+        ArgumentNullException.ThrowIfNull(dataTableCollection);
+        ArgumentNullException.ThrowIfNull(action);
+
         for (var i = 0; i < dataTableCollection.Count; i++)
         {
             action(dataTableCollection[i], i);

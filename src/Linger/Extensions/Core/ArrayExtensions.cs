@@ -20,6 +20,7 @@ public static class ArrayExtensions
     /// </example>
     public static void ForEach<T>(this T[] array, [NotNull] Action<T, int> action)
     {
+        ArgumentNullException.ThrowIfNull(array);
         ArgumentNullException.ThrowIfNull(action);
         for (var i = 0; i < array.Length; i++)
         {
@@ -43,6 +44,8 @@ public static class ArrayExtensions
     /// </example>
     public static bool Exists<T>(this T[] array, T value)
     {
+        ArgumentNullException.ThrowIfNull(array);
+
         return Array.IndexOf(array, value) >= 0;
     }
 
@@ -62,6 +65,8 @@ public static class ArrayExtensions
     /// </example>
     public static T[] Add<T>(this T[] array, T value)
     {
+        ArgumentNullException.ThrowIfNull(array);
+
         var result = new T[array.Length + 1];
         Array.Copy(array, result, array.Length);
         result[array.Length] = value;
@@ -85,6 +90,8 @@ public static class ArrayExtensions
     /// </example>
     public static T[] Remove<T>(this T[] array, T value)
     {
+        ArgumentNullException.ThrowIfNull(array);
+
         var comparer = EqualityComparer<T>.Default;
 
         return Array.FindAll(array, item => !comparer.Equals(item, value));
@@ -106,6 +113,8 @@ public static class ArrayExtensions
     /// </example>
     public static T[] RemoveAt<T>(this T[] array, int index)
     {
+        ArgumentNullException.ThrowIfNull(array);
+
         if (index < 0 || index > array.Length - 1)
         {
             throw new ArgumentOutOfRangeException(nameof(index), index, "Index was out of range. Must be non-negative and less than the size of the array.");
@@ -140,7 +149,9 @@ public static class ArrayExtensions
     /// </example>
     public static T[] RemoveRange<T>(this T[] array, int startIndex)
     {
-        if (startIndex < 0 || startIndex >= array.Length)
+        ArgumentNullException.ThrowIfNull(array);
+
+        if (startIndex < 0 || startIndex > array.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(startIndex), "The specified index is out of the array bounds.");
         }
@@ -171,7 +182,9 @@ public static class ArrayExtensions
     /// </example>
     public static T[] RemoveRange<T>(this T[] array, int startIndex, int length)
     {
-        if (startIndex < 0 || startIndex >= array.Length)
+        ArgumentNullException.ThrowIfNull(array);
+
+        if (startIndex < 0 || startIndex > array.Length)
         {
             throw new ArgumentOutOfRangeException(nameof(startIndex), "The specified index is out of the array bounds.");
         }
@@ -212,6 +225,8 @@ public static class ArrayExtensions
     /// </example>
     public static string ToBase64String(this byte[] value)
     {
+        ArgumentNullException.ThrowIfNull(value);
+
         return Convert.ToBase64String(value, 0, value.Length);
     }
 
@@ -233,6 +248,8 @@ public static class ArrayExtensions
     /// </example>
     public static string ToBase64UrlString(this byte[] value)
     {
+        ArgumentNullException.ThrowIfNull(value);
+
         return System.Buffers.Text.Base64Url.EncodeToString(value);
     }
 
@@ -275,6 +292,8 @@ public static class ArrayExtensions
     /// </example>
     public static MemoryStream ToMemoryStream(this byte[] value)
     {
+        ArgumentNullException.ThrowIfNull(value);
+
         return new MemoryStream(value);
     }
 
@@ -292,6 +311,8 @@ public static class ArrayExtensions
     /// </example>
     public static DataTable ToDataTableColumns(this string[] stringArray)
     {
+        ArgumentNullException.ThrowIfNull(stringArray);
+
         var table = new DataTable();
 
         foreach (var item in stringArray)
