@@ -55,16 +55,6 @@ public static partial class StringExtensions
     /// Check if the specified string is equivalent to a <see cref="Guid"/> type.
     /// </summary>
     /// <param name="value">The string to check.</param>
-    /// <returns>Returns true if the string is equivalent to a <see cref="Guid"/> type; otherwise, false.</returns>
-    public static bool IsGuid(this string value)
-    {
-        return Guid.TryParse(value, out _);
-    }
-
-    /// <summary>
-    /// Check if the specified string is equivalent to a <see cref="Guid"/> type.
-    /// </summary>
-    /// <param name="value">The string to check.</param>
     /// <param name="format">The exact format to use when interpreting the input: "N", "D", "B", "P", or "X".</param>
     /// <returns>Returns true if the string is equivalent to a <see cref="Guid"/> type; otherwise, false.</returns>
     public static bool IsGuid(this string value, string format)

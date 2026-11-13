@@ -75,22 +75,6 @@ public partial class DateTimeExtensionsTests
     }
 
     [Fact]
-    public void IsBefore_ReturnsTrueForEarlierDate()
-    {
-        var date1 = new DateTime(2023, 10, 1);
-        var date2 = new DateTime(2023, 10, 2);
-        Assert.True(date1.IsBefore(date2));
-    }
-
-    [Fact]
-    public void IsAfter_ReturnsTrueForLaterDate()
-    {
-        var date1 = new DateTime(2023, 10, 2);
-        var date2 = new DateTime(2023, 10, 1);
-        Assert.True(date1.IsAfter(date2));
-    }
-
-    [Fact]
     public void EndOfDay_ReturnsCorrectEndOfDay()
     {
         var date = new DateTime(2023, 10, 1);
@@ -198,42 +182,6 @@ public partial class DateTimeExtensionsTests
     {
         var date = new DateTime(2023, 4, 10);
         var result = date.IsEaster();
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsBefore_ReturnsTrue_WhenSourceIsBeforeOther()
-    {
-        var source = new DateTime(2023, 10, 5);
-        var other = new DateTime(2023, 10, 6);
-        var result = source.IsBefore(other);
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsBefore_ReturnsFalse_WhenSourceIsNotBeforeOther()
-    {
-        var source = new DateTime(2023, 10, 6);
-        var other = new DateTime(2023, 10, 5);
-        var result = source.IsBefore(other);
-        Assert.False(result);
-    }
-
-    [Fact]
-    public void IsAfter_ReturnsTrue_WhenSourceIsAfterOther()
-    {
-        var source = new DateTime(2023, 10, 6);
-        var other = new DateTime(2023, 10, 5);
-        var result = source.IsAfter(other);
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void IsAfter_ReturnsFalse_WhenSourceIsNotAfterOther()
-    {
-        var source = new DateTime(2023, 10, 5);
-        var other = new DateTime(2023, 10, 6);
-        var result = source.IsAfter(other);
         Assert.False(result);
     }
 

@@ -61,6 +61,12 @@
 | `Linger.Utils` | `FileHelper.GetFileSize` | `filePath.GetFileSize()` | `Linger.Utils` | 使用当前维护的文件扩展 API。 |
 | `Linger.Utils` | `FileHelper.GetDirectories` / `GetFileNames` 的布尔参数重载 | 接收 `SearchOption` 的重载 | `Linger.Utils` | 显式使用 `TopDirectoryOnly` 或 `AllDirectories`。 |
 | `Linger.Utils` | `FileHelper.CreateDirectoryIfNotExists` | `Directory.CreateDirectory` | .NET BCL | `Directory.CreateDirectory` 本身已经具备幂等性。 |
+| `Linger.Utils` | `double.Days/Hours/Minutes/Seconds/Milliseconds` | `TimeSpan.FromDays/FromHours/FromMinutes/FromSeconds/FromMilliseconds` | .NET BCL | 扩展方法仅转发到对应的 BCL 工厂方法。 |
+| `Linger.Utils` | `DateTime.DayInYear` | `DateTime.DayOfYear` | .NET BCL | 原方法直接返回 `DayOfYear`。 |
+| `Linger.Utils` | `DateTime.IsBefore(other)` / `IsAfter(other)` | `date < other` / `date > other` | .NET BCL | 原方法仅比较 `DateTime.CompareTo` 的结果。 |
+| `string.IsGuid()` | `Guid.TryParse(value, out _)` | .NET BCL | 原方法仅转发到 `Guid.TryParse`；带格式的 `IsGuid(value, format)` 仍保留。 |
+| `OSPlatformHelper.GetOSVersion()` | `Environment.OSVersion.Version` | .NET BCL | 原方法仅转发到该属性。 |
+| `value.NotIn(values)` | `!value.In(values)` | `Linger.Utils` | 原方法仅对 `In` 的结果取反。 |
 
 ## 其他 Linger 包
 

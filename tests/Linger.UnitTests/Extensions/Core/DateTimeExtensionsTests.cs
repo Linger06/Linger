@@ -289,25 +289,6 @@ public partial class DateTimeExtensionsTests
         Assert.False(aboveRange);
     }
 
-    [Fact]
-    public void DayInYear_ReturnsCorrectDayOfYear()
-    {
-        // Arrange
-        var date1 = new DateTime(2023, 1, 1);
-        var date2 = new DateTime(2023, 4, 15);
-        var date3 = new DateTime(2023, 12, 31);
-
-        // Act
-        var result1 = date1.DayInYear();
-        var result2 = date2.DayInYear();
-        var result3 = date3.DayInYear();
-
-        // Assert
-        Assert.Equal(1, result1);
-        Assert.Equal(105, result2);
-        Assert.Equal(365, result3);
-    }
-
     [Theory]
     [InlineData(2023, 4, 10, 1)] // Monday
     [InlineData(2023, 4, 11, 2)] // Tuesday
@@ -449,42 +430,6 @@ public partial class DateTimeExtensionsTests
         // Assert
         Assert.True(result1);
         Assert.False(result2);
-    }
-
-    [Fact]
-    public void IsBefore_ReturnsCorrectResult()
-    {
-        // Arrange
-        var earlier = new DateTime(2023, 4, 10);
-        var later = new DateTime(2023, 4, 15);
-
-        // Act
-        var result1 = earlier.IsBefore(later);
-        var result2 = later.IsBefore(earlier);
-        var result3 = earlier.IsBefore(earlier);
-
-        // Assert
-        Assert.True(result1);
-        Assert.False(result2);
-        Assert.False(result3);
-    }
-
-    [Fact]
-    public void IsAfter_ReturnsCorrectResult()
-    {
-        // Arrange
-        var earlier = new DateTime(2023, 4, 10);
-        var later = new DateTime(2023, 4, 15);
-
-        // Act
-        var result1 = later.IsAfter(earlier);
-        var result2 = earlier.IsAfter(later);
-        var result3 = earlier.IsAfter(earlier);
-
-        // Assert
-        Assert.True(result1);
-        Assert.False(result2);
-        Assert.False(result3);
     }
 
     [Fact]

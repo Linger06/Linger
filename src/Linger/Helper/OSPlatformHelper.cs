@@ -167,15 +167,6 @@ public static class OSPlatformHelper
     }
 
     /// <summary>
-    /// 获取操作系统版本信息
-    /// </summary>
-    /// <returns>操作系统版本</returns>
-    public static Version GetOSVersion()
-    {
-        return Environment.OSVersion.Version;
-    }
-
-    /// <summary>
     /// 检查当前运行时版本是否满足最低版本要求
     /// </summary>
     /// <param name="minimumVersion">最低版本要求</param>

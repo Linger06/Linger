@@ -178,16 +178,6 @@ public static class DateTimeExtensions
     }
 
     /// <summary>
-    /// Gets the day of the year for the specified date.
-    /// </summary>
-    /// <param name="dateSrc">The source date.</param>
-    /// <returns>The day of the year (1-366).</returns>
-    public static int DayInYear(this DateTime dateSrc)
-    {
-        return dateSrc.DayOfYear;
-    }
-
-    /// <summary>
     /// Gets the day of the week as an integer (Monday = 1, Sunday = 7).
     /// </summary>
     /// <param name="dateSrc">The source date.</param>
@@ -318,28 +308,6 @@ public static class DateTimeExtensions
         var dtEasterSunday = new DateTime(y, month, day);
 
         return date.Date == dtEasterSunday.Date;
-    }
-
-    /// <summary>
-    /// Determines whether the source date is before the specified date.
-    /// </summary>
-    /// <param name="source">The source date.</param>
-    /// <param name="other">The date to compare with.</param>
-    /// <returns><c>true</c> if the source date is before the other date; otherwise, <c>false</c>.</returns>
-    public static bool IsBefore(this DateTime source, DateTime other)
-    {
-        return source.CompareTo(other) < 0;
-    }
-
-    /// <summary>
-    /// Determines whether the source date is after the specified date.
-    /// </summary>
-    /// <param name="source">The source date.</param>
-    /// <param name="other">The date to compare with.</param>
-    /// <returns><c>true</c> if the source date is after the other date; otherwise, <c>false</c>.</returns>
-    public static bool IsAfter(this DateTime source, DateTime other)
-    {
-        return source.CompareTo(other) > 0;
     }
 
     /// <summary>

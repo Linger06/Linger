@@ -255,18 +255,6 @@ public class OSPlatformHelperTests
         Assert.Equal(expected, frameworkDesc);
     }
 
-    [Fact]
-    public void GetOSVersion_ShouldReturnValidVersion()
-    {
-        // Act
-        var version = OSPlatformHelper.GetOSVersion();
-        
-        // Assert
-        Assert.NotNull(version);
-        Assert.True(version.Major >= 0);
-        Assert.Equal(Environment.OSVersion.Version, version);
-    }
-
     [Theory]
     [InlineData(1, 0)]
     [InlineData(2, 0)]

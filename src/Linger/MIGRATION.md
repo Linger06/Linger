@@ -62,6 +62,12 @@ for applications upgrading from the previous API surface.
 | `Linger.Utils` | `FileHelper.GetFileSize` | `filePath.GetFileSize()` | `Linger.Utils` | Uses the maintained file extension API. |
 | `Linger.Utils` | `FileHelper.GetDirectories` / `GetFileNames` boolean overloads | Overloads with `SearchOption` | `Linger.Utils` | Use `TopDirectoryOnly` or `AllDirectories` explicitly. |
 | `Linger.Utils` | `FileHelper.CreateDirectoryIfNotExists` | `Directory.CreateDirectory` | .NET BCL | `Directory.CreateDirectory` is already idempotent. |
+| `Linger.Utils` | `double.Days/Hours/Minutes/Seconds/Milliseconds` | `TimeSpan.FromDays/FromHours/FromMinutes/FromSeconds/FromMilliseconds` | .NET BCL | The extensions only forward to the corresponding BCL factory methods. |
+| `Linger.Utils` | `DateTime.DayInYear` | `DateTime.DayOfYear` | .NET BCL | The removed method returned `DayOfYear` directly. |
+| `Linger.Utils` | `DateTime.IsBefore(other)` / `IsAfter(other)` | `date < other` / `date > other` | .NET BCL | The removed methods only compared the result of `DateTime.CompareTo`. |
+| `Linger.Utils` | `string.IsGuid()` | `Guid.TryParse(value, out _)` | .NET BCL | The removed overload only forwarded to `Guid.TryParse`; `IsGuid(value, format)` remains available. |
+| `Linger.Utils` | `OSPlatformHelper.GetOSVersion()` | `Environment.OSVersion.Version` | .NET BCL | The removed method only forwarded to this property. |
+| `Linger.Utils` | `value.NotIn(values)` | `!value.In(values)` | `Linger.Utils` | The removed method only negated the result of `In`. |
 
 ## Other Linger packages
 

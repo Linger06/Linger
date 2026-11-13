@@ -64,14 +64,6 @@ namespace Linger.UnitTests.Extensions.Core
             Assert.Equal(expected, value.In(1, 2, 3));
         }
 
-        [Theory]
-        [InlineData(1, false)]
-        [InlineData(4, true)]
-        public void NotIn_ShouldReturnWhetherValueIsAbsent(int value, bool expected)
-        {
-            Assert.Equal(expected, value.NotIn(1, 2, 3));
-        }
-
         [Fact]
         public void IsNumeric_ShouldReturnTrue_WhenObjectIsUnsignedInteger()
         {

@@ -26,16 +26,6 @@ public partial class DateTimeExtensionsTests
         Assert.False(result);
     }
 
-    [Fact]
-    public void DayInYear_ReturnsCorrectDayOfYear()
-    {
-        var date = new DateTime(2023, 5, 15);
-
-        var result = date.DayInYear();
-
-        Assert.Equal(135, result);
-    }
-
     [Theory]
     [InlineData("2023-10-02", 1)] // Monday
     [InlineData("2023-10-03", 2)] // Tuesday

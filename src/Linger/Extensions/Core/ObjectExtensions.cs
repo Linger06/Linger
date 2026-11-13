@@ -31,18 +31,6 @@ public static class ObjectExtensions
         return Array.IndexOf(values, obj) >= 0;
     }
 
-    /// <summary>
-    /// Determines whether the specified value equals none of the supplied values.
-    /// </summary>
-    /// <typeparam name="T">The type of values to compare.</typeparam>
-    /// <param name="obj">The value to compare.</param>
-    /// <param name="values">The values to compare against.</param>
-    /// <returns><see langword="true"/> when <paramref name="obj"/> does not equal any supplied value; otherwise, <see langword="false"/>.</returns>
-    public static bool NotIn<T>(this T obj, params T[] values)
-    {
-        return !obj.In(values);
-    }
-
     public static string? ToNormalizedString(this object? input, bool trim = false, bool treatEmptyAsNull = false)
     {
         if (input is null) return null;
