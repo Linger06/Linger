@@ -24,14 +24,22 @@ public static partial class StringExtensions
     }
 
 #if !NET8_0_OR_GREATER
+    /// <summary>判断字符串首字符是否等于指定字符。</summary>
+    /// <param name="value">要检查的字符串。</param>
+    /// <param name="prefix">要匹配的首字符。</param>
+    /// <returns>字符串非空且首字符相等时返回 true。</returns>
     public static bool StartsWith(this string value, char prefix)
     {
-        return value.StartsWith(prefix.ToString());
+        return value.Length > 0 && value[0] == prefix;
     }
 
+    /// <summary>判断字符串末字符是否等于指定字符。</summary>
+    /// <param name="value">要检查的字符串。</param>
+    /// <param name="suffix">要匹配的末字符。</param>
+    /// <returns>字符串非空且末字符相等时返回 true。</returns>
     public static bool EndsWith(this string value, char suffix)
     {
-        return value.EndsWith(suffix.ToString());
+        return value.Length > 0 && value[value.Length - 1] == suffix;
     }
 #endif
 }

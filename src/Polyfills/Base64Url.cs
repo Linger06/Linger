@@ -58,23 +58,37 @@ internal static class Base64Url
             return [];
         }
 
-        // Convert URL-safe Base64 to standard Base64
-        var base64 = source.ToString()
-            .Replace('-', '+')
-            .Replace('_', '/');
+        if (!TryValidate(source, out var dataLength))
+        {
+            throw new FormatException();
+        }
 
-        // Add padding if necessary
-        switch (base64.Length % 4)
+        // 与 BCL 一致忽略 ASCII 空白和已有填充，同时拒绝标准 Base64 的 +、/。
+        var base64 = new System.Text.StringBuilder(dataLength + 2);
+        foreach (var character in source)
+        {
+            if (IsValidBase64UrlChar(character))
+            {
+                base64.Append(character switch
+                {
+                    '-' => '+',
+                    '_' => '/',
+                    _ => character
+                });
+            }
+        }
+
+        switch (dataLength % 4)
         {
             case 2:
-                base64 += "==";
+                base64.Append("==");
                 break;
             case 3:
-                base64 += "=";
+                base64.Append('=');
                 break;
         }
 
-        return Convert.FromBase64String(base64);
+        return Convert.FromBase64String(base64.ToString());
     }
 
     /// <summary>
@@ -90,26 +104,7 @@ internal static class Base64Url
     /// </example>
     public static bool IsValid(ReadOnlySpan<char> base64UrlText)
     {
-        if (base64UrlText.IsEmpty)
-        {
-            return true;
-        }
-
-        // Base64Url 编码长度不可能 mod 4 == 1
-        if (base64UrlText.Length % 4 == 1)
-        {
-            return false;
-        }
-
-        foreach (var c in base64UrlText)
-        {
-            if (!IsValidBase64UrlChar(c))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return TryValidate(base64UrlText, out _);
     }
 
     /// <summary>
@@ -148,6 +143,40 @@ internal static class Base64Url
     private static bool IsValidBase64UrlChar(char c)
     {
         return c is (>= 'A' and <= 'Z') or (>= 'a' and <= 'z') or (>= '0' and <= '9') or '-' or '_';
+    }
+
+    private static bool TryValidate(ReadOnlySpan<char> source, out int dataLength)
+    {
+        dataLength = 0;
+        var paddingCount = 0;
+        foreach (var character in source)
+        {
+            if (character is ' ' or '\t' or '\r' or '\n')
+            {
+                continue;
+            }
+
+            if (character == '=')
+            {
+                paddingCount++;
+                if (paddingCount > 2)
+                {
+                    return false;
+                }
+            }
+            else if (IsValidBase64UrlChar(character) && paddingCount == 0)
+            {
+                dataLength++;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        var remainder = dataLength % 4;
+
+        return remainder != 1 && paddingCount <= (4 - remainder) % 4;
     }
 }
 

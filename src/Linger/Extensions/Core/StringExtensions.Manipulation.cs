@@ -19,7 +19,7 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// Removes the specified prefix and suffix (multiple characters) from the string.
+    /// Removes the specified prefix and suffix (multiple characters) using ordinal comparison.
     /// </summary>
     /// <param name="str">The input string.</param>
     /// <param name="value">The string to remove.</param>
@@ -55,12 +55,12 @@ public static partial class StringExtensions
 #else
         var result = str;
 
-        if (result.StartsWith(value))
+        if (result.StartsWith(value, StringComparison.Ordinal))
         {
             result = result.Substring(value.Length);
         }
 
-        if (result.EndsWith(value))
+        if (result.EndsWith(value, StringComparison.Ordinal))
         {
             result = result.Substring(0, result.Length - value.Length);
         }
@@ -118,7 +118,7 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// Safely truncates a string to the specified maximum length.
+    /// Safely truncates a string to the specified maximum UTF-16 length without splitting surrogate pairs.
     /// </summary>
     /// <param name="input">The string to truncate.</param>
     /// <param name="maxLength">The maximum length.</param>
@@ -136,6 +136,7 @@ public static partial class StringExtensions
 
         if (suffix.Length >= maxLength)
         {
+            maxLength = GetCompletePrefixLength(suffix, maxLength);
 #if NET6_0_OR_GREATER
             return suffix.AsSpan(0, maxLength).ToString();
 #else
@@ -143,7 +144,7 @@ public static partial class StringExtensions
 #endif
         }
 
-        var actualMaxLength = maxLength - suffix.Length;
+        var actualMaxLength = GetCompletePrefixLength(input, maxLength - suffix.Length);
 
 #if NET6_0_OR_GREATER
         var totalLength = actualMaxLength + suffix.Length;
@@ -161,13 +162,23 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// Removes the last newline character from the specified string (using Environment.NewLine).
+    /// Removes one trailing newline sequence (CRLF, LF, or CR) from the specified string.
     /// </summary>
     /// <param name="value">The string to remove the last newline from.</param>
-    /// <returns>The string without the last newline character.</returns>
+    /// <returns>The string without one trailing newline sequence, or the original string if none is present.</returns>
     public static string RemoveLastNewLine(this string value)
     {
-        return value.TrimEnd('\r', '\n');
+        if (value.EndsWith("\r\n", StringComparison.Ordinal))
+        {
+            return value.Substring(0, value.Length - 2);
+        }
+
+        if (value.EndsWith("\n", StringComparison.Ordinal) || value.EndsWith("\r", StringComparison.Ordinal))
+        {
+            return value.Substring(0, value.Length - 1);
+        }
+
+        return value;
     }
 
     /// <summary>
@@ -284,20 +295,20 @@ public static partial class StringExtensions
     public static string EnsureStartsWith(this string value, string prefix, StringComparison comparison) => EnsureAffixCore(value, prefix, true, comparison);
 
     /// <summary>
-    /// Ensures the string starts with the specified prefix.
+    /// Ensures the string starts with the specified prefix using ordinal comparison.
     /// </summary>
     /// <param name="value">The string value to check.</param>
     /// <param name="prefix">The prefix value to check for.</param>
     /// <returns>The string value including the prefix.</returns>
-    public static string EnsureStartsWith(this string value, string prefix) => EnsureAffixCore(value, prefix, true, null);
+    public static string EnsureStartsWith(this string value, string prefix) => EnsureAffixCore(value, prefix, true, StringComparison.Ordinal);
 
     /// <summary>
-    /// Ensures the string ends with the specified suffix.
+    /// Ensures the string ends with the specified suffix using ordinal comparison.
     /// </summary>
     /// <param name="value">The string value to check.</param>
     /// <param name="suffix">The suffix value to check for.</param>
     /// <returns>The string value including the suffix.</returns>
-    public static string EnsureEndsWith(this string value, string suffix) => EnsureAffixCore(value, suffix, false, null);
+    public static string EnsureEndsWith(this string value, string suffix) => EnsureAffixCore(value, suffix, false, StringComparison.Ordinal);
 
     /// <summary>
     /// 若不已包含指定后缀，则以指定比较方式添加该后缀。
@@ -308,7 +319,7 @@ public static partial class StringExtensions
     /// Truncates the string to the specified length, or returns the entire string if it is shorter than the specified length.
     /// </summary>
     /// <param name="self">The string to truncate.</param>
-    /// <param name="length">The length to truncate to.</param>
+    /// <param name="length">The maximum UTF-16 length. A surrogate pair crossing the boundary is omitted.</param>
     /// <returns>The truncated string.</returns>
     public static string Take(this string self, int length)
     {
@@ -319,7 +330,7 @@ public static partial class StringExtensions
     /// Truncates the string to the specified length from the end, or returns the entire string if it is shorter than the specified length.
     /// </summary>
     /// <param name="self">The string to truncate.</param>
-    /// <param name="length">The length to truncate to.</param>
+    /// <param name="length">The maximum UTF-16 length. A surrogate pair crossing the boundary is omitted.</param>
     /// <returns>The truncated string.</returns>
     public static string TakeLast(this string self, int length)
     {
@@ -329,20 +340,35 @@ public static partial class StringExtensions
         if (length >= self.Length)
             return self;
 
+        var start = self.Length - length;
+        if (char.IsLowSurrogate(self[start]) && char.IsHighSurrogate(self[start - 1]))
+        {
+            start++;
+        }
+
 #if NET6_0_OR_GREATER
-        return self.AsSpan(self.Length - length).ToString();
+        return self.AsSpan(start).ToString();
 #else
-        return self.Substring(self.Length - length);
+        return self.Substring(start);
 #endif
     }
 
-    private static string EnsureAffixCore(string value, string affix, bool isPrefix, StringComparison? comparison)
+    private static int GetCompletePrefixLength(string value, int length)
+    {
+        // 保持 UTF-16 长度上限，在边界切入代理对时舍弃整对字符。
+        if (length > 0 && length < value.Length && char.IsHighSurrogate(value[length - 1]) && char.IsLowSurrogate(value[length]))
+        {
+            length--;
+        }
+
+        return length;
+    }
+
+    private static string EnsureAffixCore(string value, string affix, bool isPrefix, StringComparison comparison)
     {
         if (value is null) return affix ?? string.Empty;
         if (affix is null) return value;
-        bool has = comparison.HasValue
-            ? (isPrefix ? value.StartsWith(affix, comparison.Value) : value.EndsWith(affix, comparison.Value))
-            : (isPrefix ? value.StartsWith(affix) : value.EndsWith(affix));
+        bool has = isPrefix ? value.StartsWith(affix, comparison) : value.EndsWith(affix, comparison);
         if (has)
             return value;
 #if NET6_0_OR_GREATER

@@ -2,6 +2,181 @@ namespace Linger.UnitTests.Extensions.Core;
 
 public partial class StringExtensionsTests
 {
+    [Theory]
+    [InlineData("😀😀😀", 1, "")]
+    [InlineData("😀😀😀", 3, "😀")]
+    [InlineData("a😀b", 2, "a")]
+    [InlineData("a😀b", 3, "a😀")]
+    public void Take_WithSurrogatePairBoundary_ReturnsCompleteCharacters(string input, int length, string expected)
+    {
+        Assert.Equal(expected, input.Take(length));
+    }
+
+    [Theory]
+    [InlineData("😀😀😀", 1, "")]
+    [InlineData("😀😀😀", 3, "😀")]
+    [InlineData("a😀b", 2, "b")]
+    [InlineData("a😀b", 3, "😀b")]
+    public void TakeLast_WithSurrogatePairBoundary_ReturnsCompleteCharacters(string input, int length, string expected)
+    {
+        Assert.Equal(expected, input.TakeLast(length));
+    }
+
+    [Theory]
+    [InlineData("😀😀😀", 4, "...", "...")]
+    [InlineData("😀😀😀", 5, "..", "😀..")]
+    [InlineData("abcdef", 1, "😀", "")]
+    [InlineData("abcdef", 3, "😀😀", "😀")]
+    public void Truncate_WithSurrogatePairBoundary_ReturnsCompleteCharacters(string input, int length, string suffix, string expected)
+    {
+        Assert.Equal(expected, input.Truncate(length, suffix));
+    }
+
+    [Theory]
+    [InlineData("abc\r\n", "\n", "abc\r\n")]
+    [InlineData("abc", "\0", "abc\0")]
+    public void EnsureEndsWith_WithLiteralSuffix_UsesOrdinalComparison(string input, string suffix, string expected)
+    {
+        Assert.Equal(expected, input.EnsureEndsWith(suffix));
+    }
+
+    [Fact]
+    public void EnsureStartsWith_WithNullCharacter_UsesOrdinalComparison()
+    {
+        Assert.Equal("\0abc", "abc".EnsureStartsWith("\0"));
+    }
+
+    [Theory]
+    [InlineData("x\r\n", "\n", "x\r")]
+    [InlineData("abc", "\0", "abc")]
+    public void RemovePrefixAndSuffix_WithLiteralToken_UsesOrdinalComparison(string input, string token, string expected)
+    {
+        Assert.Equal(expected, input.RemovePrefixAndSuffix(token));
+    }
+
+    [Fact]
+    public void StartsWith_WithNullCharacter_UsesOrdinalComparison()
+    {
+        Assert.False("abc".StartsWith('\0'));
+    }
+
+    [Fact]
+    public void EndsWith_WithNullCharacter_UsesOrdinalComparison()
+    {
+        Assert.False("abc".EndsWith('\0'));
+    }
+
+    [Theory]
+    [InlineData("a+b/", false)]
+    [InlineData("a/b_", false)]
+    [InlineData("AQ==", true)]
+    [InlineData("AQI=", true)]
+    [InlineData(" AQID ", true)]
+    [InlineData("A Q I D", true)]
+    [InlineData("AQ\n", true)]
+    [InlineData("AQ=", true)]
+    [InlineData("AQI==", false)]
+    [InlineData("AQID=", false)]
+    [InlineData("AQID==", false)]
+    [InlineData("AQ===", false)]
+    [InlineData("AQ= =", true)]
+    [InlineData(" \t\r\n", true)]
+    [InlineData("AQ\v", false)]
+    [InlineData("AQ\u00a0", false)]
+    [InlineData("AQ=A", false)]
+    [InlineData("A===", false)]
+    [InlineData("A", false)]
+    public void FromBase64UrlToBytes_WithBoundaryInput_MatchesExpectedAcceptance(string input, bool valid)
+    {
+        if (valid)
+        {
+            Assert.Null(Record.Exception(() => input.FromBase64UrlToBytes()));
+        }
+        else
+        {
+            Assert.Throws<FormatException>(() => input.FromBase64UrlToBytes());
+        }
+    }
+
+    [Theory]
+    [InlineData("AQ=", true)]
+    [InlineData("AQ==", true)]
+    [InlineData("AQI==", false)]
+    [InlineData("AQ= =", true)]
+    [InlineData(" \t\r\n", true)]
+    [InlineData("AQ\v", false)]
+    [InlineData("a+b/", false)]
+    public void Base64UrlIsValid_WithBoundaryInput_MatchesExpectedAcceptance(string input, bool valid)
+    {
+        Assert.Equal(valid, System.Buffers.Text.Base64Url.IsValid(input.AsSpan()));
+    }
+
+    [Fact]
+    public void FromBase64UrlToString_WithPaddingAndWhitespace_DecodesText()
+    {
+        Assert.Equal("Hello", " SGVs bG8=\r\n".FromBase64UrlToString());
+    }
+
+    [Theory]
+    [InlineData("a+b/")]
+    [InlineData("a/b_")]
+    public void FromBase64UrlToString_WithStandardBase64Characters_ThrowsFormatException(string input)
+    {
+        Assert.Throws<FormatException>(() => input.FromBase64UrlToString());
+    }
+
+    [Theory]
+    [InlineData("Ab1中", false)]
+    [InlineData("Ab1 ", false)]
+    [InlineData("Ab1\r", false)]
+    [InlineData("Ab1\n", false)]
+    [InlineData("Ab1\t", false)]
+    [InlineData("Ab1!", true)]
+    [InlineData("Ab1€", true)]
+    [InlineData("Ab1😀", true)]
+    public void IsCombinationOfEnglishNumberSymbol_WithNonAlphanumericCharacter_RequiresPunctuationOrSymbol(string input, bool expected)
+    {
+        Assert.Equal(expected, input.IsCombinationOfEnglishNumberSymbol());
+    }
+
+    [Theory]
+    [InlineData("o'brien@example.com")]
+    [InlineData("test+label@example.com")]
+    public void IsEmail_WithSupportedLocalPartPunctuation_ReturnsTrue(string input)
+    {
+        Assert.True(input.IsEmail());
+    }
+
+    [Fact]
+    public void IsMultipleEmail_WithApostrophe_ReturnsTrue()
+    {
+        Assert.True("o'brien@example.com;test@example.com".IsMultipleEmail());
+    }
+
+    [Fact]
+    public void IsEmail_WithLongInvalidDomain_ReturnsFalse()
+    {
+        var input = "a@" + string.Concat(Enumerable.Repeat("a.", 4096)) + "!";
+
+        Assert.False(input.IsEmail());
+    }
+
+    [Theory]
+    [InlineData("a\n\n", "a\n")]
+    [InlineData("a\r\n\r\n", "a\r\n")]
+    [InlineData("a\r\r", "a\r")]
+    [InlineData("a\n\r\n", "a\n")]
+    [InlineData("a\r\n\n", "a\r\n")]
+    [InlineData("\r\n", "")]
+    [InlineData("\n", "")]
+    [InlineData("\r", "")]
+    [InlineData("", "")]
+    [InlineData("a", "a")]
+    public void RemoveLastNewLine_WithTrailingNewlines_RemovesOnlyOneSequence(string input, string expected)
+    {
+        Assert.Equal(expected, input.RemoveLastNewLine());
+    }
+
     public static IEnumerable<object[]> Data2 = new List<object[]>
     {
         new object[] { "A,", "A" },
@@ -556,15 +731,6 @@ public partial class StringExtensionsTests
     }
 
     [Theory]
-    [InlineData("d3c4a2b1-4f5e-6d7c-8b9a-0f1e2d3c4b5a", true)]
-    [InlineData("abc", false)]
-    public void IsGuid_ShouldReturnExpectedResult(string value, bool expected)
-    {
-        var result = value.IsGuid();
-        Assert.Equal(expected, result);
-    }
-
-    [Theory]
     [InlineData("d3c4a2b14f5e6d7c8b9a0f1e2d3c4b5a", "N", true)]
     [InlineData("abc", "N", false)]
     public void IsGuid_WithFormat_ShouldReturnExpectedResult(string value, string format, bool expected)
@@ -665,6 +831,19 @@ public partial class StringExtensionsTests
     [InlineData("test@example.com;user@example.org", true)]
     [InlineData("test@example.com; user@example.org", true)]
     [InlineData("user@example.online;admin@example.technology", true)]
+    [InlineData("test+label@example.com", true)]
+    [InlineData("test+label@example.com;other@example.com;", true)]
+    [InlineData("a@x.com;b@x.com;", true)]
+    [InlineData("a@x.com; b@x.com; ", true)]
+    [InlineData("a@[127.0.0.1]", true)]
+    [InlineData("a@[127.0.0.1];b@x.com", true)]
+    [InlineData("a@b.com]", false)]
+    [InlineData("a@[127.0.0.1", false)]
+    [InlineData("..a@x.com", false)]
+    [InlineData("a..b@x.com", false)]
+    [InlineData("a.@x.com", false)]
+    [InlineData("a@x.com;;b@x.com", false)]
+    [InlineData(";a@x.com", false)]
     [InlineData("invalid@email", false)]
     [InlineData("test@example.com;invalid", false)]
     [InlineData("", false)]
@@ -679,6 +858,11 @@ public partial class StringExtensionsTests
     [InlineData("example.com", true)]
     [InlineData("subdomain.example.com", true)]
     [InlineData("sub-domain.example.co.uk", true)]
+    [InlineData("bad-.example.com", false)]
+    [InlineData("a-.com", false)]
+    [InlineData("-a.example.com", false)]
+    [InlineData("a.b", true)]
+    [InlineData("a-b.example.com.", true)]
     [InlineData("example", false)]
     [InlineData("", false)]
     [InlineData("example..com", false)]

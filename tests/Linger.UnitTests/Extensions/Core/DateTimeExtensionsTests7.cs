@@ -39,6 +39,10 @@ public class DateTimeExtensionsTests7
     [InlineData("de-DE", 2015, 53)] // ISO 8601, 2015年有53周
     [InlineData("de-DE", 2016, 52)]
     [InlineData("de-DE", 2020, 53)]
+    [InlineData("de-DE", 2019, 52)]
+    [InlineData("de-DE", 2024, 52)]
+    [InlineData("de-DE", 2025, 52)]
+    [InlineData("fr-FR", 2025, 52)]
     public void GetYearWeekCount_WithISOStandard_ReturnsCorrectWeeks(string cultureName, int year, int expected)
     {
         // Arrange
@@ -50,6 +54,49 @@ public class DateTimeExtensionsTests7
         // Assert
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData(2019)]
+    [InlineData(2024)]
+    [InlineData(2025)]
+    public void GetStartEndDayOfWeek_WithWeekBelongingToNextYear_ThrowsArgumentOutOfRangeException(int year)
+    {
+        var culture = new CultureInfo("de-DE", false);
+
+        Assert.Throws<ArgumentOutOfRangeException>("weekNumber",
+            () => DateTimeExtensions.GetStartEndDayOfWeek(year, 53, culture));
+    }
+
+    [Theory]
+    [InlineData("th-TH")]
+    [InlineData("ar-SA")]
+    public void GetWeekCountOfYear_WithNonGregorianCulture_UsesGregorianYearAndCultureWeekRules(string cultureName)
+    {
+        var culture = new CultureInfo(cultureName, false);
+        culture.DateTimeFormat.FirstDayOfWeek = DayOfWeek.Monday;
+        culture.DateTimeFormat.CalendarWeekRule = CalendarWeekRule.FirstFourDayWeek;
+
+        Assert.Equal(52, DateTimeExtensions.GetWeekCountOfYear(2025, culture));
+    }
+
+    [Fact]
+    public void GetWeekCountOfYear_WithCustomFirstFourDayRule_ExcludesNextYearsWeek()
+    {
+        var culture = new CultureInfo("en-US", false);
+        culture.DateTimeFormat.FirstDayOfWeek = DayOfWeek.Sunday;
+        culture.DateTimeFormat.CalendarWeekRule = CalendarWeekRule.FirstFourDayWeek;
+
+        Assert.Equal(52, DateTimeExtensions.GetWeekCountOfYear(2024, culture));
+    }
+
+    [Theory]
+    [InlineData(1, 52)]
+    [InlineData(9999, 52)]
+    public void GetWeekCountOfYear_WithIsoBoundaryYear_ReturnsWeekCount(int year, int expected)
+    {
+        Assert.Equal(expected, DateTimeExtensions.GetWeekCountOfYear(year, new CultureInfo("de-DE", false)));
+    }
+
 
     [Fact]
     public void GetYearWeekCount_WithCustomCulture_ReturnsExpectedWeeks()

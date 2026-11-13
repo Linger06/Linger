@@ -10,9 +10,10 @@ public static partial class StringExtensions
     private const string Ipv4RegexPattern = @"^((2(5[0-5]|[0-4][0-9]))|[0-1]?[0-9]{1,2})(\.((2(5[0-5]|[0-4][0-9]))|[0-1]?[0-9]{1,2})){3}\z";
 #endif
     // 结尾统一使用 \z 而非 $：$ 允许匹配末尾的换行符，会把 "a@b.com\n" 判定为合法
-    private const string DomainRegexPattern = @"^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+\.?\z";
-    private const string EmailRegexPattern = @"^\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*\z";
-    private const string MultipleMailRegexPattern = @"^((?:(?:[a-zA-Z0-9_\-\.]+)@(?:(?:\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.)|(?:(?:[a-zA-Z0-9\-]+\.)+))(?:[a-zA-Z]{2,63}|[0-9]{1,3})(?:\]?)(?:\s*;\s*|\s*\z))+)\z";
+    private const string DomainRegexPattern = @"^[a-zA-Z0-9](?:[-a-zA-Z0-9]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9](?:[-a-zA-Z0-9]{0,61}[a-zA-Z0-9])?)+\.?\z";
+    // 域名按点分段，避免多个重复分组竞争同一个点而造成大量回溯。
+    private const string EmailRegexPattern = @"^\w+(?:[-+.']\w+)*@\w+(?:-\w+)*(?:\.\w+(?:-\w+)*)+\z";
+    private const string MultipleMailRegexPattern = @"^(?:[a-zA-Z0-9_+'-]+(?:\.[a-zA-Z0-9_+'-]+)*@(?:(?:[a-zA-Z0-9-]+\.)+(?:[a-zA-Z]{2,63}|[0-9]{1,3})|\[[0-9]{1,3}(?:\.[0-9]{1,3}){3}\])(?:\s*;\s*|\s*\z))+\z";
     #endregion
 
 #if NET8_0_OR_GREATER
@@ -209,6 +210,7 @@ public static partial class StringExtensions
     /// </summary>
     /// <param name="str">The string to validate.</param>
     /// <returns>True if the string is a valid domain name; otherwise, false.</returns>
+    /// <remarks>仅检查标签语法，允许数字标签；不验证 DNS 注册状态，也不执行 IP 地址校验。</remarks>
     /// <example>
     /// <code>
     /// bool ok = "example.com".IsDomainName();     // true
@@ -274,12 +276,13 @@ public static partial class StringExtensions
     }
 
     /// <summary>
-    /// Determines whether the specified string contains only a combination of English letters, numbers, and special characters.
+    /// Determines whether the specified string contains a combination of English letters, numbers, and Unicode punctuation or symbols.
     /// </summary>
     /// <param name="input">The string to validate.</param>
     /// <param name="minLength">The minimum length of the string.</param>
     /// <param name="maxLength">The maximum length of the string.</param>
     /// <returns>True if the string contains only a combination of English letters, numbers, and special characters; otherwise, false.</returns>
+    /// <remarks>符号采用 Unicode 标点和符号类别，不包括其他语言的字母、空白或控制字符。</remarks>
     /// <example>
     /// <code>
     /// bool ok = "Ab1!".IsCombinationOfEnglishNumberSymbol(3, 10); // true
@@ -309,8 +312,9 @@ public static partial class StringExtensions
         var hasDigit = false;
         var hasSymbol = false;
 
-        foreach (var character in input)
+        for (var index = 0; index < input.Length; index++)
         {
+            var character = input[index];
             if (IsAsciiLetter(character))
             {
                 hasAsciiLetter = true;
@@ -323,12 +327,26 @@ public static partial class StringExtensions
                 continue;
             }
 
-            if (!allowSymbols || character == '\n')
+            if (!allowSymbols)
+            {
+                return false;
+            }
+
+            var category = CharUnicodeInfo.GetUnicodeCategory(input, index);
+            if (category is not (UnicodeCategory.ConnectorPunctuation or UnicodeCategory.DashPunctuation
+                or UnicodeCategory.OpenPunctuation or UnicodeCategory.ClosePunctuation
+                or UnicodeCategory.InitialQuotePunctuation or UnicodeCategory.FinalQuotePunctuation
+                or UnicodeCategory.OtherPunctuation or UnicodeCategory.MathSymbol
+                or UnicodeCategory.CurrencySymbol or UnicodeCategory.ModifierSymbol or UnicodeCategory.OtherSymbol))
             {
                 return false;
             }
 
             hasSymbol = true;
+            if (char.IsHighSurrogate(character))
+            {
+                index++;
+            }
         }
 
         return hasAsciiLetter && hasDigit && (!allowSymbols || hasSymbol);

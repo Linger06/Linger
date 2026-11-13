@@ -8,6 +8,8 @@ namespace Linger.Extensions.Core;
 /// </summary>
 public static partial class StringExtensions
 {
+    // .NET Standard 2.0 的编译期 API 没有 PBKDF2-HMAC-SHA256，只能靠反射或手写实现补齐；为避免这两者，该目标框架不提供加密 API
+#if !NETSTANDARD2_0
     private static readonly byte[] s_aesPayloadMagicV2 = { 0x4C, 0x4E, 0x47, 0x32 }; // LNG2
     private static readonly byte[] s_aesPayloadMagicV3 = { 0x4C, 0x4E, 0x47, 0x33 }; // LNG3
     private static readonly byte[] s_aesPayloadMagicV4 = { 0x4C, 0x4E, 0x47, 0x34 }; // LNG4
@@ -24,19 +26,6 @@ public static partial class StringExtensions
     // 解密 V4 时接受的迭代次数范围：下限防止被降级，上限限制恶意头部造成的 CPU 消耗
     private const int AesMinAcceptedIterations = 100_000;
     private const int AesMaxAcceptedIterations = 10_000_000;
-#if NETSTANDARD2_0
-    private static readonly System.Reflection.MethodInfo? s_pbkdf2Sha256Method =
-        typeof(Rfc2898DeriveBytes).GetMethod(
-            "Pbkdf2",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
-            binder: null,
-            types: new[] { typeof(string), typeof(byte[]), typeof(int), typeof(HashAlgorithmName), typeof(int) },
-            modifiers: null);
-
-    private static readonly System.Reflection.ConstructorInfo? s_pbkdf2Sha256Constructor =
-        typeof(Rfc2898DeriveBytes).GetConstructor(
-            new[] { typeof(string), typeof(byte[]), typeof(int), typeof(HashAlgorithmName) });
-#endif
 
     // DES 加密方法已被移除，因为 DES 算法不安全。
     // 新代码应使用 AesEncryptAuthenticated 和 AesDecryptAuthenticated。
@@ -266,9 +255,7 @@ public static partial class StringExtensions
             return legacyDeriveBytes.GetBytes(AesDerivedKeySize);
         }
 
-#if NETSTANDARD2_0
-        return DeriveAesKeysSha256Portable(password, salt, iterations);
-#elif NET10_0_OR_GREATER
+#if NET10_0_OR_GREATER
         return Rfc2898DeriveBytes.Pbkdf2(
             password,
             salt,
@@ -284,83 +271,6 @@ public static partial class StringExtensions
         return deriveBytes.GetBytes(AesDerivedKeySize);
 #endif
     }
-
-#if NETSTANDARD2_0
-    private static byte[] DeriveAesKeysSha256Portable(string password, byte[] salt, int iterations)
-    {
-        if (s_pbkdf2Sha256Method is not null)
-        {
-            return (byte[])s_pbkdf2Sha256Method.Invoke(
-                obj: null,
-                parameters: new object[]
-                {
-                    password,
-                    salt,
-                    iterations,
-                    HashAlgorithmName.SHA256,
-                    AesDerivedKeySize
-                })!;
-        }
-
-        if (s_pbkdf2Sha256Constructor is not null)
-        {
-            using var deriveBytes = (Rfc2898DeriveBytes)s_pbkdf2Sha256Constructor.Invoke(
-                new object[] { password, salt, iterations, HashAlgorithmName.SHA256 });
-            return deriveBytes.GetBytes(AesDerivedKeySize);
-        }
-
-        byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
-        byte[] saltBlock = new byte[salt.Length + sizeof(int)];
-        Buffer.BlockCopy(salt, 0, saltBlock, 0, salt.Length);
-        var result = new byte[AesDerivedKeySize];
-
-        try
-        {
-            using var hmac = new HMACSHA256(passwordBytes);
-            var resultOffset = 0;
-            for (var blockIndex = 1; resultOffset < result.Length; blockIndex++)
-            {
-                int suffixOffset = salt.Length;
-                saltBlock[suffixOffset] = (byte)(blockIndex >> 24);
-                saltBlock[suffixOffset + 1] = (byte)(blockIndex >> 16);
-                saltBlock[suffixOffset + 2] = (byte)(blockIndex >> 8);
-                saltBlock[suffixOffset + 3] = (byte)blockIndex;
-
-                byte[] iterationHash = hmac.ComputeHash(saltBlock);
-                byte[] block = (byte[])iterationHash.Clone();
-                try
-                {
-                    for (var iteration = 1; iteration < iterations; iteration++)
-                    {
-                        byte[] nextHash = hmac.ComputeHash(iterationHash);
-                        Array.Clear(iterationHash, 0, iterationHash.Length);
-                        iterationHash = nextHash;
-                        for (var i = 0; i < block.Length; i++)
-                        {
-                            block[i] ^= iterationHash[i];
-                        }
-                    }
-
-                    int count = Math.Min(block.Length, result.Length - resultOffset);
-                    Buffer.BlockCopy(block, 0, result, resultOffset, count);
-                    resultOffset += count;
-                }
-                finally
-                {
-                    Array.Clear(iterationHash, 0, iterationHash.Length);
-                    Array.Clear(block, 0, block.Length);
-                }
-            }
-
-            return result;
-        }
-        finally
-        {
-            Array.Clear(passwordBytes, 0, passwordBytes.Length);
-            Array.Clear(saltBlock, 0, saltBlock.Length);
-        }
-    }
-#endif
 
     private static bool TryGetAuthenticatedPayloadVersion(byte[] payload, out AesPayloadVersion version)
     {
@@ -468,4 +378,5 @@ public static partial class StringExtensions
     }
 
     #endregion
+#endif
 }
