@@ -58,6 +58,8 @@
     <Project Path="tests/Linger.EFCore.UnitTests/Linger.EFCore.UnitTests.csproj" />
     <Project Path="tests/Linger.Email.UnitTests/Linger.Email.UnitTests.csproj" />
     <Project Path="tests/Linger.Excel.UnitTests/Linger.Excel.UnitTests.csproj" />
+    <Project Path="tests/Linger.FileSystem.Ftp.UnitTests/Linger.FileSystem.Ftp.UnitTests.csproj" />
+    <Project Path="tests/Linger.FileSystem.Sftp.UnitTests/Linger.FileSystem.Sftp.UnitTests.csproj" />
     <Project Path="tests/Linger.FileSystem.UnitTests/Linger.FileSystem.UnitTests.csproj" />
     <Project Path="tests/Linger.Json.UnitTests/Linger.Json.UnitTests.csproj" />
     <Project Path="tests/Linger.Ldap.UnitTests/Linger.Ldap.UnitTests.csproj" />
