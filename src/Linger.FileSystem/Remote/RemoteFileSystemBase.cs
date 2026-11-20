@@ -277,57 +277,6 @@ public abstract class RemoteFileSystemBase : FileSystemBase, IRemoteFileSystem
     }
 
     /// <summary>
-    /// 将同目录临时文件提交到目标路径。
-    /// </summary>
-    protected static void CommitTemporaryFile(string sourcePath, string destinationPath, bool overwrite)
-    {
-        if (!overwrite && File.Exists(destinationPath))
-        {
-            throw new DuplicateFileException(destinationPath);
-        }
-
-#if NET5_0_OR_GREATER
-        try
-        {
-            File.Move(sourcePath, destinationPath, overwrite);
-        }
-        catch (IOException) when (!overwrite && File.Exists(destinationPath))
-        {
-            throw new DuplicateFileException(destinationPath);
-        }
-#else
-        if (!overwrite)
-        {
-            try
-            {
-                File.Move(sourcePath, destinationPath);
-            }
-            catch (IOException) when (File.Exists(destinationPath))
-            {
-                throw new DuplicateFileException(destinationPath);
-            }
-
-            return;
-        }
-
-        if (File.Exists(destinationPath))
-        {
-            File.Replace(sourcePath, destinationPath, null);
-            return;
-        }
-
-        try
-        {
-            File.Move(sourcePath, destinationPath);
-        }
-        catch (IOException) when (File.Exists(destinationPath))
-        {
-            File.Replace(sourcePath, destinationPath, null);
-        }
-#endif
-    }
-
-    /// <summary>
     /// 下载到同目录临时文件，并在成功后提交到本地目标路径。
     /// </summary>
     protected async Task<bool> DownloadFileAtomicallyAsync(

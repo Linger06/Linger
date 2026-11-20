@@ -275,6 +275,74 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
+        public async Task UploadWithNamingAsync_WithDuplicateFile_PreservesOriginalAndRemovesTemporaryFile()
+        {
+            using var firstStream = new MemoryStream(Encoding.UTF8.GetBytes("original"));
+            var first = await _fileSystem.UploadWithNamingAsync(
+                firstStream,
+                "keep.txt",
+                "container1",
+                namingRule: NamingRule.Normal);
+            using var secondStream = new MemoryStream(Encoding.UTF8.GetBytes("replacement"));
+
+            await Assert.ThrowsAsync<DuplicateFileException>(() =>
+                _fileSystem.UploadWithNamingAsync(
+                    secondStream,
+                    "keep.txt",
+                    "container1",
+                    namingRule: NamingRule.Normal,
+                    overwrite: false,
+                    useSequencedName: false));
+
+            Assert.Equal("original", File.ReadAllText(first.FullFilePath));
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(first.FullFilePath)!, ".upload-*.tmp"));
+        }
+
+        [Fact]
+        public async Task UploadWithNamingAsync_WithOverwrite_ReplacesContentAndRemovesTemporaryFile()
+        {
+            using var firstStream = new MemoryStream(Encoding.UTF8.GetBytes("original"));
+            var first = await _fileSystem.UploadWithNamingAsync(
+                firstStream,
+                "replace.txt",
+                "container1",
+                namingRule: NamingRule.Normal);
+            using var secondStream = new MemoryStream(Encoding.UTF8.GetBytes("replacement"));
+
+            var second = await _fileSystem.UploadWithNamingAsync(
+                secondStream,
+                "replace.txt",
+                "container1",
+                namingRule: NamingRule.Normal,
+                overwrite: true);
+
+            Assert.Equal(first.FullFilePath, second.FullFilePath);
+            Assert.Equal("replacement", File.ReadAllText(second.FullFilePath));
+            Assert.Empty(Directory.GetFiles(Path.GetDirectoryName(second.FullFilePath)!, ".upload-*.tmp"));
+        }
+
+        [Fact]
+        public async Task UploadFilesAsync_WithExistingTarget_PreservesOriginalAndRemovesTemporaryFile()
+        {
+            var sourcePath = Path.Combine(_testRootPath, "source.txt");
+            File.WriteAllText(sourcePath, "replacement");
+            var targetDirectory = Path.Combine(_testRootPath, "batch");
+            Directory.CreateDirectory(targetDirectory);
+            var targetPath = Path.Combine(targetDirectory, "source.txt");
+            File.WriteAllText(targetPath, "original");
+
+            var result = await _fileSystem.UploadFilesAsync(
+                [sourcePath],
+                "batch",
+                overwrite: false,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Single(result.FailedFiles);
+            Assert.Equal("original", File.ReadAllText(targetPath));
+            Assert.Empty(Directory.GetFiles(targetDirectory, ".download-*.tmp"));
+        }
+
+        [Fact]
         public async Task UploadAsync_WithSequencedName_CreatesNumberedFile()
         {
             // Arrange

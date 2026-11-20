@@ -227,6 +227,61 @@ public abstract class FileSystemBase : IFileTransfer
         throw new FileSystemException(operation, path, message, ex);
     }
 
+
+    /// <summary>
+    /// 将同目录临时文件提交到目标路径；目标已存在且不允许覆盖时抛出 <see cref="DuplicateFileException"/>。
+    /// </summary>
+    /// <param name="sourcePath">已写入完整内容的临时文件路径。</param>
+    /// <param name="destinationPath">目标文件路径。</param>
+    /// <param name="overwrite">是否允许覆盖已存在的目标文件。</param>
+    /// <exception cref="DuplicateFileException">目标已存在且 <paramref name="overwrite"/> 为 <see langword="false"/>。</exception>
+    protected static void CommitTemporaryFile(string sourcePath, string destinationPath, bool overwrite)
+    {
+        if (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException(destinationPath);
+        }
+
+#if NET5_0_OR_GREATER
+        try
+        {
+            File.Move(sourcePath, destinationPath, overwrite);
+        }
+        catch (IOException) when (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException(destinationPath);
+        }
+#else
+        if (!overwrite)
+        {
+            try
+            {
+                File.Move(sourcePath, destinationPath);
+            }
+            catch (IOException) when (File.Exists(destinationPath))
+            {
+                throw new DuplicateFileException(destinationPath);
+            }
+
+            return;
+        }
+
+        if (File.Exists(destinationPath))
+        {
+            File.Replace(sourcePath, destinationPath, null);
+            return;
+        }
+
+        try
+        {
+            File.Move(sourcePath, destinationPath);
+        }
+        catch (IOException) when (File.Exists(destinationPath))
+        {
+            File.Replace(sourcePath, destinationPath, null);
+        }
+#endif
+    }
     #endregion
 
     #region IFileTransfer 实现
