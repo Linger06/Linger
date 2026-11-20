@@ -6,11 +6,11 @@
 </PropertyGroup>
 
     <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETCoreApp'">
-        <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.200" />
+        <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.401" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
-        <PackageReference Include="Oracle.ManagedDataAccess" Version="23.26.200" />
+        <PackageReference Include="Oracle.ManagedDataAccess" Version="23.26.400" />
     </ItemGroup>
 
     <ItemGroup>

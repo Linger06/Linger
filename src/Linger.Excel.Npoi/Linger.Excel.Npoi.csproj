@@ -12,7 +12,11 @@
 
     <ItemGroup>
         <PackageReference Include="NPOI" Version="2.7.6" />
-        <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.10" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="8.0.5" Condition="'$(TargetFramework)' == 'net8.0'" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.23" Condition="'$(TargetFramework)' == 'net9.0'" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.15" Condition="'$(TargetFramework)' == 'net10.0'" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="11.0.0" Condition="'$(TargetFramework)' == 'net11.0'" />
+        <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.15" Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net472'" />
     </ItemGroup>
 
     <ItemGroup>
