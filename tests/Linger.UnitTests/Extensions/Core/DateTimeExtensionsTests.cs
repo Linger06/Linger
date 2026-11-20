@@ -5,6 +5,111 @@ namespace Linger.UnitTests.Extensions.Core;
 
 public partial class DateTimeExtensionsTests
 {
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void IsToday_WithUtcLocalMidnight_UsesLocalCalendarDay(int dayOffset)
+    {
+        var utcDate = DateTime.Today.AddDays(dayOffset).ToUniversalTime();
+        var expected = utcDate.ToLocalTime().Date == DateTime.Today;
+
+        Assert.Equal(expected, utcDate.IsToday());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ToDateTimeOffset_WithUtcBoundary_PreservesInstant(bool maximum)
+    {
+        var value = DateTime.SpecifyKind(maximum ? DateTime.MaxValue : DateTime.MinValue, DateTimeKind.Utc);
+
+        var result = value.ToDateTimeOffset();
+
+        Assert.Equal(value, result.UtcDateTime);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ToDateTimeOffset_WithUnspecifiedBoundary_PreservesBclRangeValidation(bool maximum)
+    {
+        var value = maximum ? DateTime.MaxValue : DateTime.MinValue;
+        var offset = TimeZoneInfo.Local.GetUtcOffset(value);
+        var utcTicks = value.Ticks - offset.Ticks;
+        if (utcTicks < DateTime.MinValue.Ticks || utcTicks > DateTime.MaxValue.Ticks)
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => value.ToDateTimeOffset());
+        }
+        else
+        {
+            Assert.Equal(new DateTimeOffset(value), value.ToDateTimeOffset());
+        }
+    }
+
+    [Theory]
+    [InlineData("th-TH", 366)]
+    [InlineData("ar-SA", 354)]
+    public void GetDays_WithNonGregorianCulture_UsesYearContainingDate(string cultureName, int expectedDays)
+    {
+        var date = new DateTime(2024, 6, 1);
+
+        var result = date.GetDays(new CultureInfo(cultureName, false));
+
+        Assert.Equal(expectedDays, result);
+    }
+
+    [Theory]
+    [InlineData(1992)]
+    [InlineData(2024)]
+    public void GetDays_WithConfiguredJapaneseCalendar_UsesCalendarYearAndEra(int year)
+    {
+        var culture = new CultureInfo("ja-JP", false);
+        culture.DateTimeFormat.Calendar = new JapaneseCalendar();
+
+        var result = new DateTime(year, 6, 1).GetDays(culture);
+
+        Assert.Equal(366, result);
+    }
+
+    [Theory]
+    [InlineData(1, 365)]
+    [InlineData(2024, 366)]
+    [InlineData(9999, 365)]
+    public void GetDays_WithBoundaryYear_ReturnsFullYearDays(int year, int expectedDays)
+    {
+        Assert.Equal(expectedDays, DateTimeExtensions.GetDays(year));
+        Assert.Equal(expectedDays, new DateTime(year, 12, 31).GetDays());
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(1500)]
+    public void GetDays_WithCalendarYear_UsesSelectedCalendar(int year)
+    {
+        var culture = new CultureInfo("th-TH", false);
+        var calendar = culture.DateTimeFormat.Calendar;
+        var supportedYear = calendar.GetYear(calendar.MinSupportedDateTime);
+
+        Assert.Equal(calendar.GetDaysInYear(supportedYear + year),
+            DateTimeExtensions.GetDays(supportedYear + year, culture));
+    }
+
+    [Theory]
+    [InlineData(DateTimeKind.Utc)]
+    [InlineData(DateTimeKind.Local)]
+    [InlineData(DateTimeKind.Unspecified)]
+    public void GetDateDifference_WithNullSecondDate_UsesMatchingTimeBasis(DateTimeKind kind)
+    {
+        var before = kind == DateTimeKind.Utc ? DateTime.UtcNow : DateTime.Now;
+        var date = DateTime.SpecifyKind(before.AddHours(-2), kind);
+
+        var result = date.GetDateDifference(null, TimeUnit.Hours);
+
+        var after = kind == DateTimeKind.Utc ? DateTime.UtcNow : DateTime.Now;
+        Assert.InRange(result, (date - after).TotalHours, (date - before).TotalHours);
+    }
+
     [Fact]
     public void ToFormatDate_WithDefaultFormat_ReturnsFormattedDate()
     {

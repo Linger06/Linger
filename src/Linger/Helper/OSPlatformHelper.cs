@@ -171,6 +171,10 @@ public static class OSPlatformHelper
     /// </summary>
     /// <param name="minimumVersion">最低版本要求</param>
     /// <returns>是否满足版本要求</returns>
+    /// <remarks>
+    /// 比较 <see cref="Environment.Version"/> 返回的运行时版本。
+    /// .NET Framework 4.x 返回 CLR 的 4.0.x 版本，而非已安装的 Framework 产品版本。
+    /// </remarks>
     public static bool IsRuntimeVersionAtLeast(Version minimumVersion)
     {
 #if NET6_0_OR_GREATER

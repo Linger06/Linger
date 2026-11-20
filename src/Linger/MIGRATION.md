@@ -68,6 +68,7 @@ for applications upgrading from the previous API surface.
 | `Linger.Utils` | `string.IsGuid()` | `Guid.TryParse(value, out _)` | .NET BCL | The removed overload only forwarded to `Guid.TryParse`; `IsGuid(value, format)` remains available. |
 | `Linger.Utils` | `OSPlatformHelper.GetOSVersion()` | `Environment.OSVersion.Version` | .NET BCL | The removed method only forwarded to this property. |
 | `Linger.Utils` | `value.NotIn(values)` | `!value.In(values)` | `Linger.Utils` | The removed method only negated the result of `In`. |
+| `Linger.Utils` | `StreamExtensions.ToFile` / `ToFileAsync` | Call `Directory.CreateDirectory` when needed, open the destination with `File.Create(path)`, and call `stream.CopyTo` / `CopyToAsync`; use `File.Copy` to copy an existing file | .NET BCL | The removed methods reset seekable streams to the beginning before copying, ignoring the caller's current position; atomic writes, permissions, and symbolic-link handling are caller policies. When writing to a temporary file and then replacing the destination is required, use the local file system in `Linger.FileSystem`. |
 
 ## Other Linger packages
 
@@ -219,6 +220,11 @@ for applications upgrading from the previous API surface.
   key derivation. The higher cost is noticeable on .NET Framework: each call costs about six times as much as the
   previous format, which is a fraction of a second on .NET 8 and later but often several seconds on .NET Framework,
   depending on the hardware.
+- **`Linger.Utils`**: The .NET Standard 2.0 build no longer contains `AesEncryptAuthenticated`, `AesDecryptAuthenticated`,
+  or `AesDecrypt`. .NET Standard 2.0 has no compile-time PBKDF2-HMAC-SHA256 API, and the reflection lookup and
+  hand-written fallback that filled the gap have been removed. Projects that compile against the .NET Standard 2.0
+  asset, such as libraries targeting .NET Standard 2.0 and .NET 6 or .NET 7 applications, now fail to compile. Target
+  .NET 8 or later, or .NET Framework 4.7.2, to keep using these APIs and to decrypt existing ciphertext.
 - **`Linger.Utils`**: `DeleteBrackets` now removes every balanced pair of parentheses, including nested pairs, and
   keeps unmatched parentheses. Previously `"a(b(c)d)e"` returned `"a(be"` and `"a(b)c)d"` returned `"ad"`; they now
   return `"ae"` and `"ac)d"`. Input without nested or unmatched parentheses is unaffected.
@@ -255,6 +261,49 @@ for applications upgrading from the previous API surface.
   of incompatible token types share a column, deserialization uses an `object` column and preserves
   each token's corresponding .NET value type.
 - **`Linger.Audit`**: `CreationAuditEntity.CreationTime` is no longer initialized to `DateTimeOffset.Now`; assign it explicitly when creating an entity. `CreatorId` now defaults to `string.Empty` instead of `null!`.
+
+- **`Linger.Utils`**: `Truncate`, `Take`, and `TakeLast` keep their UTF-16 length limits but omit a surrogate pair
+  crossing the cutoff. `RemoveLastNewLine` removes one trailing CRLF, LF, or CR sequence instead of all trailing newlines.
+- **`Linger.Utils`**: Default `EnsureStartsWith`, `EnsureEndsWith`, and `RemovePrefixAndSuffix` comparisons are ordinal
+  across target frameworks. Pass an explicit `StringComparison` when linguistic comparison is required.
+- **`Linger.Utils`**: `IsCombinationOfEnglishNumberSymbol` requires Unicode punctuation or symbols; other letters,
+  whitespace, and control characters no longer qualify as symbols. Email validation accepts apostrophes in the local part.
+- **`Linger.Utils`**: Base64Url decoding on older targets now rejects standard Base64 `+` and `/` like the BCL.
+  Padding and ASCII space, tab, CR, and LF remain accepted; whitespace is ignored before calculating padding.
+- **`Linger.Utils`**: `IsToday` converts UTC inputs to the local calendar day. `GetDays` honors the configured calendar
+  year and era, including the maximum Gregorian year; an omitted second date in `GetDateDifference` uses UTC for UTC inputs.
+  `GetWeekCountOfYear` uses Gregorian years and culture-specific week rules, excluding next year's first ISO week.
+  `ToDateTimeOffset` retains the BCL's range validation when a local offset makes UTC overflow.
+- **`Linger.Utils`**: `DataTable` `Sum`, `Combine`, `Join`, `Paging`, `ToList`, and `TableRowTurnToColumn` now ignore rows
+  whose `RowState` is `Deleted` and leave the source table's row states unchanged; `ClearEmptyRow` skips such rows. `Sum` throws
+  `ArgumentException` when the column does not exist, including on an empty table, which previously returned 0.
+  `ContainAllColumns` throws `ArgumentNullException` when `columnString` is `null` and falls back to the trimmed name when the
+  original name is not found.
+- **`Linger.Utils`**: `TableRowTurnToColumn` formats caption column names with `CultureInfo.InvariantCulture`, so the
+  current culture no longer changes the result schema. An empty-string caption produces an `EMPTY` column and a `null` or `DBNull`
+  caption produces a `NULL` column; values with an empty caption were previously dropped silently. Different captions that
+  produce the same column name throw `DuplicateNameException`.
+- **`Linger.Utils`**: `FullJoin` emits rows in outer-sequence order, each outer item followed by its matching inner items; unmatched
+  inner items are appended in their original order, and `null` keys never match each other. It previously emitted rows grouped by key.
+- **`Linger.Utils`**: `List<string>.ToSeparatedString` doubles single quotes inside elements when `singleQuoted` is `true`.
+  Callers that already escape single quotes will now escape them twice; the method is not a substitute for parameterized queries.
+- **`Linger.Utils`**: `ParameterList.Get<T>` throws an `InvalidCastException` that names the key when the value is `null` or not
+  assignable to `T`; a `null` value for a reference type `T` previously returned `null`.
+- **`Linger.Utils`**: Path string normalization treats both `/` and `\` as separators on every platform, so a `\` on Unix is
+  converted to `/`. Recursive `FileHelper.Contains` no longer follows directory symbolic links or junctions and skips
+  inaccessible subdirectories; files reachable only through a link are no longer found. `FileHelper.CopyFile` throws
+  `ArgumentException` when the destination has no file name (for example, it ends with a directory separator).
+  `FileHelper.GetDirectories` returns the enumerated paths when `filter` is supplied instead of converting them to
+  `DirectoryInfo.FullName`. `FileHelper.GetFileNames` keeps the directory part when `containPath` is `true` and `containExtension`
+  is `false`; it previously returned only the file name without its extension.
+- **`Linger.Utils`**: When `paramName` is omitted, `EnsureIsNotNull`, `EnsureIsNotNullOrEmpty`, and `EnsureIsNotNullOrWhiteSpace`
+  set the exception's `ParamName` to the caller's argument expression; `EnsureFileExists` and `EnsureDirectoryExists` keep the
+  supplied parameter name when the path is `null`.
+- **`Linger.Utils`**: Extension methods on arrays, `DataColumnCollection`, `DataRowCollection`, and `DataTableCollection` throw
+  `ArgumentNullException` for a `null` target or callback, and array `RemoveRange` accepts a `startIndex` equal to the array length
+  (it returns a copy). `ICollection<T>.RemoveAll` removes by position for `IList<T>` and by node for `LinkedList<T>`, so retained
+  items that are `Equals`-equal to removed ones are no longer removed by mistake. `FileInfo.ChangeExtension` removes the extension
+  when given an empty string; it previously produced a file name ending in a dot.
 
 ## Examples
 

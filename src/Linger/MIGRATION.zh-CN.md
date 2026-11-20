@@ -67,6 +67,7 @@
 | `string.IsGuid()` | `Guid.TryParse(value, out _)` | .NET BCL | 原方法仅转发到 `Guid.TryParse`；带格式的 `IsGuid(value, format)` 仍保留。 |
 | `OSPlatformHelper.GetOSVersion()` | `Environment.OSVersion.Version` | .NET BCL | 原方法仅转发到该属性。 |
 | `value.NotIn(values)` | `!value.In(values)` | `Linger.Utils` | 原方法仅对 `In` 的结果取反。 |
+| `Linger.Utils` | `StreamExtensions.ToFile` / `ToFileAsync` | 按需调用 `Directory.CreateDirectory`，再用 `File.Create(path)` 打开目标并调用 `stream.CopyTo` / `CopyToAsync`；复制已有文件时使用 `File.Copy` | .NET BCL | 被删除的方法会在复制前把可定位流重置到开头，忽略调用方已读取的位置；原子写入、权限和符号链接等策略应由调用方决定。需要先写临时文件再替换的场景，请使用 `Linger.FileSystem` 的本地文件系统。 |
 
 ## 其他 Linger 包
 
@@ -208,6 +209,10 @@
   预览版无法读取 `LNG4` 密文。解密时头部的迭代次数必须在 100,000 到 10,000,000 之间，否则在派生密钥之前就抛出
   `CryptographicException`。更高的迭代次数在 .NET Framework 上很明显：每次调用的开销约为此前格式的 6 倍，在 .NET 8 及
   更高版本上不到一秒，在 .NET Framework 上随硬件不同常常需要数秒。
+- **`Linger.Utils`**：.NET Standard 2.0 构建不再包含 `AesEncryptAuthenticated`、`AesDecryptAuthenticated` 和
+  `AesDecrypt`。.NET Standard 2.0 在编译期没有 PBKDF2-HMAC-SHA256 API，此前用来补齐的反射查找和手写回退实现已被
+  移除。基于 .NET Standard 2.0 资产编译的项目（例如以 .NET Standard 2.0 为目标的类库，以及 .NET 6、.NET 7 应用）
+  现在会编译失败。如需继续使用这些 API 或解密已有密文，请以 .NET 8 及更高版本或 .NET Framework 4.7.2 为目标框架。
 - **`Linger.Utils`**：`DeleteBrackets` 现在会删除所有成对的括号（包括嵌套），并保留没有配对的括号。此前
   `"a(b(c)d)e"` 返回 `"a(be"`，`"a(b)c)d"` 返回 `"ad"`；现在分别返回 `"ae"` 和 `"ac)d"`。不含嵌套或多余括号的输入不受影响。
 - **`Linger.Utils`**：AES 辅助方法、`RetryHelper` 和 `TableRowTurnToColumn` 抛出的异常消息改为英文。此前按中文文本匹配的代码，
@@ -235,6 +240,43 @@
   数值和布尔值会继续输出为 JSON 数值和布尔值。反序列化时，如果同一列包含不兼容的 JSON token
   类型，则使用 `object` 列并保留各 token 对应的 .NET 值类型。
 - **`Linger.Audit`**：`CreationAuditEntity.CreationTime` 不再自动初始化为 `DateTimeOffset.Now`，创建实体时必须显式赋值；`CreatorId` 默认值由 `null!` 改为 `string.Empty`。
+
+- **`Linger.Utils`**：`Truncate`、`Take`、`TakeLast` 保持 UTF-16 长度上限，但会舍弃跨越截断边界的代理对。
+  `RemoveLastNewLine` 只移除一个末尾 CRLF、LF 或 CR 序列，不再移除全部末尾换行。
+- **`Linger.Utils`**：`EnsureStartsWith`、`EnsureEndsWith`、`RemovePrefixAndSuffix` 的默认比较在各目标框架统一为
+  `Ordinal`；需要文化相关比较时，请显式传入 `StringComparison`。
+- **`Linger.Utils`**：`IsCombinationOfEnglishNumberSymbol` 的符号限定为 Unicode 标点和符号；其他语言的字母、
+  空白、控制字符不再算作符号。邮箱校验支持本地部分的撇号。
+- **`Linger.Utils`**：旧目标框架的 Base64Url 解码与 BCL 一样拒绝标准 Base64 的 `+`、`/`。
+  仍接受填充和 ASCII 空格、制表符、CR、LF；计算填充前会忽略空白。
+- **`Linger.Utils`**：`IsToday` 会先将 UTC 输入转换为本地日期；`GetDays` 按配置日历的年份和纪元计算，
+  并支持公历最大年份；`GetDateDifference` 省略第二个日期时，为 UTC 输入使用当前 UTC 时间。
+  `GetWeekCountOfYear` 按公历年份及文化周规则计算，排除属于下一年的 ISO 首周。
+  `ToDateTimeOffset` 保留本地偏移导致 UTC 越界时的 BCL 范围校验。
+- **`Linger.Utils`**：`DataTable` 的 `Sum`、`Combine`、`Join`、`Paging`、`ToList` 和 `TableRowTurnToColumn` 现在忽略
+  `RowState` 为 `Deleted` 的行，源表的行状态保持不变；`ClearEmptyRow` 跳过这类行。`Sum` 在列不存在时抛出
+  `ArgumentException`，空表也一样，此前空表返回 0。`ContainAllColumns` 在 `columnString` 为 `null` 时抛出
+  `ArgumentNullException`，并在原始列名不存在时再按去除两端空白后的名称查找。
+- **`Linger.Utils`**：`TableRowTurnToColumn` 的标题列名使用 `CultureInfo.InvariantCulture` 格式化，不再受当前区域性影响。
+  空字符串标题生成 `EMPTY` 列，`null` 或 `DBNull` 标题生成 `NULL` 列；此前空标题的值会被静默丢弃。不同标题生成同名列时抛出
+  `DuplicateNameException`。
+- **`Linger.Utils`**：`FullJoin` 按 outer 序列的顺序输出，每个 outer 项之后紧跟其匹配的 inner 项；未匹配的 inner 项按原顺序追加在末尾；
+  `null` 键之间互不匹配。此前按键分组输出。
+- **`Linger.Utils`**：`List<string>.ToSeparatedString` 在 `singleQuoted` 为 `true` 时会把元素内部的单引号加倍。
+  已经自行转义单引号的调用方会被重复转义；该方法不能代替数据库参数化查询。
+- **`Linger.Utils`**：`ParameterList.Get<T>` 在值为 `null` 或不可赋值给 `T` 时抛出带键名的 `InvalidCastException`；
+  此前引用类型的 `null` 值会返回 `null`。
+- **`Linger.Utils`**：路径字符串规范化在所有平台都把 `/` 和 `\` 视为分隔符，因此 Unix 上的 `\` 也会被转换为 `/`。
+  `FileHelper.Contains` 递归搜索时不再跟随目录符号链接和联接点，并跳过无法访问的子目录；此前只能经由链接到达的文件现在不会被找到。
+  `FileHelper.CopyFile` 在目标路径没有文件名（例如以目录分隔符结尾）时抛出 `ArgumentException`。`FileHelper.GetDirectories` 传入
+  `filter` 时返回枚举得到的路径，不再转换为 `DirectoryInfo.FullName`。`FileHelper.GetFileNames` 在 `containPath` 为 `true`、
+  `containExtension` 为 `false` 时保留目录部分，此前只返回不含扩展名的文件名。
+- **`Linger.Utils`**：`EnsureIsNotNull`、`EnsureIsNotNullOrEmpty` 和 `EnsureIsNotNullOrWhiteSpace` 省略 `paramName` 时，
+  异常的 `ParamName` 取调用表达式文本；`EnsureFileExists` 和 `EnsureDirectoryExists` 在路径为 `null` 时保留传入的参数名。
+- **`Linger.Utils`**：数组、`DataColumnCollection`、`DataRowCollection` 和 `DataTableCollection` 上的扩展方法对 `null` 目标或回调抛出
+  `ArgumentNullException`；数组 `RemoveRange` 允许 `startIndex` 等于数组长度（返回副本）。`ICollection<T>.RemoveAll` 对 `IList<T>` 和
+  `LinkedList<T>` 按位置或节点移除，`Equals` 相等的保留项不再被误删。`FileInfo.ChangeExtension` 传入空字符串时移除扩展名，
+  此前会得到以点结尾的文件名。
 
 ## 示例
 

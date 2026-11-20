@@ -61,13 +61,13 @@ public static class DateTimeExtensions
     /// Gets the difference between two dates in the specified time unit.
     /// </summary>
     /// <param name="dateTime1">The first date.</param>
-    /// <param name="dateTime2">The second date. Uses current time if null.</param>
+    /// <param name="dateTime2">The second date. If null, uses UTC time for a UTC first date, or local time otherwise.</param>
     /// <param name="unit">The time unit to express the difference in.</param>
     /// <param name="abs">If <c>true</c>, returns the absolute value of the difference.</param>
     /// <returns>The difference between the dates in the specified unit.</returns>
     public static double GetDateDifference(this DateTime dateTime1, DateTime? dateTime2, TimeUnit unit, bool abs = false)
     {
-        var date2 = dateTime2 ?? DateTime.Now;
+        var date2 = dateTime2 ?? (dateTime1.Kind == DateTimeKind.Utc ? DateTime.UtcNow : DateTime.Now);
         var dateDiff = unit switch
         {
             TimeUnit.Days => (dateTime1 - date2).TotalDays,
@@ -156,13 +156,15 @@ public static class DateTimeExtensions
     }
 
     /// <summary>
-    /// Determines whether the specified date is today.
+    /// Determines whether the specified date falls on today's local calendar day.
     /// </summary>
     /// <param name="dt">The date to check.</param>
     /// <returns><c>true</c> if the date is today; otherwise, <c>false</c>.</returns>
     public static bool IsToday(this DateTime dt)
     {
-        return dt.Date == DateTime.Today;
+        var localDate = dt.Kind == DateTimeKind.Utc ? dt.ToLocalTime() : dt;
+
+        return localDate.Date == DateTime.Today;
     }
 
     /// <summary>
@@ -227,7 +229,7 @@ public static class DateTimeExtensions
     /// <summary>
     /// Gets the total number of days in the specified year.
     /// </summary>
-    /// <param name="year">The year to get the day count for.</param>
+    /// <param name="year">The year in the Gregorian calendar to get the day count for.</param>
     /// <returns>The number of days in the year (365 or 366).</returns>
     public static int GetDays(int year)
     {
@@ -509,6 +511,13 @@ public static class DateTimeExtensions
 
 #endif
 
+    /// <summary>
+    /// 将日期转换为带偏移量的时间；未指定种类的日期按本地时间解释。
+    /// </summary>
+    /// <param name="value">要转换的日期。</param>
+    /// <returns>保留原日期及其 UTC 或本地偏移量的时间。</returns>
+    /// <exception cref="ArgumentOutOfRangeException">本地偏移量使对应的 UTC 时间超出有效范围。</exception>
+    /// <remarks>最小值和最大值也遵循 DateTimeOffset 的范围约束；需要零偏移量时应传入 UTC 日期。</remarks>
     public static DateTimeOffset ToDateTimeOffset(this DateTime value)
     {
         if (value.Kind == DateTimeKind.Unspecified)
@@ -519,14 +528,20 @@ public static class DateTimeExtensions
         return new DateTimeOffset(value);
     }
 
+    /// <summary>
+    /// 将可空日期转换为带偏移量的时间；未指定种类的日期按本地时间解释。
+    /// </summary>
+    /// <param name="input">要转换的可空日期。</param>
+    /// <returns>转换后的时间；输入为 null 时返回 null。</returns>
+    /// <exception cref="ArgumentOutOfRangeException">本地偏移量使对应的 UTC 时间超出有效范围。</exception>
     [return: NotNullIfNotNull(nameof(input))]
     public static DateTimeOffset? ToDateTimeOffset(this DateTime? input) => input?.ToDateTimeOffset();
 
     /// <summary>
-    /// Gets the number of weeks in the specified year according to the specified culture's calendar.
+    /// Gets the number of weeks belonging to the specified Gregorian year using the culture's week rules.
     /// </summary>
     /// <param name="year">The year to get week count for (1-9999)</param>
-    /// <param name="culture">The culture info to use for calculation. If null, uses default culture</param>
+    /// <param name="culture">The culture supplying the first day and week rule. If null, uses the invariant culture.</param>
     /// <returns>The total number of weeks in the specified year</returns>
     /// <exception cref="ArgumentOutOfRangeException">Thrown when year is not between 1 and 9999</exception>
     public static int GetWeekCountOfYear(int year, CultureInfo? culture = null)
