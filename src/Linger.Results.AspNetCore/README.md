@@ -107,6 +107,8 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 
 `ToActionResult()` and `ToHttpResult()` both use `ProblemDetails` for failures. A successful non-generic `Result` returns only the status code with an empty body; a successful `Result<T>` returns its `Value`.
 
+For 500–599, MVC and Minimal API keep the status code but return only a generic title and detail: no `errors`, application codes, or original exception messages. The field-level error examples below apply to 4xx; use server logs for diagnostics.
+
 > **Status Code Parameters:**
 > - `ToActionResult()` / `ToActionResult<T>()` / `ToHttpResult()` / `ToHttpResult<T>()`: Both `successStatusCode` and `failureStatusCode` are optional. When not specified, `successStatusCode` defaults to 200 OK; `failureStatusCode` is auto-determined by `Result.Status` (e.g., `NotFound` → 404, others → 400)
 ## Response Format Examples

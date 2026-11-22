@@ -107,6 +107,8 @@ app.MapDelete("/api/users/{id}", async (int id, IUserService userService) =>
 
 `ToActionResult()` 与 `ToHttpResult()` 的失败响应都使用 `ProblemDetails`。非泛型 `Result` 成功时只返回状态码，不序列化结果对象；泛型 `Result<T>` 成功时返回 `Value`。
 
+对于 500–599，MVC 与 Minimal API 只返回通用标题及说明，保留原状态码，不包含 `errors`、应用错误码或原始异常消息。下文的字段级错误适用于 4xx；服务端诊断应查日志。
+
 > **状态码参数说明：**
 > - `ToActionResult()` / `ToActionResult<T>()` / `ToHttpResult()` / `ToHttpResult<T>()`：`successStatusCode` 和 `failureStatusCode` 都是可选的。未指定时，`successStatusCode` 默认为 200 OK；`failureStatusCode` 根据 `Result.Status` 自动确定（如 `NotFound` → 404，其他 → 400）
 > - `ToCreatedResult()` / `ToCreatedResult<T>()` / `ToNoContentResult()`：无状态码参数

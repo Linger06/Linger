@@ -26,6 +26,28 @@ public class IntegrationTests
         Assert.Equal(["Name is required"], errors["Validation.Name"]);
     }
 
+    [Theory]
+    [InlineData(500)]
+    [InlineData(502)]
+    [InlineData(503)]
+    [InlineData(599)]
+    public void ServerErrors_ShouldPreserveStatusWithoutReturningApplicationErrors(int status)
+    {
+        const string message = "Internal diagnostic message";
+        var result = Result.Failure(new Error("Internal.Code", message));
+        var code = (System.Net.HttpStatusCode)status;
+        var mvc = Assert.IsType<ObjectResult>(result.ToActionResult(failureStatusCode: code));
+        var minimal = Assert.IsAssignableFrom<IValueHttpResult>(result.ToHttpResult(failureStatusCode: code));
+
+        foreach (var value in new[] { mvc.Value, minimal.Value })
+        {
+            var problem = Assert.IsType<ProblemDetails>(value);
+            Assert.Equal(status, problem.Status);
+            Assert.DoesNotContain(message, problem.Detail ?? string.Empty);
+            Assert.False(problem.Extensions.ContainsKey("errors"));
+        }
+    }
+
     [Fact]
     public void ToActionResult_WhenErrorsHaveNoCode_ShouldPreserveAllMessages()
     {
