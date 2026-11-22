@@ -27,6 +27,12 @@ using var document = JsonDocument.Parse(json);
 DataTable inferredTable = document.RootElement.JsonElementToDataTable();
 ```
 
+格式仍为行对象数组，不附带列类型信息：
+
+- 默认裁剪列名首尾空白；若会产生空键或重名，则受影响的列保留原名。
+- `byte[]` 单元格（含 `object` 列中的值）写为 Base64 字符串。读取时不猜测字符串是否为二进制；已知列类型时请显式解码。
+- 整数优先读为 `long`，必要时使用 `ulong`。普通小数仍为 `double`；若 `double` 的往返文本损失十进制精度，则保留可表示的 `decimal` 值。混合推断类型的列使用 `object`，不再把所有单元格强制转为 `double`。此格式不保证任意精度数值无损。
+
 ## JSON 序列化配置
 
 `JsonDefaults` 提供统一的 JSON 序列化选项配置，用于 HTTP 客户端和 ASP.NET Core WebAPI 应用程序。

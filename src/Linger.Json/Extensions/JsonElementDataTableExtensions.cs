@@ -66,12 +66,7 @@ public static class JsonExtensions
             case JsonValueKind.String:
                 return typeof(string);
             case JsonValueKind.Number:
-                if (jsonElement.TryGetInt64(out _))
-                {
-                    return typeof(long);
-                }
-
-                return typeof(double);
+                return ReadNumber(jsonElement).GetType();
             case JsonValueKind.True:
             case JsonValueKind.False:
                 return typeof(bool);
@@ -86,6 +81,30 @@ public static class JsonExtensions
         }
     }
 
+    private static object ReadNumber(JsonElement number)
+    {
+        if (number.TryGetInt64(out var signed))
+        {
+            return signed;
+        }
+
+        if (number.TryGetUInt64(out var unsigned))
+        {
+            return unsigned;
+        }
+
+        var floating = number.GetDouble();
+        // 普通小数沿用 double；只有当其往返文本不能还原十进制值时才保留 decimal。
+        if (number.TryGetDecimal(out var exact) &&
+            (!decimal.TryParse(floating.ToString("R", CultureInfo.InvariantCulture), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out var roundTrip) || roundTrip != exact))
+        {
+            return exact;
+        }
+
+        return floating;
+    }
+
     private static Type? MergeColumnType(Type? currentType, Type? candidateType)
     {
         if (currentType is null)
@@ -96,17 +115,6 @@ public static class JsonExtensions
         if (candidateType is null || currentType == candidateType)
         {
             return currentType;
-        }
-
-        if (currentType == typeof(object))
-        {
-            return currentType;
-        }
-
-        if ((currentType == typeof(long) && candidateType == typeof(double)) ||
-            (currentType == typeof(double) && candidateType == typeof(long)))
-        {
-            return typeof(double);
         }
 
         return typeof(object);
@@ -122,14 +130,7 @@ public static class JsonExtensions
             case JsonValueKind.String:
                 return jsonElement.ToString();
             case JsonValueKind.Number:
-                if (jsonElement.TryGetInt64(out var longValue))
-                {
-                    return longValue;
-                }
-                else
-                {
-                    return jsonElement.GetDouble();
-                }
+                return ReadNumber(jsonElement);
             case JsonValueKind.True:
             case JsonValueKind.False:
                 return jsonElement.GetBoolean();

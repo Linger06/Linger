@@ -46,21 +46,39 @@ public static class DataTableJsonHelper
 
         // 预先创建列到列名的映射，避免在每行循环中重复获取
         var columnNameMap = new string[value.Columns.Count];
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        var collisions = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < value.Columns.Count; i++)
         {
-            columnNameMap[i] = value.Columns[i].ColumnName.Trim();
+            var name = value.Columns[i].ColumnName.Trim();
+            columnNameMap[i] = name;
+            if (!names.Add(name))
+            {
+                collisions.Add(name);
+            }
         }
 
         // 预先确定每列的类型，避免在每个单元格都进行类型判断
         var writeActions = new Action<Utf8JsonWriter, string, object>[value.Columns.Count];
         for (var i = 0; i < value.Columns.Count; i++)
         {
+            // 仅在裁剪会合并列或产生空键时保留原名。
+            if (columnNameMap[i].Length == 0 || collisions.Contains(columnNameMap[i]))
+            {
+                columnNameMap[i] = value.Columns[i].ColumnName;
+            }
+
             writeActions[i] = CreateWriteAction(value.Columns[i].DataType);
         }
 
         // 遍历行和列
         foreach (DataRow row in value.Rows)
         {
+            if (row.RowState == DataRowState.Deleted)
+            {
+                continue;
+            }
+
             jsonWriter.WriteStartObject();
 
             for (var i = 0; i < value.Columns.Count; i++)
@@ -100,6 +118,11 @@ public static class DataTableJsonHelper
         if (valueType.IsEnum)
         {
             return static (writer, key, value) => writer.WriteString(key, value.ToString());
+        }
+
+        if (valueType == typeof(byte[]))
+        {
+            return static (writer, key, value) => writer.WriteBase64String(key, (byte[])value);
         }
 
         if (valueType == typeof(Guid))

@@ -27,6 +27,12 @@ using var document = JsonDocument.Parse(json);
 DataTable inferredTable = document.RootElement.JsonElementToDataTable();
 ```
 
+The format remains an array of row objects, without a schema:
+
+- Column names are trimmed unless that would produce an empty key or duplicate keys. In those cases the affected columns keep their original names.
+- `byte[]` cells (including those in `object` columns) are written as Base64 strings. Reading does not guess whether a string represents binary data; decode it explicitly when the schema is known.
+- Integers are read as `long`, or `ulong` when needed. Ordinary fractions remain `double`; a `decimal` is retained when the double's round-trip text would lose decimal precision. Columns mixing inferred types use `object` rather than coercing all cells to `double`. This is not an arbitrary-precision number format.
+
 ## JSON Serialization Configuration
 
 `JsonDefaults` provides unified JSON serialization configuration for HTTP clients and ASP.NET Core WebAPI applications.

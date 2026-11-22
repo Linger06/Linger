@@ -18,6 +18,23 @@ public class DataTableJsonConverterTests
         };
     }
 
+    [Fact]
+    public void Write_SkipsDeletedRowsWithoutAcceptingChanges()
+    {
+        var table = new DataTable();
+        table.Columns.Add("Id", typeof(int));
+        var deleted = table.Rows.Add(1);
+        var modified = table.Rows.Add(2);
+        table.AcceptChanges();
+        deleted.Delete();
+        modified[0] = 3;
+        table.Rows.Add(4);
+
+        Assert.Equal("[{\"Id\":3},{\"Id\":4}]", JsonSerializer.Serialize(table, _options));
+        Assert.Equal(DataRowState.Deleted, deleted.RowState);
+        Assert.Equal(DataRowState.Modified, modified.RowState);
+    }
+
     private DataTable CreateTestDataTable()
     {
         var table = new DataTable();
@@ -312,6 +329,52 @@ public class DataTableJsonConverterTests
         Assert.True(Assert.IsType<bool>(result.Rows[1]["Value"]));
         Assert.Equal(DBNull.Value, result.Rows[2]["Value"]);
         Assert.Equal("text", Assert.IsType<string>(result.Rows[3]["Value"]));
+    }
+
+    [Fact]
+    public void Serialize_TrimmedNamesCollide_PreservesBothColumns()
+    {
+        var table = new DataTable();
+        table.Columns.Add(" Id");
+        table.Columns.Add("Id ");
+        table.Columns.Add(" Name ");
+        table.Columns.Add(" ");
+        table.Rows.Add("left", "right", "plain", "blank");
+
+        var json = JsonSerializer.Serialize(table, _options);
+
+        Assert.Equal("[{\" Id\":\"left\",\"Id \":\"right\",\"Name\":\"plain\",\" \":\"blank\"}]", json);
+    }
+
+    [Theory]
+    [InlineData(typeof(byte[]))]
+    [InlineData(typeof(object))]
+    public void Serialize_ByteArray_WritesBase64(Type columnType)
+    {
+        var table = new DataTable();
+        table.Columns.Add("Bytes", columnType);
+        table.Rows.Add(new byte[] { 0, 128, 255 });
+        table.Rows.Add(Array.Empty<byte>());
+        table.Rows.Add(DBNull.Value);
+
+        var json = JsonSerializer.Serialize(table, _options);
+
+        Assert.Equal("[{\"Bytes\":\"AID/\"},{\"Bytes\":\"\"},{\"Bytes\":null}]", json);
+    }
+
+    [Theory]
+    [InlineData("9007199254740993", "0.5")]
+    [InlineData("0.5", "9007199254740993")]
+    [InlineData("18446744073709551615", "0.5")]
+    [InlineData("1", "123456789.1234567890123456789")]
+    [InlineData("0.5", "123456789.1234567890123456789")]
+    public void Deserialize_MixedNumbers_RoundTripsValues(string first, string second)
+    {
+        var json = $"[{{\"N\":{first}}},{{\"N\":{second}}}]";
+
+        var table = JsonSerializer.Deserialize<DataTable>(json, _options);
+
+        Assert.Equal(json, JsonSerializer.Serialize(table, _options));
     }
 
     [Fact]
