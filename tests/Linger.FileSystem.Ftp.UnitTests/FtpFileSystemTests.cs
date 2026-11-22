@@ -185,7 +185,11 @@ public class FtpFileSystemTests
     [Fact]
     public async Task FileExistsAsync_WhenServerUnreachable_ThrowsFileSystemExceptionForConnect()
     {
-        using var fileSystem = new FtpFileSystem(CreateOptions(GetClosedLocalPort()));
+        using var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        socket.ExclusiveAddressUse = true;
+        socket.Bind(new IPEndPoint(IPAddress.Loopback, 0));
+        var port = ((IPEndPoint)socket.LocalEndPoint!).Port;
+        using var fileSystem = new FtpFileSystem(CreateOptions(port));
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(15));
 
@@ -301,17 +305,6 @@ public class FtpFileSystemTests
             ConnectionTimeout = 2000,
             OperationTimeout = 2000
         };
-    }
-
-    // 先占用再释放一个本机端口，得到一个确定没有服务监听的端口。
-    private static int GetClosedLocalPort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-
-        return port;
     }
 
     // 通过子类暴露 protected 方法，避免为了测试而放宽源码的可见性。
