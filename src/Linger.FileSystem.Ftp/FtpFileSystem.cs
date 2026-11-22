@@ -187,7 +187,10 @@ public class FtpFileSystem : RemoteFileSystemBase, IAsyncRemoteFileSystem
         try
         {
             if (await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
-                await Client.DeleteFile(filePath, cancellationToken).ConfigureAwait(false);
+            {
+                // 回执丢失时路径可能已被其他写入者复用，不能重发删除命令。
+                await DeleteRemoteFileAsync(filePath, cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {
@@ -241,22 +244,8 @@ public class FtpFileSystem : RemoteFileSystemBase, IAsyncRemoteFileSystem
                 return FileOperationResult.CreateFailure($"The remote file already exists: {destinationFilePath}");
             }
 
-            var result = await ExecuteStreamOperationAsync(
-                inputStream,
-                async operationCancellationToken =>
-                {
-                    return await UploadStreamAtomicallyAsync(
-                        Client,
-                        inputStream,
-                        destinationFilePath,
-                        overwrite,
-                        operationCancellationToken).ConfigureAwait(false);
-                },
-                "Upload file",
-                restoreLength: false,
-                shouldRetry: IsRetryableException,
-                shouldRetryResult: success => !success,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+            var result = await UploadStreamAtomicallyAsync(
+                Client, inputStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
             if (!result)
             {
                 return FileOperationResult.CreateFailure($"Failed to upload the file: {destinationFilePath}");
@@ -381,33 +370,12 @@ public class FtpFileSystem : RemoteFileSystemBase, IAsyncRemoteFileSystem
 
     public override async Task<FileOperationResult> DeleteAsync(string filePath, CancellationToken cancellationToken = default)
     {
-        await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            if (!await FileExistsAsync(filePath, cancellationToken).ConfigureAwait(false))
-            {
-                return FileOperationResult.CreateSuccess(filePath); // 文件不存在也视为成功
-            }
-
-            // 执行删除
-            await RetryHelper.ExecuteAsync(
-                async operationCancellationToken =>
-                {
-                    await Client.DeleteFile(filePath, operationCancellationToken).ConfigureAwait(false);
-                    return true;
-                },
-                "Delete file",
-                IsRetryableException,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            return FileOperationResult.CreateSuccess(filePath);
-        }
-        catch (Exception ex)
-        {
-            HandleException("Delete file", ex, filePath);
-            return default; // 不会执行，HandleException 始终抛出异常
-        }
+        await DeleteFileIfExistsAsync(filePath, cancellationToken).ConfigureAwait(false);
+        return FileOperationResult.CreateSuccess(filePath);
     }
+
+    internal virtual Task DeleteRemoteFileAsync(string path, CancellationToken cancellationToken) =>
+        Client.DeleteFile(path, cancellationToken);
 
     #endregion
 
@@ -516,8 +484,8 @@ public class FtpFileSystem : RemoteFileSystemBase, IAsyncRemoteFileSystem
         return fileSize;
     }
 
-    private async Task<bool> UploadStreamAtomicallyAsync(
-        AsyncFtpClient client,
+    internal async Task<bool> UploadStreamAtomicallyAsync(
+        IAsyncFtpClient client,
         Stream inputStream,
         string destinationFilePath,
         bool overwrite,
@@ -530,33 +498,34 @@ public class FtpFileSystem : RemoteFileSystemBase, IAsyncRemoteFileSystem
 
         try
         {
-            var status = await client.UploadStream(
+            var status = await ExecuteStreamOperationAsync(
                 inputStream,
-                temporaryPath,
-                FtpRemoteExists.Overwrite,
-                createRemoteDir: true,
-                token: cancellationToken).ConfigureAwait(false);
+                token => client.UploadStream(inputStream, temporaryPath, FtpRemoteExists.Overwrite, createRemoteDir: true, token: token),
+                "Upload file",
+                restoreLength: false,
+                shouldRetry: IsRetryableException,
+                shouldRetryResult: result => result != FtpStatus.Success,
+                cancellationToken: cancellationToken).ConfigureAwait(false);
             if (status != FtpStatus.Success)
             {
                 return false;
             }
 
-            var moved = await client.MoveFile(
-                temporaryPath,
-                destinationFilePath,
-                overwrite ? FtpRemoteExists.Overwrite : FtpRemoteExists.Skip,
-                cancellationToken).ConfigureAwait(false);
-            if (!moved)
+            // 提交回执丢失时服务器可能已经完成替换；不能重试提交或回写旧文件。
+            if (overwrite)
             {
-                if (!overwrite && await client.FileExists(destinationFilePath, cancellationToken).ConfigureAwait(false))
-                {
-                    throw new DuplicateFileException(destinationFilePath);
-                }
-
-                return false;
+                // 直接重命名，由服务器接受或拒绝替换，避免 MoveFile(Overwrite) 先删除目标。
+                await client.Rename(temporaryPath, destinationFilePath, cancellationToken).ConfigureAwait(false);
+                return true;
             }
 
-            return true;
+            var moved = await client.MoveFile(temporaryPath, destinationFilePath, FtpRemoteExists.Skip, cancellationToken).ConfigureAwait(false);
+            if (!moved && await client.FileExists(destinationFilePath, cancellationToken).ConfigureAwait(false))
+            {
+                throw new DuplicateFileException(destinationFilePath);
+            }
+
+            return moved;
         }
         finally
         {

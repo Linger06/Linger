@@ -212,49 +212,4 @@ public partial class LocalFileSystem
 
         return tracker.Complete();
     }
-
-    private async Task CopyFileAtomicallyAsync(
-        string sourcePath,
-        string destinationPath,
-        bool overwrite,
-        int bufferSize,
-        CancellationToken cancellationToken)
-    {
-        if (!overwrite && File.Exists(destinationPath))
-        {
-            throw new DuplicateFileException(destinationPath);
-        }
-
-        CreateParentDirectory(destinationPath);
-        var directory = Path.GetDirectoryName(destinationPath)!;
-        var tempPath = Path.Combine(directory, $".download-{Guid.NewGuid():N}.tmp");
-
-        try
-        {
-            using (var sourceStream = new FileStream(
-                       sourcePath,
-                       FileMode.Open,
-                       FileAccess.Read,
-                       FileShare.Read,
-                       bufferSize,
-                       FileOptions.Asynchronous | FileOptions.SequentialScan))
-            using (var destinationStream = new FileStream(
-                       tempPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None,
-                       bufferSize,
-                       FileOptions.Asynchronous | FileOptions.SequentialScan))
-            {
-                await sourceStream.CopyToAsync(destinationStream, bufferSize, cancellationToken).ConfigureAwait(false);
-                await destinationStream.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            MoveUploadedFile(tempPath, destinationPath, overwrite);
-        }
-        finally
-        {
-            TryDeleteFile(tempPath);
-        }
-    }
 }

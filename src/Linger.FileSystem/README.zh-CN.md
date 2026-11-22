@@ -1,4 +1,4 @@
-﻿# Linger.FileSystem
+# Linger.FileSystem
 
 > 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
 
@@ -308,7 +308,7 @@ var options = new LocalFileSystemOptions
     DefaultOverwrite = false,                  // 是否默认覆盖同名文件
     DefaultUseSequencedName = true,            // 文件名冲突时是否使用序号命名
     ValidationLevel = FileValidationLevel.SizeOnly, // 验证级别: None(不验证)、SizeOnly(仅大小)、Full(完整)
-    CleanupOnValidationFailure = true,         // 验证失败时是否清理文件
+    CleanupOnValidationFailure = true,         // 验证失败时清理临时文件；false 保留临时文件供诊断，不覆盖目标
     UploadBufferSize = 81920,                  // 上传缓冲区大小
     DownloadBufferSize = 81920,                // 下载缓冲区大小
     RetryOptions = new RetryOptions 

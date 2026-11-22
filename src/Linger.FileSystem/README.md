@@ -1,4 +1,4 @@
-﻿# Linger.FileSystem
+# Linger.FileSystem
 
 > Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
 
@@ -310,7 +310,7 @@ var options = new LocalFileSystemOptions
     DefaultOverwrite = false,                  // Whether to overwrite files with same name by default
     DefaultUseSequencedName = true,            // Whether to use sequence naming on file name conflicts
     ValidationLevel = FileValidationLevel.SizeOnly, // Validation level: None, SizeOnly, Full
-    CleanupOnValidationFailure = true,         // Whether to cleanup files on validation failure
+    CleanupOnValidationFailure = true,         // Delete the failed temporary upload; false keeps it for diagnosis without replacing the destination
     UploadBufferSize = 81920,                  // Upload buffer size
     DownloadBufferSize = 81920,                // Download buffer size
     RetryOptions = new RetryOptions 

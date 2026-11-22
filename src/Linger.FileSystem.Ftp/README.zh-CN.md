@@ -94,6 +94,10 @@ var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwr
 result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
 ```
 
+对于 `UploadAsync` 和 `UploadFileAsync`，`overwrite: true` 会先上传同目录临时文件，再请求服务器直接重命名。若服务器不允许重命名替换已有文件，上传会抛出 `FileSystemException`，不会先删除目标再重试。若提交后连接中断，结果可能未知：请先核对远端内容，不要盲目重试。库不会重试提交或回写备份，因此不会在恢复时覆盖其他写入者的文件。此约定不适用于直接写入流的 `OpenWriteAsync`。
+
+`DeleteAsync` 检查时若文件不存在，仍返回成功。若删除命令已发出但未收到回执，调用会报错，不会重发命令。重试前请核对远端路径上的文件版本：其他写入者可能已经在同一路径创建了新文件。
+
 ## 与依赖注入集成
 
 ```csharp

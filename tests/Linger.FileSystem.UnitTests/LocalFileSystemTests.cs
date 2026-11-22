@@ -39,6 +39,26 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         [Fact]
+        public async Task UploadAsync_WhenCancelledBeforeValidation_PreservesExistingFile()
+        {
+            var fs = new LocalFileSystem(new LocalFileSystemOptions
+            {
+                RootDirectoryPath = _testRootPath,
+                ValidationLevel = FileValidationLevel.Full
+            });
+            var path = Path.Combine(_testRootPath, "existing.txt");
+            File.WriteAllText(path, "original");
+            using var cancellation = new CancellationTokenSource();
+            using var stream = new CancelAtEndStream(Encoding.UTF8.GetBytes("replacement"), cancellation);
+
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                fs.UploadAsync(stream, "existing.txt", overwrite: true, cancellationToken: cancellation.Token));
+
+            Assert.Equal("original", File.ReadAllText(path));
+            Assert.Empty(Directory.GetFiles(_testRootPath, ".upload-*.tmp"));
+        }
+
+        [Fact]
         public async Task UploadAsync_WithValidStream_UploadsFile()
         {
             // Arrange
@@ -880,6 +900,33 @@ namespace Linger.FileSystem.Tests.Local
         }
 
         #endregion
+    }
+
+    internal sealed class CancelAtEndStream(byte[] bytes, CancellationTokenSource cancellation) : MemoryStream(bytes)
+    {
+#if NET8_0_OR_GREATER
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (Position == Length)
+            {
+                cancellation.Cancel();
+                return new ValueTask<int>(0);
+            }
+
+            return base.ReadAsync(buffer, cancellationToken);
+        }
+#else
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            if (Position == Length)
+            {
+                cancellation.Cancel();
+                return Task.FromResult(0);
+            }
+
+            return base.ReadAsync(buffer, offset, count, cancellationToken);
+        }
+#endif
     }
 
     internal sealed class FailingAsyncReadStream : MemoryStream

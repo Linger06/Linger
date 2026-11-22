@@ -99,10 +99,64 @@ public partial class LocalFileSystem : FileSystemBase, ILocalFileSystem
         }
     }
 
+    private async Task CopyFileAtomicallyAsync(
+        string sourcePath,
+        string destinationPath,
+        bool overwrite,
+        int bufferSize,
+        CancellationToken cancellationToken)
+    {
+        if (!overwrite && File.Exists(destinationPath))
+        {
+            throw new DuplicateFileException(destinationPath);
+        }
+
+        CreateParentDirectory(destinationPath);
+        var directory = Path.GetDirectoryName(destinationPath)!;
+        var tempPath = Path.Combine(directory, $".download-{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            using (var sourceStream = new FileStream(
+                       sourcePath,
+                       FileMode.Open,
+                       FileAccess.Read,
+                       FileShare.Read,
+                       bufferSize,
+                       FileOptions.Asynchronous | FileOptions.SequentialScan))
+            using (var destinationStream = new FileStream(
+                       tempPath,
+                       FileMode.CreateNew,
+                       FileAccess.Write,
+                       FileShare.None,
+                       bufferSize,
+                       FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                await sourceStream.CopyToAsync(destinationStream, bufferSize, cancellationToken).ConfigureAwait(false);
+                await destinationStream.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+
+            MoveUploadedFile(tempPath, destinationPath, overwrite);
+        }
+        finally
+        {
+            TryDeleteFile(tempPath);
+        }
+    }
+
     private static void MoveUploadedFile(string sourcePath, string destinationPath, bool overwrite)
     {
         CreateParentDirectory(destinationPath);
         CommitTemporaryFile(sourcePath, destinationPath, overwrite);
+    }
+
+    private static void CreateParentDirectory(string filePath)
+    {
+        string? directoryPath = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrEmpty(directoryPath))
+        {
+            Directory.CreateDirectory(directoryPath);
+        }
     }
 
     /// <summary>
@@ -141,15 +195,6 @@ public partial class LocalFileSystem : FileSystemBase, ILocalFileSystem
     /// // 如果document.pdf存在，抛出 DuplicateFileException
     /// </code>
     /// </example>
-    private static void CreateParentDirectory(string filePath)
-    {
-        string? directoryPath = Path.GetDirectoryName(filePath);
-        if (!string.IsNullOrEmpty(directoryPath))
-        {
-            Directory.CreateDirectory(directoryPath);
-        }
-    }
-
     private static string GetDestFilePath(string destPath, string destFileName, bool overwrite, bool useSequencedName, string destRootPath = "")
     {
         // 如果允许覆盖，直接返回目标路径
@@ -313,74 +358,6 @@ public partial class LocalFileSystem : FileSystemBase, ILocalFileSystem
 
         var fileInfo = new FileInfo(realPath);
         return fileInfo.Length;
-    }
-
-    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            // 分离路径和文件名
-            var destinationPath = Path.GetDirectoryName(destinationFilePath) ?? string.Empty;
-            var fileName = Path.GetFileName(destinationFilePath);
-
-            var uploadedInfo = await UploadWithNamingAsync(
-                inputStream,
-                fileName,
-                string.Empty,
-                destinationPath,
-                NamingRule.Normal,
-                overwrite,
-                useSequencedName: false,
-                cancellationToken).ConfigureAwait(false);
-
-            return FileOperationResult.CreateSuccess(uploadedInfo.FilePath);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (DuplicateFileException ex)
-        {
-            return FileOperationResult.CreateFailure($"Failed to upload the file: {ex.Message}", ex);
-        }
-    }
-
-    public override async Task<FileOperationResult> DownloadToStreamAsync(string sourceFilePath, Stream outputStream, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            await DownloadToStreamInternalAsync(sourceFilePath, outputStream, cancellationToken).ConfigureAwait(false);
-            return FileOperationResult.CreateSuccess();
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (FileNotFoundException ex)
-        {
-            return FileOperationResult.CreateFailure($"Failed to download the file to the stream: {ex.Message}", ex);
-        }
-    }
-
-    public override async Task<FileOperationResult> DownloadFileAsync(string sourceFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            localDestinationPath = await DownloadAsync(sourceFilePath, localDestinationPath, overwrite, false, cancellationToken).ConfigureAwait(false);
-            return FileOperationResult.CreateSuccess(sourceFilePath);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (FileNotFoundException ex)
-        {
-            return FileOperationResult.CreateFailure($"Failed to download the file: {ex.Message}", ex);
-        }
-        catch (DuplicateFileException ex)
-        {
-            return FileOperationResult.CreateFailure($"Failed to download the file: {ex.Message}", ex);
-        }
     }
 
     public FileOperationResult Delete(string filePath)

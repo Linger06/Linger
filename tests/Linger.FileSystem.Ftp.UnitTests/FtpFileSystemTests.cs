@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
+using FluentFTP;
 using FluentFTP.Exceptions;
 using Linger.FileSystem.Exceptions;
+using Moq;
 using Xunit;
 
 namespace Linger.FileSystem.Ftp.Tests;
@@ -191,6 +193,101 @@ public class FtpFileSystemTests
             () => fileSystem.FileExistsAsync("data/a.txt", timeout.Token));
 
         Assert.Equal("Connect", exception.Operation);
+    }
+
+    [Fact]
+    public async Task UploadAsync_WithOverwrite_CommitsStagedFileByRenameAsync()
+    {
+        using var fileSystem = new FtpFileSystem(CreateOptions());
+        using var stream = new MemoryStream();
+        var token = TestContext.Current.CancellationToken;
+        const string destination = "data/a.txt";
+        var client = MockStagedUpload(stream, token, out var temporaryPath);
+        client.Setup(c => c.Rename(It.Is<string>(p => p == temporaryPath()), destination, token))
+            .Returns(Task.CompletedTask);
+        client.Setup(c => c.FileExists(It.Is<string>(p => p == temporaryPath()), CancellationToken.None))
+            .ReturnsAsync(false);
+
+        Assert.True(await fileSystem.UploadStreamAtomicallyAsync(client.Object, stream, destination, true, token));
+
+        client.Verify(c => c.Rename(temporaryPath(), destination, token), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task UploadAsync_WhenOverwriteCommitFails_DoesNotRepeatOrRestoreDestinationAsync(bool replyLost)
+    {
+        using var fileSystem = new FtpFileSystem(CreateOptions());
+        using var stream = new MemoryStream();
+        var token = TestContext.Current.CancellationToken;
+        const string destination = "data/a.txt";
+        var client = MockStagedUpload(stream, token, out var temporaryPath);
+        Exception failure = replyLost ? new IOException("reply lost") : new FtpCommandException("550", "destination exists");
+        client.Setup(c => c.Rename(It.Is<string>(p => p == temporaryPath()), destination, token))
+            .ThrowsAsync(failure);
+        client.Setup(c => c.FileExists(It.Is<string>(p => p == temporaryPath()), CancellationToken.None))
+            .ReturnsAsync(!replyLost);
+        client.Setup(c => c.DeleteFile(It.Is<string>(p => p == temporaryPath()), CancellationToken.None))
+            .Returns(Task.CompletedTask);
+
+        var exception = await Record.ExceptionAsync(() => fileSystem.UploadStreamAtomicallyAsync(client.Object, stream, destination, true, token));
+
+        Assert.Same(failure, exception);
+        client.Verify(c => c.Rename(temporaryPath(), destination, token), Times.Once);
+        client.Verify(c => c.DeleteFile(temporaryPath(), CancellationToken.None), replyLost ? Times.Never() : Times.Once());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DeleteAsync_DoesNotReplayDeleteWhenReplyIsLost(bool exists)
+    {
+        using var fileSystem = new DeleteTestFtpFileSystem(exists);
+        var token = TestContext.Current.CancellationToken;
+
+        if (exists)
+        {
+            var exception = await Assert.ThrowsAsync<FileSystemException>(() => fileSystem.DeleteAsync("data/a.txt", token));
+            Assert.IsType<IOException>(exception.InnerException);
+        }
+        else
+        {
+            Assert.True((await fileSystem.DeleteAsync("data/a.txt", token)).Success);
+        }
+
+        Assert.Equal(exists ? 1 : 0, fileSystem.DeleteAttempts);
+    }
+
+    private sealed class DeleteTestFtpFileSystem(bool exists) : FtpFileSystem(CreateOptions())
+    {
+        public int DeleteAttempts { get; private set; }
+
+        protected override bool IsConnected() => true;
+
+        public override Task<bool> FileExistsAsync(string filePath, CancellationToken cancellationToken = default) =>
+            Task.FromResult(exists);
+
+        internal override Task DeleteRemoteFileAsync(string path, CancellationToken cancellationToken)
+        {
+            DeleteAttempts++;
+            return Task.FromException(new IOException("delete reply lost"));
+        }
+    }
+
+    private static Mock<IAsyncFtpClient> MockStagedUpload(Stream stream, CancellationToken token, out Func<string> temporaryPath)
+    {
+        var path = string.Empty;
+        var client = new Mock<IAsyncFtpClient>(MockBehavior.Strict);
+        client.Setup(c => c.UploadStream(stream, It.IsRegex(@"^data/\.upload-[0-9a-f]{32}\.tmp$"), FtpRemoteExists.Overwrite, true, null, token))
+            .Returns((Stream _, string remotePath, FtpRemoteExists _, bool _, IProgress<FtpProgress>? _, CancellationToken _) =>
+            {
+                path = remotePath;
+                return Task.FromResult(FtpStatus.Success);
+            });
+        temporaryPath = () => path;
+
+        return client;
     }
 
     private static FtpFileSystemOptions CreateOptions(int port = 21)

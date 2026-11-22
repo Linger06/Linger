@@ -94,6 +94,10 @@ var result = await ftpSystem.UploadAsync(stream, "/remote/path/file.txt", overwr
 result = await ftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
 ```
 
+With `UploadAsync` and `UploadFileAsync`, `overwrite: true` stages the upload in the destination directory, then asks the server to rename it directly. If the server rejects renaming over an existing file, the upload throws `FileSystemException`; it does not delete the destination and retry. If the connection is lost during commit, the outcome may be unknown: inspect the remote content before retrying. The library neither retries the commit nor restores a backup over a concurrent write. This does not apply to the direct-write stream returned by `OpenWriteAsync`.
+
+`DeleteAsync` succeeds if the file is already absent. If the server does not acknowledge a delete command, the method reports the error and does not resend the command. Check which version is at the remote path before retrying: another writer may already have created a new file there.
+
 ## Integration with Dependency Injection
 
 ```csharp

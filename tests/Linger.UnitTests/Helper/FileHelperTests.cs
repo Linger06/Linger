@@ -518,6 +518,31 @@ public class FileHelperTests : IDisposable
 
 #if NET6_0_OR_GREATER
     [Fact]
+    public void CopyDir_WithLinkedDestinationAncestor_RejectsEmptyCopy()
+    {
+        var sourceDir = CreateTestDirectory("emptySource");
+        var target = CreateTestDirectory("emptyTarget");
+        var link = Path.Combine(_testDirectory, "directoryLink");
+        try
+        {
+            Directory.CreateSymbolicLink(link, target);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException or PlatformNotSupportedException)
+        {
+            throw Xunit.Sdk.SkipException.ForSkip("The environment does not allow creating directory symbolic links.");
+        }
+
+        try
+        {
+            Assert.Throws<IOException>(() => FileHelper.CopyDir(sourceDir, Path.Combine(link, "child")));
+        }
+        finally
+        {
+            Directory.Delete(link);
+        }
+    }
+
+    [Fact]
     public void CopyDir_WithDirectoryReparsePoint_ThrowsIOException()
     {
         var sourceDir = CreateTestDirectory("sourceDir");

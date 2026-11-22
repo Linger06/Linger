@@ -18,6 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="Linger.FileSystem.Ftp.UnitTests" />
         <ProjectReference Include="..\Linger.FileSystem\Linger.FileSystem.csproj" />
     </ItemGroup>
 

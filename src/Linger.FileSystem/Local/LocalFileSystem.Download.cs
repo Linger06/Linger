@@ -2,6 +2,44 @@ namespace Linger.FileSystem.Local;
 
 public partial class LocalFileSystem
 {
+    public override async Task<FileOperationResult> DownloadToStreamAsync(string sourceFilePath, Stream outputStream, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await DownloadToStreamInternalAsync(sourceFilePath, outputStream, cancellationToken).ConfigureAwait(false);
+            return FileOperationResult.CreateSuccess();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (FileNotFoundException ex)
+        {
+            return FileOperationResult.CreateFailure($"Failed to download the file to the stream: {ex.Message}", ex);
+        }
+    }
+
+    public override async Task<FileOperationResult> DownloadFileAsync(string sourceFilePath, string localDestinationPath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            localDestinationPath = await DownloadAsync(sourceFilePath, localDestinationPath, overwrite, false, cancellationToken).ConfigureAwait(false);
+            return FileOperationResult.CreateSuccess(sourceFilePath);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (FileNotFoundException ex)
+        {
+            return FileOperationResult.CreateFailure($"Failed to download the file: {ex.Message}", ex);
+        }
+        catch (DuplicateFileException ex)
+        {
+            return FileOperationResult.CreateFailure($"Failed to download the file: {ex.Message}", ex);
+        }
+    }
+
     /// <summary>
     /// 异步下载文件到当前工作目录下的指定文件名
     /// </summary>

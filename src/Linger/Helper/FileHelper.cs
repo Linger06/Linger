@@ -321,7 +321,7 @@ public static partial class FileHelper
     /// <param name="destDirectory">The destination directory path.</param>
     /// <exception cref="ArgumentException">Thrown when srcDirectory or destDirectory is null or whitespace.</exception>
     /// <exception cref="DirectoryNotFoundException">Thrown when the source directory does not exist.</exception>
-    /// <exception cref="IOException">Thrown when the source directory contains a reparse point.</exception>
+    /// <exception cref="IOException">Thrown when the source tree or destination path contains a reparse point.</exception>
     /// <example>
     /// <code>
     /// FileHelper.CopyDir("C:\\source", "C:\\backup");
@@ -349,8 +349,17 @@ public static partial class FileHelper
             throw new ArgumentException("Destination directory cannot be the same as or a subdirectory of source directory.", nameof(destDirectory));
         }
 
-        Directory.CreateDirectory(destDirectory);
+        for (DirectoryInfo? component = new DirectoryInfo(destDirectory); component is not null; component = component.Parent)
+        {
+            ThrowIfExistingReparsePoint(component.FullName);
+        }
 
+        CopyDirectoryContents(srcDirectory, destDirectory);
+    }
+
+    private static void CopyDirectoryContents(string srcDirectory, string destDirectory)
+    {
+        Directory.CreateDirectory(destDirectory);
         var fileList = Directory.GetFileSystemEntries(srcDirectory);
 
         foreach (var file in fileList)
@@ -358,15 +367,34 @@ public static partial class FileHelper
             ThrowIfReparsePoint(file);
 
             var destFile = Path.Combine(destDirectory, Path.GetFileName(file));
+            ThrowIfExistingReparsePoint(destFile);
 
             if (Directory.Exists(file))
             {
-                CopyDir(file, destFile);
+                CopyDirectoryContents(file, destFile);
             }
             else
             {
                 File.Copy(file, destFile, true);
             }
+        }
+    }
+
+    private static void ThrowIfExistingReparsePoint(string path)
+    {
+        try
+        {
+            ThrowIfReparsePoint(path);
+        }
+        catch (FileNotFoundException)
+        {
+            // 允许创建新的目标条目。
+            return;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // 尚未创建的父目录由复制步骤创建。
+            return;
         }
     }
 

@@ -77,7 +77,7 @@ public class LocalFileSystemOptions
     public FileValidationLevel ValidationLevel { get; set; } = FileValidationLevel.SizeOnly;
 
     /// <summary>
-    /// 验证失败时是否自动清理文件
+    /// 验证失败时是否自动清理本次上传的临时文件；若保留，其路径包含在验证异常中，正式目标不会被替换。
     /// </summary>
     public bool CleanupOnValidationFailure { get; set; } = true;
 

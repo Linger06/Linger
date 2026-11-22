@@ -2,6 +2,36 @@ namespace Linger.FileSystem.Local;
 
 public partial class LocalFileSystem
 {
+    public override async Task<FileOperationResult> UploadAsync(Stream inputStream, string destinationFilePath, bool overwrite = false, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            // 分离路径和文件名
+            var destinationPath = Path.GetDirectoryName(destinationFilePath) ?? string.Empty;
+            var fileName = Path.GetFileName(destinationFilePath);
+
+            var uploadedInfo = await UploadWithNamingAsync(
+                inputStream,
+                fileName,
+                string.Empty,
+                destinationPath,
+                NamingRule.Normal,
+                overwrite,
+                useSequencedName: false,
+                cancellationToken).ConfigureAwait(false);
+
+            return FileOperationResult.CreateSuccess(uploadedInfo.FilePath);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (DuplicateFileException ex)
+        {
+            return FileOperationResult.CreateFailure($"Failed to upload the file: {ex.Message}", ex);
+        }
+    }
+
     public async Task<UploadedInfo> UploadWithNamingAsync(
         Stream inputStream,
         string sourceFileName,
@@ -52,125 +82,75 @@ public partial class LocalFileSystem
         bool useSequencedName = true,
         CancellationToken cancellationToken = default)
     {
-        var writeResult = namingRule switch
+        var basePath = Path.Combine(containerName, destPath);
+        string? filePath = namingRule switch
         {
-            NamingRule.Md5 => await UploadWithMd5NameAsync(
-                inputStream,
-                sourceFileName,
-                containerName,
-                destPath,
-                overwrite,
-                cancellationToken).ConfigureAwait(false),
-            NamingRule.Uuid or NamingRule.Normal => await UploadWithSelectedNameAsync(
-                inputStream,
-                sourceFileName,
-                containerName,
-                destPath,
-                namingRule,
-                overwrite,
-                useSequencedName,
-                cancellationToken).ConfigureAwait(false),
+            NamingRule.Md5 => null,
+            NamingRule.Uuid => GenerateUuidBasedPath(containerName, destPath, Path.GetExtension(sourceFileName)),
+            NamingRule.Normal => GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, _rootDirectoryFullPath),
             _ => throw new ArgumentOutOfRangeException(nameof(namingRule), namingRule, "Unsupported naming rule.")
         };
-
-        var fileInfo = new FileInfo(writeResult.FullFilePath);
-        await ValidateFileAsync(fileInfo, writeResult.HashData, writeResult.Length, cancellationToken).ConfigureAwait(false);
-
-        return new UploadedInfo
-        {
-            HashData = writeResult.HashData,
-            FileName = sourceFileName,
-            NewFileName = fileInfo.Name,
-            FilePath = writeResult.FilePath,
-            RelativeFilePath = Path.Combine(RootDirectoryPath, writeResult.FilePath),
-            FullFilePath = fileInfo.FullName,
-            FileSize = writeResult.Length.FormatFileSize(),
-            Length = fileInfo.Length
-        };
-    }
-
-    private async Task<UploadWriteResult> UploadWithMd5NameAsync(
-        Stream inputStream,
-        string sourceFileName,
-        string containerName,
-        string destPath,
-        bool overwrite,
-        CancellationToken cancellationToken)
-    {
-        var requestedDirectory = Path.Combine(containerName, destPath);
-        var destinationDirectory = string.IsNullOrEmpty(requestedDirectory)
-            ? _rootDirectoryFullPath
-            : GetRealPath(requestedDirectory);
-        Directory.CreateDirectory(destinationDirectory);
-        var tempPath = Path.Combine(destinationDirectory, $".upload-{Guid.NewGuid():N}.tmp");
-
-        try
-        {
-            var copyResult = await CopyAndHashToFileAsync(
-                inputStream,
-                tempPath,
-                FileMode.Create,
-                cancellationToken).ConfigureAwait(false);
-            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
-            var fileName = $"{fileNameWithoutExtension}-{copyResult.HashData}{Path.GetExtension(sourceFileName)}";
-            var filePath = Path.Combine(containerName, destPath, fileName);
-            var fullFilePath = GetRealPath(filePath);
-
-            MoveUploadedFile(tempPath, fullFilePath, overwrite);
-
-            return new UploadWriteResult(filePath, fullFilePath, copyResult.HashData, copyResult.Length);
-        }
-        finally
-        {
-            TryDeleteFile(tempPath);
-        }
-    }
-
-    private async Task<UploadWriteResult> UploadWithSelectedNameAsync(
-        Stream inputStream,
-        string sourceFileName,
-        string containerName,
-        string destPath,
-        NamingRule namingRule,
-        bool overwrite,
-        bool useSequencedName,
-        CancellationToken cancellationToken)
-    {
-        var basePath = Path.Combine(containerName, destPath);
-        var filePath = namingRule == NamingRule.Uuid
-            ? GenerateUuidBasedPath(containerName, destPath, Path.GetExtension(sourceFileName))
-            : GetDestFilePath(basePath, sourceFileName, overwrite, useSequencedName, _rootDirectoryFullPath);
-        var fullFilePath = GetRealPath(filePath);
-        CreateParentDirectory(fullFilePath);
-        if (!overwrite && File.Exists(fullFilePath))
+        var fullFilePath = filePath is null ? null : GetRealPath(filePath);
+        if (!overwrite && fullFilePath is not null && File.Exists(fullFilePath))
         {
             throw new DuplicateFileException();
         }
 
-        var destinationDirectory = Path.GetDirectoryName(fullFilePath)!;
-        var tempPath = Path.Combine(destinationDirectory, $".upload-{Guid.NewGuid():N}.tmp");
-
+        var directory = fullFilePath is not null
+            ? Path.GetDirectoryName(fullFilePath)!
+            : string.IsNullOrEmpty(basePath) ? _rootDirectoryFullPath : GetRealPath(basePath);
+        Directory.CreateDirectory(directory);
+        var tempPath = Path.Combine(directory, $".upload-{Guid.NewGuid():N}.tmp");
+        var retainInvalidFile = false;
         try
         {
-            var copyResult = await CopyAndHashToFileAsync(
-                inputStream,
-                tempPath,
-                FileMode.CreateNew,
-                cancellationToken).ConfigureAwait(false);
+            var (hash, length) = await CopyAndHashToFileAsync(inputStream, tempPath, cancellationToken).ConfigureAwait(false);
+            if (filePath is null)
+            {
+                var stem = Path.GetFileNameWithoutExtension(sourceFileName).Replace(" ", string.Empty);
+                filePath = Path.Combine(basePath, $"{stem}-{hash}{Path.GetExtension(sourceFileName)}");
+            }
+
+            fullFilePath ??= GetRealPath(filePath);
+
+            // 校验本次写入的临时文件，不能校验或清理其他上传可能已替换的目标。
+            try
+            {
+                await ValidateFileAsync(new FileInfo(tempPath), hash, length, cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidOperationException) when (!_options.CleanupOnValidationFailure)
+            {
+                retainInvalidFile = true;
+                throw;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
             MoveUploadedFile(tempPath, fullFilePath, overwrite);
 
-            return new UploadWriteResult(filePath, fullFilePath, copyResult.HashData, copyResult.Length);
+            return new UploadedInfo
+            {
+                HashData = hash,
+                FileName = sourceFileName,
+                NewFileName = Path.GetFileName(fullFilePath),
+                FilePath = filePath,
+                RelativeFilePath = Path.Combine(RootDirectoryPath, filePath),
+                FullFilePath = fullFilePath,
+                FileSize = length.FormatFileSize(),
+                Length = length
+            };
         }
         finally
         {
-            TryDeleteFile(tempPath);
+            if (!retainInvalidFile)
+            {
+                TryDeleteFile(tempPath);
+            }
         }
     }
 
     private async Task<(string HashData, long Length)> CopyAndHashToFileAsync(
         Stream inputStream,
         string destinationFilePath,
-        FileMode fileMode,
         CancellationToken cancellationToken)
     {
         using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.MD5);
@@ -183,7 +163,7 @@ public partial class LocalFileSystem
         {
             destinationStream = new FileStream(
                 destinationFilePath,
-                fileMode,
+                FileMode.CreateNew,
                 FileAccess.Write,
                 FileShare.None,
                 _options.UploadBufferSize,
@@ -240,7 +220,6 @@ public partial class LocalFileSystem
         fileInfo.Refresh();
         if (fileInfo.Length != expectedSize)
         {
-            CleanupInvalidFile(fileInfo.FullName);
             throw new InvalidOperationException($"File validation failed: Size mismatch for {fileInfo.FullName}. Expected: {expectedSize}, Actual: {fileInfo.Length}");
         }
 
@@ -252,7 +231,6 @@ public partial class LocalFileSystem
         var uploadedFileHash = await ComputeFileHashAsync(fileInfo.FullName, cancellationToken).ConfigureAwait(false);
         if (!string.Equals(uploadedFileHash, sourceHashData, StringComparison.Ordinal))
         {
-            CleanupInvalidFile(fileInfo.FullName);
             throw new InvalidOperationException($"File validation failed: MD5 hash mismatch for {fileInfo.FullName}");
         }
     }
@@ -295,31 +273,6 @@ public partial class LocalFileSystem
         {
             System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
         }
-    }
-
-    private void CleanupInvalidFile(string filePath)
-    {
-        if (_options.CleanupOnValidationFailure)
-        {
-            TryDeleteFile(filePath);
-        }
-    }
-
-
-    private readonly struct UploadWriteResult
-    {
-        public UploadWriteResult(string filePath, string fullFilePath, string hashData, long length)
-        {
-            FilePath = filePath;
-            FullFilePath = fullFilePath;
-            HashData = hashData;
-            Length = length;
-        }
-
-        public string FilePath { get; }
-        public string FullFilePath { get; }
-        public string HashData { get; }
-        public long Length { get; }
     }
 
     /// <summary>
