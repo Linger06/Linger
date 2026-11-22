@@ -1,8 +1,38 @@
-# 迁移到 2.0.0-preview.1
+# Linger 2.0 迁移指南
 
 [English](MIGRATION.md) | [中文](MIGRATION.zh-CN.md)
 
-本文档说明各个 Linger 包中的破坏性 API 删除，适用于从旧版公共 API 升级的应用程序。
+本指南涵盖各包的 API 与行为变化。先核对下方开发分支的升级项，再查阅后文从 `2.0.0-preview.1` 起的 API 替代和迁移示例。
+
+## 2.0.0-preview.5 开发分支：升级检查
+
+本节描述当前分支的实现，不表示这些变更已经发布到 NuGet。即使不需要改方法签名，数据格式、筛选结果及失败处理也可能变化。
+
+### 部署前：先配置身份和传输安全
+
+| 组件 | 必做配置 / 新行为 | 如何验收 |
+| --- | --- | --- |
+| LDAP 身份和密码 | 原先忽略资料、只取 `IsValid` 的调用方请改用 AD `ValidateCredentials` 或 Novell `ValidateCredentialsAsync`（注入 `IActiveDirectoryCredentialValidator` / `ILdapCredentialValidator`）。只验凭据不检查 OU 或组。依赖资料或 OU 的调用方保留 `ValidateUser` / `ValidateUserAsync`：必须能确认唯一资料，不按显示名或业务过滤器取第一条；失败时不要退回只验密码。 | `LdapConfig.Security` 默认 `false`；AD 验密默认用签名和密封的 Negotiate，Novell 带用户或服务密码须显式设为 `true` 并信任 LDAPS 证书。**仅资料验证**：AD 使用实际域控 DNS 名并能读取域 SID、用户 SID 和规范账号；Novell 需支持 Who Am I，且用户能读取自身资料。见 [Novell](../Linger.Ldap.Novell/README.zh-CN.md) / [AD](../Linger.Ldap.ActiveDirectory/README.zh-CN.md)。 |
+| SMTP（含 ASP.NET Core 封装） | 要求 STARTTLS 的服务设置 `UseStartTls=true`；连接即 TLS 的服务只设置 `UseSsl=true`。两项均开时以 STARTTLS 为准。两个开关默认均关闭，此时只允许匿名明文；只要 `UserName` 或 `Password` 非空，就拒绝明文。过去依赖 `UseSsl=true` 自动协商 STARTTLS 的部署必须改配。 | 在测试环境按服务端实际 TLS 模式发送；不能协商 TLS 时应失败，而非降级。见 [Email](../Linger.Email/README.zh-CN.md)。 |
+| SFTP | 密码或私钥认证都必须设置 `SftpFileSystemOptions.HostKeyFingerprintSha256`，值为 `SHA256:` 加 43 个无填充的 Base64 字符。`CertificatePath` 是客户端私钥，不验证服务器身份。 | 经可信独立渠道核对服务器指纹后再部署；缺失、格式错误或不匹配均不得继续。主机换钥需先核验新指纹，再更新配置并重建客户端。见 [SFTP](../Linger.FileSystem.Sftp/README.zh-CN.md)。 |
+| WinForms 示例 | 启动前分别设置 `LINGER_WINFORMS_API_ORIGIN` 和 `LINGER_WINFORMS_REFRESH_ORIGIN`，即使同源也要设置两项。只填 `https://主机[:端口]`，表单内再填完整端点。两条客户端管线均不自动跟随重定向。 | 配置变更后重启。核对配置来源下的所有路径都可信，不要信任托管其他不可信应用的共享来源。见 [示例配置](../../examples/Linger.HttpClient.WinForms/README.zh-CN.md)。 |
+| ASP.NET Core 错误响应 | `ToActionResult` 和 `ToHttpResult` 的 500–599 响应保留状态码，但只返回通用 `title` 和 `detail`，不再返回应用错误码、异常消息或 `errors` 扩展。4xx 字段错误行为不变。 | 客户端按状态码处理服务故障，不再解析 5xx 原始文本或依赖 `errors`；将诊断信息保留在服务端日志。 |
+
+### 数据、文件和调用方行为
+
+| 模块 | 现在的行为 | 升级动作 |
+| --- | --- | --- |
+| Excel（两个提供程序） | 文件先写临时文件，成功后替换目标；导出失败保留旧文件。自动导入已匹配的非空单元格，若不能转换，会抛出注明位置的 `InvalidCastException`，不再静默保留默认值。 | 需要跳过坏值、记录问题后继续导入时，使用显式 `ExcelRow` 映射。 |
+| Excel 数值、NPOI | 对支持的整数，如果提供程序写成数值会损失精度，则导出为精确文本；以前因 `UInt64` 溢出而拒绝的值仍可能抛错。NPOI 转换 `.xls` 时保留全部工作表、原名、顺序及日期系统；同名克隆不再覆盖原副本；转换和跨工作簿复制保留错误单元格的类型和错误码，不再写成普通数字。 | 长编号按文本或数值读取；不要依赖转换后只剩 `Sheet1`。详见 [Excel 契约](../Linger.Excel.Contracts/README.zh-CN.md)。 |
+| `Linger.HttpClient.Standard` | 整文件下载仅接受 `200`、`203`，包括合法空文件；其他 2xx 返回失败且保留目标。正文长度已知时，实际字节数不符也会失败，不替换目标；未声明长度的流仍可下载。标准客户端的无返回值写操作不再解析成功正文；旧 `IHttpClient` 实现保留原分派。旧目标的字符串和字节数组读取超时会结束调用方等待，但底层 I/O 未必立即停止。 | 需要 `202` 状态正文、`206` 分段或原始响应时使用 `SendAsync`，自行处理正文和响应生命周期。 |
+| 本地文件、FTP | 本地上传先校验自己的临时文件；`CleanupOnValidationFailure=false` 保留的是诊断用临时文件，而非正式目标。FTP 覆盖上传不再先删除目标，最终重命名不自动重试。`FileHelper.CopyDir` 拒绝已有链接或目录联接的目标路径。 | 复制时传入实际目录；确认 FTP 服务器支持重命名替换。提交回执丢失时先核对远端内容，勿盲目重传。 |
+| FTP 删除、SFTP 上传 | FTP `DeleteAsync` 不再自动重发删除命令；SFTP 对可定位流仍可重试临时文件传输，但最终重命名（含覆盖）只执行一次。 | 回执丢失不代表操作未执行。先核对远端文件及版本，再决定是否重试，以免误删或覆盖其他写入者的新文件。 |
+| SQLite 表枚举 | `GetTableNames` 和 `GetTableNamesAsync` 现在会列出原先漏掉的 `sqliteOrders` 等用户表；仍排除以 `sqlite_` 开头的系统表。 | 枚举结果可能增加，无需变更数据库结构。 |
+| `DataTable` 删除行 | JSON 和两个 Excel 提供程序导出表或数据集时跳过 `Deleted` 行，保留其他行的顺序，不改变源表状态。SQL Server 批量插入的成功返回值不再包含删除行；全为删除行时返回 0。 | 不要为导出调用 `AcceptChanges()`。需要已删除记录时请显式读取 `DataRowVersion.Original`；批量插入结果不一定等于 `Rows.Count`。 |
+| SQL Server 批量插入（事务行为不变） | `BulkInsert` 和 `BulkInsertAsync` 不保证整次导入原子性；后续批次失败时，前面批次可能已经提交。 | 失败后按业务键对账，不要直接重跑全部数据。需要整次回滚时，请使用显式传入 `SqlTransaction` 的 `SqlBulkCopy`。 |
+| `Linger.Json` | `DataTable` 的 `byte[]` 写为 Base64，读回为字符串；列名裁剪会碰撞或变空时保留原名。混合数值列可能为 `object`，以保留各单元格的数值精度。 | 不要将混合列整列强转为 `double`；仅按已知字段类型解码 Base64。旧的 `"System.Byte[]"` 不含原始字节，不能靠升级还原。见 [JSON 迁移指南](../Linger.Json/MIGRATION.zh-CN.md)。 |
+| 搜索与反射 | `SearchParameters`（AND）与非空的 `SearchOrParameters`（组内 OR）取交集，全文筛选可处理 `null` 属性。反射映射跳过 `Deleted` 行；无法继续解析属性路径时不再死循环，`TrySetProperty` 不再把嵌套选择器误写到根对象上。 | 旧查询可能返回更少行；显式给子对象赋值，不要依赖嵌套选择器。 |
+| EF、后台任务 | EF 全局过滤器支持继承分支及影子属性；审计拦截器不吞保存异常，也不自动重试。仅当提交前失败且调用方主动在同一 `DbContext` 再次保存时，才为未实现 `ISoftDelete` 的实体重建待写审计行。后台队列会等待当前工作项的异步作用域释放，再处理下一项。 | 检查自定义过滤器和释放逻辑。只传主键软删除不再写回未加载的业务列；不要依赖 `Remove` 顺带更新未跟踪的字段。需要完整审计快照时先加载实体。Dapper 未变，无需数据库迁移。 |
 
 ## 直接替代
 
@@ -320,20 +350,9 @@ services.AddHttpClient<IHttpClient, StandardHttpClient>(client =>
 using var client = new StandardHttpClient("https://api.example.com/");
 ```
 
-WinForms 等单用户客户端直接创建专属实例时，可以在创建底层 `HttpClient` 时设置认证头：
+使用 Bearer 令牌的桌面客户端不要把认证头设成可访问任意绝对 URL 的 `HttpClient.DefaultRequestHeaders`。`BaseAddress` 不限制后续请求只能发往该地址。先由部署配置指定可信 HTTPS 来源，在实际发送前校验请求来源，再添加令牌；刷新客户端应有独立的来源约束，且不应自动跟随重定向。参见 [WinForms 示例](../../examples/Linger.HttpClient.WinForms/README.zh-CN.md)。
 
-```csharp
-var httpClient = new HttpClient
-{
-    BaseAddress = new Uri("https://api.example.com/")
-};
-httpClient.DefaultRequestHeaders.Authorization =
-    new AuthenticationHeaderValue("Bearer", accessToken);
-
-var client = new StandardHttpClient(httpClient);
-```
-
-外部 `HttpClient` 模式应在应用生命周期内复用 `httpClient` 和 `client`，并在应用关闭时由调用方释放 `httpClient`。令牌刷新可能与请求并发时，使用 `DelegatingHandler` 在发送请求时读取当前令牌；一个客户端代表多个用户或令牌按请求变化时，继续使用每请求 `headers`。
+外部 `HttpClient` 模式应在应用生命周期内复用客户端，并由调用方在关闭时释放底层 `HttpClient`。多用户或令牌按请求变化时，在验证目标后按请求添加认证头。
 
 HTTP 方法使用 BCL 类型，动态认证头按请求传入：
 

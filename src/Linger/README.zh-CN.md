@@ -1,6 +1,6 @@
 # Linger.Utils
 
-[2.0.0-preview.4 迁移指南](https://github.com/Linger06/Linger/blob/v2.0.0-preview.4/src/Linger/MIGRATION.zh-CN.md)
+[当前分支迁移指南](MIGRATION.zh-CN.md) · [2.0.0-preview.4 归档指南](https://github.com/Linger06/Linger/blob/v2.0.0-preview.4/src/Linger/MIGRATION.zh-CN.md)
 
 [![NuGet](https://img.shields.io/nuget/v/Linger.Utils.svg)](https://www.nuget.org/packages/Linger.Utils/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -89,6 +89,7 @@ if (FileHelper.TryReadText("data.txt", out string content))
 
 FileHelper.CopyFile("source.txt", "backup/dest.txt");
 FileHelper.DeleteFileIfExists("temp.txt");
+// CopyDir 拒绝目标路径中已有的目录链接或目录联接，请传入实际目录。
 FileHelper.CopyDir("sourceFolder", "backupFolder");
 FileHelper.ClearDirectory("temp");
 

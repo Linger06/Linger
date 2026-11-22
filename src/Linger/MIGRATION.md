@@ -1,9 +1,38 @@
-# Migration to 2.0.0-preview.1
+# Linger 2.0 migration guide
 
 [English](MIGRATION.md) | [中文](MIGRATION.zh-CN.md)
 
-This guide covers breaking API removals across Linger packages. It is intended
-for applications upgrading from the previous API surface.
+This guide covers API and behavioral changes across Linger packages. Check the current development-branch requirements first; the replacement tables and examples below also cover upgrades starting with `2.0.0-preview.1`.
+
+## 2.0.0-preview.5 development branch: upgrade checklist
+
+This section describes the current branch, not a claim about packages already published to NuGet. Source-compatible changes can still affect data formats, filtering and failure handling.
+
+### Before deployment: configure identity and transport security
+
+| Component | Configuration / new behavior | Acceptance check |
+| --- | --- | --- |
+| LDAP identity and passwords | If you ignored the profile and used only `IsValid`, switch to AD `ValidateCredentials` or Novell `ValidateCredentialsAsync` (inject `IActiveDirectoryCredentialValidator` / `ILdapCredentialValidator`). Neither checks OU or group membership. For profiles or OU restrictions, keep `ValidateUser` / `ValidateUserAsync`: a unique verified profile is required. There is no first-match display-name or business-filter fallback; never fall back to a password check on failure. | `LdapConfig.Security` defaults to `false`: AD uses signed and sealed Negotiate for validation; Novell user and service-account password binds require explicit `true` and a trusted LDAPS certificate. **Profile validation only:** AD needs an actual controller DNS name and read access to the domain SID, user SID and canonical name; Novell requires Who Am I and permission to read the bound profile. See [Novell](../Linger.Ldap.Novell/README.md) / [AD](../Linger.Ldap.ActiveDirectory/README.md). |
+| SMTP (including the ASP.NET Core wrapper) | Set `UseStartTls=true` for required STARTTLS; set only `UseSsl=true` for TLS on connect. STARTTLS takes precedence if both are enabled. Both default to false, permitting anonymous plaintext only; any nonempty `UserName` or `Password` forbids plaintext. Deployments relying on `UseSsl=true` to negotiate STARTTLS automatically must change their settings. | Test the server's actual TLS mode in staging; failed negotiation must not fall back to plaintext. See [Email](../Linger.Email/README.md). |
+| SFTP | Both password and private-key authentication require `SftpFileSystemOptions.HostKeyFingerprintSha256`: `SHA256:` followed by 43 unpadded Base64 characters. `CertificatePath` is the client key; it does not verify the server. | Obtain the fingerprint from an independent trusted source. Missing, malformed or mismatched pins must not succeed. Verify a rotated key before updating the pin and recreating the client. See [SFTP](../Linger.FileSystem.Sftp/README.md). |
+| WinForms example | Set `LINGER_WINFORMS_API_ORIGIN` and `LINGER_WINFORMS_REFRESH_ORIGIN` before startup, even if both origins are identical. Provide `https://host[:port]` only; enter full endpoints in the form. Neither client follows redirects automatically. | Restart after changing configuration. Trust every path on each configured origin; do not use an origin shared with untrusted applications. See the [example configuration](../../examples/Linger.HttpClient.WinForms/README.md). |
+| ASP.NET Core error responses | `ToActionResult` and `ToHttpResult` preserve the original status for 500–599, but return generic `title` and `detail` only: no application codes, exception messages or `errors` extension. Field-level 4xx behavior is unchanged. | Handle server failures by status, not raw text or the presence of `errors`. Retain diagnostics in server-side logs. |
+
+### Data, file and client behavior
+
+| Area | New behavior | Upgrade action |
+| --- | --- | --- |
+| Excel (both providers) | File exports write to a temporary file and replace the destination only after success. Automatic mapping now throws `InvalidCastException` with the cell location for a nonempty, matched value that cannot be converted, rather than leaving the property at its default. | Use an explicit `ExcelRow` mapper if invalid values must be skipped or reported without aborting the import. |
+| Excel numbers and NPOI | Supported integers are written as exact text if the provider cannot preserve them in a numeric cell; existing `UInt64` overflow restrictions still apply. NPOI `.xls` conversion preserves all sheets, their names and order, and the date system. Repeated clones no longer overwrite earlier copies. Conversion and cross-workbook cloning preserve error cells and their codes instead of writing ordinary numbers. | Accept text or numeric cells for long identifiers. Do not rely on a single output sheet named `Sheet1`. See the [Excel contracts](../Linger.Excel.Contracts/README.md). |
+| `Linger.HttpClient.Standard` | Whole-file downloads accept only `200` or `203`, including a valid empty file. Other 2xx responses and bodies that do not match their declared length fail without replacing the target. Unknown-length streams remain supported. Status-only writes skip parsing successful bodies; existing third-party `IHttpClient` implementations keep their previous dispatch. On legacy targets a timeout ends the caller's wait for string and byte-array reads, not necessarily the underlying I/O. | Use `SendAsync` for `202` status bodies, `206` ranges, or other raw responses, and dispose the response. |
+| Local files and FTP | Local uploads validate their temporary file before replacement. `CleanupOnValidationFailure=false` retains an invalid temporary file for diagnosis, not the destination. FTP no longer deletes the target before replacing it or automatically retries the final rename. `FileHelper.CopyDir` rejects existing links and junctions on the destination path. | Use the real destination directory; verify that the FTP server supports rename-over-existing. Check the remote contents if the final acknowledgement is lost before retrying. |
+| FTP deletion and SFTP uploads | FTP `DeleteAsync` no longer retries a delete command. SFTP can still retry the temporary upload for a seekable stream, but issues the final rename only once, including on overwrite. | A lost reply does not mean the operation failed on the server. Check the remote file and its version before retrying to avoid deleting or replacing another writer's file. |
+| SQLite table enumeration | `GetTableNames` and `GetTableNamesAsync` now include previously omitted user tables such as `sqliteOrders`. System tables prefixed with `sqlite_` remain excluded. | Expect additional results; no schema change is required. |
+| Deleted `DataTable` rows | JSON and both Excel providers skip `Deleted` rows when exporting a table or data set, preserving row order and source states. SQL Server bulk insert excludes deleted rows from its success count and returns zero if all rows are deleted. | Do not call `AcceptChanges()` to export. Read `DataRowVersion.Original` explicitly if you need deleted records; the bulk insert count need not equal `Rows.Count`. |
+| SQL Server bulk insert (transaction behavior unchanged) | `BulkInsert` and `BulkInsertAsync` do not guarantee an atomic import. Earlier batches may already be committed when a later batch fails. | Reconcile by business key before retrying. For an all-or-nothing import, pass an explicit `SqlTransaction` to `SqlBulkCopy`. |
+| `Linger.Json` | `DataTable` byte arrays become Base64 strings on the wire and remain strings on read. Column names are preserved when trimming would collide or yield an empty name. Mixed numeric columns may use `object` to avoid losing individual values. | Avoid casting an entire mixed column to `double`. Decode Base64 only for known binary fields. Historical `"System.Byte[]"` strings do not contain recoverable bytes. See the [JSON migration guide](../Linger.Json/MIGRATION.md). |
+| Search and reflection | `SearchParameters` (AND) intersects with any nonempty `SearchOrParameters` group (OR within the group); text matching tolerates null properties. Reflection mapping skips deleted rows; property-path parsing terminates on unsupported receivers and `TrySetProperty` no longer writes a nested selection to the root. | Expect narrower search results; assign to child objects explicitly. |
+| EF and background tasks | Global filters handle derived branches and shadow properties. The audit interceptor does not suppress save exceptions or retry automatically. If a save fails before commit and the caller explicitly saves again on the same `DbContext`, it regenerates pending audit rows only for entities that do not implement `ISoftDelete`. The task queue waits for asynchronous scope disposal before the next item. | Check custom filters and disposal code. Key-only soft deletes no longer write unloaded business columns. Do not rely on `Remove` to update untracked business fields. Load the entity first when a full audit snapshot is required. Dapper is unchanged; no database migration is required. |
 
 ## Direct replacements
 
@@ -347,20 +376,9 @@ When no custom underlying client is required, pass the base URL directly and dis
 using var client = new StandardHttpClient("https://api.example.com/");
 ```
 
-For a single-user client such as WinForms, a dedicated instance can set its authorization header when the underlying `HttpClient` is created:
+Do not place a bearer token in `HttpClient.DefaultRequestHeaders` on a desktop client that accepts arbitrary absolute URLs. `BaseAddress` does not restrict request destinations. Configure trusted HTTPS origins independently, validate the actual destination before attaching credentials, constrain the refresh client separately, and do not follow redirects automatically. See the [WinForms example](../../examples/Linger.HttpClient.WinForms/README.md).
 
-```csharp
-var httpClient = new HttpClient
-{
-    BaseAddress = new Uri("https://api.example.com/")
-};
-httpClient.DefaultRequestHeaders.Authorization =
-    new AuthenticationHeaderValue("Bearer", accessToken);
-
-var client = new StandardHttpClient(httpClient);
-```
-
-In external-`HttpClient` mode, reuse `httpClient` and `client` for the application lifetime, and let the caller dispose `httpClient` when the application closes. If token refresh can overlap active requests, use a `DelegatingHandler` that reads the current token while sending. Continue using per-request `headers` when one client represents multiple users or the token varies by request.
+In external-`HttpClient` mode, reuse the clients for the application lifetime and dispose the underlying `HttpClient` at shutdown. For multiple users or per-request tokens, add authorization only after validating the destination.
 
 Use the BCL HTTP method type and pass dynamic authentication per request:
 
