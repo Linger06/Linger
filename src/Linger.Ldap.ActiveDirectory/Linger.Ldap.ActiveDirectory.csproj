@@ -39,6 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
-</ItemGroup>
+        <InternalsVisibleTo Include="Linger.Ldap.UnitTests" />
+    </ItemGroup>
 
 </Project>

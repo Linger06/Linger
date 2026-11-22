@@ -1,4 +1,4 @@
-﻿namespace Linger.Ldap.Contracts;
+namespace Linger.Ldap.Contracts;
 
 /// <summary>
 /// LDAP configuration class
@@ -53,7 +53,7 @@ public class LdapConfig
     public string Url { get; set; } = null!;
 
     /// <summary>
-    /// Whether to enable secure connection
+    /// Whether to use LDAPS (default: false). Novell password binds require LDAPS.
     /// </summary>
     public bool Security { get; set; }
 

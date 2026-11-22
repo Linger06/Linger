@@ -38,7 +38,7 @@ using Linger.Ldap.Contracts;
 
 var config = new LdapConfig
 {
-    Url = "example.com",
+    Url = "dc01.example.com",
     Domain = "example",
     SearchBase = "DC=example,DC=com",
     SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))",
@@ -86,7 +86,13 @@ if (isValid && userInfo is not null)
 }
 ```
 
-Authentication is determined by `ValidateCredentials`. User information is queried separately with the configured search credentials. If that query is unavailable or unauthorized, the method returns `IsValid = true` and `userInfo = null`.
+For the `ValidateUser` profile check only, set `Url` to one controller’s actual DNS hostname (e.g. `dc01.example.com`) or leave it empty for discovery; do not use a domain name, IP, alias or load balancer. The search identity must be able to read the default domain SID, user `objectSid` and `msDS-PrincipalName`. On that controller and within the requested OU, the client resolves a unique account, validates its qualified name via ADSI Negotiate, then reads the profile by the original SID and account. Neither identity search follows referrals.
+
+For profile validation a correct password alone is insufficient. An unresolved, ambiguous, unreadable or out-of-scope identity does not authenticate: `(false, null)`. Do not retry via a business lookup to obtain an authenticated profile. Business queries retain their configured filters, wildcard searches and result limits.
+
+For password-only checks use AD `IActiveDirectoryCredentialValidator.ValidateCredentials` or Novell `ILdapCredentialValidator.ValidateCredentialsAsync`. Neither requires a pinned controller, Who Am I, or profile read access, and neither checks OU or group membership. For OU restrictions or a verified profile, keep `ValidateUser` / `ValidateUserAsync`; never fall back to password-only validation on failure.
+
+`LdapConfig.Security` defaults to `false`. AD validates with signed and sealed Negotiate by default. Novell requires explicit `Security = true` and a trusted LDAPS certificate for all user and service-account password binds. With `false` it only allows passwordless anonymous queries.
 
 ### Find a Single User
 

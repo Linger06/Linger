@@ -1,4 +1,4 @@
-﻿# Linger.Ldap.Contracts
+# Linger.Ldap.Contracts
 
 > Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
 
@@ -37,6 +37,8 @@ public void ConfigureServices(IServiceCollection services)
 
     services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
     services.AddScoped<IActiveDirectoryClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
+    services.AddScoped<ILdapCredentialValidator, Linger.Ldap.Novell.NovellLdapClient>();
+    services.AddScoped<IActiveDirectoryCredentialValidator, Linger.Ldap.ActiveDirectory.AdLdapClient>();
 }
 ```
 
@@ -45,7 +47,7 @@ public void ConfigureServices(IServiceCollection services)
 ```json
 {
   "LdapConfig": {
-    "Url": "ldap.example.com",
+    "Url": "dc01.example.com",
     "Domain": "example",
     "SearchBase": "DC=example,DC=com",
     "SearchFilter": "(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})))",
@@ -178,7 +180,7 @@ All `ILdapClient` operations accept `CancellationToken`, and the Novell provider
 
 ```csharp
 public async Task<bool> ValidateUserWithTimeoutAsync(
-    ILdapClient ldap,
+    ILdapCredentialValidator ldap,
     string username,
     string password,
     int timeoutSeconds = 5)
@@ -187,11 +189,10 @@ public async Task<bool> ValidateUserWithTimeoutAsync(
 
     try
     {
-        var (isValid, _) = await ldap.ValidateUserAsync(
+        return await ldap.ValidateCredentialsAsync(
             username,
             password,
             cancellationToken: cts.Token);
-        return isValid;
     }
     catch (OperationCanceledException)
     {
@@ -277,7 +278,11 @@ Providers take an independent snapshot of `LdapConfig`, including `Credentials` 
 
 ## Error Behavior
 
-Invalid arguments and configuration are rejected before use. Search-operation connection, TLS, bind, and directory-server failures are surfaced as exceptions; an empty result means that the query completed successfully without matching users. Credential validation returns `IsValid = false` for invalid credentials. After successful authentication, a provider can return `IsValid = true` with no profile when the separate profile lookup fails.
+Invalid arguments and configuration are rejected before use. Search-operation connection, TLS, bind, and directory-server failures are surfaced as exceptions; an empty result means that the query completed successfully without matching users. For profile validation a correct password alone is insufficient. An unresolved, ambiguous, unreadable or out-of-scope identity does not authenticate: `(false, null)`. Do not retry via a business lookup to obtain an authenticated profile. Business queries retain their configured filters, wildcard searches and result limits.
+
+For password-only checks use AD `IActiveDirectoryCredentialValidator.ValidateCredentials` or Novell `ILdapCredentialValidator.ValidateCredentialsAsync`. Neither requires a pinned controller, Who Am I, or profile read access, and neither checks OU or group membership. For OU restrictions or a verified profile, keep `ValidateUser` / `ValidateUserAsync`; never fall back to password-only validation on failure.
+
+`LdapConfig.Security` defaults to `false`. AD validates with signed and sealed Negotiate by default. Novell requires explicit `Security = true` and a trusted LDAPS certificate for all user and service-account password binds. With `false` it only allows passwordless anonymous queries.
 
 ## Supported Implementations
 

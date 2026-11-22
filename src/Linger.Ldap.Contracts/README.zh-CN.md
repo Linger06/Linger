@@ -37,6 +37,8 @@ public void ConfigureServices(IServiceCollection services)
 
     services.AddScoped<ILdapClient, Linger.Ldap.Novell.NovellLdapClient>();
     services.AddScoped<IActiveDirectoryClient, Linger.Ldap.ActiveDirectory.AdLdapClient>();
+    services.AddScoped<ILdapCredentialValidator, Linger.Ldap.Novell.NovellLdapClient>();
+    services.AddScoped<IActiveDirectoryCredentialValidator, Linger.Ldap.ActiveDirectory.AdLdapClient>();
 }
 ```
 
@@ -45,7 +47,7 @@ public void ConfigureServices(IServiceCollection services)
 ```json
 {
   "LdapConfig": {
-    "Url": "ldap.example.com",
+    "Url": "dc01.example.com",
     "Domain": "example",
     "SearchBase": "DC=example,DC=com",
     "SearchFilter": "(&(objectClass=user)(|(sAMAccountName={0})(userPrincipalName={0})(mail={0})))",
@@ -178,7 +180,7 @@ var users = await _ldap.SearchUsersByFilterAsync(
 
 ```csharp
 public async Task<bool> ValidateUserWithTimeoutAsync(
-    ILdapClient ldap,
+    ILdapCredentialValidator ldap,
     string username,
     string password,
     int timeoutSeconds = 5)
@@ -187,11 +189,10 @@ public async Task<bool> ValidateUserWithTimeoutAsync(
 
     try
     {
-        var (isValid, _) = await ldap.ValidateUserAsync(
+        return await ldap.ValidateCredentialsAsync(
             username,
             password,
             cancellationToken: cts.Token);
-        return isValid;
     }
     catch (OperationCanceledException)
     {
@@ -277,7 +278,11 @@ public class LdapConfig
 
 ## 错误语义
 
-无效参数和配置会在使用前被拒绝。搜索操作中的连接、TLS、绑定和目录服务器故障会以异常形式向上传递；空结果仅表示查询已成功完成但没有匹配用户。凭据无效时，认证返回 `IsValid = false`。认证成功后，如果独立的用户信息查询失败，提供者可以返回 `IsValid = true` 且用户信息为空。
+无效参数和配置会在使用前被拒绝。搜索操作中的连接、TLS、绑定和目录服务器故障会以异常形式向上传递；空结果仅表示查询已成功完成但没有匹配用户。在资料验证流程中，密码正确但身份不能唯一确定、资料不可读或不在搜索范围，也不会返回成功：`(false, null)`。不要用业务 `FindUser` 再查一次来补全认证。业务搜索仍保留自定义过滤器、模糊匹配和结果上限。
+
+只验密码请用 AD `IActiveDirectoryCredentialValidator.ValidateCredentials` 或 Novell `ILdapCredentialValidator.ValidateCredentialsAsync`。这条路径不要求固定域控、Who Am I 或资料读取权限，也不检查 OU 或组。需要 OU 限制或可信资料时，继续使用 `ValidateUser` / `ValidateUserAsync`，失败后不要退回只验密码。
+
+`LdapConfig.Security` 默认 `false`。AD 验密默认使用带签名和密封的 Negotiate。Novell 的用户密码和服务账号密码均须显式配置 `Security = true` 并信任 LDAPS 证书；`false` 只允许无密码匿名查询。
 
 ## 实现包
 

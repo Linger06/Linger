@@ -11,7 +11,7 @@ public interface IActiveDirectoryClient
     /// <param name="userName">Username to validate.</param>
     /// <param name="password">Password to validate.</param>
     /// <param name="searchBase">Optional specific OU to search in.</param>
-    /// <returns>True and user information when credentials are valid; otherwise false and null.</returns>
+    /// <returns>True with the unique verified profile on success; otherwise false and null. A valid password alone is not sufficient.</returns>
     (bool IsValid, LdapUserInfo? LdapUserInfo) ValidateUser(
         string userName,
         string password,
@@ -60,4 +60,12 @@ public interface IActiveDirectoryClient
     /// <param name="searchBase">Optional specific OU to search in.</param>
     /// <returns>True if the user exists; otherwise false.</returns>
     bool UserExists(string userName, string? searchBase = null);
+}
+
+/// <summary>Checks credentials without reading a profile or authorizing access to an OU.</summary>
+public interface IActiveDirectoryCredentialValidator
+{
+    /// <summary>Checks the supplied credentials over a protected connection.</summary>
+    /// <returns>True on a successful bind; false for invalid credentials. Transport failures propagate.</returns>
+    bool ValidateCredentials(string userName, string password);
 }

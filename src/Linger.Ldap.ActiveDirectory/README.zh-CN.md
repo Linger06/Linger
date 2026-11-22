@@ -38,7 +38,7 @@ using Linger.Ldap.Contracts;
 
 var config = new LdapConfig
 {
-    Url = "example.com",
+    Url = "dc01.example.com",
     Domain = "example",
     SearchBase = "DC=example,DC=com",
     SearchFilter = "(&(objectClass=user)(sAMAccountName={0}))",
@@ -86,7 +86,13 @@ if (isValid && userInfo is not null)
 }
 ```
 
-认证结果只由 `ValidateCredentials` 决定。用户信息会使用配置的查询凭据单独获取；如果查询不可用或没有权限，方法会返回 `IsValid = true` 和 `userInfo = null`。
+只有 `ValidateUser` 的资料验证流程要求将 `Url` 指向单台域控的实际 DNS 主机名（例如 `dc01.example.com`），或留空自动发现；域名、IP、别名和负载均衡地址不能代替它。查询身份需能读取默认域 SID、用户 `objectSid` 和 `msDS-PrincipalName`。客户端在同一域控及指定 OU 内唯一解析账号，以完整域账号通过 ADSI Negotiate 验密，再按原 SID 和账号取资料。两个身份查询均不追随 referral。
+
+在资料验证流程中，密码正确但身份不能唯一确定、资料不可读或不在搜索范围，也不会返回成功：`(false, null)`。不要用业务 `FindUser` 再查一次来补全认证。业务搜索仍保留自定义过滤器、模糊匹配和结果上限。
+
+只验密码请用 AD `IActiveDirectoryCredentialValidator.ValidateCredentials` 或 Novell `ILdapCredentialValidator.ValidateCredentialsAsync`。这条路径不要求固定域控、Who Am I 或资料读取权限，也不检查 OU 或组。需要 OU 限制或可信资料时，继续使用 `ValidateUser` / `ValidateUserAsync`，失败后不要退回只验密码。
+
+`LdapConfig.Security` 默认 `false`。AD 验密默认使用带签名和密封的 Negotiate。Novell 的用户密码和服务账号密码均须显式配置 `Security = true` 并信任 LDAPS 证书；`false` 只允许无密码匿名查询。
 
 ### 查询单个用户
 

@@ -1,5 +1,6 @@
 using System.DirectoryServices;
-using System.DirectoryServices.AccountManagement;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.DirectoryServices.ActiveDirectory;
 #if NET5_0_OR_GREATER
 using System.Runtime.Versioning;
@@ -15,7 +16,7 @@ namespace Linger.Ldap.ActiveDirectory;
 #if NET5_0_OR_GREATER
 [SupportedOSPlatform("windows")]
 #endif
-public sealed class AdLdapClient : IActiveDirectoryClient
+public sealed class AdLdapClient : IActiveDirectoryClient, IActiveDirectoryCredentialValidator
 {
     private readonly LdapConfig _ldapConfig;
     private readonly ILogger<AdLdapClient> _logger;
@@ -23,6 +24,10 @@ public sealed class AdLdapClient : IActiveDirectoryClient
     // 惰性解析：域控自动发现是网络 I/O，不在构造函数中执行，避免拖慢或阻断 DI 容器启动
     private readonly Lazy<string> _url;
 
+    private const string ObjectSid = "objectSid";
+    private const string PrincipalName = "msDS-PrincipalName";
+    private const string DnsHostName = "dnsHostName";
+    private const string DefaultNamingContext = "defaultNamingContext";
     private const string DefaultUserSearchFilterTemplate = "(&(objectCategory=person)(objectClass=user)(|(samAccountName={0})(userPrincipalName={0})(mail={0})(displayName={0})))";
     private const string LdapSchemePrefix = "LDAP://";
     private const string LdapsSchemePrefix = "LDAPS://";
@@ -113,34 +118,6 @@ public sealed class AdLdapClient : IActiveDirectoryClient
     }
 
     /// <summary>
-    /// Gets the base principal context
-    /// </summary>
-    /// <param name="ldapCredentials">Optional credentials for authentication</param>
-    /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
-    /// <returns>Returns the PrincipalContext object</returns>
-    private PrincipalContext GetPrincipalContext(LdapCredentials? ldapCredentials = null, string? searchBase = null)
-    {
-        ldapCredentials = ResolveCredentials(ldapCredentials);
-
-        var configuredSearchBase = searchBase ?? _ldapConfig.SearchBase;
-        var effectiveSearchBase = configuredSearchBase.IsNullOrWhiteSpace() ? null : configuredSearchBase;
-
-        // Negotiate（Kerberos/NTLM）避免 SimpleBind 的明文密码传输；
-        // Signing/Sealing 与 SecureSocketLayer 互斥，仅在非 SSL 时启用。
-        var contextOptions = _ldapConfig.Security
-            ? ContextOptions.Negotiate | ContextOptions.SecureSocketLayer
-            : ContextOptions.Negotiate | ContextOptions.Signing | ContextOptions.Sealing;
-
-        if (ldapCredentials is null)
-        {
-            return new PrincipalContext(ContextType.Domain, _url.Value, effectiveSearchBase, contextOptions);
-        }
-
-        return new PrincipalContext(ContextType.Domain, _url.Value, effectiveSearchBase, contextOptions,
-            BuildBindUserName(ldapCredentials.BindDn), ldapCredentials.BindCredentials);
-    }
-
-    /// <summary>
     /// Falls back to the configured credentials when none are supplied explicitly.
     /// </summary>
     private LdapCredentials? ResolveCredentials(LdapCredentials? ldapCredentials)
@@ -209,6 +186,26 @@ public sealed class AdLdapClient : IActiveDirectoryClient
         return users;
     }
 
+    /// <inheritdoc />
+    public bool ValidateCredentials(string userName, string password)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userName);
+        ArgumentException.ThrowIfNullOrEmpty(password);
+
+        using var root = new DirectoryEntry(BuildLdapPath("RootDSE"), BuildBindUserName(userName), password,
+            GetAuthenticationFlags(_ldapConfig.Security) & ~AuthenticationTypes.ServerBind);
+        try
+        {
+            // DirectoryEntry 惰性绑定，不需要读取用户或域对象。
+            _ = root.NativeObject;
+            return true;
+        }
+        catch (COMException ex) when (ex.ErrorCode == unchecked((int)0x8007052E)) // ERROR_LOGON_FAILURE
+        {
+            return false;
+        }
+    }
+
     /// <summary>
     /// Validates the username and password of a given user
     /// </summary>
@@ -222,28 +219,115 @@ public sealed class AdLdapClient : IActiveDirectoryClient
         ArgumentException.ThrowIfNullOrEmpty(password);
 
         _logger.LogDebug("Validating user {UserName} against Active Directory", userName);
-        using PrincipalContext principalContext = GetPrincipalContext(ldapCredentials: null, searchBase: searchBase);
-        var result = principalContext.ValidateCredentials(BuildBindUserName(userName), password);
-        if (result)
+        var host = NormalizeServer(_url.Value);
+        if (Uri.CheckHostName(host) != UriHostNameType.Dns)
         {
-            _logger.LogDebug("User {UserName} validated successfully", userName);
-
-            try
-            {
-                var adUserInfo = FindUser(userName, searchBase: searchBase);
-
-                return (true, adUserInfo);
-            }
-            catch (DirectoryServicesCOMException ex)
-            {
-                _logger.LogWarning(ex, "User {UserName} authenticated, but Active Directory user information could not be retrieved", userName);
-
-                return (true, null);
-            }
+            return (false, null);
         }
 
-        _logger.LogDebug("User {UserName} validation failed", userName);
-        return (false, null);
+        var flags = GetAuthenticationFlags(_ldapConfig.Security);
+        var service = ResolveCredentials(null);
+        var serviceName = BuildBindUserName(service?.BindDn);
+        var serverPath = $"{LdapSchemePrefix}{host}/";
+        try
+        {
+            using var root = new DirectoryEntry(serverPath + "RootDSE", serviceName, service?.BindCredentials, flags);
+            root.RefreshCache([DnsHostName, DefaultNamingContext]);
+            if (!IsPinnedController(host, root.Properties[DnsHostName].Value as string) ||
+                root.Properties[DefaultNamingContext].Value is not string domainDn)
+            {
+                return (false, null);
+            }
+
+            using var domain = new DirectoryEntry(serverPath + domainDn, serviceName, service?.BindCredentials, flags);
+            domain.RefreshCache([ObjectSid]);
+            if (domain.Properties[ObjectSid].Value is not byte[] domainSid)
+            {
+                return (false, null);
+            }
+
+            var scope = searchBase ?? _ldapConfig.SearchBase;
+            var path = serverPath + (string.IsNullOrWhiteSpace(scope) ? domainDn : scope);
+            using var searchRoot = new DirectoryEntry(path, serviceName, service?.BindCredentials, flags);
+            var login = BuildBindUserName(userName)!;
+            var (attribute, value) = ParseIdentity(login);
+            using var identitySearch = CreateIdentitySearcher(searchRoot, $"({attribute}={LdapHelper.EscapeFilterValue(value)})", [ObjectSid, PrincipalName]);
+            using var matches = identitySearch.FindAll();
+            if (matches.Count != 1 || matches[0].Properties[ObjectSid] is not { Count: 1 } sids || sids[0] is not byte[] sid ||
+                !IsInControllerDomain(sid, domainSid) || matches[0].Properties[PrincipalName] is not { Count: 1 } names ||
+                names[0] is not string canonical || !CanValidateIdentity(login, canonical))
+            {
+                return (false, null);
+            }
+
+            // ADSI 的显式安全绑定接受完整域账号；既不传裸名，也不尝试简单绑定。
+            using var userRoot = new DirectoryEntry(serverPath + "RootDSE", canonical, password, flags);
+            userRoot.RefreshCache([DnsHostName]);
+            if (!IsPinnedController(host, userRoot.Properties[DnsHostName].Value as string))
+            {
+                return (false, null);
+            }
+
+            // 验密后仍在同一域控和 OU 内按 SID、账号取资料，防止重命名或同名账号串用。
+            var sam = canonical.Substring(canonical.IndexOf('\\') + 1);
+            var encodedSid = "\\" + BitConverter.ToString(sid).Replace("-", "\\");
+            using var profileSearch = CreateIdentitySearcher(searchRoot,
+                $"(&(objectSid={encodedSid})(sAMAccountName={LdapHelper.EscapeFilterValue(sam)}))", _ldapConfig.Attributes);
+            using var profiles = profileSearch.FindAll();
+
+            return profiles.Count == 1 ? (true, profiles.ToLdapUsersInfo()[0]) : (false, null);
+        }
+        catch (COMException ex)
+        {
+            _logger.LogDebug(ex, "Active Directory identity validation failed for {UserName}", userName);
+
+            return (false, null);
+        }
+    }
+
+    internal static AuthenticationTypes GetAuthenticationFlags(bool tls) => AuthenticationTypes.ServerBind | AuthenticationTypes.Secure |
+        (tls ? AuthenticationTypes.SecureSocketsLayer : AuthenticationTypes.Signing | AuthenticationTypes.Sealing);
+
+    internal static bool IsPinnedController(string host, string? dnsHostName) =>
+        string.Equals(host, dnsHostName, StringComparison.OrdinalIgnoreCase);
+
+    internal static bool IsInControllerDomain(byte[] sid, byte[] domainSid) =>
+        new SecurityIdentifier(sid, 0).AccountDomainSid?.Equals(new SecurityIdentifier(domainSid, 0)) == true;
+
+    internal static DirectorySearcher CreateIdentitySearcher(DirectoryEntry root, string identityFilter, string[]? attributes) => new(root,
+        $"(&(objectCategory=person)(objectClass=user){identityFilter})", attributes, SearchScope.Subtree)
+    {
+        SizeLimit = 2,
+        ReferralChasing = ReferralChasingOption.None,
+        DerefAlias = DereferenceAlias.Never
+    };
+
+    internal static (string Attribute, string Value) ParseIdentity(string login)
+    {
+        if (login.Contains("="))
+        {
+            return (LdapUserType.Dn, login);
+        }
+
+        var separator = login.IndexOf('\\');
+        if (separator >= 0)
+        {
+            return (LdapUserType.SamAccountName, login.Substring(separator + 1));
+        }
+
+        return login.Contains("@") ? (LdapUserType.Upn, login) : (LdapUserType.SamAccountName, login);
+    }
+
+    internal static bool CanValidateIdentity(string login, string? canonical)
+    {
+        var separator = canonical?.IndexOf('\\') ?? -1;
+        if (separator <= 0 || separator == canonical!.Length - 1 || separator != canonical.LastIndexOf('\\'))
+        {
+            return false;
+        }
+
+        return ParseIdentity(login).Attribute != LdapUserType.SamAccountName ||
+            string.Equals(login, login.Contains("\\") ? canonical : canonical.Substring(separator + 1), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -254,7 +338,7 @@ public sealed class AdLdapClient : IActiveDirectoryClient
     {
         var directoryContext = new DirectoryContext(DirectoryContextType.Domain);
         using var domainController = DomainController.FindOne(directoryContext);
-        return domainController.ToString();
+        return domainController.Name;
     }
 
     private DirectoryEntry CreateDirectoryEntry(LdapCredentials? ldapCredentials, string? searchBase = null)
@@ -280,7 +364,18 @@ public sealed class AdLdapClient : IActiveDirectoryClient
     {
         // ADSI 只识别 "LDAP://" 提供程序前缀（没有 "LDAPS:" 提供程序）；
         // SSL 由 AuthenticationTypes.SecureSocketsLayer 启用，而不是通过路径前缀。
-        var server = _url.Value;
+        var normalizedServer = NormalizeServer(_url.Value);
+
+        if (searchBase.IsNullOrWhiteSpace())
+        {
+            return $"{LdapSchemePrefix}{normalizedServer}";
+        }
+
+        return $"{LdapSchemePrefix}{normalizedServer}/{searchBase}";
+    }
+
+    private static string NormalizeServer(string server)
+    {
         var normalizedServer = server.IsNullOrWhiteSpace()
             ? string.Empty
             : server.Trim();
@@ -294,14 +389,7 @@ public sealed class AdLdapClient : IActiveDirectoryClient
             normalizedServer = normalizedServer.Substring(LdapsSchemePrefix.Length);
         }
 
-        normalizedServer = normalizedServer.TrimEnd('/');
-
-        if (searchBase.IsNullOrWhiteSpace())
-        {
-            return $"{LdapSchemePrefix}{normalizedServer}";
-        }
-
-        return $"{LdapSchemePrefix}{normalizedServer}/{searchBase}";
+        return normalizedServer.TrimEnd('/');
     }
 
     private string BuildUserSearchFilter(string userName, bool exactMatch)

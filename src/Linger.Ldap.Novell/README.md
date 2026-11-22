@@ -1,4 +1,4 @@
-﻿# Linger.Ldap.Novell
+# Linger.Ldap.Novell
 
 > Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
 
@@ -75,7 +75,13 @@ if (isValid && userInfo is not null)
 }
 ```
 
-Authentication is determined by the user bind. User information is queried separately with the configured search credentials. If that query is unavailable or unauthorized, the method returns `IsValid = true` and `userInfo = null`.
+Only the `ValidateUserAsync` profile check requires RFC 4532 Who Am I. On the user-bound connection and within the requested search base, the client verifies one entry against the returned `dn:` (requires searchable `entryDN` or `distinguishedName`) or `u:DOMAIN\account` (requires readable `msDS-PrincipalName`). It does not follow referrals or aliases. Grant users permission to read their own required attributes; no service account is substituted.
+
+For profile validation a correct password alone is insufficient. An unresolved, ambiguous, unreadable or out-of-scope identity does not authenticate: `(false, null)`. Do not retry via a business lookup to obtain an authenticated profile. Business queries retain their configured filters, wildcard searches and result limits.
+
+For password-only checks use AD `IActiveDirectoryCredentialValidator.ValidateCredentials` or Novell `ILdapCredentialValidator.ValidateCredentialsAsync`. Neither requires a pinned controller, Who Am I, or profile read access, and neither checks OU or group membership. For OU restrictions or a verified profile, keep `ValidateUser` / `ValidateUserAsync`; never fall back to password-only validation on failure.
+
+`LdapConfig.Security` defaults to `false`. AD validates with signed and sealed Negotiate by default. Novell requires explicit `Security = true` and a trusted LDAPS certificate for all user and service-account password binds. With `false` it only allows passwordless anonymous queries.
 
 ### Find a Single User
 

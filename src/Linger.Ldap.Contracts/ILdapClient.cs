@@ -16,7 +16,7 @@ public interface ILdapClient
     /// <param name="password">Password to validate</param>
     /// <param name="searchBase">Optional specific OU to search in. If null, uses default from config</param>
     /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>True if credentials are valid; otherwise, false</returns>
+    /// <returns>True with the unique verified profile on success; otherwise false and null. A valid password alone is not sufficient.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is blank or <paramref name="password"/> is empty.</exception>
     Task<(bool IsValid, LdapUserInfo? LdapUserInfo)> ValidateUserAsync(string userName, string password, string? searchBase = null, CancellationToken cancellationToken = default);
 
@@ -62,4 +62,12 @@ public interface ILdapClient
     /// <returns>True if user exists; otherwise, false</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="userName"/> is blank.</exception>
     Task<bool> UserExistsAsync(string userName, string? searchBase = null, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Checks credentials without reading a profile or authorizing access to an OU.</summary>
+public interface ILdapCredentialValidator
+{
+    /// <summary>Checks the supplied credentials over a protected connection.</summary>
+    /// <returns>True on a successful bind; false for invalid credentials. Transport failures propagate.</returns>
+    Task<bool> ValidateCredentialsAsync(string userName, string password, CancellationToken cancellationToken = default);
 }
