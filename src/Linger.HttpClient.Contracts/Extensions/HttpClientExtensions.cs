@@ -180,6 +180,12 @@ public static class HttpClientExtensions
         IReadOnlyDictionary<string, string>? headers,
         CancellationToken cancellationToken)
     {
+        if (client is IStatusOnlyHttpClient statusOnlyClient)
+        {
+            return await statusOnlyClient.CallWithoutResultAsync(url, method, requestBody, queryParams, headers, cancellationToken).ConfigureAwait(false);
+        }
+
+        // 旧客户端可能根据 T 分派请求；保留原泛型参数和返回实例。
         return await client.CallApi<object>(url, method, requestBody, queryParams, headers, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -2,11 +2,19 @@
 
 This project demonstrates direct `StandardHttpClient` construction in WinForms and automatic JWT attachment and refresh through a `DelegatingHandler`. The complete implementation is available in the project's `JwtTokenSession`, `AccessTokenHandler`, and form initialization code.
 
-## Run
+## Configure trusted origins and run
+
+In PowerShell at the repository root, replace these two example origins with the HTTPS services you trust, then start the example from the **same shell**:
 
 ```powershell
+$env:LINGER_WINFORMS_API_ORIGIN = 'https://localhost:7141'
+$env:LINGER_WINFORMS_REFRESH_ORIGIN = 'https://localhost:7242'
 dotnet run --project examples/Linger.HttpClient.WinForms/Linger.HttpClient.WinForms.csproj
 ```
+
+- Set each variable independently, even when both services share an origin. Use only `https://host[:port]`, optionally with a trailing slash; do not include credentials, a path, a query or a fragment. The server must present a trusted TLS certificate. A missing or invalid setting blocks that client; restart after changing either value.
+- With the sample values, enter `https://localhost:7242/refresh` as the refresh endpoint, click **Apply tokens**, then send a GET to `https://localhost:7141/users/me`. Replace both paths with real routes. Editing either URL never changes which origin is trusted.
+- The API pipeline checks the actual request URI before obtaining a bearer token. The refresh pipeline independently checks its POST destination before sending the token pair. The HTTPS host and effective port must match exactly; trust covers **all paths** on that origin. Do not trust a host that serves untrusted applications. Neither client follows redirects (including 307/308); enter the final HTTPS endpoint directly.
 
 Expose login and refresh endpoints as described in the [Linger.AspNetCore.Jwt README](../../src/Linger.AspNetCore.Jwt/README.md). After login succeeds, enter the returned access token, refresh token, refresh endpoint, and absolute API request URL in the form.
 
@@ -21,133 +29,3 @@ For each request:
 5. A failed refresh clears the session and requires another sign-in.
 
 The refresh operation uses a separate `HttpClient` and cannot recursively enter `AccessTokenHandler`. Arbitrary `401` responses are not retried, and non-repeatable requests such as upload streams are never replayed.
-
-## Key implementation
-
-### Token session
-
-`JwtTokenSession` retains the complete `Token` returned by login or refresh. It checks the access token before each request and refreshes it one minute before expiration:
-
-```csharp
-using Linger.AspNetCore.Jwt.Contracts;
-using Microsoft.IdentityModel.JsonWebTokens;
-using Microsoft.IdentityModel.Tokens;
-
-public sealed class JwtTokenSession : IDisposable
-{
-    private static readonly TimeSpan RefreshAhead = TimeSpan.FromMinutes(1);
-    private readonly StandardHttpClient _refreshClient;
-    private readonly SemaphoreSlim _refreshLock = new(1, 1);
-    private Token _current;
-
-    public JwtTokenSession(StandardHttpClient refreshClient, Token initialToken)
-    {
-        if (!initialToken.HasRefreshToken)
-        {
-            throw new ArgumentException("A refresh token is required.", nameof(initialToken));
-        }
-
-        _refreshClient = refreshClient;
-        _current = initialToken;
-    }
-
-    public async Task<string> GetValidAccessTokenAsync(CancellationToken cancellationToken)
-    {
-        var current = Volatile.Read(ref _current);
-        if (!ShouldRefresh(current.AccessToken))
-        {
-            return current.AccessToken;
-        }
-
-        await _refreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
-        {
-            current = Volatile.Read(ref _current);
-            if (!ShouldRefresh(current.AccessToken))
-            {
-                return current.AccessToken;
-            }
-
-            var result = await _refreshClient.CallApi<Token>(
-                "refresh",
-                HttpMethod.Post,
-                requestBody: current,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            if (!result.IsSuccess || result.Data is null || !result.Data.HasRefreshToken)
-            {
-                throw new SecurityTokenException(
-                    result.ErrorMsg ?? "The refresh token is invalid or expired.");
-            }
-
-            Volatile.Write(ref _current, result.Data);
-            return result.Data.AccessToken;
-        }
-        finally
-        {
-            _refreshLock.Release();
-        }
-    }
-
-    private static bool ShouldRefresh(string accessToken)
-    {
-        var jwt = new JsonWebTokenHandler().ReadJsonWebToken(accessToken);
-
-        return jwt.ValidTo <= DateTime.UtcNow.Add(RefreshAhead);
-    }
-
-    public void Dispose()
-    {
-        _refreshLock.Dispose();
-    }
-}
-```
-
-Dispose the session with the form so its `SemaphoreSlim` is released. When refresh fails, clear the local tokens and return to sign-in.
-
-### Request handler
-
-The handler obtains a valid token and writes it only to the current request. It does not mutate shared `DefaultRequestHeaders`:
-
-```csharp
-public sealed class AccessTokenHandler(JwtTokenSession tokenSession) : DelegatingHandler
-{
-    protected override async Task<HttpResponseMessage> SendAsync(
-        HttpRequestMessage request,
-        CancellationToken cancellationToken)
-    {
-        var accessToken = await tokenSession
-            .GetValidAccessTokenAsync(cancellationToken)
-            .ConfigureAwait(false);
-        request.Headers.Authorization =
-            new AuthenticationHeaderValue("Bearer", accessToken);
-
-        return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
-    }
-}
-```
-
-### Two-client initialization
-
-Use a separate client without `AccessTokenHandler` for refresh requests so that refreshing cannot recursively enter the handler:
-
-```csharp
-_refreshHttpClient = new HttpClient
-{
-    BaseAddress = new Uri(apiBaseAddress)
-};
-var refreshClient = new StandardHttpClient(_refreshHttpClient);
-_tokenSession = new JwtTokenSession(refreshClient, loginToken);
-
-var accessTokenHandler = new AccessTokenHandler(_tokenSession)
-{
-    InnerHandler = new HttpClientHandler()
-};
-_httpClient = new HttpClient(accessTokenHandler)
-{
-    BaseAddress = new Uri(apiBaseAddress)
-};
-_client = new StandardHttpClient(_httpClient);
-```
-
-Dispose `_httpClient`, `_refreshHttpClient`, and `_tokenSession` when the application closes. See the [Linger.AspNetCore.Jwt README](../../src/Linger.AspNetCore.Jwt/README.md) for complete server configuration.

@@ -92,6 +92,8 @@ A one-off timeout returns a failed `ApiResult<T>`; caller cancellation through `
 
 Dynamic headers apply only to one request. The client stores no mutable shared token/header state and does not append a `culture` query parameter. Configure fixed headers through `AddHttpClient`; a caller-owned dedicated `HttpClient`, such as in WinForms, can instead set `DefaultRequestHeaders.Authorization` when the instance is created. Continue using per-request `headers` when one client can represent different users. The contracts package does not store or refresh tokens; see the [Linger.HttpClient.Standard README](../Linger.HttpClient.Standard/README.md) for complete `DelegatingHandler` integration with `Linger.AspNetCore.Jwt` refresh tokens.
 
+On `StandardHttpClient`, non-generic `PostAsync`, `PutAsync`, and `DeleteAsync` use the optional `IStatusOnlyHttpClient` interface: they skip successful bodies (including plain text) and still parse errors. Third-party clients implementing only `IHttpClient` need no changes: the extensions continue to call `CallApi<object>` and return the same result instance. Body handling remains up to that client.
+
 ## Request bodies
 
 `CallApi<T>` creates content according to `requestBody`:

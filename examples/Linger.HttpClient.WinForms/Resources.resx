@@ -30,8 +30,8 @@
   <data name="ValidationErrorTitle" xml:space="preserve"><value>Invalid input</value></data>
   <data name="AccessTokenRequired" xml:space="preserve"><value>Enter an access token.</value></data>
   <data name="RefreshTokenRequired" xml:space="preserve"><value>Enter a refresh token.</value></data>
-  <data name="InvalidRefreshUrl" xml:space="preserve"><value>Enter an absolute HTTP or HTTPS refresh endpoint.</value></data>
-  <data name="InvalidRequestUrl" xml:space="preserve"><value>Enter an absolute HTTP or HTTPS request URL.</value></data>
+  <data name="InvalidRefreshUrl" xml:space="preserve"><value>Enter an HTTPS endpoint on LINGER_WINFORMS_REFRESH_ORIGIN. If that origin is missing or invalid, configure it and restart.</value></data>
+  <data name="InvalidRequestUrl" xml:space="preserve"><value>Enter an HTTPS URL on LINGER_WINFORMS_API_ORIGIN. If that origin is missing or invalid, configure it and restart.</value></data>
   <data name="TokenSessionRequired" xml:space="preserve"><value>Apply a token session before sending a request.</value></data>
   <data name="RefreshFailed" xml:space="preserve"><value>The refresh token is invalid or expired. Sign in again.</value></data>
   <data name="RequestFailed" xml:space="preserve"><value>The request failed.</value></data>

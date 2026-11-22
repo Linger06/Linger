@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text;
 using Linger.HttpClient.Contracts.Core;
 using Linger.HttpClient.Contracts.Extensions;
+using Linger.HttpClient.Contracts.Models;
 using Linger.HttpClient.Standard;
 using Xunit;
 
@@ -403,29 +404,194 @@ public class StandardHttpClientTests
         Assert.True(fileStream.IsDisposed);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.Created, "created")]
+    [InlineData(HttpStatusCode.Accepted, "queued")]
+    [InlineData(HttpStatusCode.NoContent, "")]
+    [InlineData(HttpStatusCode.ResetContent, "")]
+    [InlineData(HttpStatusCode.PartialContent, "part")]
+    [InlineData((HttpStatusCode)299, "extension response")]
+    public async Task DownloadToFileAsync_WithoutFullFile_PreservesDestination(HttpStatusCode status, string body)
+    {
+        using var httpClient = CreateHttpClient(_ => CreateJsonResponse(status, body));
+        using var client = new StandardHttpClient(httpClient);
+        var directory = CreateTestDirectory();
+        var destination = Path.Combine(directory, "file.bin");
+        try
+        {
+            File.WriteAllText(destination, "original");
+            var result = await client.DownloadToFileAsync("https://example.test/file", destination, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal("original", File.ReadAllText(destination));
+            Assert.False(result.IsSuccess);
+            Assert.Equal(status, result.StatusCode);
+            Assert.Single(Directory.GetFiles(directory));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("POST")]
+    [InlineData("PUT")]
+    [InlineData("DELETE")]
+    public async Task WriteWithoutResult_WithTextResponse_ReturnsSuccess(string method)
+    {
+        const string url = "https://example.test/items/1";
+        var stream = new CountingReadStream(Encoding.UTF8.GetBytes("queued"));
+        using var httpClient = CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.Accepted)
+        {
+            Content = new StreamingContent(stream)
+        });
+        using var client = new StandardHttpClient(httpClient);
+
+        var result = method switch
+        {
+            "POST" => await client.PostAsync(url, new { }, cancellationToken: TestContext.Current.CancellationToken),
+            "PUT" => await client.PutAsync(url, new { }, cancellationToken: TestContext.Current.CancellationToken),
+            _ => await client.DeleteAsync(url, cancellationToken: TestContext.Current.CancellationToken)
+        };
+
+        Assert.True(result.IsSuccess, result.ErrorMsg);
+        Assert.Equal(HttpStatusCode.Accepted, result.StatusCode);
+        Assert.Equal(0, stream.BytesRead);
+    }
+
+    [Theory]
+    [InlineData("POST")]
+    [InlineData("PUT")]
+    [InlineData("DELETE")]
+    public async Task WriteWithoutResult_WithLegacyClient_PreservesObjectCallAndResult(string method)
+    {
+        const string url = "https://example.test/items/1";
+        var client = new LegacyWriteClient();
+        var token = TestContext.Current.CancellationToken;
+
+        var result = method switch
+        {
+            "POST" => await client.PostAsync(url, new { }, cancellationToken: token),
+            "PUT" => await client.PutAsync(url, new { }, cancellationToken: token),
+            _ => await client.DeleteAsync(url, cancellationToken: token)
+        };
+
+        Assert.IsType<ApiResult<object>>(client.LastResult);
+        Assert.Same(client.LastResult, result);
+    }
+
     [Fact]
-    public async Task DownloadToFileAsync_WithSuccessfulDownload_ReplacesDestination()
+    public async Task WriteWithoutResult_WithProblemDetails_PreservesErrors()
+    {
+        using var httpClient = CreateHttpClient(_ => CreateJsonResponse(HttpStatusCode.BadRequest,
+            """{"detail":"Invalid item","errors":{"name":["Required"]}}""", "application/problem+json"));
+        using var client = new StandardHttpClient(httpClient);
+
+        var result = await client.DeleteAsync("https://example.test/items/1", cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+        Assert.Equal("Invalid item", result.ErrorMsg);
+        Assert.Equal("Required", Assert.Single(result.Errors).Message);
+    }
+
+#if NETFRAMEWORK
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CallApi_WithPendingLegacyBody_ReturnsTimeout(bool asText)
+    {
+        var body = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var httpClient = CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new PendingContent(body.Task)
+        });
+        using var client = new StandardHttpClient(httpClient);
+        const string url = "https://example.test/file";
+        httpClient.Timeout = TimeSpan.FromMilliseconds(250);
+        try
+        {
+            Task<ApiResult> read = ReadAsync();
+            Assert.Same(read, await Task.WhenAny(read, Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken)));
+            var result = await read;
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Contains("timed out", result.ErrorMsg, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            body.TrySetResult(true);
+        }
+
+        async Task<ApiResult> ReadAsync() => asText
+            ? await client.GetAsync<string>(url, cancellationToken: TestContext.Current.CancellationToken)
+            : await client.GetAsync<byte[]>(url, cancellationToken: TestContext.Current.CancellationToken);
+    }
+
+    private sealed class PendingContent(Task body) : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context) => body;
+
+        protected override bool TryComputeLength(out long length)
+        {
+            length = 0;
+
+            return false;
+        }
+    }
+#endif
+
+    [Theory]
+    [InlineData(HttpStatusCode.OK, "new-content")]
+    [InlineData(HttpStatusCode.NonAuthoritativeInformation, "new-content")]
+    [InlineData(HttpStatusCode.OK, "")]
+    [InlineData(HttpStatusCode.NonAuthoritativeInformation, "")]
+    public async Task DownloadToFileAsync_WithSuccessfulDownload_ReplacesDestination(HttpStatusCode status, string body)
     {
         var directoryPath = CreateTestDirectory();
         var destinationPath = Path.Combine(directoryPath, "download.bin");
         File.WriteAllText(destinationPath, "old");
-        using var httpClient = CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        using var httpClient = CreateHttpClient(_ => new HttpResponseMessage(status)
         {
-            Content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes("new-content")))
+            Content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes(body)))
         });
         var client = new StandardHttpClient(httpClient);
 
         try
         {
-            var result = await client.DownloadToFileAsync("https://example.test/file", destinationPath);
+            var result = await client.DownloadToFileAsync("https://example.test/file", destinationPath, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.True(result.IsSuccess);
-            Assert.Equal("new-content", File.ReadAllText(destinationPath));
+            Assert.Equal(status, result.StatusCode);
+            Assert.Equal(body, File.ReadAllText(destinationPath));
             Assert.Empty(Directory.GetFiles(directoryPath, "*.tmp"));
         }
         finally
         {
             Directory.Delete(directoryPath, true);
+        }
+    }
+
+    [Fact]
+    public async Task DownloadToFileAsync_WithProblemDetails_PreservesErrorsAndDestination()
+    {
+        using var httpClient = CreateHttpClient(_ => CreateJsonResponse(HttpStatusCode.BadRequest,
+            """{"detail":"Invalid download","errors":{"id":["Unknown file"]}}""", "application/problem+json"));
+        using var client = new StandardHttpClient(httpClient);
+        var directory = CreateTestDirectory();
+        var destination = Path.Combine(directory, "file.bin");
+        try
+        {
+            File.WriteAllText(destination, "original");
+            var result = await client.DownloadToFileAsync("https://example.test/file", destination, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(HttpStatusCode.BadRequest, result.StatusCode);
+            Assert.Equal("Invalid download", result.ErrorMsg);
+            Assert.Equal("Unknown file", Assert.Single(result.Errors).Message);
+            Assert.Equal("original", File.ReadAllText(destination));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
         }
     }
 
@@ -501,10 +667,68 @@ public class StandardHttpClientTests
         return directoryPath;
     }
 
+    // 模拟仅实现原有契约的第三方写客户端，不依赖标准实现或增强接口。
+    private sealed class LegacyWriteClient : IHttpClient
+    {
+        public ApiResult? LastResult { get; private set; }
+
+        public Task<ApiResult<T>> CallApi<T>(string url, HttpMethod method, object? requestBody, object? queryParams,
+            IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
+        {
+            var result = new ApiResult<T> { StatusCode = HttpStatusCode.Accepted };
+            LastResult = result;
+
+            return Task.FromResult(result);
+        }
+
+        public Task<HttpResponseMessage> SendAsync(string url, HttpMethod method, object? requestBody, object? queryParams,
+            IReadOnlyDictionary<string, string>? headers, HttpCompletionOption completionOption, CancellationToken cancellationToken)
+            => throw new NotSupportedException();
+
+        public Task<ApiResult<T>> UploadFileAsync<T>(string url, HttpMethod method, Stream fileStream, string fileName,
+            IReadOnlyDictionary<string, string>? formData, string fileFieldName, string? contentType,
+            IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<ApiResult> DownloadToFileAsync(string url, string destinationPath, int bufferSize,
+            IProgress<(long downloaded, long? total)>? progress, IReadOnlyDictionary<string, string>? headers,
+            CancellationToken cancellationToken) => throw new NotSupportedException();
+    }
+
     private sealed class ResponseModel
     {
         public string? Name { get; init; }
         public int Age { get; init; }
+    }
+
+    [Theory]
+    [InlineData(8)]
+    [InlineData(1)]
+    [InlineData(null)]
+    public async Task DownloadToFileAsync_ChecksDeclaredLengthBeforeReplacingDestination(int? declaredLength)
+    {
+        using var httpClient = CreateHttpClient(_ =>
+        {
+            var content = new StreamingContent(new MemoryStream(Encoding.UTF8.GetBytes("ab")));
+            content.Headers.ContentLength = declaredLength;
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = content };
+        });
+        using var client = new StandardHttpClient(httpClient);
+        var directory = CreateTestDirectory();
+        var destination = Path.Combine(directory, "download.bin");
+        try
+        {
+            File.WriteAllText(destination, "original");
+            var result = await client.DownloadToFileAsync("https://example.test/file", destination, cancellationToken: TestContext.Current.CancellationToken);
+
+            Assert.Equal(declaredLength is null, result.IsSuccess);
+            Assert.Equal(HttpStatusCode.OK, result.StatusCode);
+            Assert.Equal(declaredLength is null ? "ab" : "original", File.ReadAllText(destination));
+            Assert.Single(Directory.GetFiles(directory));
+        }
+        finally
+        {
+            Directory.Delete(directory, true);
+        }
     }
 
     private sealed class DelegateHandler(Func<HttpRequestMessage, HttpResponseMessage> responseFactory) : HttpMessageHandler

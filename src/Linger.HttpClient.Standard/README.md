@@ -88,6 +88,8 @@ Query-object property metadata is cached. Collection properties produce repeated
 
 ### Fixed authorization header
 
+Use the following snippets only for dedicated clients whose request destinations are fixed by the application. `BaseAddress` does not restrict origins. For editable URLs or external input, do not use a default header or the simple handler below without origin checks. Use the [WinForms example](../../examples/Linger.HttpClient.WinForms/README.md) for trusted HTTPS origin validation and disabled credential-bearing redirects.
+
 When one client instance represents one user and every request uses the same token, configure the default authorization header when creating the client:
 
 ```csharp
@@ -178,6 +180,8 @@ var result = await client.DownloadToFileAsync(
 ```
 
 The download flow uses `ResponseHeadersRead`, writes a same-directory temporary file, and replaces the destination only after download and flush succeed. Cancellation or failure removes the temporary file and preserves an existing destination.
+
+Whole-file downloads accept only `200 OK` and `203 Non-Authoritative Information`. A valid zero-byte body commits an empty file. If the actual byte count differs from the declared `Content-Length`, the download fails without replacing the target. Streaming without a declared length remains supported. All other 2xx responses (including `201`, `202 Accepted`, `204`, `205 Reset Content`, and `206 Partial Content`) return a failure with the HTTP status preserved, without creating or replacing the destination. Non-2xx error parsing is unchanged. Use `SendAsync` to handle asynchronous job status or range responses yourself.
 
 ## Raw responses and long-lived streams
 

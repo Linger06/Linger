@@ -90,6 +90,8 @@ var patchResult = await client.CallApi<User>(
 
 ### 固定认证头
 
+仅将下列示例用于所有请求目标都由应用固定的专属客户端。`BaseAddress` 不是来源限制；若 URL 可输入或来自外部数据，不要直接照用默认头或下面的简单处理器。请使用 [WinForms 示例](../../examples/Linger.HttpClient.WinForms/README.zh-CN.md) 中的可信 HTTPS 来源检查，并禁用携带凭据的自动重定向。
+
 当一个客户端实例只代表一个用户，且所有请求使用同一个令牌时，可以在创建阶段设置默认认证头：
 
 ```csharp
@@ -185,6 +187,8 @@ var result = await client.DownloadToFileAsync(
 2. 写入目标目录中的临时文件。
 3. 下载与刷新成功后原子替换目标文件。
 4. 取消或失败时删除临时文件并保留原目标文件。
+
+整文件下载只接受 `200 OK` 和 `203 Non-Authoritative Information`，合法的零字节正文也会提交空文件。如果实际字节数与响应内容声明的 `Content-Length` 不符，下载返回失败，不替换目标；没有声明长度时仍支持流式下载。其他 2xx（包括 `201`、`202 Accepted`、`204`、`205 Reset Content` 和 `206 Partial Content`）返回失败并保留 HTTP 状态码，不创建或替换目标文件。非 2xx 仍按原规则解析错误。需要自行处理异步任务状态或 Range 响应时，请使用 `SendAsync`。
 
 ## 原始响应和长连接
 

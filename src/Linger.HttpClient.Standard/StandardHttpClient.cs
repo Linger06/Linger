@@ -20,7 +20,7 @@ namespace Linger.HttpClient.Standard;
 /// <summary>
 /// 使用 <see cref="System.Net.Http.HttpClient"/> 执行类型化 HTTP API 调用。
 /// </summary>
-public class StandardHttpClient : IHttpClient, IDisposable
+public class StandardHttpClient : IStatusOnlyHttpClient, IDisposable
 {
     private const int MaxErrorBodyCharacters = 25 * 1024;
     private static readonly ConcurrentDictionary<Type, PropertyInfo[]> s_queryProperties = new();
@@ -158,6 +158,21 @@ public class StandardHttpClient : IHttpClient, IDisposable
         }
     }
 
+    async Task<ApiResult> IStatusOnlyHttpClient.CallWithoutResultAsync(
+        string url,
+        HttpMethod method,
+        object? requestBody,
+        object? queryParams,
+        IReadOnlyDictionary<string, string>? headers,
+        CancellationToken cancellationToken)
+    {
+        return await CallApi<IgnoredResponse>(url, method, requestBody, queryParams, headers, cancellationToken).ConfigureAwait(false);
+    }
+
+    private sealed class IgnoredResponse
+    {
+    }
+
     /// <inheritdoc />
     public virtual async Task<ApiResult<T>> CallApi<T>(
         string url,
@@ -289,6 +304,11 @@ public class StandardHttpClient : IHttpClient, IDisposable
                     ErrorMsg = errorMessage,
                     Errors = errors
                 };
+            }
+
+            if (response.StatusCode is not (HttpStatusCode.OK or HttpStatusCode.NonAuthoritativeInformation))
+            {
+                return new ApiResult { StatusCode = response.StatusCode, ErrorMsg = "The response does not contain a complete file." };
             }
 
             using var sourceStream = await ReadResponseStreamAsync(
@@ -631,7 +651,11 @@ public class StandardHttpClient : IHttpClient, IDisposable
 
         if (response.IsSuccessStatusCode)
         {
-            result.Data = await DeserializeResponseContentAsync<T>(response.Content, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (typeof(T) != typeof(IgnoredResponse))
+            {
+                result.Data = await DeserializeResponseContentAsync<T>(response.Content, cancellationToken).ConfigureAwait(false);
+            }
         }
         else
         {
@@ -925,7 +949,7 @@ public class StandardHttpClient : IHttpClient, IDisposable
         return content.ReadAsByteArrayAsync(cancellationToken);
 #else
         cancellationToken.ThrowIfCancellationRequested();
-        return content.ReadAsByteArrayAsync();
+        return AwaitLegacyBodyAsync(content.ReadAsByteArrayAsync(), cancellationToken);
 #endif
     }
 
@@ -937,9 +961,35 @@ public class StandardHttpClient : IHttpClient, IDisposable
         return content.ReadAsStringAsync(cancellationToken);
 #else
         cancellationToken.ThrowIfCancellationRequested();
-        return content.ReadAsStringAsync();
+        return AwaitLegacyBodyAsync(content.ReadAsStringAsync(), cancellationToken);
 #endif
     }
+
+#if !NET5_0_OR_GREATER
+    private static async Task<T> AwaitLegacyBodyAsync<T>(Task<T> read, CancellationToken cancellationToken)
+    {
+        if (!read.IsCompleted && cancellationToken.CanBeCanceled)
+        {
+            var cancelled = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var registration = cancellationToken.Register(() => cancelled.TrySetResult(true));
+            if (await Task.WhenAny(read, cancelled.Task).ConfigureAwait(false) != read)
+            {
+                // 旧框架不能向此读取传入令牌；释放响应后仍需观察底层任务的迟到异常。
+                _ = read.ContinueWith(static task =>
+                {
+                    _ = task.Exception;
+                }, CancellationToken.None,
+                    TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+        }
+
+        var value = await read.ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return value;
+    }
+#endif
 
     private static async Task<ApiResult> WriteDownloadAsync(
         Stream sourceStream,
@@ -982,6 +1032,16 @@ public class StandardHttpClient : IHttpClient, IDisposable
 #endif
                     downloadedBytes += bytesRead;
                     progress?.Report((downloadedBytes, totalBytes));
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                if (totalBytes.HasValue && downloadedBytes != totalBytes.Value)
+                {
+                    return new ApiResult
+                    {
+                        StatusCode = statusCode,
+                        ErrorMsg = $"Expected {totalBytes.Value} bytes but received {downloadedBytes}."
+                    };
                 }
 
                 await fileStream.FlushAsync(cancellationToken).ConfigureAwait(false);

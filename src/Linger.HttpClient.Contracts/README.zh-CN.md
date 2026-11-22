@@ -92,6 +92,8 @@ var result = await httpClient.GetWithTimeoutAsync<User>(
 
 动态请求头只应用于当前请求，客户端不会维护可变的共享令牌或请求头状态，也不会自动添加 `culture` 查询参数。固定请求头可以通过 `AddHttpClient` 配置；WinForms 等由调用方持有专属 `HttpClient` 的场景，也可以在创建实例时设置 `DefaultRequestHeaders.Authorization`。同一个客户端可能代表不同用户时，应继续使用每请求 `headers`。契约包不负责保存或刷新令牌；`DelegatingHandler` 接入方式以及与 `Linger.AspNetCore.Jwt` Refresh Token 的完整示例参见 [Linger.HttpClient.Standard README](../Linger.HttpClient.Standard/README.zh-CN.md)。
 
+非泛型 `PostAsync`、`PutAsync`、`DeleteAsync` 在 `StandardHttpClient` 上使用可选接口 `IStatusOnlyHttpClient`：成功时不读取正文，纯文本也不会误报；失败时仍解析错误。仅实现原 `IHttpClient` 的第三方客户端无需修改：扩展方法继续调用 `CallApi<object>` 并原样返回其结果，正文如何处理仍由该客户端决定。
+
 ## 请求体
 
 `CallApi<T>` 根据 `requestBody` 类型创建内容：

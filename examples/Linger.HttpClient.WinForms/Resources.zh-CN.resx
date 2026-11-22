@@ -30,8 +30,8 @@
   <data name="ValidationErrorTitle" xml:space="preserve"><value>输入无效</value></data>
   <data name="AccessTokenRequired" xml:space="preserve"><value>请输入访问令牌。</value></data>
   <data name="RefreshTokenRequired" xml:space="preserve"><value>请输入刷新令牌。</value></data>
-  <data name="InvalidRefreshUrl" xml:space="preserve"><value>请输入完整的 HTTP 或 HTTPS 刷新端点。</value></data>
-  <data name="InvalidRequestUrl" xml:space="preserve"><value>请输入完整的 HTTP 或 HTTPS 请求地址。</value></data>
+  <data name="InvalidRefreshUrl" xml:space="preserve"><value>刷新端点必须是 LINGER_WINFORMS_REFRESH_ORIGIN 下的 HTTPS 地址。若未配置有效源，请配置后重启示例。</value></data>
+  <data name="InvalidRequestUrl" xml:space="preserve"><value>业务地址必须是 LINGER_WINFORMS_API_ORIGIN 下的 HTTPS 地址。若未配置有效源，请配置后重启示例。</value></data>
   <data name="TokenSessionRequired" xml:space="preserve"><value>发送请求前请先应用令牌会话。</value></data>
   <data name="RefreshFailed" xml:space="preserve"><value>刷新令牌无效或已过期，请重新登录。</value></data>
   <data name="RequestFailed" xml:space="preserve"><value>请求失败。</value></data>

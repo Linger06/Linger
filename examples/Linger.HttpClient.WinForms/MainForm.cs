@@ -24,20 +24,24 @@ internal sealed partial class MainForm : Form
     private readonly CancellationTokenSource _lifetimeSource = new();
     private readonly System.Net.Http.HttpClient _refreshHttpClient;
     private readonly System.Net.Http.HttpClient _apiHttpClient;
+    private readonly TrustedOriginHandler _apiOrigin;
+    private readonly TrustedOriginHandler _refreshOrigin;
     private readonly JwtTokenSession _tokenSession;
     private readonly StandardHttpClient _apiClient;
 
     public MainForm()
     {
-        _refreshHttpClient = new System.Net.Http.HttpClient();
+        _refreshOrigin = new TrustedOriginHandler("LINGER_WINFORMS_REFRESH_ORIGIN", () => AppResources.InvalidRefreshUrl, CreateTransport());
+        _refreshHttpClient = new System.Net.Http.HttpClient(_refreshOrigin);
         var refreshClient = new StandardHttpClient(_refreshHttpClient);
         _tokenSession = new JwtTokenSession(refreshClient);
 
         var accessTokenHandler = new AccessTokenHandler(_tokenSession)
         {
-            InnerHandler = new HttpClientHandler()
+            InnerHandler = CreateTransport()
         };
-        _apiHttpClient = new System.Net.Http.HttpClient(accessTokenHandler);
+        _apiOrigin = new TrustedOriginHandler("LINGER_WINFORMS_API_ORIGIN", () => AppResources.InvalidRequestUrl, accessTokenHandler);
+        _apiHttpClient = new System.Net.Http.HttpClient(_apiOrigin);
         _apiClient = new StandardHttpClient(_apiHttpClient);
 
         InitializeComponent();
@@ -80,7 +84,7 @@ internal sealed partial class MainForm : Form
             return;
         }
 
-        if (!TryCreateHttpUri(_refreshEndpointTextBox.Text, out var refreshEndpoint))
+        if (!_refreshOrigin.TryGetTarget(_refreshEndpointTextBox.Text, out var refreshEndpoint))
         {
             ShowValidationError(AppResources.InvalidRefreshUrl);
 
@@ -95,7 +99,7 @@ internal sealed partial class MainForm : Form
 
     private async void SendRequestButtonClickAsync(object? sender, EventArgs e)
     {
-        if (!TryCreateHttpUri(_requestUrlTextBox.Text, out var requestUrl))
+        if (!_apiOrigin.TryGetTarget(_requestUrlTextBox.Text, out var requestUrl))
         {
             ShowValidationError(AppResources.InvalidRequestUrl);
 
@@ -207,19 +211,8 @@ internal sealed partial class MainForm : Form
         MessageBox.Show(this, message, AppResources.ValidationErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
-    private static bool TryCreateHttpUri(string value, out Uri uri)
+    private static HttpClientHandler CreateTransport()
     {
-        if (Uri.TryCreate(value.Trim(), UriKind.Absolute, out var candidate) &&
-            (candidate.Scheme == Uri.UriSchemeHttps || candidate.Scheme == Uri.UriSchemeHttp))
-        {
-            uri = candidate;
-
-            return true;
-        }
-
-        uri = null!;
-
-        return false;
+        return new HttpClientHandler { AllowAutoRedirect = false };
     }
-
 }

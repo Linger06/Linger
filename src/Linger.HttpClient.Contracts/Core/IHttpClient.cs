@@ -82,7 +82,7 @@ public interface IHttpClient
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// 以流式方式下载文件，并在下载成功后替换目标文件。
+    /// 以流式方式下载整文件。仅 200 或 203 响应在下载完成后替换目标文件，零字节文件也有效。
     /// </summary>
     /// <param name="url">下载地址。</param>
     /// <param name="destinationPath">目标文件路径。</param>
@@ -98,4 +98,21 @@ public interface IHttpClient
         IProgress<(long downloaded, long? total)>? progress = null,
         IReadOnlyDictionary<string, string>? headers = null,
         CancellationToken cancellationToken = default);
+}
+
+/// <summary>
+/// 可选的无结果写操作契约：忽略成功响应的正文，保留失败响应的错误信息。
+/// </summary>
+public interface IStatusOnlyHttpClient : IHttpClient
+{
+    /// <summary>
+    /// 发送请求并返回状态和错误，不读取成功响应的正文。
+    /// </summary>
+    Task<ApiResult> CallWithoutResultAsync(
+        string url,
+        HttpMethod method,
+        object? requestBody,
+        object? queryParams,
+        IReadOnlyDictionary<string, string>? headers,
+        CancellationToken cancellationToken);
 }
