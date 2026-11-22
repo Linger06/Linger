@@ -72,22 +72,33 @@ public class Email : IEmail
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(_emailConfig.Host);
         var secureOptions = DetermineSecureOptions();
+        var userName = _emailConfig.UserName;
+        var password = _emailConfig.Password;
+        var hasCredentials = userName.IsNotNullOrEmpty() || password.IsNotNullOrEmpty();
+        if (hasCredentials && secureOptions == SecureSocketOptions.None)
+        {
+            throw new InvalidOperationException($"SMTP credentials require {nameof(EmailConfig.UseStartTls)} or {nameof(EmailConfig.UseSsl)}.");
+        }
+
         await smtpClient.ConnectAsync(_emailConfig.Host, _emailConfig.Port, secureOptions, cancellationToken).ConfigureAwait(false);
 
-        if (_emailConfig.UserName.IsNotNullOrEmpty())
+        if (hasCredentials && !smtpClient.IsSecure)
         {
-            await smtpClient.AuthenticateAsync(_emailConfig.UserName, _emailConfig.Password ?? string.Empty, cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException("SMTP credentials require an encrypted connection.");
+        }
+
+        if (userName.IsNotNullOrEmpty())
+        {
+            await smtpClient.AuthenticateAsync(userName, password ?? string.Empty, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private SecureSocketOptions DetermineSecureOptions()
+    private SecureSocketOptions DetermineSecureOptions() => _emailConfig switch
     {
-        if (_emailConfig is { UseStartTls: false, UseSsl: false })
-        {
-            return SecureSocketOptions.None;
-        }
-        return _emailConfig.UseStartTls ? SecureSocketOptions.StartTls : SecureSocketOptions.Auto;
-    }
+        { UseStartTls: true } => SecureSocketOptions.StartTls,
+        { UseSsl: true } => SecureSocketOptions.SslOnConnect,
+        _ => SecureSocketOptions.None
+    };
 
     private static async Task SendMessageAsync(ISmtpClient smtpClient, MimeMessage message, CancellationToken cancellationToken)
     {

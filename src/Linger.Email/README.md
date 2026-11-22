@@ -34,7 +34,7 @@ var emailConfig = new EmailConfig
 {
     Host = "smtp.gmail.com",
     Port = 587,
-    UseSsl = true,
+    UseSsl = false,
     UseStartTls = true,
     UserName = "your-email@gmail.com",
     Password = "your-app-password",
@@ -189,13 +189,17 @@ await email.SendAsync(
 
 ### Different SMTP Configurations
 
+- `UseStartTls = true` requires STARTTLS (typically port 587), even if `UseSsl` is also true. If the server cannot upgrade, the send fails; there is no plaintext fallback.
+- `UseSsl = true` alone requires TLS from the start of the connection (typically port 465). This replaces the old `Auto` behavior: if your server expects STARTTLS, set `UseStartTls = true` instead.
+- Both flags default to `false`. This permits plaintext **only for anonymous relays**: leave both `UserName` and `Password` null or empty. Messages are not encrypted in this mode. If either credential is non-empty, sending throws `InvalidOperationException` before connecting; enable the TLS mode your server supports. With credentials, the client also checks that the connection is encrypted before authentication or delivery.
+
 #### Gmail Configuration
 ```csharp
 var gmailConfig = new EmailConfig
 {
     Host = "smtp.gmail.com",
     Port = 587,
-    UseSsl = true,
+    UseSsl = false,
     UseStartTls = true,
     UserName = "your-email@gmail.com",
     Password = "your-app-password", // Use App Password, not regular password
@@ -217,7 +221,7 @@ var outlookConfig = new EmailConfig
 };
 ```
 
-#### Custom SMTP Server
+#### Anonymous SMTP relay (plaintext)
 ```csharp
 var customConfig = new EmailConfig
 {
@@ -225,8 +229,6 @@ var customConfig = new EmailConfig
     Port = 25,
     UseSsl = false,
     UseStartTls = false,
-    UserName = "username",
-    Password = "password",
     From = new EmailAddress("noreply@your-domain.com", "Your App Name")
 };
 ```
@@ -237,7 +239,7 @@ var customConfig = new EmailConfig
 var config = new EmailConfig
 {
     Host = "smtp.example.com",
-    Port = 587,
+    Port = 465,
     UseSsl = true,
     UserName = "sender@example.com",
     Password = "password",
@@ -337,7 +339,7 @@ public class EmailService
 ## Performance Tips
 
 1. **Per-Send Connections**: Each `SendAsync` creates and closes its own SMTP connection, so a single `Email` instance is safe for concurrent sends. For high volume, batch or queue sends instead of sharing one client.
-2. **Batch Processing**: Send emails in batches to reduce connection overhead
+2. **Batch Processing**: Each message in a batch goes through the same connection and credential checks; batching does not reuse the connection.
 3. **Async Processing**: Use background services for high-volume email processing
 4. **Configuration Optimization**: Set appropriate timeout and retry policies
 5. **Resource Management**: Properly dispose of resources, especially when using streams

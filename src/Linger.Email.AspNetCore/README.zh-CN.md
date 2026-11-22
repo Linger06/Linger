@@ -31,7 +31,7 @@ dotnet add package Linger.Email.AspNetCore
   "EmailConfig": {
     "Host": "smtp.gmail.com",
     "Port": 587,
-    "UseSsl": true,
+    "UseSsl": false,
     "UseStartTls": true,
     "UserName": "your-email@gmail.com",
     "Password": "your-app-password",
@@ -299,6 +299,10 @@ builder.Services.AddHostedService<BackgroundEmailService>();
 
 ## 配置选项
 
+- `UseStartTls = true` 强制 STARTTLS（通常为 587 端口），即使 `UseSsl` 同时为 `true` 也以 STARTTLS 为准。服务器不能升级时发送失败，不回退到明文。
+- 仅 `UseSsl = true` 时，从连接开始就使用 TLS（通常为 465 端口）。这取代了旧版的 `Auto` 行为；若服务器要求 STARTTLS，请改设 `UseStartTls = true`。
+- 两个开关默认均为 `false`，仅允许**匿名中继**使用明文：`UserName` 和 `Password` 必须均为 `null` 或空字符串，邮件内容不会加密。任一凭据非空时，发送会在连接前抛出 `InvalidOperationException`；请启用服务器支持的 TLS 模式。配置了凭据时，客户端还会在认证或投递前检查连接是否已加密。
+
 ### 完整配置示例
 
 ```json
@@ -306,7 +310,7 @@ builder.Services.AddHostedService<BackgroundEmailService>();
   "EmailConfig": {
     "Host": "smtp.example.com",
     "Port": 587,
-    "UseSsl": true,
+    "UseSsl": false,
     "UseStartTls": true,
     "UserName": "smtp-username",
     "Password": "smtp-password",

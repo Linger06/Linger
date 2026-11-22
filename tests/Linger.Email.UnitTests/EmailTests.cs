@@ -55,6 +55,83 @@ public class EmailTests
         protected override ISmtpClient CreateClient() => clientFactory().Object;
     }
 
+    [Theory]
+    [InlineData(false, false, SecureSocketOptions.None)]
+    [InlineData(true, false, SecureSocketOptions.SslOnConnect)]
+    [InlineData(false, true, SecureSocketOptions.StartTls)]
+    [InlineData(true, true, SecureSocketOptions.StartTls)]
+    public async Task SendAsync_SmtpSecurity_UsesConfiguredMode(bool ssl, bool startTls, SecureSocketOptions expected)
+    {
+        var config = CreateConfig();
+        config.UseSsl = ssl;
+        config.UseStartTls = startTls;
+        var client = CreateSmtpClientMock();
+        var email = new TestableEmail(config, () => client);
+        var token = TestContext.Current.CancellationToken;
+
+        await email.SendAsync(CreateMessage("Anonymous"), cancellationToken: token);
+
+        client.Verify(c => c.ConnectAsync(config.Host!, config.Port, expected, token), Times.Once);
+        client.Verify(c => c.SendAsync(It.IsAny<MimeMessage>(), token, It.IsAny<ITransferProgress>()), Times.Once);
+        client.Verify(c => c.AuthenticateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("user", "password")]
+    [InlineData("user", null)]
+    [InlineData(null, "password")]
+    public async Task SendAsync_SmtpSecurity_PlaintextWithCredentialsFailsBeforeConnect(string? user, string? password)
+    {
+        var config = CreateConfig();
+        config.UserName = user;
+        config.Password = password;
+        var client = CreateSmtpClientMock();
+        var email = new TestableEmail(config, () => client);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => email.SendAsync(CreateMessage("Denied"), cancellationToken: TestContext.Current.CancellationToken));
+
+        client.Verify(c => c.ConnectAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<SecureSocketOptions>(), It.IsAny<CancellationToken>()), Times.Never);
+        VerifyNoAuthenticationOrDelivery(client);
+    }
+
+    [Fact]
+    public async Task SendAsync_SmtpSecurity_InsecureTransportDoesNotAuthenticateOrDeliver()
+    {
+        var config = CreateConfig();
+        config.UseStartTls = true;
+        config.UserName = "user";
+        var client = CreateSmtpClientMock();
+        client.SetupGet(c => c.IsSecure).Returns(false);
+        var email = new TestableEmail(config, () => client);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => email.SendAsync(CreateMessage("Denied"), cancellationToken: TestContext.Current.CancellationToken));
+
+        VerifyNoAuthenticationOrDelivery(client);
+    }
+
+    [Fact]
+    public async Task SendAsync_SmtpSecurity_AuthenticatesOverSecureTransport()
+    {
+        var config = CreateConfig();
+        config.UseStartTls = true;
+        config.UserName = "user";
+        config.Password = "password";
+        var client = CreateSmtpClientMock();
+        client.SetupGet(c => c.IsSecure).Returns(true);
+        var email = new TestableEmail(config, () => client);
+        var token = TestContext.Current.CancellationToken;
+
+        await email.SendAsync(CreateMessage("Authenticated"), cancellationToken: token);
+
+        client.Verify(c => c.AuthenticateAsync("user", "password", token), Times.Once);
+    }
+
+    private static void VerifyNoAuthenticationOrDelivery(Mock<ISmtpClient> client)
+    {
+        client.Verify(c => c.AuthenticateAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        client.Verify(c => c.SendAsync(It.IsAny<MimeMessage>(), It.IsAny<CancellationToken>(), It.IsAny<ITransferProgress>()), Times.Never);
+    }
+
     [Fact]
     public void Email_DoesNotExposeUnneededDisposalContract()
     {

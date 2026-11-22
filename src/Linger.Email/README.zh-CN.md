@@ -34,7 +34,7 @@ var emailConfig = new EmailConfig
 {
     Host = "smtp.gmail.com",        // SMTP 服务器地址
     Port = 587,                     // 端口号
-    UseSsl = true,                  // 启用 SSL
+    UseSsl = false,
     UseStartTls = true,             // 启用 STARTTLS
     UserName = "your-email@gmail.com",  // 发送账号
     Password = "your-app-password",     // 应用密码
@@ -183,13 +183,17 @@ await email.SendAsync(message, response =>
 
 ### 常用邮箱的配置方法
 
+- `UseStartTls = true` 强制 STARTTLS（通常为 587 端口），即使 `UseSsl` 同时为 `true` 也以 STARTTLS 为准。服务器不能升级时发送失败，不回退到明文。
+- 仅 `UseSsl = true` 时，从连接开始就使用 TLS（通常为 465 端口）。这取代了旧版的 `Auto` 行为；若服务器要求 STARTTLS，请改设 `UseStartTls = true`。
+- 两个开关默认均为 `false`，仅允许**匿名中继**使用明文：`UserName` 和 `Password` 必须均为 `null` 或空字符串，邮件内容不会加密。任一凭据非空时，发送会在连接前抛出 `InvalidOperationException`；请启用服务器支持的 TLS 模式。配置了凭据时，客户端还会在认证或投递前检查连接是否已加密。
+
 #### Gmail 配置
 ```csharp
 var gmailConfig = new EmailConfig
 {
     Host = "smtp.gmail.com",
     Port = 587,
-    UseSsl = true,
+    UseSsl = false,
     UseStartTls = true,
     UserName = "your-email@gmail.com",
     Password = "your-app-password",  // 注意：这里要用应用专用密码，不是登录密码
@@ -211,7 +215,7 @@ var outlookConfig = new EmailConfig
 };
 ```
 
-#### 企业邮箱配置
+#### 匿名 SMTP 中继（明文）
 ```csharp
 var customConfig = new EmailConfig
 {
@@ -219,8 +223,6 @@ var customConfig = new EmailConfig
     Port = 25,                       // 根据实际情况调整
     UseSsl = false,
     UseStartTls = false,
-    UserName = "username",
-    Password = "password",
     From = new EmailAddress("noreply@your-company.com", "系统邮件")
 };
 ```
@@ -232,7 +234,7 @@ var customConfig = new EmailConfig
 var config = new EmailConfig
 {
     Host = "smtp.example.com",
-    Port = 587,
+    Port = 465,
     UseSsl = true,
     UserName = "sender@example.com",
     Password = "password",
@@ -329,7 +331,7 @@ public class EmailService
 
 ### 性能优化
 - **每次发送独立连接**：每次 `SendAsync` 都会建立并关闭独立的 SMTP 连接，单个 `Email` 实例可安全并发发送；大量发送时建议分批或放入后台队列，避免共享同一个客户端
-- **批量发送**：有大量邮件时，分批发送效果更好
+- **批量发送**：每封邮件都独立执行相同的连接与凭据检查，分批不会复用连接
 - **后台处理**：重要业务流程不要被邮件发送阻塞，可以放到后台队列处理
 - **使用取消令牌**：利用取消令牌避免在已取消操作上浪费资源
 

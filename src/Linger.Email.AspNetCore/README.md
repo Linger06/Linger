@@ -31,7 +31,7 @@ Add email configuration to your `appsettings.json`:
   "EmailConfig": {
     "Host": "smtp.gmail.com",
     "Port": 587,
-    "UseSsl": true,
+    "UseSsl": false,
     "UseStartTls": true,
     "UserName": "your-email@gmail.com",
     "Password": "your-app-password",
@@ -295,6 +295,10 @@ builder.Services.AddHostedService<BackgroundEmailService>();
 
 ## Configuration Options
 
+- `UseStartTls = true` requires STARTTLS (typically port 587), even if `UseSsl` is also true. If the server cannot upgrade, the send fails; there is no plaintext fallback.
+- `UseSsl = true` alone requires TLS from the start of the connection (typically port 465). This replaces the old `Auto` behavior: if your server expects STARTTLS, set `UseStartTls = true` instead.
+- Both flags default to `false`. This permits plaintext **only for anonymous relays**: leave both `UserName` and `Password` null or empty. Messages are not encrypted in this mode. If either credential is non-empty, sending throws `InvalidOperationException` before connecting; enable the TLS mode your server supports. With credentials, the client also checks that the connection is encrypted before authentication or delivery.
+
 ### Complete Configuration Example
 
 ```json
@@ -302,7 +306,7 @@ builder.Services.AddHostedService<BackgroundEmailService>();
   "EmailConfig": {
     "Host": "smtp.example.com",
     "Port": 587,
-    "UseSsl": true,
+    "UseSsl": false,
     "UseStartTls": true,
     "UserName": "smtp-username",
     "Password": "smtp-password",
