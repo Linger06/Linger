@@ -13,6 +13,11 @@ namespace Linger.Excel.Npoi;
 public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger = null)
     : ExcelBase<IWorkbook, ISheet>(options, logger)
 {
+    internal static string WriteWorkbookToFile(IWorkbook workbook, string path)
+    {
+        return WriteExcelFile(path, stream => workbook.Write(stream, true));
+    }
+
     // 添加基类要求的方法实现
     protected override IWorkbook OpenWorkbook(Stream stream, CancellationToken cancellationToken)
     {
@@ -250,7 +255,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             case CellType.Numeric:
                 if (DateUtil.IsCellDateFormatted(cell))
                 {
-                    return GetExcelCellValue(cell.NumericCellValue, true);
+                    return GetExcelCellValue(cell.DateCellValue, true);
                 }
 
                 return GetExcelCellValue(cell.NumericCellValue);
@@ -264,7 +269,7 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
                     case CellType.Numeric:
                         if (DateUtil.IsCellDateFormatted(cell))
                         {
-                            return GetExcelCellValue(cell.NumericCellValue, true);
+                            return GetExcelCellValue(cell.DateCellValue, true);
                         }
 
                         return GetExcelCellValue(cell.NumericCellValue);
@@ -438,12 +443,13 @@ public class NpoiExcel(ExcelOptions? options = null, ILogger<NpoiExcel>? logger 
             columnTypes[i] = dataTable.Columns[i].DataType;
         }
 
-        for (var rowIndex = 0; rowIndex < dataTable.Rows.Count; rowIndex++)
+        var nextRow = startRowIndex + 1;
+        foreach (var sourceRow in GetExportRows(dataTable))
         {
-            var dataRow = worksheet.CreateRow(rowIndex + startRowIndex + 1);
+            var dataRow = worksheet.CreateRow(nextRow++);
             for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
             {
-                var value = dataTable.Rows[rowIndex][columnIndex];
+                var value = sourceRow[columnIndex];
                 WriteValueToCell(workbook, dataRow, columnIndex, value, columnTypes[columnIndex], styleCache);
             }
         }

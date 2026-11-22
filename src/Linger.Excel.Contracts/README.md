@@ -147,6 +147,9 @@ These overloads read and map worksheet rows directly without creating an interme
 
 ### Import result and exception semantics
 
+- Automatic object mapping leaves empty cells at the property initializer and ignores unmatched columns. A nonempty matched value that cannot be converted throws `InvalidCastException` with the worksheet, cell address, and target property. Use an explicit `ExcelRow` mapper for custom recovery.
+- `DataTable` and `DataSet` exports skip `Deleted` rows without leaving gaps. Other rows retain their source order; callbacks receive the original data and row states are not changed by the exporter.
+- Integral `double` cells outside the `Int64` range remain `double` on read. Migration: exported integers that would round as `double` (e.g. `9007199254740993`) are now decimal **text**, not numeric cells. Consumers that require a number must handle these cells explicitly. Numeric cells are retained when the provider can serialize them exactly (e.g. `9007199254741000`). ClosedXML also uses text if its 15-significant-digit writer would round an otherwise exact `double` (e.g. `9007199254740994`); NPOI keeps that value numeric. As before, exporting `UInt64` above `Int64.MaxValue` throws `OverflowException`.
 - File-based imports return `null` when the path is blank or the file does not exist.
 - Once a file exists, access, I/O, workbook-format, and provider parsing failures are not converted to `null`; they propagate to the caller.
 - The bundled providers accept readable, non-seekable input streams by buffering them internally. The caller must keep the input stream open until the import completes.
@@ -281,7 +284,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 - `DataTableToExcel`, `DataSetToExcel`, and `CollectionToExcel` write the completed workbook directly to a `FileStream`. They avoid the former extra full-size `MemoryStream` copy.
 - `DataTableToMemoryStream` and `CollectionToMemoryStream` intentionally keep the complete generated file in memory. Use them only when the caller really needs an in-memory payload.
 - ClosedXML and NPOI still construct their workbook object models in memory and serialize synchronously. Direct file output removes the additional output buffer; it does not make workbook generation streaming.
-- A serialization failure can leave the target file incomplete. Applications that require atomic publication should export to a caller-managed temporary path and replace the target only after success.
+- File exports serialize to a temporary file in the destination directory and publish it atomically after closing it. Serialization failure neither truncates an existing file nor publishes an incomplete new file. The directory must permit file creation and renaming.
 
 ## 🎨 Advanced Features
 

@@ -303,15 +303,25 @@ public abstract class AbstractExcelService<TWorkbook, TWorksheet>(ExcelOptions? 
             TypeCode.Int32 or
             TypeCode.UInt32 or
             TypeCode.Int64 or
-            TypeCode.UInt64 => new ExcelCellValue(
-                ExcelCellValueKind.Integer,
-                Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture)),
+            TypeCode.UInt64 => NormalizeInteger(Convert.ToInt64(value, System.Globalization.CultureInfo.InvariantCulture)),
             TypeCode.Decimal or TypeCode.Double or TypeCode.Single => new ExcelCellValue(
                 ExcelCellValueKind.Decimal,
                 Convert.ToDouble(value, System.Globalization.CultureInfo.InvariantCulture)),
             TypeCode.DateTime => new ExcelCellValue(ExcelCellValueKind.DateTime, (DateTime)value),
             _ => new ExcelCellValue(ExcelCellValueKind.Text, ConvertToInvariantText(value))
         };
+    }
+
+    private static ExcelCellValue NormalizeInteger(long value)
+    {
+        // 不能仅按位数判断：2^53 以上仍有一部分整数可由 double 精确表示。
+        var number = (double)value;
+        if (number < -(double)long.MinValue && (long)number == value)
+        {
+            return new ExcelCellValue(ExcelCellValueKind.Integer, value);
+        }
+
+        return new ExcelCellValue(ExcelCellValueKind.Text, ConvertToInvariantText(value));
     }
 
     /// <summary>

@@ -15,6 +15,21 @@ namespace Linger.Excel.Tests
             CleanupTestDir();
         }
 
+        [Fact]
+        public void CrossCloneSheet_PreservesErrorTypeAndCode()
+        {
+            using var source = new NPOI.HSSF.UserModel.HSSFWorkbook();
+            using var target = new NPOI.XSSF.UserModel.XSSFWorkbook();
+            var sheet = source.CreateSheet("Source");
+            var error = NPOI.SS.UserModel.FormulaError.DIV0.Code;
+            sheet.CreateRow(0).CreateCell(0).SetCellErrorValue(error);
+
+            var copy = sheet.CrossCloneSheet(target, "Copy", false).GetRow(0).GetCell(0);
+
+            Assert.Equal(NPOI.SS.UserModel.CellType.Error, copy.CellType);
+            Assert.Equal(error, copy.ErrorCellValue);
+        }
+
         public void Dispose()
         {
             CleanupTestDir();
@@ -200,6 +215,114 @@ namespace Linger.Excel.Tests
             Assert.NotNull(templateStream);
             Assert.True(templateStream.Length > 0);
             Assert.True(File.Exists(templatePath));
+        }
+
+        [Fact]
+        public void ConvertToXlsx_PreservesAllSheetNamesOrderAndValues()
+        {
+            var source = Path.Combine(TestFilesDir, "source.xls");
+            var target = Path.Combine(TestFilesDir, "output.xlsx");
+            try
+            {
+                using (var book = new NPOI.HSSF.UserModel.HSSFWorkbook())
+                {
+                    var window = (NPOI.HSSF.Record.DateWindow1904Record)book.Workbook.FindFirstRecordBySid(NPOI.HSSF.Record.DateWindow1904Record.sid);
+                    window.Windowing = 1;
+                    var first = book.CreateSheet("Items").CreateRow(0);
+                    book.CreateSheet("Notes").CreateRow(0).CreateCell(0).SetCellValue("B");
+                    first.CreateCell(0).SetCellFormula("Notes!A1");
+                    using var output = File.Create(source);
+                    book.Write(output);
+                }
+
+                Assert.Equal(target, NpoiHelper.ConvertToXlsx(source, target));
+                using var input = File.OpenRead(target);
+                using var result = new NPOI.XSSF.UserModel.XSSFWorkbook(input);
+                Assert.True(result.IsDate1904());
+                Assert.Equal("Notes!A1", result.GetSheetAt(0).GetRow(0).GetCell(0).CellFormula);
+                Assert.Equal(2, result.NumberOfSheets);
+                Assert.Equal("Items", result.GetSheetName(0));
+                Assert.Equal("B", result.GetSheet("Notes").GetRow(0).GetCell(0).StringCellValue);
+            }
+            finally
+            {
+                File.Delete(source);
+            }
+        }
+
+        [Theory]
+        [InlineData("Items")]
+        [InlineData("1234567890123456789012345678901")]
+        public void CrossCloneSheet_RepeatedNameNeverChangesEarlierCopy(string name)
+        {
+            using var source = new NPOI.XSSF.UserModel.XSSFWorkbook();
+            using var target = new NPOI.XSSF.UserModel.XSSFWorkbook();
+            var sheet = source.CreateSheet(name);
+            var cell = sheet.CreateRow(0).CreateCell(0);
+            cell.SetCellValue("old");
+            sheet.CrossCloneSheet(target, name, false);
+            var firstCopy = sheet.CrossCloneSheet(target, name, false);
+            cell.SetCellValue("new");
+            var nextCopy = sheet.CrossCloneSheet(target, name, false);
+            Assert.Equal(3, target.NumberOfSheets);
+            Assert.NotEqual(firstCopy.SheetName, nextCopy.SheetName);
+            Assert.Equal("old", firstCopy.GetRow(0).GetCell(0).StringCellValue);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void StreamToDataTable_Uses1904WorkbookEpoch(bool formula)
+        {
+            using var book = new NPOI.XSSF.UserModel.XSSFWorkbook();
+            book.GetCTWorkbook().workbookPr.date1904 = true;
+            var sheet = book.CreateSheet();
+            sheet.CreateRow(0).CreateCell(0).SetCellValue("Date");
+            var cell = sheet.CreateRow(1).CreateCell(0);
+            if (formula)
+            {
+                cell.SetCellFormula("1+0.5");
+                book.GetCreationHelper().CreateFormulaEvaluator().EvaluateFormulaCell(cell);
+            }
+            else
+            {
+                cell.SetCellValue(1.5);
+            }
+            cell.CellStyle = book.CreateCellStyle();
+            cell.CellStyle.DataFormat = book.CreateDataFormat().GetFormat("yyyy-mm-dd hh:mm");
+            using var stream = new MemoryStream();
+            book.Write(stream, true);
+            stream.Position = 0;
+            Assert.Equal(new DateTime(1904, 1, 2, 12, 0, 0), GetExcelService().StreamToDataTable(stream)!.Rows[0][0]);
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void DataTableToFile_PartialWriteNeverPublishes(bool existing)
+        {
+            var path = Path.Combine(TestFilesDir, "report.xlsx");
+            if (existing)
+            {
+                File.WriteAllText(path, "original");
+            }
+
+            var before = Directory.GetFiles(TestFilesDir);
+            Assert.Throws<IOException>(() => new InterruptedExport().DataTableToExcel(GenerateTestDataTable(1), path));
+            Assert.Equal(before, Directory.GetFiles(TestFilesDir));
+            if (existing)
+            {
+                Assert.Equal("original", File.ReadAllText(path));
+            }
+        }
+
+        private sealed class InterruptedExport : NpoiExcel
+        {
+            protected override void WriteWorkbook(NPOI.SS.UserModel.IWorkbook workbook, Stream destination)
+            {
+                destination.WriteByte(1);
+                throw new IOException("Interrupted serialization");
+            }
         }
 
         private sealed class TrackingNpoiExcel(ExcelOptions options) : NpoiExcel(options)

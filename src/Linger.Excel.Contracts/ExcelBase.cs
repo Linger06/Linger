@@ -581,19 +581,40 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             destination => WriteDataTable(dataTable, sheetsName, title, action, styleAction, destination));
     }
 
-    private static string WriteExcelFile(string fullFileName, Action<Stream> write)
+    /// <summary>将工作簿写入同目录临时文件，关闭流后再发布到目标路径。</summary>
+    protected static string WriteExcelFile(string fullFileName, Action<Stream> write)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fullFileName);
         ArgumentNullException.ThrowIfNull(write);
-
-        var directory = Path.GetDirectoryName(fullFileName);
-        if (!string.IsNullOrEmpty(directory))
+        var target = Path.GetFullPath(fullFileName);
+        var directory = Path.GetDirectoryName(target)!;
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, Path.GetRandomFileName());
+        var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        try
         {
-            Directory.CreateDirectory(directory);
-        }
+            using (stream)
+            {
+                write(stream);
+            }
 
-        using var destination = new FileStream(fullFileName, FileMode.Create, FileAccess.Write, FileShare.None);
-        write(destination);
+#if NET8_0_OR_GREATER
+            File.Move(temporary, target, overwrite: true);
+#else
+            if (File.Exists(target))
+            {
+                File.Replace(temporary, target, null);
+            }
+            else
+            {
+                File.Move(temporary, target);
+            }
+#endif
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
 
         return fullFileName;
     }
@@ -716,7 +737,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         if (stopwatch.ElapsedMilliseconds > Options.PerformanceThreshold)
         {
             Logger.LogInformation("导出DataTable到Excel[行数:{RowCount}, 列数:{ColumnCount}]耗时: {ElapsedMilliseconds}ms",
-                dataTable.Rows.Count,
+                GetExportRows(dataTable).Count(),
                 dataTable.Columns.Count,
                 stopwatch.ElapsedMilliseconds);
         }
@@ -1012,7 +1033,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             ProcessDataRows(worksheet, dataTable, startRowIndex);
 
             // 进行工作表格式化
-            ApplyWorksheetFormatting(worksheet, dataTable.Rows.Count + startRowIndex + 1, columnNames.Length);
+            ApplyWorksheetFormatting(worksheet, GetExportRows(dataTable).Count() + startRowIndex + 1, columnNames.Length);
         }
 
         action?.Invoke(worksheet, dataTable.Columns, dataTable.Rows);
@@ -1079,7 +1100,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             definition,
             addEmptyRow,
             cancellationToken,
-            values => dataTable.Rows.Add(values));
+            (_, values) => dataTable.Rows.Add(values));
 
         return dataTable;
     }
@@ -1106,18 +1127,27 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             definition,
             addEmptyRow,
             cancellationToken,
-            values =>
+            (rowNum, values) =>
             {
                 var item = new T();
                 foreach (var mapping in propertyMappings)
                 {
                     var value = values[mapping.Key];
-                    if (value is not DBNull &&
-                        TypeConverter.TryConvert(value, mapping.Value.PropertyType, out var convertedValue) &&
-                        convertedValue is not null)
+                    if (value is DBNull)
                     {
-                        mapping.Value.SetValue(item, convertedValue);
+                        continue;
                     }
+
+                    var property = mapping.Value;
+                    if (!TypeConverter.TryConvert(value, property.PropertyType, out var convertedValue) || convertedValue is null)
+                    {
+                        // 提供方的行号基准不同；相对首行计算统一的 Excel 行号。
+                        var excelRow = rowNum - definition.StartRow + Math.Max(0, headerRowIndex + 1) + 1;
+                        var address = ExcelValueConverter.GetExcelColumnName(mapping.Key + 1) + excelRow;
+                        throw new InvalidCastException($"Cannot map {GetSheetName(worksheet)}!{address} ({definition.HeaderMappings[mapping.Key]}) to {typeof(T).Name}.{property.Name} ({property.PropertyType.Name}).");
+                    }
+
+                    property.SetValue(item, convertedValue);
                 }
 
                 result.Add(item);
@@ -1153,7 +1183,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
             definition,
             addEmptyRow,
             cancellationToken,
-            values => result.Add(map(new ExcelRow(columnIndexes, values))));
+            (_, values) => result.Add(map(new ExcelRow(columnIndexes, values))));
 
         return result;
     }
@@ -1186,7 +1216,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
         WorksheetImportDefinition definition,
         bool addEmptyRow,
         CancellationToken cancellationToken,
-        Action<object[]> addRow)
+        Action<int, object[]> addRow)
     {
         ArgumentNullException.ThrowIfNull(addRow);
 
@@ -1205,7 +1235,7 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
 
             if (hasValue || addEmptyRow)
             {
-                addRow(values);
+                addRow(rowNum, values);
             }
         }
     }
@@ -1547,6 +1577,12 @@ public abstract class ExcelBase<TWorkbook, TWorksheet>(ExcelOptions? options = n
     /// 处理数据行
     /// </summary>
     protected abstract void ProcessDataRows(TWorksheet worksheet, DataTable dataTable, int startRowIndex);
+
+    /// <summary>按源表顺序返回可导出的行，不改变调用方的行状态。</summary>
+    /// <param name="dataTable">源表。</param>
+    /// <returns>排除待提交删除记录的行序列。</returns>
+    protected static IEnumerable<DataRow> GetExportRows(DataTable dataTable) =>
+        dataTable.Rows.Cast<DataRow>().Where(static row => row.RowState != DataRowState.Deleted);
 
     /// <summary>
     /// 处理集合数据行

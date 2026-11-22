@@ -204,7 +204,14 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
                 cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.DecimalFormat;
                 break;
             case ExcelCellValueKind.Integer:
-                cell.Value = (long)cellValue.Value!;
+                var integer = (long)cellValue.Value!;
+                if (!FitsSerializedPrecision(integer))
+                {
+                    cell.Value = integer.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    break;
+                }
+
+                cell.Value = integer;
                 cell.Style.NumberFormat.Format = Options.StyleOptions.DataStyle.IntegerFormat;
                 break;
             case ExcelCellValueKind.Text:
@@ -214,6 +221,23 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
 
         // 应用边框
         DrawBorder(cell);
+    }
+
+    private static bool FitsSerializedPrecision(long value)
+    {
+        // ClosedXML 序列化数值时保留 15 位有效数字；末尾的零不占用有效位数。
+        const long maxSignificand = 999_999_999_999_999;
+        while (value is < -maxSignificand or > maxSignificand)
+        {
+            if (value % 10 != 0)
+            {
+                return false;
+            }
+
+            value /= 10;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -341,14 +365,16 @@ public class ClosedXmlExcel(ExcelOptions? options = null, ILogger<ClosedXmlExcel
     /// </remarks>
     protected override void ProcessDataRows(IXLWorksheet worksheet, DataTable dataTable, int startRowIndex)
     {
-        for (var rowIndex = 0; rowIndex < dataTable.Rows.Count; rowIndex++)
+        var nextRow = startRowIndex + 2;
+        foreach (var sourceRow in GetExportRows(dataTable))
         {
+            var rowIndex = nextRow++;
             for (var columnIndex = 0; columnIndex < dataTable.Columns.Count; columnIndex++)
             {
-                var cell = worksheet.Cell(startRowIndex + rowIndex + 2, columnIndex + 1);
+                var cell = worksheet.Cell(rowIndex, columnIndex + 1);
                 WriteValueToCell(
                     cell,
-                    dataTable.Rows[rowIndex][columnIndex],
+                    sourceRow[columnIndex],
                     dataTable.Columns[columnIndex].DataType);
             }
         }

@@ -17,6 +17,30 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
         CleanupTestDir();
     }
 
+    [Fact]
+    public void DataTableToMemoryStream_SkipsDeletedRowsWithoutGapsAcrossProviders()
+    {
+        var table = new DataTable("Rows");
+        table.Columns.Add("Value", typeof(string));
+        table.Rows.Add("old");
+        var deleted = table.Rows.Add("removed");
+        table.Rows.Add("kept");
+        table.AcceptChanges();
+        table.Rows[0][0] = "changed";
+        deleted.Delete();
+        table.Rows.Add("added");
+
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(table);
+            var imported = provider.Service.StreamToDataTable(stream, addEmptyRow: true);
+
+            Assert.NotNull(imported);
+            Assert.Equal(["changed", "kept", "added"], imported.Rows.Cast<DataRow>().Select(row => row[0]));
+            Assert.Equal(DataRowState.Deleted, deleted.RowState);
+        }
+    }
+
     public void Dispose()
     {
         CleanupTestDir();
@@ -480,7 +504,10 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
         {
             var filePath = Path.Combine(TestFilesDir, $"{provider.Name}_InvalidStyle.xlsx");
 
+            File.WriteAllText(filePath, provider.Name);
             Assert.Throws<ArgumentException>(() => provider.Service.DataTableToExcel(dataTable, filePath, title: "Title"));
+            Assert.Equal(provider.Name, File.ReadAllText(filePath));
+            Assert.Empty(Directory.GetFiles(TestFilesDir).Where(path => !path.EndsWith(".xlsx", StringComparison.Ordinal)));
         }
     }
 
@@ -581,6 +608,69 @@ public class ProviderConsistencyTests : ExcelServiceTestBase, IDisposable
             Assert.ThrowsAny<OperationCanceledException>(() =>
                 provider.Service.StreamToList(stream, row => row.Get<int>("Id"), cancellationToken: cancellationTokenSource.Token));
         }
+    }
+
+    [Theory]
+    [InlineData(9223372036854775808d)]
+    [InlineData(-1e20)]
+    public void OutOfRangeIntegralDouble_RemainsDouble(double number)
+    {
+        var value = Contracts.Utils.ExcelValueConverter.ConvertToDbValue(number);
+        Assert.Equal(number, Assert.IsType<double>(value));
+    }
+
+    [Theory]
+    [InlineData("Npoi")]
+    [InlineData("ClosedXml")]
+    public void WideIntegerExport_UsesTextOnlyWhenProviderWouldRound(string providerName)
+    {
+        var table = new DataTable();
+        table.Columns.Add("Value", typeof(long));
+        table.Rows.Add(9007199254740993L);
+        table.Rows.Add(9007199254740994L);
+        table.Rows.Add(9007199254741000L);
+        table.Rows.Add(long.MaxValue);
+        table.Rows.Add(-9007199254740993L);
+        var service = CreateProviders().Single(p => p.Name == providerName).Service;
+        using var stream = service.DataTableToMemoryStream(table);
+        using var workbook = new global::NPOI.XSSF.UserModel.XSSFWorkbook(stream);
+        var sheet = workbook.GetSheetAt(0);
+        var first = sheet.GetRow(1).GetCell(0);
+        Assert.Equal(global::NPOI.SS.UserModel.CellType.String, first.CellType);
+        Assert.Equal("9007199254740993", first.StringCellValue);
+        var second = sheet.GetRow(2).GetCell(0);
+        if (providerName == "Npoi")
+        {
+            Assert.Equal(9007199254740994d, second.NumericCellValue);
+        }
+        else
+        {
+            Assert.Equal("9007199254740994", second.StringCellValue);
+        }
+        Assert.Equal(9007199254741000d, sheet.GetRow(3).GetCell(0).NumericCellValue);
+        Assert.Equal("9223372036854775807", sheet.GetRow(4).GetCell(0).StringCellValue);
+        Assert.Equal("-9007199254740993", sheet.GetRow(5).GetCell(0).StringCellValue);
+    }
+
+    [Fact]
+    public void AutoMapping_InvalidNonemptyValueReportsCell()
+    {
+        var table = new DataTable();
+        table.Columns.Add("Count", typeof(string));
+        table.Rows.Add(DBNull.Value);
+        table.Rows.Add("bad");
+        foreach (var provider in CreateProviders())
+        {
+            using var stream = provider.Service.DataTableToMemoryStream(table, "Inventory");
+            var error = Assert.Throws<InvalidCastException>(() => provider.Service.StreamToList<QuantityRow>(stream));
+            Assert.Contains("Inventory!A3", error.Message);
+            Assert.Contains(nameof(QuantityRow.Count), error.Message);
+        }
+    }
+
+    private sealed class QuantityRow
+    {
+        public int Count { get; set; }
     }
 
     private static MemoryStream CreateInvalidExcelStream()

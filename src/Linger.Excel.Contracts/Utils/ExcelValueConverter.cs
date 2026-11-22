@@ -52,7 +52,8 @@ public static class ExcelValueConverter
         // 数值类型处理
         if (value is double d)
         {
-            if (Math.Abs(d - Math.Round(d)) < double.Epsilon)
+            // long.MaxValue 转为 double 会舍入到 2^63，因此上界必须排除。
+            if (d >= long.MinValue && d < -(double)long.MinValue && d == Math.Truncate(d))
             {
                 if (d is >= int.MinValue and <= int.MaxValue)
                     return (int)d;

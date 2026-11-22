@@ -9,39 +9,22 @@ public static class NpoiHelper
     #region Covert xls To xlsx
     public static string ConvertToXlsx(string xlsPath, string newExcelPath)
     {
-        using var xlsFileStream = new FileStream(xlsPath, FileMode.Open);
-        var oldWorkbook = new HSSFWorkbook(xlsFileStream);
-        ISheet? oldWorkSheet = oldWorkbook.GetSheetAt(0);
-        using (var fileStream = new FileStream(newExcelPath, FileMode.Create))
+        using var input = File.OpenRead(xlsPath);
+        using var source = new HSSFWorkbook(input);
+        using var target = new XSSFWorkbook();
+        target.GetCTWorkbook().workbookPr.date1904 = source.IsDate1904();
+        // 先创建所有工作表，确保公式可以引用后面的工作表。
+        for (var i = 0; i < source.NumberOfSheets; i++)
         {
-            var newWorkBook = new XSSFWorkbook();
-            //var newWorkSheet = newWorkBook.CreateSheet("Sheet1");
-            //int i = 0;
-            //foreach (HSSFRow oldRow in oldWorkSheet)
-            //{
-            //    var newRow = newWorkSheet.CreateRow(oldRow.RowNum);
-            //    for (int ii = oldRow.FirstCellNum; ii < oldRow.Cells.Count; ii++)
-            //    {
-            //        m = ii;
-            //        var newCell = newRow.CreateCell(ii);
-            //        newCell.SetCellValue(GetValueType(oldRow.Cells[ii]).ToString());
-            //    }
-            //}
-
-            //int sheetMergerCount = oldWorkSheet.NumMergedRegions;
-            //for (int me = 0; me < sheetMergerCount; me++)
-            //    newWorkSheet.AddMergedRegion(oldWorkSheet.GetMergedRegion(me));
-
-            ISheet sheet = oldWorkSheet.CrossCloneSheet(newWorkBook, "Sheet1", false);
-            newWorkBook.Add(sheet);
-
-            newWorkBook.Write(fileStream);
-            newWorkBook.Close();
+            target.CreateSheet(source.GetSheetName(i));
         }
 
-        oldWorkbook.Close();
+        for (var i = 0; i < source.NumberOfSheets; i++)
+        {
+            CopySheet(source.GetSheetAt(i), target.GetSheetAt(i));
+        }
 
-        return newExcelPath;
+        return NpoiExcel.WriteWorkbookToFile(target, newExcelPath);
     }
     /// <summary>
     /// 跨工作薄Workbook复制工作表Sheet
@@ -53,8 +36,15 @@ public static class NpoiHelper
     public static ISheet CrossCloneSheet(this ISheet sSheet, IWorkbook dWb, string dSheetName, bool clonePrintSetup)
     {
         dSheetName = string.IsNullOrEmpty(dSheetName) ? sSheet.SheetName : dSheetName;
-        dSheetName = dWb.GetSheet(dSheetName) == null ? dSheetName : dSheetName + "_Copy";
-        ISheet dSheet = dWb.GetSheet(dSheetName) ?? dWb.CreateSheet(dSheetName);
+        const int maxSheetNameLength = 31;
+        var name = dSheetName.Substring(0, Math.Min(dSheetName.Length, maxSheetNameLength));
+        for (var copy = 1; dWb.GetSheet(name) is not null; copy++)
+        {
+            var suffix = copy == 1 ? "_Copy" : "_Copy" + copy.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            name = dSheetName.Substring(0, Math.Min(dSheetName.Length, maxSheetNameLength - suffix.Length)) + suffix;
+        }
+
+        var dSheet = dWb.CreateSheet(name);
         CopySheet(sSheet, dSheet);
         if (clonePrintSetup)
             ClonePrintSetup(sSheet, dSheet);
@@ -198,21 +188,20 @@ public static class NpoiHelper
         for (var i = sSheet.FirstRowNum; i <= sSheet.LastRowNum; i++)
         {
             IRow sRow = sSheet.GetRow(i);
-            IRow dRow = dSheet.CreateRow(i);
             if (sRow != null)
             {
-                CopyRow(sRow, dRow, dCellStyles, dFonts);
+                CopyRow(sRow, dSheet.CreateRow(i), dCellStyles, dFonts);
                 if (sRow.LastCellNum > maxColumnNum)
                     maxColumnNum = sRow.LastCellNum;
             }
         }
-        for (var i = 0; i <= maxColumnNum; i++)
+        for (var i = 0; i < maxColumnNum; i++)
             dSheet.SetColumnWidth(i, sSheet.GetColumnWidth(i));
     }
     private static void CopyRow(IRow sRow, IRow dRow, List<ICellStyle> dCellStyles, List<IFont> dFonts)
     {
         dRow.Height = sRow.Height;
-        for (int j = sRow.FirstCellNum; j <= sRow.LastCellNum; j++)
+        for (int j = sRow.FirstCellNum; j < sRow.LastCellNum; j++)
         {
             ICell sCell = sRow.GetCell(j);
             ICell dCell = dRow.GetCell(j);
@@ -243,7 +232,7 @@ public static class NpoiHelper
                 dCell.SetCellValue(sCell.BooleanCellValue);
                 break;
             case CellType.Error:
-                dCell.SetCellValue(sCell.ErrorCellValue);
+                dCell.SetCellErrorValue(sCell.ErrorCellValue);
                 break;
             case CellType.Formula:
                 dCell.SetCellFormula(sCell.CellFormula);

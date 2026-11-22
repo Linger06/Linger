@@ -147,6 +147,9 @@ var imported = excelService.ExcelToList(
 
 ### 导入返回值与异常语义
 
+- 自动映射对象时，空单元格保留属性初始值，未匹配的列仍忽略。已匹配的非空值若无法转换，将抛出 `InvalidCastException`，指出工作表、单元格和目标属性；需要容错时可使用自定义 `ExcelRow` 映射。
+- `DataTable` 和 `DataSet` 导出跳过 `Deleted` 行，其余行按源表顺序连续写入；不会修改源表，回调仍收到原数据。
+- 读取数值时，超出 `Int64` 范围的整值 `double` 保留为 `double`。迁移注意：导出时会被 `double` 舍入的整数（如 `9007199254740993`）现在写为十进制**文本**。依赖数值列的调用方需要显式处理这种单元格。提供方能无损写出的值（如 `9007199254741000`）仍为数值。对于 `double` 可精确表示、但 ClosedXML 以 15 位有效数字写出时会舍入的值（如 `9007199254740994`），ClosedXML 写文本，NPOI 仍写数值。大于 `Int64.MaxValue` 的 `UInt64` 仍抛出 `OverflowException`。
 - 基于文件的导入在路径为空或文件不存在时返回 `null`。
 - 文件存在后，访问权限、I/O、工作簿格式和提供方解析错误不会转换为 `null`，而是继续向调用方传播。
 - 内置提供方会在内部缓冲可读但不可寻址的输入流。调用方必须在导入完成前保持输入流处于打开状态。
@@ -281,7 +284,7 @@ public interface IExcel<out TWorksheet> : IExcelService where TWorksheet : class
 - `DataTableToExcel`、`DataSetToExcel` 和 `CollectionToExcel` 会将完成的工作簿直接写入 `FileStream`，不再产生原先那份完整的额外 `MemoryStream` 副本。
 - `DataTableToMemoryStream` 和 `CollectionToMemoryStream` 会有意将完整生成文件保留在内存中，仅应在调用方确实需要内存载荷时使用。
 - ClosedXML 和 NPOI 仍会在内存中构建工作簿对象模型并同步序列化。直接写入文件仅消除了额外输出缓冲，并不意味着工作簿生成已变为流式。
-- 序列化失败时目标文件可能不完整。需要原子发布的应用，应先导出至调用方管理的临时路径，成功后再替换目标文件。
+- 文件导出先写入目标目录的临时文件，关闭后再原子发布。序列化失败不会截断已有文件，也不会发布不完整的新文件。目标目录需要创建和重命名文件的权限。
 
 ## 🎨 高级功能
 

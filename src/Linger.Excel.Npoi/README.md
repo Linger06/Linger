@@ -105,6 +105,10 @@ var calculatedData = excelWithFormulas.ExcelToList<CalculationModel>("formulas.x
 
 ## NPOI-specific Features
 
+- `NpoiHelper.ConvertToXlsx` copies every `.xls` worksheet in its original order and under its original name, preserves the workbook date system, and replaces the destination only after success. Conversion and `CrossCloneSheet` preserve error cells such as `#DIV/0!` rather than exporting their numeric codes. This is a worksheet converter, not a lossless migration tool for workbook objects such as macros or charts.
+- When a name is taken, `CrossCloneSheet` creates `_Copy`, `_Copy2`, etc., shortening the base name to fit the 31-character limit without overwriting earlier copies.
+- Date-formatted numbers and cached numeric formula results are imported using the workbook's 1900/1904 date system.
+
 ### Support for Legacy Excel Formats
 
 ```csharp

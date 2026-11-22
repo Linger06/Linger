@@ -105,6 +105,10 @@ var calculatedData = excelWithFormulas.ExcelToList<CalculationModel>("formulas.x
 
 ## NPOI 特有功能
 
+- `NpoiHelper.ConvertToXlsx` 按原名和顺序复制 `.xls` 的全部工作表，沿用源工作簿的日期系统，成功后才替换目标文件。转换与 `CrossCloneSheet` 保留错误单元格（如 `#DIV/0!`），不把错误码当成数值。它是工作表转换工具，不保证宏、图表等工作簿对象无损迁移。
+- `CrossCloneSheet` 遇到同名表时创建 `_Copy`、`_Copy2` 等新表，必要时缩短名称以符合 31 字符限制，不改写已有副本。
+- 导入日期格式的数值及公式缓存时遵循工作簿的 1900/1904 日期系统。
+
 ### 支持传统 Excel 格式
 
 ```csharp
