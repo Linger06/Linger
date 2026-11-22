@@ -38,7 +38,7 @@ public class BaseSearch : IBaseSearch
 
     /// <summary>
     /// 获取基于模型属性匹配的搜索表达式。
-    /// 将搜索模型中与实体类型匹配的属性值转换为相等比较表达式
+    /// 将非默认的模型属性与 SearchParameters、SearchOrParameters 两组条件取交集。
     /// </summary>
     /// <typeparam name="TEntity">实体类型</typeparam>
     /// <returns>用于筛选实体的表达式树</returns>
@@ -82,13 +82,23 @@ public class BaseSearch : IBaseSearch
                 MemberExpression left = Expression.Property(param, property); //x.name
                 ConstantExpression right = Expression.Constant(value, property.PropertyType); //value
                 BinaryExpression be = Expression.Equal(left, right); //x=>x.name == value
-                condition2 = condition2 is null ? be : Expression.And(condition2, be);
+                condition2 = condition2 is null ? be : Expression.AndAlso(condition2, be);
             }
         }
 
-        Expression<Func<TEntity, bool>> pre2 = condition2 is null ? Expression.Lambda<Func<TEntity, bool>>(Expression.Constant(true), param) : Expression.Lambda<Func<TEntity, bool>>(condition2, param);
+        Expression<Func<TEntity, bool>> predicate = Expression.Lambda<Func<TEntity, bool>>(
+            condition2 ?? (Expression)Expression.Constant(true), param);
+        if (SearchParameters is { Count: > 0 })
+        {
+            predicate = predicate.And(ExpressionHelper.BuildLambda<TEntity>(SearchParameters));
+        }
 
-        return pre2;
+        if (SearchOrParameters is { Count: > 0 })
+        {
+            predicate = predicate.And(ExpressionHelper.BuildOrElseLambda<TEntity>(SearchOrParameters));
+        }
+
+        return predicate;
     }
 
     /// <summary>
@@ -115,53 +125,26 @@ public class BaseSearch : IBaseSearch
 #endif
     public Expression<Func<TEntity, bool>> GetSearchTextExpression<TEntity>()
     {
-        PropertyInfo[] properties = typeof(TEntity).GetProperties();
         var text = SearchText;
-        Expression? condition = null;
-        ParameterExpression param = Expression.Parameter(typeof(TEntity), "x");
-
-        Expression<Func<TEntity, bool>> pre;
-
-        if (text is not null)
+        if (text is null)
         {
-            foreach (PropertyInfo property in properties)
+            return _ => true;
+        }
+
+        Expression<Func<TEntity, bool>>? predicate = null;
+        foreach (var property in typeof(TEntity).GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (property.PropertyType != typeof(string) || property.Name == "Id" ||
+                property.GetGetMethod() is null || property.GetIndexParameters().Length != 0)
             {
-                if (property.PropertyType != typeof(string))
-                {
-                    continue;
-                }
-
-                if (property.Name == "Id")
-                {
-                    continue;
-                }
-
-                MemberExpression left = Expression.Property(param, property); //x.name
-                MethodInfo? method = typeof(string).GetMethod(nameof(string.Contains), [typeof(string)]);
-                ConstantExpression right = Expression.Constant(text, property.PropertyType); //value
-                MethodCallExpression be = Expression.Call(left, method!, right);
-
-                if (condition is null)
-                {
-                    condition = be;
-                }
-                else
-                {
-                    condition = Expression.Or(condition, be);
-                }
+                continue;
             }
 
-            // If no string properties were found, return a true condition
-            pre = condition is not null
-                ? Expression.Lambda<Func<TEntity, bool>>(condition, param)
-                : Expression.Lambda<Func<TEntity, bool>>(Expression.Constant(true), param);
-        }
-        else
-        {
-            pre = Expression.Lambda<Func<TEntity, bool>>(Expression.Constant(true), param);
+            var contains = ExpressionHelper.GetContains<TEntity>(property.Name, text);
+            predicate = predicate is null ? contains : predicate.Or(contains);
         }
 
-        return pre;
+        return predicate ?? (_ => true);
     }
 
     /// <summary>

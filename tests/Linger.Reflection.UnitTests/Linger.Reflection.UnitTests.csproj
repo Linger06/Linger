@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\..\src\Linger.Reflection\Linger.Reflection.csproj" />
+    <ProjectReference Include="..\..\src\Linger.SharedKernel\Linger.SharedKernel.csproj" />
   </ItemGroup>
 
 </Project>

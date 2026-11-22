@@ -1,4 +1,4 @@
-﻿# Linger.SharedKernel
+# Linger.SharedKernel
 
 > Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
 
@@ -116,6 +116,8 @@ public class ProductService
 ```
 
 ### Advanced Filtering with Conditions
+
+`GetSearchModelExpression` now applies `SearchParameters` as AND conditions, and intersects them with the nonempty OR group in `SearchOrParameters`. Code relying on these collections being ignored will return fewer rows.
 
 ```csharp
 var search = new BaseSearch();

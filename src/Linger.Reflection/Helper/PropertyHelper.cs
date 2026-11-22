@@ -55,7 +55,7 @@ public static class PropertyHelper
 
         var rv = me.Member.Name;
 
-        while (getAll && me.NodeType == ExpressionType.MemberAccess)
+        while (getAll)
         {
             Expression? exp = me.Expression;
             if (exp is MemberExpression exp1)
@@ -63,31 +63,17 @@ public static class PropertyHelper
                 rv = exp1.Member.Name + "." + rv;
                 me = exp1;
             }
-            else if (exp is MethodCallExpression mexp)
+            else if (exp is MethodCallExpression { Method.Name: "get_Item", Object: MemberExpression member } call &&
+                     call.Arguments.Count == 1)
             {
-                if (mexp.Method.Name == "get_Item")
+                var index = call.Arguments[0] switch
                 {
-                    object? index = default;
-                    if (mexp.Arguments[0] is MemberExpression memberExpression1)
-                    {
-                        if (memberExpression1.Expression is ConstantExpression constantExpression)
-                        {
-                            var obj = constantExpression.Value!;
-                            FieldInfo? field = obj.GetType().GetField(memberExpression1.Member.Name);
-                            index = field!.GetValue(obj);
-                        }
-                    }
-                    else if (mexp.Arguments[0] is ConstantExpression constantExpression)
-                    {
-                        index = constantExpression.Value;
-                    }
-
-                    if (mexp.Object is MemberExpression member)
-                    {
-                        rv = member.Member.Name + "[" + index + "]." + rv;
-                        me = member;
-                    }
-                }
+                    ConstantExpression constant => constant.Value,
+                    MemberExpression { Member: FieldInfo field, Expression: ConstantExpression owner } => field.GetValue(owner.Value),
+                    _ => null
+                };
+                rv = member.Member.Name + "[" + index + "]." + rv;
+                me = member;
             }
             else
             {
@@ -201,18 +187,19 @@ public static class PropertyHelper
         Func<TObject, TValue> valueFactory,
         params Type[] ignoreAttributeTypes)
     {
+        // 只设置当前实例的直接属性，不能将嵌套或捕获对象的属性按名称映射到根对象。
+        if (propertySelector.Body is not MemberExpression { Member: PropertyInfo } memberExpression ||
+            memberExpression.Expression != propertySelector.Parameters[0])
+        {
+            return;
+        }
+
         var cacheKey = $"{obj?.GetType().FullName}-" +
                        $"{propertySelector}-" +
                        $"{(ignoreAttributeTypes.IsNotNull() ? "-" + string.Join("-", ignoreAttributeTypes.Select(x => x.FullName)) : "")}";
 
         PropertyInfo? property = s_cachedObjectProperties.GetOrAdd(cacheKey, _ =>
         {
-            if (propertySelector.Body.NodeType != ExpressionType.MemberAccess)
-            {
-                return null;
-            }
-
-            var memberExpression = (MemberExpression)propertySelector.Body;
             var objType = obj?.GetType();
 
             if (objType == null) return null;

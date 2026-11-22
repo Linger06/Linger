@@ -1,5 +1,6 @@
 ﻿using System.Linq.Expressions;
 using Linger.Enums;
+using Linger.SharedKernel;
 
 namespace Linger.UnitTests.Helper;
 
@@ -367,5 +368,57 @@ public class ExpressionHelperTests2
         Assert.Equal(20, orderedData2[0].Age);
         Assert.Equal(10, orderedData2[1].Age);
         Assert.Equal(25, orderedData2[2].Age);
+    }
+}
+
+public class BaseSearchTests
+{
+    private sealed class Item
+    {
+        public string? Name { get; set; }
+        public string? Alias { get; set; }
+        public int Rank { get; set; }
+    }
+
+    private sealed class ItemSearch : BaseSearch
+    {
+        public int Rank { get; set; }
+    }
+
+    [Theory]
+    [InlineData(null, "match", true)]
+    [InlineData("match", null, true)]
+    [InlineData(null, null, false)]
+    public void GetSearchTextExpression_WithNullMembers_MatchesOnlyNonNullText(string? name, string? alias, bool expected)
+    {
+        var matches = new BaseSearch { SearchText = "mat" }.GetSearchTextExpression<Item>().Compile();
+
+        Assert.Equal(expected, matches(new Item { Name = name, Alias = alias }));
+    }
+
+    [Theory]
+    [InlineData(1, "first", "match", true)]
+    [InlineData(1, "match", "second", true)]
+    [InlineData(1, "other", "match", false)]
+    [InlineData(1, "first", "other", false)]
+    [InlineData(2, "first", "match", false)]
+    [InlineData(1, "blocked", "second-match", false)]
+    public void GetSearchExpression_CombinesModelTextAndConditionGroups(int rank, string name, string alias, bool expected)
+    {
+        var search = new ItemSearch
+        {
+            Rank = 1,
+            SearchText = "match",
+            SearchParameters = [new Condition { Field = nameof(Item.Name), Op = CompareOperator.NotEquals, Value = "blocked" }],
+            SearchOrParameters =
+            [
+                new Condition { Field = nameof(Item.Name), Op = CompareOperator.Equals, Value = "first" },
+                new Condition { Field = nameof(Item.Alias), Op = CompareOperator.StartsWith, Value = "second" }
+            ]
+        };
+
+        var matches = search.GetSearchExpression<Item>().Compile();
+
+        Assert.Equal(expected, matches(new Item { Rank = rank, Name = name, Alias = alias }));
     }
 }

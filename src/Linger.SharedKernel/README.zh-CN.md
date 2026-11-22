@@ -117,6 +117,8 @@ public class ProductService
 
 ### 使用条件进行高级过滤
 
+`GetSearchModelExpression` 会将 `SearchParameters` 中的条件取交集，再与 `SearchOrParameters` 的非空 OR 组取交集。若旧调用依赖这些集合被忽略，升级后查询结果会收窄。
+
 ```csharp
 var search = new BaseSearch();
 

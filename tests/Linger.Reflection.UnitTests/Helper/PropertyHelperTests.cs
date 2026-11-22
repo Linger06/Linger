@@ -41,6 +41,36 @@ public class PropertyHelperTests
     }
 
     [Fact]
+    public async Task GetPropertyName_AfterMethodCall_ReturnsKnownSuffixAsync()
+    {
+        Expression<Func<TestModel, int>> expression = x => x.Name.Trim().Length;
+
+        var path = await Task.Run(() => expression.GetPropertyName(), TestContext.Current.CancellationToken)
+            .WaitAsync(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken);
+
+        Assert.Equal(nameof(string.Length), path);
+    }
+
+    [Fact]
+    public void GetPropertyName_WithCapturedListIndex_PreservesPath()
+    {
+        var index = 2;
+        Expression<Func<TestModel, string>> expression = x => x.ChildList[index].Name;
+
+        Assert.Equal("ChildList[2].Name", expression.GetPropertyName());
+    }
+
+    [Fact]
+    public void TrySetProperty_WithNestedSelector_DoesNotWriteRootOrInvokeFactory()
+    {
+        var model = new TestModel { Name = "root" };
+
+        PropertyHelper.TrySetProperty(model, x => x.Child.Name, () => throw new InvalidOperationException());
+
+        Assert.Equal("root", model.Name);
+    }
+
+    [Fact]
     public void GetMemberExp_SimpleProperty_ShouldReturnCorrectExpression()
     {
         // Arrange

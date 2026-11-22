@@ -7,6 +7,16 @@ namespace Linger.UnitTests.Extensions.Data;
 public class DataTableReflectionExtensionsTests
 {
     [Fact]
+    public void ToList_WithDeletedRow_MapsOnlyRemainingRows()
+    {
+        var table = CreateTable();
+        table.AcceptChanges();
+        table.Rows[0].Delete();
+
+        Assert.Equal(2, Assert.Single(table.ToList<RowModel>()!).Id);
+    }
+
+    [Fact]
     public void ToList_MapsPublicWritableProperties()
     {
         DataTable table = CreateTable();

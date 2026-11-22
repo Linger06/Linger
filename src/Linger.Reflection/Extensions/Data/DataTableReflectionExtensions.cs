@@ -14,7 +14,7 @@ public static class DataTableReflectionExtensions
     /// </summary>
     /// <typeparam name="T">The type of elements to convert to.</typeparam>
     /// <param name="dataTable">The current <see cref="DataTable"/>.</param>
-    /// <returns>A <see cref="List{T}"/> representing the rows, or <see langword="null"/> when <paramref name="dataTable"/> is <see langword="null"/>.</returns>
+    /// <returns>A <see cref="List{T}"/> representing the non-deleted rows, or <see langword="null"/> when <paramref name="dataTable"/> is <see langword="null"/>.</returns>
 #if NET5_0_OR_GREATER
     [System.Diagnostics.CodeAnalysis.RequiresUnreferencedCode("This method uses reflection to map properties. Prefer the mapper overload in Linger.Utils for AOT/trimming scenarios.")]
 #endif
@@ -68,7 +68,10 @@ public static class DataTableReflectionExtensions
 
         foreach (DataRow row in dataTable.Rows)
         {
-            result.Add(MapRow(row, columnMappings));
+            if (row.RowState != DataRowState.Deleted)
+            {
+                result.Add(MapRow(row, columnMappings));
+            }
         }
 
         return result;
