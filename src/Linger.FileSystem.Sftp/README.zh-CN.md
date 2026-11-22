@@ -1,10 +1,10 @@
-﻿# Linger.FileSystem.Sftp
+# Linger.FileSystem.Sftp
 
 > 破坏性变更与 2.0 迁移说明见 [Linger 迁移指南](../Linger/MIGRATION.zh-CN.md)。
 
 ## 概述
 
-Linger.FileSystem.Sftp 是 Linger FileSystem 抽象的一个实现，提供 SFTP（SSH 文件传输协议）文件操作支持。它使用 SSH.NET 库提供安全可靠的 SFTP 客户端，支持密码和证书认证方式进行文件操作。
+Linger.FileSystem.Sftp 是 Linger FileSystem 抽象的一个实现，提供 SFTP（SSH 文件传输协议）文件操作支持。它使用 SSH.NET 库提供安全可靠的 SFTP 客户端，支持密码和客户端私钥认证方式进行文件操作。
 
 ## 安装
 
@@ -15,13 +15,21 @@ dotnet add package Linger.FileSystem.Sftp
 ## 功能特点
 
 - 通过 SFTP 进行安全的文件操作（上传、下载、列表、删除）
-- 支持密码和证书双重认证方式
+- 支持密码和客户端私钥两种认证方式
 - 可配置的重试策略，适用于不稳定的网络
 - 超时配置
 - 与 Linger.FileSystem 抽象无缝集成
 - 支持多个 .NET 框架（net9.0、net8.0、netstandard2.0）
 
 ## 基本用法
+
+### 必填：验证服务器主机密钥
+
+升级前，请为每台服务器配置 `SftpFileSystemOptions.HostKeyFingerprintSha256`。默认值为 `null`；缺失或格式错误会在构造时抛出 `ArgumentException`，不会建立连接，也不会读取客户端私钥。仅接受 OpenSSH 格式 `SHA256:<摘要>`：对 SSH 主机公钥的二进制数据计算 SHA-256，将 32 字节摘要编码为区分大小写的标准 Base64（43 个字符，无 `=` 填充或空白）。
+
+请通过独立可信渠道向服务器管理员核实指纹。每次 SSH 握手都必须匹配固定指纹；即使是首次连接，密钥不符也会被拒绝。`CertificatePath` 和 `CertificatePassphrase` 仅用于认证**客户端**，不能验证服务器。没有信任所有主机的回退选项。轮换主机密钥时，先独立核实新指纹，再用它创建新实例。
+
+以下示例由应用从环境变量读取已核实的指纹；库不会自动读取环境变量。
 
 ### 使用密码认证创建 SFTP 文件系统实例
 
@@ -30,6 +38,7 @@ dotnet add package Linger.FileSystem.Sftp
 var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "username",
     Password = "password",
@@ -70,6 +79,8 @@ if (downloadResult.Success)
 
 ### 文件上传方法
 
+`UploadAsync` 和 `UploadFileAsync` 在源流可回到原位置时，可以重试向临时文件传输数据。无论新建还是覆盖目标，最终重命名都只执行一次。若回执丢失，服务器可能已经完成操作；请先核对远端内容或版本，再决定是否重新上传。
+
 ```csharp
 // 方法 1: 从流上传到完整文件路径
 await using var stream = File.OpenRead("local.txt");
@@ -79,13 +90,14 @@ var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overw
 result = await sftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
 ```
 
-### 使用证书认证
+### 使用客户端私钥认证
 
 ```csharp
-// 创建远程 SFTP 系统设置，使用证书认证
+// 创建远程 SFTP 系统设置，使用客户端私钥认证
 var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "username",
     CertificatePath = "/path/to/private/key.pem",
@@ -94,7 +106,7 @@ var settings = new SftpFileSystemOptions
     OperationTimeout = 60000   // 60 秒
 };
 
-// 创建使用证书认证的 SFTP 文件系统
+// 创建使用客户端私钥认证的 SFTP 文件系统
 using var sftpSystem = new SftpFileSystem(settings);
 
 // 首次操作会自动连接
@@ -152,6 +164,7 @@ foreach (var dir in directories)
 var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
     Port = 2222, // 自定义端口
     UserName = "username",
     Password = "password",
@@ -263,6 +276,7 @@ Console.WriteLine($"下载完成：总共 {totalBytes:N0} 字节");
 var productionSettings = new SftpFileSystemOptions
 {
     Host = "prod-sftp.company.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("PROD_SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "prod-user",
     CertificatePath = "/secure/certs/prod-key.pem",
@@ -285,6 +299,7 @@ var productionRetry = new RetryOptions
 var devSettings = new SftpFileSystemOptions
 {
     Host = "dev-sftp.company.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("DEV_SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "dev-user",
     Password = "dev-password",
@@ -310,6 +325,7 @@ public void ConfigureServices(IServiceCollection services)
         var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",
+            HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
             Port = 22,
             UserName = "username",
             Password = "password",
@@ -337,7 +353,7 @@ SSH.NET 仅提供同步释放，因此 SFTP 使用 `using`，不提供伪异步�
 
 1. **连接管理**：始终使用 `using` 语句或确保正确释放 SFTP 连接
 2. **错误处理**：为 `SftpException` 和 `SshException` 实现特定的异常处理
-3. **身份验证**：在生产环境中优先使用基于证书的身份验证而非密码
+3. **身份验证**：在生产环境中优先使用客户端私钥身份验证而非密码
 4. **超时设置**：根据网络条件和文件大小配置适当的超时
 5. **重试逻辑**：使用指数退避进行重试尝试，避免压垮服务器
 6. **大文件**：对于大于可用内存的文件使用流式操作

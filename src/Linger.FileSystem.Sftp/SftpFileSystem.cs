@@ -47,7 +47,8 @@ public class SftpFileSystem : RemoteFileSystemBase
 
     private SftpClient CreateClient()
     {
-        // 创建连接信息，考虑证书认证选项
+        // 两种客户端认证方式都必须先固定服务器身份，且不受后续 options 修改影响。
+        var expectedFingerprint = GetHostKeyFingerprint(_options);
         ConnectionInfo connectionInfo;
 
         if (_options.CertificatePath.IsNotNullOrEmpty())
@@ -71,10 +72,43 @@ public class SftpFileSystem : RemoteFileSystemBase
         // 设置超时
         connectionInfo.Timeout = TimeSpan.FromMilliseconds(Options.ConnectionTimeout);
 
-        return new SftpClient(connectionInfo)
+        var client = new SftpClient(connectionInfo)
         {
             OperationTimeout = TimeSpan.FromMilliseconds(Options.OperationTimeout)
         };
+        client.HostKeyReceived += (_, e) => e.CanTrust = string.Equals(expectedFingerprint, e.FingerPrintSHA256, StringComparison.Ordinal);
+
+        return client;
+    }
+
+    private static string GetHostKeyFingerprint(SftpFileSystemOptions options)
+    {
+        const string prefix = "SHA256:";
+        const int digestTextLength = 43; // 32 字节的 SHA-256 摘要，去掉 Base64 末尾的一个等号。
+        const string error = $"{nameof(options.HostKeyFingerprintSha256)} must be an OpenSSH SHA256: fingerprint with 43 unpadded Base64 characters.";
+        var pin = options.HostKeyFingerprintSha256;
+        if (pin is null || pin.Length != prefix.Length + digestTextLength || !pin.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            throw new ArgumentException(error, nameof(options));
+        }
+
+        var digest = pin.Substring(prefix.Length);
+        var padded = digest + "=";
+        try
+        {
+            // 往返检查也拒绝空白和非规范的末尾填充位。
+            var bytes = Convert.FromBase64String(padded);
+            if (bytes.Length != 32 || !string.Equals(Convert.ToBase64String(bytes), padded, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(error, nameof(options));
+            }
+        }
+        catch (FormatException ex)
+        {
+            throw new ArgumentException(error, nameof(options), ex);
+        }
+
+        return digest;
     }
 
     #region 连接管理
@@ -211,23 +245,7 @@ public class SftpFileSystem : RemoteFileSystemBase
                 return FileOperationResult.CreateFailure($"The remote file already exists: {destinationFilePath}");
             }
 
-            await ExecuteStreamOperationAsync(
-                inputStream,
-                async operationCancellationToken =>
-                {
-                    await UploadStreamAtomicallyAsync(
-                        Client,
-                        inputStream,
-                        destinationFilePath,
-                        overwrite,
-                        operationCancellationToken).ConfigureAwait(false);
-
-                    return true;
-                },
-                "Upload file",
-                restoreLength: false,
-                shouldRetry: IsRetryableException,
-                cancellationToken: cancellationToken).ConfigureAwait(false);
+            await UploadStreamAtomicallyAsync(Client, inputStream, destinationFilePath, overwrite, cancellationToken).ConfigureAwait(false);
 
             Logger.LogInformation("SFTP Upload completed: {Destination}", destinationFilePath);
 
@@ -478,7 +496,7 @@ public class SftpFileSystem : RemoteFileSystemBase
         return lastSlashIndex > 0 ? filePath.Substring(0, lastSlashIndex) : string.Empty;
     }
 
-    private static async Task<bool> IsRegularFileAsync(SftpClient client, string filePath, CancellationToken cancellationToken)
+    private static async Task<bool> IsRegularFileAsync(ISftpClient client, string filePath, CancellationToken cancellationToken)
     {
         var attributes = await GetAttributesIfExistsAsync(client, filePath, cancellationToken).ConfigureAwait(false);
 
@@ -493,7 +511,7 @@ public class SftpFileSystem : RemoteFileSystemBase
     }
 
     private static async Task<SftpFileAttributes?> GetAttributesIfExistsAsync(
-        SftpClient client,
+        ISftpClient client,
         string path,
         CancellationToken cancellationToken)
     {
@@ -507,8 +525,8 @@ public class SftpFileSystem : RemoteFileSystemBase
         }
     }
 
-    private async Task UploadStreamAtomicallyAsync(
-        SftpClient client,
+    internal async Task UploadStreamAtomicallyAsync(
+        ISftpClient client,
         Stream inputStream,
         string destinationFilePath,
         bool overwrite,
@@ -521,7 +539,12 @@ public class SftpFileSystem : RemoteFileSystemBase
 
         try
         {
-            await client.UploadFileAsync(inputStream, temporaryPath, cancellationToken).ConfigureAwait(false);
+            // 只重试临时文件传输；最终重命名回执丢失时，不能重新覆盖正式文件。
+            await ExecuteStreamOperationAsync(inputStream, async token =>
+            {
+                await client.UploadFileAsync(inputStream, temporaryPath, token).ConfigureAwait(false);
+                return true;
+            }, "Upload file", restoreLength: false, cancellationToken: cancellationToken, shouldRetry: IsRetryableException).ConfigureAwait(false);
             var destinationExists = await IsRegularFileAsync(
                 client,
                 destinationFilePath,

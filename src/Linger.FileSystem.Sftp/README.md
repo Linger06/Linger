@@ -1,10 +1,10 @@
-﻿# Linger.FileSystem.Sftp
+# Linger.FileSystem.Sftp
 
 > Breaking changes and 2.0 migration notes are documented in the [Linger migration guide](../Linger/MIGRATION.md).
 
 ## Overview
 
-Linger.FileSystem.Sftp is an implementation of the Linger FileSystem abstraction that provides SFTP (SSH File Transfer Protocol) file operations support. It utilizes the SSH.NET library to offer a secure and reliable SFTP client for file operations with support for both password and certificate-based authentication.
+Linger.FileSystem.Sftp is an implementation of the Linger FileSystem abstraction that provides SFTP (SSH File Transfer Protocol) file operations support. It utilizes the SSH.NET library to offer a secure and reliable SFTP client for file operations with support for both password and client private-key authentication.
 
 ## Installation
 
@@ -15,13 +15,21 @@ dotnet add package Linger.FileSystem.Sftp
 ## Features
 
 - Secure file operations over SFTP (upload, download, list, delete)
-- Support for both password and certificate-based authentication
+- Support for both password and client private-key authentication
 - Configurable retry policies for unstable networks
 - Timeout configurations
 - Integration with the Linger.FileSystem abstraction
 - Supports multiple .NET frameworks (net9.0, net8.0, netstandard2.0)
 
 ## Basic Usage
+
+### Required server host-key verification
+
+Before upgrading, set `SftpFileSystemOptions.HostKeyFingerprintSha256` for each server. It defaults to `null`: a missing or malformed value throws `ArgumentException` during construction, before any connection or client private-key access. Use the exact OpenSSH format `SHA256:<digest>`: the digest is the case-sensitive, standard Base64 encoding of the 32-byte SHA-256 hash of the SSH host public key blob (43 characters, no `=` padding or whitespace).
+
+Obtain the fingerprint independently from the server administrator over a trusted channel. Every SSH handshake must match the configured pin; a different key is rejected, even on first use. `CertificatePath` and `CertificatePassphrase` authenticate the **client**, not the server. There is no trust-all fallback. For a planned key rotation, verify the new pin independently and create a new instance with it.
+
+The examples read the verified pin from an application environment variable; the library does not read environment variables automatically.
 
 ### Creating an SFTP File System Instance with Password Authentication
 
@@ -30,6 +38,7 @@ dotnet add package Linger.FileSystem.Sftp
 var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "username",
     Password = "password",
@@ -70,6 +79,8 @@ if (downloadResult.Success)
 
 ### File Upload Methods
 
+`UploadAsync` and `UploadFileAsync` can retry a failed transfer to a temporary file when the source can be rewound. The final rename is issued only once, whether creating or replacing the destination. If its reply is lost, the server may already have applied it. Check the remote contents or version before uploading again.
+
 ```csharp
 // Method 1: Upload from stream to complete file path
 await using var stream = File.OpenRead("local.txt");
@@ -79,13 +90,14 @@ var result = await sftpSystem.UploadAsync(stream, "/remote/path/file.txt", overw
 result = await sftpSystem.UploadFileAsync("C:/local/file.txt", "/remote/path/file.txt", overwrite: true);
 ```
 
-### Using Certificate-based Authentication
+### Using Client Private-Key Authentication
 
 ```csharp
-// Create settings for remote SFTP system with certificate authentication
+// Create settings for remote SFTP system with client private-key authentication
 var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "username",
     CertificatePath = "/path/to/private/key.pem",
@@ -94,7 +106,7 @@ var settings = new SftpFileSystemOptions
     OperationTimeout = 60000   // 60 seconds
 };
 
-// Create SFTP file system with certificate authentication
+// Create SFTP file system with client private-key authentication
 using var sftpSystem = new SftpFileSystem(settings);
 
 // The first operation connects automatically
@@ -152,6 +164,7 @@ foreach (var dir in directories)
 var settings = new SftpFileSystemOptions
 {
     Host = "sftp.example.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
     Port = 2222, // Custom port
     UserName = "username",
     Password = "password",
@@ -263,6 +276,7 @@ Console.WriteLine($"Download completed: {totalBytes:N0} bytes total");
 var productionSettings = new SftpFileSystemOptions
 {
     Host = "prod-sftp.company.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("PROD_SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "prod-user",
     CertificatePath = "/secure/certs/prod-key.pem",
@@ -285,6 +299,7 @@ var productionRetry = new RetryOptions
 var devSettings = new SftpFileSystemOptions
 {
     Host = "dev-sftp.company.com",
+    HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("DEV_SFTP_HOST_KEY_SHA256"),
     Port = 22,
     UserName = "dev-user",
     Password = "dev-password",
@@ -310,6 +325,7 @@ public void ConfigureServices(IServiceCollection services)
         var settings = new SftpFileSystemOptions
         {
             Host = "sftp.example.com",
+            HostKeyFingerprintSha256 = Environment.GetEnvironmentVariable("SFTP_HOST_KEY_SHA256"),
             Port = 22,
             UserName = "username",
             Password = "password",
@@ -337,7 +353,7 @@ SSH.NET provides synchronous disposal only, so SFTP uses `using` and does not ex
 
 1. **Connection Management**: Always use `using` statements or ensure proper disposal of SFTP connections
 2. **Error Handling**: Implement specific exception handling for `SftpException` and `SshException`
-3. **Authentication**: Prefer certificate-based authentication over passwords for production environments
+3. **Authentication**: Prefer client private-key authentication over passwords for production environments
 4. **Timeouts**: Configure appropriate timeouts based on your network conditions and file sizes
 5. **Retry Logic**: Use exponential backoff for retry attempts to avoid overwhelming the server
 6. **Large Files**: Use streaming operations for files larger than available memory
