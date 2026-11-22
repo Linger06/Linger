@@ -1,4 +1,4 @@
-﻿using System.Linq.Expressions;
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Query;
@@ -24,10 +24,10 @@ public static class GlobalQueryFilters
 
         foreach (IMutableEntityType entityType in modelBuilder.Model.GetEntityTypes())
         {
-            if (typeof(TInterface).IsAssignableFrom(entityType.ClrType))
+            if (typeof(TInterface).IsAssignableFrom(entityType.ClrType) &&
+                (entityType.BaseType is null || !typeof(TInterface).IsAssignableFrom(entityType.BaseType.ClrType)))
             {
-                var filter = CreateEntityFilter(entityType.ClrType, expression);
-                ApplyFilter(modelBuilder, entityType, filter);
+                ApplyFilter(modelBuilder, entityType, expression);
             }
         }
     }
@@ -53,12 +53,12 @@ public static class GlobalQueryFilters
 
         foreach (IMutableEntityType entityType in modelBuilder.Model.GetEntityTypes())
         {
-            IMutableProperty? foundProperty = entityType.FindProperty(propertyName);
+            IMutableProperty? foundProperty = entityType.FindDeclaredProperty(propertyName);
             if (foundProperty is not null && foundProperty.ClrType == typeof(T))
             {
                 var parameter = Expression.Parameter(entityType.ClrType, "entity");
                 var filterBody = Expression.Equal(
-                    Expression.Property(parameter, propertyName),
+                    Expression.Call(typeof(EF), nameof(EF.Property), [typeof(T)], parameter, Expression.Constant(propertyName)),
                     valueExpression.Body);
                 var filter = Expression.Lambda(filterBody, parameter);
                 ApplyFilter(modelBuilder, entityType, filter);
@@ -66,47 +66,35 @@ public static class GlobalQueryFilters
         }
     }
 
-    private static LambdaExpression CreateEntityFilter(Type entityType, LambdaExpression expression)
-    {
-        var parameter = Expression.Parameter(entityType, "entity");
-        var body = ReplacingExpressionVisitor.Replace(
-            expression.Parameters.Single(),
-            parameter,
-            expression.Body);
-
-        return Expression.Lambda(body, parameter);
-    }
-
     private static void ApplyFilter(
         ModelBuilder modelBuilder,
         IMutableEntityType entityType,
         LambdaExpression filter)
     {
+        // EF 只允许在根实体上设置过滤器，其他分支不应被派生类型的条件排除。
+        var root = entityType.GetRootType();
+        var parameter = Expression.Parameter(root.ClrType, "entity");
+        Expression entity = entityType == root ? parameter : Expression.Convert(parameter, entityType.ClrType);
+        var body = ReplacingExpressionVisitor.Replace(filter.Parameters.Single(), entity, filter.Body);
+        if (entityType != root)
+        {
+            body = Expression.OrElse(Expression.Not(Expression.TypeIs(parameter, entityType.ClrType)), body);
+        }
+
 #if NET10_0_OR_GREATER
-        var existingFilter = entityType
+        var existingFilter = root
             .GetDeclaredQueryFilters()
             .SingleOrDefault(queryFilter => queryFilter.IsAnonymous)
             ?.Expression;
 #else
-        var existingFilter = entityType.GetQueryFilter();
+        var existingFilter = root.GetQueryFilter();
 #endif
-        if (existingFilter is null)
+        if (existingFilter is not null)
         {
-            modelBuilder.Entity(entityType.ClrType).HasQueryFilter(filter);
-            return;
+            var existingBody = ReplacingExpressionVisitor.Replace(existingFilter.Parameters.Single(), parameter, existingFilter.Body);
+            body = Expression.AndAlso(existingBody, body);
         }
 
-        var parameter = Expression.Parameter(entityType.ClrType, "entity");
-        var existingBody = ReplacingExpressionVisitor.Replace(
-            existingFilter.Parameters.Single(),
-            parameter,
-            existingFilter.Body);
-        var newBody = ReplacingExpressionVisitor.Replace(
-            filter.Parameters.Single(),
-            parameter,
-            filter.Body);
-
-        modelBuilder.Entity(entityType.ClrType).HasQueryFilter(
-            Expression.Lambda(Expression.AndAlso(existingBody, newBody), parameter));
+        modelBuilder.Entity(root.ClrType).HasQueryFilter(Expression.Lambda(body, parameter));
     }
 }

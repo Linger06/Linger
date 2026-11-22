@@ -104,6 +104,14 @@ services.AddSingleton<IAuditTimeProvider, ChinaStandardTimeAuditTimeProvider>();
 
 The existing two-parameter constructor remains supported. If no time provider is registered, UTC behavior is preserved.
 
+### Retrying a failed save and generated keys
+
+**A failed save raises an exception; retrying is optional.** The audit interceptor neither suppresses exceptions from `SaveChanges` / `SaveChangesAsync` nor calls save again. The caller can report the error, end the unit of work, and dispose of the `DbContext`. No second save is needed to clean up audit rows.
+
+Pending audit rows matter if the caller knows the first save did not commit, corrects the cause, and explicitly saves again on the **same `DbContext`**. For entities that do not implement `ISoftDelete`, the interceptor regenerates its own pending audit rows from the current changes and leaves application-added audit rows alone. Entities implementing `ISoftDelete` are excluded even for ordinary updates. There is no cross-context deduplication; if the commit outcome is unknown, check the database before retrying.
+
+`EntityId` is captured **before** the database write. If any part of the primary key is still temporary (for example, an identity column generated on insert), the audit row stores `null`; it is not updated after the insert. Keys already available at save time are recorded, including keys assigned in advance by the InMemory provider.
+
 ### Example Usage
 
 Automatic tracking of all changes to entities:
@@ -124,9 +132,16 @@ await dbContext.SaveChangesAsync();  // Automatically generates "Modified" audit
 
 // Delete entity
 dbContext.Users.Remove(user);
-await dbContext.SaveChangesAsync();  // Automatically generates "Deleted" audit record (soft delete)
+await dbContext.SaveChangesAsync();  // Soft delete: generates a Modified audit record
 ```
 
+### Soft-delete limitations
+
+When `Remove` receives a key-only entity, the interceptor does not write unloaded business columns back to the database. To change business data as well, load the entity and edit it explicitly. `CurrentValuesSnapshot` reflects the tracked object; no database read is performed to fill in a stub. Load the entity first if a full audit snapshot is required. If the model uses a concurrency token, its correct original value is still required.
+
+For entities implementing `ISoftDelete`, use `Remove` + `SaveChanges` so the interceptor can convert deletion to an update and record deletion metadata. **Do not call `ExecuteDelete` / `ExecuteDeleteAsync` for these entities**: they delete directly in the database and bypass the ChangeTracker and `SaveChanges` interceptors, physically removing rows. For bulk soft deletion, explicitly update `IsDeleted` and related fields, and handle audit metadata and audit rows yourself.
+
+Hiding soft-deleted rows depends on an EF Core global query filter. Explicitly call `ApplyGlobalFilters<ISoftDelete>(e => e.IsDeleted != true)` in `OnModelCreating`; `ApplyAudit()` does not enable this filter automatically.
 ### Querying Audit Records
 
 Audit records are stored in the `AuditTrails` DbSet and can be queried in various ways:

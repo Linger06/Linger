@@ -140,6 +140,8 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 }
 ```
 
+映射继承层次中的条件统一挂在根实体上；仅派生类型满足条件时，不影响其他分支。按名称过滤支持类型完全匹配的映射属性，包括影子属性；请先配置属性，再调用 `ApplyGlobalFilters`。
+
 ### 基于属性的过滤
 
 ```csharp

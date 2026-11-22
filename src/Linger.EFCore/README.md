@@ -77,6 +77,8 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 ```
 
 
+In a mapped inheritance hierarchy, filters are attached to the root. A condition matching only a derived branch leaves other branches visible. Property-name filters match mapped properties of the exact requested type, including shadow properties; configure those properties before calling `ApplyGlobalFilters`.
+
 ### Property-based Filtering
 
 ```csharp

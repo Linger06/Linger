@@ -26,8 +26,11 @@ public class QueuedHostedService(IBackgroundTaskQueue taskQueue,
 
             try
             {
-                using var scope = serviceProvider.CreateScope();
-                await workItem(scope.ServiceProvider, stoppingToken).ConfigureAwait(false);
+                var scope = serviceProvider.CreateAsyncScope();
+                await using (scope.ConfigureAwait(false))
+                {
+                    await workItem(scope.ServiceProvider, stoppingToken).ConfigureAwait(false);
+                }
             }
             catch (Exception ex)
             {

@@ -2,6 +2,7 @@ using Linger.Audit;
 using Linger.Audit.Contracts;
 using Linger.EFCore.Audit;
 using Linger.EFCore.Audit.Interceptors;
+using Linger.EFCore;
 using Linger.Extensions.Core;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -112,6 +113,82 @@ public class AuditEntitiesSaveChangesInterceptorTests
     }
 
     [Fact]
+    public async Task SavingChanges_WhenSoftDeletingEntity_PreservesRowAndHidesItFromNormalQueries()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var entity = new TestAuditEntity { Name = "SoftDelete" };
+        _dbContext.TestEntities.Add(entity);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        var entityId = entity.Id;
+
+        _dbContext.ChangeTracker.Clear();
+        var entityToDelete = await _dbContext.TestEntities.SingleAsync(item => item.Id == entityId, cancellationToken);
+        _dbContext.TestEntities.Remove(entityToDelete);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        Assert.Empty(await _dbContext.TestEntities.AsNoTracking().ToListAsync(cancellationToken));
+        var persistedEntity = await _dbContext.TestEntities.IgnoreQueryFilters().AsNoTracking()
+            .SingleAsync(item => item.Id == entityId, cancellationToken);
+        Assert.True(persistedEntity.IsDeleted);
+        Assert.Equal("TestUser", persistedEntity.DeleterId);
+        Assert.NotNull(persistedEntity.DeletionTime);
+        Assert.Contains(await _dbContext.AuditTrails.AsNoTracking().ToListAsync(cancellationToken),
+            audit => audit.EntityId == entityId.ToString() && audit.AuditType == AuditType.Modified);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task SavingChanges_WhenSoftDeletingByKey_PreservesStoredBusinessValues(bool useAsync, bool presetDeletion)
+    {
+        var token = TestContext.Current.CancellationToken;
+        using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync(token);
+        var options = new DbContextOptionsBuilder<TestDbContext>()
+            .UseSqlite(connection)
+            .AddInterceptors(new AuditEntitiesSaveChangesInterceptor(_mockUserProvider.Object))
+            .Options;
+        int id;
+        using (var writer = new TestDbContext(options))
+        {
+            await writer.Database.EnsureCreatedAsync(token);
+            var entity = new TestAuditEntity { Name = "Stock", Quantity = 80 };
+            writer.Add(entity);
+            await writer.SaveChangesAsync(token);
+            id = entity.Id;
+        }
+
+        using (var deleter = new TestDbContext(options))
+        {
+            var stub = new TestAuditEntity { Id = id };
+            if (presetDeletion)
+            {
+                stub.IsDeleted = true;
+                stub.DeleterId = "RequestedBy";
+            }
+            deleter.Remove(stub);
+            if (useAsync)
+            {
+                await deleter.SaveChangesAsync(token);
+            }
+            else
+            {
+                deleter.SaveChanges();
+            }
+        }
+
+        using var reader = new TestDbContext(options);
+        var stored = await reader.TestEntities.IgnoreQueryFilters().SingleAsync(entity => entity.Id == id, token);
+        Assert.True(stored.IsDeleted);
+        Assert.Equal(80, stored.Quantity);
+        Assert.Equal("Stock", stored.Name);
+        Assert.Equal("TestUser", stored.CreatorId);
+        Assert.Equal(presetDeletion ? "RequestedBy" : "TestUser", stored.DeleterId);
+        Assert.Equal("TestUser", stored.LastModifierId);
+    }
+
+    [Fact]
     public async Task SavingChanges_WhenAddingEntityWithoutSoftDelete_ShouldCreateAuditTrail()
     {
         // Arrange
@@ -187,6 +264,47 @@ public class AuditEntitiesSaveChangesInterceptorTests
         Assert.NotNull(auditEntry.OldValues);
         Assert.Contains("Name", auditEntry.OldValues.Keys);
         Assert.Equal("Test", auditEntry.OldValues["Name"]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SavingChanges_WhenRetryingFailedInsert_ShouldPersistOnlyCorrectedAudit(bool useAsync)
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var entity = new TestAuditEntityWithoutSoftDelete();
+        _dbContext.TestEntitiesWithoutSoftDelete.Add(entity);
+        var manualAudit = new AuditTrailEntry
+        {
+            EntityName = "Manual",
+            AuditType = AuditType.Added,
+            Username = "TestUser"
+        };
+        _dbContext.AuditTrails.Add(manualAudit);
+
+        if (useAsync)
+        {
+            await Assert.ThrowsAsync<DbUpdateException>(() => _dbContext.SaveChangesAsync(cancellationToken));
+        }
+        else
+        {
+            Assert.Throws<DbUpdateException>(() => _dbContext.SaveChanges());
+        }
+
+        entity.Name = "Corrected";
+        if (useAsync)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            _dbContext.SaveChanges();
+        }
+
+        var stored = await _dbContext.AuditTrails.AsNoTracking().ToListAsync(cancellationToken);
+        var audit = Assert.Single(stored, row => row.EntityName == nameof(TestAuditEntityWithoutSoftDelete));
+        Assert.Equal(entity.Name, Assert.IsType<JsonElement>(audit.NewValues![nameof(entity.Name)]).GetString());
+        Assert.Single(stored, row => row.Id == manualAudit.Id && row.EntityName == manualAudit.EntityName);
     }
 
     [Fact]
@@ -272,12 +390,14 @@ public class TestDbContext : DbContext
         base.OnModelCreating(modelBuilder);
         modelBuilder.Entity<CompositeAuditEntity>().HasKey(entity => new { entity.TenantId, entity.RecordId });
         modelBuilder.ApplyAudit();
+        modelBuilder.ApplyGlobalFilters<ISoftDelete>(entity => entity.IsDeleted != true);
     }
 }
 
 public class TestAuditEntity : FullAuditEntity<int>
 {
-    public string Name { get; set; } = null!;
+    public int Quantity { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 public class TestAuditEntityWithoutSoftDelete : AuditEntity

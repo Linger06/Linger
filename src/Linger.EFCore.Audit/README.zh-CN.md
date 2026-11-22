@@ -102,6 +102,14 @@ services.AddSingleton<IAuditTimeProvider, ChinaStandardTimeAuditTimeProvider>();
 
 原有的两参数构造函数仍然可用；未注册时间提供器时保持 UTC 行为。
 
+### 保存失败后的重试与自增键
+
+**保存失败会报错，不要求重试。** 审计拦截器不吞掉 `SaveChanges` / `SaveChangesAsync` 的异常，也不会自动再次保存。调用方可以报告错误、结束当前工作单元并释放 `DbContext`；无需为了清理审计记录而再次保存。
+
+只有在确认上次保存未提交、已修正失败原因，且调用方主动用**同一个 `DbContext`** 再次保存时，才涉及待写审计行的清理。对于未实现 `ISoftDelete` 的实体，拦截器按本次变更重新生成自己的待写审计行，保留应用手动添加的审计行。实现了 `ISoftDelete` 的实体不在此去重范围内，即使本次操作只是普通修改。该机制不保证跨上下文去重；若上次提交结果未知，应先核实数据库状态，不要盲目重试。
+
+`EntityId` 在**写库前**采集。只要主键的任一部分仍为临时值（例如插入时才由数据库生成的自增键），审计行就记录 `null`，插入成功后也不会回填。保存前已确定的键则会被记录，包括 InMemory 提供程序提前分配的键。
+
 ## 📋 使用示例
 
 ### 基本审计跟踪
@@ -124,9 +132,16 @@ await dbContext.SaveChangesAsync();  // 自动生成"修改"审计记录
 
 // 删除实体
 dbContext.Users.Remove(user);
-await dbContext.SaveChangesAsync();  // 自动生成"删除"审计记录(软删除)
+await dbContext.SaveChangesAsync();  // 软删除：生成 Modified 审计记录
 ```
 
+### 软删除限制
+
+只传主键调用 `Remove` 时，拦截器不会把未加载的业务列当作修改写回数据库。需要同时更改业务数据时，请先加载实体并显式修改。`CurrentValuesSnapshot` 来自跟踪对象，不会为只含主键的对象回查整行；需要完整审计快照时请先加载实体。配置了并发令牌时仍需提供正确的原始令牌。
+
+对实现 `ISoftDelete` 的实体，请使用 `Remove` + `SaveChanges`，让拦截器将删除转换为更新并记录删除信息。**不要对这类实体调用 `ExecuteDelete` / `ExecuteDeleteAsync`**：它们直接执行数据库删除，不经过 ChangeTracker 或 `SaveChanges` 拦截器，会物理删除记录。需要批量软删除时，请显式执行将 `IsDeleted` 等字段更新为删除状态的操作，并自行处理审计字段和审计记录。
+
+软删除后的查询隐藏依赖 EF Core 全局过滤器，需在 `OnModelCreating` 中显式调用 `ApplyGlobalFilters<ISoftDelete>(e => e.IsDeleted != true)`；`ApplyAudit()` 不会自动启用该过滤器。
 ### 查询审计记录
 
 审计记录保存在 `AuditTrails` DbSet 中，可以通过多种方式查询：

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Linger.Audit.Contracts;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
     private readonly IAuditUserProvider _auditUserProvider;
     private readonly ILogger<AuditEntitiesSaveChangesInterceptor>? _logger;
     private readonly IAuditTimeProvider _timeProvider;
+    private readonly ConditionalWeakTable<DbContext, List<AuditTrailEntry>> _pendingAudits = new();
 
     /// <summary>
     /// Initializes a new interceptor.
@@ -70,6 +72,29 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
         return base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
+    /// <inheritdoc />
+    public override int SavedChanges(SaveChangesCompletedEventData eventData, int result)
+    {
+        if (eventData.Context is { } context)
+        {
+            _pendingAudits.Remove(context);
+        }
+
+        return base.SavedChanges(eventData, result);
+    }
+
+    /// <inheritdoc />
+    public override ValueTask<int> SavedChangesAsync(
+        SaveChangesCompletedEventData eventData, int result, CancellationToken cancellationToken = default)
+    {
+        if (eventData.Context is { } context)
+        {
+            _pendingAudits.Remove(context);
+        }
+
+        return base.SavedChangesAsync(eventData, result, cancellationToken);
+    }
+
     private void AuditEntities(DbContext? context)
     {
         if (context is null)
@@ -116,10 +141,18 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
                 continue;
             }
 
+            // 只传主键时，未加载的业务字段是默认值，不能把整行标为 Modified。
+            entry.State = EntityState.Unchanged;
             entry.Entity.IsDeleted = true;
             entry.Entity.DeleterId ??= userId;
             entry.Entity.DeletionTime = timestamp;
-            entry.State = EntityState.Modified;
+            foreach (var property in entry.Properties)
+            {
+                if (property.Metadata.Name is nameof(ISoftDelete.IsDeleted) or nameof(ISoftDelete.DeleterId) or nameof(ISoftDelete.DeletionTime))
+                {
+                    property.IsModified = true;
+                }
+            }
             auditedEntities.Add(entry.Entity);
         }
 
@@ -143,13 +176,28 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
                 userId);
         }
 
+        context.ChangeTracker.DetectChanges();
         if (context.Model.FindEntityType(typeof(AuditTrailEntry)) is null)
         {
             return;
         }
 
-        context.ChangeTracker.DetectChanges();
-        var auditEntries = CreateAuditEntries(context.ChangeTracker.Entries(), userId, timestamp);
+        // 未成功完成的保存可能留下 Added 审计行；只重建本拦截器生成的非软删除审计。
+        if (_pendingAudits.TryGetValue(context, out var pending))
+        {
+            foreach (var audit in pending)
+            {
+                var entry = context.Entry(audit);
+                if (entry.State == EntityState.Added)
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
+
+            _pendingAudits.Remove(context);
+        }
+
+        var auditEntries = CreateAuditEntries(context, userId, timestamp);
         if (auditEntries.Count == 0)
         {
             return;
@@ -162,14 +210,14 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
             userId);
     }
 
-    private static List<AuditTrailEntry> CreateAuditEntries(
-        IEnumerable<EntityEntry> trackedEntries,
+    private List<AuditTrailEntry> CreateAuditEntries(
+        DbContext context,
         string userId,
         DateTimeOffset timestamp)
     {
         var auditEntries = new List<AuditTrailEntry>();
 
-        foreach (var entry in trackedEntries)
+        foreach (var entry in context.ChangeTracker.Entries())
         {
             if (entry.State is EntityState.Detached or EntityState.Unchanged ||
                 entry.Entity is not IBaseAuditEntity)
@@ -206,6 +254,11 @@ public class AuditEntitiesSaveChangesInterceptor : SaveChangesInterceptor
             auditEntry.NewValues = auditEntry.NewValues.Count == 0 ? null : auditEntry.NewValues;
             auditEntry.OldValues = auditEntry.OldValues.Count == 0 ? null : auditEntry.OldValues;
             auditEntry.AffectedColumns = auditEntry.AffectedColumns.Count == 0 ? null : auditEntry.AffectedColumns;
+
+            if (entry.Entity is not ISoftDelete)
+            {
+                _pendingAudits.GetOrCreateValue(context).Add(auditEntry);
+            }
 
             auditEntries.Add(auditEntry);
         }

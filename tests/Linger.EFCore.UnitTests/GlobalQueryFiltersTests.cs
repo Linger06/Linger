@@ -42,6 +42,45 @@ public class GlobalQueryFiltersTests
         }
     }
 
+    private const string Scope = "Scope";
+
+    private sealed class DerivedEntity : TestEntity
+    {
+    }
+
+    private sealed class HierarchyContext(DbContextOptions<HierarchyContext> options, int scope) : DbContext(options)
+    {
+        private int CurrentScope => scope;
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<TestEntity>().HasQueryFilter(e => e.Id > 0);
+            modelBuilder.Entity<DerivedEntity>().Property<int>(Scope);
+            modelBuilder.ApplyGlobalFilters<ISoftDelete>(e => e.IsDeleted != true);
+            modelBuilder.ApplyGlobalFilters(Scope, () => CurrentScope);
+        }
+    }
+
+    [Fact]
+    public void ApplyGlobalFilters_Inheritance_FiltersMatchingBranchAndKeepsRootFilter()
+    {
+        var options = new DbContextOptionsBuilder<HierarchyContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var context = new HierarchyContext(options, 1))
+        {
+            context.AddRange(new TestEntity { Id = -1 }, new TestEntity { Id = 1 },
+                new TestEntity { Id = 2, IsDeleted = true });
+            context.Add(new DerivedEntity { Id = 3 }).Property<int>(Scope).CurrentValue = 1;
+            context.Add(new DerivedEntity { Id = 4 }).Property<int>(Scope).CurrentValue = 2;
+            context.Add(new DerivedEntity { Id = 5, IsDeleted = true }).Property<int>(Scope).CurrentValue = 2;
+            context.SaveChanges();
+        }
+
+        using var secondContext = new HierarchyContext(options, 2);
+        Assert.Equal([1, 4], secondContext.Set<TestEntity>().OrderBy(e => e.Id).Select(e => e.Id).ToArray());
+        Assert.Equal(4, secondContext.Set<DerivedEntity>().Single().Id);
+    }
+
     [Fact]
     public void ApplyGlobalFilters_Interface_ShouldFilterDeletedEntities()
     {
