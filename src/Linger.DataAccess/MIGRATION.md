@@ -102,7 +102,7 @@ parameter array is rejected.
 - `ExecuteSql`, `GetSingle`, and the provider-specific `Query(string, SqlParameter[])` transition overload were removed.
 - `AddByBulkCopy` / `AddByBulkCopyAsync` were replaced by `BulkInsert` / `BulkInsertAsync`.
 - `SqlServerHelper` implements `IBulkInsert`; `IDatabase` does not expose bulk insertion.
-- `BulkInsert` accepts `batchSize` and `timeout` and returns the number of rows written.
+- `BulkInsert` accepts `batchSize` and `timeout` and returns the number of rows written, excluding `Deleted` rows, without changing the source row states.
 - `GetMaxId` and `GetMaxIdAsync` return `int`, quote qualified names as `[schema].[table]`, and return `1` for an empty table.
 - `TableExists("schema.Table")` now matches both schema and table name.
 

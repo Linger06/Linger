@@ -42,17 +42,19 @@ public sealed class SqliteSpecificFeaturesTests : IDisposable
     [Fact]
     public void GetTableNames_ShouldReturnUserTables()
     {
+        _helper.ExecuteBySql("CREATE TABLE sqliteOrders (Id INTEGER PRIMARY KEY AUTOINCREMENT)");
         List<string> names = _helper.GetTableNames();
 
-        Assert.Equal(["logs", "users"], names);
+        Assert.Equal(["logs", "sqliteOrders", "users"], names);
     }
 
     [Fact]
     public async Task GetTableNamesAsync_ShouldReturnUserTables()
     {
+        _helper.ExecuteBySql("CREATE TABLE sqliteOrders (Id INTEGER PRIMARY KEY AUTOINCREMENT)");
         List<string> names = await _helper.GetTableNamesAsync();
 
-        Assert.Equal(["logs", "users"], names);
+        Assert.Equal(["logs", "sqliteOrders", "users"], names);
     }
 
     [Theory]

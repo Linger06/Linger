@@ -97,7 +97,7 @@ int[] affected = await database.ExecuteTransactionAsync(statements, cancellation
 - 删除 `ExecuteSql`、`GetSingle` 和 Provider 特有的 `Query(string, SqlParameter[])` 过渡重载。
 - `AddByBulkCopy` / `AddByBulkCopyAsync` 替换为 `BulkInsert` / `BulkInsertAsync`。
 - `SqlServerHelper` 实现 `IBulkInsert`；`IDatabase` 不承诺批量复制能力。
-- `BulkInsert` 接收 `batchSize`、`timeout` 并返回实际写入行数。
+- `BulkInsert` 接收 `batchSize`、`timeout` 并返回实际参与写入的行数（不含 `Deleted` 行），不改变源表状态。
 - `GetMaxId` / `GetMaxIdAsync` 返回 `int`，限定名会正确引用为 `[schema].[table]`，空表返回 `1`。
 - `TableExists("schema.Table")` 会同时匹配 schema 与表名。
 

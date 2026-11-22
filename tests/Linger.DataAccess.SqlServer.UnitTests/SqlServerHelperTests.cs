@@ -8,6 +8,26 @@ namespace Linger.DataAccess.SqlServer.UnitTests;
 
 public class SqlServerHelperTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BulkInsert_WithOnlyDeletedRows_ReturnsZeroWithoutOpeningConnection(bool useAsync)
+    {
+        using var helper = new SqlServerHelper("invalid connection string");
+        var table = new DataTable();
+        table.Columns.Add("Id", typeof(int));
+        var row = table.Rows.Add(1);
+        table.AcceptChanges();
+        row.Delete();
+
+        var count = useAsync
+            ? await helper.BulkInsertAsync(table, "dbo.Users", cancellationToken: TestContext.Current.CancellationToken)
+            : helper.BulkInsert(table, "dbo.Users");
+
+        Assert.Equal(0, count);
+        Assert.Equal(DataRowState.Deleted, row.RowState);
+    }
+
     private const string ConnectionString =
         "Server=localhost;Database=TestDb;Integrated Security=true;TrustServerCertificate=true;";
 

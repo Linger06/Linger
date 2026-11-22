@@ -82,7 +82,7 @@ public class SqliteHelper(string connectionString) : Database(SQLiteFactory.Inst
         FindListBySqlAsync(TableNamesSql, static record => record.GetString(0), null, cancellationToken);
 
     private const string TableNamesSql =
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name";
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite!_%' ESCAPE '!' ORDER BY name";
 
     /// <summary>
     /// 检查表是否存在

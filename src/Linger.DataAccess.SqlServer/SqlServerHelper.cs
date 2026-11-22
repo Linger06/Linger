@@ -31,7 +31,8 @@ public class SqlServerHelper(string connectionString)
     {
         var destinationTableName = PrepareBulkInsert(table, tableName, batchSize, timeout);
 
-        if (table.Rows.Count == 0)
+        var rowCount = CountInsertableRows(table);
+        if (rowCount == 0)
         {
             return 0;
         }
@@ -39,7 +40,7 @@ public class SqlServerHelper(string connectionString)
         using SqlBulkCopy bulk = CreateBulkCopy(table, destinationTableName, batchSize, timeout);
 
         bulk.WriteToServer(table);
-        return table.Rows.Count;
+        return rowCount;
     }
 
     /// <summary>
@@ -58,7 +59,8 @@ public class SqlServerHelper(string connectionString)
     {
         var destinationTableName = PrepareBulkInsert(table, tableName, batchSize, timeout);
 
-        if (table.Rows.Count == 0)
+        var rowCount = CountInsertableRows(table);
+        if (rowCount == 0)
         {
             return 0;
         }
@@ -66,8 +68,12 @@ public class SqlServerHelper(string connectionString)
         using SqlBulkCopy bulk = CreateBulkCopy(table, destinationTableName, batchSize, timeout);
 
         await bulk.WriteToServerAsync(table, cancellationToken).ConfigureAwait(false);
-        return table.Rows.Count;
+        return rowCount;
     }
+
+    // SqlBulkCopy.WriteToServer(DataTable) 不发送 Deleted 行。
+    private static int CountInsertableRows(DataTable table) =>
+        table.Rows.Cast<DataRow>().Count(static row => row.RowState != DataRowState.Deleted);
 
     private string PrepareBulkInsert(DataTable table, string tableName, int batchSize, int timeout)
     {

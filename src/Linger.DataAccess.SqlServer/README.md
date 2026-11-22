@@ -39,3 +39,5 @@ int written = await bulkInsert.BulkInsertAsync(
 single-writer scenarios; use `IDENTITY` or `SEQUENCE` when uniqueness must be guaranteed concurrently.
 `BulkInsert` maps destination columns by `DataTable` column name and rejects execution inside a transaction opened
 with `BeginTrans`.
+
+`BulkInsert` and `BulkInsertAsync` use a separate connection and send batches of 1,000 rows by default. The success count excludes `Deleted` rows; an all-deleted input returns zero without opening a connection. They do not guarantee that the whole import is atomic: if a later batch fails, earlier batches may already be committed. Reconcile the destination by business key before retrying; replaying the entire input can duplicate rows. For an all-or-nothing import, use `SqlBulkCopy` with an explicit `SqlTransaction` on the same connection.
